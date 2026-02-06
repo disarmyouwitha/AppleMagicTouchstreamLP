@@ -14,3 +14,8 @@ This is the landing page for 2 different projects that I will include as submodu
 **Win:** https://github.com/disarmyouwitha/GlassToKeyForWindows
 
 <img src="apple-magic-touchstreamlp.jpg" width="900px" />
+
+## Decals
+<img src="splatpad.jpg" width="900px" />
+100% unaffiliated **BUT** I did order some really dope custom decals from here and they were **perfect**!
+  https://www.decalgirl.com/products/custom-apple-magic-trackpad-skin
