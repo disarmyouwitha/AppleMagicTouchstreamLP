@@ -8,3 +8,6 @@ Since it is built on the same technology, I thought it would be fun to try and c
 
 ## Usage
 This is the landing page for 2 different projects that I will include as submodules if you want the source code for either OSX or Windows versions, but primarily as a place to post the Release files.
+
+**OSX:** https://github.com/disarmyouwitha/GlassToKey
+**Win:** https://github.com/disarmyouwitha/GlassToKeyForWindows
