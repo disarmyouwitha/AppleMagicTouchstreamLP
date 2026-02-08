@@ -15,3 +15,10 @@ Packages.resolved
 *.xcframework/
 *.zip
 build/
+
+# Windows
+.vs/
+bin/
+obj/
+build/
+intermediate/
