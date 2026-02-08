@@ -1,0 +1,926 @@
+{
+  "GlassToKey.allowMouseTakeoverDuringTyping": true,
+  "GlassToKey.autoResyncMissingTrackpads": false,
+  "GlassToKey.autocorrectContextRankingEnabled": true,
+  "GlassToKey.autocorrectEnabled": false,
+  "GlassToKey.autocorrectMinWordLength": 2,
+  "GlassToKey.captureClicks": false,
+  "GlassToKey.chordalShiftEnabled": true,
+  "GlassToKey.clickShieldWindowMs": 400.0,
+  "GlassToKey.columnSettings": {
+    "6x3": [
+      {
+        "offsetXPercent": -5.7,
+        "offsetYPercent": -6,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.15
+      },
+      {
+        "offsetXPercent": -5,
+        "offsetYPercent": -7.5,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.1500000000000001
+      },
+      {
+        "offsetXPercent": -4.3,
+        "offsetYPercent": -8.5,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.15
+      },
+      {
+        "offsetXPercent": -3.5999999999999996,
+        "offsetYPercent": -6.268059181897302,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.15
+      },
+      {
+        "offsetXPercent": -3,
+        "offsetYPercent": -1,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.15
+      },
+      {
+        "offsetXPercent": -2.4,
+        "offsetYPercent": -1,
+        "rowSpacingPercent": 8.5,
+        "scale": 1.15
+      }
+    ],
+    "6x4": [
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      },
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      },
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      },
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      },
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      },
+      {
+        "offsetXPercent": 6.25,
+        "offsetYPercent": -8.268059181897302,
+        "rowSpacingPercent": 0,
+        "scale": 1.25
+      }
+    ],
+    "Mobile QWERTY": [],
+    "None": []
+  },
+  "GlassToKey.customButtons": {
+    "6x3": {
+      "0": [
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 51,
+            "kind": "key",
+            "label": "Back"
+          },
+          "id": "21D58873-59DA-4C96-B474-F11D628649DA",
+          "layer": 0,
+          "rect": {
+            "height": 0.3231288076588338,
+            "width": 0.25,
+            "x": 0.75,
+            "y": 0.6718711923411662
+          },
+          "side": "left"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "01FFF4B0-CB0F-4C1F-866B-E7B522B61B92",
+          "layer": 0,
+          "rect": {
+            "height": 0.3231288076588338,
+            "width": 0.29000000000000004,
+            "x": 0,
+            "y": 0.6718711923411662
+          },
+          "side": "right"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 0,
+            "kind": "layerMomentary",
+            "label": "MO(1)",
+            "layer": 1
+          },
+          "id": "08D6AA73-78E2-4DD9-AA2E-BDA0DE8671BA",
+          "layer": 0,
+          "rect": {
+            "height": 0.31999999999999984,
+            "width": 0.2499999999999999,
+            "x": 0.5,
+            "y": 0.6750000000000002
+          },
+          "side": "left"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 36,
+            "kind": "key",
+            "label": "Ret"
+          },
+          "id": "0D9B0931-5887-44EB-987B-1A8608AE4A61",
+          "layer": 0,
+          "rect": {
+            "height": 0.14,
+            "width": 0.18,
+            "x": 0,
+            "y": 0
+          },
+          "side": "left"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 3,
+            "kind": "key",
+            "label": "F"
+          },
+          "id": "0CCF6512-AD95-48D4-A389-B1F1AFDD8EE3",
+          "layer": 0,
+          "rect": {
+            "height": 0.14,
+            "width": 0.18,
+            "x": 0.82,
+            "y": 0
+          },
+          "side": "right"
+        }
+      ],
+      "1": [
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 29,
+            "kind": "key",
+            "label": "0"
+          },
+          "id": "4AE5E363-8D65-4BBA-A698-2FA6D6EE73BD",
+          "layer": 1,
+          "rect": {
+            "height": 0.21500000000000002,
+            "width": 0.265,
+            "x": 0.3,
+            "y": 0.6450000000000001
+          },
+          "side": "right"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "14843538-E41B-42CA-B350-3CFAF5E5B7E2",
+          "layer": 1,
+          "rect": {
+            "height": 0.31999999999999984,
+            "width": 0.29000000000000004,
+            "x": 0,
+            "y": 0.6750000000000002
+          },
+          "side": "right"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 51,
+            "kind": "key",
+            "label": "Back"
+          },
+          "id": "F843CD7E-DAD2-4D0C-8B2E-DDCC2024EA96",
+          "layer": 1,
+          "rect": {
+            "height": 0.3200000000000001,
+            "width": 0.2899999999999998,
+            "x": 0.7100000000000002,
+            "y": 0.6750000000000002
+          },
+          "side": "left"
+        }
+      ]
+    },
+    "6x4": {
+      "0": [
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "54707ADF-43D0-4131-8D17-3EB287A2A920",
+          "layer": 0,
+          "rect": {
+            "height": 0.34812880765883375,
+            "width": 0.25,
+            "x": 0.75,
+            "y": 0.6527415143603132
+          },
+          "side": "left"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "96B34AE0-6EE8-4652-9E6D-332867665DD7",
+          "layer": 0,
+          "rect": {
+            "height": 0.34812880765883375,
+            "width": 0.25,
+            "x": 0,
+            "y": 0.6527415143603132
+          },
+          "side": "right"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "79AC2506-2F07-4E9D-882F-3D2ADF603EF4",
+          "layer": 0,
+          "rect": {
+            "height": 0.2610966057441253,
+            "width": 0.25,
+            "x": 0.25,
+            "y": 0.7397737162750218
+          },
+          "side": "right"
+        },
+        {
+          "action": {
+            "flags": 0,
+            "keyCode": 49,
+            "kind": "key",
+            "label": "Space"
+          },
+          "id": "8EE83754-3C6B-4F10-8A7C-22B16547CDD8",
+          "layer": 0,
+          "rect": {
+            "height": 0.2610966057441253,
+            "width": 0.25,
+            "x": 0.5,
+            "y": 0.7397737162750218
+          },
+          "side": "right"
+        }
+      ]
+    },
+    "Mobile QWERTY": {
+      "0": []
+    },
+    "None": {
+      "0": [
+        {
+          "action": {
+            "flags": 655360,
+            "keyCode": 27,
+            "kind": "key",
+            "label": "\u2014"
+          },
+          "id": "36DC3F3B-5369-4F90-95C6-ED406DADFCBF",
+          "layer": 0,
+          "rect": {
+            "height": 0.34812880765883375,
+            "width": 0.25,
+            "x": 0,
+            "y": 0.6527415143603132
+          },
+          "side": "right"
+        }
+      ]
+    }
+  },
+  "GlassToKey.dragCancelDistance": 8.0,
+  "GlassToKey.forceClickCap": 120.0,
+  "GlassToKey.forceClickHoldDuration": 100.0,
+  "GlassToKey.forceClickPressureThreshold": 0.52,
+  "GlassToKey.forceClickThreshold": 50.0,
+  "GlassToKey.forceClickTotalThreshold": 0.53,
+  "GlassToKey.glideLanguage": "",
+  "GlassToKey.hapticStrength": 0.0,
+  "GlassToKey.holdToTypeWindow": 25.0,
+  "GlassToKey.intentBufferMs": 40.0,
+  "GlassToKey.intentMoveThresholdMm": 3.0,
+  "GlassToKey.intentVelocityThresholdMmPerSec": 30.0,
+  "GlassToKey.keyMappings": {
+    "0": {
+      "left:0:0": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 39,
+          "kind": "key",
+          "label": "'"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 17,
+          "kind": "key",
+          "label": "T"
+        }
+      },
+      "left:0:1": {
+        "hold": {
+          "flags": 131072,
+          "keyCode": 30,
+          "kind": "key",
+          "label": "}"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 15,
+          "kind": "key",
+          "label": "R"
+        }
+      },
+      "left:0:2": {
+        "hold": {
+          "flags": 131072,
+          "keyCode": 33,
+          "kind": "key",
+          "label": "{"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 14,
+          "kind": "key",
+          "label": "E"
+        }
+      },
+      "left:0:3": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 30,
+          "kind": "key",
+          "label": "]"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 13,
+          "kind": "key",
+          "label": "W"
+        }
+      },
+      "left:0:4": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 33,
+          "kind": "key",
+          "label": "["
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 12,
+          "kind": "key",
+          "label": "Q"
+        }
+      },
+      "left:0:5": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 53,
+          "kind": "key",
+          "label": "Esc"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 48,
+          "kind": "key",
+          "label": "Tab"
+        }
+      },
+      "left:1:0": {
+        "hold": {
+          "flags": 131072,
+          "keyCode": 39,
+          "kind": "key",
+          "label": "\""
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 5,
+          "kind": "key",
+          "label": "G"
+        }
+      },
+      "left:1:1": {
+        "hold": {
+          "flags": 131072,
+          "keyCode": 29,
+          "kind": "key",
+          "label": ")"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 3,
+          "kind": "key",
+          "label": "F"
+        }
+      },
+      "left:1:2": {
+        "hold": {
+          "flags": 131072,
+          "keyCode": 25,
+          "kind": "key",
+          "label": "("
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 2,
+          "kind": "key",
+          "label": "D"
+        }
+      },
+      "left:1:3": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 1,
+          "kind": "key",
+          "label": "Cmd+S"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 1,
+          "kind": "key",
+          "label": "S"
+        }
+      },
+      "left:1:4": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 0,
+          "kind": "key",
+          "label": "Cmd+A"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 0,
+          "kind": "key",
+          "label": "A"
+        }
+      },
+      "left:1:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 56,
+          "kind": "key",
+          "label": "Shift"
+        }
+      },
+      "left:2:0": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 43,
+          "kind": "key",
+          "label": ","
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 11,
+          "kind": "key",
+          "label": "B"
+        }
+      },
+      "left:2:1": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 9,
+          "kind": "key",
+          "label": "Cmd+V"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 9,
+          "kind": "key",
+          "label": "V"
+        }
+      },
+      "left:2:2": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 8,
+          "kind": "key",
+          "label": "Cmd+C"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 8,
+          "kind": "key",
+          "label": "C"
+        }
+      },
+      "left:2:3": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 7,
+          "kind": "key",
+          "label": "Cmd+X"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 7,
+          "kind": "key",
+          "label": "X"
+        }
+      },
+      "left:2:4": {
+        "hold": {
+          "flags": 1048576,
+          "keyCode": 6,
+          "kind": "key",
+          "label": "Cmd+Z"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 6,
+          "kind": "key",
+          "label": "Z"
+        }
+      },
+      "left:2:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 56,
+          "kind": "key",
+          "label": "Shift"
+        }
+      },
+      "right:1:5": {
+        "hold": {
+          "flags": 0,
+          "keyCode": 36,
+          "kind": "key",
+          "label": "Ret"
+        },
+        "primary": {
+          "flags": 0,
+          "keyCode": 36,
+          "kind": "key",
+          "label": "Ret"
+        }
+      },
+      "right:2:5": {
+        "primary": {
+          "flags": 131072,
+          "keyCode": 44,
+          "kind": "key",
+          "label": "?"
+        }
+      }
+    },
+    "1": {
+      "left:0:0": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:0:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:0:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:0:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 126,
+          "kind": "key",
+          "label": "Up"
+        }
+      },
+      "left:0:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:0:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 53,
+          "kind": "key",
+          "label": "Esc"
+        }
+      },
+      "left:1:0": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:1:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 3,
+          "kind": "key",
+          "label": "F"
+        }
+      },
+      "left:1:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 124,
+          "kind": "key",
+          "label": "Right"
+        }
+      },
+      "left:1:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 125,
+          "kind": "key",
+          "label": "Down"
+        }
+      },
+      "left:1:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 123,
+          "kind": "key",
+          "label": "Left"
+        }
+      },
+      "left:1:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:2:0": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:2:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:2:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:2:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 49,
+          "kind": "key",
+          "label": "Space"
+        }
+      },
+      "left:2:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "left:2:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "right:0:0": {
+        "primary": {
+          "flags": 131072,
+          "keyCode": 24,
+          "kind": "key",
+          "label": "+"
+        }
+      },
+      "right:0:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 26,
+          "kind": "key",
+          "label": "7"
+        }
+      },
+      "right:0:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 28,
+          "kind": "key",
+          "label": "8"
+        }
+      },
+      "right:0:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 25,
+          "kind": "key",
+          "label": "9"
+        }
+      },
+      "right:0:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "right:1:0": {
+        "primary": {
+          "flags": 655360,
+          "keyCode": 27,
+          "kind": "key",
+          "label": "\u2014"
+        }
+      },
+      "right:1:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 21,
+          "kind": "key",
+          "label": "4"
+        }
+      },
+      "right:1:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 23,
+          "kind": "key",
+          "label": "5"
+        }
+      },
+      "right:1:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 22,
+          "kind": "key",
+          "label": "6"
+        }
+      },
+      "right:1:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "right:1:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "right:2:0": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      },
+      "right:2:1": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 18,
+          "kind": "key",
+          "label": "1"
+        }
+      },
+      "right:2:2": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 19,
+          "kind": "key",
+          "label": "2"
+        }
+      },
+      "right:2:3": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 20,
+          "kind": "key",
+          "label": "3"
+        }
+      },
+      "right:2:4": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 47,
+          "kind": "key",
+          "label": "."
+        }
+      },
+      "right:2:5": {
+        "primary": {
+          "flags": 0,
+          "keyCode": 65535,
+          "kind": "none",
+          "label": "None"
+        }
+      }
+    }
+  },
+  "GlassToKey.keyOffsetX": 10.0,
+  "GlassToKey.keyOffsetY": -9.5,
+  "GlassToKey.keyScale": 1.25,
+  "GlassToKey.keyboardModeEnabled": false,
+  "GlassToKey.keyboardOutputBackend": "virtualhid",
+  "GlassToKey.layoutPreset": "6x3",
+  "GlassToKey.leftDeviceID": "288230377507812716",
+  "GlassToKey.mouseGraceMs": 0.0,
+  "GlassToKey.mouseIntentDistance": 3.0,
+  "GlassToKey.mouseIntentWindow": 70.0,
+  "GlassToKey.multiFingerClickPressureThreshold": 0.2,
+  "GlassToKey.multiFingerTapMaxDuration": 50.0,
+  "GlassToKey.pinkyScale": 1.2,
+  "GlassToKey.rightDeviceID": "",
+  "GlassToKey.rowSpacingPercent": 0.0,
+  "GlassToKey.sameKeyMultiTouchWindow": 200.0,
+  "GlassToKey.snapRadiusPercent": 35.0,
+  "GlassToKey.softSnapEnabled": false,
+  "GlassToKey.tapClickEnabled": true,
+  "GlassToKey.tapClickStaggerMs": 85.0,
+  "GlassToKey.tapDoubleClickWindowMs": 155.0,
+  "GlassToKey.tapHoldDuration": 230.0,
+  "GlassToKey.tapTypeMinHoldMs": 100.0,
+  "GlassToKey.twoFingerClickCadenceMs": 170.0,
+  "GlassToKey.twoFingerSuppressionDuration": 0.0,
+  "GlassToKey.twoFingerTapInterval": 0.0,
+  "GlassToKey.typingGraceMs": 3000.0,
+  "GlassToKey.visualsEnabled": false,
+  "NSOSPLastRootDirectory": {
+    "__type": "data",
+    "encoding": "base64",
+    "value": "Ym9va+gCAAAAAAQQMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAwAEAAAQAAAADAwAAAAQAAAUAAAABAQAAVXNlcnMAAAADAAAAAQEAAG5hcAAJAAAAAQEAAERvd25sb2FkcwAAAAwAAAABBgAAEAAAACAAAAAsAAAACAAAAAQDAABaUwAAAAAAAAgAAAAEAwAAsYYFAAAAAAAIAAAABAMAAOSGBQAAAAAADAAAAAEGAABUAAAAZAAAAHQAAAAIAAAAAAQAAEHBU5z8AAAAGAAAAAECAAACAAAAAAAAAB8CAAAAAAAAHwIAAAAAAAAAAAAAAQUAAAgAAAAEAwAAAQAAAAAAAAAEAAAAAwMAAPUBAAAIAAAAAQkAAGZpbGU6Ly8vDAAAAAEBAABNYWNpbnRvc2ggSEQIAAAABAMAAABQBl46AAAACAAAAAAEAABBxxWwfgAAACQAAAABAQAANzQ4NTJFN0ItRkY4OC00Q0EyLUJFMDItRDVDMTVEQTQxQ0VGGAAAAAECAACBAAAAAQAAAO8TAAABAAAA7xMAAAEAAAABAAAAAQEAAC8AAAAwAAAAAQIAAGRuaWIAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAGZud2QCAAAAAAAAAPAAAAD+////AQAAAAAAAAATAAAABBAAAEAAAAAAAAAABRAAAIQAAAAAAAAAEBAAAKgAAAAAAAAAQBAAAJgAAAAAAAAAAiAAAHwBAAAAAAAABSAAAOwAAAAAAAAAECAAAPwAAAAAAAAAESAAADABAAAAAAAAEiAAABABAAAAAAAAEyAAACABAAAAAAAAICAAAFwBAAAAAAAAMCAAAMgAAAAAAAAAAcAAANAAAAAAAAAAEcAAACAAAAAAAAAAEsAAAOAAAAAAAAAAAdAAAMgAAAAAAAAAENAAAAQAAAAAAAAAF/AAACwAAAAAAAAAIvAAAIgBAAAAAAAA"
+  },
+  "NSWindow Frame NSNavPanelAutosaveName": "585 525 430 195 0 0 1600 875 ",
+  "NSWindow Frame NSSpellCheckerSubstitutionsPanel2": "692 407 425 137 0 0 1600 875 "
+}
