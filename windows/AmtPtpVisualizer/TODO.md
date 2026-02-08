@@ -13,3 +13,4 @@
 - autoreconnect?
 - Taps between keys stick the fingers on visualizer sometimes?
 - Autocorrect
+- Rename to GlassToKey instead of AmtPtpVizualizer

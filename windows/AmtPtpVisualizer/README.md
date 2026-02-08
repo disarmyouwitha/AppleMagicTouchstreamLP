@@ -15,6 +15,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - Supports capture/replay diagnostics with deterministic fingerprint checks and fixture assertions.
 - Supports replay-in-UI playback (`--replay-ui`) with play/pause and speed controls.
 - Includes a Windows `TouchProcessor` engine scaffold (single-consumer actor, intent state machine, binding cache, snap accounting).
+- In Keyboard mode, swallows global mouse click events outside the visualizer process so accidental trackpad clicks do not leak to other apps.
 
 ## How It Works
 - **Device selection:** Uses the in-app dropdowns for left/right. Each can be set to "None".
@@ -25,6 +26,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - **Normalization:** Touches are normalized to a fixed Magic Trackpad 2 aspect ratio using `160.0mm x 114.9mm` for layout. Default logical maxima are `7612 x 5065` unless overridden with `--maxx/--maxy`.
 - **Keymap:** Layered mappings and custom buttons live in `keymap.json`, scoped by layout preset (`6x3`, `6x4`, etc.), layer, and side. Labels fall back to layout defaults when missing. Fresh `6x3` setups seed Layer 0/1 mappings plus default thumb buttons, and the header includes `Export Keymap` / `Import Keymap` JSON actions.
 - **Diagnostics:** `--capture` writes binary frame captures; `--replay` runs deterministic two-pass replay + optional fixture checks.
+- **Keyboard mode click policy:** while typing is enabled and Keyboard mode is on, global click messages are suppressed for external apps; clicks inside the visualizer app remain allowed.
 - **Engine replay checks:** replay also computes intent trace fingerprint and transition count from the engine state machine.
 - **Replay visual playback:** run with `--replay <file> --replay-ui` to route replayed frames into the left/right visualizer surfaces.
 

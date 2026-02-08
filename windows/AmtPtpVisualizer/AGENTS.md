@@ -2,7 +2,7 @@
 
 ## Project Summary
 - **GlassToKey app path:** `AmtPtpVisualizer` is the active app that reads touchpad report `0x05` via Raw Input, visualizes contacts, and drives keyboard mapping logic.
-- **Core intent:** Keep OS mouse/gesture behavior intact while mapping selected touch intents to keys. The kernel driver already emits `PTP_REPORT`, so most iteration is user-mode.
+- **Core intent:** Keep OS mouse/gesture behavior intact in mixed mode while mapping selected touch intents to keys. In keyboard mode, global mouse clicks are swallowed outside the visualizer process.
 
 ## Repository Map
 - `AmtPtpVisualizer/`: WPF visualizer + touch processor engine + diagnostics (capture/replay/self-test).
