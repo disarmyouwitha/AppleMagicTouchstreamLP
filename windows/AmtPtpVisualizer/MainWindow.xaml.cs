@@ -31,6 +31,10 @@ public partial class MainWindow : Window
     private static readonly Brush IntentMouseBrush = CreateFrozenBrush("#3498db");
     private static readonly Brush IntentGestureBrush = CreateFrozenBrush("#9b59b6");
     private static readonly Brush IntentUnknownBrush = CreateFrozenBrush("#6b7279");
+    private static readonly Brush ModeKeyboardBrush = CreateFrozenBrush("#9b59b6");
+    private static readonly Brush ModeMixedBrush = CreateFrozenBrush("#2ecc71");
+    private static readonly Brush ModeMouseBrush = CreateFrozenBrush("#e74c3c");
+    private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
 
     private readonly ReaderOptions _options;
     private readonly ObservableCollection<HidDeviceInfo> _devices = new();
@@ -84,6 +88,8 @@ public partial class MainWindow : Window
     private int _lastRightPillCount = -1;
     private string _lastIntentPillLabel = string.Empty;
     private Brush _lastIntentPillBrush = IntentUnknownBrush;
+    private string _lastModePillLabel = string.Empty;
+    private Brush _lastModePillBrush = ModeUnknownBrush;
 
     private bool IsReplayMode => _replayData != null;
 
@@ -530,8 +536,8 @@ public partial class MainWindow : Window
         }
         else
         {
-            LeftSurface.EmptyMessage = string.IsNullOrWhiteSpace(_left.DeviceName) ? "No device selected." : "Waiting for touches...";
-            RightSurface.EmptyMessage = string.IsNullOrWhiteSpace(_right.DeviceName) ? "No device selected." : "Waiting for touches...";
+            LeftSurface.EmptyMessage = string.IsNullOrWhiteSpace(_left.DeviceName) ? "No device selected." : string.Empty;
+            RightSurface.EmptyMessage = string.IsNullOrWhiteSpace(_right.DeviceName) ? "No device selected." : string.Empty;
         }
 
         LeftSurface.Opacity = enabled ? 1.0 : 0.45;
@@ -1068,9 +1074,26 @@ public partial class MainWindow : Window
         if (side == TrackpadSide.Left) _leftStatus = IsReplayMode ? "Replay" : "Listening";
         else _rightStatus = IsReplayMode ? "Replay" : "Listening";
         UpdateHeaderStatus();
-        SetEmptyMessage(session, "Waiting for touches...");
-        session.SetDevice(device.Path!, device.DisplayName);
+        SetEmptyMessage(session, string.Empty);
+        session.SetDevice(device.Path!, device.DisplayName, IsLikelyBluetoothDevice(device));
         UpdateHitDisplay(side, "--", null);
+    }
+
+    private static bool IsLikelyBluetoothDevice(HidDeviceInfo device)
+    {
+        return ContainsBluetoothToken(device.Path) || ContainsBluetoothToken(device.DisplayName);
+    }
+
+    private static bool ContainsBluetoothToken(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return false;
+        }
+
+        return value.IndexOf("BTH", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               value.IndexOf("BLUETOOTH", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               value.IndexOf("BTLE", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private void UpdateLabelMatrices()
@@ -2085,6 +2108,8 @@ public partial class MainWindow : Window
         int rightContacts;
         string intentLabel;
         Brush intentBrush;
+        string modeLabel;
+        Brush modeBrush;
         if (_touchActor == null)
         {
             next = "State: n/a";
@@ -2092,19 +2117,20 @@ public partial class MainWindow : Window
             rightContacts = SnapshotContactCount(_right.State);
             intentLabel = "n/a";
             intentBrush = IntentUnknownBrush;
+            modeLabel = "n/a";
+            modeBrush = ModeUnknownBrush;
         }
         else
         {
             TouchProcessorSnapshot snapshot = _touchActor.Snapshot();
-            string typing = snapshot.TypingEnabled ? "on" : "off";
-            string keyboardOnly = snapshot.KeyboardModeEnabled ? "on" : "off";
-            next = $"State: {snapshot.IntentMode} | layer {snapshot.ActiveLayer} | typing {typing} | kb-only {keyboardOnly} | contacts {snapshot.ContactCount}";
+            next = $"State: {snapshot.IntentMode} | layer {snapshot.ActiveLayer} | contacts {snapshot.ContactCount}";
             leftContacts = snapshot.LeftContacts;
             rightContacts = snapshot.RightContacts;
             (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
+            (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
         }
 
-        UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush);
+        UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
 
         if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
         {
@@ -2113,7 +2139,7 @@ public partial class MainWindow : Window
         }
     }
 
-    private void UpdateStatusPills(int leftContacts, int rightContacts, string intentLabel, Brush intentBrush)
+    private void UpdateStatusPills(int leftContacts, int rightContacts, string intentLabel, Brush intentBrush, string modeLabel, Brush modeBrush)
     {
         leftContacts = Math.Max(0, leftContacts);
         rightContacts = Math.Max(0, rightContacts);
@@ -2140,6 +2166,18 @@ public partial class MainWindow : Window
             _lastIntentPillBrush = intentBrush;
             IntentPillDot.Fill = intentBrush;
         }
+
+        if (!string.Equals(modeLabel, _lastModePillLabel, StringComparison.Ordinal))
+        {
+            _lastModePillLabel = modeLabel;
+            ModePillText.Text = modeLabel;
+        }
+
+        if (!ReferenceEquals(modeBrush, _lastModePillBrush))
+        {
+            _lastModePillBrush = modeBrush;
+            ModePillDot.Fill = modeBrush;
+        }
     }
 
     private static int SnapshotContactCount(TouchState state)
@@ -2160,6 +2198,18 @@ public partial class MainWindow : Window
             IntentMode.GestureCandidate => ("gest", IntentGestureBrush),
             _ => ("n/a", IntentUnknownBrush)
         };
+    }
+
+    private static (string Label, Brush Brush) ToModePill(bool typingEnabled, bool keyboardModeEnabled)
+    {
+        if (!typingEnabled)
+        {
+            return ("Mouse", ModeMouseBrush);
+        }
+
+        return keyboardModeEnabled
+            ? ("Keyboard", ModeKeyboardBrush)
+            : ("Mixed", ModeMixedBrush);
     }
 
     private readonly record struct ReplaySpeedOption(double Speed, string Label)
@@ -2187,13 +2237,14 @@ public partial class MainWindow : Window
                    string.Equals(DeviceName, deviceName, StringComparison.OrdinalIgnoreCase);
         }
 
-        public void SetDevice(string deviceName, string displayName)
+        public void SetDevice(string deviceName, string displayName, bool likelyNoPressure)
         {
             DeviceName = deviceName;
             DisplayName = displayName;
             Tag = null;
             TagText = null;
             State.Clear();
+            State.ConfigurePressureHint(likelyNoPressure);
         }
 
         public void Reset()
