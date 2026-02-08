@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -163,6 +164,8 @@ public partial class MainWindow : Window
         LayoutPresetCombo.SelectionChanged += OnLayoutPresetChanged;
         ColumnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
+        KeymapExportButton.Click += OnKeymapExportClicked;
+        KeymapImportButton.Click += OnKeymapImportClicked;
         VisualizerEnabledCheck.Checked += OnVisualizerToggleChanged;
         VisualizerEnabledCheck.Unchecked += OnVisualizerToggleChanged;
         TapClickEnabledCheck.Checked += OnModeSettingChanged;
@@ -469,6 +472,74 @@ public partial class MainWindow : Window
     private void OnToggleControlsPaneClicked(object sender, RoutedEventArgs e)
     {
         SetControlsPaneVisible(!_controlsPaneVisible, animated: true);
+    }
+
+    private void OnKeymapExportClicked(object sender, RoutedEventArgs e)
+    {
+        SaveFileDialog dialog = new()
+        {
+            Title = "Export Keymap",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            DefaultExt = ".json",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = $"amtptp-keymap-{DateTime.Now:yyyyMMdd-HHmmss}.json"
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        if (_keymap.TryExportToFile(dialog.FileName, out string error))
+        {
+            return;
+        }
+
+        MessageBox.Show(
+            this,
+            $"Failed to export keymap.\n{error}",
+            "Keymap Export",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
+    }
+
+    private void OnKeymapImportClicked(object sender, RoutedEventArgs e)
+    {
+        OpenFileDialog dialog = new()
+        {
+            Title = "Import Keymap",
+            Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false
+        };
+        if (dialog.ShowDialog(this) != true)
+        {
+            return;
+        }
+
+        if (!_keymap.TryImportFromFile(dialog.FileName, out string error))
+        {
+            MessageBox.Show(
+                this,
+                $"Failed to import keymap.\n{error}",
+                "Keymap Import",
+                MessageBoxButton.OK,
+                MessageBoxImage.Error);
+            return;
+        }
+
+        _keymap.SetActiveLayout(_preset.Name);
+        _keymap.Save();
+        _touchActor?.ConfigureKeymap(_keymap);
+        UpdateLabelMatrices();
+        EnsureSelectedKeyStillValid();
+        UpdateSelectedKeyHighlight();
+        RefreshKeymapEditor();
+        if (_visualizerEnabled)
+        {
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+        }
     }
 
     private void ApplySettingsFromUi()
