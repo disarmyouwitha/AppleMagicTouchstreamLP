@@ -1383,7 +1383,8 @@ internal sealed class TouchProcessorCore
         }
 
         long keyBufferTicks = MsToTicks(_config.KeyBufferMs);
-        if (TryGetGestureCandidateStartTicks(
+        bool allowGestureCandidate = !aggregate.KeyboardAnchor;
+        if (allowGestureCandidate && TryGetGestureCandidateStartTicks(
             aggregate.ContactCount,
             previousContactCount,
             aggregate.EarliestStartTicks,
@@ -1563,6 +1564,8 @@ internal sealed class TouchProcessorCore
                                      (_config.ThreeFingerTapEnabled && aggregate.ContactCount == 3);
         bool couldStartCandidate = previousContactCount <= 1 &&
                                    candidateContactCount &&
+                                   aggregate.OnKeyCount == 0 &&
+                                   !aggregate.KeyboardAnchor &&
                                    (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) <= staggerTicks;
 
         if (!_pendingTapGesture.Active && couldStartCandidate)
