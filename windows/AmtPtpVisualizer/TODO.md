@@ -1,5 +1,6 @@
 ## TODO:
-- Move state to the right of pills; "hide controlls" button to the right of "AmtPtp Visualizer"
+- HAPTICS BABY!
+- Move state to the right of pills; "hide controls" button to the right of "AmtPtp Visualizer"
 - test snap radius changes. ** have it look at GTK? 
 - typing tuning, key layout, mode toggles - these should be expandable (and set to collapsed) in the GUI
 - replay still doesnt work. I don't think we need to dispatch keys exatcly but it doesnt show highlight of keys either.
