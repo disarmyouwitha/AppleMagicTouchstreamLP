@@ -1,6 +1,5 @@
 ## TODO:
-- Custom buttons
-- keyboard mode should swallow clicks globally
+- keyboard mode should swallow clicks globally (except in the Visualizer app?)
 - snap radius should work, and should be a toggle
 - test snap radius changes. ** have it look at GTK? 
 - HAPTICS BABY!
