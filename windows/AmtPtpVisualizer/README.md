@@ -1,5 +1,7 @@
-# AmtPtpVisualizer
+## AmtPtpVisualizer
+GlassToKey for Windows.
 
+<img src="Screenshot.png">
 A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by `AmtPtpDeviceUsbUm`.
 
 ## What It Does
