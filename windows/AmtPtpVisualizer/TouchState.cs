@@ -8,6 +8,7 @@ public sealed class TouchState
     private readonly object _lock = new();
     private readonly TouchContact[] _contacts = new TouchContact[PtpReport.MaxContacts];
     private int _contactCount;
+    private bool _pressureObserved;
     private ushort _maxX = 1;
     private ushort _maxY = 1;
     private long _lastFrameTicks;
@@ -15,19 +16,14 @@ public sealed class TouchState
 
     public int SnapshotContacts(Span<TouchContact> destination)
     {
-        lock (_lock)
-        {
-            if (_contactCount > 0 &&
-                _lastFrameTicks > 0 &&
-                Stopwatch.GetTimestamp() - _lastFrameTicks > _stateStaleTicks)
-            {
-                _contactCount = 0;
-            }
+        SnapshotStateCore(destination, out _, out _, out _, out int count);
+        return count;
+    }
 
-            int count = _contactCount <= destination.Length ? _contactCount : destination.Length;
-            _contacts.AsSpan(0, count).CopyTo(destination);
-            return count;
-        }
+    public int Snapshot(Span<TouchContact> destination, out ushort maxX, out ushort maxY, out bool pressureObserved)
+    {
+        SnapshotStateCore(destination, out maxX, out maxY, out pressureObserved, out int count);
+        return count;
     }
 
     public (ushort MaxX, ushort MaxY) SnapshotMax()
@@ -54,7 +50,13 @@ public sealed class TouchState
                     continue;
                 }
 
-                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence);
+                byte pressure6 = c.Pressure6;
+                if (pressure6 != 0)
+                {
+                    _pressureObserved = true;
+                }
+
+                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence, pressure6);
                 if (c.X > _maxX) _maxX = c.X;
                 if (c.Y > _maxY) _maxY = c.Y;
             }
@@ -66,11 +68,34 @@ public sealed class TouchState
         lock (_lock)
         {
             _contactCount = 0;
+            _pressureObserved = false;
             _maxX = 1;
             _maxY = 1;
             _lastFrameTicks = 0;
         }
     }
+
+    private void SnapshotStateCore(Span<TouchContact> destination, out ushort maxX, out ushort maxY, out bool pressureObserved, out int count)
+    {
+        lock (_lock)
+        {
+            if (_contactCount > 0 &&
+                _lastFrameTicks > 0 &&
+                Stopwatch.GetTimestamp() - _lastFrameTicks > _stateStaleTicks)
+            {
+                _contactCount = 0;
+            }
+
+            count = _contactCount <= destination.Length ? _contactCount : destination.Length;
+            _contacts.AsSpan(0, count).CopyTo(destination);
+            maxX = _maxX;
+            maxY = _maxY;
+            pressureObserved = _pressureObserved;
+        }
+    }
 }
 
-public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence);
+public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence, byte Pressure6)
+{
+    public byte PressureApprox => (byte)(Pressure6 << 2);
+}

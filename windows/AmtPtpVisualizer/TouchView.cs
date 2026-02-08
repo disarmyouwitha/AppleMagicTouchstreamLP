@@ -94,8 +94,7 @@ public sealed class TouchView : FrameworkElement
         }
 
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
-        int contactCount = State.SnapshotContacts(contacts);
-        (ushort maxX, ushort maxY) = State.SnapshotMax();
+        int contactCount = State.Snapshot(contacts, out ushort maxX, out ushort maxY, out bool pressureObserved);
 
         if (RequestedMaxX.HasValue) maxX = RequestedMaxX.Value;
         if (RequestedMaxY.HasValue) maxY = RequestedMaxY.Value;
@@ -124,6 +123,36 @@ public sealed class TouchView : FrameworkElement
                 _textBrush,
                 1.0);
             dc.DrawText(text, new Point(x - text.Width / 2, y - text.Height / 2));
+
+            string details = pressureObserved
+                ? $"x:{c.X} y:{c.Y} p:{c.Pressure6}"
+                : $"x:{c.X} y:{c.Y}";
+            FormattedText detailsText = new(
+                details,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                10,
+                _textBrush,
+                1.0);
+
+            double detailsX = x + 24;
+            if (detailsX + detailsText.Width > pad.Right - 8)
+            {
+                detailsX = x - detailsText.Width - 24;
+            }
+
+            double detailsY = y - detailsText.Height / 2;
+            if (detailsY < pad.Top + 6)
+            {
+                detailsY = pad.Top + 6;
+            }
+            else if (detailsY + detailsText.Height > pad.Bottom - 6)
+            {
+                detailsY = pad.Bottom - detailsText.Height - 6;
+            }
+
+            dc.DrawText(detailsText, new Point(detailsX, detailsY));
         }
 
         if (contactCount == 0)

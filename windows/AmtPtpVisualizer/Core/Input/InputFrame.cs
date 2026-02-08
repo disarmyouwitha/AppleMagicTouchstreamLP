@@ -6,6 +6,8 @@ public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Fla
 {
     public bool TipSwitch => (Flags & 0x02) != 0;
     public bool Confidence => (Flags & 0x01) != 0;
+    public byte Pressure6 => (byte)((Flags >> 2) & 0x3F);
+    public byte PressureApprox => (byte)(Pressure6 << 2);
 
     public static ContactFrame FromPtpContact(in PtpContact contact)
     {
