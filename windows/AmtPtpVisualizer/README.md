@@ -10,7 +10,8 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - Shows contact IDs for active touch contacts (`TipSwitch=true`) in real time.
 - Tags each report with a device index + hash (`[dev N XXXXXXXX]`) so multiple trackpads can be distinguished.
 - Supports two trackpads at once (left/right) with a device picker and "None" option.
-- Adds a minimal 6x3 keymap layer (Layer 0/1) with hit highlighting.
+- Adds a seeded 6x3 keymap starter (Layer 0/1, primary + hold actions) with hit highlighting.
+- Adds editable custom buttons per side/layer with action + hold-action mapping and percentage-based `X/Y/Width/Height` tuning.
 - Supports capture/replay diagnostics with deterministic fingerprint checks and fixture assertions.
 - Supports replay-in-UI playback (`--replay-ui`) with play/pause and speed controls.
 - Includes a Windows `TouchProcessor` engine scaffold (single-consumer actor, intent state machine, binding cache, snap accounting).
@@ -22,21 +23,19 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - **Rendering:** WPF `FrameworkElement` (`TouchView`) draws a padded surface, grid, and per-contact circles each frame.
 - **Tip-only visualization policy:** The visualizer intentionally ignores non-tip (`TipSwitch=false`) near-field/hover contacts to avoid lingering artifacts. Do not reintroduce hover circles unless behavior requirements change.
 - **Normalization:** Touches are normalized to a fixed Magic Trackpad 2 aspect ratio using `160.0mm x 114.9mm` for layout. Default logical maxima are `7612 x 5065` unless overridden with `--maxx/--maxy`.
-- **Keymap:** Layered mappings live in `keymap.json` (see below). Labels fall back to the 6x3 defaults when missing.
+- **Keymap:** Layered mappings and custom buttons live in `keymap.json`, scoped by layout preset (`6x3`, `6x4`, etc.), layer, and side. Labels fall back to layout defaults when missing. Fresh `6x3` setups seed Layer 0/1 mappings plus default thumb buttons, and the header includes `Export Keymap` / `Import Keymap` JSON actions.
 - **Diagnostics:** `--capture` writes binary frame captures; `--replay` runs deterministic two-pass replay + optional fixture checks.
 - **Engine replay checks:** replay also computes intent trace fingerprint and transition count from the engine state machine.
 - **Replay visual playback:** run with `--replay <file> --replay-ui` to route replayed frames into the left/right visualizer surfaces.
 
 ## Build
-```powershell
-# from repo root
-
-dotnet build tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
+```
+dotnet build AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
 ## Run
-```powershell
-dotnet run --project tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
+```
+dotnet run --project AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
 ### Optional arguments
@@ -57,7 +56,7 @@ dotnet run --project tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 
 ### 1. Capture a live session
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --capture .\touch-session.atpcap --metrics-out .\live-metrics.json --replay-trace-out .\capture-trace.json
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --capture .\touch-session.atpcap --metrics-out .\live-metrics.json --replay-trace-out .\capture-trace.json
 ```
 
 - Close the app to flush final metrics output.
@@ -65,7 +64,7 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 
 ### 2. Validate a capture headlessly (deterministic replay)
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --metrics-out .\replay-metrics.json --replay-trace-out .\replay-trace.json
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --metrics-out .\replay-metrics.json --replay-trace-out .\replay-trace.json
 ```
 
 - This mode does not open WPF UI.
@@ -73,7 +72,7 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 
 ### 3. Replay directly into visualizer UI
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --replay-ui --replay-speed 1
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --replay-ui --replay-speed 1
 ```
 
 - Uses replay devices populated from capture metadata.
@@ -91,10 +90,10 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 - Default live mode (no replay flags) continues to use the normal WM_INPUT ingest path.
 
 ### Replay smoke fixture
-- Capture: `tools/AmtPtpVisualizer/fixtures/replay/smoke.atpcap`
-- Fixture: `tools/AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
+- Capture: `AmtPtpVisualizer/fixtures/replay/smoke.atpcap`
+- Fixture: `AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
 - Run:
-  - `dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay tools/AmtPtpVisualizer/fixtures/replay/smoke.atpcap --fixture tools/AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
+  - `dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay AmtPtpVisualizer/fixtures/replay/smoke.atpcap --fixture AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\AmtPtpVisualizer\\settings.json`: device selections + active layer.

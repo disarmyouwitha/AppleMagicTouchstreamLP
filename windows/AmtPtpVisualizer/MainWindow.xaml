@@ -16,8 +16,9 @@
         <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="AmtPtp Visualizer" Foreground="#e7e9ea" FontSize="16" FontWeight="SemiBold" />
-            <TextBlock Text="  |  " Foreground="#5c646b" FontSize="16" />
-            <TextBlock x:Name="StatusText" Text="State: n/a" Foreground="#b8c1c7" FontSize="14" />
+            <Button x:Name="ToggleControlsButton" Content="Hide Controls" Padding="10,4" Margin="12,0,0,0" />
+            <Button x:Name="KeymapExportButton" Content="Export Keymap" Padding="10,4" Margin="8,0,0,0" />
+            <Button x:Name="KeymapImportButton" Content="Import Keymap" Padding="10,4" Margin="6,0,0,0" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
             <Border CornerRadius="999" Background="#20252a" Padding="6,2" Margin="0,0,8,0">
@@ -32,10 +33,16 @@
                 <TextBlock x:Name="IntentPillText" Text="idle" Foreground="#e7e9ea" FontSize="11" />
               </StackPanel>
             </Border>
+            <Border CornerRadius="999" Background="#20252a" Padding="6,2" Margin="8,0,0,0">
+              <StackPanel Orientation="Horizontal">
+                <Ellipse x:Name="ModePillDot" Width="6" Height="6" Fill="#6b7279" Margin="0,0,4,0" VerticalAlignment="Center" />
+                <TextBlock x:Name="ModePillText" Text="n/a" Foreground="#e7e9ea" FontSize="11" />
+              </StackPanel>
+            </Border>
+            <TextBlock x:Name="StatusText" Text="State: n/a" Foreground="#b8c1c7" FontSize="14" VerticalAlignment="Center" Visibility="Collapsed" />
           </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,8,0">
-          <Button x:Name="ToggleControlsButton" Content="Hide Controls" Padding="10,4" Margin="0,0,8,0" />
           <StackPanel x:Name="ReplayPanel" Orientation="Horizontal" VerticalAlignment="Center" Margin="0,0,12,0" Visibility="Collapsed">
             <Button x:Name="ReplayToggleButton" Content="Play" Padding="10,4" />
             <Button x:Name="ReplayStepBackButton" Content="&#x25C0;" Width="28" Height="26" Margin="8,0,0,0" />
@@ -251,6 +258,51 @@
             <TextBlock Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
             <ComboBox x:Name="KeymapHoldCombo" Height="26" />
             <Button x:Name="KeymapClearButton" Content="Clear Override" Margin="0,8,0,0" Height="28" />
+
+            <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <Button x:Name="CustomButtonAddLeftButton" Content="Add Left" Height="28" Margin="0,0,6,0" />
+              <Button x:Name="CustomButtonAddRightButton" Grid.Column="1" Content="Add Right" Height="28" />
+            </Grid>
+            <Button x:Name="CustomButtonDeleteButton" Content="Delete Selected Button" Height="28" Margin="0,6,0,0" />
+
+            <TextBlock Text="Button Geometry (%)" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
+            <Grid>
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="CustomButtonXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+            </Grid>
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="CustomButtonYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+            </Grid>
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Width (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="CustomButtonWidthBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+            </Grid>
+            <Grid Margin="0,6,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="90" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Height (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="CustomButtonHeightBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+            </Grid>
           </StackPanel>
         </ScrollViewer>
       </Border>

@@ -10,6 +10,7 @@ internal static class TouchProcessorFactory
     public static TouchProcessorCore CreateDefault(KeymapStore keymap, TrackpadLayoutPreset? preset = null, TouchProcessorConfig? config = null)
     {
         TrackpadLayoutPreset layoutPreset = preset ?? TrackpadLayoutPreset.SixByThree;
+        keymap.SetActiveLayout(layoutPreset.Name);
         ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(layoutPreset.Columns);
         KeyLayout left = LayoutBuilder.BuildLayout(layoutPreset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, columns, mirrored: true);
         KeyLayout right = LayoutBuilder.BuildLayout(layoutPreset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, columns, mirrored: false);

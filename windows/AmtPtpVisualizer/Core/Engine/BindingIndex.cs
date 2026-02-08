@@ -79,7 +79,8 @@ internal sealed class BindingIndex
         double snapRadiusFraction = 0.35)
     {
         int rows = layout.Rects.Length;
-        int estimated = rows == 0 ? 0 : rows * layout.Rects[0].Length;
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
+        int estimated = (rows == 0 ? 0 : rows * layout.Rects[0].Length) + customButtons.Count;
         EngineKeyBinding[] bindings = new EngineKeyBinding[estimated];
         int[] snapBindingIndices = new int[estimated];
         float[] snapCentersX = new float[estimated];
@@ -121,6 +122,42 @@ internal sealed class BindingIndex
 
                 cursor++;
             }
+        }
+
+        for (int i = 0; i < customButtons.Count; i++)
+        {
+            CustomButton custom = customButtons[i];
+            KeyMapping mapping = new()
+            {
+                Primary = custom.Primary ?? new KeyAction { Label = "None" },
+                Hold = custom.Hold
+            };
+            string fallbackLabel = string.IsNullOrWhiteSpace(custom.Primary?.Label) ? "None" : custom.Primary.Label;
+            EngineKeyMapping engineMapping = EngineActionResolver.Resolve(mapping, fallbackLabel);
+            NormalizedRect rect = custom.Rect;
+            string storageKey = $"custom:{custom.Id}";
+            bindings[cursor] = new EngineKeyBinding(
+                side,
+                -1,
+                -1,
+                storageKey,
+                fallbackLabel,
+                rect,
+                engineMapping);
+
+            if (IsSnappable(engineMapping.Primary))
+            {
+                float centerX = (float)(rect.X + (rect.Width * 0.5));
+                float centerY = (float)(rect.Y + (rect.Height * 0.5));
+                float radius = (float)(Math.Min(rect.Width, rect.Height) * snapRadiusFraction);
+                snapBindingIndices[snapCursor] = cursor;
+                snapCentersX[snapCursor] = centerX;
+                snapCentersY[snapCursor] = centerY;
+                snapRadiusSq[snapCursor] = radius * radius;
+                snapCursor++;
+            }
+
+            cursor++;
         }
 
         if (cursor != estimated)
