@@ -94,6 +94,7 @@ public partial class MainWindow : Window
     private Brush _lastIntentPillBrush = IntentUnknownBrush;
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
+    private int _lastEngineVisualLayer = -1;
 
     private bool IsReplayMode => _replayData != null;
 
@@ -1128,7 +1129,7 @@ public partial class MainWindow : Window
 
     private SurfaceCustomButton[] BuildSurfaceCustomButtons(TrackpadSide side)
     {
-        IReadOnlyList<CustomButton> buttons = _keymap.ResolveCustomButtons(GetSelectedLayer(), side);
+        IReadOnlyList<CustomButton> buttons = _keymap.ResolveCustomButtons(GetVisualizationLayer(), side);
         if (buttons.Count == 0)
         {
             return Array.Empty<SurfaceCustomButton>();
@@ -1149,7 +1150,7 @@ public partial class MainWindow : Window
 
     private string[][] BuildLabelMatrix(TrackpadSide side)
     {
-        int layer = GetSelectedLayer();
+        int layer = GetVisualizationLayer();
         KeyLayout layout = side == TrackpadSide.Left ? _leftLayout : _rightLayout;
         string[][] labels = layout.Labels;
         string[][] output = new string[labels.Length][];
@@ -1792,7 +1793,8 @@ public partial class MainWindow : Window
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
         int contactCount = session.State.SnapshotContacts(contacts);
         KeyLayout layout = side == TrackpadSide.Left ? _leftLayout : _rightLayout;
-        IReadOnlyList<CustomButton> customButtons = _keymap.ResolveCustomButtons(GetSelectedLayer(), side);
+        int activeLayer = GetVisualizationLayer();
+        IReadOnlyList<CustomButton> customButtons = _keymap.ResolveCustomButtons(activeLayer, side);
         ushort maxX = (side == TrackpadSide.Left ? LeftSurface : RightSurface).RequestedMaxX ?? DefaultMaxX;
         ushort maxY = (side == TrackpadSide.Left ? LeftSurface : RightSurface).RequestedMaxY ?? DefaultMaxY;
         bool suppressHighlights = ShouldSuppressKeyHighlighting();
@@ -1842,7 +1844,7 @@ public partial class MainWindow : Window
                             bestArea = area;
                             hit = rect;
                             hitCustomButtonId = null;
-                            hitLabel = _keymap.ResolveLabel(GetSelectedLayer(), GridKeyPosition.StorageKey(side, row, col), layout.Labels[row][col]);
+                            hitLabel = _keymap.ResolveLabel(activeLayer, GridKeyPosition.StorageKey(side, row, col), layout.Labels[row][col]);
                         }
                     }
                 }
@@ -2511,6 +2513,11 @@ public partial class MainWindow : Window
             rightContacts = snapshot.RightContacts;
             (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
             (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+            if (_lastEngineVisualLayer != snapshot.ActiveLayer)
+            {
+                _lastEngineVisualLayer = snapshot.ActiveLayer;
+                UpdateLabelMatrices();
+            }
         }
 
         UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
@@ -2567,6 +2574,16 @@ public partial class MainWindow : Window
     {
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
         return state.SnapshotContacts(contacts);
+    }
+
+    private int GetVisualizationLayer()
+    {
+        if (_touchActor == null)
+        {
+            return GetSelectedLayer();
+        }
+
+        return Math.Clamp(_touchActor.Snapshot().ActiveLayer, 0, 7);
     }
 
     private static (string Label, Brush Brush) ToIntentPill(IntentMode mode)
