@@ -11,6 +11,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - Tags each report with a device index + hash (`[dev N XXXXXXXX]`) so multiple trackpads can be distinguished.
 - Supports two trackpads at once (left/right) with a device picker and "None" option.
 - Adds a minimal 6x3 keymap layer (Layer 0/1) with hit highlighting.
+- Adds editable custom buttons per side/layer with action + hold-action mapping and percentage-based `X/Y/Width/Height` tuning.
 - Supports capture/replay diagnostics with deterministic fingerprint checks and fixture assertions.
 - Supports replay-in-UI playback (`--replay-ui`) with play/pause and speed controls.
 - Includes a Windows `TouchProcessor` engine scaffold (single-consumer actor, intent state machine, binding cache, snap accounting).
@@ -22,7 +23,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - **Rendering:** WPF `FrameworkElement` (`TouchView`) draws a padded surface, grid, and per-contact circles each frame.
 - **Tip-only visualization policy:** The visualizer intentionally ignores non-tip (`TipSwitch=false`) near-field/hover contacts to avoid lingering artifacts. Do not reintroduce hover circles unless behavior requirements change.
 - **Normalization:** Touches are normalized to a fixed Magic Trackpad 2 aspect ratio using `160.0mm x 114.9mm` for layout. Default logical maxima are `7612 x 5065` unless overridden with `--maxx/--maxy`.
-- **Keymap:** Layered mappings live in `keymap.json` (see below). Labels fall back to the 6x3 defaults when missing.
+- **Keymap:** Layered mappings and custom buttons live in `keymap.json`, scoped by layout preset (`6x3`, `6x4`, etc.), layer, and side. Labels fall back to layout defaults when missing. Fresh `6x3` setups seed mac-like thumb custom-button defaults on Layer 0.
 - **Diagnostics:** `--capture` writes binary frame captures; `--replay` runs deterministic two-pass replay + optional fixture checks.
 - **Engine replay checks:** replay also computes intent trace fingerprint and transition count from the engine state machine.
 - **Replay visual playback:** run with `--replay <file> --replay-ui` to route replayed frames into the left/right visualizer surfaces.

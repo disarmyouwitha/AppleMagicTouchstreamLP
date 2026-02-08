@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Diagnostics.CodeAnalysis;
 using System.Diagnostics;
 using System.Globalization;
 using System.IO;
@@ -23,6 +24,7 @@ public partial class MainWindow : Window
     private const double KeyHeightMm = 17.0;
     private const double ControlsPaneExpandedWidth = 360.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
+    private const double MinCustomButtonPercent = 5.0;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
     private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
@@ -80,9 +82,11 @@ public partial class MainWindow : Window
     private bool _suppressKeymapSelectionEvents;
     private bool _suppressKeymapActionEvents;
     private bool _hasSelectedKey;
+    private bool _hasSelectedCustomButton;
     private TrackpadSide _selectedKeySide = TrackpadSide.Left;
     private int _selectedKeyRow = -1;
     private int _selectedKeyColumn = -1;
+    private string? _selectedCustomButtonId;
     private bool _controlsPaneVisible = true;
     private int _lastLeftPillCount = -1;
     private int _lastRightPillCount = -1;
@@ -108,6 +112,7 @@ public partial class MainWindow : Window
         _settings = UserSettings.Load();
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
+        _keymap.SetActiveLayout(_preset.Name);
         _columnSettings = BuildColumnSettingsForPreset(_settings, _preset);
         if (!string.IsNullOrWhiteSpace(options.CapturePath))
         {
@@ -173,6 +178,17 @@ public partial class MainWindow : Window
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapClearButton.Click += OnKeymapClearClicked;
+        CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
+        CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
+        CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
+        CustomButtonXBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
+        CustomButtonYBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
+        CustomButtonWidthBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
+        CustomButtonHeightBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
+        CustomButtonXBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        CustomButtonYBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        CustomButtonWidthBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        CustomButtonHeightBox.KeyDown += OnCustomButtonGeometryKeyDown;
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
         SourceInitialized += OnSourceInitialized;
@@ -355,7 +371,7 @@ public partial class MainWindow : Window
         KeymapSideCombo.Items.Add(TrackpadSide.Right);
         KeymapSideCombo.SelectedItem = TrackpadSide.Left;
         _suppressKeymapSelectionEvents = false;
-        ClearSelectedKeyForEditing();
+        ClearSelectionForEditing();
         RefreshKeymapEditor();
     }
 
@@ -430,6 +446,7 @@ public partial class MainWindow : Window
         }
 
         _preset = selected;
+        _keymap.SetActiveLayout(_preset.Name);
         _settings.LayoutPresetName = selected.Name;
         _columnSettings = ColumnLayoutDefaults.DefaultSettings(_preset.Columns);
         RefreshColumnLayoutEditor();
@@ -531,6 +548,8 @@ public partial class MainWindow : Window
         {
             LeftSurface.HighlightedKey = null;
             RightSurface.HighlightedKey = null;
+            LeftSurface.HighlightedCustomButtonId = null;
+            RightSurface.HighlightedCustomButtonId = null;
             LeftSurface.EmptyMessage = "Visualizer disabled (engine still running).";
             RightSurface.EmptyMessage = "Visualizer disabled (engine still running).";
         }
@@ -943,6 +962,7 @@ public partial class MainWindow : Window
         _settings.Save();
         _touchActor?.SetPersistentLayer(_activeLayer);
         UpdateLabelMatrices();
+        EnsureSelectedKeyStillValid();
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
         UpdateEngineStateDetails();
@@ -1100,8 +1120,31 @@ public partial class MainWindow : Window
     {
         LeftSurface.LabelMatrix = BuildLabelMatrix(TrackpadSide.Left);
         RightSurface.LabelMatrix = BuildLabelMatrix(TrackpadSide.Right);
+        LeftSurface.CustomButtons = BuildSurfaceCustomButtons(TrackpadSide.Left);
+        RightSurface.CustomButtons = BuildSurfaceCustomButtons(TrackpadSide.Right);
         LeftSurface.InvalidateVisual();
         RightSurface.InvalidateVisual();
+    }
+
+    private SurfaceCustomButton[] BuildSurfaceCustomButtons(TrackpadSide side)
+    {
+        IReadOnlyList<CustomButton> buttons = _keymap.ResolveCustomButtons(GetSelectedLayer(), side);
+        if (buttons.Count == 0)
+        {
+            return Array.Empty<SurfaceCustomButton>();
+        }
+
+        SurfaceCustomButton[] output = new SurfaceCustomButton[buttons.Count];
+        for (int i = 0; i < buttons.Count; i++)
+        {
+            CustomButton button = buttons[i];
+            string primary = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
+            string? hold = button.Hold?.Label;
+            string label = string.IsNullOrWhiteSpace(hold) ? primary : $"{primary}\n{hold}";
+            output[i] = new SurfaceCustomButton(button.Id, button.Rect, label);
+        }
+
+        return output;
     }
 
     private string[][] BuildLabelMatrix(TrackpadSide side)
@@ -1136,9 +1179,9 @@ public partial class MainWindow : Window
         if (sender == KeymapSideCombo)
         {
             TrackpadSide side = KeymapSideCombo.SelectedItem is TrackpadSide selected ? selected : TrackpadSide.Left;
-            if (_hasSelectedKey && _selectedKeySide != side)
+            if ((_hasSelectedKey || _hasSelectedCustomButton) && _selectedKeySide != side)
             {
-                ClearSelectedKeyForEditing();
+                ClearSelectionForEditing();
             }
         }
 
@@ -1148,13 +1191,38 @@ public partial class MainWindow : Window
     private void RefreshKeymapEditor()
     {
         _suppressKeymapActionEvents = true;
+        if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            KeymapPrimaryCombo.IsEnabled = true;
+            KeymapHoldCombo.IsEnabled = true;
+            KeymapClearButton.IsEnabled = false;
+            CustomButtonDeleteButton.IsEnabled = true;
+            SetCustomButtonGeometryEditorEnabled(true);
+
+            string buttonPrimary = string.IsNullOrWhiteSpace(selectedButton.Primary?.Label) ? "None" : selectedButton.Primary.Label;
+            string buttonHold = selectedButton.Hold?.Label ?? "None";
+            EnsureActionOption(buttonPrimary);
+            EnsureActionOption(buttonHold);
+            KeymapPrimaryCombo.SelectedItem = buttonPrimary;
+            KeymapHoldCombo.SelectedItem = buttonHold;
+            CustomButtonXBox.Text = FormatNumber(selectedButton.Rect.X * 100.0);
+            CustomButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
+            CustomButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
+            CustomButtonHeightBox.Text = FormatNumber(selectedButton.Rect.Height * 100.0);
+            _suppressKeymapActionEvents = false;
+            return;
+        }
+
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
             KeymapClearButton.IsEnabled = false;
+            CustomButtonDeleteButton.IsEnabled = false;
+            SetCustomButtonGeometryEditorEnabled(false);
             KeymapPrimaryCombo.SelectedItem = "None";
             KeymapHoldCombo.SelectedItem = "None";
+            ClearCustomButtonGeometryEditorValues();
             _suppressKeymapActionEvents = false;
             return;
         }
@@ -1162,7 +1230,7 @@ public partial class MainWindow : Window
         KeyLayout layout = side == TrackpadSide.Left ? _leftLayout : _rightLayout;
         if (row < 0 || row >= layout.Labels.Length || column < 0 || column >= layout.Labels[row].Length)
         {
-            ClearSelectedKeyForEditing();
+            ClearSelectionForEditing();
             _suppressKeymapActionEvents = false;
             return;
         }
@@ -1170,6 +1238,9 @@ public partial class MainWindow : Window
         KeymapPrimaryCombo.IsEnabled = true;
         KeymapHoldCombo.IsEnabled = true;
         KeymapClearButton.IsEnabled = true;
+        CustomButtonDeleteButton.IsEnabled = false;
+        SetCustomButtonGeometryEditorEnabled(false);
+        ClearCustomButtonGeometryEditorValues();
         string defaultLabel = layout.Labels[row][column];
         string storageKey = GridKeyPosition.StorageKey(side, row, column);
         KeyMapping mapping = _keymap.ResolveMapping(GetSelectedLayer(), storageKey, defaultLabel);
@@ -1180,6 +1251,22 @@ public partial class MainWindow : Window
         KeymapPrimaryCombo.SelectedItem = primary;
         KeymapHoldCombo.SelectedItem = hold;
         _suppressKeymapActionEvents = false;
+    }
+
+    private void SetCustomButtonGeometryEditorEnabled(bool enabled)
+    {
+        CustomButtonXBox.IsEnabled = enabled;
+        CustomButtonYBox.IsEnabled = enabled;
+        CustomButtonWidthBox.IsEnabled = enabled;
+        CustomButtonHeightBox.IsEnabled = enabled;
+    }
+
+    private void ClearCustomButtonGeometryEditorValues()
+    {
+        CustomButtonXBox.Text = string.Empty;
+        CustomButtonYBox.Text = string.Empty;
+        CustomButtonWidthBox.Text = string.Empty;
+        CustomButtonHeightBox.Text = string.Empty;
     }
 
     private void OnKeymapActionSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -1194,6 +1281,27 @@ public partial class MainWindow : Window
 
     private void ApplySelectedKeymapOverride()
     {
+        int layer = GetSelectedLayer();
+        string selectedPrimary = KeymapPrimaryCombo.SelectedItem as string ?? "None";
+        string selectedHold = KeymapHoldCombo.SelectedItem as string ?? "None";
+        string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
+
+        if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            selectedButton.Primary ??= new KeyAction();
+            selectedButton.Primary.Label = selectedPrimary;
+            selectedButton.Hold = hold == null ? null : new KeyAction { Label = hold };
+            selectedButton.Layer = layer;
+
+            _keymap.Save();
+            UpdateLabelMatrices();
+            _touchActor?.ConfigureKeymap(_keymap);
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+            RefreshKeymapEditor();
+            return;
+        }
+
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
             return;
@@ -1201,12 +1309,8 @@ public partial class MainWindow : Window
 
         KeyLayout layout = side == TrackpadSide.Left ? _leftLayout : _rightLayout;
         string defaultLabel = layout.Labels[row][column];
-        string selectedPrimary = KeymapPrimaryCombo.SelectedItem as string ?? "None";
-        string selectedHold = KeymapHoldCombo.SelectedItem as string ?? "None";
         string primary = selectedPrimary;
-        string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
         string storageKey = GridKeyPosition.StorageKey(side, row, column);
-        int layer = GetSelectedLayer();
 
         if (!_keymap.Mappings.TryGetValue(layer, out var layerMap))
         {
@@ -1230,6 +1334,11 @@ public partial class MainWindow : Window
 
     private void OnKeymapClearClicked(object sender, RoutedEventArgs e)
     {
+        if (_hasSelectedCustomButton)
+        {
+            return;
+        }
+
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
             return;
@@ -1252,12 +1361,130 @@ public partial class MainWindow : Window
         RefreshKeymapEditor();
     }
 
+    private void OnCustomButtonAddLeftClicked(object sender, RoutedEventArgs e)
+    {
+        AddCustomButton(TrackpadSide.Left);
+    }
+
+    private void OnCustomButtonAddRightClicked(object sender, RoutedEventArgs e)
+    {
+        AddCustomButton(TrackpadSide.Right);
+    }
+
+    private void AddCustomButton(TrackpadSide side)
+    {
+        int layer = GetSelectedLayer();
+        List<CustomButton> buttons = _keymap.GetOrCreateCustomButtons(layer);
+        CustomButton button = new()
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Side = side,
+            Rect = KeymapStore.ClampCustomButtonRect(new NormalizedRect(0.41, 0.43, 0.18, 0.14)),
+            Primary = new KeyAction { Label = "Space" },
+            Hold = null,
+            Layer = layer
+        };
+        buttons.Add(button);
+
+        _keymap.Save();
+        UpdateLabelMatrices();
+        _touchActor?.ConfigureKeymap(_keymap);
+        if (_visualizerEnabled)
+        {
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+        }
+        SelectCustomButtonForEditing(side, button.Id);
+    }
+
+    private void OnCustomButtonDeleteClicked(object sender, RoutedEventArgs e)
+    {
+        if (!TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            return;
+        }
+
+        int layer = GetSelectedLayer();
+        if (!_keymap.RemoveCustomButton(layer, selectedButton.Id))
+        {
+            return;
+        }
+
+        _keymap.Save();
+        ClearSelectionForEditing();
+        UpdateLabelMatrices();
+        _touchActor?.ConfigureKeymap(_keymap);
+        if (_visualizerEnabled)
+        {
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+        }
+        RefreshKeymapEditor();
+    }
+
+    private void OnCustomButtonGeometryCommitted(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressKeymapActionEvents || _suppressKeymapSelectionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedCustomButtonGeometryFromUi();
+    }
+
+    private void OnCustomButtonGeometryKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (_suppressKeymapActionEvents || _suppressKeymapSelectionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedCustomButtonGeometryFromUi();
+        e.Handled = true;
+    }
+
+    private void ApplySelectedCustomButtonGeometryFromUi()
+    {
+        if (!TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            return;
+        }
+
+        double xPercent = ReadDouble(CustomButtonXBox, selectedButton.Rect.X * 100.0);
+        double yPercent = ReadDouble(CustomButtonYBox, selectedButton.Rect.Y * 100.0);
+        double widthPercent = ReadDouble(CustomButtonWidthBox, selectedButton.Rect.Width * 100.0);
+        double heightPercent = ReadDouble(CustomButtonHeightBox, selectedButton.Rect.Height * 100.0);
+
+        double width = Math.Clamp(widthPercent / 100.0, MinCustomButtonPercent / 100.0, 1.0);
+        double height = Math.Clamp(heightPercent / 100.0, MinCustomButtonPercent / 100.0, 1.0);
+        double x = Math.Clamp(xPercent / 100.0, 0.0, 1.0 - width);
+        double y = Math.Clamp(yPercent / 100.0, 0.0, 1.0 - height);
+
+        selectedButton.Rect = KeymapStore.ClampCustomButtonRect(new NormalizedRect(x, y, width, height));
+        selectedButton.Layer = GetSelectedLayer();
+
+        _keymap.Save();
+        UpdateLabelMatrices();
+        _touchActor?.ConfigureKeymap(_keymap);
+        if (_visualizerEnabled)
+        {
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+        }
+        RefreshKeymapEditor();
+    }
+
     private bool TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column)
     {
         side = _selectedKeySide;
         row = _selectedKeyRow;
         column = _selectedKeyColumn;
-        if (!_hasSelectedKey)
+        if (!_hasSelectedKey || _hasSelectedCustomButton)
         {
             return false;
         }
@@ -1268,6 +1495,29 @@ public partial class MainWindow : Window
         }
 
         return row >= 0 && column >= 0;
+    }
+
+    private bool TryGetSelectedCustomButton(out TrackpadSide side, [NotNullWhen(true)] out CustomButton? button)
+    {
+        side = _selectedKeySide;
+        button = null;
+        if (!_hasSelectedCustomButton || string.IsNullOrWhiteSpace(_selectedCustomButtonId))
+        {
+            return false;
+        }
+
+        if (KeymapSideCombo.SelectedItem is TrackpadSide selectedSide && selectedSide != _selectedKeySide)
+        {
+            return false;
+        }
+
+        button = _keymap.FindCustomButton(GetSelectedLayer(), _selectedCustomButtonId);
+        if (button == null)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private void OnLeftSurfaceMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
@@ -1283,18 +1533,28 @@ public partial class MainWindow : Window
     private void HandleSurfaceKeymapSelection(TrackpadSide side, TouchView surface, KeyLayout layout, MouseButtonEventArgs e)
     {
         Point point = e.GetPosition(surface);
-        if (!TryHitKeyAtPoint(surface, layout, point, out int row, out int column))
+        IReadOnlyList<CustomButton> customButtons = _keymap.ResolveCustomButtons(GetSelectedLayer(), side);
+        if (!TryHitSelectionAtPoint(surface, layout, customButtons, point, out int row, out int column, out string? customButtonId))
         {
             return;
         }
 
-        SelectKeyForEditing(side, row, column);
+        if (!string.IsNullOrWhiteSpace(customButtonId))
+        {
+            SelectCustomButtonForEditing(side, customButtonId);
+        }
+        else
+        {
+            SelectKeyForEditing(side, row, column);
+        }
         e.Handled = true;
     }
 
     private void SelectKeyForEditing(TrackpadSide side, int row, int column)
     {
         _hasSelectedKey = true;
+        _hasSelectedCustomButton = false;
+        _selectedCustomButtonId = null;
         _selectedKeySide = side;
         _selectedKeyRow = row;
         _selectedKeyColumn = column;
@@ -1305,9 +1565,26 @@ public partial class MainWindow : Window
         RefreshKeymapEditor();
     }
 
-    private void ClearSelectedKeyForEditing()
+    private void SelectCustomButtonForEditing(TrackpadSide side, string buttonId)
     {
         _hasSelectedKey = false;
+        _hasSelectedCustomButton = true;
+        _selectedCustomButtonId = buttonId;
+        _selectedKeySide = side;
+        _selectedKeyRow = -1;
+        _selectedKeyColumn = -1;
+        _suppressKeymapSelectionEvents = true;
+        KeymapSideCombo.SelectedItem = side;
+        _suppressKeymapSelectionEvents = false;
+        UpdateSelectedKeyHighlight();
+        RefreshKeymapEditor();
+    }
+
+    private void ClearSelectionForEditing()
+    {
+        _hasSelectedKey = false;
+        _hasSelectedCustomButton = false;
+        _selectedCustomButtonId = null;
         _selectedKeySide = TrackpadSide.Left;
         _selectedKeyRow = -1;
         _selectedKeyColumn = -1;
@@ -1316,8 +1593,18 @@ public partial class MainWindow : Window
 
     private void EnsureSelectedKeyStillValid()
     {
-        if (!_hasSelectedKey)
+        if (!_hasSelectedKey && !_hasSelectedCustomButton)
         {
+            return;
+        }
+
+        if (_hasSelectedCustomButton)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedCustomButtonId) ||
+                _keymap.FindCustomButton(GetSelectedLayer(), _selectedCustomButtonId) == null)
+            {
+                ClearSelectionForEditing();
+            }
             return;
         }
 
@@ -1327,7 +1614,7 @@ public partial class MainWindow : Window
             _selectedKeyColumn < 0 ||
             (_selectedKeyRow < layout.Rects.Length && _selectedKeyColumn >= layout.Rects[_selectedKeyRow].Length))
         {
-            ClearSelectedKeyForEditing();
+            ClearSelectionForEditing();
         }
     }
 
@@ -1335,8 +1622,21 @@ public partial class MainWindow : Window
     {
         LeftSurface.SelectedKey = null;
         RightSurface.SelectedKey = null;
+        LeftSurface.SelectedCustomButtonId = null;
+        RightSurface.SelectedCustomButtonId = null;
 
-        if (_hasSelectedKey)
+        if (_hasSelectedCustomButton && !string.IsNullOrWhiteSpace(_selectedCustomButtonId))
+        {
+            if (_selectedKeySide == TrackpadSide.Left)
+            {
+                LeftSurface.SelectedCustomButtonId = _selectedCustomButtonId;
+            }
+            else
+            {
+                RightSurface.SelectedCustomButtonId = _selectedCustomButtonId;
+            }
+        }
+        else if (_hasSelectedKey)
         {
             KeyLayout layout = _selectedKeySide == TrackpadSide.Left ? _leftLayout : _rightLayout;
             if (_selectedKeyRow >= 0 &&
@@ -1359,11 +1659,19 @@ public partial class MainWindow : Window
         RightSurface.InvalidateVisual();
     }
 
-    private static bool TryHitKeyAtPoint(TouchView surface, KeyLayout layout, Point point, out int row, out int column)
+    private static bool TryHitSelectionAtPoint(
+        TouchView surface,
+        KeyLayout layout,
+        IReadOnlyList<CustomButton> customButtons,
+        Point point,
+        out int row,
+        out int column,
+        out string? customButtonId)
     {
         row = -1;
         column = -1;
-        if (layout.Rects.Length == 0)
+        customButtonId = null;
+        if (layout.Rects.Length == 0 && (customButtons == null || customButtons.Count == 0))
         {
             return false;
         }
@@ -1386,23 +1694,61 @@ public partial class MainWindow : Window
 
         double xNorm = (point.X - pad.Left) / pad.Width;
         double yNorm = (point.Y - pad.Top) / pad.Height;
+        double bestScore = double.NegativeInfinity;
+        double bestArea = double.PositiveInfinity;
         for (int r = 0; r < layout.Rects.Length; r++)
         {
             NormalizedRect[] rowRects = layout.Rects[r];
             for (int c = 0; c < rowRects.Length; c++)
             {
-                if (!rowRects[c].Contains(xNorm, yNorm))
+                NormalizedRect rect = rowRects[c];
+                if (!rect.Contains(xNorm, yNorm))
                 {
                     continue;
                 }
 
-                row = r;
-                column = c;
-                return true;
+                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
+                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
+                double score = Math.Min(dx, dy);
+                double area = rect.Width * rect.Height;
+                if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
+                {
+                    bestScore = score;
+                    bestArea = area;
+                    row = r;
+                    column = c;
+                    customButtonId = null;
+                }
             }
         }
 
-        return false;
+        if (customButtons != null)
+        {
+            for (int i = 0; i < customButtons.Count; i++)
+            {
+                CustomButton button = customButtons[i];
+                NormalizedRect rect = button.Rect;
+                if (!rect.Contains(xNorm, yNorm))
+                {
+                    continue;
+                }
+
+                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
+                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
+                double score = Math.Min(dx, dy);
+                double area = rect.Width * rect.Height;
+                if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
+                {
+                    bestScore = score;
+                    bestArea = area;
+                    row = -1;
+                    column = -1;
+                    customButtonId = button.Id;
+                }
+            }
+        }
+
+        return row >= 0 || !string.IsNullOrWhiteSpace(customButtonId);
     }
 
     private static bool TryCreatePadRect(Rect bounds, double trackpadWidthMm, double trackpadHeightMm, out Rect pad)
@@ -1446,14 +1792,16 @@ public partial class MainWindow : Window
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
         int contactCount = session.State.SnapshotContacts(contacts);
         KeyLayout layout = side == TrackpadSide.Left ? _leftLayout : _rightLayout;
+        IReadOnlyList<CustomButton> customButtons = _keymap.ResolveCustomButtons(GetSelectedLayer(), side);
         ushort maxX = (side == TrackpadSide.Left ? LeftSurface : RightSurface).RequestedMaxX ?? DefaultMaxX;
         ushort maxY = (side == TrackpadSide.Left ? LeftSurface : RightSurface).RequestedMaxY ?? DefaultMaxY;
         bool suppressHighlights = ShouldSuppressKeyHighlighting();
 
         NormalizedRect? hit = null;
+        string? hitCustomButtonId = null;
         string hitLabel = "--";
 
-        if (!suppressHighlights && contactCount > 0 && layout.Rects.Length > 0)
+        if (!suppressHighlights && contactCount > 0 && (layout.Rects.Length > 0 || customButtons.Count > 0))
         {
             TouchContact? selected = null;
             for (int i = 0; i < contactCount; i++)
@@ -1470,22 +1818,55 @@ public partial class MainWindow : Window
             {
                 double xNorm = selected.Value.X / (double)maxX;
                 double yNorm = selected.Value.Y / (double)maxY;
+                double bestScore = double.NegativeInfinity;
+                double bestArea = double.PositiveInfinity;
 
                 for (int row = 0; row < layout.Rects.Length; row++)
                 {
                     NormalizedRect[] rowRects = layout.Rects[row];
                     for (int col = 0; col < rowRects.Length; col++)
                     {
-                        if (rowRects[col].Contains(xNorm, yNorm))
+                        NormalizedRect rect = rowRects[col];
+                        if (!rect.Contains(xNorm, yNorm))
                         {
-                            hit = rowRects[col];
+                            continue;
+                        }
+
+                        double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
+                        double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
+                        double score = Math.Min(dx, dy);
+                        double area = rect.Width * rect.Height;
+                        if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
+                        {
+                            bestScore = score;
+                            bestArea = area;
+                            hit = rect;
+                            hitCustomButtonId = null;
                             hitLabel = _keymap.ResolveLabel(GetSelectedLayer(), GridKeyPosition.StorageKey(side, row, col), layout.Labels[row][col]);
-                            break;
                         }
                     }
-                    if (hit.HasValue)
+                }
+
+                for (int i = 0; i < customButtons.Count; i++)
+                {
+                    CustomButton button = customButtons[i];
+                    NormalizedRect rect = button.Rect;
+                    if (!rect.Contains(xNorm, yNorm))
                     {
-                        break;
+                        continue;
+                    }
+
+                    double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
+                    double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
+                    double score = Math.Min(dx, dy);
+                    double area = rect.Width * rect.Height;
+                    if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
+                    {
+                        bestScore = score;
+                        bestArea = area;
+                        hit = rect;
+                        hitCustomButtonId = button.Id;
+                        hitLabel = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
                     }
                 }
             }
@@ -1494,10 +1875,12 @@ public partial class MainWindow : Window
         if (side == TrackpadSide.Left)
         {
             LeftSurface.HighlightedKey = hit;
+            LeftSurface.HighlightedCustomButtonId = hitCustomButtonId;
         }
         else
         {
             RightSurface.HighlightedKey = hit;
+            RightSurface.HighlightedCustomButtonId = hitCustomButtonId;
         }
 
         UpdateHitDisplay(side, hitLabel, hit);

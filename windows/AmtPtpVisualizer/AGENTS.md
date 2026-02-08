@@ -13,6 +13,7 @@
 ## Key Files & Responsibilities
 - `AmtPtpVisualizer/PtpReport.cs`: zero-allocation parser for touchpad report payloads.
 - `AmtPtpVisualizer/MainWindow.xaml.cs`: reader loop, UI orchestration, and left/right device routing.
+- `AmtPtpVisualizer/KeymapStore.cs`: layout-scoped keymap/custom-button persistence (`6x3`, `6x4`, etc.) across layers/sides.
 - `AmtPtpVisualizer/Core/Engine/*`: touch processor state machine and key-binding resolution.
 - `AmtPtpVisualizer/Core/Diagnostics/*`: capture format, replay runner, metrics, and self-tests.
 

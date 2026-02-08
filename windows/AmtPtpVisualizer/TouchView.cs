@@ -16,6 +16,9 @@ public sealed class TouchView : FrameworkElement
     public KeyLayout? Layout { get; set; }
     public NormalizedRect? HighlightedKey { get; set; }
     public NormalizedRect? SelectedKey { get; set; }
+    public SurfaceCustomButton[] CustomButtons { get; set; } = Array.Empty<SurfaceCustomButton>();
+    public string? HighlightedCustomButtonId { get; set; }
+    public string? SelectedCustomButtonId { get; set; }
     public string[][]? LabelMatrix { get; set; }
     public string LastHitLabel { get; set; } = "--";
 
@@ -35,6 +38,15 @@ public sealed class TouchView : FrameworkElement
     private readonly Brush _selectedFillBrush = new SolidColorBrush(Color.FromRgb(18, 64, 120));
     private readonly Brush _selectedStrokeBrush = new SolidColorBrush(Color.FromRgb(90, 170, 255));
     private readonly Pen _selectedStrokePen;
+    private readonly Brush _customFillBrush = new SolidColorBrush(Color.FromRgb(26, 33, 40));
+    private readonly Brush _customStrokeBrush = new SolidColorBrush(Color.FromRgb(112, 122, 130));
+    private readonly Pen _customStrokePen;
+    private readonly Brush _customHitFillBrush = new SolidColorBrush(Color.FromRgb(25, 96, 50));
+    private readonly Brush _customHitStrokeBrush = new SolidColorBrush(Color.FromRgb(95, 220, 140));
+    private readonly Pen _customHitStrokePen;
+    private readonly Brush _customSelectedFillBrush = new SolidColorBrush(Color.FromRgb(24, 74, 136));
+    private readonly Brush _customSelectedStrokeBrush = new SolidColorBrush(Color.FromRgb(110, 186, 255));
+    private readonly Pen _customSelectedStrokePen;
     private readonly Brush _messageBrush = new SolidColorBrush(Color.FromRgb(120, 128, 136));
     private readonly Brush _footerBrush = new SolidColorBrush(Color.FromRgb(150, 156, 162));
     private readonly Typeface _uiTypeface = new("Segoe UI");
@@ -48,6 +60,9 @@ public sealed class TouchView : FrameworkElement
         _keyStrokePen = new Pen(_keyStrokeBrush, 1);
         _hitStrokePen = new Pen(_hitStrokeBrush, 1.5);
         _selectedStrokePen = new Pen(_selectedStrokeBrush, 1.8);
+        _customStrokePen = new Pen(_customStrokeBrush, 1.1);
+        _customHitStrokePen = new Pen(_customHitStrokeBrush, 1.6);
+        _customSelectedStrokePen = new Pen(_customSelectedStrokeBrush, 1.9);
     }
 
     protected override void OnRender(DrawingContext dc)
@@ -105,6 +120,7 @@ public sealed class TouchView : FrameworkElement
         dc.DrawRoundedRectangle(_padBrush, _borderPen, pad, 14, 14);
 
         DrawKeyGrid(dc, pad);
+        DrawCustomButtons(dc, pad);
         for (int i = 0; i < contactCount; i++)
         {
             TouchContact c = contacts[i];
@@ -257,6 +273,76 @@ public sealed class TouchView : FrameworkElement
         }
     }
 
+    private void DrawCustomButtons(DrawingContext dc, Rect pad)
+    {
+        if (CustomButtons == null || CustomButtons.Length == 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < CustomButtons.Length; i++)
+        {
+            SurfaceCustomButton button = CustomButtons[i];
+            Rect rect = button.Rect.ToRect(pad);
+            dc.DrawRoundedRectangle(_customFillBrush, _customStrokePen, rect, 8, 8);
+
+            if (!string.IsNullOrWhiteSpace(HighlightedCustomButtonId) &&
+                string.Equals(button.Id, HighlightedCustomButtonId, StringComparison.Ordinal))
+            {
+                dc.DrawRoundedRectangle(_customHitFillBrush, _customHitStrokePen, rect, 8, 8);
+            }
+
+            if (!string.IsNullOrWhiteSpace(SelectedCustomButtonId) &&
+                string.Equals(button.Id, SelectedCustomButtonId, StringComparison.Ordinal))
+            {
+                dc.DrawRoundedRectangle(_customSelectedFillBrush, _customSelectedStrokePen, rect, 8, 8);
+            }
+
+            DrawButtonLabel(dc, rect, button.Label);
+        }
+    }
+
+    private void DrawButtonLabel(DrawingContext dc, Rect rect, string label)
+    {
+        int split = label.IndexOf('\n');
+        if (split > 0 && split < label.Length - 1)
+        {
+            string primary = label.Substring(0, split);
+            string hold = label.Substring(split + 1);
+
+            FormattedText primaryText = new(
+                primary,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                10,
+                _textBrush,
+                1.0);
+            dc.DrawText(primaryText, new Point(rect.Left + (rect.Width - primaryText.Width) / 2, rect.Top + (rect.Height - primaryText.Height) / 2));
+
+            FormattedText holdText = new(
+                hold,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                8,
+                _textBrush,
+                1.0);
+            dc.DrawText(holdText, new Point(rect.Left + (rect.Width - holdText.Width) / 2, rect.Bottom - holdText.Height - 2));
+            return;
+        }
+
+        FormattedText text = new(
+            label,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            _monoTypeface,
+            10,
+            _textBrush,
+            1.0);
+        dc.DrawText(text, new Point(rect.Left + (rect.Width - text.Width) / 2, rect.Top + (rect.Height - text.Height) / 2));
+    }
+
     private static bool RectEquals(NormalizedRect a, NormalizedRect b)
     {
         return Math.Abs(a.X - b.X) < 0.00001 && Math.Abs(a.Y - b.Y) < 0.00001 && Math.Abs(a.Width - b.Width) < 0.00001 && Math.Abs(a.Height - b.Height) < 0.00001;
@@ -285,3 +371,5 @@ public sealed class TouchView : FrameworkElement
         return new Rect(x, y, width, height);
     }
 }
+
+public readonly record struct SurfaceCustomButton(string Id, NormalizedRect Rect, string Label);
