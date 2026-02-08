@@ -20,8 +20,3 @@ Since it is built on the same technology, I thought it would be fun to try and c
 <img src="touchstreamLP.jpg" width="900px" />
 
 <img src="apple-magic-touchstreamlp.jpg" width="900px" />
-
-## Decals
-<img src="splatpad.jpg" width="900px" />
-100% unaffiliated **BUT** I did order some really dope custom decals from here and they were **perfect**!
-  https://www.decalgirl.com/products/custom-apple-magic-trackpad-skin
