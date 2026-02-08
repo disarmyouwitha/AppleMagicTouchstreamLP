@@ -31,12 +31,12 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 ```powershell
 # from repo root
 
-dotnet build tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
+dotnet build AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
 ## Run
 ```powershell
-dotnet run --project tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
+dotnet run --project AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
 ### Optional arguments
@@ -57,7 +57,7 @@ dotnet run --project tools\AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 
 ### 1. Capture a live session
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --capture .\touch-session.atpcap --metrics-out .\live-metrics.json --replay-trace-out .\capture-trace.json
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --capture .\touch-session.atpcap --metrics-out .\live-metrics.json --replay-trace-out .\capture-trace.json
 ```
 
 - Close the app to flush final metrics output.
@@ -65,7 +65,7 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 
 ### 2. Validate a capture headlessly (deterministic replay)
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --metrics-out .\replay-metrics.json --replay-trace-out .\replay-trace.json
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --metrics-out .\replay-metrics.json --replay-trace-out .\replay-trace.json
 ```
 
 - This mode does not open WPF UI.
@@ -73,7 +73,7 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 
 ### 3. Replay directly into visualizer UI
 ```powershell
-dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --replay-ui --replay-speed 1
+dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay .\touch-session.atpcap --replay-ui --replay-speed 1
 ```
 
 - Uses replay devices populated from capture metadata.
@@ -91,10 +91,10 @@ dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -
 - Default live mode (no replay flags) continues to use the normal WM_INPUT ingest path.
 
 ### Replay smoke fixture
-- Capture: `tools/AmtPtpVisualizer/fixtures/replay/smoke.atpcap`
-- Fixture: `tools/AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
+- Capture: `AmtPtpVisualizer/fixtures/replay/smoke.atpcap`
+- Fixture: `AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
 - Run:
-  - `dotnet run --project tools/AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay tools/AmtPtpVisualizer/fixtures/replay/smoke.atpcap --fixture tools/AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
+  - `dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --replay AmtPtpVisualizer/fixtures/replay/smoke.atpcap --fixture AmtPtpVisualizer/fixtures/replay/smoke.fixture.json`
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\AmtPtpVisualizer\\settings.json`: device selections + active layer.
