@@ -113,45 +113,40 @@ public sealed class TouchView : FrameworkElement
 
             dc.DrawEllipse(_tipBrush, null, new Point(x, y), 20, 20);
 
-            string label = $"{c.Id}";
-            FormattedText text = new(
-                label,
-                CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                _uiTypeface,
-                12,
-                _textBrush,
-                1.0);
-            dc.DrawText(text, new Point(x - text.Width / 2, y - text.Height / 2));
-
             if (pressureCapability == PressureCapability.Supported)
             {
-                FormattedText detailsText = new(
+                FormattedText idText = new(
+                    c.Id.ToString(CultureInfo.InvariantCulture),
+                    CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight,
+                    _uiTypeface,
+                    10,
+                    _textBrush,
+                    1.0);
+                FormattedText pressureText = new(
                     $"p:{c.Pressure6}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,
+                    9,
+                    _textBrush,
+                    1.0);
+                double spacing = 1.0;
+                double startY = y - ((idText.Height + pressureText.Height + spacing) / 2);
+                dc.DrawText(idText, new Point(x - (idText.Width / 2), startY));
+                dc.DrawText(pressureText, new Point(x - (pressureText.Width / 2), startY + idText.Height + spacing));
+            }
+            else
+            {
+                FormattedText idText = new(
+                    c.Id.ToString(CultureInfo.InvariantCulture),
+                    CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight,
+                    _uiTypeface,
                     10,
                     _textBrush,
                     1.0);
-
-                double detailsX = x + 24;
-                if (detailsX + detailsText.Width > pad.Right - 8)
-                {
-                    detailsX = x - detailsText.Width - 24;
-                }
-
-                double detailsY = y - detailsText.Height / 2;
-                if (detailsY < pad.Top + 6)
-                {
-                    detailsY = pad.Top + 6;
-                }
-                else if (detailsY + detailsText.Height > pad.Bottom - 6)
-                {
-                    detailsY = pad.Bottom - detailsText.Height - 6;
-                }
-
-                dc.DrawText(detailsText, new Point(detailsX, detailsY));
+                dc.DrawText(idText, new Point(x - (idText.Width / 2), y - (idText.Height / 2)));
             }
         }
 
