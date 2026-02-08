@@ -28,14 +28,12 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - **Replay visual playback:** run with `--replay <file> --replay-ui` to route replayed frames into the left/right visualizer surfaces.
 
 ## Build
-```powershell
-# from repo root
-
+```
 dotnet build AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
 ## Run
-```powershell
+```
 dotnet run --project AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
