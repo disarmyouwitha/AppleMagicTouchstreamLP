@@ -65,6 +65,8 @@ public partial class MainWindow : Window
     private bool _suppressReplaySpeedEvents;
     private bool _suppressReplayTimelineEvents;
     private HwndSource? _hwndSource;
+    private readonly GlobalMouseClickSuppressor _globalClickSuppressor = new();
+    private bool _suppressGlobalClicks;
     private string _leftStatus = "None";
     private string _rightStatus = "None";
     private string _lastLeftHit = "--";
@@ -208,6 +210,7 @@ public partial class MainWindow : Window
         _touchActor.SetTypingEnabled(true);
         _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
         _touchActor.SetAllowMouseTakeover(true);
+        _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
 
         InitializeReplayControls();
         UpdateLabelMatrices();
@@ -231,6 +234,8 @@ public partial class MainWindow : Window
             ApplySettingsFromUi();
             PersistSelections();
             _keymap.Save();
+            _globalClickSuppressor.SetEnabled(false);
+            _globalClickSuppressor.Dispose();
             _hwndSource?.RemoveHook(WndProc);
             _replayTimer?.Stop();
             _touchActor?.Dispose();
@@ -260,10 +265,43 @@ public partial class MainWindow : Window
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         _hwndSource = HwndSource.FromHwnd(hwnd);
         _hwndSource?.AddHook(WndProc);
+        EnsureGlobalClickSuppressorInstalled();
 
         if (!RawInputInterop.RegisterForTouchpadRawInput(hwnd, out string? error))
         {
             StatusText.Text = $"Raw input registration failed ({error}).";
+        }
+    }
+
+    private void EnsureGlobalClickSuppressorInstalled()
+    {
+        if (_globalClickSuppressor.IsInstalled)
+        {
+            _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
+            return;
+        }
+
+        if (!_globalClickSuppressor.Install(out string? error))
+        {
+            Console.WriteLine($"Global click suppression hook failed ({error}).");
+            return;
+        }
+
+        _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
+    }
+
+    private void UpdateGlobalClickSuppressionState(bool enabled)
+    {
+        bool next = !IsReplayMode && enabled;
+        if (_suppressGlobalClicks == next)
+        {
+            return;
+        }
+
+        _suppressGlobalClicks = next;
+        if (_globalClickSuppressor.IsInstalled)
+        {
+            _globalClickSuppressor.SetEnabled(next);
         }
     }
 
@@ -2566,6 +2604,7 @@ public partial class MainWindow : Window
         Brush intentBrush;
         string modeLabel;
         Brush modeBrush;
+        bool suppressGlobalClicks;
         if (_touchActor == null)
         {
             next = "State: n/a";
@@ -2575,6 +2614,7 @@ public partial class MainWindow : Window
             intentBrush = IntentUnknownBrush;
             modeLabel = "n/a";
             modeBrush = ModeUnknownBrush;
+            suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
         else
         {
@@ -2584,6 +2624,7 @@ public partial class MainWindow : Window
             rightContacts = snapshot.RightContacts;
             (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
             (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled;
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;
@@ -2591,6 +2632,7 @@ public partial class MainWindow : Window
             }
         }
 
+        UpdateGlobalClickSuppressionState(suppressGlobalClicks);
         UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
 
         if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
