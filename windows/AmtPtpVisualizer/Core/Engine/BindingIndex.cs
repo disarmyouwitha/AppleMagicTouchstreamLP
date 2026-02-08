@@ -78,6 +78,7 @@ internal sealed class BindingIndex
         int bucketColumns = 12,
         double snapRadiusFraction = 0.35)
     {
+        double snapFraction = Math.Clamp(snapRadiusFraction, 0.0, 2.0);
         int rows = layout.Rects.Length;
         IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
         int estimated = (rows == 0 ? 0 : rows * layout.Rects[0].Length) + customButtons.Count;
@@ -112,7 +113,7 @@ internal sealed class BindingIndex
                 {
                     float centerX = (float)(rect.X + (rect.Width * 0.5));
                     float centerY = (float)(rect.Y + (rect.Height * 0.5));
-                    float radius = (float)(Math.Min(rect.Width, rect.Height) * snapRadiusFraction);
+                    float radius = (float)(Math.Min(rect.Width, rect.Height) * 0.5 * snapFraction);
                     snapBindingIndices[snapCursor] = cursor;
                     snapCentersX[snapCursor] = centerX;
                     snapCentersY[snapCursor] = centerY;
@@ -149,7 +150,7 @@ internal sealed class BindingIndex
             {
                 float centerX = (float)(rect.X + (rect.Width * 0.5));
                 float centerY = (float)(rect.Y + (rect.Height * 0.5));
-                float radius = (float)(Math.Min(rect.Width, rect.Height) * snapRadiusFraction);
+                float radius = (float)(Math.Min(rect.Width, rect.Height) * 0.5 * snapFraction);
                 snapBindingIndices[snapCursor] = cursor;
                 snapCentersX[snapCursor] = centerX;
                 snapCentersY[snapCursor] = centerY;

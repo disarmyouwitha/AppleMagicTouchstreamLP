@@ -206,6 +206,7 @@ public partial class MainWindow : Window
         _dispatchQueue = new DispatchEventQueue();
         _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+        ApplyCoreSettings();
         _touchActor.SetPersistentLayer(_activeLayer);
         _touchActor.SetTypingEnabled(true);
         _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
@@ -600,7 +601,8 @@ public partial class MainWindow : Window
         _settings.TypingGraceMs = ReadDouble(TypingGraceBox, _settings.TypingGraceMs);
         _settings.IntentMoveMm = ReadDouble(IntentMoveBox, _settings.IntentMoveMm);
         _settings.IntentVelocityMmPerSec = ReadDouble(IntentVelocityBox, _settings.IntentVelocityMmPerSec);
-        _settings.SnapRadiusPercent = ReadDouble(SnapRadiusBox, _settings.SnapRadiusPercent);
+        _settings.SnapRadiusPercent = Math.Clamp(ReadDouble(SnapRadiusBox, _settings.SnapRadiusPercent), 0.0, 200.0);
+        SnapRadiusBox.Text = FormatNumber(_settings.SnapRadiusPercent);
         _settings.KeyBufferMs = ReadDouble(KeyBufferBox, _settings.KeyBufferMs);
         _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
         _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
@@ -690,7 +692,7 @@ public partial class MainWindow : Window
             TypingGraceMs = _settings.TypingGraceMs,
             IntentMoveMm = _settings.IntentMoveMm,
             IntentVelocityMmPerSec = _settings.IntentVelocityMmPerSec,
-            SnapRadiusPercent = _settings.SnapRadiusPercent,
+            SnapRadiusPercent = Math.Clamp(_settings.SnapRadiusPercent, 0.0, 200.0),
             SnapAmbiguityRatio = _settings.SnapAmbiguityRatio,
             KeyBufferMs = _settings.KeyBufferMs,
             TapClickEnabled = _settings.TapClickEnabled,

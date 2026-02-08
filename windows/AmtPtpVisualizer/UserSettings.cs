@@ -60,7 +60,13 @@ public sealed class UserSettings
 
             string json = File.ReadAllText(path);
             UserSettings? settings = JsonSerializer.Deserialize<UserSettings>(json);
-            return settings ?? new UserSettings();
+            UserSettings loaded = settings ?? new UserSettings();
+            if (loaded.NormalizeRanges())
+            {
+                loaded.Save();
+            }
+
+            return loaded;
         }
         catch
         {
@@ -87,5 +93,17 @@ public sealed class UserSettings
         {
             // Best-effort persistence.
         }
+    }
+
+    public bool NormalizeRanges()
+    {
+        double clampedSnap = Math.Clamp(SnapRadiusPercent, 0.0, 200.0);
+        if (Math.Abs(clampedSnap - SnapRadiusPercent) < 0.00001)
+        {
+            return false;
+        }
+
+        SnapRadiusPercent = clampedSnap;
+        return true;
     }
 }

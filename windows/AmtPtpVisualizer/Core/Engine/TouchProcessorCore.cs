@@ -508,6 +508,31 @@ internal sealed class TouchProcessorCore
 
         if (!hit.Found)
         {
+            if (!ShouldTrackOffKeyTouchForSnap())
+            {
+                return;
+            }
+
+            TouchBindingState offKey = new(
+                Side: side,
+                BindingIndex: -1,
+                Lifecycle: EngineTouchLifecycle.Pending,
+                StartTicks: timestampTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0,
+                HasHoldAction: false,
+                HoldTriggered: false,
+                MomentaryLayerTarget: -1,
+                DispatchDownSent: false,
+                DispatchDownKind: DispatchEventKind.None,
+                DispatchDownVirtualKey: 0,
+                DispatchDownMouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                DispatchDownLabel: string.Empty);
+            _touchStates.Set(touchKey, offKey);
             return;
         }
 
@@ -604,11 +629,17 @@ internal sealed class TouchProcessorCore
         }
 
         BindingIndex index = state.Side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
-        EngineKeyBinding binding = index.Bindings[state.BindingIndex];
-        EngineKeyAction action = binding.Mapping.Primary;
-        if (state.HoldTriggered && binding.Mapping.HasHold)
+        bool hasBoundBinding = state.BindingIndex >= 0 && state.BindingIndex < index.Bindings.Length;
+        EngineKeyBinding binding = default;
+        EngineKeyAction action = EngineKeyAction.None;
+        if (hasBoundBinding)
         {
-            action = binding.Mapping.Hold;
+            binding = index.Bindings[state.BindingIndex];
+            action = binding.Mapping.Primary;
+            if (state.HoldTriggered && binding.Mapping.HasHold)
+            {
+                action = binding.Mapping.Hold;
+            }
         }
 
         if (state.MaxDistanceMm > _config.DragCancelMm)
@@ -632,7 +663,7 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        if (binding.Rect.Contains(state.LastXNorm, state.LastYNorm))
+        if (hasBoundBinding && binding.Rect.Contains(state.LastXNorm, state.LastYNorm))
         {
             ApplyReleaseAction(action, state.Side, touchKey, timestampTicks);
             return;
@@ -642,7 +673,7 @@ internal sealed class TouchProcessorCore
         EngineBindingHit directHit = index.HitTest(state.LastXNorm, state.LastYNorm);
         if (directHit.Found)
         {
-            if (directHit.BindingIndex != state.BindingIndex)
+            if (hasBoundBinding && directHit.BindingIndex != state.BindingIndex)
             {
                 RecordReleaseDropped(state.Side, action, timestampTicks, "drag_cross_key");
                 return;
@@ -701,6 +732,11 @@ internal sealed class TouchProcessorCore
         }
 
         return _intentMode is IntentMode.KeyCandidate or IntentMode.TypingCommitted;
+    }
+
+    private bool ShouldTrackOffKeyTouchForSnap()
+    {
+        return ShouldAttemptSnap();
     }
 
     private bool TrySnapBinding(TrackpadSide side, double xNorm, double yNorm, out EngineKeyBinding binding)
@@ -2076,7 +2112,7 @@ internal sealed class TouchProcessorCore
             TypingGraceMs = Math.Max(0, config.TypingGraceMs),
             IntentMoveMm = Math.Max(0.1, config.IntentMoveMm),
             IntentVelocityMmPerSec = Math.Max(1.0, config.IntentVelocityMmPerSec),
-            SnapRadiusPercent = Math.Clamp(config.SnapRadiusPercent, 0, 100),
+            SnapRadiusPercent = Math.Clamp(config.SnapRadiusPercent, 0, 200),
             SnapAmbiguityRatio = Math.Max(1.0, config.SnapAmbiguityRatio),
             KeyBufferMs = Math.Max(0, config.KeyBufferMs),
             TapStaggerToleranceMs = Math.Max(0, config.TapStaggerToleranceMs),

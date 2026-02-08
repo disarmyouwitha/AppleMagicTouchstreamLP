@@ -1,0 +1,45 @@
+{
+  "name": "live",
+  "framesSeen": 461,
+  "framesParsed": 461,
+  "framesDispatched": 461,
+  "framesDropped": 0,
+  "dropReasons": {
+    "nonMultitouchReport": 0,
+    "parseFailed": 0,
+    "routedToNoSession": 0,
+    "packetTruncated": 0,
+    "invalidReportSize": 0,
+    "engineQueueFull": 0
+  },
+  "latency": {
+    "bucketEdgesUs": [
+      250,
+      500,
+      1000,
+      2000,
+      4000,
+      8000,
+      16000
+    ],
+    "buckets": [
+      410,
+      43,
+      4,
+      2,
+      0,
+      1,
+      1,
+      0
+    ],
+    "minUs": 18,
+    "avgUs": 178.84924078091106,
+    "maxUs": 14336.2
+  },
+  "allocations": {
+    "deltaBytes": 95397952,
+    "maxSampleBytes": 77741032,
+    "sampleCount": 7
+  },
+  "runtimeSeconds": 12.002193
+}

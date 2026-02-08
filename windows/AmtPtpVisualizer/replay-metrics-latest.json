@@ -1,0 +1,45 @@
+{
+  "name": "replay-pass-1",
+  "framesSeen": 653,
+  "framesParsed": 653,
+  "framesDispatched": 653,
+  "framesDropped": 0,
+  "dropReasons": {
+    "nonMultitouchReport": 0,
+    "parseFailed": 0,
+    "routedToNoSession": 0,
+    "packetTruncated": 0,
+    "invalidReportSize": 0,
+    "engineQueueFull": 0
+  },
+  "latency": {
+    "bucketEdgesUs": [
+      250,
+      500,
+      1000,
+      2000,
+      4000,
+      8000,
+      16000
+    ],
+    "buckets": [
+      651,
+      1,
+      0,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "minUs": 0.7,
+    "avgUs": 8.368300153139357,
+    "maxUs": 4400.8
+  },
+  "allocations": {
+    "deltaBytes": 6861264,
+    "maxSampleBytes": 6113056,
+    "sampleCount": 10
+  },
+  "runtimeSeconds": 0.063838
+}

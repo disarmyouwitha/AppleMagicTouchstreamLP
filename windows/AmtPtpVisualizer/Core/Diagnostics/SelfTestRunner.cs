@@ -927,6 +927,89 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Snap rule: off-key touch starts in typing mode should still be eligible for snap on release.
+        KeyLayout snapGapLeftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true, keySpacingPercent: 30.0);
+        KeyLayout snapGapRightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false, keySpacingPercent: 30.0);
+        TouchProcessorCore offKeySnapCore = TouchProcessorFactory.CreateDefault(directHitKeymap);
+        offKeySnapCore.ConfigureLayouts(snapGapLeftLayout, snapGapRightLayout);
+        offKeySnapCore.Configure(offKeySnapCore.CurrentConfig with { DragCancelMm = 1000.0, SnapRadiusPercent = 200.0 });
+        using DispatchEventQueue offKeySnapQueue = new();
+        using TouchProcessorActor offKeySnapActor = new(offKeySnapCore, dispatchQueue: offKeySnapQueue);
+
+        NormalizedRect snapPrimeRect = snapGapLeftLayout.Rects[1][3]; // S
+        NormalizedRect snapResolveRect = snapGapLeftLayout.Rects[1][4]; // A
+        ushort snapPrimeX = (ushort)Math.Clamp((int)Math.Round((snapPrimeRect.X + (snapPrimeRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort snapPrimeY = (ushort)Math.Clamp((int)Math.Round((snapPrimeRect.Y + (snapPrimeRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        double offKeySnapXNorm = snapResolveRect.X + snapResolveRect.Width + 0.005;
+        double offKeySnapYNorm = snapResolveRect.Y + (snapResolveRect.Height * 0.5);
+        for (int attempt = 0; attempt < 12 && IsInsideAnyKeyRect(snapGapLeftLayout, offKeySnapXNorm, offKeySnapYNorm); attempt++)
+        {
+            offKeySnapXNorm += 0.005;
+        }
+
+        if (offKeySnapXNorm <= 0 || offKeySnapXNorm >= 0.999 || offKeySnapYNorm <= 0 || offKeySnapYNorm >= 0.999)
+        {
+            failure = "off-key snap probe went out of bounds while searching for a deterministic miss point";
+            return false;
+        }
+
+        if (IsInsideAnyKeyRect(snapGapLeftLayout, offKeySnapXNorm, offKeySnapYNorm))
+        {
+            failure = "failed to find an off-key snap probe point";
+            return false;
+        }
+
+        (int nearestRow, int nearestCol, double nearestDistSq) = FindNearestKeyCenter(snapGapLeftLayout, offKeySnapXNorm, offKeySnapYNorm);
+        if (nearestRow != 1 || nearestCol != 4)
+        {
+            failure = $"off-key snap probe nearest key mismatch (nearest={nearestRow}:{nearestCol}, expected=1:4, distSq={nearestDistSq:F6})";
+            return false;
+        }
+
+        ushort offKeySnapX = (ushort)Math.Clamp((int)Math.Round(offKeySnapXNorm * maxX), 1, maxX - 1);
+        ushort offKeySnapY = (ushort)Math.Clamp((int)Math.Round(offKeySnapYNorm * maxY), 1, maxY - 1);
+
+        now = 0;
+        InputFrame typingPrimeDown = MakeFrame(contactCount: 1, id0: 95, x0: snapPrimeX, y0: snapPrimeY);
+        InputFrame typingPrimeUp = MakeFrame(contactCount: 0);
+        offKeySnapActor.Post(TrackpadSide.Left, in typingPrimeDown, maxX, maxY, now);
+        now += MsToTicks(60);
+        offKeySnapActor.Post(TrackpadSide.Left, in typingPrimeDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        offKeySnapActor.Post(TrackpadSide.Left, in typingPrimeUp, maxX, maxY, now);
+        offKeySnapActor.WaitForIdle();
+        while (offKeySnapQueue.TryDequeue(out _, waitMs: 0))
+        {
+            // Drain priming events.
+        }
+
+        InputFrame offKeySnapDown = MakeFrame(contactCount: 1, id0: 96, x0: offKeySnapX, y0: offKeySnapY);
+        InputFrame offKeySnapUp = MakeFrame(contactCount: 0);
+        now += MsToTicks(20);
+        offKeySnapActor.Post(TrackpadSide.Left, in offKeySnapDown, maxX, maxY, now);
+        now += MsToTicks(12);
+        offKeySnapActor.Post(TrackpadSide.Left, in offKeySnapUp, maxX, maxY, now);
+        offKeySnapActor.WaitForIdle();
+        TouchProcessorSnapshot offKeySnapSnapshot = offKeySnapActor.Snapshot();
+
+        bool sawSnapATap = false;
+        List<string> offKeySnapEvents = new();
+        while (offKeySnapQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            offKeySnapEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                sawSnapATap = true;
+            }
+        }
+
+        if (!sawSnapATap)
+        {
+            failure = $"off-key snap did not resolve to A (events=[{string.Join(", ", offKeySnapEvents)}], snap={offKeySnapSnapshot.SnapAccepted}/{offKeySnapSnapshot.SnapAttempts})";
+            return false;
+        }
+
         KeymapStore modifierKeymap = KeymapStore.CreateDefault();
         string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
         modifierKeymap.Mappings[0][storageKey] = new KeyMapping
@@ -1435,6 +1518,51 @@ internal static class SelfTestRunner
         }
 
         return false;
+    }
+
+    private static bool IsInsideAnyKeyRect(KeyLayout layout, double xNorm, double yNorm)
+    {
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            NormalizedRect[] rowRects = layout.Rects[row];
+            for (int col = 0; col < rowRects.Length; col++)
+            {
+                if (rowRects[col].Contains(xNorm, yNorm))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static (int Row, int Col, double DistSq) FindNearestKeyCenter(KeyLayout layout, double xNorm, double yNorm)
+    {
+        int bestRow = -1;
+        int bestCol = -1;
+        double bestDistSq = double.MaxValue;
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            NormalizedRect[] rowRects = layout.Rects[row];
+            for (int col = 0; col < rowRects.Length; col++)
+            {
+                NormalizedRect rect = rowRects[col];
+                double centerX = rect.X + (rect.Width * 0.5);
+                double centerY = rect.Y + (rect.Height * 0.5);
+                double dx = centerX - xNorm;
+                double dy = centerY - yNorm;
+                double distSq = (dx * dx) + (dy * dy);
+                if (distSq < bestDistSq)
+                {
+                    bestDistSq = distSq;
+                    bestRow = row;
+                    bestCol = col;
+                }
+            }
+        }
+
+        return (bestRow, bestCol, bestDistSq);
     }
 
     private static InputFrame MakeFrame(
