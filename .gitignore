@@ -1,0 +1,17 @@
+# Mac
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+
+# Swift Package Manager
+Packages.resolved
+.swiftpm/
+.build/
+
+# Framework
+*.framework/
+*.xcframework/
+*.zip
+build/
