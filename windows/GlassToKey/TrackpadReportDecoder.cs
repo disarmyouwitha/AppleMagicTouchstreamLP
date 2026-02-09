@@ -393,26 +393,35 @@ internal static class TrackpadReportDecoder
             int slotOffset = 1 + (i * 9);
             if (slotOffset + 7 < payload.Length)
             {
-                int packedX = DecodeOfficialPackedCoordinate(payload[slotOffset + 2], payload[slotOffset + 3], payload[slotOffset + 4]);
-                int packedY = DecodeOfficialPackedCoordinate(payload[slotOffset + 5], payload[slotOffset + 6], payload[slotOffset + 7]);
-                x = ScaleOfficialCoordinate(packedX, RuntimeConfigurationFactory.DefaultMaxX);
-                y = ScaleOfficialCoordinate(packedY, RuntimeConfigurationFactory.DefaultMaxY);
+                // Official stream (usage 0/0) does not match native PTP field packing.
+                // The most stable slot mapping seen in captures is:
+                // X  -> little-endian [slot+2..3]
+                // Y  -> big-endian    [slot+5..6]
+                // Keeping fields non-overlapping prevents X from being polluted by adjacent bytes.
+                int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
+                int rawY = ReadBigEndianU16(payload[slotOffset + 5], payload[slotOffset + 6]);
+                x = ScaleOfficialCoordinate(rawX, maxRaw: 16383, RuntimeConfigurationFactory.DefaultMaxX);
+                y = ScaleOfficialCoordinate(rawY, maxRaw: 16383, RuntimeConfigurationFactory.DefaultMaxY);
             }
 
             frame.SetContact(i, new ContactFrame((uint)i, x, y, normalizedFlags));
         }
     }
 
-    private static int DecodeOfficialPackedCoordinate(byte b0, byte b1, byte b2)
+    private static int ReadBigEndianU16(byte hi, byte lo)
     {
-        uint packed = ((uint)b0 << 27) | ((uint)b1 << 19) | ((uint)b2 << 11);
-        return (int)(packed >> 22);
+        return (hi << 8) | lo;
     }
 
-    private static ushort ScaleOfficialCoordinate(int value, ushort targetMax)
+    private static int ReadLittleEndianU16(byte lo, byte hi)
     {
-        int clamped = Math.Clamp(value, 0, 1023);
-        int scaled = (clamped * targetMax + 511) / 1023;
+        return lo | (hi << 8);
+    }
+
+    private static ushort ScaleOfficialCoordinate(int value, int maxRaw, ushort targetMax)
+    {
+        int clamped = Math.Clamp(value, 0, maxRaw);
+        int scaled = (clamped * targetMax + (maxRaw / 2)) / maxRaw;
         return (ushort)Math.Clamp(scaled, 0, targetMax);
     }
 
