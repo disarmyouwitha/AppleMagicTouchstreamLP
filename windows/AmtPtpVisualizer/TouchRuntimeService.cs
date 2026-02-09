@@ -56,7 +56,7 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
 
-            int layer = Math.Clamp(_settings.ActiveLayer, 0, 7);
+            int layer = 0;
             _touchActor.ConfigureLayouts(leftLayout, rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(layer);
@@ -66,7 +66,7 @@ internal sealed class TouchRuntimeService : IDisposable
             _lastModeIndicator = ToModeIndicator(
                 _settings.TypingEnabled,
                 _settings.KeyboardModeEnabled,
-                Math.Clamp(_settings.ActiveLayer, 0, 7));
+                layer);
 
             RefreshDeviceRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
 

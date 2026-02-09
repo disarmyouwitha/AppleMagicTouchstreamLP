@@ -390,8 +390,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             LayerCombo.Items.Add($"Layer {layer}");
         }
-        _activeLayer = _settings.ActiveLayer;
-        if (_activeLayer < 0 || _activeLayer > 3) _activeLayer = 0;
+        _activeLayer = 0;
         LayerCombo.SelectedIndex = _activeLayer;
         _suppressLayerEvent = false;
     }
@@ -1057,8 +1056,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
         _activeLayer = Math.Clamp(LayerCombo.SelectedIndex, 0, 3);
-        _settings.ActiveLayer = _activeLayer;
-        _settings.Save();
         _touchActor?.SetPersistentLayer(_activeLayer);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
         UpdateLabelMatrices();
