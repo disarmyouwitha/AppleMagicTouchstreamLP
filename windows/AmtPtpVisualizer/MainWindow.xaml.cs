@@ -1599,6 +1599,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeyColumn = column;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
+        ExpandKeymapEditorAndFocusPrimaryAction();
     }
 
     private void SelectCustomButtonForEditing(TrackpadSide side, string buttonId)
@@ -1611,6 +1612,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeyColumn = -1;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
+    }
+
+    private void ExpandKeymapEditorAndFocusPrimaryAction()
+    {
+        KeymapEditorExpander.IsExpanded = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            KeymapEditorExpander.IsExpanded = true;
+            KeymapPrimaryCombo.BringIntoView();
+            KeymapPrimaryCombo.Focus();
+            Keyboard.Focus(KeymapPrimaryCombo);
+        }));
     }
 
     private void ClearSelectionForEditing()
