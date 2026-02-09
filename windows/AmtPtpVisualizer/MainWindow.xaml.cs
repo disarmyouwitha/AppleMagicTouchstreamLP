@@ -207,6 +207,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         CustomButtonYBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonWidthBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonHeightBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        KeyDown += OnWindowKeyDown;
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
         SourceInitialized += OnSourceInitialized;
@@ -1494,6 +1495,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ApplySelectedCustomButtonGeometryFromUi();
+        e.Handled = true;
+    }
+
+    private void OnWindowKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape)
+        {
+            return;
+        }
+
+        if (!_hasSelectedKey && !_hasSelectedCustomButton)
+        {
+            return;
+        }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
         e.Handled = true;
     }
 
