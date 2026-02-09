@@ -2604,7 +2604,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;
+                SyncEditorLayerToRuntime(snapshot.ActiveLayer);
                 UpdateLabelMatrices();
+                RefreshKeymapEditor();
             }
         }
 
@@ -2673,6 +2675,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         return Math.Clamp(snapshot.ActiveLayer, 0, 7);
+    }
+
+    private void SyncEditorLayerToRuntime(int runtimeLayer)
+    {
+        int clamped = Math.Clamp(runtimeLayer, 0, 3);
+        if (LayerCombo.SelectedIndex == clamped)
+        {
+            return;
+        }
+
+        _suppressLayerEvent = true;
+        LayerCombo.SelectedIndex = clamped;
+        _suppressLayerEvent = false;
     }
 
     private bool TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot)
