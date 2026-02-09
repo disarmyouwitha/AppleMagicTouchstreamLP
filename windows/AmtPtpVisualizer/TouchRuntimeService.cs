@@ -63,7 +63,10 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
-            _lastModeIndicator = ToModeIndicator(_settings.TypingEnabled, _settings.KeyboardModeEnabled);
+            _lastModeIndicator = ToModeIndicator(
+                _settings.TypingEnabled,
+                _settings.KeyboardModeEnabled,
+                Math.Clamp(_settings.ActiveLayer, 0, 7));
 
             RefreshDeviceRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
 
@@ -138,7 +141,7 @@ internal sealed class TouchRuntimeService : IDisposable
     {
         if (TryGetSnapshot(out TouchProcessorSnapshot snapshot))
         {
-            return ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+            return ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled, snapshot.ActiveLayer);
         }
 
         return _lastModeIndicator;
@@ -193,7 +196,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
         TouchProcessorSnapshot snapshot = actor.Snapshot();
         _globalClickSuppressor.SetEnabled(snapshot.KeyboardModeEnabled && snapshot.TypingEnabled);
-        RuntimeModeIndicator nextMode = ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+        RuntimeModeIndicator nextMode = ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled, snapshot.ActiveLayer);
         if (nextMode == _lastModeIndicator)
         {
             return;
@@ -300,8 +303,13 @@ internal sealed class TouchRuntimeService : IDisposable
         }
     }
 
-    private static RuntimeModeIndicator ToModeIndicator(bool typingEnabled, bool keyboardModeEnabled)
+    private static RuntimeModeIndicator ToModeIndicator(bool typingEnabled, bool keyboardModeEnabled, int activeLayer)
     {
+        if (activeLayer == 1)
+        {
+            return RuntimeModeIndicator.LayerOne;
+        }
+
         if (!typingEnabled)
         {
             return RuntimeModeIndicator.Mouse;

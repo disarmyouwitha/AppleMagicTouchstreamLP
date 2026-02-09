@@ -16,6 +16,7 @@ internal sealed class StatusTrayController : IDisposable
     private readonly Icon _iconMouse;
     private readonly Icon _iconMixed;
     private readonly Icon _iconKeyboard;
+    private readonly Icon _iconLayerOne;
     private RuntimeModeIndicator _currentMode = RuntimeModeIndicator.Unknown;
 
     public StatusTrayController(Action openConfig, Action exitApplication)
@@ -31,6 +32,7 @@ internal sealed class StatusTrayController : IDisposable
         _iconMouse = CreateCircleIcon(Color.FromArgb(231, 76, 60));
         _iconMixed = CreateCircleIcon(Color.FromArgb(46, 204, 113));
         _iconKeyboard = CreateCircleIcon(Color.FromArgb(155, 89, 182));
+        _iconLayerOne = CreateCircleIcon(Color.FromArgb(52, 152, 219));
 
         _notifyIcon = new WinForms.NotifyIcon
         {
@@ -51,6 +53,7 @@ internal sealed class StatusTrayController : IDisposable
         _iconMouse.Dispose();
         _iconMixed.Dispose();
         _iconKeyboard.Dispose();
+        _iconLayerOne.Dispose();
         _menu.Dispose();
     }
 
@@ -67,6 +70,7 @@ internal sealed class StatusTrayController : IDisposable
             RuntimeModeIndicator.Mouse => _iconMouse,
             RuntimeModeIndicator.Mixed => _iconMixed,
             RuntimeModeIndicator.Keyboard => _iconKeyboard,
+            RuntimeModeIndicator.LayerOne => _iconLayerOne,
             _ => _iconUnknown
         };
         _notifyIcon.Text = mode switch
@@ -74,6 +78,7 @@ internal sealed class StatusTrayController : IDisposable
             RuntimeModeIndicator.Mouse => "AmtPtp Status App (Mouse)",
             RuntimeModeIndicator.Mixed => "AmtPtp Status App (Mixed)",
             RuntimeModeIndicator.Keyboard => "AmtPtp Status App (Keyboard)",
+            RuntimeModeIndicator.LayerOne => "AmtPtp Status App (Layer 1)",
             _ => "AmtPtp Status App (Unknown)"
         };
     }

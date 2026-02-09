@@ -1,7 +1,5 @@
 ## TODO:
-- If you Type Esc Can we clear the currently selected key (blue)
 - If you change layer MO(1) or TO(1) the Circle in the Taskbar should turn blue!
-- If you Click a key for editing (blue highlight) it should expand the Keymap Editor section and focus the Action dropdown for that key
 - Rename AmtPtpVisualizer > GlassToKey (update AGENTS.md, README.md, Taskbar.. everywhere!)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
