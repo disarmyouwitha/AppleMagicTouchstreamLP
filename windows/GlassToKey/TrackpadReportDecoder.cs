@@ -178,7 +178,7 @@ internal static class TrackpadReportDecoder
         InputFrame frame = InputFrame.FromReport(arrivalQpcTicks, in report);
         if (profile == TrackpadDecoderProfile.Official)
         {
-            NormalizeOfficialTouchFields(ref frame);
+            NormalizeOfficialTouchFields(ref frame, candidate);
         }
         else
         {
@@ -237,12 +237,7 @@ internal static class TrackpadReportDecoder
         for (int i = 0; i < count; i++)
         {
             PtpContact contact = report.GetContact(i);
-            if (contact.X > MaxReasonableX || contact.Y > MaxReasonableY)
-            {
-                return false;
-            }
-
-            if (contact.X != 0 || contact.Y != 0 || contact.Flags != 0)
+            if (contact.X != 0 || contact.Y != 0 || contact.Flags != 0 || contact.ContactId != 0)
             {
                 hasData = true;
             }
@@ -385,15 +380,40 @@ internal static class TrackpadReportDecoder
         return deviceInfo.UsagePage == 0 && deviceInfo.Usage == 0;
     }
 
-    private static void NormalizeOfficialTouchFields(ref InputFrame frame)
+    private static void NormalizeOfficialTouchFields(ref InputFrame frame, ReadOnlySpan<byte> payload)
     {
         int count = frame.GetClampedContactCount();
         for (int i = 0; i < count; i++)
         {
             ContactFrame contact = frame.GetContact(i);
             byte normalizedFlags = (byte)((contact.Flags & 0xFC) | 0x03);
-            frame.SetContact(i, new ContactFrame((uint)i, contact.X, contact.Y, normalizedFlags));
+            ushort x = contact.X;
+            ushort y = contact.Y;
+
+            int slotOffset = 1 + (i * 9);
+            if (slotOffset + 7 < payload.Length)
+            {
+                int packedX = DecodeOfficialPackedCoordinate(payload[slotOffset + 2], payload[slotOffset + 3], payload[slotOffset + 4]);
+                int packedY = DecodeOfficialPackedCoordinate(payload[slotOffset + 5], payload[slotOffset + 6], payload[slotOffset + 7]);
+                x = ScaleOfficialCoordinate(packedX, RuntimeConfigurationFactory.DefaultMaxX);
+                y = ScaleOfficialCoordinate(packedY, RuntimeConfigurationFactory.DefaultMaxY);
+            }
+
+            frame.SetContact(i, new ContactFrame((uint)i, x, y, normalizedFlags));
         }
+    }
+
+    private static int DecodeOfficialPackedCoordinate(byte b0, byte b1, byte b2)
+    {
+        uint packed = ((uint)b0 << 27) | ((uint)b1 << 19) | ((uint)b2 << 11);
+        return (int)(packed >> 22);
+    }
+
+    private static ushort ScaleOfficialCoordinate(int value, ushort targetMax)
+    {
+        int clamped = Math.Clamp(value, 0, 1023);
+        int scaled = (clamped * targetMax + 511) / 1023;
+        return (ushort)Math.Clamp(scaled, 0, targetMax);
     }
 
     private static void NormalizeLikelyPackedContactIds(ref InputFrame frame)
