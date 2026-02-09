@@ -1,5 +1,4 @@
 ## TODO: 
-- If I use TO to change layers, they Visualizer updates correctly but "Keymap Editor" still shows Layer0 (even after clicking a key on that layer to select it)
 - Rename AmtPtpVisualizer > GlassToKey (update AGENTS.md, README.md, Taskbar.. everywhere!)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
