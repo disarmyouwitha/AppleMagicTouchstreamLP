@@ -53,6 +53,7 @@ public partial class MainWindow : Window
     private readonly InputCaptureWriter? _captureWriter;
     private readonly ReplayVisualData? _replayData;
     private readonly DispatcherTimer? _replayTimer;
+    private readonly DispatcherTimer? _statusTimer;
     private readonly TouchProcessorCore? _touchCore;
     private readonly TouchProcessorActor? _touchActor;
     private readonly DispatchEventQueue? _dispatchQueue;
@@ -132,6 +133,15 @@ public partial class MainWindow : Window
                 Interval = TimeSpan.FromMilliseconds(4)
             };
             _replayTimer.Tick += OnReplayTick;
+        }
+        else
+        {
+            _statusTimer = new DispatcherTimer(DispatcherPriority.Background)
+            {
+                Interval = TimeSpan.FromMilliseconds(50)
+            };
+            _statusTimer.Tick += OnStatusTimerTick;
+            _statusTimer.Start();
         }
 
         _leftLayout = LayoutBuilder.BuildLayout(_preset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, _columnSettings, mirrored: true, keySpacingPercent: _settings.KeyPaddingPercent);
@@ -239,6 +249,7 @@ public partial class MainWindow : Window
             _globalClickSuppressor.Dispose();
             _hwndSource?.RemoveHook(WndProc);
             _replayTimer?.Stop();
+            _statusTimer?.Stop();
             _touchActor?.Dispose();
             _dispatchPump?.Dispose();
             _dispatchQueue?.Dispose();
@@ -350,6 +361,16 @@ public partial class MainWindow : Window
         {
             Console.WriteLine($"Capture replay trace failed: {ex.Message}");
         }
+    }
+
+    private void OnStatusTimerTick(object? sender, EventArgs e)
+    {
+        if (_touchActor == null)
+        {
+            return;
+        }
+
+        UpdateEngineStateDetails();
     }
 
     private void InitializeLayerCombo()

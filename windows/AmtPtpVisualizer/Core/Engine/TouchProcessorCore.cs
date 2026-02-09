@@ -78,6 +78,8 @@ internal sealed class TouchProcessorCore
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
     private int _diagnosticRingHead;
     private int _diagnosticRingCount;
+    private long _clockAnchorTimestampTicks;
+    private long _clockAnchorWallTicks;
 
     public TouchProcessorCore(
         KeyLayout leftLayout,
@@ -211,6 +213,8 @@ internal sealed class TouchProcessorCore
         _pendingTapGesture = default;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
+        _clockAnchorTimestampTicks = 0;
+        _clockAnchorWallTicks = 0;
     }
 
     public void ProcessFrame(
@@ -220,6 +224,7 @@ internal sealed class TouchProcessorCore
         ushort maxY,
         long timestampTicks)
     {
+        CaptureClockAnchor(timestampTicks);
         _framesProcessed++;
         EnsureBindingIndexes();
         BindingIndex sideIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
@@ -356,7 +361,13 @@ internal sealed class TouchProcessorCore
 
     public TouchProcessorSnapshot Snapshot()
     {
+        return Snapshot(EstimateNowTicks());
+    }
+
+    public TouchProcessorSnapshot Snapshot(long nowTicks)
+    {
         IntentAggregate aggregate = BuildIntentAggregate();
+        RefreshPassiveIntentState(in aggregate, nowTicks);
         return new TouchProcessorSnapshot(
             IntentMode: _intentMode,
             ActiveLayer: _activeLayer,
@@ -377,6 +388,57 @@ internal sealed class TouchProcessorCore
             SnapAccepted: _snapAccepted,
             SnapRejected: _snapRejected,
             IntentTraceFingerprint: _intentTraceFingerprint);
+    }
+
+    private void CaptureClockAnchor(long timestampTicks)
+    {
+        _clockAnchorTimestampTicks = timestampTicks;
+        _clockAnchorWallTicks = Stopwatch.GetTimestamp();
+    }
+
+    private long EstimateNowTicks()
+    {
+        long anchorWallTicks = _clockAnchorWallTicks;
+        long wallNowTicks = Stopwatch.GetTimestamp();
+        if (anchorWallTicks == 0)
+        {
+            return wallNowTicks;
+        }
+
+        long elapsedTicks = wallNowTicks - anchorWallTicks;
+        if (elapsedTicks <= 0)
+        {
+            return _clockAnchorTimestampTicks;
+        }
+
+        long anchorTimestampTicks = _clockAnchorTimestampTicks;
+        if (anchorTimestampTicks > long.MaxValue - elapsedTicks)
+        {
+            return long.MaxValue;
+        }
+
+        return anchorTimestampTicks + elapsedTicks;
+    }
+
+    private void RefreshPassiveIntentState(in IntentAggregate aggregate, long nowTicks)
+    {
+        if (aggregate.ContactCount > 0)
+        {
+            // Keep grace deadline fresh when snapshots are read faster than frames arrive.
+            _ = IsTypingGraceActive(nowTicks);
+            return;
+        }
+
+        if (IsTypingGraceActive(nowTicks))
+        {
+            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "grace_snapshot");
+            _lastContactCount = 0;
+            return;
+        }
+
+        _typingCommittedUntilAllUp = false;
+        _lastContactCount = 0;
+        TransitionTo(IntentMode.Idle, nowTicks, "all_up_snapshot");
     }
 
     public int CopyIntentTransitions(Span<IntentTransition> destination)
@@ -1043,6 +1105,7 @@ internal sealed class TouchProcessorCore
 
     private void SetTypingEnabledState(bool enabled, long timestampTicks, TypingToggleSource source)
     {
+        CaptureClockAnchor(timestampTicks);
         if (_typingEnabled == enabled)
         {
             return;

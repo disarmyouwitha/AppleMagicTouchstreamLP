@@ -738,13 +738,27 @@ internal static class SelfTestRunner
         now += MsToTicks(10);
         InputFrame allUp = MakeFrame(contactCount: 0);
         core.ProcessFrame(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        TouchProcessorSnapshot insideGraceSnapshot = core.Snapshot(now + MsToTicks(20));
+        if (insideGraceSnapshot.IntentMode != IntentMode.TypingCommitted)
+        {
+            failure = "expected typingCommitted while inside typing grace window";
+            return false;
+        }
+
+        TouchProcessorSnapshot postGraceSnapshot = core.Snapshot(now + MsToTicks(200));
+        if (postGraceSnapshot.IntentMode != IntentMode.Idle)
+        {
+            failure = "expected idle after typing grace elapsed without additional frames";
+            return false;
+        }
 
         IntentTransition[] transitions = new IntentTransition[64];
         int transitionCount = core.CopyIntentTransitions(transitions);
         if (!ContainsMode(transitions.AsSpan(0, transitionCount), IntentMode.KeyCandidate) ||
-            !ContainsMode(transitions.AsSpan(0, transitionCount), IntentMode.TypingCommitted))
+            !ContainsMode(transitions.AsSpan(0, transitionCount), IntentMode.TypingCommitted) ||
+            !ContainsMode(transitions.AsSpan(0, transitionCount), IntentMode.Idle))
         {
-            failure = "expected keyCandidate->typingCommitted transitions were missing";
+            failure = "expected keyCandidate->typingCommitted->idle transitions were missing";
             return false;
         }
 

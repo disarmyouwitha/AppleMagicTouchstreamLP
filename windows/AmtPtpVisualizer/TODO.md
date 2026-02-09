@@ -1,12 +1,7 @@
 ## TODO:
-- keyboard mode should swallow clicks globally (except in the Visualizer app?)
-- snap radius should work, and should be a toggle
-- test snap radius changes. ** have it look at GTK? 
-- HAPTICS BABY!
 - Add force cut off, wire into GUI and settings. Make pressure over cutoff disqualify key dispatch
 - typing tuning, key layout, mode toggles - these should be expandable (and set to collapsed) in the GUI
 - replay still doesnt work. I don't think we need to dispatch keys exatcly but it doesnt show highlight of keys either.
-- I can see when I type that we remain in TypingCommited status instead of going back to idle, even after typing grace. Can you make sure the State logic matches OSX/GlassToKey/GlassToKey?
 - When I change the device in the dropdown it stops responding
 - STATUS BAR APP - CODEX.5.3.high rewrite
 - REFACTOR
@@ -14,3 +9,8 @@
 - Taps between keys stick the fingers on visualizer sometimes?
 - Autocorrect
 - Rename to GlassToKey instead of AmtPtpVizualizer
+- Autocorrect: spelljam? symjam? Windows variant?
+- Voice mode: "windows siri/dictation" or use whipserX?
+
+## CURSED:
+- HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
