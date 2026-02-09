@@ -22,7 +22,7 @@ internal static class TrackpadReportDecoder
     private const int MaxEmbeddedScanOffset = 96;
     private const int MaxReasonableX = 20000;
     private const int MaxReasonableY = 15000;
-    private const int OfficialMaxRawX = 16383;
+    private const int OfficialMaxRawX = 14720;
     private const int OfficialMaxRawY = 10240;
 
     public static bool TryDecode(

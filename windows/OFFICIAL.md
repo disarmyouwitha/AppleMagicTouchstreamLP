@@ -38,7 +38,7 @@ Per contact slot (`slotOffset = 1 + contactIndex * 9`):
 - `Flags`: force tip+confidence on decoded contact (`... | 0x03`)
 - `Id`: normalized to slot index (prevents pathological packed IDs from official transport)
 - scaling:
-  - `X` uses `maxRaw=16383`
+  - `X` uses `maxRaw=14720` (empirical fix for ~90% width cap with official USB-C captures)
   - `Y` uses `maxRaw=10240` (empirical fix for ~75% height cap with official USB-C captures)
 
 Why this mapping:
