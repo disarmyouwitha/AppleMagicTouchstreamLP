@@ -187,10 +187,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapImportButton.Click += OnKeymapImportClicked;
         TapClickEnabledCheck.Checked += OnModeSettingChanged;
         TapClickEnabledCheck.Unchecked += OnModeSettingChanged;
-        TapTwoFingerCheck.Checked += OnModeSettingChanged;
-        TapTwoFingerCheck.Unchecked += OnModeSettingChanged;
-        TapThreeFingerCheck.Checked += OnModeSettingChanged;
-        TapThreeFingerCheck.Unchecked += OnModeSettingChanged;
         KeyboardModeCheck.Checked += OnModeSettingChanged;
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
@@ -202,7 +198,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapSideCombo.SelectionChanged += OnKeymapSelectionChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
-        KeymapClearButton.Click += OnKeymapClearClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -422,8 +417,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         LayoutPresetCombo.SelectedItem = _preset;
         TapClickEnabledCheck.IsChecked = _settings.TapClickEnabled;
-        TapTwoFingerCheck.IsChecked = _settings.TwoFingerTapEnabled;
-        TapThreeFingerCheck.IsChecked = _settings.ThreeFingerTapEnabled;
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         ChordShiftCheck.IsChecked = _settings.ChordShiftEnabled;
@@ -614,8 +607,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         _settings.TapClickEnabled = TapClickEnabledCheck.IsChecked == true;
-        _settings.TwoFingerTapEnabled = TapTwoFingerCheck.IsChecked == true;
-        _settings.ThreeFingerTapEnabled = TapThreeFingerCheck.IsChecked == true;
+        _settings.TwoFingerTapEnabled = _settings.TapClickEnabled;
+        _settings.ThreeFingerTapEnabled = _settings.TapClickEnabled;
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
@@ -1310,7 +1303,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             KeymapPrimaryCombo.IsEnabled = true;
             KeymapHoldCombo.IsEnabled = true;
-            KeymapClearButton.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = true;
             SetCustomButtonGeometryEditorEnabled(true);
 
@@ -1332,7 +1324,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
-            KeymapClearButton.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
             KeymapPrimaryCombo.SelectedItem = "None";
@@ -1352,7 +1343,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         KeymapPrimaryCombo.IsEnabled = true;
         KeymapHoldCombo.IsEnabled = true;
-        KeymapClearButton.IsEnabled = true;
         CustomButtonDeleteButton.IsEnabled = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
@@ -1444,35 +1434,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplyCoreSettings();
         UpdateHitForSide(_left, TrackpadSide.Left);
         UpdateHitForSide(_right, TrackpadSide.Right);
-        RefreshKeymapEditor();
-    }
-
-    private void OnKeymapClearClicked(object sender, RoutedEventArgs e)
-    {
-        if (_hasSelectedCustomButton)
-        {
-            return;
-        }
-
-        if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
-        {
-            return;
-        }
-
-        string storageKey = GridKeyPosition.StorageKey(side, row, column);
-        if (_keymap.Mappings.TryGetValue(GetSelectedLayer(), out var layerMap))
-        {
-            layerMap.Remove(storageKey);
-        }
-
-        _keymap.Save();
-        UpdateLabelMatrices();
-        ApplyCoreSettings();
-        if (_visualizerEnabled)
-        {
-            UpdateHitForSide(_left, TrackpadSide.Left);
-            UpdateHitForSide(_right, TrackpadSide.Right);
-        }
         RefreshKeymapEditor();
     }
 

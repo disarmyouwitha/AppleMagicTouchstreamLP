@@ -19,7 +19,7 @@ public sealed class UserSettings
     public bool RunAtStartup { get; set; }
     public bool TapClickEnabled { get; set; } = true;
     public bool TwoFingerTapEnabled { get; set; } = true;
-    public bool ThreeFingerTapEnabled { get; set; }
+    public bool ThreeFingerTapEnabled { get; set; } = true;
     public double HoldDurationMs { get; set; } = 220.0;
     public double DragCancelMm { get; set; } = 3.0;
     public double TypingGraceMs { get; set; } = 600.0;
@@ -110,6 +110,18 @@ public sealed class UserSettings
         if (Math.Abs(KeyBufferMs - RuntimeConfigurationFactory.HardcodedKeyBufferMs) > 0.00001)
         {
             KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
+            changed = true;
+        }
+
+        if (TwoFingerTapEnabled != TapClickEnabled)
+        {
+            TwoFingerTapEnabled = TapClickEnabled;
+            changed = true;
+        }
+
+        if (ThreeFingerTapEnabled != TapClickEnabled)
+        {
+            ThreeFingerTapEnabled = TapClickEnabled;
             changed = true;
         }
 

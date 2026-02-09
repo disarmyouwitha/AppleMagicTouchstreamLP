@@ -16,9 +16,9 @@
         <StackPanel Orientation="Vertical" DockPanel.Dock="Left">
           <StackPanel Orientation="Horizontal">
             <TextBlock Text="AmtPtp Visualizer" Foreground="#e7e9ea" FontSize="16" FontWeight="SemiBold" />
-            <Button x:Name="ToggleControlsButton" Content="Hide Controls" Padding="10,4" Margin="12,0,0,0" />
+            <Button x:Name="KeymapImportButton" Content="Import keymap" Padding="10,4" Margin="12,0,0,0" />
             <Button x:Name="KeymapExportButton" Content="Export Keymap" Padding="10,4" Margin="8,0,0,0" />
-            <Button x:Name="KeymapImportButton" Content="Import Keymap" Padding="10,4" Margin="6,0,0,0" />
+            <Button x:Name="ToggleControlsButton" Content="Hide Controls" Padding="10,4" Margin="6,0,0,0" />
           </StackPanel>
           <StackPanel Orientation="Horizontal" Margin="0,6,0,0">
             <Border CornerRadius="999" Background="#20252a" Padding="6,2" Margin="0,0,8,0">
@@ -188,10 +188,6 @@
               <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
               <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
-            <TextBlock Text="Tap Click Options" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
-            <CheckBox x:Name="TapClickEnabledCheck" Content="Tap click enabled" Foreground="#8b949e" />
-            <CheckBox x:Name="TapTwoFingerCheck" Content="Two-finger tap (left click)" Foreground="#8b949e" Margin="0,4,0,0" />
-            <CheckBox x:Name="TapThreeFingerCheck" Content="Three-finger tap (right click)" Foreground="#8b949e" Margin="0,4,0,0" />
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
@@ -218,6 +214,7 @@
             </Grid>
 
             <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
+            <CheckBox x:Name="TapClickEnabledCheck" Content="Tap Click" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard-only mode" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius (200%)" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="ChordShiftCheck" Content="Chord shift enabled" Foreground="#8b949e" Margin="0,4,0,0" />
@@ -236,7 +233,6 @@
             <ComboBox x:Name="KeymapPrimaryCombo" Height="26" />
             <TextBlock Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
             <ComboBox x:Name="KeymapHoldCombo" Height="26" />
-            <Button x:Name="KeymapClearButton" Content="Clear Override" Margin="0,8,0,0" Height="28" />
 
             <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
             <Grid>
@@ -247,7 +243,6 @@
               <Button x:Name="CustomButtonAddLeftButton" Content="Add Left" Height="28" Margin="0,0,6,0" />
               <Button x:Name="CustomButtonAddRightButton" Grid.Column="1" Content="Add Right" Height="28" />
             </Grid>
-            <Button x:Name="CustomButtonDeleteButton" Content="Delete Selected Button" Height="28" Margin="0,6,0,0" />
 
             <TextBlock Text="Button Geometry (%)" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
             <Grid>
@@ -282,6 +277,7 @@
               <TextBlock Text="Height (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
               <TextBox x:Name="CustomButtonHeightBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
+            <Button x:Name="CustomButtonDeleteButton" Content="Delete Selected Button" Height="28" Margin="0,8,0,0" />
           </StackPanel>
         </ScrollViewer>
       </Border>
