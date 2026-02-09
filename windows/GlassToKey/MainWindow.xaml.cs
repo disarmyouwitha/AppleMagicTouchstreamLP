@@ -102,6 +102,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
     private int _consecutiveRawInputFaults;
+    private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
@@ -120,6 +121,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         if (!_settings.VisualizerEnabled)
         {
             _settings.VisualizerEnabled = true;
@@ -651,6 +653,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplyCoreSettings();
         ApplyVisualizerEnabled(true, persist: false);
         _settings.Save();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
     }
 
@@ -2450,6 +2453,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+
         for (uint i = 0; i < packet.ReportCount; i++)
         {
             long started = Stopwatch.GetTimestamp();
@@ -2466,7 +2471,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _captureWriter?.WriteFrame(snapshot, reportSpan, started);
             try
             {
-                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, out TrackpadDecodeResult decoded))
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
@@ -2495,6 +2500,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     reportSpan);
             }
         }
+    }
+
+    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    {
+        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
+        {
+            return profile;
+        }
+
+        return TrackpadDecoderProfile.Auto;
     }
 
     private void RegisterRawInputFault(

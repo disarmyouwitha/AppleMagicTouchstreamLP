@@ -115,6 +115,25 @@ internal static class SelfTestRunner
             return false;
         }
 
+        Span<byte> officialLike = stackalloc byte[PtpReport.ExpectedSize];
+        officialLike[0] = RawInputInterop.ReportIdMultitouch;
+        WriteContact(officialLike, 0, flags: 0x04, contactId: 0x12345600, x: 2500, y: 1900);
+        officialLike[48] = 1;
+        RawInputDeviceInfo officialInfo = new(
+            VendorId: 0x05AC,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: 0,
+            Usage: 0);
+        if (!TrackpadReportDecoder.TryDecode(officialLike, officialInfo, arrivalQpcTicks: 300, out TrackpadDecodeResult officialDecoded) ||
+            officialDecoded.Profile != TrackpadDecoderProfile.Official ||
+            officialDecoded.Frame.GetClampedContactCount() != 1 ||
+            !officialDecoded.Frame.GetContact(0).TipSwitch ||
+            officialDecoded.Frame.GetContact(0).Id != 0)
+        {
+            failure = "official profile auto-decode failed";
+            return false;
+        }
+
         Span<byte> malformed = stackalloc byte[PtpReport.ExpectedSize - 1];
         if (PtpReport.TryParse(malformed, out _))
         {
