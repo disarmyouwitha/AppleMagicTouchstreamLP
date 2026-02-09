@@ -54,21 +54,16 @@ internal static class ReplayVisualLoader
         {
             recordsRead++;
             ReadOnlySpan<byte> payload = record.Payload.Span;
-            if (payload.Length < PtpReport.ExpectedSize)
+            if (payload.Length == 0)
             {
                 droppedInvalidSize++;
                 continue;
             }
 
-            if (payload[0] != RawInputInterop.ReportIdMultitouch)
+            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decoded))
             {
                 droppedNonMultitouch++;
-                continue;
-            }
-
-            if (!PtpReport.TryParse(payload, out PtpReport report))
-            {
-                droppedParseError++;
                 continue;
             }
 
@@ -87,9 +82,8 @@ internal static class ReplayVisualLoader
             long offsetStopwatchTicks = (long)Math.Round(captureOffsetTicks * (double)Stopwatch.Frequency / reader.HeaderQpcFrequency);
             RawInputDeviceTag tag = new(record.DeviceIndex, record.DeviceHash);
             string replayDeviceName = $"replay://dev/{tag.Index}/{tag.Hash:X8}";
-            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
             RawInputDeviceSnapshot snapshot = new(replayDeviceName, info, tag);
-            InputFrame frame = InputFrame.FromReport(arrivalQpcTicks: record.ArrivalQpcTicks, in report);
+            InputFrame frame = decoded.Frame;
             frames.Add(new ReplayVisualFrame(offsetStopwatchTicks, snapshot, frame));
 
             (int, uint) key = (tag.Index, tag.Hash);

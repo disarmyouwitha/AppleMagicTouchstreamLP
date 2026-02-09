@@ -99,6 +99,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
     private int _lastEngineVisualLayer = -1;
+    private long _rawInputPauseUntilTicks;
+    private long _lastRawInputFaultTicks;
+    private int _consecutiveRawInputFaults;
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
@@ -2420,6 +2423,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_rawInputPauseUntilTicks > nowTicks)
+        {
+            return;
+        }
+
         if (!RawInputInterop.TryGetRawInputPacket(lParam, out RawInputPacket packet))
         {
             return;
@@ -2454,35 +2463,65 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            if (reportSpan.Length < PtpReport.ExpectedSize)
-            {
-                _liveMetrics.RecordDropped(FrameDropReason.InvalidReportSize);
-                continue;
-            }
-
             _captureWriter?.WriteFrame(snapshot, reportSpan, started);
-
-            if (reportSpan[0] != RawInputInterop.ReportIdMultitouch)
+            try
             {
-                _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
-                continue;
-            }
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, out TrackpadDecodeResult decoded))
+                {
+                    _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
+                    continue;
+                }
 
-            if (!PtpReport.TryParse(reportSpan, out PtpReport report))
+                _liveMetrics.RecordParsed();
+                InputFrame frame = decoded.Frame;
+                if (!DispatchReport(snapshot, in frame))
+                {
+                    _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
+                    continue;
+                }
+
+                _liveMetrics.RecordDispatched(started);
+            }
+            catch (Exception ex)
             {
-                _liveMetrics.RecordDropped(FrameDropReason.ParseFailed);
-                continue;
+                RegisterRawInputFault(
+                    source: "MainWindow.HandleRawInput",
+                    ex,
+                    snapshot,
+                    packet,
+                    i,
+                    reportSize,
+                    offset,
+                    reportSpan);
             }
+        }
+    }
 
-            _liveMetrics.RecordParsed();
-            InputFrame frame = InputFrame.FromReport(started, in report);
-            if (!DispatchReport(snapshot, in frame))
-            {
-                _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
-                continue;
-            }
+    private void RegisterRawInputFault(
+        string source,
+        Exception ex,
+        in RawInputDeviceSnapshot snapshot,
+        in RawInputPacket packet,
+        uint reportIndex,
+        int reportSize,
+        int offset,
+        ReadOnlySpan<byte> reportSpan)
+    {
+        string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
+        RuntimeFaultLogger.LogException(source, ex, context);
 
-            _liveMetrics.RecordDispatched(started);
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (nowTicks - _lastRawInputFaultTicks > Stopwatch.Frequency)
+        {
+            _consecutiveRawInputFaults = 0;
+        }
+
+        _lastRawInputFaultTicks = nowTicks;
+        _consecutiveRawInputFaults++;
+        if (_consecutiveRawInputFaults >= 3)
+        {
+            _rawInputPauseUntilTicks = nowTicks + (Stopwatch.Frequency * 2);
+            _consecutiveRawInputFaults = 0;
         }
     }
 

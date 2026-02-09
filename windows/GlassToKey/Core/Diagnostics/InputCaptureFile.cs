@@ -162,7 +162,7 @@ internal sealed class InputCaptureReader : IDisposable
         }
 
         int payloadLength = BinaryPrimitives.ReadInt32LittleEndian(header.Slice(0, 4));
-        if (payloadLength < 0 || payloadLength > 1024)
+        if (payloadLength < 0 || payloadLength > 64 * 1024)
         {
             throw new InvalidDataException($"Invalid payload length {payloadLength}.");
         }

@@ -13,6 +13,8 @@ public sealed class ReaderOptions
     public string? ReplayFixturePath { get; private set; }
     public string? MetricsOutputPath { get; private set; }
     public string? ReplayTraceOutputPath { get; private set; }
+    public string? RawAnalyzePath { get; private set; }
+    public string? RawAnalyzeOutputPath { get; private set; }
     public bool ReplayInUi { get; private set; }
     public double ReplaySpeed { get; private set; } = 1.0;
     public bool StartInConfigUi { get; private set; }
@@ -74,10 +76,16 @@ public sealed class ReaderOptions
                 case "--replay-trace-out" when i + 1 < args.Length:
                     options.ReplayTraceOutputPath = args[++i];
                     break;
+                case "--raw-analyze" when i + 1 < args.Length:
+                    options.RawAnalyzePath = args[++i];
+                    break;
+                case "--raw-analyze-out" when i + 1 < args.Length:
+                    options.RawAnalyzeOutputPath = args[++i];
+                    break;
                 case "--help":
                 case "-h":
                 case "/?":
-                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--config]");
+                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--config]");
                 default:
                     break;
             }

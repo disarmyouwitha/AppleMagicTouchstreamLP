@@ -21,6 +21,9 @@ internal sealed class TouchRuntimeService : IDisposable
     private Timer? _snapshotTimer;
     private IRuntimeFrameObserver? _frameObserver;
     private RuntimeModeIndicator _lastModeIndicator = RuntimeModeIndicator.Unknown;
+    private long _rawInputPauseUntilTicks;
+    private long _lastRawInputFaultTicks;
+    private int _consecutiveRawInputFaults;
 
     private UserSettings _settings;
     private KeymapStore _keymap;
@@ -230,6 +233,12 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private void HandleRawInput(IntPtr lParam)
     {
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_rawInputPauseUntilTicks > nowTicks)
+        {
+            return;
+        }
+
         if (!RawInputInterop.TryGetRawInputPacket(lParam, out RawInputPacket packet))
         {
             return;
@@ -276,30 +285,68 @@ internal sealed class TouchRuntimeService : IDisposable
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            if (reportSpan.Length < PtpReport.ExpectedSize || reportSpan[0] != RawInputInterop.ReportIdMultitouch)
+            try
             {
-                continue;
-            }
+                long timestampTicks = Stopwatch.GetTimestamp();
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, out TrackpadDecodeResult decoded))
+                {
+                    continue;
+                }
 
-            if (!PtpReport.TryParse(reportSpan, out PtpReport report))
+                InputFrame frame = decoded.Frame;
+
+                if (routeLeft)
+                {
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
+                    _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
+                }
+
+                if (routeRight)
+                {
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
+                    _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
+                }
+            }
+            catch (Exception ex)
             {
-                continue;
+                RegisterRawInputFault(
+                    source: "TouchRuntimeService.HandleRawInput",
+                    ex,
+                    snapshot,
+                    packet,
+                    i,
+                    reportSize,
+                    offset,
+                    reportSpan);
             }
+        }
+    }
 
-            long timestampTicks = Stopwatch.GetTimestamp();
-            InputFrame frame = InputFrame.FromReport(timestampTicks, in report);
+    private void RegisterRawInputFault(
+        string source,
+        Exception ex,
+        in RawInputDeviceSnapshot snapshot,
+        in RawInputPacket packet,
+        uint reportIndex,
+        int reportSize,
+        int offset,
+        ReadOnlySpan<byte> reportSpan)
+    {
+        string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
+        RuntimeFaultLogger.LogException(source, ex, context);
 
-            if (routeLeft)
-            {
-                _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
-                _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
-            }
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (nowTicks - _lastRawInputFaultTicks > Stopwatch.Frequency)
+        {
+            _consecutiveRawInputFaults = 0;
+        }
 
-            if (routeRight)
-            {
-                _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
-                _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
-            }
+        _lastRawInputFaultTicks = nowTicks;
+        _consecutiveRawInputFaults++;
+        if (_consecutiveRawInputFaults >= 3)
+        {
+            _rawInputPauseUntilTicks = nowTicks + (Stopwatch.Frequency * 2);
+            _consecutiveRawInputFaults = 0;
         }
     }
 

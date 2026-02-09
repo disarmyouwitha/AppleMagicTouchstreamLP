@@ -90,6 +90,31 @@ internal static class SelfTestRunner
             return false;
         }
 
+        RawInputDeviceInfo deviceInfo = new(
+            VendorId: RawInputInterop.VendorId,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: RawInputInterop.UsagePageDigitizer,
+            Usage: RawInputInterop.UsageTouchpad);
+        if (!TrackpadReportDecoder.TryDecode(reportBytes, deviceInfo, arrivalQpcTicks: 100, out TrackpadDecodeResult nativeDecoded) ||
+            nativeDecoded.Kind != TrackpadReportKind.PtpNative ||
+            nativeDecoded.Frame.GetClampedContactCount() != 2)
+        {
+            failure = "native PTP decode failed";
+            return false;
+        }
+
+        Span<byte> embedded = stackalloc byte[64];
+        embedded[0] = 0x31;
+        reportBytes.CopyTo(embedded.Slice(8));
+        if (!TrackpadReportDecoder.TryDecode(embedded, deviceInfo, arrivalQpcTicks: 200, out TrackpadDecodeResult embeddedDecoded) ||
+            embeddedDecoded.Kind != TrackpadReportKind.PtpEmbedded ||
+            embeddedDecoded.PayloadOffset != 8 ||
+            embeddedDecoded.Frame.GetClampedContactCount() != 2)
+        {
+            failure = "embedded PTP decode failed";
+            return false;
+        }
+
         Span<byte> malformed = stackalloc byte[PtpReport.ExpectedSize - 1];
         if (PtpReport.TryParse(malformed, out _))
         {

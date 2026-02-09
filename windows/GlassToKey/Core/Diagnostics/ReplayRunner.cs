@@ -79,26 +79,21 @@ internal sealed class ReplayRunner
             metrics.RecordSeen();
 
             ReadOnlySpan<byte> payload = record.Payload.Span;
-            if (payload.Length < PtpReport.ExpectedSize)
+            if (payload.Length == 0)
             {
                 metrics.RecordDropped(FrameDropReason.InvalidReportSize);
                 continue;
             }
 
-            if (payload[0] != RawInputInterop.ReportIdMultitouch)
+            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decoded))
             {
                 metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                 continue;
             }
 
-            if (!PtpReport.TryParse(payload, out PtpReport report))
-            {
-                metrics.RecordDropped(FrameDropReason.ParseFailed);
-                continue;
-            }
-
             metrics.RecordParsed();
-            InputFrame frame = InputFrame.FromReport(record.ArrivalQpcTicks, in report);
+            InputFrame frame = decoded.Frame;
             TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash);
 
             if (!hasBaseQpc)
