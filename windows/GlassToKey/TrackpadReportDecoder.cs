@@ -22,6 +22,8 @@ internal static class TrackpadReportDecoder
     private const int MaxEmbeddedScanOffset = 96;
     private const int MaxReasonableX = 20000;
     private const int MaxReasonableY = 15000;
+    private const int OfficialMaxRawX = 16383;
+    private const int OfficialMaxRawY = 10240;
 
     public static bool TryDecode(
         ReadOnlySpan<byte> payload,
@@ -396,12 +398,12 @@ internal static class TrackpadReportDecoder
                 // Official stream (usage 0/0) does not match native PTP field packing.
                 // The most stable slot mapping seen in captures is:
                 // X  -> little-endian [slot+2..3]
-                // Y  -> big-endian    [slot+5..6]
-                // Keeping fields non-overlapping prevents X from being polluted by adjacent bytes.
+                // Y  -> little-endian [slot+4..5]
+                // Keeping fields non-overlapping prevents axis pollution from adjacent bytes.
                 int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
-                int rawY = ReadBigEndianU16(payload[slotOffset + 5], payload[slotOffset + 6]);
-                x = ScaleOfficialCoordinate(rawX, maxRaw: 16383, RuntimeConfigurationFactory.DefaultMaxX);
-                y = ScaleOfficialCoordinate(rawY, maxRaw: 16383, RuntimeConfigurationFactory.DefaultMaxY);
+                int rawY = ReadLittleEndianU16(payload[slotOffset + 4], payload[slotOffset + 5]);
+                x = ScaleOfficialCoordinate(rawX, maxRaw: OfficialMaxRawX, RuntimeConfigurationFactory.DefaultMaxX);
+                y = ScaleOfficialCoordinate(rawY, maxRaw: OfficialMaxRawY, RuntimeConfigurationFactory.DefaultMaxY);
             }
 
             frame.SetContact(i, new ContactFrame((uint)i, x, y, normalizedFlags));
