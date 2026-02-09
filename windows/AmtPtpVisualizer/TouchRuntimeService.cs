@@ -19,12 +19,15 @@ internal sealed class TouchRuntimeService : IDisposable
     private DispatchEventPump? _dispatchPump;
     private InputSinkWindow? _inputSink;
     private Timer? _snapshotTimer;
+    private IRuntimeFrameObserver? _frameObserver;
+    private RuntimeModeIndicator _lastModeIndicator = RuntimeModeIndicator.Unknown;
 
     private UserSettings _settings;
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private bool _started;
+    public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
 
     public TouchRuntimeService(ReaderOptions options)
     {
@@ -60,6 +63,7 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
+            _lastModeIndicator = ToModeIndicator(_settings.TypingEnabled, _settings.KeyboardModeEnabled);
 
             RefreshDeviceRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
 
@@ -125,6 +129,21 @@ internal sealed class TouchRuntimeService : IDisposable
         RefreshDeviceRoutes(leftPath, rightPath);
     }
 
+    public void SetFrameObserver(IRuntimeFrameObserver? observer)
+    {
+        _frameObserver = observer;
+    }
+
+    public RuntimeModeIndicator GetCurrentModeIndicator()
+    {
+        if (TryGetSnapshot(out TouchProcessorSnapshot snapshot))
+        {
+            return ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+        }
+
+        return _lastModeIndicator;
+    }
+
     public bool TryGetSnapshot(out TouchProcessorSnapshot snapshot)
     {
         TouchProcessorActor? actor = _touchActor;
@@ -142,6 +161,7 @@ internal sealed class TouchRuntimeService : IDisposable
     {
         _snapshotTimer?.Dispose();
         _snapshotTimer = null;
+        _frameObserver = null;
 
         _globalClickSuppressor.SetEnabled(false);
         _globalClickSuppressor.Dispose();
@@ -160,6 +180,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _touchCore = null;
         _started = false;
+        ModeIndicatorChanged = null;
     }
 
     private void OnSnapshotTimerTick(object? _)
@@ -172,6 +193,21 @@ internal sealed class TouchRuntimeService : IDisposable
 
         TouchProcessorSnapshot snapshot = actor.Snapshot();
         _globalClickSuppressor.SetEnabled(snapshot.KeyboardModeEnabled && snapshot.TypingEnabled);
+        RuntimeModeIndicator nextMode = ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
+        if (nextMode == _lastModeIndicator)
+        {
+            return;
+        }
+
+        _lastModeIndicator = nextMode;
+        try
+        {
+            ModeIndicatorChanged?.Invoke(nextMode);
+        }
+        catch
+        {
+            // Observer failures should never impact hot-path processing.
+        }
     }
 
     private void RefreshDeviceRoutes(string? leftPath, string? rightPath)
@@ -252,14 +288,28 @@ internal sealed class TouchRuntimeService : IDisposable
 
             if (routeLeft)
             {
+                _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
                 _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
             }
 
             if (routeRight)
             {
+                _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
                 _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
             }
         }
+    }
+
+    private static RuntimeModeIndicator ToModeIndicator(bool typingEnabled, bool keyboardModeEnabled)
+    {
+        if (!typingEnabled)
+        {
+            return RuntimeModeIndicator.Mouse;
+        }
+
+        return keyboardModeEnabled
+            ? RuntimeModeIndicator.Keyboard
+            : RuntimeModeIndicator.Mixed;
     }
 
     private readonly record struct RuntimeRoute(string? DevicePath)

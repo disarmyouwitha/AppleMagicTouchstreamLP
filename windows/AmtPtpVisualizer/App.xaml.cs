@@ -138,6 +138,8 @@ public partial class App : Application
         }
 
         _trayController = new StatusTrayController(OpenConfigWindow, ExitApplicationFromTray);
+        _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
+        _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
         if (options.StartInConfigUi)
         {
             OpenConfigWindow();
@@ -146,6 +148,10 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (_runtimeService != null)
+        {
+            _runtimeService.ModeIndicatorChanged -= OnRuntimeModeIndicatorChanged;
+        }
         _trayController?.Dispose();
         _trayController = null;
         _runtimeService?.Dispose();
@@ -192,6 +198,14 @@ public partial class App : Application
         _configWindow?.Close();
         _configWindow = null;
         Shutdown(0);
+    }
+
+    private void OnRuntimeModeIndicatorChanged(RuntimeModeIndicator mode)
+    {
+        _ = Dispatcher.BeginInvoke(() =>
+        {
+            _trayController?.SetModeIndicator(mode);
+        });
     }
 
     private static bool ShouldShowErrorDialogs(string[] args)

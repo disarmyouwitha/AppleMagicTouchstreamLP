@@ -7,6 +7,8 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 ## What It Does
 - Runs as a status-bar/tray app by default; touch ingest + key dispatch stay active even when the config window is closed.
 - Treats the visualizer window as a secondary config surface opened on demand.
+- Mirrors live touch contacts from the tray runtime into the config visualizer through a read-only observer channel.
+- Uses mode-colored tray icon circles for runtime mode status (`Mouse`, `Mixed`, `Keyboard`).
 - Registers for Raw Input (WM_INPUT) and reads multitouch input report `0x05` without opening the HID handle.
 - Parses the `PTP_REPORT` payload (5 contacts, scan time, button state) and renders contacts in real time.
 - Shows contact IDs for active touch contacts (`TipSwitch=true`) in real time.
@@ -21,7 +23,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 
 ## How It Works
 - **Tray runtime host:** `TouchRuntimeService` owns WM_INPUT ingest, touch processing actor, dispatch pump, and click suppression in normal live mode.
-- **Config window:** `MainWindow` updates persisted settings/keymap and pushes config changes into the running tray runtime.
+- **Config window:** `MainWindow` updates persisted settings/keymap and pushes config changes into the running tray runtime; it also receives live frame mirrors from runtime for visualization.
 - **Device selection:** Uses the in-app dropdowns for left/right. Each can be set to "None".
 - **Raw Input path:** Registers for Usage Page `0x0D` (Digitizer), Usage `0x05` (Touch Pad), then parses WM_INPUT payloads.
 - **Parsing:** Manual little-endian `TryParse` over `ReadOnlySpan<byte>` into fixed-capacity structs (`PtpReport`, `InputFrame`), with no per-frame contact-array allocations.
@@ -114,7 +116,9 @@ dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --re
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
 - `StatusTrayController.cs`: tray icon/menu (`Open Config`, `Exit`).
 - `TouchRuntimeService.cs`: background runtime host for WM_INPUT + engine + dispatch.
+- `RuntimeObserverContracts.cs`: runtime mode + frame observer contracts for live visualization mirroring.
 - `RuntimeConfigurationFactory.cs`: shared settings-to-layout/config builders for UI/runtime parity.
+- `StartupRegistration.cs`: Windows startup (`HKCU\\...\\Run`) registration helper.
 - `MainWindow.xaml` / `MainWindow.xaml.cs`: secondary config/visualizer UI (plus replay UI path).
 - `RawInputInterop.cs`: Raw Input registration + device enumeration.
 - `PtpReport.cs`: zero-allocation report parsing.

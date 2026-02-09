@@ -14,6 +14,8 @@
 - `AmtPtpVisualizer/PtpReport.cs`: zero-allocation parser for touchpad report payloads.
 - `AmtPtpVisualizer/TouchRuntimeService.cs`: hot-path runtime host (WM_INPUT routing, touch actor, key dispatch, click suppression).
 - `AmtPtpVisualizer/StatusTrayController.cs`: tray icon/menu and config window launch flow.
+- `AmtPtpVisualizer/RuntimeObserverContracts.cs`: read-only observer contracts for runtime frame mirroring and tray mode indication.
+- `AmtPtpVisualizer/StartupRegistration.cs`: startup-on-login registration via HKCU Run key.
 - `AmtPtpVisualizer/MainWindow.xaml.cs`: secondary visualizer/config UI (settings, keymap, replay UI).
 - `AmtPtpVisualizer/RuntimeConfigurationFactory.cs`: shared layout/config builders for runtime + config UI.
 - `AmtPtpVisualizer/KeymapStore.cs`: layout-scoped keymap/custom-button persistence (`6x3`, `6x4`, etc.) across layers/sides.

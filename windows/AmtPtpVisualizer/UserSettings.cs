@@ -16,6 +16,7 @@ public sealed class UserSettings
     public bool AllowMouseTakeover { get; set; } = true;
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
+    public bool RunAtStartup { get; set; }
     public bool TapClickEnabled { get; set; } = true;
     public bool TwoFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerTapEnabled { get; set; }

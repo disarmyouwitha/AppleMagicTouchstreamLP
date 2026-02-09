@@ -1,4 +1,5 @@
 ## TODO:
+- * TRAY: Then Rename AmtPtpVisualizer > GlassToKey (update AGENTS.md, README.md, etc!)
 - Add force cut off, wire into GUI and settings. Make pressure over cutoff disqualify key dispatch
 - typing tuning, key layout, mode toggles - these should be expandable (and set to collapsed) in the GUI
 - replay still doesnt work. I don't think we need to dispatch keys exatcly but it doesnt show highlight of keys either.

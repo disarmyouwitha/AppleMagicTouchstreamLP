@@ -17,7 +17,7 @@ using System.Windows.Threading;
 
 namespace AmtPtpVisualizer;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IRuntimeFrameObserver
 {
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
@@ -192,6 +192,8 @@ public partial class MainWindow : Window
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         ChordShiftCheck.Checked += OnModeSettingChanged;
         ChordShiftCheck.Unchecked += OnModeSettingChanged;
+        RunAtStartupCheck.Checked += OnModeSettingChanged;
+        RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         KeymapSideCombo.SelectionChanged += OnKeymapSelectionChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
@@ -244,10 +246,12 @@ public partial class MainWindow : Window
             else
             {
                 LoadDevices(preserveSelection: false);
+                _runtimeService?.SetFrameObserver(this);
             }
         };
         Closed += (_, _) =>
         {
+            _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
             _keymap.Save();
@@ -418,6 +422,9 @@ public partial class MainWindow : Window
         TapThreeFingerCheck.IsChecked = _settings.ThreeFingerTapEnabled;
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         ChordShiftCheck.IsChecked = _settings.ChordShiftEnabled;
+        bool startupEnabled = StartupRegistration.IsEnabled();
+        _settings.RunAtStartup = startupEnabled;
+        RunAtStartupCheck.IsChecked = startupEnabled;
 
         HoldDurationBox.Text = FormatNumber(_settings.HoldDurationMs);
         DragCancelBox.Text = FormatNumber(_settings.DragCancelMm);
@@ -620,6 +627,25 @@ public partial class MainWindow : Window
         _settings.ThreeFingerTapEnabled = TapThreeFingerCheck.IsChecked == true;
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.ChordShiftEnabled = ChordShiftCheck.IsChecked == true;
+        bool startupRequested = RunAtStartupCheck.IsChecked == true;
+        if (_settings.RunAtStartup != startupRequested)
+        {
+            if (!StartupRegistration.TrySetEnabled(startupRequested, out string? startupError))
+            {
+                _suppressSettingsEvents = true;
+                RunAtStartupCheck.IsChecked = _settings.RunAtStartup;
+                _suppressSettingsEvents = false;
+                MessageBox.Show(
+                    this,
+                    $"Failed to update startup registration.\n{startupError}",
+                    "Startup Registration",
+                    MessageBoxButton.OK,
+                    MessageBoxImage.Error);
+                return;
+            }
+
+            _settings.RunAtStartup = startupRequested;
+        }
         _settings.LayoutPresetName = _preset.Name;
         _settings.VisualizerEnabled = VisualizerEnabledCheck.IsChecked == true;
 
@@ -1986,12 +2012,12 @@ public partial class MainWindow : Window
 
     private bool ShouldSuppressKeyHighlighting()
     {
-        if (_touchActor == null)
+        if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             return false;
         }
 
-        IntentMode intent = _touchActor.Snapshot().IntentMode;
+        IntentMode intent = snapshot.IntentMode;
         return intent is IntentMode.MouseCandidate or IntentMode.MouseActive or IntentMode.GestureCandidate;
     }
 
@@ -2551,12 +2577,17 @@ public partial class MainWindow : Window
 
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
+        ApplyReport(session, snapshot.Tag, in report, side);
+    }
+
+    private void ApplyReport(ReaderSession session, RawInputDeviceTag tag, in InputFrame report, TrackpadSide side)
+    {
         session.State.Update(in report);
 
-        string tagText = RawInputInterop.FormatTag(snapshot.Tag);
+        string tagText = RawInputInterop.FormatTag(tag);
         if (!string.Equals(session.TagText, tagText, StringComparison.Ordinal))
         {
-            session.UpdateTag(snapshot.Tag);
+            session.UpdateTag(tag);
             if (side == TrackpadSide.Left) _leftStatus = tagText;
             else _rightStatus = tagText;
             UpdateHeaderStatus();
@@ -2567,6 +2598,22 @@ public partial class MainWindow : Window
             UpdateHitForSide(session, side);
             InvalidateSurface(session);
         }
+    }
+
+    void IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, RawInputDeviceTag tag)
+    {
+        if (IsReplayMode || !UsesSharedRuntime)
+        {
+            return;
+        }
+
+        ReaderSession session = side == TrackpadSide.Left ? _left : _right;
+        if (string.IsNullOrWhiteSpace(session.DeviceName))
+        {
+            return;
+        }
+
+        ApplyReport(session, tag, in frame, side);
     }
 
     private void PostToEngine(TrackpadSide side, in InputFrame report, ushort maxX, ushort maxY, long timestampTicks)

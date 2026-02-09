@@ -243,6 +243,7 @@
             <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
             <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard-only mode" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="ChordShiftCheck" Content="Chord shift enabled" Foreground="#8b949e" Margin="0,4,0,0" />
+            <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
 
             <TextBlock Text="Keymap Editor" Foreground="#8b949e" FontSize="12" Margin="0,14,0,2" />
             <Grid>
