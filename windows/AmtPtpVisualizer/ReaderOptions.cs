@@ -15,6 +15,7 @@ public sealed class ReaderOptions
     public string? ReplayTraceOutputPath { get; private set; }
     public bool ReplayInUi { get; private set; }
     public double ReplaySpeed { get; private set; } = 1.0;
+    public bool StartInConfigUi { get; private set; }
 
     public static ReaderOptions Parse(string[] args)
     {
@@ -64,6 +65,9 @@ public sealed class ReaderOptions
                     }
                     options.ReplaySpeed = replaySpeed;
                     break;
+                case "--config":
+                    options.StartInConfigUi = true;
+                    break;
                 case "--metrics-out" when i + 1 < args.Length:
                     options.MetricsOutputPath = args[++i];
                     break;
@@ -73,7 +77,7 @@ public sealed class ReaderOptions
                 case "--help":
                 case "-h":
                 case "/?":
-                    throw new ArgumentException("Usage: AmtPtpVisualizer [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>]");
+                    throw new ArgumentException("Usage: AmtPtpVisualizer [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--config]");
                 default:
                     break;
             }

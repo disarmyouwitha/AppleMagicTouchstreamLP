@@ -5,6 +5,8 @@ GlassToKey for Windows.
 A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by `AmtPtpDeviceUsbUm`.
 
 ## What It Does
+- Runs as a status-bar/tray app by default; touch ingest + key dispatch stay active even when the config window is closed.
+- Treats the visualizer window as a secondary config surface opened on demand.
 - Registers for Raw Input (WM_INPUT) and reads multitouch input report `0x05` without opening the HID handle.
 - Parses the `PTP_REPORT` payload (5 contacts, scan time, button state) and renders contacts in real time.
 - Shows contact IDs for active touch contacts (`TipSwitch=true`) in real time.
@@ -18,6 +20,8 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - In Keyboard mode, swallows global mouse click events outside the visualizer process so accidental trackpad clicks do not leak to other apps.
 
 ## How It Works
+- **Tray runtime host:** `TouchRuntimeService` owns WM_INPUT ingest, touch processing actor, dispatch pump, and click suppression in normal live mode.
+- **Config window:** `MainWindow` updates persisted settings/keymap and pushes config changes into the running tray runtime.
 - **Device selection:** Uses the in-app dropdowns for left/right. Each can be set to "None".
 - **Raw Input path:** Registers for Usage Page `0x0D` (Digitizer), Usage `0x05` (Touch Pad), then parses WM_INPUT payloads.
 - **Parsing:** Manual little-endian `TryParse` over `ReadOnlySpan<byte>` into fixed-capacity structs (`PtpReport`, `InputFrame`), with no per-frame contact-array allocations.
@@ -40,8 +44,12 @@ dotnet build AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 dotnet run --project AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 ```
 
+- Default live launch starts in tray mode (status app) without opening the visualizer.
+- Use the tray icon `Open Config` action or `--config` to open the visualizer immediately.
+
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
+- `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
 - `--list`: Print available HID interfaces.
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
@@ -88,6 +96,7 @@ dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --re
   - Timeline scrubber slider
 
 ## Performance Note
+- Default live mode hot path runs in `TouchRuntimeService` independent from config-window lifetime.
 - Replay visual playback code paths are only active when `--replay-ui` is set.
 - Default live mode (no replay flags) continues to use the normal WM_INPUT ingest path.
 
@@ -103,7 +112,10 @@ dotnet run --project AmtPtpVisualizer/AmtPtpVisualizer.csproj -c Release -- --re
 
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
-- `MainWindow.xaml` / `MainWindow.xaml.cs`: UI shell and reader loop.
+- `StatusTrayController.cs`: tray icon/menu (`Open Config`, `Exit`).
+- `TouchRuntimeService.cs`: background runtime host for WM_INPUT + engine + dispatch.
+- `RuntimeConfigurationFactory.cs`: shared settings-to-layout/config builders for UI/runtime parity.
+- `MainWindow.xaml` / `MainWindow.xaml.cs`: secondary config/visualizer UI (plus replay UI path).
 - `RawInputInterop.cs`: Raw Input registration + device enumeration.
 - `PtpReport.cs`: zero-allocation report parsing.
 - `Core/Input/InputFrame.cs`: fixed-capacity frame/contact structs for engine handoff.
