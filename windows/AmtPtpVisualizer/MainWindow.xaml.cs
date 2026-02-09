@@ -386,12 +386,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         _suppressLayerEvent = true;
         LayerCombo.Items.Clear();
-        for (int layer = 0; layer <= 7; layer++)
+        for (int layer = 0; layer <= 3; layer++)
         {
             LayerCombo.Items.Add($"Layer {layer}");
         }
         _activeLayer = _settings.ActiveLayer;
-        if (_activeLayer < 0 || _activeLayer > 7) _activeLayer = 0;
+        if (_activeLayer < 0 || _activeLayer > 3) _activeLayer = 0;
         LayerCombo.SelectedIndex = _activeLayer;
         _suppressLayerEvent = false;
     }
@@ -957,7 +957,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         options.AddRange(new[]
         {
-            "TypingToggle",
             "Ctrl+C",
             "Ctrl+V",
             "Ctrl+F",
@@ -967,11 +966,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Ctrl+Z"
         });
 
-        for (int layer = 1; layer <= 7; layer++)
+        options.Add("TO(0)");
+        for (int layer = 1; layer <= 3; layer++)
         {
             options.Add($"MO({layer})");
             options.Add($"TO({layer})");
-            options.Add($"TG({layer})");
         }
 
         return options;
@@ -1057,7 +1056,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             return;
         }
-        _activeLayer = Math.Clamp(LayerCombo.SelectedIndex, 0, 7);
+        _activeLayer = Math.Clamp(LayerCombo.SelectedIndex, 0, 3);
         _settings.ActiveLayer = _activeLayer;
         _settings.Save();
         _touchActor?.SetPersistentLayer(_activeLayer);
@@ -1845,10 +1844,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int selected = LayerCombo.SelectedIndex;
         if (selected >= 0)
         {
-            return Math.Clamp(selected, 0, 7);
+            return Math.Clamp(selected, 0, 3);
         }
 
-        return Math.Clamp(_activeLayer, 0, 7);
+        return Math.Clamp(_activeLayer, 0, 3);
     }
 
     private void UpdateHitForSide(ReaderSession session, TrackpadSide side)

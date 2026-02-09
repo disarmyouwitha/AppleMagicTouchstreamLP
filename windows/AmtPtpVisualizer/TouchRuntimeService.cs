@@ -305,9 +305,9 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private static RuntimeModeIndicator ToModeIndicator(bool typingEnabled, bool keyboardModeEnabled, int activeLayer)
     {
-        if (activeLayer == 1)
+        if (activeLayer != 0)
         {
-            return RuntimeModeIndicator.LayerOne;
+            return RuntimeModeIndicator.LayerActive;
         }
 
         if (!typingEnabled)

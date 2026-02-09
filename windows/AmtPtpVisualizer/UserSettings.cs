@@ -100,6 +100,13 @@ public sealed class UserSettings
     {
         bool changed = false;
 
+        int normalizedLayer = Math.Clamp(ActiveLayer, 0, 3);
+        if (normalizedLayer != ActiveLayer)
+        {
+            ActiveLayer = normalizedLayer;
+            changed = true;
+        }
+
         double normalizedSnap = SnapRadiusPercent > 0.0 ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent : 0.0;
         if (Math.Abs(normalizedSnap - SnapRadiusPercent) > 0.00001)
         {

@@ -6,7 +6,7 @@ internal enum RuntimeModeIndicator : byte
     Mouse = 1,
     Mixed = 2,
     Keyboard = 3,
-    LayerOne = 4
+    LayerActive = 4
 }
 
 internal interface IRuntimeFrameObserver
