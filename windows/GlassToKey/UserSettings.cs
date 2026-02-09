@@ -11,6 +11,7 @@ public sealed class UserSettings
     public string? RightDevicePath { get; set; }
     public int ActiveLayer { get; set; }
     public string LayoutPresetName { get; set; } = "6x3";
+    public Dictionary<string, string>? DecoderProfilesByDevicePath { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool VisualizerEnabled { get; set; } = true;
     public bool KeyboardModeEnabled { get; set; }
     public bool AllowMouseTakeover { get; set; } = true;
@@ -130,6 +131,46 @@ public sealed class UserSettings
         {
             ThreeFingerTapEnabled = TapClickEnabled;
             changed = true;
+        }
+
+        if (DecoderProfilesByDevicePath != null && DecoderProfilesByDevicePath.Count > 0)
+        {
+            Dictionary<string, string> normalized = new(StringComparer.OrdinalIgnoreCase);
+            foreach ((string key, string value) in DecoderProfilesByDevicePath)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                if (!TrackpadDecoderProfileMap.TryParse(value, out TrackpadDecoderProfile profile))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                string canonical = profile switch
+                {
+                    TrackpadDecoderProfile.Legacy => "legacy",
+                    TrackpadDecoderProfile.Official => "official",
+                    _ => "auto"
+                };
+
+                if (!string.Equals(value, canonical, StringComparison.Ordinal))
+                {
+                    changed = true;
+                }
+
+                normalized[key] = canonical;
+            }
+
+            if (normalized.Count != DecoderProfilesByDevicePath.Count)
+            {
+                changed = true;
+            }
+
+            DecoderProfilesByDevicePath = normalized;
         }
 
         return changed;

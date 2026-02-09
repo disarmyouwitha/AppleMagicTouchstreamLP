@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using WinForms = System.Windows.Forms;
@@ -29,6 +30,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
+    private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath;
     private bool _started;
     public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
 
@@ -39,6 +41,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
         _columnSettings = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(_settings, _preset);
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
     }
 
     public bool Start(out string? error)
@@ -110,6 +113,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _keymap = keymap;
         _preset = preset;
         _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columnSettings);
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
 
         _keymap.SetActiveLayout(_preset.Name);
         RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
@@ -276,6 +280,8 @@ internal sealed class TouchRuntimeService : IDisposable
             return;
         }
 
+        TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+
         for (uint i = 0; i < packet.ReportCount; i++)
         {
             int offset = packet.DataOffset + (int)(i * packet.ReportSize);
@@ -288,7 +294,7 @@ internal sealed class TouchRuntimeService : IDisposable
             try
             {
                 long timestampTicks = Stopwatch.GetTimestamp();
-                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, out TrackpadDecodeResult decoded))
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     continue;
                 }
@@ -320,6 +326,16 @@ internal sealed class TouchRuntimeService : IDisposable
                     reportSpan);
             }
         }
+    }
+
+    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    {
+        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
+        {
+            return profile;
+        }
+
+        return TrackpadDecoderProfile.Auto;
     }
 
     private void RegisterRawInputFault(

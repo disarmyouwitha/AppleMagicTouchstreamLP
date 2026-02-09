@@ -131,6 +131,19 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
 
+### Per-device decoder profile (mixed drivers)
+- `settings.json` supports `DecoderProfilesByDevicePath` for per-device overrides:
+```json
+{
+  "DecoderProfilesByDevicePath": {
+    "\\\\?\\HID#VID_05AC&PID_0265&MI_01#...": "legacy",
+    "\\\\?\\HID#VID_05AC&PID_0265&MI_01#...ALT": "official"
+  }
+}
+```
+- Accepted values: `auto`, `legacy`, `official`.
+- `auto` remains the default and resolves per device at runtime.
+
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
 - `StatusTrayController.cs`: tray icon/menu (`Open Config`, `Exit`).
