@@ -119,16 +119,16 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Key Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>

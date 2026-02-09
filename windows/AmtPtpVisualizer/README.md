@@ -49,6 +49,13 @@ dotnet run --project AmtPtpVisualizer\AmtPtpVisualizer.csproj -c Release
 - Default live launch starts in tray mode (status app) without opening the visualizer.
 - Use the tray icon `Open Config` action or `--config` to open the visualizer immediately.
 
+### Pin Tray Icon
+- Windows 11:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `AmtPtpVisualizer`.
+- Windows 10:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `AmtPtpVisualizer`.
+- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
+
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
