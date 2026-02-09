@@ -7,6 +7,11 @@ namespace AmtPtpVisualizer;
 
 public partial class App : Application
 {
+    private TouchRuntimeService? _runtimeService;
+    private StatusTrayController? _trayController;
+    private MainWindow? _configWindow;
+    private ReaderOptions? _startupOptions;
+
     protected override void OnStartup(StartupEventArgs e)
     {
         bool showErrorDialogs = ShouldShowErrorDialogs(e.Args);
@@ -100,9 +105,93 @@ public partial class App : Application
             return;
         }
 
-        MainWindow window = new MainWindow(options);
-        MainWindow = window;
-        window.Show();
+        bool useLegacyWindowRuntime =
+            (options.ReplayInUi && !string.IsNullOrWhiteSpace(options.ReplayPath)) ||
+            !string.IsNullOrWhiteSpace(options.CapturePath);
+        if (useLegacyWindowRuntime)
+        {
+            MainWindow window = new MainWindow(options);
+            MainWindow = window;
+            window.Show();
+            return;
+        }
+
+        _startupOptions = options;
+        ShutdownMode = ShutdownMode.OnExplicitShutdown;
+        _runtimeService = new TouchRuntimeService(options);
+        if (!_runtimeService.Start(out string? runtimeError))
+        {
+            string message = string.IsNullOrWhiteSpace(runtimeError)
+                ? "Failed to start tray runtime."
+                : runtimeError;
+            if (showErrorDialogs)
+            {
+                MessageBox.Show(message, "AmtPtpVisualizer", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            else
+            {
+                Console.Error.WriteLine(message);
+            }
+
+            Shutdown(6);
+            return;
+        }
+
+        _trayController = new StatusTrayController(OpenConfigWindow, ExitApplicationFromTray);
+        if (options.StartInConfigUi)
+        {
+            OpenConfigWindow();
+        }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        _trayController?.Dispose();
+        _trayController = null;
+        _runtimeService?.Dispose();
+        _runtimeService = null;
+        base.OnExit(e);
+    }
+
+    private void OpenConfigWindow()
+    {
+        if (_startupOptions == null)
+        {
+            return;
+        }
+
+        if (_configWindow == null)
+        {
+            _configWindow = new MainWindow(_startupOptions, _runtimeService);
+            MainWindow = _configWindow;
+            _configWindow.Closed += (_, _) =>
+            {
+                if (ReferenceEquals(MainWindow, _configWindow))
+                {
+                    MainWindow = null;
+                }
+                _configWindow = null;
+            };
+        }
+
+        if (!_configWindow.IsVisible)
+        {
+            _configWindow.Show();
+        }
+
+        if (_configWindow.WindowState == WindowState.Minimized)
+        {
+            _configWindow.WindowState = WindowState.Normal;
+        }
+
+        _configWindow.Activate();
+    }
+
+    private void ExitApplicationFromTray()
+    {
+        _configWindow?.Close();
+        _configWindow = null;
+        Shutdown(0);
     }
 
     private static bool ShouldShowErrorDialogs(string[] args)

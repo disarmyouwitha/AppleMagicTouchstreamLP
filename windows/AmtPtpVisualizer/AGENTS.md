@@ -1,7 +1,7 @@
 # AGENTS
 
 ## Project Summary
-- **GlassToKey app path:** `AmtPtpVisualizer` is the active app that reads touchpad report `0x05` via Raw Input, visualizes contacts, and drives keyboard mapping logic.
+- **GlassToKey app path:** `AmtPtpVisualizer` is the active app. Live mode runs as a tray/status app that reads touchpad report `0x05` via Raw Input and drives keyboard mapping logic in the background.
 - **Core intent:** Keep OS mouse/gesture behavior intact in mixed mode while mapping selected touch intents to keys. In keyboard mode, global mouse clicks are swallowed outside the visualizer process.
 
 ## Repository Map
@@ -12,7 +12,10 @@
 
 ## Key Files & Responsibilities
 - `AmtPtpVisualizer/PtpReport.cs`: zero-allocation parser for touchpad report payloads.
-- `AmtPtpVisualizer/MainWindow.xaml.cs`: reader loop, UI orchestration, and left/right device routing.
+- `AmtPtpVisualizer/TouchRuntimeService.cs`: hot-path runtime host (WM_INPUT routing, touch actor, key dispatch, click suppression).
+- `AmtPtpVisualizer/StatusTrayController.cs`: tray icon/menu and config window launch flow.
+- `AmtPtpVisualizer/MainWindow.xaml.cs`: secondary visualizer/config UI (settings, keymap, replay UI).
+- `AmtPtpVisualizer/RuntimeConfigurationFactory.cs`: shared layout/config builders for runtime + config UI.
 - `AmtPtpVisualizer/KeymapStore.cs`: layout-scoped keymap/custom-button persistence (`6x3`, `6x4`, etc.) across layers/sides.
 - `AmtPtpVisualizer/Core/Engine/*`: touch processor state machine and key-binding resolution.
 - `AmtPtpVisualizer/Core/Diagnostics/*`: capture format, replay runner, metrics, and self-tests.

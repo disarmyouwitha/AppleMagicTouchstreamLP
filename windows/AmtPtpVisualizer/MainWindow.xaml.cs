@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
 
     private readonly ReaderOptions _options;
+    private readonly TouchRuntimeService? _runtimeService;
     private readonly ObservableCollection<HidDeviceInfo> _devices = new();
     private readonly ReaderSession _left = new("Left");
     private readonly ReaderSession _right = new("Right");
@@ -101,6 +102,7 @@ public partial class MainWindow : Window
     private int _lastEngineVisualLayer = -1;
 
     private bool IsReplayMode => _replayData != null;
+    private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
 
     private static Brush CreateFrozenBrush(string colorHex)
     {
@@ -110,10 +112,11 @@ public partial class MainWindow : Window
         return brush;
     }
 
-    public MainWindow(ReaderOptions options)
+    internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
         _options = options;
+        _runtimeService = runtimeService;
         _settings = UserSettings.Load();
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
@@ -144,8 +147,7 @@ public partial class MainWindow : Window
             _statusTimer.Start();
         }
 
-        _leftLayout = LayoutBuilder.BuildLayout(_preset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, _columnSettings, mirrored: true, keySpacingPercent: _settings.KeyPaddingPercent);
-        _rightLayout = LayoutBuilder.BuildLayout(_preset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, _columnSettings, mirrored: false, keySpacingPercent: _settings.KeyPaddingPercent);
+        RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out _leftLayout, out _rightLayout);
 
         LeftSurface.State = _left.State;
         RightSurface.State = _right.State;
@@ -212,16 +214,20 @@ public partial class MainWindow : Window
 
         InitializeLayerCombo();
         InitializeSettingsPanel();
-        _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
-        _dispatchQueue = new DispatchEventQueue();
-        _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
-        _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+        if (!UsesSharedRuntime)
+        {
+            _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
+            _dispatchQueue = new DispatchEventQueue();
+            _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
+            _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+            _touchActor.SetPersistentLayer(_activeLayer);
+            _touchActor.SetTypingEnabled(_settings.TypingEnabled);
+            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
+            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
+            _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
+        }
+
         ApplyCoreSettings();
-        _touchActor.SetPersistentLayer(_activeLayer);
-        _touchActor.SetTypingEnabled(true);
-        _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-        _touchActor.SetAllowMouseTakeover(true);
-        _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
 
         InitializeReplayControls();
         UpdateLabelMatrices();
@@ -269,7 +275,7 @@ public partial class MainWindow : Window
 
     private void OnSourceInitialized(object? sender, EventArgs e)
     {
-        if (IsReplayMode)
+        if (IsReplayMode || UsesSharedRuntime)
         {
             return;
         }
@@ -365,7 +371,7 @@ public partial class MainWindow : Window
 
     private void OnStatusTimerTick(object? sender, EventArgs e)
     {
-        if (_touchActor == null)
+        if (_touchActor == null && _runtimeService == null)
         {
             return;
         }
@@ -590,7 +596,7 @@ public partial class MainWindow : Window
 
         _keymap.SetActiveLayout(_preset.Name);
         _keymap.Save();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         UpdateLabelMatrices();
         EnsureSelectedKeyStillValid();
         UpdateSelectedKeyHighlight();
@@ -644,22 +650,22 @@ public partial class MainWindow : Window
 
     private void ApplyCoreSettings()
     {
-        if (_touchActor == null)
+        if (_touchActor != null)
         {
-            return;
+            _touchActor.Configure(BuildConfigFromSettings());
+            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
+            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
+            _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
+            _touchActor.ConfigureKeymap(_keymap);
+            _touchActor.SetPersistentLayer(_activeLayer);
         }
 
-        _touchActor.Configure(BuildConfigFromSettings());
-        _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-        _touchActor.SetAllowMouseTakeover(true);
-        _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
-        _touchActor.ConfigureKeymap(_keymap);
+        _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
     }
 
     private void RebuildLayouts()
     {
-        _leftLayout = LayoutBuilder.BuildLayout(_preset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, _columnSettings, mirrored: true, keySpacingPercent: _settings.KeyPaddingPercent);
-        _rightLayout = LayoutBuilder.BuildLayout(_preset, TrackpadWidthMm, TrackpadHeightMm, KeyWidthMm, KeyHeightMm, _columnSettings, mirrored: false, keySpacingPercent: _settings.KeyPaddingPercent);
+        RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out _leftLayout, out _rightLayout);
         LeftSurface.Layout = _leftLayout;
         RightSurface.Layout = _rightLayout;
         UpdateLabelMatrices();
@@ -704,26 +710,7 @@ public partial class MainWindow : Window
 
     private TouchProcessorConfig BuildConfigFromSettings()
     {
-        return TouchProcessorConfig.Default with
-        {
-            TrackpadWidthMm = TrackpadWidthMm,
-            TrackpadHeightMm = TrackpadHeightMm,
-            HoldDurationMs = _settings.HoldDurationMs,
-            DragCancelMm = _settings.DragCancelMm,
-            TypingGraceMs = _settings.TypingGraceMs,
-            IntentMoveMm = _settings.IntentMoveMm,
-            IntentVelocityMmPerSec = _settings.IntentVelocityMmPerSec,
-            SnapRadiusPercent = Math.Clamp(_settings.SnapRadiusPercent, 0.0, 200.0),
-            SnapAmbiguityRatio = _settings.SnapAmbiguityRatio,
-            KeyBufferMs = _settings.KeyBufferMs,
-            TapClickEnabled = _settings.TapClickEnabled,
-            TwoFingerTapEnabled = _settings.TwoFingerTapEnabled,
-            ThreeFingerTapEnabled = _settings.ThreeFingerTapEnabled,
-            TapStaggerToleranceMs = _settings.TapStaggerToleranceMs,
-            TapCadenceWindowMs = _settings.TapCadenceWindowMs,
-            TapMoveThresholdMm = _settings.TapMoveThresholdMm,
-            ChordShiftEnabled = _settings.ChordShiftEnabled
-        };
+        return RuntimeConfigurationFactory.BuildTouchConfig(_settings);
     }
 
     private static string FormatNumber(double value)
@@ -841,36 +828,12 @@ public partial class MainWindow : Window
 
     private static ColumnLayoutSettings[] CloneColumnSettings(ColumnLayoutSettings[] source)
     {
-        ColumnLayoutSettings[] output = new ColumnLayoutSettings[source.Length];
-        for (int i = 0; i < source.Length; i++)
-        {
-            ColumnLayoutSettings item = source[i];
-            output[i] = new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent);
-        }
-
-        return output;
+        return RuntimeConfigurationFactory.CloneColumnSettings(source);
     }
 
     private static ColumnLayoutSettings[] BuildColumnSettingsForPreset(UserSettings settings, TrackpadLayoutPreset preset)
     {
-        ColumnLayoutSettings[] defaults = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
-        if (settings.ColumnSettings == null || settings.ColumnSettings.Count != preset.Columns)
-        {
-            return defaults;
-        }
-
-        ColumnLayoutSettings[] output = new ColumnLayoutSettings[preset.Columns];
-        for (int i = 0; i < preset.Columns; i++)
-        {
-            ColumnLayoutSettings saved = settings.ColumnSettings[i] ?? new ColumnLayoutSettings();
-            output[i] = new ColumnLayoutSettings(
-                scale: Math.Clamp(saved.Scale, 0.25, 3.0),
-                offsetXPercent: saved.OffsetXPercent,
-                offsetYPercent: saved.OffsetYPercent,
-                rowSpacingPercent: saved.RowSpacingPercent);
-        }
-
-        return output;
+        return RuntimeConfigurationFactory.BuildColumnSettingsForPreset(settings, preset);
     }
 
     private void SetControlsPaneVisible(bool visible, bool animated)
@@ -1094,6 +1057,7 @@ public partial class MainWindow : Window
         _settings.ActiveLayer = _activeLayer;
         _settings.Save();
         _touchActor?.SetPersistentLayer(_activeLayer);
+        _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
         UpdateLabelMatrices();
         EnsureSelectedKeyStillValid();
         UpdateSelectedKeyHighlight();
@@ -1428,7 +1392,7 @@ public partial class MainWindow : Window
 
             _keymap.Save();
             UpdateLabelMatrices();
-            _touchActor?.ConfigureKeymap(_keymap);
+            ApplyCoreSettings();
             UpdateHitForSide(_left, TrackpadSide.Left);
             UpdateHitForSide(_right, TrackpadSide.Right);
             RefreshKeymapEditor();
@@ -1459,7 +1423,7 @@ public partial class MainWindow : Window
 
         _keymap.Save();
         UpdateLabelMatrices();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         UpdateHitForSide(_left, TrackpadSide.Left);
         UpdateHitForSide(_right, TrackpadSide.Right);
         RefreshKeymapEditor();
@@ -1485,7 +1449,7 @@ public partial class MainWindow : Window
 
         _keymap.Save();
         UpdateLabelMatrices();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         if (_visualizerEnabled)
         {
             UpdateHitForSide(_left, TrackpadSide.Left);
@@ -1521,7 +1485,7 @@ public partial class MainWindow : Window
 
         _keymap.Save();
         UpdateLabelMatrices();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         if (_visualizerEnabled)
         {
             UpdateHitForSide(_left, TrackpadSide.Left);
@@ -1546,7 +1510,7 @@ public partial class MainWindow : Window
         _keymap.Save();
         ClearSelectionForEditing();
         UpdateLabelMatrices();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         if (_visualizerEnabled)
         {
             UpdateHitForSide(_left, TrackpadSide.Left);
@@ -1603,7 +1567,7 @@ public partial class MainWindow : Window
 
         _keymap.Save();
         UpdateLabelMatrices();
-        _touchActor?.ConfigureKeymap(_keymap);
+        ApplyCoreSettings();
         if (_visualizerEnabled)
         {
             UpdateHitForSide(_left, TrackpadSide.Left);
@@ -2468,9 +2432,12 @@ public partial class MainWindow : Window
             return;
         }
 
-        _settings.LeftDevicePath = (LeftDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
-        _settings.RightDevicePath = (RightDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
+        string? leftPath = (LeftDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
+        string? rightPath = (RightDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
+        _settings.LeftDevicePath = leftPath;
+        _settings.RightDevicePath = rightPath;
         _settings.Save();
+        _runtimeService?.UpdateDeviceSelections(leftPath, rightPath);
     }
 
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
@@ -2628,7 +2595,7 @@ public partial class MainWindow : Window
         string modeLabel;
         Brush modeBrush;
         bool suppressGlobalClicks;
-        if (_touchActor == null)
+        if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             next = "State: n/a";
             leftContacts = SnapshotContactCount(_left.State);
@@ -2641,7 +2608,6 @@ public partial class MainWindow : Window
         }
         else
         {
-            TouchProcessorSnapshot snapshot = _touchActor.Snapshot();
             next = $"State: {snapshot.IntentMode} | layer {snapshot.ActiveLayer} | contacts {snapshot.ContactCount}";
             leftContacts = snapshot.LeftContacts;
             rightContacts = snapshot.RightContacts;
@@ -2714,12 +2680,29 @@ public partial class MainWindow : Window
 
     private int GetVisualizationLayer()
     {
-        if (_touchActor == null)
+        if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             return GetSelectedLayer();
         }
 
-        return Math.Clamp(_touchActor.Snapshot().ActiveLayer, 0, 7);
+        return Math.Clamp(snapshot.ActiveLayer, 0, 7);
+    }
+
+    private bool TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot)
+    {
+        if (_touchActor != null)
+        {
+            snapshot = _touchActor.Snapshot();
+            return true;
+        }
+
+        if (_runtimeService != null)
+        {
+            return _runtimeService.TryGetSnapshot(out snapshot);
+        }
+
+        snapshot = default;
+        return false;
     }
 
     private static (string Label, Brush Brush) ToIntentPill(IntentMode mode)
