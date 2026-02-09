@@ -105,28 +105,22 @@
 
             <TextBlock Text="Layout" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
             <ComboBox x:Name="LayoutPresetCombo" Height="26" />
-            <Grid Margin="0,8,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <CheckBox x:Name="VisualizerEnabledCheck" Content="Visualizer enabled" Foreground="#8b949e" VerticalAlignment="Center" />
-            </Grid>
             <TextBlock Text="Key Layout" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
             <Grid>
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Key Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Edit Column" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <ComboBox x:Name="ColumnLayoutColumnCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Edit Column" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <ComboBox x:Name="ColumnLayoutColumnCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Key Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>

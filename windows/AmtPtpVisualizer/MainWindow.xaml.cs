@@ -118,6 +118,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        if (!_settings.VisualizerEnabled)
+        {
+            _settings.VisualizerEnabled = true;
+            _settings.Save();
+        }
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
         _keymap.SetActiveLayout(_preset.Name);
@@ -180,8 +185,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
-        VisualizerEnabledCheck.Checked += OnVisualizerToggleChanged;
-        VisualizerEnabledCheck.Unchecked += OnVisualizerToggleChanged;
         TapClickEnabledCheck.Checked += OnModeSettingChanged;
         TapClickEnabledCheck.Unchecked += OnModeSettingChanged;
         TapTwoFingerCheck.Checked += OnModeSettingChanged;
@@ -233,7 +236,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         InitializeReplayControls();
         UpdateLabelMatrices();
-        ApplyVisualizerEnabled(_settings.VisualizerEnabled, persist: false);
+        ApplyVisualizerEnabled(true, persist: false);
         UpdateEngineStateDetails();
 
         Loaded += (_, _) =>
@@ -416,7 +419,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         LayoutPresetCombo.SelectedItem = _preset;
-        VisualizerEnabledCheck.IsChecked = _settings.VisualizerEnabled;
         TapClickEnabledCheck.IsChecked = _settings.TapClickEnabled;
         TapTwoFingerCheck.IsChecked = _settings.TwoFingerTapEnabled;
         TapThreeFingerCheck.IsChecked = _settings.ThreeFingerTapEnabled;
@@ -532,16 +534,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplySettingsFromUi();
     }
 
-    private void OnVisualizerToggleChanged(object sender, RoutedEventArgs e)
-    {
-        if (_suppressSettingsEvents)
-        {
-            return;
-        }
-
-        ApplyVisualizerEnabled(VisualizerEnabledCheck.IsChecked == true, persist: true);
-    }
-
     private void OnToggleControlsPaneClicked(object sender, RoutedEventArgs e)
     {
         SetControlsPaneVisible(!_controlsPaneVisible, animated: true);
@@ -647,7 +639,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _settings.RunAtStartup = startupRequested;
         }
         _settings.LayoutPresetName = _preset.Name;
-        _settings.VisualizerEnabled = VisualizerEnabledCheck.IsChecked == true;
+        _settings.VisualizerEnabled = true;
 
         _settings.HoldDurationMs = ReadDouble(HoldDurationBox, _settings.HoldDurationMs);
         _settings.DragCancelMm = ReadDouble(DragCancelBox, _settings.DragCancelMm);
@@ -669,7 +661,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ApplyCoreSettings();
-        ApplyVisualizerEnabled(_settings.VisualizerEnabled, persist: false);
+        ApplyVisualizerEnabled(true, persist: false);
         _settings.Save();
         UpdateEngineStateDetails();
     }
