@@ -8,6 +8,8 @@ internal static class RuntimeConfigurationFactory
     public const double TrackpadHeightMm = 114.9;
     public const double KeyWidthMm = 18.0;
     public const double KeyHeightMm = 17.0;
+    public const double HardcodedSnapRadiusPercent = 200.0;
+    public const double HardcodedKeyBufferMs = 20.0;
     public const ushort DefaultMaxX = 7612;
     public const ushort DefaultMaxY = 5065;
 
@@ -22,9 +24,9 @@ internal static class RuntimeConfigurationFactory
             TypingGraceMs = settings.TypingGraceMs,
             IntentMoveMm = settings.IntentMoveMm,
             IntentVelocityMmPerSec = settings.IntentVelocityMmPerSec,
-            SnapRadiusPercent = Math.Clamp(settings.SnapRadiusPercent, 0.0, 200.0),
+            SnapRadiusPercent = settings.SnapRadiusPercent > 0.0 ? HardcodedSnapRadiusPercent : 0.0,
             SnapAmbiguityRatio = settings.SnapAmbiguityRatio,
-            KeyBufferMs = settings.KeyBufferMs,
+            KeyBufferMs = HardcodedKeyBufferMs,
             TapClickEnabled = settings.TapClickEnabled,
             TwoFingerTapEnabled = settings.TwoFingerTapEnabled,
             ThreeFingerTapEnabled = settings.ThreeFingerTapEnabled,

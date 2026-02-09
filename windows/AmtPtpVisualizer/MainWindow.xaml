@@ -161,16 +161,16 @@
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="90" />
               </Grid.ColumnDefinitions>
-              <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+              <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
             <Grid Margin="0,6,0,0">
               <Grid.ColumnDefinitions>
@@ -188,23 +188,6 @@
               <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
               <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
             </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Snap Radius (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="SnapRadiusBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Key Buffer (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="KeyBufferBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-
             <TextBlock Text="Tap Click Options" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
             <CheckBox x:Name="TapClickEnabledCheck" Content="Tap click enabled" Foreground="#8b949e" />
             <CheckBox x:Name="TapTwoFingerCheck" Content="Two-finger tap (left click)" Foreground="#8b949e" Margin="0,4,0,0" />
@@ -236,6 +219,7 @@
 
             <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
             <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard-only mode" Foreground="#8b949e" Margin="0,4,0,0" />
+            <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius (200%)" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="ChordShiftCheck" Content="Chord shift enabled" Foreground="#8b949e" Margin="0,4,0,0" />
             <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
 

@@ -193,6 +193,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapThreeFingerCheck.Unchecked += OnModeSettingChanged;
         KeyboardModeCheck.Checked += OnModeSettingChanged;
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
+        SnapRadiusModeCheck.Checked += OnModeSettingChanged;
+        SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         ChordShiftCheck.Checked += OnModeSettingChanged;
         ChordShiftCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
@@ -423,6 +425,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapTwoFingerCheck.IsChecked = _settings.TwoFingerTapEnabled;
         TapThreeFingerCheck.IsChecked = _settings.ThreeFingerTapEnabled;
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
+        SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         ChordShiftCheck.IsChecked = _settings.ChordShiftEnabled;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
@@ -433,8 +436,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TypingGraceBox.Text = FormatNumber(_settings.TypingGraceMs);
         IntentMoveBox.Text = FormatNumber(_settings.IntentMoveMm);
         IntentVelocityBox.Text = FormatNumber(_settings.IntentVelocityMmPerSec);
-        SnapRadiusBox.Text = FormatNumber(_settings.SnapRadiusPercent);
-        KeyBufferBox.Text = FormatNumber(_settings.KeyBufferMs);
         TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
         TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
         TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
@@ -463,8 +464,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             TypingGraceBox,
             IntentMoveBox,
             IntentVelocityBox,
-            SnapRadiusBox,
-            KeyBufferBox,
             KeyPaddingBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
@@ -618,6 +617,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TwoFingerTapEnabled = TapTwoFingerCheck.IsChecked == true;
         _settings.ThreeFingerTapEnabled = TapThreeFingerCheck.IsChecked == true;
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
+        _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
+            ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
+            : 0.0;
         _settings.ChordShiftEnabled = ChordShiftCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)
@@ -646,9 +648,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TypingGraceMs = ReadDouble(TypingGraceBox, _settings.TypingGraceMs);
         _settings.IntentMoveMm = ReadDouble(IntentMoveBox, _settings.IntentMoveMm);
         _settings.IntentVelocityMmPerSec = ReadDouble(IntentVelocityBox, _settings.IntentVelocityMmPerSec);
-        _settings.SnapRadiusPercent = Math.Clamp(ReadDouble(SnapRadiusBox, _settings.SnapRadiusPercent), 0.0, 200.0);
-        SnapRadiusBox.Text = FormatNumber(_settings.SnapRadiusPercent);
-        _settings.KeyBufferMs = ReadDouble(KeyBufferBox, _settings.KeyBufferMs);
+        _settings.KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
         _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
         _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
         _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);

@@ -25,7 +25,7 @@ public sealed class UserSettings
     public double TypingGraceMs { get; set; } = 600.0;
     public double IntentMoveMm { get; set; } = 3.0;
     public double IntentVelocityMmPerSec { get; set; } = 30.0;
-    public double SnapRadiusPercent { get; set; } = 35.0;
+    public double SnapRadiusPercent { get; set; } = RuntimeConfigurationFactory.HardcodedSnapRadiusPercent;
     public double SnapAmbiguityRatio { get; set; } = 1.15;
     public double KeyBufferMs { get; set; } = 20.0;
     public double KeyPaddingPercent { get; set; } = 10.0;
@@ -98,13 +98,21 @@ public sealed class UserSettings
 
     public bool NormalizeRanges()
     {
-        double clampedSnap = Math.Clamp(SnapRadiusPercent, 0.0, 200.0);
-        if (Math.Abs(clampedSnap - SnapRadiusPercent) < 0.00001)
+        bool changed = false;
+
+        double normalizedSnap = SnapRadiusPercent > 0.0 ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent : 0.0;
+        if (Math.Abs(normalizedSnap - SnapRadiusPercent) > 0.00001)
         {
-            return false;
+            SnapRadiusPercent = normalizedSnap;
+            changed = true;
         }
 
-        SnapRadiusPercent = clampedSnap;
-        return true;
+        if (Math.Abs(KeyBufferMs - RuntimeConfigurationFactory.HardcodedKeyBufferMs) > 0.00001)
+        {
+            KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
+            changed = true;
+        }
+
+        return changed;
     }
 }
