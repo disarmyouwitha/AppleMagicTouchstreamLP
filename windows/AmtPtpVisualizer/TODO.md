@@ -1,4 +1,5 @@
 ## TODO:
+- ^ If you Click a key for editing (blue highlight) it should expand the Column Settings and Keymap Editor sections
 - Rename AmtPtpVisualizer > GlassToKey (update AGENTS.md, README.md, Taskbar.. everywhere!)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch

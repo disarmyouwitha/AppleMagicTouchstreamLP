@@ -84,7 +84,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _engineStateText = "State: n/a";
     private bool _visualizerEnabled = true;
     private bool _suppressSettingsEvents;
-    private bool _suppressKeymapSelectionEvents;
     private bool _suppressKeymapActionEvents;
     private bool _hasSelectedKey;
     private bool _hasSelectedCustomButton;
@@ -195,7 +194,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ChordShiftCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
-        KeymapSideCombo.SelectionChanged += OnKeymapSelectionChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -438,12 +436,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
 
-        _suppressKeymapSelectionEvents = true;
-        KeymapSideCombo.Items.Clear();
-        KeymapSideCombo.Items.Add(TrackpadSide.Left);
-        KeymapSideCombo.Items.Add(TrackpadSide.Right);
-        KeymapSideCombo.SelectedItem = TrackpadSide.Left;
-        _suppressKeymapSelectionEvents = false;
         ClearSelectionForEditing();
         RefreshKeymapEditor();
     }
@@ -1277,25 +1269,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return output;
     }
 
-    private void OnKeymapSelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (_suppressKeymapSelectionEvents)
-        {
-            return;
-        }
-
-        if (sender == KeymapSideCombo)
-        {
-            TrackpadSide side = KeymapSideCombo.SelectedItem is TrackpadSide selected ? selected : TrackpadSide.Left;
-            if ((_hasSelectedKey || _hasSelectedCustomButton) && _selectedKeySide != side)
-            {
-                ClearSelectionForEditing();
-            }
-        }
-
-        RefreshKeymapEditor();
-    }
-
     private void RefreshKeymapEditor()
     {
         _suppressKeymapActionEvents = true;
@@ -1376,7 +1349,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnKeymapActionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (_suppressKeymapActionEvents || _suppressKeymapSelectionEvents)
+        if (_suppressKeymapActionEvents)
         {
             return;
         }
@@ -1500,7 +1473,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnCustomButtonGeometryCommitted(object sender, KeyboardFocusChangedEventArgs e)
     {
-        if (_suppressKeymapActionEvents || _suppressKeymapSelectionEvents)
+        if (_suppressKeymapActionEvents)
         {
             return;
         }
@@ -1515,7 +1488,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        if (_suppressKeymapActionEvents || _suppressKeymapSelectionEvents)
+        if (_suppressKeymapActionEvents)
         {
             return;
         }
@@ -1565,11 +1538,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
-        if (KeymapSideCombo.SelectedItem is TrackpadSide selectedSide && selectedSide != _selectedKeySide)
-        {
-            return false;
-        }
-
         return row >= 0 && column >= 0;
     }
 
@@ -1578,11 +1546,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         side = _selectedKeySide;
         button = null;
         if (!_hasSelectedCustomButton || string.IsNullOrWhiteSpace(_selectedCustomButtonId))
-        {
-            return false;
-        }
-
-        if (KeymapSideCombo.SelectedItem is TrackpadSide selectedSide && selectedSide != _selectedKeySide)
         {
             return false;
         }
@@ -1634,9 +1597,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeySide = side;
         _selectedKeyRow = row;
         _selectedKeyColumn = column;
-        _suppressKeymapSelectionEvents = true;
-        KeymapSideCombo.SelectedItem = side;
-        _suppressKeymapSelectionEvents = false;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
     }
@@ -1649,9 +1609,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeySide = side;
         _selectedKeyRow = -1;
         _selectedKeyColumn = -1;
-        _suppressKeymapSelectionEvents = true;
-        KeymapSideCombo.SelectedItem = side;
-        _suppressKeymapSelectionEvents = false;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
     }
