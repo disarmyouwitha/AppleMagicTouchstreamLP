@@ -105,179 +105,208 @@
 
             <TextBlock Text="Layout" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
             <ComboBox x:Name="LayoutPresetCombo" Height="26" />
-            <TextBlock Text="Key Layout" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Edit Column" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <ComboBox x:Name="ColumnLayoutColumnCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Column X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="ColumnOffsetXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Column Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="ColumnOffsetYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
+            <Expander IsExpanded="True" Margin="0,8,0,0">
+              <Expander.Header>
+                <TextBlock Text="Key Layout" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Edit Column" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="ColumnLayoutColumnCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+              </StackPanel>
+            </Expander>
 
-            <TextBlock Text="Typing Tuning" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Hold Duration (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="HoldDurationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Intent Move (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="IntentMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Tap Stagger (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="TapStaggerBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Tap Cadence (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="TapCadenceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Tap Move Threshold (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="TapMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
+            <Expander IsExpanded="True" Margin="0,12,0,0">
+              <Expander.Header>
+                <TextBlock Text="Typing Tuning" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Hold Duration (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="HoldDurationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Intent Move (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="IntentMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Tap Stagger (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="TapStaggerBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Tap Cadence (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="TapCadenceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Tap Move Threshold (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="TapMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+              </StackPanel>
+            </Expander>
 
-            <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
-            <CheckBox x:Name="TapClickEnabledCheck" Content="Tap Click" Foreground="#8b949e" Margin="0,4,0,0" />
-            <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard-only mode" Foreground="#8b949e" Margin="0,4,0,0" />
-            <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius (200%)" Foreground="#8b949e" Margin="0,4,0,0" />
-            <CheckBox x:Name="ChordShiftCheck" Content="Chord shift enabled" Foreground="#8b949e" Margin="0,4,0,0" />
-            <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
+            <Expander IsExpanded="True" Margin="0,12,0,0">
+              <Expander.Header>
+                <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <CheckBox x:Name="TapClickEnabledCheck" Content="Tap Click" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard-only mode" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius (200%)" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="ChordShiftCheck" Content="Chord shift enabled" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
+              </StackPanel>
+            </Expander>
 
-            <TextBlock Text="Keymap Editor" Foreground="#8b949e" FontSize="12" Margin="0,14,0,2" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <ComboBox x:Name="KeymapSideCombo" Height="26" Margin="0,0,6,0" />
-              <ComboBox x:Name="LayerCombo" Grid.Column="1" Height="26" />
-            </Grid>
-            <TextBlock Text="Primary Action" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
-            <ComboBox x:Name="KeymapPrimaryCombo" Height="26" />
-            <TextBlock Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
-            <ComboBox x:Name="KeymapHoldCombo" Height="26" />
+            <Expander IsExpanded="True" Margin="0,12,0,0">
+              <Expander.Header>
+                <TextBlock Text="Keymap Editor" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <ComboBox x:Name="KeymapSideCombo" Height="26" Margin="0,0,6,0" />
+                  <ComboBox x:Name="LayerCombo" Grid.Column="1" Height="26" />
+                </Grid>
+                <TextBlock Text="Primary Action" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
+                <ComboBox x:Name="KeymapPrimaryCombo" Height="26" />
+                <TextBlock Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
+                <ComboBox x:Name="KeymapHoldCombo" Height="26" />
+              </StackPanel>
+            </Expander>
 
-            <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="*" />
-              </Grid.ColumnDefinitions>
-              <Button x:Name="CustomButtonAddLeftButton" Content="Add Left" Height="28" Margin="0,0,6,0" />
-              <Button x:Name="CustomButtonAddRightButton" Grid.Column="1" Content="Add Right" Height="28" />
-            </Grid>
+            <Expander IsExpanded="True" Margin="0,12,0,0">
+              <Expander.Header>
+                <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <Grid>
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Button x:Name="CustomButtonAddLeftButton" Content="Add Left" Height="28" Margin="0,0,6,0" />
+                  <Button x:Name="CustomButtonAddRightButton" Grid.Column="1" Content="Add Right" Height="28" />
+                </Grid>
 
-            <TextBlock Text="Button Geometry (%)" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
-            <Grid>
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="CustomButtonXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="CustomButtonYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Width (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="CustomButtonWidthBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Grid Margin="0,6,0,0">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="90" />
-              </Grid.ColumnDefinitions>
-              <TextBlock Text="Height (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-              <TextBox x:Name="CustomButtonHeightBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-            </Grid>
-            <Button x:Name="CustomButtonDeleteButton" Content="Delete Selected Button" Height="28" Margin="0,8,0,0" />
+                <Grid Margin="0,10,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="CustomButtonXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="CustomButtonYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Width (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="CustomButtonWidthBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Height (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="CustomButtonHeightBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Button x:Name="CustomButtonDeleteButton" Content="Delete Selected Button" Height="28" Margin="0,8,0,0" />
+              </StackPanel>
+            </Expander>
           </StackPanel>
         </ScrollViewer>
       </Border>
