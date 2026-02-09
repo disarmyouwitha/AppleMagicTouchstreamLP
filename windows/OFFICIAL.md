@@ -34,9 +34,12 @@ Implemented in `GlassToKey/TrackpadReportDecoder.cs` (`NormalizeOfficialTouchFie
 
 Per contact slot (`slotOffset = 1 + contactIndex * 9`):
 - `X`: little-endian `u16` from `[slot+2..slot+3]`
-- `Y`: big-endian `u16` from `[slot+5..slot+6]`
+- `Y`: little-endian `u16` from `[slot+4..slot+5]`
 - `Flags`: force tip+confidence on decoded contact (`... | 0x03`)
 - `Id`: normalized to slot index (prevents pathological packed IDs from official transport)
+- scaling:
+  - `X` uses `maxRaw=16383`
+  - `Y` uses `maxRaw=10240` (empirical fix for ~75% height cap with official USB-C captures)
 
 Why this mapping:
 - avoids 10-bit wrap behavior seen with packed interpretation.
