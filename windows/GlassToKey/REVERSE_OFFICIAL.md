@@ -13,55 +13,10 @@ Target transport observed so far:
 Primary decoder code:
 - `GlassToKey/TrackpadReportDecoder.cs`
 
-## What We Changed
-These are the key architecture changes made to support official driver data without breaking legacy paths.
-
-- Added profile-aware decode routing (`official` default, `Opensource`/`legacy` override; `auto` kept for compatibility).
-- Added per-device profile map so left/right can use different decoders.
-- Added crash-safe runtime guards around raw input decode path.
-- Added raw capture analyzer CLI mode for quick signature and decode health checks.
-- Normalized pathological official contact IDs to stable slot IDs.
-
-Related files:
-- `GlassToKey/TrackpadReportDecoder.cs`
-- `GlassToKey/TrackpadDecoderProfile.cs`
-- `GlassToKey/UserSettings.cs`
-- `GlassToKey/MainWindow.xaml.cs`
-- `GlassToKey/TouchRuntimeService.cs`
-- `GlassToKey/Core/Diagnostics/RawCaptureAnalyzer.cs`
-- `GlassToKey/Core/Diagnostics/RuntimeFaultLogger.cs`
-- `GlassToKey/App.xaml.cs`
-- `GlassToKey/ReaderOptions.cs`
-
-## Decoder Profiles
-`official` (default):
-- Default for any device path without an explicit override.
-- Forces official normalization attempt first; keeps legacy fallback.
-
-`legacy` (`Opensource` in UI):
-- Explicit per-device override.
-- Uses standard original PTP path only (relaxed legacy validation).
-
-`auto` (legacy compatibility only):
-- No longer used as the default profile.
-- Existing persisted `auto` values are migrated to default `official` behavior.
-
-Per-device persistence key:
-- `%LOCALAPPDATA%\GlassToKey\settings.json`
-- `DecoderProfilesByDevicePath`
-
-Example:
-```json
-"DecoderProfilesByDevicePath": {
-  "\\?\\HID#VID_05AC&PID_0265...": "official",
-  "\\?\\HID#VID_05AC&PID_0262...": "legacy"
-}
-```
-
 ## Packet Layout Findings
 Important finding: the official stream does not match standard Windows PTP field semantics even though packet size is 50 bytes.
 
-Current best contact slot model:
+Current best contact  slot model:
 - slot size: `9` bytes
 - slot base: `slotOffset = 1 + contactIndex * 9`
 - decoded contact count still taken from report tail (`ContactCount` from parsed frame)
@@ -102,8 +57,6 @@ Observed behavior that drove these constants:
 - X and Y now both track with good stability in current live feedback.
 
 ## Known Unknowns
-- Pressure is not reliably decoded for official transport yet.
-- UI may show `p:0` because pressure probe currently sees no trustworthy pressure signal.
 - Some non-position bits likely still exist in nearby slot bytes (`+1`, `+7`, `+8`).
 - Raw analyzer JSON is summary-level only; no built-in per-frame XY dump yet.
 
@@ -113,29 +66,7 @@ Raw input exception handling now includes:
 - contextual packet dump fields (VID/PID/usage/report index/report hex prefix)
 - temporary raw-input pause after repeated faults (prevents rapid lockup loops)
 
-Key code:
-- `GlassToKey/Core/Diagnostics/RuntimeFaultLogger.cs`
-- `GlassToKey/MainWindow.xaml.cs`
-- `GlassToKey/TouchRuntimeService.cs`
-
 ## Analyzer + Validation Workflow
-From `windows` directory:
-
-```powershell
-dotnet .\GlassToKey\bin\Debug\net6.0-windows\GlassToKey.dll --selftest
-dotnet .\GlassToKey\bin\Debug\net6.0-windows\GlassToKey.dll --raw-analyze .\your-capture.atpcap --raw-analyze-out .\your-capture.analysis.json
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --decoder-debug
-```
-
-Release build:
-
-```powershell
-dotnet publish .\GlassToKey\GlassToKey.csproj -c Release -r win-x64 --self-contained false
-```
-
-Published exe:
-- `GlassToKey\bin\Release\net6.0-windows\win-x64\publish\GlassToKey.exe`
-
 Decoder debug output:
 - add `--decoder-debug` to print per-side chosen decode profile and sample contact fields.
 
@@ -154,11 +85,9 @@ Practical note:
 
 ## Recommended Next Reverse-Engineering Steps
 1. Add optional per-frame CSV output in `RawCaptureAnalyzer` with raw slot bytes + decoded XY.
-2. Isolate pressure/tip/confidence bits using stationary-finger force ramps.
-3. Validate 2-5 finger motion with mixed velocities to confirm slot ordering assumptions.
-4. Confirm behavior on both halves when one side is `Opensource` (`legacy`) and the other `official`.
+2. Isolate tip/confidence bits using stationary-finger force ramps.
 
 ## Quick Context Summary For Next Session
 - Official USB-C path is now usable with profile-aware decoding and runtime stability guards.
 - Current slot decode and axis scales are empirical but working in live tests.
-- Remaining work is mostly pressure/flag semantics and richer diagnostics, not crash triage.
+- Remaining work is mostly flag semantics and richer diagnostics, not crash triage.
