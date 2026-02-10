@@ -5,7 +5,7 @@ This is the reverse-engineering handoff for official Apple USB-C driver packets 
 
 Target transport observed so far:
 - `VID 0x05AC`
-- `PID 0x0265`
+- `PID 0x0265` and `PID 0x0324`
 - `usagePage=0x00`, `usage=0x00`
 - `reportId=0x05`
 - report length `50` bytes
@@ -35,19 +35,22 @@ Related files:
 
 ## Decoder Profiles
 `auto`:
-- Try both legacy and official decode candidates, then choose by payload semantics.
-- Selection rules (current):
+- Official candidate is attempted only for Apple VID paths (`VID 0x05AC`, `PID 0x0265/0x0324`).
+- Non-Apple VID paths (for example open-source stacks exposing `VID 0x004C`) use legacy decode only in `auto`.
+- When both candidates are available (Apple VID path), choose by payload semantics:
   - If only one candidate has contacts, use that one.
   - If legacy candidate shows any non-zero contact IDs, prefer `legacy`.
   - If official candidate is edge-saturated (`x/y` pinned to bounds), prefer `legacy`.
   - If both have contacts and legacy IDs are all zero, prefer `official`.
   - If ambiguous, bias to `legacy` to protect open-source/standard PTP behavior.
-- This avoids metadata-only misclassification when both drivers expose the same VID/PID and usage.
+- Legacy validation behavior:
+  - strict on Apple VID `auto` path (used for official-vs-legacy disambiguation),
+  - relaxed everywhere else so confidence-only/non-tip legacy frames are still accepted.
 - Runtime latching: once an `auto` device gets a decoded frame with `contactCount > 0`,
-  its chosen profile is latched for the rest of the process run (per device path).
+  its chosen profile is latched for the rest of the process run (per device path), and decode routing stops re-evaluating that device.
 
 `legacy`:
-- Standard original PTP path only.
+- Standard original PTP path only (relaxed legacy validation).
 
 `official`:
 - Force official normalization attempt first; keeps legacy fallback.
