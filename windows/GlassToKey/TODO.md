@@ -1,4 +1,7 @@
 ## TODO: 
+- Add "Blank" layout
+- Add left / right click as actions
+- Test all 3 drivers for compatibility
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
 - typing tuning, key layout, mode toggles - these should be expandable (and set to collapsed) in the GUI

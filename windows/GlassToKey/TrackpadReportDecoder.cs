@@ -47,8 +47,6 @@ internal static class TrackpadReportDecoder
             return false;
         }
 
-        bool likelyOfficialTransport = IsLikelyOfficialTransport(deviceInfo);
-
         if (preferredProfile == TrackpadDecoderProfile.Legacy)
         {
             if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out result))
@@ -74,24 +72,30 @@ internal static class TrackpadReportDecoder
             return TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result);
         }
 
-        if (likelyOfficialTransport)
+        bool legacyDecoded = TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out TrackpadDecodeResult legacyResult);
+        bool officialDecoded = TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Official, out TrackpadDecodeResult officialResult);
+        if (legacyDecoded && officialDecoded)
         {
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Official, out result))
+            if (ShouldPreferLegacyForAuto(legacyResult, officialResult))
             {
+                result = legacyResult;
                 return true;
             }
 
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out result))
-            {
-                return true;
-            }
+            result = officialResult;
+            return true;
         }
-        else
+
+        if (legacyDecoded)
         {
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out result))
-            {
-                return true;
-            }
+            result = legacyResult;
+            return true;
+        }
+
+        if (officialDecoded)
+        {
+            result = officialResult;
+            return true;
         }
 
         if (TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result))
@@ -372,14 +376,70 @@ internal static class TrackpadReportDecoder
         return packed >> 22;
     }
 
-    private static bool IsLikelyOfficialTransport(in RawInputDeviceInfo deviceInfo)
+    private static bool ShouldPreferLegacyForAuto(in TrackpadDecodeResult legacyResult, in TrackpadDecodeResult officialResult)
     {
-        if (!RawInputInterop.IsTargetVidPid(deviceInfo.VendorId, deviceInfo.ProductId))
+        int legacyCount = legacyResult.Frame.GetClampedContactCount();
+        int officialCount = officialResult.Frame.GetClampedContactCount();
+        if (legacyCount == 0 && officialCount > 0)
         {
             return false;
         }
 
-        return deviceInfo.UsagePage == 0 && deviceInfo.Usage == 0;
+        if (officialCount == 0 && legacyCount > 0)
+        {
+            return true;
+        }
+
+        bool legacyHasNonZeroId = false;
+        for (int i = 0; i < legacyCount; i++)
+        {
+            ContactFrame contact = legacyResult.Frame.GetContact(i);
+            if (contact.Id != 0)
+            {
+                legacyHasNonZeroId = true;
+                break;
+            }
+        }
+
+        bool officialEdgeSaturated = false;
+        if (officialCount > 0)
+        {
+            officialEdgeSaturated = true;
+            for (int i = 0; i < officialCount; i++)
+            {
+                ContactFrame contact = officialResult.Frame.GetContact(i);
+                bool onEdge = contact.X == 0 ||
+                    contact.X >= RuntimeConfigurationFactory.DefaultMaxX ||
+                    contact.Y == 0 ||
+                    contact.Y >= RuntimeConfigurationFactory.DefaultMaxY;
+                if (!onEdge)
+                {
+                    officialEdgeSaturated = false;
+                    break;
+                }
+            }
+        }
+
+        if (legacyHasNonZeroId)
+        {
+            // Real PTP stream tends to carry stable non-zero contact IDs.
+            return true;
+        }
+
+        if (officialEdgeSaturated && legacyCount > 0)
+        {
+            // Official decode is saturated at boundaries; treat as likely misdecode.
+            return true;
+        }
+
+        if (legacyCount > 0 && officialCount > 0)
+        {
+            // Legacy contact IDs look synthetic (all zeros), while official has valid contacts.
+            return false;
+        }
+
+        // Ambiguous fallback: keep legacy to protect open-source/standard PTP paths.
+        return true;
     }
 
     private static void NormalizeOfficialTouchFields(ref InputFrame frame, ReadOnlySpan<byte> payload)

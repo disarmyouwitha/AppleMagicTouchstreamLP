@@ -134,6 +134,24 @@ internal static class SelfTestRunner
             return false;
         }
 
+        Span<byte> appleVidLegacyLikeUsageZero = stackalloc byte[PtpReport.ExpectedSize];
+        appleVidLegacyLikeUsageZero[0] = RawInputInterop.ReportIdMultitouch;
+        WriteContact(appleVidLegacyLikeUsageZero, 0, flags: 0x03, contactId: 101, x: 1600, y: 1200);
+        appleVidLegacyLikeUsageZero[48] = 1;
+        RawInputDeviceInfo appleVidUsageZeroInfo = new(
+            VendorId: 0x05AC,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: 0,
+            Usage: 0);
+        if (!TrackpadReportDecoder.TryDecode(appleVidLegacyLikeUsageZero, appleVidUsageZeroInfo, arrivalQpcTicks: 320, out TrackpadDecodeResult appleVidLegacyDecoded) ||
+            appleVidLegacyDecoded.Profile != TrackpadDecoderProfile.Legacy ||
+            appleVidLegacyDecoded.Frame.GetClampedContactCount() != 1 ||
+            appleVidLegacyDecoded.Frame.GetContact(0).Id != 101)
+        {
+            failure = "apple VID usage 0/0 PTP should stay on legacy profile";
+            return false;
+        }
+
         Span<byte> malformed = stackalloc byte[PtpReport.ExpectedSize - 1];
         if (PtpReport.TryParse(malformed, out _))
         {
