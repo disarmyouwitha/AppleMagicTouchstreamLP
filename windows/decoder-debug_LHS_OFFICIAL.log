@@ -1,0 +1,20 @@
+[decoder] latched device=\\?\HID#VID_05AC&PID_0324&MI_01&Col02#7&22905fe0&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030} profile=Official
+[decoder] side=Left pref=Auto picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=3118 y=3282 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4439 y=3473 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4648 y=3530 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x03 x=1601 y=3238 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=2 first=id=0 flags=0x03 x=5035 y=2738 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=1966 y=2261 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x07 x=4205 y=1741 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=3911 y=1693 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x03 x=3086 y=2540 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x03 x=3377 y=2349 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4076 y=2468 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=3986 y=2538 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4517 y=2516 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=3697 y=3199 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x07 x=3562 y=3305 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+live: seen=0, parsed=0, dispatched=0, dropped=0, run_s=13.847, latency_us[min/avg/max]=0.00/0.00/0.00, alloc_delta_b=173089192
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4356 y=2163 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x07 x=3279 y=3459 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
+[decoder] side=Left pref=Official picked=Official kind=PtpNative count=1 first=id=0 flags=0x0B x=4287 y=3294 tag=[dev 0 A86503CF] vid=0x05AC pid=0x0324 usage=0x00/0x00
