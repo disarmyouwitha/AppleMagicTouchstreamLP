@@ -10,6 +10,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - Mirrors live touch contacts from the tray runtime into the config visualizer through a read-only observer channel.
 - Uses mode-colored tray icon circles for runtime mode status (`Mouse`, `Mixed`, `Keyboard`).
 - Registers for Raw Input (WM_INPUT) and reads multitouch input report `0x05` without opening the HID handle.
+- Decodes native `0x05` PTP, embedded `0x05` payloads, and a USB-C Apple 9-byte contact layout fallback for official-driver raw streams.
 - Parses the `PTP_REPORT` payload (5 contacts, scan time, button state) and renders contacts in real time.
 - Shows contact IDs for active touch contacts (`TipSwitch=true`) in real time.
 - Tags each report with a device index + hash (`[dev N XXXXXXXX]`) so multiple trackpads can be distinguished.
@@ -69,6 +70,8 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--replay-trace-out <path>`: Write detailed replay trace JSON (intent transitions, dispatch events, diagnostics).
   - Dispatch events/diagnostics include `dispatchLabel` (for example `A`, `TypingToggle`, `Ctrl+C`, `ChordShift`) for direct intent debugging.
   - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `tap_gesture_active`, `hold_consumed`) when a touch release does not emit a key dispatch.
+- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification.
+- `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--selftest`: Run parser/replay smoke tests and exit.
 
 ## Common Workflows
@@ -88,6 +91,14 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
 
 - This mode does not open WPF UI.
 - It prints replay determinism/fingerprint summary to console.
+
+### 2b. Inspect unknown official-driver raw reports
+```powershell
+dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --raw-analyze .\touch-session.atpcap --raw-analyze-out .\raw-analysis.json
+```
+
+- Prints report signatures by `VID/PID`, report id, and payload length.
+- Includes decode counts (`PTP`, `embedded PTP`, `Apple 9-byte`) plus sample hex payloads.
 
 ### 3. Replay directly into visualizer UI
 ```powershell
@@ -118,6 +129,20 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
+- `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
+
+### Per-device decoder profile (mixed drivers)
+- `settings.json` supports `DecoderProfilesByDevicePath` for per-device overrides:
+```json
+{
+  "DecoderProfilesByDevicePath": {
+    "\\\\?\\HID#VID_05AC&PID_0265&MI_01#...": "legacy",
+    "\\\\?\\HID#VID_05AC&PID_0265&MI_01#...ALT": "official"
+  }
+}
+```
+- Accepted values: `auto`, `legacy`, `official`.
+- `auto` remains the default and resolves per device at runtime.
 
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.

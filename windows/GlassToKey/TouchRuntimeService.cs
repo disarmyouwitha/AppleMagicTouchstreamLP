@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Threading;
 using WinForms = System.Windows.Forms;
@@ -21,11 +22,20 @@ internal sealed class TouchRuntimeService : IDisposable
     private Timer? _snapshotTimer;
     private IRuntimeFrameObserver? _frameObserver;
     private RuntimeModeIndicator _lastModeIndicator = RuntimeModeIndicator.Unknown;
+    private long _rawInputPauseUntilTicks;
+    private long _lastRawInputFaultTicks;
+    private int _consecutiveRawInputFaults;
+    private TrackpadDecoderProfile? _lastDecoderProfileLeft;
+    private TrackpadDecoderProfile? _lastDecoderProfileRight;
+    private long _lastDecoderProfileLogLeftTicks;
+    private long _lastDecoderProfileLogRightTicks;
 
     private UserSettings _settings;
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
+    private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath;
+    private readonly Dictionary<string, TrackpadDecoderProfile> _latchedDecoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private bool _started;
     public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
 
@@ -36,6 +46,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
         _columnSettings = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(_settings, _preset);
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
     }
 
     public bool Start(out string? error)
@@ -107,6 +118,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _keymap = keymap;
         _preset = preset;
         _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columnSettings);
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
 
         _keymap.SetActiveLayout(_preset.Name);
         RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
@@ -230,6 +242,12 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private void HandleRawInput(IntPtr lParam)
     {
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_rawInputPauseUntilTicks > nowTicks)
+        {
+            return;
+        }
+
         if (!RawInputInterop.TryGetRawInputPacket(lParam, out RawInputPacket packet))
         {
             return;
@@ -276,30 +294,189 @@ internal sealed class TouchRuntimeService : IDisposable
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            if (reportSpan.Length < PtpReport.ExpectedSize || reportSpan[0] != RawInputInterop.ReportIdMultitouch)
+            try
             {
-                continue;
-            }
+                long timestampTicks = Stopwatch.GetTimestamp();
+                TrackpadDecoderProfile configuredProfile = GetConfiguredDecoderProfile(snapshot.DeviceName);
+                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
+                {
+                    continue;
+                }
 
-            if (!PtpReport.TryParse(reportSpan, out PtpReport report))
+                MaybeLatchDecoderProfile(snapshot.DeviceName, configuredProfile, decoded);
+                TraceDecoderSelection(snapshot, decoderProfile, decoded, routeLeft, routeRight);
+
+                InputFrame frame = decoded.Frame;
+
+                if (routeLeft)
+                {
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
+                    _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
+                }
+
+                if (routeRight)
+                {
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
+                    _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
+                }
+            }
+            catch (Exception ex)
             {
-                continue;
+                RegisterRawInputFault(
+                    source: "TouchRuntimeService.HandleRawInput",
+                    ex,
+                    snapshot,
+                    packet,
+                    i,
+                    reportSize,
+                    offset,
+                    reportSpan);
             }
+        }
+    }
 
-            long timestampTicks = Stopwatch.GetTimestamp();
-            InputFrame frame = InputFrame.FromReport(timestampTicks, in report);
+    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    {
+        TrackpadDecoderProfile configured = GetConfiguredDecoderProfile(deviceName);
+        if (configured != TrackpadDecoderProfile.Auto)
+        {
+            return configured;
+        }
 
-            if (routeLeft)
-            {
-                _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
-                _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
-            }
+        if (_latchedDecoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile latched))
+        {
+            return latched;
+        }
 
-            if (routeRight)
-            {
-                _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
-                _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
-            }
+        return TrackpadDecoderProfile.Auto;
+    }
+
+    private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
+    {
+        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
+        {
+            return profile;
+        }
+
+        return TrackpadDecoderProfile.Auto;
+    }
+
+    private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)
+    {
+        if (configuredProfile != TrackpadDecoderProfile.Auto)
+        {
+            return;
+        }
+
+        if (_latchedDecoderProfilesByPath.ContainsKey(deviceName))
+        {
+            return;
+        }
+
+        if (decoded.Frame.GetClampedContactCount() == 0)
+        {
+            return;
+        }
+
+        _latchedDecoderProfilesByPath[deviceName] = decoded.Profile;
+        if (_options.DecoderDebug)
+        {
+            Console.WriteLine($"[decoder] latched device={deviceName} profile={decoded.Profile}");
+        }
+    }
+
+    private void TraceDecoderSelection(
+        in RawInputDeviceSnapshot snapshot,
+        TrackpadDecoderProfile preferredProfile,
+        in TrackpadDecodeResult decoded,
+        bool routeLeft,
+        bool routeRight)
+    {
+        if (!_options.DecoderDebug)
+        {
+            return;
+        }
+
+        if (routeLeft)
+        {
+            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, preferredProfile, decoded);
+        }
+
+        if (routeRight)
+        {
+            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, preferredProfile, decoded);
+        }
+    }
+
+    private void TraceDecoderSelectionForSide(
+        TrackpadSide side,
+        in RawInputDeviceSnapshot snapshot,
+        TrackpadDecoderProfile preferredProfile,
+        in TrackpadDecodeResult decoded)
+    {
+        long now = Stopwatch.GetTimestamp();
+        TrackpadDecoderProfile? lastProfile = side == TrackpadSide.Left ? _lastDecoderProfileLeft : _lastDecoderProfileRight;
+        long lastLogTicks = side == TrackpadSide.Left ? _lastDecoderProfileLogLeftTicks : _lastDecoderProfileLogRightTicks;
+
+        bool profileChanged = !lastProfile.HasValue || lastProfile.Value != decoded.Profile;
+        bool throttled = now - lastLogTicks < Stopwatch.Frequency;
+        if (!profileChanged && throttled)
+        {
+            return;
+        }
+
+        if (side == TrackpadSide.Left)
+        {
+            _lastDecoderProfileLeft = decoded.Profile;
+            _lastDecoderProfileLogLeftTicks = now;
+        }
+        else
+        {
+            _lastDecoderProfileRight = decoded.Profile;
+            _lastDecoderProfileLogRightTicks = now;
+        }
+
+        int count = decoded.Frame.GetClampedContactCount();
+        string firstContact = "none";
+        if (count > 0)
+        {
+            ContactFrame c0 = decoded.Frame.GetContact(0);
+            firstContact = $"id={c0.Id} flags=0x{c0.Flags:X2} x={c0.X} y={c0.Y}";
+        }
+
+        Console.WriteLine(
+            $"[decoder] side={side} pref={preferredProfile} picked={decoded.Profile} kind={decoded.Kind} count={count} " +
+            $"first={firstContact} tag={RawInputInterop.FormatTag(snapshot.Tag)} " +
+            $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
+            $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
+    }
+
+    private void RegisterRawInputFault(
+        string source,
+        Exception ex,
+        in RawInputDeviceSnapshot snapshot,
+        in RawInputPacket packet,
+        uint reportIndex,
+        int reportSize,
+        int offset,
+        ReadOnlySpan<byte> reportSpan)
+    {
+        string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
+        RuntimeFaultLogger.LogException(source, ex, context);
+
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (nowTicks - _lastRawInputFaultTicks > Stopwatch.Frequency)
+        {
+            _consecutiveRawInputFaults = 0;
+        }
+
+        _lastRawInputFaultTicks = nowTicks;
+        _consecutiveRawInputFaults++;
+        if (_consecutiveRawInputFaults >= 3)
+        {
+            _rawInputPauseUntilTicks = nowTicks + (Stopwatch.Frequency * 2);
+            _consecutiveRawInputFaults = 0;
         }
     }
 
