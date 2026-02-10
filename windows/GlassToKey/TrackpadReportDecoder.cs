@@ -49,7 +49,12 @@ internal static class TrackpadReportDecoder
 
         if (preferredProfile == TrackpadDecoderProfile.Legacy)
         {
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out result))
+            if (TryDecodePtp(
+                payload,
+                arrivalQpcTicks,
+                TrackpadDecoderProfile.Legacy,
+                strictLegacyValidation: false,
+                out result))
             {
                 return true;
             }
@@ -59,12 +64,22 @@ internal static class TrackpadReportDecoder
 
         if (preferredProfile == TrackpadDecoderProfile.Official)
         {
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Official, out result))
+            if (TryDecodePtp(
+                payload,
+                arrivalQpcTicks,
+                TrackpadDecoderProfile.Official,
+                strictLegacyValidation: true,
+                out result))
             {
                 return true;
             }
 
-            if (TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out result))
+            if (TryDecodePtp(
+                payload,
+                arrivalQpcTicks,
+                TrackpadDecoderProfile.Legacy,
+                strictLegacyValidation: false,
+                out result))
             {
                 return true;
             }
@@ -72,8 +87,25 @@ internal static class TrackpadReportDecoder
             return TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result);
         }
 
-        bool legacyDecoded = TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Legacy, out TrackpadDecodeResult legacyResult);
-        bool officialDecoded = TryDecodePtp(payload, arrivalQpcTicks, TrackpadDecoderProfile.Official, out TrackpadDecodeResult officialResult);
+        bool strictLegacyValidation = ShouldAttemptOfficialAuto(deviceInfo);
+        bool legacyDecoded = TryDecodePtp(
+            payload,
+            arrivalQpcTicks,
+            TrackpadDecoderProfile.Legacy,
+            strictLegacyValidation,
+            out TrackpadDecodeResult legacyResult);
+        bool officialDecoded = false;
+        TrackpadDecodeResult officialResult = default;
+        if (ShouldAttemptOfficialAuto(deviceInfo))
+        {
+            officialDecoded = TryDecodePtp(
+                payload,
+                arrivalQpcTicks,
+                TrackpadDecoderProfile.Official,
+                strictLegacyValidation: true,
+                out officialResult);
+        }
+
         if (legacyDecoded && officialDecoded)
         {
             if (ShouldPreferLegacyForAuto(legacyResult, officialResult))
@@ -106,10 +138,23 @@ internal static class TrackpadReportDecoder
         return false;
     }
 
+    private static bool ShouldAttemptOfficialAuto(in RawInputDeviceInfo deviceInfo)
+    {
+        ushort vid = (ushort)deviceInfo.VendorId;
+        ushort pid = (ushort)deviceInfo.ProductId;
+        if (vid != 0x05AC)
+        {
+            return false;
+        }
+
+        return pid == RawInputInterop.ProductIdMt2 || pid == RawInputInterop.ProductIdMt2UsbC;
+    }
+
     private static bool TryDecodePtp(
         ReadOnlySpan<byte> payload,
         long arrivalQpcTicks,
         TrackpadDecoderProfile profile,
+        bool strictLegacyValidation,
         out TrackpadDecodeResult result)
     {
         result = default;
@@ -119,7 +164,14 @@ internal static class TrackpadReportDecoder
         }
 
         if (payload[0] == RawInputInterop.ReportIdMultitouch &&
-            TryParsePtpAtOffset(payload, 0, arrivalQpcTicks, profile, TrackpadReportKind.PtpNative, out result))
+            TryParsePtpAtOffset(
+                payload,
+                0,
+                arrivalQpcTicks,
+                profile,
+                strictLegacyValidation,
+                TrackpadReportKind.PtpNative,
+                out result))
         {
             return true;
         }
@@ -132,7 +184,14 @@ internal static class TrackpadReportDecoder
                 continue;
             }
 
-            if (TryParsePtpAtOffset(payload, offset, arrivalQpcTicks, profile, TrackpadReportKind.PtpEmbedded, out result))
+            if (TryParsePtpAtOffset(
+                payload,
+                offset,
+                arrivalQpcTicks,
+                profile,
+                strictLegacyValidation,
+                TrackpadReportKind.PtpEmbedded,
+                out result))
             {
                 return true;
             }
@@ -146,6 +205,7 @@ internal static class TrackpadReportDecoder
         int offset,
         long arrivalQpcTicks,
         TrackpadDecoderProfile profile,
+        bool strictLegacyValidation,
         TrackpadReportKind kind,
         out TrackpadDecodeResult result)
     {
@@ -175,7 +235,7 @@ internal static class TrackpadReportDecoder
         }
         else
         {
-            if (!LooksReasonableLegacy(in report))
+            if (!LooksReasonableLegacy(in report, strictLegacyValidation))
             {
                 return false;
             }
@@ -195,11 +255,26 @@ internal static class TrackpadReportDecoder
         return true;
     }
 
-    private static bool LooksReasonableLegacy(in PtpReport report)
+    private static bool LooksReasonableLegacy(in PtpReport report, bool strictValidation)
     {
         if (report.ContactCount > PtpReport.MaxContacts)
         {
             return false;
+        }
+
+        int count = report.GetClampedContactCount();
+        if (!strictValidation)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                PtpContact contact = report.GetContact(i);
+                if (contact.X > MaxReasonableX || contact.Y > MaxReasonableY)
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         int tipContacts = 0;

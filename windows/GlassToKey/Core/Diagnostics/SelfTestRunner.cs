@@ -152,6 +152,35 @@ internal static class SelfTestRunner
             return false;
         }
 
+        Span<byte> opensourceVidLegacyLikeUsageZero = stackalloc byte[PtpReport.ExpectedSize];
+        opensourceVidLegacyLikeUsageZero[0] = RawInputInterop.ReportIdMultitouch;
+        WriteContact(opensourceVidLegacyLikeUsageZero, 0, flags: 0x03, contactId: 0, x: 1600, y: 1200);
+        opensourceVidLegacyLikeUsageZero[48] = 1;
+        RawInputDeviceInfo opensourceVidUsageZeroInfo = new(
+            VendorId: 0x004C,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: 0,
+            Usage: 0);
+        if (!TrackpadReportDecoder.TryDecode(opensourceVidLegacyLikeUsageZero, opensourceVidUsageZeroInfo, arrivalQpcTicks: 340, out TrackpadDecodeResult opensourceVidLegacyDecoded) ||
+            opensourceVidLegacyDecoded.Profile != TrackpadDecoderProfile.Legacy ||
+            opensourceVidLegacyDecoded.Frame.GetClampedContactCount() != 1)
+        {
+            failure = "opensource VID usage 0/0 PTP should stay on legacy profile";
+            return false;
+        }
+
+        Span<byte> opensourceNoTipLegacyFrame = stackalloc byte[PtpReport.ExpectedSize];
+        opensourceNoTipLegacyFrame[0] = RawInputInterop.ReportIdMultitouch;
+        WriteContact(opensourceNoTipLegacyFrame, 0, flags: 0x01, contactId: 12, x: 2200, y: 1700);
+        opensourceNoTipLegacyFrame[48] = 1;
+        if (!TrackpadReportDecoder.TryDecode(opensourceNoTipLegacyFrame, opensourceVidUsageZeroInfo, arrivalQpcTicks: 360, out TrackpadDecodeResult opensourceNoTipDecoded) ||
+            opensourceNoTipDecoded.Profile != TrackpadDecoderProfile.Legacy ||
+            opensourceNoTipDecoded.Frame.GetClampedContactCount() != 1)
+        {
+            failure = "opensource legacy frame with confidence-only flags should still decode";
+            return false;
+        }
+
         Span<byte> malformed = stackalloc byte[PtpReport.ExpectedSize - 1];
         if (PtpReport.TryParse(malformed, out _))
         {
