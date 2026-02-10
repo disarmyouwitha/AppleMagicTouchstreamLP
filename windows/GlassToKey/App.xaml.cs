@@ -17,6 +17,7 @@ public partial class App : Application
         bool showErrorDialogs = ShouldShowErrorDialogs(e.Args);
         DispatcherUnhandledException += (_, args) =>
         {
+            RuntimeFaultLogger.LogException("App.DispatcherUnhandledException", args.Exception);
             if (showErrorDialogs)
             {
                 MessageBox.Show(args.Exception.ToString(), "GlassToKey Crash", MessageBoxButton.OK, MessageBoxImage.Error);
@@ -75,6 +76,30 @@ public partial class App : Application
             SelfTestResult result = SelfTestRunner.Run();
             Console.WriteLine(result.Summary);
             Shutdown(result.Success ? 0 : 3);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.RawAnalyzePath))
+        {
+            try
+            {
+                string inputPath = Path.GetFullPath(options.RawAnalyzePath);
+                RawCaptureAnalysisResult result = RawCaptureAnalyzer.Analyze(inputPath);
+                Console.WriteLine(result.ToSummary());
+                if (!string.IsNullOrWhiteSpace(options.RawAnalyzeOutputPath))
+                {
+                    string outputPath = Path.GetFullPath(options.RawAnalyzeOutputPath);
+                    result.WriteJson(outputPath);
+                }
+
+                Shutdown(0);
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                Shutdown(7);
+            }
+
             return;
         }
 
@@ -214,6 +239,7 @@ public partial class App : Application
         bool replayInUi = args.Any(arg => string.Equals(arg, "--replay-ui", StringComparison.OrdinalIgnoreCase));
         bool listOnly = args.Any(arg => string.Equals(arg, "--list", StringComparison.OrdinalIgnoreCase));
         bool selfTestOnly = args.Any(arg => string.Equals(arg, "--selftest", StringComparison.OrdinalIgnoreCase));
-        return !(listOnly || selfTestOnly || (hasReplay && !replayInUi));
+        bool rawAnalyzeOnly = args.Any(arg => string.Equals(arg, "--raw-analyze", StringComparison.OrdinalIgnoreCase));
+        return !(listOnly || selfTestOnly || rawAnalyzeOnly || (hasReplay && !replayInUi));
     }
 }

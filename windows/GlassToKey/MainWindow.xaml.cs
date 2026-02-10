@@ -99,6 +99,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
     private int _lastEngineVisualLayer = -1;
+    private long _rawInputPauseUntilTicks;
+    private long _lastRawInputFaultTicks;
+    private int _consecutiveRawInputFaults;
+    private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TrackpadDecoderProfile> _latchedDecoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
+    private TrackpadDecoderProfile? _lastDecoderProfileLeft;
+    private TrackpadDecoderProfile? _lastDecoderProfileRight;
+    private long _lastDecoderProfileLogLeftTicks;
+    private long _lastDecoderProfileLogRightTicks;
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
@@ -117,6 +126,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         if (!_settings.VisualizerEnabled)
         {
             _settings.VisualizerEnabled = true;
@@ -648,6 +658,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplyCoreSettings();
         ApplyVisualizerEnabled(true, persist: false);
         _settings.Save();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
     }
 
@@ -2420,6 +2431,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_rawInputPauseUntilTicks > nowTicks)
+        {
+            return;
+        }
+
         if (!RawInputInterop.TryGetRawInputPacket(lParam, out RawInputPacket packet))
         {
             return;
@@ -2454,35 +2471,189 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            if (reportSpan.Length < PtpReport.ExpectedSize)
-            {
-                _liveMetrics.RecordDropped(FrameDropReason.InvalidReportSize);
-                continue;
-            }
-
             _captureWriter?.WriteFrame(snapshot, reportSpan, started);
-
-            if (reportSpan[0] != RawInputInterop.ReportIdMultitouch)
+            try
             {
-                _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
-                continue;
-            }
+                TrackpadDecoderProfile configuredProfile = GetConfiguredDecoderProfile(snapshot.DeviceName);
+                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
+                {
+                    _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
+                    continue;
+                }
 
-            if (!PtpReport.TryParse(reportSpan, out PtpReport report))
+                MaybeLatchDecoderProfile(snapshot.DeviceName, configuredProfile, decoded);
+
+                bool leftMatch = _left.IsMatch(snapshot.DeviceName);
+                bool rightMatch = _right.IsMatch(snapshot.DeviceName);
+                TraceDecoderSelection(snapshot, decoderProfile, decoded, leftMatch, rightMatch);
+
+                _liveMetrics.RecordParsed();
+                InputFrame frame = decoded.Frame;
+                if (!DispatchReport(snapshot, in frame))
+                {
+                    _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
+                    continue;
+                }
+
+                _liveMetrics.RecordDispatched(started);
+            }
+            catch (Exception ex)
             {
-                _liveMetrics.RecordDropped(FrameDropReason.ParseFailed);
-                continue;
+                RegisterRawInputFault(
+                    source: "MainWindow.HandleRawInput",
+                    ex,
+                    snapshot,
+                    packet,
+                    i,
+                    reportSize,
+                    offset,
+                    reportSpan);
             }
+        }
+    }
 
-            _liveMetrics.RecordParsed();
-            InputFrame frame = InputFrame.FromReport(started, in report);
-            if (!DispatchReport(snapshot, in frame))
-            {
-                _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
-                continue;
-            }
+    private void TraceDecoderSelection(
+        in RawInputDeviceSnapshot snapshot,
+        TrackpadDecoderProfile preferredProfile,
+        in TrackpadDecodeResult decoded,
+        bool leftMatch,
+        bool rightMatch)
+    {
+        if (!_options.DecoderDebug)
+        {
+            return;
+        }
 
-            _liveMetrics.RecordDispatched(started);
+        if (leftMatch)
+        {
+            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, preferredProfile, decoded);
+        }
+
+        if (rightMatch)
+        {
+            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, preferredProfile, decoded);
+        }
+    }
+
+    private void TraceDecoderSelectionForSide(
+        TrackpadSide side,
+        in RawInputDeviceSnapshot snapshot,
+        TrackpadDecoderProfile preferredProfile,
+        in TrackpadDecodeResult decoded)
+    {
+        long now = Stopwatch.GetTimestamp();
+        TrackpadDecoderProfile? lastProfile = side == TrackpadSide.Left ? _lastDecoderProfileLeft : _lastDecoderProfileRight;
+        long lastLogTicks = side == TrackpadSide.Left ? _lastDecoderProfileLogLeftTicks : _lastDecoderProfileLogRightTicks;
+
+        bool profileChanged = !lastProfile.HasValue || lastProfile.Value != decoded.Profile;
+        bool throttled = now - lastLogTicks < Stopwatch.Frequency;
+        if (!profileChanged && throttled)
+        {
+            return;
+        }
+
+        if (side == TrackpadSide.Left)
+        {
+            _lastDecoderProfileLeft = decoded.Profile;
+            _lastDecoderProfileLogLeftTicks = now;
+        }
+        else
+        {
+            _lastDecoderProfileRight = decoded.Profile;
+            _lastDecoderProfileLogRightTicks = now;
+        }
+
+        int count = decoded.Frame.GetClampedContactCount();
+        string firstContact = "none";
+        if (count > 0)
+        {
+            ContactFrame c0 = decoded.Frame.GetContact(0);
+            firstContact = $"id={c0.Id} flags=0x{c0.Flags:X2} x={c0.X} y={c0.Y}";
+        }
+
+        Console.WriteLine(
+            $"[decoder] side={side} pref={preferredProfile} picked={decoded.Profile} kind={decoded.Kind} count={count} " +
+            $"first={firstContact} tag={RawInputInterop.FormatTag(snapshot.Tag)} " +
+            $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
+            $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
+    }
+
+    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    {
+        TrackpadDecoderProfile configured = GetConfiguredDecoderProfile(deviceName);
+        if (configured != TrackpadDecoderProfile.Auto)
+        {
+            return configured;
+        }
+
+        if (_latchedDecoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile latched))
+        {
+            return latched;
+        }
+
+        return TrackpadDecoderProfile.Auto;
+    }
+
+    private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
+    {
+        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
+        {
+            return profile;
+        }
+
+        return TrackpadDecoderProfile.Auto;
+    }
+
+    private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)
+    {
+        if (configuredProfile != TrackpadDecoderProfile.Auto)
+        {
+            return;
+        }
+
+        if (_latchedDecoderProfilesByPath.ContainsKey(deviceName))
+        {
+            return;
+        }
+
+        if (decoded.Frame.GetClampedContactCount() == 0)
+        {
+            return;
+        }
+
+        _latchedDecoderProfilesByPath[deviceName] = decoded.Profile;
+        if (_options.DecoderDebug)
+        {
+            Console.WriteLine($"[decoder] latched device={deviceName} profile={decoded.Profile}");
+        }
+    }
+
+    private void RegisterRawInputFault(
+        string source,
+        Exception ex,
+        in RawInputDeviceSnapshot snapshot,
+        in RawInputPacket packet,
+        uint reportIndex,
+        int reportSize,
+        int offset,
+        ReadOnlySpan<byte> reportSpan)
+    {
+        string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
+        RuntimeFaultLogger.LogException(source, ex, context);
+
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (nowTicks - _lastRawInputFaultTicks > Stopwatch.Frequency)
+        {
+            _consecutiveRawInputFaults = 0;
+        }
+
+        _lastRawInputFaultTicks = nowTicks;
+        _consecutiveRawInputFaults++;
+        if (_consecutiveRawInputFaults >= 3)
+        {
+            _rawInputPauseUntilTicks = nowTicks + (Stopwatch.Frequency * 2);
+            _consecutiveRawInputFaults = 0;
         }
     }
 
