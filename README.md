@@ -1,5 +1,5 @@
 # AppleMagicTouchstreamLP
-Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a much better name! 
+Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
 
 ## OSX: **(Packaged with .DMG)**
 - Built on top of the wonderful 

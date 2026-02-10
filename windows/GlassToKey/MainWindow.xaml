@@ -67,10 +67,14 @@
         <StackPanel Grid.Column="0" Orientation="Vertical" Margin="0,0,12,0">
           <TextBlock Text="Left Trackpad" Foreground="#8b949e" FontSize="12" />
           <ComboBox x:Name="LeftDeviceCombo" Height="28" />
+          <TextBlock Text="Decoder" Foreground="#8b949e" FontSize="12" Margin="0,6,0,0" />
+          <ComboBox x:Name="LeftDecoderProfileCombo" Height="26" />
         </StackPanel>
         <StackPanel Grid.Column="1" Orientation="Vertical" Margin="0,0,12,0">
           <TextBlock Text="Right Trackpad" Foreground="#8b949e" FontSize="12" />
           <ComboBox x:Name="RightDeviceCombo" Height="28" />
+          <TextBlock Text="Decoder" Foreground="#8b949e" FontSize="12" Margin="0,6,0,0" />
+          <ComboBox x:Name="RightDecoderProfileCombo" Height="26" />
         </StackPanel>
         <StackPanel Grid.Column="2" Orientation="Vertical">
           <TextBlock Text="Devices" Foreground="#8b949e" FontSize="12" />

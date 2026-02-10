@@ -150,11 +150,16 @@ public sealed class UserSettings
                     continue;
                 }
 
+                if (profile == TrackpadDecoderProfile.Auto)
+                {
+                    changed = true;
+                    continue;
+                }
+
                 string canonical = profile switch
                 {
                     TrackpadDecoderProfile.Legacy => "legacy",
-                    TrackpadDecoderProfile.Official => "official",
-                    _ => "auto"
+                    _ => "official"
                 };
 
                 if (!string.Equals(value, canonical, StringComparison.Ordinal))
