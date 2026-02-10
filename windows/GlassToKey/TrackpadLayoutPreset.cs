@@ -4,6 +4,14 @@ namespace GlassToKey;
 
 public sealed class TrackpadLayoutPreset
 {
+    public static TrackpadLayoutPreset Blank { get; } = new(
+        name: "Blank",
+        columns: 0,
+        rows: 0,
+        columnAnchorsMm: Array.Empty<PointMm>(),
+        rightLabels: Array.Empty<string[]>()
+    );
+
     public static TrackpadLayoutPreset SixByThree { get; } = new(
         name: "6x3",
         columns: 6,
@@ -112,6 +120,7 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset[] All { get; } =
     {
+        Blank,
         SixByThree,
         SixByFour,
         FiveByThree,
