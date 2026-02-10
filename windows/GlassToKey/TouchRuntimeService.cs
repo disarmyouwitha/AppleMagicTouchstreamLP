@@ -349,17 +349,19 @@ internal sealed class TouchRuntimeService : IDisposable
             return latched;
         }
 
-        return TrackpadDecoderProfile.Auto;
+        return TrackpadDecoderProfile.Official;
     }
 
     private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
     {
         if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
         {
-            return profile;
+            return profile == TrackpadDecoderProfile.Legacy
+                ? TrackpadDecoderProfile.Legacy
+                : TrackpadDecoderProfile.Official;
         }
 
-        return TrackpadDecoderProfile.Auto;
+        return TrackpadDecoderProfile.Official;
     }
 
     private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)

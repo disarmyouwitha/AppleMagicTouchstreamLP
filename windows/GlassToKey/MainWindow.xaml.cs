@@ -38,6 +38,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static readonly Brush ModeMixedBrush = CreateFrozenBrush("#2ecc71");
     private static readonly Brush ModeMouseBrush = CreateFrozenBrush("#e74c3c");
     private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
+    private static readonly DecoderProfileOption[] DecoderProfileOptions =
+    {
+        new(TrackpadDecoderProfile.Official, "Official"),
+        new(TrackpadDecoderProfile.Legacy, "Opensource")
+    };
 
     private readonly ReaderOptions _options;
     private readonly TouchRuntimeService? _runtimeService;
@@ -63,6 +68,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private KeyLayout _rightLayout;
     private int _activeLayer;
     private bool _suppressSelectionEvents;
+    private bool _suppressDecoderProfileEvents;
     private bool _suppressLayerEvent;
     private bool _suppressReplaySpeedEvents;
     private bool _suppressReplayTimelineEvents;
@@ -181,6 +187,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshButton.Click += (_, _) => LoadDevices(preserveSelection: true);
         LeftDeviceCombo.SelectionChanged += OnLeftSelectionChanged;
         RightDeviceCombo.SelectionChanged += OnRightSelectionChanged;
+        LeftDecoderProfileCombo.SelectionChanged += OnLeftDecoderProfileSelectionChanged;
+        RightDecoderProfileCombo.SelectionChanged += OnRightDecoderProfileSelectionChanged;
         LayerCombo.SelectionChanged += OnLayerSelectionChanged;
         ReplayToggleButton.Click += OnReplayToggleClicked;
         ReplaySpeedCombo.SelectionChanged += OnReplaySpeedChanged;
@@ -431,6 +439,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
+        InitializeDecoderProfileCombos();
+        RefreshDecoderProfileCombos();
 
         HoldDurationBox.Text = FormatNumber(_settings.HoldDurationMs);
         DragCancelBox.Text = FormatNumber(_settings.DragCancelMm);
@@ -1134,6 +1144,123 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpdateReplayHeaderStatus();
     }
 
+    private void InitializeDecoderProfileCombos()
+    {
+        _suppressDecoderProfileEvents = true;
+        LeftDecoderProfileCombo.Items.Clear();
+        RightDecoderProfileCombo.Items.Clear();
+        foreach (DecoderProfileOption option in DecoderProfileOptions)
+        {
+            LeftDecoderProfileCombo.Items.Add(option);
+            RightDecoderProfileCombo.Items.Add(option);
+        }
+
+        LeftDecoderProfileCombo.SelectedIndex = 0;
+        RightDecoderProfileCombo.SelectedIndex = 0;
+        _suppressDecoderProfileEvents = false;
+    }
+
+    private void RefreshDecoderProfileCombos()
+    {
+        SetDecoderProfileComboSelection(TrackpadSide.Left);
+        SetDecoderProfileComboSelection(TrackpadSide.Right);
+    }
+
+    private void SetDecoderProfileComboSelection(TrackpadSide side)
+    {
+        ComboBox combo = GetDecoderProfileComboForSide(side);
+        string? devicePath = GetSelectedDevicePathForSide(side);
+        bool hasDevice = !string.IsNullOrWhiteSpace(devicePath);
+        TrackpadDecoderProfile profile = TrackpadDecoderProfile.Official;
+        if (hasDevice &&
+            _decoderProfilesByPath.TryGetValue(devicePath!, out TrackpadDecoderProfile configured))
+        {
+            profile = NormalizeConfiguredProfile(configured);
+        }
+
+        int selectedIndex = profile == TrackpadDecoderProfile.Legacy ? 1 : 0;
+        _suppressDecoderProfileEvents = true;
+        combo.SelectedIndex = selectedIndex;
+        combo.IsEnabled = !IsReplayMode && hasDevice;
+        _suppressDecoderProfileEvents = false;
+    }
+
+    private void OnLeftDecoderProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        PersistDecoderProfileSelection(TrackpadSide.Left);
+    }
+
+    private void OnRightDecoderProfileSelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        PersistDecoderProfileSelection(TrackpadSide.Right);
+    }
+
+    private void PersistDecoderProfileSelection(TrackpadSide side)
+    {
+        if (_suppressDecoderProfileEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ComboBox combo = GetDecoderProfileComboForSide(side);
+        if (combo.SelectedItem is not DecoderProfileOption option)
+        {
+            return;
+        }
+
+        string? devicePath = GetSelectedDevicePathForSide(side);
+        if (string.IsNullOrWhiteSpace(devicePath))
+        {
+            return;
+        }
+
+        _settings.DecoderProfilesByDevicePath ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        bool changed;
+        if (option.Profile == TrackpadDecoderProfile.Legacy)
+        {
+            changed =
+                !_settings.DecoderProfilesByDevicePath.TryGetValue(devicePath, out string? existing) ||
+                !string.Equals(existing, "legacy", StringComparison.Ordinal);
+            if (changed)
+            {
+                _settings.DecoderProfilesByDevicePath[devicePath] = "legacy";
+            }
+        }
+        else
+        {
+            changed = _settings.DecoderProfilesByDevicePath.Remove(devicePath);
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        _latchedDecoderProfilesByPath.Remove(devicePath);
+        _settings.Save();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
+        _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
+    }
+
+    private static TrackpadDecoderProfile NormalizeConfiguredProfile(TrackpadDecoderProfile profile)
+    {
+        return profile == TrackpadDecoderProfile.Legacy
+            ? TrackpadDecoderProfile.Legacy
+            : TrackpadDecoderProfile.Official;
+    }
+
+    private string? GetSelectedDevicePathForSide(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left
+            ? (LeftDeviceCombo.SelectedItem as HidDeviceInfo)?.Path
+            : (RightDeviceCombo.SelectedItem as HidDeviceInfo)?.Path;
+    }
+
+    private ComboBox GetDecoderProfileComboForSide(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left ? LeftDecoderProfileCombo : RightDecoderProfileCombo;
+    }
+
     private HidDeviceInfo? FindDevice(string? path)
     {
         if (string.IsNullOrWhiteSpace(path))
@@ -1159,6 +1286,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
+        RefreshDecoderProfileCombos();
         if (!IsReplayMode)
         {
             PersistSelections();
@@ -1172,6 +1300,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
+        RefreshDecoderProfileCombos();
         if (!IsReplayMode)
         {
             PersistSelections();
@@ -1182,6 +1311,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
         StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
+        RefreshDecoderProfileCombos();
     }
 
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
@@ -2592,17 +2722,17 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return latched;
         }
 
-        return TrackpadDecoderProfile.Auto;
+        return TrackpadDecoderProfile.Official;
     }
 
     private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
     {
         if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
         {
-            return profile;
+            return NormalizeConfiguredProfile(profile);
         }
 
-        return TrackpadDecoderProfile.Auto;
+        return TrackpadDecoderProfile.Official;
     }
 
     private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)
@@ -2899,6 +3029,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return keyboardModeEnabled
             ? ("Keyboard", ModeKeyboardBrush)
             : ("Mixed", ModeMixedBrush);
+    }
+
+    private readonly record struct DecoderProfileOption(TrackpadDecoderProfile Profile, string Label)
+    {
+        public override string ToString() => Label;
     }
 
     private readonly record struct ReplaySpeedOption(double Speed, string Label)

@@ -132,6 +132,7 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
 
 ### Per-device decoder profile (mixed drivers)
+- Config UI exposes a per-side decoder dropdown with `Official` (default) and `Opensource`.
 - `settings.json` supports `DecoderProfilesByDevicePath` for per-device overrides:
 ```json
 {
@@ -141,8 +142,9 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
   }
 }
 ```
-- Accepted values: `auto`, `legacy`, `official`.
-- `auto` remains the default and resolves per device at runtime.
+- Accepted values in `settings.json`: `legacy`, `official` (`Opensource` in UI maps to `legacy`).
+- Default behavior is `official` for any device path without an override.
+- Legacy compatibility: existing `auto` entries are migrated to the default `official` behavior.
 
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.

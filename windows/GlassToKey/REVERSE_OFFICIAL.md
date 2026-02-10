@@ -16,7 +16,7 @@ Primary decoder code:
 ## What We Changed
 These are the key architecture changes made to support official driver data without breaking legacy paths.
 
-- Added profile-aware decode routing (`auto`, `legacy`, `official`).
+- Added profile-aware decode routing (`official` default, `Opensource`/`legacy` override; `auto` kept for compatibility).
 - Added per-device profile map so left/right can use different decoders.
 - Added crash-safe runtime guards around raw input decode path.
 - Added raw capture analyzer CLI mode for quick signature and decode health checks.
@@ -34,26 +34,17 @@ Related files:
 - `GlassToKey/ReaderOptions.cs`
 
 ## Decoder Profiles
-`auto`:
-- Official candidate is attempted only for Apple VID paths (`VID 0x05AC`, `PID 0x0265/0x0324`).
-- Non-Apple VID paths (for example open-source stacks exposing `VID 0x004C`) use legacy decode only in `auto`.
-- When both candidates are available (Apple VID path), choose by payload semantics:
-  - If only one candidate has contacts, use that one.
-  - If legacy candidate shows any non-zero contact IDs, prefer `legacy`.
-  - If official candidate is edge-saturated (`x/y` pinned to bounds), prefer `legacy`.
-  - If both have contacts and legacy IDs are all zero, prefer `official`.
-  - If ambiguous, bias to `legacy` to protect open-source/standard PTP behavior.
-- Legacy validation behavior:
-  - strict on Apple VID `auto` path (used for official-vs-legacy disambiguation),
-  - relaxed everywhere else so confidence-only/non-tip legacy frames are still accepted.
-- Runtime latching: once an `auto` device gets a decoded frame with `contactCount > 0`,
-  its chosen profile is latched for the rest of the process run (per device path), and decode routing stops re-evaluating that device.
+`official` (default):
+- Default for any device path without an explicit override.
+- Forces official normalization attempt first; keeps legacy fallback.
 
-`legacy`:
-- Standard original PTP path only (relaxed legacy validation).
+`legacy` (`Opensource` in UI):
+- Explicit per-device override.
+- Uses standard original PTP path only (relaxed legacy validation).
 
-`official`:
-- Force official normalization attempt first; keeps legacy fallback.
+`auto` (legacy compatibility only):
+- No longer used as the default profile.
+- Existing persisted `auto` values are migrated to default `official` behavior.
 
 Per-device persistence key:
 - `%LOCALAPPDATA%\GlassToKey\settings.json`
@@ -165,7 +156,7 @@ Practical note:
 1. Add optional per-frame CSV output in `RawCaptureAnalyzer` with raw slot bytes + decoded XY.
 2. Isolate pressure/tip/confidence bits using stationary-finger force ramps.
 3. Validate 2-5 finger motion with mixed velocities to confirm slot ordering assumptions.
-4. Confirm behavior on both halves when one side is legacy and the other official.
+4. Confirm behavior on both halves when one side is `Opensource` (`legacy`) and the other `official`.
 
 ## Quick Context Summary For Next Session
 - Official USB-C path is now usable with profile-aware decoding and runtime stability guards.
