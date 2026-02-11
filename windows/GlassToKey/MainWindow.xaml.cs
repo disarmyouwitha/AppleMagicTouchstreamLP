@@ -2807,6 +2807,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReplayFrame(in ReplayVisualFrame replayFrame)
     {
         InputFrame frame = replayFrame.Frame;
+        // Replay captures preserve original arrival ticks, which are not comparable to the
+        // current process Stopwatch timeline used by TouchState staleness checks.
+        // Stamp replay-applied frames with the local clock so visual contact snapshots stay live.
+        frame.ArrivalQpcTicks = Stopwatch.GetTimestamp();
         DispatchReport(replayFrame.Snapshot, in frame, replayFrame.OffsetStopwatchTicks);
     }
 
