@@ -35,7 +35,6 @@ Clicking Edit will allow you to click any Column/Button and set the Action/Hold 
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 - Autocorrect: Enables the built-in autocorrect engine for post-key dispatch word replacement.
 - Tap Click: two-finger tap = left click, three-finger tap = right click
-- Mouse Takeover: Allow mouse intent to interrupt typing before all fingers are lifted.
 - Keyboard Mode: When enabled, the typing toggle (and 5‑finger swipe) switches between **full keyboard** and **mouse‑only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window) and tap‑click gestures are disabled. Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
