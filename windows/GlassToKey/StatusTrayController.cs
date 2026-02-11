@@ -10,6 +10,9 @@ internal sealed class StatusTrayController : IDisposable
 {
     private readonly WinForms.NotifyIcon _notifyIcon;
     private readonly WinForms.ToolStripMenuItem _openItem;
+    private readonly WinForms.ToolStripMenuItem _captureItem;
+    private readonly WinForms.ToolStripMenuItem _replayItem;
+    private readonly WinForms.ToolStripMenuItem _restartItem;
     private readonly WinForms.ToolStripMenuItem _exitItem;
     private readonly WinForms.ContextMenuStrip _menu;
     private readonly Icon _iconUnknown;
@@ -19,13 +22,25 @@ internal sealed class StatusTrayController : IDisposable
     private readonly Icon _iconLayerActive;
     private RuntimeModeIndicator _currentMode = RuntimeModeIndicator.Unknown;
 
-    public StatusTrayController(Action openConfig, Action exitApplication)
+    public StatusTrayController(
+        Action openConfig,
+        Action startCapture,
+        Action startReplay,
+        Action restartApplication,
+        Action exitApplication)
     {
         _menu = new WinForms.ContextMenuStrip();
-        _openItem = new WinForms.ToolStripMenuItem("Open Config", null, (_, _) => openConfig());
+        _openItem = new WinForms.ToolStripMenuItem("Config...", null, (_, _) => openConfig());
+        _captureItem = new WinForms.ToolStripMenuItem("Capture", null, (_, _) => startCapture());
+        _replayItem = new WinForms.ToolStripMenuItem("Replay", null, (_, _) => startReplay());
+        _restartItem = new WinForms.ToolStripMenuItem("Restart", null, (_, _) => restartApplication());
         _exitItem = new WinForms.ToolStripMenuItem("Exit", null, (_, _) => exitApplication());
         _menu.Items.Add(_openItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
+        _menu.Items.Add(_captureItem);
+        _menu.Items.Add(_replayItem);
+        _menu.Items.Add(new WinForms.ToolStripSeparator());
+        _menu.Items.Add(_restartItem);
         _menu.Items.Add(_exitItem);
 
         _iconUnknown = CreateCircleIcon(Color.FromArgb(107, 114, 121));

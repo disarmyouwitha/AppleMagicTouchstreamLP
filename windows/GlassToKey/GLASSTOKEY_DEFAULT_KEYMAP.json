@@ -2,7 +2,7 @@
   "Version": 1,
   "Settings": {
     "LeftDevicePath": "\\\\?\\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID\u00260001004c_PID\u00260324\u0026Col02#c\u002616af3684\u00260\u00260001#{4d1e55b2-f16f-11cf-88cb-001111000030}",
-    "RightDevicePath": "\\\\?\\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID\u00260001004c_PID\u00260265\u0026Col02#c\u0026147fa42c\u00260\u00260001#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "RightDevicePath": "\\\\?\\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID\u00260001004c_PID\u00260324\u0026Col02#c\u00262854d8ac\u00260\u00260001#{4d1e55b2-f16f-11cf-88cb-001111000030}",
     "ActiveLayer": 0,
     "LayoutPresetName": "6x3",
     "DecoderProfilesByDevicePath": {

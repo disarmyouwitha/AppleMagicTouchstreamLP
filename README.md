@@ -10,7 +10,7 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - **https://github.com/lc700x/MagicTrackPad2_Windows_Precision_Drivers/releases**
 
 
-If you use an open source driver, you may need to change the device decoder in the GUI.
+If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is supported!
 
 ## DRIVER INSTALL WINDOWS (Update with my own Guide)
 
@@ -20,11 +20,11 @@ If you use an open source driver, you may need to change the device decoder in t
 
 
 ## Usage
-I will post a release with a .dmg and .exe file and hopefully people will be able to run it! I cannot confirm it will work for anyone else~ It can't hurt to submit an issue or PR but t/his is just a fun side project I am working on with Codex so it's something you might have to fork and extend! 
+I will post a release with a .dmg and .exe file and hopefully people will be able to run it! I cannot confirm it will work for anyone else~ It can't hurt to submit an issue or PR but this is just a fun side project I am working on with Codex so it's something you might have to fork and extend! 
 
 **Cool Features:**
-- I would turn of "tap to click" at the OS level, and turn it on within the app
-- ^ Alternatively turn Keyboard-only mode to toggle between mouse / keyboard
+- I would turn off "tap to click" at the OS level, and turn it on within the app!
+- You can turn on Keyboard-only mode to toggle between mouse / keyboard (Rather than mouse / mixed)
 - ^ 5-finger left/right swipes will toggle Typing Mode on/off!
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
@@ -33,9 +33,11 @@ I will post a release with a .dmg and .exe file and hopefully people will be abl
 An attempt to use the Apple Magic Trackpad as a keyboard (and mouse!) like the TouchStream LP~
 Since it is built on the same technology, I thought it would be fun to try and create an open source version!
 
-<img src="touchstreamLP.jpg" width="900px" />
+<img src="touchstreamLP.jpg" />
 
-<img src="apple-magic-touchstreamlp.jpg" width="900px" />
+<img src="apple-magic-touchstreamlp.jpg" />
+
+<img src="splatpad.jpg" />
 
 ## FUTURE:
 Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to to really hone the controls.

@@ -1410,12 +1410,82 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         LeftDeviceCombo.ItemsSource = _devices;
         RightDeviceCombo.ItemsSource = _devices;
-        LeftDeviceCombo.SelectedItem = _devices.Count > 1 ? _devices[1] : _devices[0];
-        RightDeviceCombo.SelectedItem = _devices.Count > 2 ? _devices[2] : _devices[0];
+        HidDeviceInfo? leftSelection = ResolveReplayDeviceBySuggestedSide(TrackpadSide.Left) ??
+                                       ResolveReplayDeviceBySavedPathHash(_settings.LeftDevicePath);
+        HidDeviceInfo? rightSelection = ResolveReplayDeviceBySuggestedSide(TrackpadSide.Right) ??
+                                        ResolveReplayDeviceBySavedPathHash(_settings.RightDevicePath);
+
+        if (leftSelection == null || leftSelection.IsNone)
+        {
+            leftSelection = _devices.Count > 1 ? _devices[1] : _devices[0];
+        }
+
+        if (rightSelection == null ||
+            rightSelection.IsNone ||
+            string.Equals(leftSelection.Path, rightSelection.Path, StringComparison.OrdinalIgnoreCase))
+        {
+            rightSelection = FindReplayAlternateDevice(leftSelection);
+        }
+
+        LeftDeviceCombo.SelectedItem = leftSelection;
+        RightDeviceCombo.SelectedItem = rightSelection;
 
         _suppressSelectionEvents = false;
         ApplySelections();
         UpdateReplayHeaderStatus();
+    }
+
+    private HidDeviceInfo? ResolveReplayDeviceBySuggestedSide(TrackpadSide side)
+    {
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo device = _devices[i];
+            if (!device.IsNone && device.SuggestedSide == side)
+            {
+                return device;
+            }
+        }
+
+        return null;
+    }
+
+    private HidDeviceInfo? ResolveReplayDeviceBySavedPathHash(string? savedPath)
+    {
+        if (string.IsNullOrWhiteSpace(savedPath))
+        {
+            return null;
+        }
+
+        uint savedHash = RawInputInterop.HashDeviceName(savedPath);
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo device = _devices[i];
+            if (!device.IsNone && device.DeviceHash == savedHash)
+            {
+                return device;
+            }
+        }
+
+        return null;
+    }
+
+    private HidDeviceInfo FindReplayAlternateDevice(HidDeviceInfo leftSelection)
+    {
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo candidate = _devices[i];
+            if (candidate.IsNone)
+            {
+                continue;
+            }
+
+            if (!string.Equals(candidate.Path, leftSelection.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        return _devices[0];
     }
 
     private void InitializeDecoderProfileCombos()
@@ -1591,6 +1661,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
     {
         session.Reset();
+        ApplyRequestedMaxRange(side, device);
 
         if (device == null || device.IsNone)
         {
@@ -1611,6 +1682,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         session.SetDevice(device.Path!, device.DisplayName);
         UpdateHitDisplay(side, "--", null);
         ApplyPressurePolicyForSide(side);
+    }
+
+    private void ApplyRequestedMaxRange(TrackpadSide side, HidDeviceInfo? device)
+    {
+        TouchView surface = side == TrackpadSide.Left ? LeftSurface : RightSurface;
+        ushort fallbackX = _options.MaxX ?? DefaultMaxX;
+        ushort fallbackY = _options.MaxY ?? DefaultMaxY;
+
+        if (IsReplayMode &&
+            device != null &&
+            !device.IsNone &&
+            device.SuggestedMaxX > 0 &&
+            device.SuggestedMaxY > 0)
+        {
+            surface.RequestedMaxX = device.SuggestedMaxX;
+            surface.RequestedMaxY = device.SuggestedMaxY;
+            return;
+        }
+
+        surface.RequestedMaxX = fallbackX;
+        surface.RequestedMaxY = fallbackY;
     }
 
     private void ApplyPressurePolicyForSide(TrackpadSide side)
@@ -2389,6 +2481,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool ShouldSuppressKeyHighlighting()
     {
+        if (IsReplayMode)
+        {
+            return false;
+        }
+
         if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             return false;
@@ -2595,6 +2692,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _right.State.Clear();
         LeftSurface.HighlightedKey = null;
         RightSurface.HighlightedKey = null;
+        LeftSurface.HighlightedCustomButtonId = null;
+        RightSurface.HighlightedCustomButtonId = null;
         UpdateHitDisplay(TrackpadSide.Left, "--", null);
         UpdateHitDisplay(TrackpadSide.Right, "--", null);
         InvalidateSurface(_left);
@@ -2778,6 +2877,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReplayFrame(in ReplayVisualFrame replayFrame)
     {
         InputFrame frame = replayFrame.Frame;
+        // Replay captures preserve original arrival ticks, which are not comparable to the
+        // current process Stopwatch timeline used by TouchState staleness checks.
+        // Stamp replay-applied frames with the local clock so visual contact snapshots stay live.
+        frame.ArrivalQpcTicks = Stopwatch.GetTimestamp();
         DispatchReport(replayFrame.Snapshot, in frame, replayFrame.OffsetStopwatchTicks);
     }
 
@@ -2900,18 +3003,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            _captureWriter?.WriteFrame(snapshot, reportSpan, started);
+            bool leftMatch = _left.IsMatch(snapshot.DeviceName);
+            bool rightMatch = _right.IsMatch(snapshot.DeviceName);
+            CaptureSideHint sideHint = leftMatch && !rightMatch
+                ? CaptureSideHint.Left
+                : rightMatch && !leftMatch
+                    ? CaptureSideHint.Right
+                    : CaptureSideHint.Unknown;
             try
             {
                 TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                _captureWriter?.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
                 }
 
-                bool leftMatch = _left.IsMatch(snapshot.DeviceName);
-                bool rightMatch = _right.IsMatch(snapshot.DeviceName);
                 TraceDecoderSelection(snapshot, decoderProfile, decoded, leftMatch, rightMatch);
 
                 _liveMetrics.RecordParsed();

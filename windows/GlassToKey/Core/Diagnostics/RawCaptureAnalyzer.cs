@@ -120,7 +120,10 @@ internal static class RawCaptureAnalyzer
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decodeResult);
+            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                ? TrackpadDecoderProfile.Legacy
+                : TrackpadDecoderProfile.Official;
+            bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decodeResult);
             if (decoded)
             {
                 recordsDecoded++;

@@ -16,15 +16,17 @@ Build the GlassToKey project and you are good to go! A status bar indicator show
 - **Purple**: Keyboard mode (full keyboard, no mouse intent)
 - **Red**: Mouse-only mode (typing disabled)
 
-Clicking the indicator light will allow you to view the Config or Quit the program.
+Right-clicking the indicator opens tray actions: `Config...`, separator, `Capture`, `Replay`, separator, `Restart`, and `Exit`.
+
+### Pin Tray Icon
+- Windows 11:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
+- Windows 10:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `GlassToKey`.
+- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
 
 <img src="Screenshot.png" alt="GlassToKey" />
 
-### Mobile QWERTY Preset
-- `Mobile QWERTY` is a special preset.
-- Left trackpad is intentionally blank.
-- Right trackpad uses a fixed row-staggered QWERTY geometry at 75% key scale.
-- Column scale/offset tuning is disabled for this preset (other presets are unchanged).
 
 ## Typing Tuning
 - Hold duration (ms): Time in miliseconds until a tap becomes a hold
@@ -64,12 +66,6 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - Default live launch starts in tray mode (status app) without opening the visualizer.
 - Use the tray icon `Open Config` action or `--config` to open the visualizer immediately.
 
-### Pin Tray Icon
-- Windows 11:
-  - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
-- Windows 10:
-  - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `GlassToKey`.
-- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
 
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
@@ -78,6 +74,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
+- `--relaunch-tray-on-close`: Internal flag used by tray-initiated capture/replay to relaunch normal tray mode when the window closes.
 - `--replay-speed <x>`: Initial replay speed multiplier (for example: `0.5`, `1`, `2`).
 - `--fixture <fixturePath>`: Optional expected replay fingerprint/counts JSON (also supports intent fingerprint + transition count).
 - `--metrics-out <path>`: Write metrics JSON snapshot.
@@ -92,11 +89,13 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
+- `.atpcap` records embed side hints (`left`/`right`/`unknown`) and decoder profile (`official`/`opensource`) metadata for deterministic replay routing.
+- Current capture format version is `2` (`ATPCAP01` + v2 record headers); replay expects v2 captures.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
 
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
-- `StatusTrayController.cs`: tray icon/menu (`Open Config`, `Exit`).
+- `StatusTrayController.cs`: tray icon/menu (`Config...`, separator, `Capture`, `Replay`, separator, `Restart`, `Exit`).
 - `TouchRuntimeService.cs`: background runtime host for WM_INPUT + engine + dispatch.
 - `RuntimeObserverContracts.cs`: runtime mode + frame observer contracts for live visualization mirroring.
 - `RuntimeConfigurationFactory.cs`: shared settings-to-layout/config builders for UI/runtime parity.

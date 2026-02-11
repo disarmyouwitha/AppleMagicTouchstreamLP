@@ -40,7 +40,7 @@ internal static class ReplayVisualLoader
     {
         string fullPath = Path.GetFullPath(capturePath);
         List<ReplayVisualFrame> frames = new();
-        Dictionary<(int, uint), HidDeviceInfo> devicesByTag = new();
+        Dictionary<(int, uint), ReplayDeviceAccumulator> devicesByTag = new();
 
         int recordsRead = 0;
         int framesParsed = 0;
@@ -61,7 +61,10 @@ internal static class ReplayVisualLoader
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decoded))
+            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                ? TrackpadDecoderProfile.Legacy
+                : TrackpadDecoderProfile.Official;
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
             {
                 droppedNonMultitouch++;
                 continue;
@@ -87,16 +90,102 @@ internal static class ReplayVisualLoader
             frames.Add(new ReplayVisualFrame(offsetStopwatchTicks, snapshot, frame));
 
             (int, uint) key = (tag.Index, tag.Hash);
-            if (!devicesByTag.ContainsKey(key))
+            if (!devicesByTag.TryGetValue(key, out ReplayDeviceAccumulator? device))
             {
                 string displayName = $"Replay Device {RawInputInterop.FormatTag(tag)}";
-                devicesByTag[key] = new HidDeviceInfo(displayName, replayDeviceName, tag.Index, tag.Hash);
+                device = new ReplayDeviceAccumulator(displayName, replayDeviceName, tag.Index, tag.Hash);
+                devicesByTag[key] = device;
+            }
+            device.ObserveSideHint(record.SideHint);
+
+            int contactCount = frame.GetClampedContactCount();
+            for (int i = 0; i < contactCount; i++)
+            {
+                ContactFrame contact = frame.GetContact(i);
+                if (!contact.TipSwitch)
+                {
+                    continue;
+                }
+
+                if (contact.X > device.MaxSeenX)
+                {
+                    device.MaxSeenX = contact.X;
+                }
+
+                if (contact.Y > device.MaxSeenY)
+                {
+                    device.MaxSeenY = contact.Y;
+                }
             }
         }
 
-        List<HidDeviceInfo> orderedDevices = new(devicesByTag.Values);
+        List<HidDeviceInfo> orderedDevices = new(devicesByTag.Count);
+        foreach (ReplayDeviceAccumulator device in devicesByTag.Values)
+        {
+            ushort suggestedMaxX = device.MaxSeenX > 0
+                ? (ushort)Math.Max(RuntimeConfigurationFactory.DefaultMaxX, device.MaxSeenX)
+                : RuntimeConfigurationFactory.DefaultMaxX;
+            ushort suggestedMaxY = device.MaxSeenY > 0
+                ? (ushort)Math.Max(RuntimeConfigurationFactory.DefaultMaxY, device.MaxSeenY)
+                : RuntimeConfigurationFactory.DefaultMaxY;
+            orderedDevices.Add(new HidDeviceInfo(
+                device.DisplayName,
+                device.DevicePath,
+                device.DeviceIndex,
+                device.DeviceHash,
+                suggestedMaxX,
+                suggestedMaxY,
+                device.SuggestedSide));
+        }
+
         orderedDevices.Sort(static (a, b) => a.DeviceIndex.CompareTo(b.DeviceIndex));
         ReplayLoadStats stats = new(recordsRead, framesParsed, droppedInvalidSize, droppedNonMultitouch, droppedParseError);
         return new ReplayVisualData(fullPath, frames.ToArray(), orderedDevices.ToArray(), stats);
+    }
+
+    private sealed class ReplayDeviceAccumulator
+    {
+        public ReplayDeviceAccumulator(string displayName, string devicePath, int deviceIndex, uint deviceHash)
+        {
+            DisplayName = displayName;
+            DevicePath = devicePath;
+            DeviceIndex = deviceIndex;
+            DeviceHash = deviceHash;
+        }
+
+        public string DisplayName { get; }
+        public string DevicePath { get; }
+        public int DeviceIndex { get; }
+        public uint DeviceHash { get; }
+        public ushort MaxSeenX { get; set; }
+        public ushort MaxSeenY { get; set; }
+        private int LeftHintCount { get; set; }
+        private int RightHintCount { get; set; }
+        public TrackpadSide? SuggestedSide
+        {
+            get
+            {
+                if (LeftHintCount == RightHintCount)
+                {
+                    return null;
+                }
+
+                return LeftHintCount > RightHintCount
+                    ? TrackpadSide.Left
+                    : TrackpadSide.Right;
+            }
+        }
+
+        public void ObserveSideHint(CaptureSideHint sideHint)
+        {
+            if (sideHint == CaptureSideHint.Left)
+            {
+                LeftHintCount++;
+            }
+            else if (sideHint == CaptureSideHint.Right)
+            {
+                RightHintCount++;
+            }
+        }
     }
 }

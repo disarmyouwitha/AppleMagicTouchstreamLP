@@ -1,7 +1,9 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Windows;
+using WinForms = System.Windows.Forms;
 
 namespace GlassToKey;
 
@@ -11,6 +13,7 @@ public partial class App : Application
     private StatusTrayController? _trayController;
     private MainWindow? _configWindow;
     private ReaderOptions? _startupOptions;
+    private bool _restartRequested;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -137,6 +140,13 @@ public partial class App : Application
         {
             MainWindow window = new MainWindow(options);
             MainWindow = window;
+            if (options.RelaunchTrayOnClose)
+            {
+                window.Closed += (_, _) =>
+                {
+                    _ = TryLaunchReplacementInstance(showErrors: true);
+                };
+            }
             window.Show();
             return;
         }
@@ -162,7 +172,12 @@ public partial class App : Application
             return;
         }
 
-        _trayController = new StatusTrayController(OpenConfigWindow, ExitApplicationFromTray);
+        _trayController = new StatusTrayController(
+            OpenConfigWindow,
+            StartCaptureFromTray,
+            StartReplayFromTray,
+            RestartApplicationFromTray,
+            ExitApplicationFromTray);
         _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
         _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
         if (options.StartInConfigUi)
@@ -223,6 +238,148 @@ public partial class App : Application
         _configWindow?.Close();
         _configWindow = null;
         Shutdown(0);
+    }
+
+    private void StartCaptureFromTray()
+    {
+        using WinForms.SaveFileDialog dialog = new()
+        {
+            Title = "Capture Output",
+            Filter = "Trackpad Capture (*.atpcap)|*.atpcap|All files (*.*)|*.*",
+            DefaultExt = "atpcap",
+            AddExtension = true,
+            OverwritePrompt = true,
+            FileName = $"capture-{DateTime.Now:yyyyMMdd-HHmmss}.atpcap",
+            InitialDirectory = ResolveReplayArtifactsDirectory()
+        };
+
+        if (dialog.ShowDialog() != WinForms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        RestartApplicationWithArgs("--capture", dialog.FileName, "--relaunch-tray-on-close");
+    }
+
+    private void StartReplayFromTray()
+    {
+        using WinForms.OpenFileDialog dialog = new()
+        {
+            Title = "Replay Capture",
+            Filter = "Trackpad Capture (*.atpcap)|*.atpcap|All files (*.*)|*.*",
+            CheckFileExists = true,
+            Multiselect = false,
+            InitialDirectory = ResolveReplayArtifactsDirectory()
+        };
+
+        if (dialog.ShowDialog() != WinForms.DialogResult.OK || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        RestartApplicationWithArgs("--replay", dialog.FileName, "--replay-ui", "--relaunch-tray-on-close");
+    }
+
+    private void RestartApplicationFromTray()
+    {
+        RestartApplicationWithArgs();
+    }
+
+    private void RestartApplicationWithArgs(params string[] args)
+    {
+        if (TryLaunchReplacementInstance(showErrors: true, args: args))
+        {
+            ExitApplicationFromTray();
+        }
+    }
+
+    private bool TryLaunchReplacementInstance(bool showErrors, params string[] args)
+    {
+        if (_restartRequested)
+        {
+            return false;
+        }
+
+        if (!TryBuildRestartStartInfo(out ProcessStartInfo startInfo))
+        {
+            if (showErrors)
+            {
+                MessageBox.Show("Unable to determine executable path for restart.", "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return false;
+        }
+
+        for (int i = 0; i < args.Length; i++)
+        {
+            startInfo.ArgumentList.Add(args[i]);
+        }
+
+        try
+        {
+            Process.Start(startInfo);
+            _restartRequested = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            if (showErrors)
+            {
+                MessageBox.Show(ex.Message, "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return false;
+        }
+    }
+
+    private static bool TryBuildRestartStartInfo(out ProcessStartInfo startInfo)
+    {
+        string? processPath = Environment.ProcessPath;
+        if (string.IsNullOrWhiteSpace(processPath))
+        {
+            startInfo = new ProcessStartInfo();
+            return false;
+        }
+
+        startInfo = new ProcessStartInfo
+        {
+            FileName = processPath,
+            WorkingDirectory = AppContext.BaseDirectory,
+            UseShellExecute = false
+        };
+
+        if (string.Equals(Path.GetFileNameWithoutExtension(processPath), "dotnet", StringComparison.OrdinalIgnoreCase))
+        {
+            string assemblyPath = typeof(App).Assembly.Location;
+            if (string.IsNullOrWhiteSpace(assemblyPath))
+            {
+                startInfo = new ProcessStartInfo();
+                return false;
+            }
+
+            startInfo.ArgumentList.Add(assemblyPath);
+        }
+
+        return true;
+    }
+
+    private static string ResolveReplayArtifactsDirectory()
+    {
+        string fixturesReplay = Path.Combine(AppContext.BaseDirectory, "fixtures", "replay");
+        if (Directory.Exists(fixturesReplay))
+        {
+            return fixturesReplay;
+        }
+
+        string localAppData = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GlassToKey");
+        if (!Directory.Exists(localAppData))
+        {
+            Directory.CreateDirectory(localAppData);
+        }
+
+        return localAppData;
     }
 
     private void OnRuntimeModeIndicatorChanged(RuntimeModeIndicator mode)

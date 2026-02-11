@@ -40,17 +40,6 @@ Clicking Edit will allow you to click any Column/Button and set the Action/Hold 
 ## Intent State Machine
 GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
 
-```
-           on-key + stable                 buffer elapsed
-      ┌──────────────────────┐         ┌───────────────────┐
-      ▼                      │         ▼                   │
-[idle] → [cand] → [typing] ← [mouse] ← [mouseActive] ← [mouseCandidate]
-  │        │          │           ▲
-  │        │          └─ grace ────┘
-  │        └─ mouse-like motion → [mouseCandidate]
-  └─ 2+ touches in buffer (or 3+ simultaneous) → [gest] ──> [idle]
-```
-
 - **Idle (`idle`)**: No active contacts. Any touch that begins on a key enters `keyCandidate`; otherwise it enters `mouseCandidate`.
 - **KeyCandidate (`cand`)**: A short buffer window (fixed at 40ms) watches for mouse-like motion. If the touch stays within thresholds, it becomes `typingCommitted`.
 - **TypingCommitted (`typing`)**: Key dispatches are allowed. Typing Grace keeps this state alive for a short window after a key is released.

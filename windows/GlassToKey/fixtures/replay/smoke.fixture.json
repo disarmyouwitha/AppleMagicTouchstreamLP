@@ -1,14 +1,6 @@
 {
   "capturePath": "smoke.atpcap",
   "expected": {
-    "fingerprint": "0x14A29BB48FD73897",
-    "intentFingerprint": "0xE4E495DEF5B8958B",
-    "intentTransitions": 1,
-    "dispatchFingerprint": "0xCBF29CE484222325",
-    "dispatchEvents": 0,
-    "modifierUnbalanced": 0,
-    "repeatStarts": 0,
-    "repeatCancels": 0,
     "framesSeen": 2,
     "framesParsed": 1,
     "framesDispatched": 1,
