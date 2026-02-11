@@ -1155,6 +1155,108 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Held modifier should remain active across multiple taps until explicit release,
+        // even if the holding finger drifts past drag-cancel distance.
+        KeymapStore heldModifierKeymap = KeymapStore.LoadBundledDefault();
+        string heldTapStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 3);
+        heldModifierKeymap.Mappings[0][storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "Shift" },
+            Hold = null
+        };
+        heldModifierKeymap.Mappings[0][heldTapStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        TouchProcessorCore heldModifierCore = TouchProcessorFactory.CreateDefault(heldModifierKeymap);
+        using DispatchEventQueue heldModifierQueue = new();
+        using TouchProcessorActor heldModifierActor = new(heldModifierCore, dispatchQueue: heldModifierQueue);
+
+        NormalizedRect heldModifierRect = leftLayout.Rects[0][2];
+        NormalizedRect heldTapRect = leftLayout.Rects[0][3];
+        ushort heldModifierX = (ushort)Math.Clamp((int)Math.Round((heldModifierRect.X + (heldModifierRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort heldModifierY = (ushort)Math.Clamp((int)Math.Round((heldModifierRect.Y + (heldModifierRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort heldTapX = (ushort)Math.Clamp((int)Math.Round((heldTapRect.X + (heldTapRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort heldTapY = (ushort)Math.Clamp((int)Math.Round((heldTapRect.Y + (heldTapRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort heldModifierDriftX = (ushort)Math.Clamp(heldModifierX + 500, 1, maxX - 1);
+
+        now = 0;
+        InputFrame heldShiftDown = MakeFrame(contactCount: 1, id0: 53, x0: heldModifierX, y0: heldModifierY);
+        InputFrame heldShiftDrift = MakeFrame(contactCount: 1, id0: 53, x0: heldModifierDriftX, y0: heldModifierY);
+        InputFrame heldTap1Down = MakeFrame(contactCount: 2, id0: 53, x0: heldModifierDriftX, y0: heldModifierY, id1: 54, x1: heldTapX, y1: heldTapY);
+        InputFrame heldTap1Up = MakeFrame(contactCount: 1, id0: 53, x0: heldModifierDriftX, y0: heldModifierY);
+        InputFrame heldTap2Down = MakeFrame(contactCount: 2, id0: 53, x0: heldModifierDriftX, y0: heldModifierY, id1: 55, x1: heldTapX, y1: heldTapY);
+        InputFrame heldTap2Up = MakeFrame(contactCount: 1, id0: 53, x0: heldModifierDriftX, y0: heldModifierY);
+        InputFrame heldAllUp = MakeFrame(contactCount: 0);
+        heldModifierActor.Post(TrackpadSide.Left, in heldShiftDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldShiftDrift, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldTap1Down, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldTap1Up, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldTap2Down, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldTap2Up, maxX, maxY, now);
+        now += MsToTicks(8);
+        heldModifierActor.Post(TrackpadSide.Left, in heldAllUp, maxX, maxY, now);
+        heldModifierActor.WaitForIdle();
+
+        int eventIndex = 0;
+        int shiftDownIndex = -1;
+        int shiftUpIndex = -1;
+        int firstTapIndex = -1;
+        int lastTapIndex = -1;
+        int heldTapCount = 0;
+        bool earlyShiftUp = false;
+        List<string> heldModifierEvents = new();
+        while (heldModifierQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            heldModifierEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x10 && shiftDownIndex < 0)
+            {
+                shiftDownIndex = eventIndex;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x10)
+            {
+                if (heldTapCount < 2)
+                {
+                    earlyShiftUp = true;
+                }
+                if (shiftUpIndex < 0)
+                {
+                    shiftUpIndex = eventIndex;
+                }
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                if (firstTapIndex < 0)
+                {
+                    firstTapIndex = eventIndex;
+                }
+                lastTapIndex = eventIndex;
+                heldTapCount++;
+            }
+
+            eventIndex++;
+        }
+
+        if (shiftDownIndex < 0 ||
+            shiftUpIndex < 0 ||
+            heldTapCount != 2 ||
+            firstTapIndex < 0 ||
+            lastTapIndex < 0 ||
+            shiftDownIndex > firstTapIndex ||
+            shiftUpIndex < lastTapIndex ||
+            earlyShiftUp)
+        {
+            failure = $"held modifier sequencing mismatch (downIdx={shiftDownIndex}, upIdx={shiftUpIndex}, firstTap={firstTapIndex}, lastTap={lastTapIndex}, tapCount={heldTapCount}, earlyUp={earlyShiftUp}, events=[{string.Join(", ", heldModifierEvents)}])";
+            return false;
+        }
+
         KeymapStore chordKeymap = KeymapStore.LoadBundledDefault();
         chordKeymap.Mappings[0][storageKey] = new KeyMapping
         {

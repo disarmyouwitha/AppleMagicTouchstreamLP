@@ -541,7 +541,9 @@ internal sealed class TouchProcessorCore
             existing.LastYNorm = yNorm;
             existing.MaxDistanceMm = Math.Max(existing.MaxDistanceMm, movementMm);
 
-            if (existing.DispatchDownSent && existing.MaxDistanceMm > _config.DragCancelMm)
+            if (existing.DispatchDownSent &&
+                existing.MaxDistanceMm > _config.DragCancelMm &&
+                ShouldCancelHeldDispatchOnDrag(existing.DispatchDownKind))
             {
                 EndPressAction(ref existing, timestampTicks);
             }
@@ -918,6 +920,12 @@ internal sealed class TouchProcessorCore
             default:
                 break;
         }
+    }
+
+    private static bool ShouldCancelHeldDispatchOnDrag(DispatchEventKind dispatchDownKind)
+    {
+        // Held modifiers should stay pressed until touch-up, even if the anchor finger drifts.
+        return dispatchDownKind != DispatchEventKind.ModifierDown;
     }
 
     private void EndPressAction(ref TouchBindingState state, long timestampTicks)
