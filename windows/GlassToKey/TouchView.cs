@@ -21,6 +21,7 @@ public sealed class TouchView : FrameworkElement
     public string? SelectedCustomButtonId { get; set; }
     public string[][]? LabelMatrix { get; set; }
     public string LastHitLabel { get; set; } = "--";
+    public bool ShowPressureValues { get; set; } = true;
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
     private readonly Brush _canvasBrush = new SolidColorBrush(Color.FromRgb(12, 15, 18));
@@ -129,7 +130,7 @@ public sealed class TouchView : FrameworkElement
 
             dc.DrawEllipse(_tipBrush, null, new Point(x, y), 20, 20);
 
-            if (pressureCapability == PressureCapability.Supported)
+            if (ShowPressureValues && pressureCapability == PressureCapability.Supported)
             {
                 FormattedText idText = new(
                     c.Id.ToString(CultureInfo.InvariantCulture),

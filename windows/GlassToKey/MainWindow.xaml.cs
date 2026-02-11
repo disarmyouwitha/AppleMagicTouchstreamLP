@@ -110,7 +110,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private long _lastRawInputFaultTicks;
     private int _consecutiveRawInputFaults;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, TrackpadDecoderProfile> _latchedDecoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private TrackpadDecoderProfile? _lastDecoderProfileLeft;
     private TrackpadDecoderProfile? _lastDecoderProfileRight;
     private long _lastDecoderProfileLogLeftTicks;
@@ -1454,10 +1453,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _latchedDecoderProfilesByPath.Remove(devicePath);
         _settings.Save();
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
+        ApplyPressurePolicyForSide(side);
     }
 
     private static TrackpadDecoderProfile NormalizeConfiguredProfile(TrackpadDecoderProfile profile)
@@ -1544,6 +1543,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             SetEmptyMessage(session, "No device selected.");
             InvalidateSurface(session);
             UpdateHitDisplay(side, "--", null);
+            ApplyPressurePolicyForSide(side);
             return;
         }
 
@@ -1551,8 +1551,31 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         else _rightStatus = IsReplayMode ? "Replay" : "Listening";
         UpdateHeaderStatus();
         SetEmptyMessage(session, string.Empty);
-        session.SetDevice(device.Path!, device.DisplayName, IsLikelyBluetoothDevice(device));
+        session.SetDevice(device.Path!, device.DisplayName);
         UpdateHitDisplay(side, "--", null);
+        ApplyPressurePolicyForSide(side);
+    }
+
+    private void ApplyPressurePolicyForSide(TrackpadSide side)
+    {
+        TouchView surface = side == TrackpadSide.Left ? LeftSurface : RightSurface;
+        ReaderSession session = side == TrackpadSide.Left ? _left : _right;
+        HidDeviceInfo? device = side == TrackpadSide.Left
+            ? LeftDeviceCombo.SelectedItem as HidDeviceInfo
+            : RightDeviceCombo.SelectedItem as HidDeviceInfo;
+
+        bool showPressureValues = false;
+        bool likelyNoPressure = true;
+        if (device != null && !device.IsNone && !string.IsNullOrWhiteSpace(device.Path))
+        {
+            TrackpadDecoderProfile profile = GetConfiguredDecoderProfile(device.Path!);
+            showPressureValues = profile == TrackpadDecoderProfile.Legacy;
+            likelyNoPressure = !showPressureValues || IsLikelyBluetoothDevice(device);
+        }
+
+        surface.ShowPressureValues = showPressureValues;
+        session.State.ConfigurePressureHint(likelyNoPressure);
+        InvalidateSurface(session);
     }
 
     private static bool IsLikelyBluetoothDevice(HidDeviceInfo device)
@@ -1985,6 +2008,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeyColumn = -1;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
+        ExpandKeymapEditorAndFocusPrimaryAction();
     }
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
@@ -2822,15 +2846,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _captureWriter?.WriteFrame(snapshot, reportSpan, started);
             try
             {
-                TrackpadDecoderProfile configuredProfile = GetConfiguredDecoderProfile(snapshot.DeviceName);
                 TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
                 }
-
-                MaybeLatchDecoderProfile(snapshot.DeviceName, configuredProfile, decoded);
 
                 bool leftMatch = _left.IsMatch(snapshot.DeviceName);
                 bool rightMatch = _right.IsMatch(snapshot.DeviceName);
@@ -2929,18 +2950,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
     {
-        TrackpadDecoderProfile configured = GetConfiguredDecoderProfile(deviceName);
-        if (configured != TrackpadDecoderProfile.Auto)
-        {
-            return configured;
-        }
-
-        if (_latchedDecoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile latched))
-        {
-            return latched;
-        }
-
-        return TrackpadDecoderProfile.Official;
+        return GetConfiguredDecoderProfile(deviceName);
     }
 
     private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
@@ -2951,30 +2961,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         return TrackpadDecoderProfile.Official;
-    }
-
-    private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)
-    {
-        if (configuredProfile != TrackpadDecoderProfile.Auto)
-        {
-            return;
-        }
-
-        if (_latchedDecoderProfilesByPath.ContainsKey(deviceName))
-        {
-            return;
-        }
-
-        if (decoded.Frame.GetClampedContactCount() == 0)
-        {
-            return;
-        }
-
-        _latchedDecoderProfilesByPath[deviceName] = decoded.Profile;
-        if (_options.DecoderDebug)
-        {
-            Console.WriteLine($"[decoder] latched device={deviceName} profile={decoded.Profile}");
-        }
     }
 
     private void RegisterRawInputFault(
@@ -3286,14 +3272,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                    string.Equals(DeviceName, deviceName, StringComparison.OrdinalIgnoreCase);
         }
 
-        public void SetDevice(string deviceName, string displayName, bool likelyNoPressure)
+        public void SetDevice(string deviceName, string displayName)
         {
             DeviceName = deviceName;
             DisplayName = displayName;
             Tag = null;
             TagText = null;
             State.Clear();
-            State.ConfigurePressureHint(likelyNoPressure);
         }
 
         public void Reset()

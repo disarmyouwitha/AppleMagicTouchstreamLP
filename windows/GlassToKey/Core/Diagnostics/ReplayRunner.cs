@@ -62,7 +62,7 @@ internal sealed class ReplayRunner
         ulong fingerprint = 14695981039346656037ul;
         using InputCaptureReader reader = new(capturePath);
 
-        KeymapStore keymap = options?.Keymap ?? KeymapStore.CreateDefault();
+        KeymapStore keymap = options?.Keymap ?? KeymapStore.LoadBundledDefault();
         TrackpadLayoutPreset? layoutPreset = options?.LayoutPreset;
         TouchProcessorConfig? config = options?.Config;
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap, layoutPreset, config);
