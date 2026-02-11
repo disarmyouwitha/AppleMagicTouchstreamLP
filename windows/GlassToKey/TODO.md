@@ -1,6 +1,4 @@
 ## TODO:
-- Add left / right click as actions
-- Pretty sections for Action dropdown? nums ___ letters ___ symbols
 - Mobile should make LHS:blank + RHS: all QWERTY keys on 1 side
 - LHS: I can't hold shift and press another key (It only takes the first tap?) lol
 -------
