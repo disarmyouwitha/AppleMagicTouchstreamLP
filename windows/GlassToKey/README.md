@@ -18,13 +18,15 @@ Build the GlassToKey project and you are good to go! A status bar indicator show
 
 Clicking the indicator light will allow you to view the Config or Quit the program.
 
+### Pin Tray Icon
+- Windows 11:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
+- Windows 10:
+  - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `GlassToKey`.
+- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
+
 <img src="Screenshot.png" alt="GlassToKey" />
 
-### Mobile QWERTY Preset
-- `Mobile QWERTY` is a special preset.
-- Left trackpad is intentionally blank.
-- Right trackpad uses a fixed row-staggered QWERTY geometry at 75% key scale.
-- Column scale/offset tuning is disabled for this preset (other presets are unchanged).
 
 ## Typing Tuning
 - Hold duration (ms): Time in miliseconds until a tap becomes a hold
@@ -64,12 +66,6 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - Default live launch starts in tray mode (status app) without opening the visualizer.
 - Use the tray icon `Open Config` action or `--config` to open the visualizer immediately.
 
-### Pin Tray Icon
-- Windows 11:
-  - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
-- Windows 10:
-  - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `GlassToKey`.
-- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
 
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.

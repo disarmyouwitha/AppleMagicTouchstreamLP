@@ -1,5 +1,4 @@
 ## TODO:
-- Mobile should make LHS:blank + RHS: all QWERTY keys on 1 side
 - LHS: I can't hold shift and press another key (It only takes the first tap?) lol
 -------
 I get this warning when I start the app:
