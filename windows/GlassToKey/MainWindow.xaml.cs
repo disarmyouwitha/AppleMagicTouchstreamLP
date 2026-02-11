@@ -990,6 +990,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RefreshColumnLayoutEditor()
     {
+        bool allowsColumnSettings = _preset.AllowsColumnSettings;
+        ColumnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
+        ColumnScaleBox.IsEnabled = allowsColumnSettings;
+        ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
+        ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
+
         int previous = ColumnLayoutColumnCombo.SelectedIndex;
         ColumnLayoutColumnCombo.Items.Clear();
         for (int col = 0; col < _preset.Columns; col++)
@@ -1012,6 +1018,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RefreshColumnLayoutFields()
     {
+        if (!_preset.AllowsColumnSettings)
+        {
+            ColumnScaleBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
+            ColumnOffsetXBox.Text = "0";
+            ColumnOffsetYBox.Text = "0";
+            return;
+        }
+
         int col = ColumnLayoutColumnCombo.SelectedIndex;
         if (col < 0 || col >= _columnSettings.Length)
         {
@@ -1038,6 +1052,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             changed = true;
         }
         KeyPaddingBox.Text = FormatNumber(_settings.KeyPaddingPercent);
+
+        if (!_preset.AllowsColumnSettings)
+        {
+            return changed;
+        }
 
         int selectedColumn = ColumnLayoutColumnCombo.SelectedIndex;
         if (selectedColumn < 0 || selectedColumn >= _columnSettings.Length)

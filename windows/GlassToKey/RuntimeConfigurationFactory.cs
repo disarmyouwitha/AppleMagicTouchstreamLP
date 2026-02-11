@@ -80,6 +80,11 @@ internal static class RuntimeConfigurationFactory
 
     public static ColumnLayoutSettings[] BuildColumnSettingsForPreset(UserSettings settings, TrackpadLayoutPreset preset)
     {
+        if (!preset.AllowsColumnSettings)
+        {
+            return BuildFixedColumnSettingsForPreset(preset);
+        }
+
         ColumnLayoutSettings[] defaults = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         List<ColumnLayoutSettings>? savedSettings = null;
 
@@ -122,6 +127,21 @@ internal static class RuntimeConfigurationFactory
         TrackpadLayoutPreset preset,
         ColumnLayoutSettings[] columnSettings)
     {
+        if (!preset.AllowsColumnSettings)
+        {
+            ColumnLayoutSettings[] fixedSettings = BuildFixedColumnSettingsForPreset(preset);
+            settings.ColumnSettingsByLayout ??= new Dictionary<string, List<ColumnLayoutSettings>>(StringComparer.OrdinalIgnoreCase);
+            List<ColumnLayoutSettings> fixedList = new(fixedSettings.Length);
+            for (int i = 0; i < fixedSettings.Length; i++)
+            {
+                ColumnLayoutSettings item = fixedSettings[i];
+                fixedList.Add(new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent));
+            }
+            settings.ColumnSettingsByLayout[preset.Name] = fixedList;
+            settings.ColumnSettings = fixedList;
+            return;
+        }
+
         settings.ColumnSettingsByLayout ??= new Dictionary<string, List<ColumnLayoutSettings>>(StringComparer.OrdinalIgnoreCase);
 
         ColumnLayoutSettings[] cloned = CloneColumnSettings(columnSettings);
@@ -144,5 +164,19 @@ internal static class RuntimeConfigurationFactory
                 offsetYPercent: item.OffsetYPercent,
                 rowSpacingPercent: item.RowSpacingPercent));
         }
+    }
+
+    private static ColumnLayoutSettings[] BuildFixedColumnSettingsForPreset(TrackpadLayoutPreset preset)
+    {
+        ColumnLayoutSettings[] fixedSettings = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        for (int i = 0; i < fixedSettings.Length; i++)
+        {
+            fixedSettings[i].Scale = preset.FixedKeyScale;
+            fixedSettings[i].OffsetXPercent = 0.0;
+            fixedSettings[i].OffsetYPercent = 0.0;
+            fixedSettings[i].RowSpacingPercent = 0.0;
+        }
+
+        return fixedSettings;
     }
 }
