@@ -51,6 +51,7 @@ internal static class TrackpadReportDecoder
         {
             if (TryDecodePtp(
                 payload,
+                deviceInfo,
                 arrivalQpcTicks,
                 TrackpadDecoderProfile.Legacy,
                 strictLegacyValidation: false,
@@ -64,6 +65,7 @@ internal static class TrackpadReportDecoder
 
         if (TryDecodePtp(
             payload,
+            deviceInfo,
             arrivalQpcTicks,
             TrackpadDecoderProfile.Official,
             strictLegacyValidation: true,
@@ -74,6 +76,7 @@ internal static class TrackpadReportDecoder
 
         if (TryDecodePtp(
             payload,
+            deviceInfo,
             arrivalQpcTicks,
             TrackpadDecoderProfile.Legacy,
             strictLegacyValidation: false,
@@ -87,6 +90,7 @@ internal static class TrackpadReportDecoder
 
     private static bool TryDecodePtp(
         ReadOnlySpan<byte> payload,
+        in RawInputDeviceInfo deviceInfo,
         long arrivalQpcTicks,
         TrackpadDecoderProfile profile,
         bool strictLegacyValidation,
@@ -102,6 +106,7 @@ internal static class TrackpadReportDecoder
             TryParsePtpAtOffset(
                 payload,
                 0,
+                deviceInfo,
                 arrivalQpcTicks,
                 profile,
                 strictLegacyValidation,
@@ -122,6 +127,7 @@ internal static class TrackpadReportDecoder
             if (TryParsePtpAtOffset(
                 payload,
                 offset,
+                deviceInfo,
                 arrivalQpcTicks,
                 profile,
                 strictLegacyValidation,
@@ -138,6 +144,7 @@ internal static class TrackpadReportDecoder
     private static bool TryParsePtpAtOffset(
         ReadOnlySpan<byte> payload,
         int offset,
+        in RawInputDeviceInfo deviceInfo,
         long arrivalQpcTicks,
         TrackpadDecoderProfile profile,
         bool strictLegacyValidation,
@@ -179,7 +186,7 @@ internal static class TrackpadReportDecoder
         InputFrame frame = InputFrame.FromReport(arrivalQpcTicks, in report);
         if (profile == TrackpadDecoderProfile.Official)
         {
-            NormalizeOfficialTouchFields(ref frame, candidate);
+            NormalizeOfficialTouchFields(ref frame, candidate, in deviceInfo);
         }
         else
         {
@@ -386,8 +393,13 @@ internal static class TrackpadReportDecoder
         return packed >> 22;
     }
 
-    private static void NormalizeOfficialTouchFields(ref InputFrame frame, ReadOnlySpan<byte> payload)
+    private static void NormalizeOfficialTouchFields(
+        ref InputFrame frame,
+        ReadOnlySpan<byte> payload,
+        in RawInputDeviceInfo deviceInfo)
     {
+        bool isNativeTouchpadUsage = deviceInfo.UsagePage == RawInputInterop.UsagePageDigitizer &&
+                                     deviceInfo.Usage == RawInputInterop.UsageTouchpad;
         int count = frame.GetClampedContactCount();
         for (int i = 0; i < count; i++)
         {
@@ -396,18 +408,17 @@ internal static class TrackpadReportDecoder
             ushort x = contact.X;
             ushort y = contact.Y;
 
-            int slotOffset = 1 + (i * 9);
-            if (slotOffset + 7 < payload.Length)
+            if (!isNativeTouchpadUsage)
             {
-                // Official stream (usage 0/0) does not match native PTP field packing.
-                // The most stable slot mapping seen in captures is:
-                // X  -> little-endian [slot+2..3]
-                // Y  -> little-endian [slot+4..5]
-                // Keeping fields non-overlapping prevents axis pollution from adjacent bytes.
-                int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
-                int rawY = ReadLittleEndianU16(payload[slotOffset + 4], payload[slotOffset + 5]);
-                x = ScaleOfficialCoordinate(rawX, maxRaw: OfficialMaxRawX, RuntimeConfigurationFactory.DefaultMaxX);
-                y = ScaleOfficialCoordinate(rawY, maxRaw: OfficialMaxRawY, RuntimeConfigurationFactory.DefaultMaxY);
+                int slotOffset = 1 + (i * 9);
+                if (slotOffset + 7 < payload.Length)
+                {
+                    // Usage 0/0 official stream does not match native PTP field packing.
+                    int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
+                    int rawY = ReadLittleEndianU16(payload[slotOffset + 4], payload[slotOffset + 5]);
+                    x = ScaleOfficialCoordinate(rawX, maxRaw: OfficialMaxRawX, RuntimeConfigurationFactory.DefaultMaxX);
+                    y = ScaleOfficialCoordinate(rawY, maxRaw: OfficialMaxRawY, RuntimeConfigurationFactory.DefaultMaxY);
+                }
             }
 
             frame.SetContact(i, new ContactFrame((uint)i, x, y, normalizedFlags));

@@ -61,7 +61,7 @@ internal static class ReplayVisualLoader
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decoded))
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, TrackpadDecoderProfile.Official, out TrackpadDecodeResult decoded))
             {
                 droppedNonMultitouch++;
                 continue;
