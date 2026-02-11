@@ -25,7 +25,7 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
   - `Settings` -> `Personalization` -> `Taskbar` -> `Select which icons appear on the taskbar` -> turn on `GlassToKey`.
 - You can also drag the icon from the hidden tray (`^`) to the visible tray area.
 
-<img src="Screenshot.png" alt="GlassToKey" />
+<img src="screenshots/Screenshot.png" alt="GlassToKey" />
 
 
 ## Typing Tuning
