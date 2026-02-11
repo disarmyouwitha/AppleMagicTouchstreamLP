@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace GlassToKey;
 
@@ -80,7 +81,24 @@ internal static class RuntimeConfigurationFactory
     public static ColumnLayoutSettings[] BuildColumnSettingsForPreset(UserSettings settings, TrackpadLayoutPreset preset)
     {
         ColumnLayoutSettings[] defaults = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
-        if (settings.ColumnSettings == null || settings.ColumnSettings.Count != preset.Columns)
+        List<ColumnLayoutSettings>? savedSettings = null;
+
+        if (settings.ColumnSettingsByLayout != null &&
+            settings.ColumnSettingsByLayout.TryGetValue(preset.Name, out List<ColumnLayoutSettings>? byLayout))
+        {
+            savedSettings = byLayout;
+        }
+
+        if (savedSettings == null &&
+            settings.ColumnSettings != null &&
+            settings.ColumnSettings.Count > 0 &&
+            string.Equals(settings.LayoutPresetName, preset.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            // Backward compatibility for pre-layout-scoped settings files.
+            savedSettings = settings.ColumnSettings;
+        }
+
+        if (savedSettings == null || savedSettings.Count != preset.Columns)
         {
             return defaults;
         }
@@ -88,7 +106,7 @@ internal static class RuntimeConfigurationFactory
         ColumnLayoutSettings[] output = new ColumnLayoutSettings[preset.Columns];
         for (int i = 0; i < preset.Columns; i++)
         {
-            ColumnLayoutSettings saved = settings.ColumnSettings[i] ?? new ColumnLayoutSettings();
+            ColumnLayoutSettings saved = savedSettings[i] ?? new ColumnLayoutSettings();
             output[i] = new ColumnLayoutSettings(
                 scale: Math.Clamp(saved.Scale, 0.25, 3.0),
                 offsetXPercent: saved.OffsetXPercent,
@@ -97,5 +115,34 @@ internal static class RuntimeConfigurationFactory
         }
 
         return output;
+    }
+
+    public static void SaveColumnSettingsForPreset(
+        UserSettings settings,
+        TrackpadLayoutPreset preset,
+        ColumnLayoutSettings[] columnSettings)
+    {
+        settings.ColumnSettingsByLayout ??= new Dictionary<string, List<ColumnLayoutSettings>>(StringComparer.OrdinalIgnoreCase);
+
+        ColumnLayoutSettings[] cloned = CloneColumnSettings(columnSettings);
+        List<ColumnLayoutSettings> asList = new(cloned.Length);
+        for (int i = 0; i < cloned.Length; i++)
+        {
+            asList.Add(cloned[i]);
+        }
+
+        settings.ColumnSettingsByLayout[preset.Name] = asList;
+
+        // Keep legacy field synchronized to the active layout for backward compatibility.
+        settings.ColumnSettings = new List<ColumnLayoutSettings>(asList.Count);
+        for (int i = 0; i < asList.Count; i++)
+        {
+            ColumnLayoutSettings item = asList[i];
+            settings.ColumnSettings.Add(new ColumnLayoutSettings(
+                scale: item.Scale,
+                offsetXPercent: item.OffsetXPercent,
+                offsetYPercent: item.OffsetYPercent,
+                rowSpacingPercent: item.RowSpacingPercent));
+        }
     }
 }

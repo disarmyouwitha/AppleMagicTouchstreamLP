@@ -6,6 +6,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
@@ -408,7 +409,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             LayerCombo.Items.Add($"Layer {layer}");
         }
-        _activeLayer = 0;
+        _activeLayer = Math.Clamp(_settings.ActiveLayer, 0, 3);
         LayerCombo.SelectedIndex = _activeLayer;
         _suppressLayerEvent = false;
     }
@@ -531,7 +532,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _preset = selected;
         _keymap.SetActiveLayout(_preset.Name);
         _settings.LayoutPresetName = selected.Name;
-        _columnSettings = ColumnLayoutDefaults.DefaultSettings(_preset.Columns);
+        _columnSettings = BuildColumnSettingsForPreset(_settings, _preset);
         RefreshColumnLayoutEditor();
         RebuildLayouts();
         RefreshKeymapEditor();
@@ -547,27 +548,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         SaveFileDialog dialog = new()
         {
-            Title = "Export Keymap",
+            Title = "Export Settings",
             Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
             DefaultExt = ".json",
             AddExtension = true,
             OverwritePrompt = true,
-            FileName = $"amtptp-keymap-{DateTime.Now:yyyyMMdd-HHmmss}.json"
+            FileName = $"GlassToKey-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json"
         };
         if (dialog.ShowDialog(this) != true)
         {
             return;
         }
 
-        if (_keymap.TryExportToFile(dialog.FileName, out string error))
+        if (TryExportSettingsBundle(dialog.FileName, out string error))
         {
             return;
         }
 
         MessageBox.Show(
             this,
-            $"Failed to export keymap.\n{error}",
-            "Keymap Export",
+            $"Failed to export settings.\n{error}",
+            "Settings Export",
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }
@@ -576,7 +577,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         OpenFileDialog dialog = new()
         {
-            Title = "Import Keymap",
+            Title = "Import Settings",
             Filter = "JSON files (*.json)|*.json|All files (*.*)|*.*",
             CheckFileExists = true,
             Multiselect = false
@@ -586,28 +587,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        if (!_keymap.TryImportFromFile(dialog.FileName, out string error))
+        if (!TryImportSettingsBundle(dialog.FileName, out string error))
         {
             MessageBox.Show(
                 this,
-                $"Failed to import keymap.\n{error}",
-                "Keymap Import",
+                $"Failed to import settings.\n{error}",
+                "Settings Import",
                 MessageBoxButton.OK,
                 MessageBoxImage.Error);
             return;
-        }
-
-        _keymap.SetActiveLayout(_preset.Name);
-        _keymap.Save();
-        ApplyCoreSettings();
-        UpdateLabelMatrices();
-        EnsureSelectedKeyStillValid();
-        UpdateSelectedKeyHighlight();
-        RefreshKeymapEditor();
-        if (_visualizerEnabled)
-        {
-            UpdateHitForSide(_left, TrackpadSide.Left);
-            UpdateHitForSide(_right, TrackpadSide.Right);
         }
     }
 
@@ -659,7 +647,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);
 
         bool layoutChanged = ApplyColumnLayoutFromUi();
-        _settings.ColumnSettings = CloneColumnSettings(_columnSettings).ToList();
+        _settings.ActiveLayer = _activeLayer;
+        RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
         if (layoutChanged)
         {
             RebuildLayouts();
@@ -670,6 +659,232 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.Save();
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         UpdateEngineStateDetails();
+    }
+
+    private bool TryExportSettingsBundle(string path, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            error = "Export path is empty.";
+            return false;
+        }
+
+        try
+        {
+            string? dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(dir))
+            {
+                Directory.CreateDirectory(dir);
+            }
+
+            EnsureExportIncludesAllPresetLayouts();
+            SettingsBundleFile bundle = new()
+            {
+                Version = 1,
+                Settings = BuildExportSettingsSnapshot(),
+                KeymapJson = _keymap.SerializeToJson(writeIndented: false)
+            };
+
+            string json = JsonSerializer.Serialize(bundle, new JsonSerializerOptions { WriteIndented = true });
+            File.WriteAllText(path, json);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private void EnsureExportIncludesAllPresetLayouts()
+    {
+        for (int i = 0; i < TrackpadLayoutPreset.All.Length; i++)
+        {
+            _keymap.EnsureLayoutExists(TrackpadLayoutPreset.All[i].Name);
+        }
+    }
+
+    private UserSettings BuildExportSettingsSnapshot()
+    {
+        UserSettings snapshot = _settings.Clone();
+        snapshot.NormalizeRanges();
+        snapshot.ColumnSettingsByLayout ??= new Dictionary<string, List<ColumnLayoutSettings>>(StringComparer.OrdinalIgnoreCase);
+
+        for (int i = 0; i < TrackpadLayoutPreset.All.Length; i++)
+        {
+            TrackpadLayoutPreset preset = TrackpadLayoutPreset.All[i];
+            ColumnLayoutSettings[] source = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(snapshot, preset);
+            List<ColumnLayoutSettings> list = new(source.Length);
+            for (int c = 0; c < source.Length; c++)
+            {
+                ColumnLayoutSettings item = source[c];
+                list.Add(new ColumnLayoutSettings(
+                    scale: item.Scale,
+                    offsetXPercent: item.OffsetXPercent,
+                    offsetYPercent: item.OffsetYPercent,
+                    rowSpacingPercent: item.RowSpacingPercent));
+            }
+
+            snapshot.ColumnSettingsByLayout[preset.Name] = list;
+        }
+
+        TrackpadLayoutPreset activePreset = TrackpadLayoutPreset.ResolveByNameOrDefault(snapshot.LayoutPresetName);
+        if (snapshot.ColumnSettingsByLayout.TryGetValue(activePreset.Name, out List<ColumnLayoutSettings>? activeList))
+        {
+            snapshot.ColumnSettings = new List<ColumnLayoutSettings>(activeList.Count);
+            for (int i = 0; i < activeList.Count; i++)
+            {
+                ColumnLayoutSettings item = activeList[i];
+                snapshot.ColumnSettings.Add(new ColumnLayoutSettings(
+                    scale: item.Scale,
+                    offsetXPercent: item.OffsetXPercent,
+                    offsetYPercent: item.OffsetYPercent,
+                    rowSpacingPercent: item.RowSpacingPercent));
+            }
+        }
+        else
+        {
+            snapshot.ColumnSettings = new List<ColumnLayoutSettings>();
+        }
+
+        return snapshot;
+    }
+
+    private bool TryImportSettingsBundle(string path, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            error = "Import path is empty.";
+            return false;
+        }
+
+        string json;
+        try
+        {
+            json = File.ReadAllText(path);
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (TryImportSettingsBundleJson(json, out string bundleError))
+        {
+            return true;
+        }
+
+        // Backward compatibility: allow importing legacy keymap-only JSON.
+        if (_keymap.TryImportFromJson(json, out string legacyError))
+        {
+            _keymap.SetActiveLayout(_preset.Name);
+            _keymap.Save();
+            ApplyCoreSettings();
+            UpdateLabelMatrices();
+            EnsureSelectedKeyStillValid();
+            UpdateSelectedKeyHighlight();
+            RefreshKeymapEditor();
+            if (_visualizerEnabled)
+            {
+                UpdateHitForSide(_left, TrackpadSide.Left);
+                UpdateHitForSide(_right, TrackpadSide.Right);
+            }
+            return true;
+        }
+
+        if (string.IsNullOrWhiteSpace(bundleError))
+        {
+            error = legacyError;
+        }
+        else
+        {
+            error = $"{bundleError}\nLegacy keymap import also failed: {legacyError}";
+        }
+        return false;
+    }
+
+    private bool TryImportSettingsBundleJson(string json, out string error)
+    {
+        error = string.Empty;
+        if (string.IsNullOrWhiteSpace(json))
+        {
+            error = "Import file is empty.";
+            return false;
+        }
+
+        SettingsBundleFile? bundle;
+        try
+        {
+            bundle = JsonSerializer.Deserialize<SettingsBundleFile>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
+        {
+            error = "Expected a GlassToKey settings export with both settings and keymap data.";
+            return false;
+        }
+
+        UserSettings importedSettings = bundle.Settings.Clone();
+        importedSettings.NormalizeRanges();
+
+        if (!StartupRegistration.TrySetEnabled(importedSettings.RunAtStartup, out string? startupError))
+        {
+            error = $"Failed to apply startup registration from imported settings.\n{startupError}";
+            return false;
+        }
+
+        if (!_keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
+        {
+            error = $"Keymap section is invalid: {keymapError}";
+            return false;
+        }
+
+        _settings.CopyFrom(importedSettings);
+        _settings.NormalizeRanges();
+
+        _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
+        _settings.LayoutPresetName = _preset.Name;
+        _activeLayer = Math.Clamp(_settings.ActiveLayer, 0, 3);
+        _suppressLayerEvent = true;
+        LayerCombo.SelectedIndex = _activeLayer;
+        _suppressLayerEvent = false;
+        _keymap.SetActiveLayout(_preset.Name);
+        _columnSettings = BuildColumnSettingsForPreset(_settings, _preset);
+
+        RebuildLayouts();
+        InitializeSettingsPanel();
+        ApplyCoreSettings();
+
+        if (!IsReplayMode)
+        {
+            LoadDevices(preserveSelection: false);
+            PersistSelections();
+        }
+
+        UpdateLabelMatrices();
+        EnsureSelectedKeyStillValid();
+        UpdateSelectedKeyHighlight();
+        RefreshKeymapEditor();
+        if (_visualizerEnabled)
+        {
+            UpdateHitForSide(_left, TrackpadSide.Left);
+            UpdateHitForSide(_right, TrackpadSide.Right);
+        }
+
+        _settings.Save();
+        _keymap.Save();
+        _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
+        UpdateEngineStateDetails();
+        return true;
     }
 
     private void ApplyCoreSettings()
@@ -1076,9 +1291,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             return;
         }
+
         _activeLayer = Math.Clamp(LayerCombo.SelectedIndex, 0, 3);
+        _settings.ActiveLayer = _activeLayer;
         _touchActor?.SetPersistentLayer(_activeLayer);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
+        _settings.Save();
         UpdateLabelMatrices();
         EnsureSelectedKeyStillValid();
         UpdateSelectedKeyHighlight();
@@ -3039,6 +3257,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly record struct ReplaySpeedOption(double Speed, string Label)
     {
         public override string ToString() => Label;
+    }
+
+    private sealed class SettingsBundleFile
+    {
+        public int Version { get; set; } = 1;
+        public UserSettings Settings { get; set; } = new();
+        public string KeymapJson { get; set; } = string.Empty;
     }
 
     private sealed class ReaderSession
