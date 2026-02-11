@@ -13,6 +13,8 @@ internal static class DispatchKeyResolver
         }
 
         if (label.Equals("LClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("LeftClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Left Click", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("MouseLeft", StringComparison.OrdinalIgnoreCase))
         {
             button = DispatchMouseButton.Left;
@@ -20,6 +22,8 @@ internal static class DispatchKeyResolver
         }
 
         if (label.Equals("RClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RightClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Right Click", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("MouseRight", StringComparison.OrdinalIgnoreCase))
         {
             button = DispatchMouseButton.Right;
@@ -27,6 +31,8 @@ internal static class DispatchKeyResolver
         }
 
         if (label.Equals("MClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("MiddleClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Middle Click", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("MouseMiddle", StringComparison.OrdinalIgnoreCase))
         {
             button = DispatchMouseButton.Middle;
