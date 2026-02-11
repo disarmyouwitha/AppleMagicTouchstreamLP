@@ -1415,16 +1415,55 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         HidDeviceInfo? rightSelection = ResolveReplayDeviceBySuggestedSide(TrackpadSide.Right) ??
                                         ResolveReplayDeviceBySavedPathHash(_settings.RightDevicePath);
 
-        if (leftSelection == null || leftSelection.IsNone)
+        HidDeviceInfo? singleReplayDevice = null;
+        int replayDeviceCount = 0;
+        for (int i = 0; i < _devices.Count; i++)
         {
-            leftSelection = _devices.Count > 1 ? _devices[1] : _devices[0];
+            HidDeviceInfo candidate = _devices[i];
+            if (candidate.IsNone)
+            {
+                continue;
+            }
+
+            replayDeviceCount++;
+            if (singleReplayDevice == null)
+            {
+                singleReplayDevice = candidate;
+            }
         }
 
-        if (rightSelection == null ||
-            rightSelection.IsNone ||
-            string.Equals(leftSelection.Path, rightSelection.Path, StringComparison.OrdinalIgnoreCase))
+        if (replayDeviceCount == 1 && singleReplayDevice != null)
         {
-            rightSelection = FindReplayAlternateDevice(leftSelection);
+            bool leftMatchesSingle = leftSelection != null &&
+                                     !leftSelection.IsNone &&
+                                     string.Equals(leftSelection.Path, singleReplayDevice.Path, StringComparison.OrdinalIgnoreCase);
+            bool rightMatchesSingle = rightSelection != null &&
+                                      !rightSelection.IsNone &&
+                                      string.Equals(rightSelection.Path, singleReplayDevice.Path, StringComparison.OrdinalIgnoreCase);
+            TrackpadSide targetSide = singleReplayDevice.SuggestedSide switch
+            {
+                TrackpadSide.Right => TrackpadSide.Right,
+                TrackpadSide.Left => TrackpadSide.Left,
+                _ when rightMatchesSingle && !leftMatchesSingle => TrackpadSide.Right,
+                _ => TrackpadSide.Left
+            };
+
+            leftSelection = targetSide == TrackpadSide.Left ? singleReplayDevice : _devices[0];
+            rightSelection = targetSide == TrackpadSide.Right ? singleReplayDevice : _devices[0];
+        }
+        else
+        {
+            if (leftSelection == null || leftSelection.IsNone)
+            {
+                leftSelection = _devices.Count > 1 ? _devices[1] : _devices[0];
+            }
+
+            if (rightSelection == null ||
+                rightSelection.IsNone ||
+                string.Equals(leftSelection.Path, rightSelection.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                rightSelection = FindReplayAlternateDevice(leftSelection);
+            }
         }
 
         LeftDeviceCombo.SelectedItem = leftSelection;
