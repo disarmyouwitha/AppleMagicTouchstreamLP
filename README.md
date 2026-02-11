@@ -33,9 +33,11 @@ I will post a release with a .dmg and .exe file and hopefully people will be abl
 An attempt to use the Apple Magic Trackpad as a keyboard (and mouse!) like the TouchStream LP~
 Since it is built on the same technology, I thought it would be fun to try and create an open source version!
 
-<img src="touchstreamLP.jpg" width="900px" />
+<img src="touchstreamLP.jpg" />
 
-<img src="apple-magic-touchstreamlp.jpg" width="900px" />
+<img src="apple-magic-touchstreamlp.jpg" />
+
+<img src="splatpad.jpg" />
 
 ## FUTURE:
 Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to to really hone the controls.
