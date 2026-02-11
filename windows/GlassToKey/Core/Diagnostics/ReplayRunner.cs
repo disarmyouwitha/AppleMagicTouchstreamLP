@@ -86,7 +86,10 @@ internal sealed class ReplayRunner
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, out TrackpadDecodeResult decoded))
+            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                ? TrackpadDecoderProfile.Legacy
+                : TrackpadDecoderProfile.Official;
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
             {
                 metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                 continue;
@@ -94,7 +97,7 @@ internal sealed class ReplayRunner
 
             metrics.RecordParsed();
             InputFrame frame = decoded.Frame;
-            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash);
+            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint);
 
             if (!hasBaseQpc)
             {
@@ -275,12 +278,24 @@ internal sealed class ReplayRunner
             _explicitSides = explicitSides;
         }
 
-        public TrackpadSide Resolve(int deviceIndex, uint deviceHash)
+        public TrackpadSide Resolve(int deviceIndex, uint deviceHash, CaptureSideHint sideHint)
         {
             ReplayDeviceTag key = new(deviceIndex, deviceHash);
             if (_explicitSides != null && _explicitSides.TryGetValue(key, out TrackpadSide explicitSide))
             {
                 return explicitSide;
+            }
+
+            if (sideHint == CaptureSideHint.Left)
+            {
+                _sides[key] = TrackpadSide.Left;
+                return TrackpadSide.Left;
+            }
+
+            if (sideHint == CaptureSideHint.Right)
+            {
+                _sides[key] = TrackpadSide.Right;
+                return TrackpadSide.Right;
             }
 
             if (_sides.TryGetValue(key, out TrackpadSide side))

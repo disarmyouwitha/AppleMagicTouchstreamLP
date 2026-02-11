@@ -61,7 +61,10 @@ internal static class ReplayVisualLoader
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, TrackpadDecoderProfile.Official, out TrackpadDecodeResult decoded))
+            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                ? TrackpadDecoderProfile.Legacy
+                : TrackpadDecoderProfile.Official;
+            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
             {
                 droppedNonMultitouch++;
                 continue;
@@ -93,6 +96,7 @@ internal static class ReplayVisualLoader
                 device = new ReplayDeviceAccumulator(displayName, replayDeviceName, tag.Index, tag.Hash);
                 devicesByTag[key] = device;
             }
+            device.ObserveSideHint(record.SideHint);
 
             int contactCount = frame.GetClampedContactCount();
             for (int i = 0; i < contactCount; i++)
@@ -130,7 +134,8 @@ internal static class ReplayVisualLoader
                 device.DeviceIndex,
                 device.DeviceHash,
                 suggestedMaxX,
-                suggestedMaxY));
+                suggestedMaxY,
+                device.SuggestedSide));
         }
 
         orderedDevices.Sort(static (a, b) => a.DeviceIndex.CompareTo(b.DeviceIndex));
@@ -154,5 +159,33 @@ internal static class ReplayVisualLoader
         public uint DeviceHash { get; }
         public ushort MaxSeenX { get; set; }
         public ushort MaxSeenY { get; set; }
+        private int LeftHintCount { get; set; }
+        private int RightHintCount { get; set; }
+        public TrackpadSide? SuggestedSide
+        {
+            get
+            {
+                if (LeftHintCount == RightHintCount)
+                {
+                    return null;
+                }
+
+                return LeftHintCount > RightHintCount
+                    ? TrackpadSide.Left
+                    : TrackpadSide.Right;
+            }
+        }
+
+        public void ObserveSideHint(CaptureSideHint sideHint)
+        {
+            if (sideHint == CaptureSideHint.Left)
+            {
+                LeftHintCount++;
+            }
+            else if (sideHint == CaptureSideHint.Right)
+            {
+                RightHintCount++;
+            }
+        }
     }
 }

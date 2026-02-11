@@ -8,8 +8,8 @@ namespace GlassToKey;
 internal static class InputCaptureFile
 {
     public const int HeaderSize = 20;
-    public const int RecordHeaderSize = 32;
-    public const int CurrentVersion = 1;
+    public const int RecordHeaderSize = 34;
+    public const int CurrentVersion = 2;
 
     private static readonly byte[] s_magic = Encoding.ASCII.GetBytes("ATPCAP01");
 
@@ -70,7 +70,16 @@ internal readonly record struct CaptureRecord(
     uint ProductId,
     ushort UsagePage,
     ushort Usage,
+    CaptureSideHint SideHint,
+    TrackpadDecoderProfile DecoderProfile,
     ReadOnlyMemory<byte> Payload);
+
+internal enum CaptureSideHint : byte
+{
+    Unknown = 0,
+    Left = 1,
+    Right = 2
+}
 
 internal sealed class InputCaptureWriter : IDisposable
 {
@@ -89,7 +98,12 @@ internal sealed class InputCaptureWriter : IDisposable
         InputCaptureFile.WriteHeader(_stream);
     }
 
-    public void WriteFrame(in RawInputDeviceSnapshot snapshot, ReadOnlySpan<byte> payload, long arrivalQpcTicks)
+    public void WriteFrame(
+        in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
+        long arrivalQpcTicks,
+        CaptureSideHint sideHint = CaptureSideHint.Unknown,
+        TrackpadDecoderProfile decoderProfile = TrackpadDecoderProfile.Official)
     {
         if (_disposed)
         {
@@ -105,6 +119,10 @@ internal sealed class InputCaptureWriter : IDisposable
         BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(24, 4), snapshot.Info.ProductId);
         BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(28, 2), snapshot.Info.UsagePage);
         BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(30, 2), snapshot.Info.Usage);
+        header[32] = (byte)sideHint;
+        header[33] = decoderProfile == TrackpadDecoderProfile.Legacy
+            ? (byte)TrackpadDecoderProfile.Legacy
+            : (byte)TrackpadDecoderProfile.Official;
         _stream.Write(header);
         _stream.Write(payload);
     }
@@ -185,8 +203,27 @@ internal sealed class InputCaptureReader : IDisposable
             ProductId: BinaryPrimitives.ReadUInt32LittleEndian(header.Slice(24, 4)),
             UsagePage: BinaryPrimitives.ReadUInt16LittleEndian(header.Slice(28, 2)),
             Usage: BinaryPrimitives.ReadUInt16LittleEndian(header.Slice(30, 2)),
+            SideHint: ParseSideHint(header[32]),
+            DecoderProfile: ParseDecoderProfile(header[33]),
             Payload: new ReadOnlyMemory<byte>(_payloadBuffer, 0, payloadLength));
         return true;
+    }
+
+    private static CaptureSideHint ParseSideHint(byte value)
+    {
+        return value switch
+        {
+            (byte)CaptureSideHint.Left => CaptureSideHint.Left,
+            (byte)CaptureSideHint.Right => CaptureSideHint.Right,
+            _ => CaptureSideHint.Unknown
+        };
+    }
+
+    private static TrackpadDecoderProfile ParseDecoderProfile(byte value)
+    {
+        return value == (byte)TrackpadDecoderProfile.Legacy
+            ? TrackpadDecoderProfile.Legacy
+            : TrackpadDecoderProfile.Official;
     }
 
     public void Dispose()

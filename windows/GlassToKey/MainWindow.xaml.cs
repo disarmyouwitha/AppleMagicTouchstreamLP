@@ -1410,12 +1410,82 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         LeftDeviceCombo.ItemsSource = _devices;
         RightDeviceCombo.ItemsSource = _devices;
-        LeftDeviceCombo.SelectedItem = _devices.Count > 1 ? _devices[1] : _devices[0];
-        RightDeviceCombo.SelectedItem = _devices.Count > 2 ? _devices[2] : _devices[0];
+        HidDeviceInfo? leftSelection = ResolveReplayDeviceBySuggestedSide(TrackpadSide.Left) ??
+                                       ResolveReplayDeviceBySavedPathHash(_settings.LeftDevicePath);
+        HidDeviceInfo? rightSelection = ResolveReplayDeviceBySuggestedSide(TrackpadSide.Right) ??
+                                        ResolveReplayDeviceBySavedPathHash(_settings.RightDevicePath);
+
+        if (leftSelection == null || leftSelection.IsNone)
+        {
+            leftSelection = _devices.Count > 1 ? _devices[1] : _devices[0];
+        }
+
+        if (rightSelection == null ||
+            rightSelection.IsNone ||
+            string.Equals(leftSelection.Path, rightSelection.Path, StringComparison.OrdinalIgnoreCase))
+        {
+            rightSelection = FindReplayAlternateDevice(leftSelection);
+        }
+
+        LeftDeviceCombo.SelectedItem = leftSelection;
+        RightDeviceCombo.SelectedItem = rightSelection;
 
         _suppressSelectionEvents = false;
         ApplySelections();
         UpdateReplayHeaderStatus();
+    }
+
+    private HidDeviceInfo? ResolveReplayDeviceBySuggestedSide(TrackpadSide side)
+    {
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo device = _devices[i];
+            if (!device.IsNone && device.SuggestedSide == side)
+            {
+                return device;
+            }
+        }
+
+        return null;
+    }
+
+    private HidDeviceInfo? ResolveReplayDeviceBySavedPathHash(string? savedPath)
+    {
+        if (string.IsNullOrWhiteSpace(savedPath))
+        {
+            return null;
+        }
+
+        uint savedHash = RawInputInterop.HashDeviceName(savedPath);
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo device = _devices[i];
+            if (!device.IsNone && device.DeviceHash == savedHash)
+            {
+                return device;
+            }
+        }
+
+        return null;
+    }
+
+    private HidDeviceInfo FindReplayAlternateDevice(HidDeviceInfo leftSelection)
+    {
+        for (int i = 0; i < _devices.Count; i++)
+        {
+            HidDeviceInfo candidate = _devices[i];
+            if (candidate.IsNone)
+            {
+                continue;
+            }
+
+            if (!string.Equals(candidate.Path, leftSelection.Path, StringComparison.OrdinalIgnoreCase))
+            {
+                return candidate;
+            }
+        }
+
+        return _devices[0];
     }
 
     private void InitializeDecoderProfileCombos()
@@ -2933,18 +3003,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             }
 
             ReadOnlySpan<byte> reportSpan = packet.Buffer.AsSpan(offset, reportSize);
-            _captureWriter?.WriteFrame(snapshot, reportSpan, started);
+            bool leftMatch = _left.IsMatch(snapshot.DeviceName);
+            bool rightMatch = _right.IsMatch(snapshot.DeviceName);
+            CaptureSideHint sideHint = leftMatch && !rightMatch
+                ? CaptureSideHint.Left
+                : rightMatch && !leftMatch
+                    ? CaptureSideHint.Right
+                    : CaptureSideHint.Unknown;
             try
             {
                 TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                _captureWriter?.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
                 }
 
-                bool leftMatch = _left.IsMatch(snapshot.DeviceName);
-                bool rightMatch = _right.IsMatch(snapshot.DeviceName);
                 TraceDecoderSelection(snapshot, decoderProfile, decoded, leftMatch, rightMatch);
 
                 _liveMetrics.RecordParsed();
