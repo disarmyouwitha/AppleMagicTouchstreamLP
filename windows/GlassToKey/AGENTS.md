@@ -13,7 +13,7 @@
 ## Key Files & Responsibilities
 - `GlassToKey/PtpReport.cs`: zero-allocation parser for touchpad report payloads.
 - `GlassToKey/TouchRuntimeService.cs`: hot-path runtime host (WM_INPUT routing, touch actor, key dispatch, click suppression).
-- `GlassToKey/StatusTrayController.cs`: tray icon/menu and config window launch flow.
+- `GlassToKey/StatusTrayController.cs`: tray icon/menu actions (`Config...`, separator, `Capture`, `Replay`, separator, `Restart`, `Exit`) and config launch flow.
 - `GlassToKey/RuntimeObserverContracts.cs`: read-only observer contracts for runtime frame mirroring and tray mode indication.
 - `GlassToKey/StartupRegistration.cs`: startup-on-login registration via HKCU Run key.
 - `GlassToKey/MainWindow.xaml.cs`: secondary visualizer/config UI (settings, keymap, replay UI).

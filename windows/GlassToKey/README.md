@@ -16,7 +16,7 @@ Build the GlassToKey project and you are good to go! A status bar indicator show
 - **Purple**: Keyboard mode (full keyboard, no mouse intent)
 - **Red**: Mouse-only mode (typing disabled)
 
-Clicking the indicator light will allow you to view the Config or Quit the program.
+Right-clicking the indicator opens tray actions: `Config...`, separator, `Capture`, `Replay`, separator, `Restart`, and `Exit`.
 
 ### Pin Tray Icon
 - Windows 11:
@@ -92,7 +92,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 
 ## Files
 - `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
-- `StatusTrayController.cs`: tray icon/menu (`Open Config`, `Exit`).
+- `StatusTrayController.cs`: tray icon/menu (`Config...`, separator, `Capture`, `Replay`, separator, `Restart`, `Exit`).
 - `TouchRuntimeService.cs`: background runtime host for WM_INPUT + engine + dispatch.
 - `RuntimeObserverContracts.cs`: runtime mode + frame observer contracts for live visualization mirroring.
 - `RuntimeConfigurationFactory.cs`: shared settings-to-layout/config builders for UI/runtime parity.
