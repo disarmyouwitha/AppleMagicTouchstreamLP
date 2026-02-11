@@ -1591,6 +1591,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
     {
         session.Reset();
+        ApplyRequestedMaxRange(side, device);
 
         if (device == null || device.IsNone)
         {
@@ -1611,6 +1612,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         session.SetDevice(device.Path!, device.DisplayName);
         UpdateHitDisplay(side, "--", null);
         ApplyPressurePolicyForSide(side);
+    }
+
+    private void ApplyRequestedMaxRange(TrackpadSide side, HidDeviceInfo? device)
+    {
+        TouchView surface = side == TrackpadSide.Left ? LeftSurface : RightSurface;
+        ushort fallbackX = _options.MaxX ?? DefaultMaxX;
+        ushort fallbackY = _options.MaxY ?? DefaultMaxY;
+
+        if (IsReplayMode &&
+            device != null &&
+            !device.IsNone &&
+            device.SuggestedMaxX > 0 &&
+            device.SuggestedMaxY > 0)
+        {
+            surface.RequestedMaxX = device.SuggestedMaxX;
+            surface.RequestedMaxY = device.SuggestedMaxY;
+            return;
+        }
+
+        surface.RequestedMaxX = fallbackX;
+        surface.RequestedMaxY = fallbackY;
     }
 
     private void ApplyPressurePolicyForSide(TrackpadSide side)
@@ -2389,6 +2411,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool ShouldSuppressKeyHighlighting()
     {
+        if (IsReplayMode)
+        {
+            return false;
+        }
+
         if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
             return false;
@@ -2595,6 +2622,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _right.State.Clear();
         LeftSurface.HighlightedKey = null;
         RightSurface.HighlightedKey = null;
+        LeftSurface.HighlightedCustomButtonId = null;
+        RightSurface.HighlightedCustomButtonId = null;
         UpdateHitDisplay(TrackpadSide.Left, "--", null);
         UpdateHitDisplay(TrackpadSide.Right, "--", null);
         InvalidateSurface(_left);

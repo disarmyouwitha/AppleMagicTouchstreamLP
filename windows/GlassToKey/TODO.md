@@ -1,6 +1,5 @@
 ## TODO:
-- replay still doesnt work. I don't think we need to dispatch keys exatcly but it doesnt show highlight of keys either.
-- Add "capture" and "replay" into the taskbar dropdown?
+- replay still doesnt work. I don't think we need to dispatch keys exatcly but it doesnt show green highlight of keys either. It does update the pills so maybe it is doing something not visible?
 -------
 I get this warning when I start the app:
 C:\Program Files\dotnet\sdk\9.0.310\Sdks\Microsoft.NET.Sdk\targets\Microsoft.NET.EolTargetFrameworks.targets(32,5): warning NETSDK1138: The target framework 'net6.0-windows' is out of support and will not receive security updates in the future. Please refer to https://aka.ms/dotnet-core-support for more information about the support policy.
