@@ -6,6 +6,7 @@ public sealed class TrackpadLayoutPreset
 {
     public static TrackpadLayoutPreset Blank { get; } = new(
         name: "Blank",
+        displayName: "Blank",
         columns: 0,
         rows: 0,
         columnAnchorsMm: Array.Empty<PointMm>(),
@@ -14,6 +15,7 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset SixByThree { get; } = new(
         name: "6x3",
+        displayName: "6x3",
         columns: 6,
         rows: 3,
         columnAnchorsMm: new[]
@@ -35,6 +37,7 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset SixByFour { get; } = new(
         name: "6x4",
+        displayName: "6x4",
         columns: 6,
         rows: 4,
         columnAnchorsMm: new[]
@@ -57,6 +60,7 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset FiveByThree { get; } = new(
         name: "5x3",
+        displayName: "5x3",
         columns: 5,
         rows: 3,
         columnAnchorsMm: new[]
@@ -77,6 +81,7 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset FiveByFour { get; } = new(
         name: "5x4",
+        displayName: "5x4",
         columns: 5,
         rows: 4,
         columnAnchorsMm: new[]
@@ -98,24 +103,32 @@ public sealed class TrackpadLayoutPreset
 
     public static TrackpadLayoutPreset Mobile { get; } = new(
         name: "mobile",
-        columns: 6,
+        displayName: "Mobile QWERTY",
+        columns: 10,
         rows: 4,
         columnAnchorsMm: new[]
         {
-            new PointMm(24.0, 10.0),
-            new PointMm(44.0, 10.0),
+            new PointMm(8.0, 10.0),
+            new PointMm(22.0, 10.0),
+            new PointMm(36.0, 10.0),
+            new PointMm(50.0, 10.0),
             new PointMm(64.0, 10.0),
-            new PointMm(84.0, 10.0),
-            new PointMm(104.0, 10.0),
-            new PointMm(124.0, 10.0)
+            new PointMm(78.0, 10.0),
+            new PointMm(92.0, 10.0),
+            new PointMm(106.0, 10.0),
+            new PointMm(120.0, 10.0),
+            new PointMm(134.0, 10.0)
         },
         rightLabels: new[]
         {
-            new[] { "Q", "W", "E", "R", "T", "Y" },
-            new[] { "A", "S", "D", "F", "G", "H" },
-            new[] { "Z", "X", "C", "V", "B", "N" },
-            new[] { "TT", "Space", "MO(1)", "TO(1)", "Back", "Ret" }
-        }
+            new[] { "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P" },
+            new[] { "A", "S", "D", "F", "G", "H", "J", "K", "L", "Ret" },
+            new[] { "Z", "X", "C", "V", "B", "N", "M", ",", ".", "Back" },
+            new[] { "Space" }
+        },
+        blankLeftSide: true,
+        useFixedRightStaggeredQwerty: true,
+        fixedKeyScale: 0.75
     );
 
     public static TrackpadLayoutPreset[] All { get; } =
@@ -129,24 +142,42 @@ public sealed class TrackpadLayoutPreset
     };
 
     public string Name { get; }
+    public string DisplayName { get; }
     public int Columns { get; }
     public int Rows { get; }
     public PointMm[] ColumnAnchorsMm { get; }
     public string[][] RightLabels { get; }
+    public bool BlankLeftSide { get; }
+    public bool UseFixedRightStaggeredQwerty { get; }
+    public double FixedKeyScale { get; }
+    public bool AllowsColumnSettings => !UseFixedRightStaggeredQwerty;
     public string[][] LeftLabels => Mirror(RightLabels);
 
-    private TrackpadLayoutPreset(string name, int columns, int rows, PointMm[] columnAnchorsMm, string[][] rightLabels)
+    private TrackpadLayoutPreset(
+        string name,
+        string displayName,
+        int columns,
+        int rows,
+        PointMm[] columnAnchorsMm,
+        string[][] rightLabels,
+        bool blankLeftSide = false,
+        bool useFixedRightStaggeredQwerty = false,
+        double fixedKeyScale = 1.0)
     {
         Name = name;
+        DisplayName = string.IsNullOrWhiteSpace(displayName) ? name : displayName;
         Columns = columns;
         Rows = rows;
         ColumnAnchorsMm = columnAnchorsMm;
         RightLabels = rightLabels;
+        BlankLeftSide = blankLeftSide;
+        UseFixedRightStaggeredQwerty = useFixedRightStaggeredQwerty;
+        FixedKeyScale = Math.Clamp(fixedKeyScale, 0.25, 2.0);
     }
 
     public override string ToString()
     {
-        return Name;
+        return DisplayName;
     }
 
     public static TrackpadLayoutPreset ResolveByNameOrDefault(string? name)
@@ -156,9 +187,18 @@ public sealed class TrackpadLayoutPreset
             return SixByThree;
         }
 
+        string trimmed = name.Trim();
+        if (string.Equals(trimmed, "Mobile QWERTY", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "mobile-qwerty", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(trimmed, "mobile_qwerty", StringComparison.OrdinalIgnoreCase))
+        {
+            return Mobile;
+        }
+
         for (int i = 0; i < All.Length; i++)
         {
-            if (string.Equals(All[i].Name, name, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(All[i].Name, trimmed, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(All[i].DisplayName, trimmed, StringComparison.OrdinalIgnoreCase))
             {
                 return All[i];
             }

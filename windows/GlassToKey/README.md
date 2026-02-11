@@ -20,6 +20,12 @@ Clicking the indicator light will allow you to view the Config or Quit the progr
 
 <img src="Screenshot.png" alt="GlassToKey" />
 
+### Mobile QWERTY Preset
+- `Mobile QWERTY` is a special preset.
+- Left trackpad is intentionally blank.
+- Right trackpad uses a fixed row-staggered QWERTY geometry at 75% key scale.
+- Column scale/offset tuning is disabled for this preset (other presets are unchanged).
+
 ## Typing Tuning
 - Hold duration (ms): Time in miliseconds until a tap becomes a hold
 - Typing Grace (ms): Time after a key dispatch to keep typing intent active.

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics.CodeAnalysis;
@@ -10,6 +10,7 @@ using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -52,7 +53,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly ReaderSession _right = new("Right");
     private readonly UserSettings _settings;
     private readonly KeymapStore _keymap;
-    private readonly ObservableCollection<string> _keyActionOptions = new();
+    private readonly ObservableCollection<KeyActionOption> _keyActionOptions = new();
+    private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -417,13 +419,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         _suppressSettingsEvents = true;
         _keyActionOptions.Clear();
-        foreach (string action in BuildKeyActionOptions())
+        _keyActionOptionLookup.Clear();
+        foreach (KeyActionOption action in BuildKeyActionOptions())
         {
             _keyActionOptions.Add(action);
+            _keyActionOptionLookup.Add(action.Value);
         }
 
-        KeymapPrimaryCombo.ItemsSource = _keyActionOptions;
-        KeymapHoldCombo.ItemsSource = _keyActionOptions;
+        KeymapPrimaryCombo.ItemsSource = CreateGroupedKeyActionView();
+        KeymapHoldCombo.ItemsSource = CreateGroupedKeyActionView();
 
         LayoutPresetCombo.Items.Clear();
         foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.All)
@@ -458,6 +462,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
+    }
+
+    private ListCollectionView CreateGroupedKeyActionView()
+    {
+        ListCollectionView view = new(_keyActionOptions);
+        view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(KeyActionOption.Group)));
+        return view;
     }
 
     private void HookTuningAutoApplyHandlers()
@@ -979,6 +990,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RefreshColumnLayoutEditor()
     {
+        bool allowsColumnSettings = _preset.AllowsColumnSettings;
+        ColumnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
+        ColumnScaleBox.IsEnabled = allowsColumnSettings;
+        ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
+        ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
+
         int previous = ColumnLayoutColumnCombo.SelectedIndex;
         ColumnLayoutColumnCombo.Items.Clear();
         for (int col = 0; col < _preset.Columns; col++)
@@ -1001,6 +1018,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RefreshColumnLayoutFields()
     {
+        if (!_preset.AllowsColumnSettings)
+        {
+            ColumnScaleBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
+            ColumnOffsetXBox.Text = "0";
+            ColumnOffsetYBox.Text = "0";
+            return;
+        }
+
         int col = ColumnLayoutColumnCombo.SelectedIndex;
         if (col < 0 || col >= _columnSettings.Length)
         {
@@ -1027,6 +1052,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             changed = true;
         }
         KeyPaddingBox.Text = FormatNumber(_settings.KeyPaddingPercent);
+
+        if (!_preset.AllowsColumnSettings)
+        {
+            return changed;
+        }
 
         int selectedColumn = ColumnLayoutColumnCombo.SelectedIndex;
         if (selectedColumn < 0 || selectedColumn >= _columnSettings.Length)
@@ -1106,24 +1136,25 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ControlsPaneBorder.BeginAnimation(UIElement.OpacityProperty, opacityAnimation, HandoffBehavior.SnapshotAndReplace);
     }
 
-    private static List<string> BuildKeyActionOptions()
+    private static List<KeyActionOption> BuildKeyActionOptions()
     {
-        List<string> options = new()
-        {
-            "None"
-        };
+        List<KeyActionOption> options = new(120);
+        AddKeyActionOption(options, "None", "General");
+        AddKeyActionOption(options, "Left Click", "Mouse Actions");
+        AddKeyActionOption(options, "Right Click", "Mouse Actions");
+        AddKeyActionOption(options, "Middle Click", "Mouse Actions");
 
         for (char ch = 'A'; ch <= 'Z'; ch++)
         {
-            options.Add(ch.ToString());
+            AddKeyActionOption(options, ch.ToString(), "Letters A-Z");
         }
 
         for (char ch = '0'; ch <= '9'; ch++)
         {
-            options.Add(ch.ToString());
+            AddKeyActionOption(options, ch.ToString(), "Numbers 0-9");
         }
 
-        options.AddRange(new[]
+        string[] navigationAndEditing =
         {
             "Space",
             "Tab",
@@ -1141,13 +1172,29 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Left",
             "Right",
             "Up",
-            "Down",
+            "Down"
+        };
+        for (int i = 0; i < navigationAndEditing.Length; i++)
+        {
+            AddKeyActionOption(options, navigationAndEditing[i], "Navigation & Editing");
+        }
+
+        string[] modifiersAndModes =
+        {
             "Shift",
             "Ctrl",
             "Alt",
             "LWin",
             "RWin",
-            "TT",
+            "TT"
+        };
+        for (int i = 0; i < modifiersAndModes.Length; i++)
+        {
+            AddKeyActionOption(options, modifiersAndModes[i], "Modifiers & Modes");
+        }
+
+        string[] symbols =
+        {
             "!",
             "@",
             "#",
@@ -1179,17 +1226,21 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "_",
             "+",
             "EmDash",
-            "—",
+            "â€”",
             "=",
             "`"
-        });
+        };
+        for (int i = 0; i < symbols.Length; i++)
+        {
+            AddKeyActionOption(options, symbols[i], "Symbols & Punctuation");
+        }
 
         for (int i = 1; i <= 12; i++)
         {
-            options.Add($"F{i}");
+            AddKeyActionOption(options, $"F{i}", "Function Keys");
         }
 
-        options.AddRange(new[]
+        string[] shortcuts =
         {
             "Ctrl+C",
             "Ctrl+V",
@@ -1198,16 +1249,25 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Ctrl+S",
             "Ctrl+A",
             "Ctrl+Z"
-        });
+        };
+        for (int i = 0; i < shortcuts.Length; i++)
+        {
+            AddKeyActionOption(options, shortcuts[i], "Shortcuts");
+        }
 
-        options.Add("TO(0)");
+        AddKeyActionOption(options, "TO(0)", "Layers");
         for (int layer = 1; layer <= 3; layer++)
         {
-            options.Add($"MO({layer})");
-            options.Add($"TO({layer})");
+            AddKeyActionOption(options, $"MO({layer})", "Layers");
+            AddKeyActionOption(options, $"TO({layer})", "Layers");
         }
 
         return options;
+    }
+
+    private static void AddKeyActionOption(List<KeyActionOption> options, string value, string group)
+    {
+        options.Add(new KeyActionOption(value, value, group));
     }
 
     private void EnsureActionOption(string action)
@@ -1217,15 +1277,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        for (int i = 0; i < _keyActionOptions.Count; i++)
+        if (!_keyActionOptionLookup.Add(action))
         {
-            if (string.Equals(_keyActionOptions[i], action, StringComparison.OrdinalIgnoreCase))
-            {
-                return;
-            }
+            return;
         }
 
-        _keyActionOptions.Add(action);
+        _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
     }
 
     private void InitializeReplayControls()
@@ -1662,8 +1719,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             string buttonHold = selectedButton.Hold?.Label ?? "None";
             EnsureActionOption(buttonPrimary);
             EnsureActionOption(buttonHold);
-            KeymapPrimaryCombo.SelectedItem = buttonPrimary;
-            KeymapHoldCombo.SelectedItem = buttonHold;
+            KeymapPrimaryCombo.SelectedValue = buttonPrimary;
+            KeymapHoldCombo.SelectedValue = buttonHold;
             CustomButtonXBox.Text = FormatNumber(selectedButton.Rect.X * 100.0);
             CustomButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
             CustomButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
@@ -1678,8 +1735,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeymapHoldCombo.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
-            KeymapPrimaryCombo.SelectedItem = "None";
-            KeymapHoldCombo.SelectedItem = "None";
+            KeymapPrimaryCombo.SelectedValue = "None";
+            KeymapHoldCombo.SelectedValue = "None";
             ClearCustomButtonGeometryEditorValues();
             _suppressKeymapActionEvents = false;
             return;
@@ -1705,8 +1762,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string hold = mapping.Hold?.Label ?? "None";
         EnsureActionOption(primary);
         EnsureActionOption(hold);
-        KeymapPrimaryCombo.SelectedItem = primary;
-        KeymapHoldCombo.SelectedItem = hold;
+        KeymapPrimaryCombo.SelectedValue = primary;
+        KeymapHoldCombo.SelectedValue = hold;
         _suppressKeymapActionEvents = false;
     }
 
@@ -1739,8 +1796,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplySelectedKeymapOverride()
     {
         int layer = GetSelectedLayer();
-        string selectedPrimary = KeymapPrimaryCombo.SelectedItem as string ?? "None";
-        string selectedHold = KeymapHoldCombo.SelectedItem as string ?? "None";
+        string selectedPrimary = KeymapPrimaryCombo.SelectedValue as string ?? "None";
+        string selectedHold = KeymapHoldCombo.SelectedValue as string ?? "None";
         string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
 
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
@@ -3233,6 +3290,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return keyboardModeEnabled
             ? ("Keyboard", ModeKeyboardBrush)
             : ("Mixed", ModeMixedBrush);
+    }
+
+    private sealed class KeyActionOption
+    {
+        public KeyActionOption(string value, string display, string group)
+        {
+            Value = value;
+            Display = display;
+            Group = group;
+        }
+
+        public string Value { get; }
+        public string Display { get; }
+        public string Group { get; }
     }
 
     private readonly record struct DecoderProfileOption(TrackpadDecoderProfile Profile, string Label)
