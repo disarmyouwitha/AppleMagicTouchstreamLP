@@ -10,7 +10,7 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - **https://github.com/lc700x/MagicTrackPad2_Windows_Precision_Drivers/releases**
 
 
-If you use an open source driver, you may need to change the device decoder in the GUI.
+If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is supported!
 
 ## DRIVER INSTALL WINDOWS (Update with my own Guide)
 
