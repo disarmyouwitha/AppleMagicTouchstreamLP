@@ -108,6 +108,11 @@ public sealed class UserSettings
             string path = GetSettingsPath();
             if (!File.Exists(path))
             {
+                if (TryLoadBundledDefaults(out UserSettings bundledDefaults))
+                {
+                    return bundledDefaults;
+                }
+
                 return new UserSettings();
             }
 
@@ -123,6 +128,11 @@ public sealed class UserSettings
         }
         catch
         {
+            if (TryLoadBundledDefaults(out UserSettings bundledDefaults))
+            {
+                return bundledDefaults;
+            }
+
             return new UserSettings();
         }
     }
@@ -211,12 +221,6 @@ public sealed class UserSettings
                 }
 
                 if (!TrackpadDecoderProfileMap.TryParse(value, out TrackpadDecoderProfile profile))
-                {
-                    changed = true;
-                    continue;
-                }
-
-                if (profile == TrackpadDecoderProfile.Auto)
                 {
                     changed = true;
                     continue;
@@ -541,5 +545,61 @@ public sealed class UserSettings
         }
 
         return true;
+    }
+
+    private static bool TryLoadBundledDefaults(out UserSettings settings)
+    {
+        settings = new UserSettings();
+        try
+        {
+            string bundledPath = KeymapStore.GetDefaultKeymapPath();
+            if (!File.Exists(bundledPath))
+            {
+                return false;
+            }
+
+            string json = File.ReadAllText(bundledPath);
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !TryGetPropertyIgnoreCase(root, "Settings", out JsonElement settingsElement) ||
+                settingsElement.ValueKind != JsonValueKind.Object)
+            {
+                return false;
+            }
+
+            UserSettings? parsed = settingsElement.Deserialize<UserSettings>(new JsonSerializerOptions
+            {
+                PropertyNameCaseInsensitive = true
+            });
+            if (parsed == null)
+            {
+                return false;
+            }
+
+            parsed.NormalizeRanges();
+            settings = parsed;
+            return true;
+        }
+        catch
+        {
+            settings = new UserSettings();
+            return false;
+        }
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 }

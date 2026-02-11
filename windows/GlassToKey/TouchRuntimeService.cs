@@ -35,7 +35,6 @@ internal sealed class TouchRuntimeService : IDisposable
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath;
-    private readonly Dictionary<string, TrackpadDecoderProfile> _latchedDecoderProfilesByPath = new(StringComparer.OrdinalIgnoreCase);
     private bool _started;
     public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
 
@@ -297,14 +296,12 @@ internal sealed class TouchRuntimeService : IDisposable
             try
             {
                 long timestampTicks = Stopwatch.GetTimestamp();
-                TrackpadDecoderProfile configuredProfile = GetConfiguredDecoderProfile(snapshot.DeviceName);
                 TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     continue;
                 }
 
-                MaybeLatchDecoderProfile(snapshot.DeviceName, configuredProfile, decoded);
                 TraceDecoderSelection(snapshot, decoderProfile, decoded, routeLeft, routeRight);
 
                 InputFrame frame = decoded.Frame;
@@ -338,18 +335,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
     {
-        TrackpadDecoderProfile configured = GetConfiguredDecoderProfile(deviceName);
-        if (configured != TrackpadDecoderProfile.Auto)
-        {
-            return configured;
-        }
-
-        if (_latchedDecoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile latched))
-        {
-            return latched;
-        }
-
-        return TrackpadDecoderProfile.Official;
+        return GetConfiguredDecoderProfile(deviceName);
     }
 
     private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
@@ -362,30 +348,6 @@ internal sealed class TouchRuntimeService : IDisposable
         }
 
         return TrackpadDecoderProfile.Official;
-    }
-
-    private void MaybeLatchDecoderProfile(string deviceName, TrackpadDecoderProfile configuredProfile, in TrackpadDecodeResult decoded)
-    {
-        if (configuredProfile != TrackpadDecoderProfile.Auto)
-        {
-            return;
-        }
-
-        if (_latchedDecoderProfilesByPath.ContainsKey(deviceName))
-        {
-            return;
-        }
-
-        if (decoded.Frame.GetClampedContactCount() == 0)
-        {
-            return;
-        }
-
-        _latchedDecoderProfilesByPath[deviceName] = decoded.Profile;
-        if (_options.DecoderDebug)
-        {
-            Console.WriteLine($"[decoder] latched device={deviceName} profile={decoded.Profile}");
-        }
     }
 
     private void TraceDecoderSelection(
