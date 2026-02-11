@@ -124,13 +124,13 @@ internal static class SelfTestRunner
             ProductId: RawInputInterop.ProductIdMt2,
             UsagePage: 0,
             Usage: 0);
-        if (!TrackpadReportDecoder.TryDecode(officialLike, officialInfo, arrivalQpcTicks: 300, out TrackpadDecodeResult officialDecoded) ||
+        if (!TrackpadReportDecoder.TryDecode(officialLike, officialInfo, arrivalQpcTicks: 300, TrackpadDecoderProfile.Official, out TrackpadDecodeResult officialDecoded) ||
             officialDecoded.Profile != TrackpadDecoderProfile.Official ||
             officialDecoded.Frame.GetClampedContactCount() != 1 ||
             !officialDecoded.Frame.GetContact(0).TipSwitch ||
             officialDecoded.Frame.GetContact(0).Id != 0)
         {
-            failure = "official profile auto-decode failed";
+            failure = "official profile decode failed";
             return false;
         }
 
@@ -143,7 +143,7 @@ internal static class SelfTestRunner
             ProductId: RawInputInterop.ProductIdMt2,
             UsagePage: 0,
             Usage: 0);
-        if (!TrackpadReportDecoder.TryDecode(appleVidLegacyLikeUsageZero, appleVidUsageZeroInfo, arrivalQpcTicks: 320, out TrackpadDecodeResult appleVidLegacyDecoded) ||
+        if (!TrackpadReportDecoder.TryDecode(appleVidLegacyLikeUsageZero, appleVidUsageZeroInfo, arrivalQpcTicks: 320, TrackpadDecoderProfile.Legacy, out TrackpadDecodeResult appleVidLegacyDecoded) ||
             appleVidLegacyDecoded.Profile != TrackpadDecoderProfile.Legacy ||
             appleVidLegacyDecoded.Frame.GetClampedContactCount() != 1 ||
             appleVidLegacyDecoded.Frame.GetContact(0).Id != 101)
@@ -161,7 +161,7 @@ internal static class SelfTestRunner
             ProductId: RawInputInterop.ProductIdMt2,
             UsagePage: 0,
             Usage: 0);
-        if (!TrackpadReportDecoder.TryDecode(opensourceVidLegacyLikeUsageZero, opensourceVidUsageZeroInfo, arrivalQpcTicks: 340, out TrackpadDecodeResult opensourceVidLegacyDecoded) ||
+        if (!TrackpadReportDecoder.TryDecode(opensourceVidLegacyLikeUsageZero, opensourceVidUsageZeroInfo, arrivalQpcTicks: 340, TrackpadDecoderProfile.Legacy, out TrackpadDecodeResult opensourceVidLegacyDecoded) ||
             opensourceVidLegacyDecoded.Profile != TrackpadDecoderProfile.Legacy ||
             opensourceVidLegacyDecoded.Frame.GetClampedContactCount() != 1)
         {
@@ -173,7 +173,7 @@ internal static class SelfTestRunner
         opensourceNoTipLegacyFrame[0] = RawInputInterop.ReportIdMultitouch;
         WriteContact(opensourceNoTipLegacyFrame, 0, flags: 0x01, contactId: 12, x: 2200, y: 1700);
         opensourceNoTipLegacyFrame[48] = 1;
-        if (!TrackpadReportDecoder.TryDecode(opensourceNoTipLegacyFrame, opensourceVidUsageZeroInfo, arrivalQpcTicks: 360, out TrackpadDecodeResult opensourceNoTipDecoded) ||
+        if (!TrackpadReportDecoder.TryDecode(opensourceNoTipLegacyFrame, opensourceVidUsageZeroInfo, arrivalQpcTicks: 360, TrackpadDecoderProfile.Legacy, out TrackpadDecodeResult opensourceNoTipDecoded) ||
             opensourceNoTipDecoded.Profile != TrackpadDecoderProfile.Legacy ||
             opensourceNoTipDecoded.Frame.GetClampedContactCount() != 1)
         {
@@ -206,7 +206,7 @@ internal static class SelfTestRunner
         ushort leftKeyX = (ushort)Math.Clamp((int)Math.Round((leftKeyRect.X + (leftKeyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort leftKeyY = (ushort)Math.Clamp((int)Math.Round((leftKeyRect.Y + (leftKeyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         string leftKeyStorage = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
         keymap.Mappings[0][leftKeyStorage] = new KeyMapping
         {
@@ -319,7 +319,7 @@ internal static class SelfTestRunner
         ushort rightKeyX = (ushort)Math.Clamp((int)Math.Round((rightKeyRect.X + (rightKeyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort rightKeyY = (ushort)Math.Clamp((int)Math.Round((rightKeyRect.Y + (rightKeyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         string rightKeyStorage = GridKeyPosition.StorageKey(TrackpadSide.Right, 0, 1);
         keymap.Mappings[0][rightKeyStorage] = new KeyMapping
         {
@@ -413,7 +413,7 @@ internal static class SelfTestRunner
         ushort leftKeyX = (ushort)Math.Clamp((int)Math.Round((leftKeyRect.X + (leftKeyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort leftKeyY = (ushort)Math.Clamp((int)Math.Round((leftKeyRect.Y + (leftKeyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         string leftKeyStorage = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
         keymap.Mappings[0][leftKeyStorage] = new KeyMapping
         {
@@ -513,7 +513,7 @@ internal static class SelfTestRunner
         ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         string toggleStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
         string keyStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
         keymap.Mappings[0][toggleStorageKey] = new KeyMapping
@@ -595,7 +595,7 @@ internal static class SelfTestRunner
         }
 
         // Swipe toggle path: off -> on should also restore key dispatch.
-        KeymapStore swipeKeymap = KeymapStore.CreateDefault();
+        KeymapStore swipeKeymap = KeymapStore.LoadBundledDefault();
         swipeKeymap.Mappings[0][keyStorageKey] = new KeyMapping
         {
             Primary = new KeyAction { Label = "A" },
@@ -807,7 +807,7 @@ internal static class SelfTestRunner
 
     private static bool RunEngineIntentTests(out string failure)
     {
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
         long now = 0;
         const ushort maxX = 7612;
@@ -933,7 +933,7 @@ internal static class SelfTestRunner
         ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
         using DispatchEventQueue queue = new();
         using TouchProcessorActor actor = new(core, dispatchQueue: queue);
@@ -962,7 +962,7 @@ internal static class SelfTestRunner
         }
 
         // Snap rule: if release lands inside any key, dispatch that direct hit and do not run snap.
-        KeymapStore directHitKeymap = KeymapStore.CreateDefault();
+        KeymapStore directHitKeymap = KeymapStore.LoadBundledDefault();
         string snapStartStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 1, 3);
         string snapTargetStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 1, 4);
         directHitKeymap.Mappings[0][snapStartStorageKey] = new KeyMapping
@@ -1115,7 +1115,7 @@ internal static class SelfTestRunner
             return false;
         }
 
-        KeymapStore modifierKeymap = KeymapStore.CreateDefault();
+        KeymapStore modifierKeymap = KeymapStore.LoadBundledDefault();
         string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
         modifierKeymap.Mappings[0][storageKey] = new KeyMapping
         {
@@ -1155,7 +1155,7 @@ internal static class SelfTestRunner
             return false;
         }
 
-        KeymapStore chordKeymap = KeymapStore.CreateDefault();
+        KeymapStore chordKeymap = KeymapStore.LoadBundledDefault();
         chordKeymap.Mappings[0][storageKey] = new KeyMapping
         {
             Primary = new KeyAction { Label = "Ctrl+C" },
@@ -1201,7 +1201,7 @@ internal static class SelfTestRunner
 
         // Chordal shift: 4 fingers on left should shift key taps on right.
         // Also validate stale-source timeout: if left side stops reporting, shift should clear.
-        KeymapStore chordShiftKeymap = KeymapStore.CreateDefault();
+        KeymapStore chordShiftKeymap = KeymapStore.LoadBundledDefault();
         string rightStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Right, 0, 2);
         chordShiftKeymap.Mappings[0][rightStorageKey] = new KeyMapping
         {
@@ -1302,7 +1302,7 @@ internal static class SelfTestRunner
         }
 
         // Chord-source side should not emit hold/tap actions while providing shift anchor.
-        KeymapStore chordSourceSuppressKeymap = KeymapStore.CreateDefault();
+        KeymapStore chordSourceSuppressKeymap = KeymapStore.LoadBundledDefault();
         chordSourceSuppressKeymap.Mappings[0][storageKey] = new KeyMapping
         {
             Primary = new KeyAction { Label = "a" },
@@ -1503,7 +1503,7 @@ internal static class SelfTestRunner
         const ushort maxX = 7612;
         const ushort maxY = 5065;
 
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
 
         core.SetTypingEnabled(true);
@@ -1573,7 +1573,7 @@ internal static class SelfTestRunner
         int expectedRightClicks,
         out string failure)
     {
-        KeymapStore keymap = KeymapStore.CreateDefault();
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
         configure(core);
 
@@ -1754,3 +1754,4 @@ internal static class SelfTestRunner
 }
 
 internal readonly record struct SelfTestResult(bool Success, string Summary);
+

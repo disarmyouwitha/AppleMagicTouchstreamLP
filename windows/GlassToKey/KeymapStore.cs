@@ -29,8 +29,7 @@ public sealed class CustomButton
 public sealed class KeymapStore
 {
     private const string DefaultLayoutKey = "6x3";
-    private const double TrackpadWidthMm = 160.0;
-    private const double TrackpadHeightMm = 114.9;
+    private const string DefaultKeymapFileName = "GLASSTOKEY_DEFAULT_KEYMAP.json";
     private const double MinCustomButtonSize = 0.05;
 
     private readonly Dictionary<string, LayoutKeymapData> _layouts = new(StringComparer.OrdinalIgnoreCase);
@@ -47,39 +46,62 @@ public sealed class KeymapStore
         return Path.Combine(dir, "keymap.json");
     }
 
+    public static string GetDefaultKeymapPath()
+    {
+        return Path.Combine(AppContext.BaseDirectory, DefaultKeymapFileName);
+    }
+
     public static KeymapStore Load()
     {
         try
         {
-            string path = GetKeymapPath();
-            if (!File.Exists(path))
+            string userPath = GetKeymapPath();
+            if (File.Exists(userPath))
             {
-                return CreateDefault(includeCustomDefaults: true);
+                string userJson = File.ReadAllText(userPath);
+                if (TryCreateFromJson(userJson, allowEmpty: true, out KeymapStore userStore))
+                {
+                    return userStore;
+                }
             }
-
-            string json = File.ReadAllText(path);
-            if (TryCreateFromJson(json, allowEmpty: true, out KeymapStore store))
-            {
-                return store;
-            }
-
-            return CreateDefault(includeCustomDefaults: true);
         }
         catch
         {
-            return CreateDefault(includeCustomDefaults: true);
+            // Fall through to bundled-default/empty path.
         }
+
+        return LoadBundledDefault();
     }
 
-    public static KeymapStore CreateDefault(bool includeCustomDefaults = false)
+    public static KeymapStore LoadBundledDefault()
+    {
+        try
+        {
+            string defaultPath = GetDefaultKeymapPath();
+            if (File.Exists(defaultPath))
+            {
+                string defaultJson = File.ReadAllText(defaultPath);
+                if (TryCreateFromBundledDefaultJson(defaultJson, out KeymapStore defaultStore))
+                {
+                    return defaultStore;
+                }
+            }
+        }
+        catch
+        {
+            // Fall back to empty keymap.
+        }
+
+        return CreateEmptyStore();
+    }
+
+    private static KeymapStore CreateEmptyStore()
     {
         KeymapStore store = new();
         store._layouts[DefaultLayoutKey] = new LayoutKeymapData
         {
-            Mappings = BuildDefaultMappingsForLayout(DefaultLayoutKey),
-            CustomButtons = includeCustomDefaults
-                ? BuildDefaultCustomButtons(DefaultLayoutKey)
-                : new Dictionary<int, List<CustomButton>>()
+            Mappings = CreateEmptyMappings(),
+            CustomButtons = new Dictionary<int, List<CustomButton>>()
         };
         store.SetActiveLayout(DefaultLayoutKey);
         return store;
@@ -323,110 +345,6 @@ public sealed class KeymapStore
         };
     }
 
-    private static Dictionary<int, Dictionary<string, KeyMapping>> BuildDefaultMappingsForLayout(string layoutKey)
-    {
-        Dictionary<int, Dictionary<string, KeyMapping>> mappings = CreateEmptyMappings();
-        if (!string.Equals(layoutKey, DefaultLayoutKey, StringComparison.OrdinalIgnoreCase))
-        {
-            return mappings;
-        }
-
-        SeedDefaultSixByThreeMappings(mappings);
-        return mappings;
-    }
-
-    private static void SeedDefaultSixByThreeMappings(Dictionary<int, Dictionary<string, KeyMapping>> mappings)
-    {
-        AddDefaultMapping(mappings, 0, "left:0:0", "T", "'");
-        AddDefaultMapping(mappings, 0, "left:0:1", "R", "}");
-        AddDefaultMapping(mappings, 0, "left:0:2", "E", "{");
-        AddDefaultMapping(mappings, 0, "left:0:3", "W", "]");
-        AddDefaultMapping(mappings, 0, "left:0:4", "Q", "[");
-        AddDefaultMapping(mappings, 0, "left:0:5", "Tab", null);
-        AddDefaultMapping(mappings, 0, "left:1:0", "G", "\"");
-        AddDefaultMapping(mappings, 0, "left:1:1", "F", ")");
-        AddDefaultMapping(mappings, 0, "left:1:2", "D", "(");
-        AddDefaultMapping(mappings, 0, "left:1:3", "S", "Ctrl+S");
-        AddDefaultMapping(mappings, 0, "left:1:4", "A", "Ctrl+A");
-        AddDefaultMapping(mappings, 0, "left:1:5", "Shift", null);
-        AddDefaultMapping(mappings, 0, "left:2:0", "B", "`");
-        AddDefaultMapping(mappings, 0, "left:2:1", "V", "Ctrl+V");
-        AddDefaultMapping(mappings, 0, "left:2:2", "C", "Ctrl+C");
-        AddDefaultMapping(mappings, 0, "left:2:3", "X", "Ctrl+X");
-        AddDefaultMapping(mappings, 0, "left:2:4", "Z", "Ctrl+Z");
-        AddDefaultMapping(mappings, 0, "left:2:5", "Shift", null);
-        AddDefaultMapping(mappings, 0, "right:0:0", "Y", "-");
-        AddDefaultMapping(mappings, 0, "right:0:1", "U", "&");
-        AddDefaultMapping(mappings, 0, "right:0:2", "I", "*");
-        AddDefaultMapping(mappings, 0, "right:0:3", "O", "Ctrl+F");
-        AddDefaultMapping(mappings, 0, "right:1:0", "H", "_");
-        AddDefaultMapping(mappings, 0, "right:1:1", "J", "!");
-        AddDefaultMapping(mappings, 0, "right:1:2", "K", "#");
-        AddDefaultMapping(mappings, 0, "right:1:3", "L", "~");
-        AddDefaultMapping(mappings, 0, "right:2:0", "N", "=");
-        AddDefaultMapping(mappings, 0, "right:2:1", "M", "@");
-        AddDefaultMapping(mappings, 0, "right:2:2", ",", "$");
-        AddDefaultMapping(mappings, 0, "right:2:3", ".", "^");
-
-        AddDefaultMapping(mappings, 1, "left:0:0", "None", null);
-        AddDefaultMapping(mappings, 1, "left:0:1", "None", null);
-        AddDefaultMapping(mappings, 1, "left:0:2", "None", null);
-        AddDefaultMapping(mappings, 1, "left:0:3", "Up", null);
-        AddDefaultMapping(mappings, 1, "left:0:4", "None", null);
-        AddDefaultMapping(mappings, 1, "left:0:5", "None", null);
-        AddDefaultMapping(mappings, 1, "left:1:0", "None", null);
-        AddDefaultMapping(mappings, 1, "left:1:1", "None", null);
-        AddDefaultMapping(mappings, 1, "left:1:2", "Right", null);
-        AddDefaultMapping(mappings, 1, "left:1:3", "Down", null);
-        AddDefaultMapping(mappings, 1, "left:1:4", "Left", null);
-        AddDefaultMapping(mappings, 1, "left:1:5", "None", null);
-        AddDefaultMapping(mappings, 1, "left:2:0", "None", null);
-        AddDefaultMapping(mappings, 1, "left:2:1", "None", null);
-        AddDefaultMapping(mappings, 1, "left:2:2", "F", null);
-        AddDefaultMapping(mappings, 1, "left:2:3", "Space", null);
-        AddDefaultMapping(mappings, 1, "left:2:4", "Ret", null);
-        AddDefaultMapping(mappings, 1, "left:2:5", "None", null);
-        AddDefaultMapping(mappings, 1, "right:0:0", "+", null);
-        AddDefaultMapping(mappings, 1, "right:0:1", "7", null);
-        AddDefaultMapping(mappings, 1, "right:0:2", "8", null);
-        AddDefaultMapping(mappings, 1, "right:0:3", "9", null);
-        AddDefaultMapping(mappings, 1, "right:0:4", "None", null);
-        AddDefaultMapping(mappings, 1, "right:0:5", "Backspace", null);
-        AddDefaultMapping(mappings, 1, "right:1:0", "EmDash", null);
-        AddDefaultMapping(mappings, 1, "right:1:1", "4", null);
-        AddDefaultMapping(mappings, 1, "right:1:2", "5", null);
-        AddDefaultMapping(mappings, 1, "right:1:3", "6", null);
-        AddDefaultMapping(mappings, 1, "right:1:4", "None", null);
-        AddDefaultMapping(mappings, 1, "right:1:5", "None", null);
-        AddDefaultMapping(mappings, 1, "right:2:0", "=", null);
-        AddDefaultMapping(mappings, 1, "right:2:1", "1", null);
-        AddDefaultMapping(mappings, 1, "right:2:2", "2", null);
-        AddDefaultMapping(mappings, 1, "right:2:3", "3", null);
-        AddDefaultMapping(mappings, 1, "right:2:4", ".", null);
-        AddDefaultMapping(mappings, 1, "right:2:5", "None", null);
-    }
-
-    private static void AddDefaultMapping(
-        Dictionary<int, Dictionary<string, KeyMapping>> mappings,
-        int layer,
-        string storageKey,
-        string primary,
-        string? hold)
-    {
-        int clampedLayer = Math.Clamp(layer, 0, 7);
-        if (!mappings.TryGetValue(clampedLayer, out Dictionary<string, KeyMapping>? layerMap))
-        {
-            layerMap = new Dictionary<string, KeyMapping>();
-            mappings[clampedLayer] = layerMap;
-        }
-
-        layerMap[storageKey] = new KeyMapping
-        {
-            Primary = new KeyAction { Label = primary },
-            Hold = hold == null ? null : new KeyAction { Label = hold }
-        };
-    }
-
     private static Dictionary<int, Dictionary<string, KeyMapping>> NormalizeMappings(Dictionary<int, Dictionary<string, KeyMapping>>? mappings)
     {
         Dictionary<int, Dictionary<string, KeyMapping>> normalized = CreateEmptyMappings();
@@ -473,14 +391,14 @@ public sealed class KeymapStore
 
         LayoutKeymapData created = new()
         {
-            Mappings = BuildDefaultMappingsForLayout(layoutKey),
-            CustomButtons = BuildDefaultCustomButtons(layoutKey)
+            Mappings = CreateEmptyMappings(),
+            CustomButtons = new Dictionary<int, List<CustomButton>>()
         };
         _layouts[layoutKey] = created;
         return created;
     }
 
-    private static LayoutKeymapData NormalizeLayoutData(string layoutKey, LayoutKeymapData source)
+    private static LayoutKeymapData NormalizeLayoutData(LayoutKeymapData source)
     {
         LayoutKeymapData normalized = new()
         {
@@ -506,11 +424,6 @@ public sealed class KeymapStore
             }
         }
 
-        if (normalized.CustomButtons.Count == 0)
-        {
-            normalized.CustomButtons = BuildDefaultCustomButtons(layoutKey);
-        }
-
         return normalized;
     }
 
@@ -532,81 +445,6 @@ public sealed class KeymapStore
             Hold = input.Hold,
             Layer = Math.Clamp(layer, 0, 7)
         };
-    }
-
-    private static Dictionary<int, List<CustomButton>> BuildDefaultCustomButtons(string layoutKey)
-    {
-        Dictionary<int, List<CustomButton>> defaults = new();
-        if (!string.Equals(layoutKey, DefaultLayoutKey, StringComparison.OrdinalIgnoreCase))
-        {
-            return defaults;
-        }
-
-        // Default 6x3 starter layout mirrors the current tuned Layer 0/1 configuration.
-        List<CustomButton> layer0 = new(3)
-        {
-            new CustomButton
-            {
-                Id = "default-right-0",
-                Side = TrackpadSide.Right,
-                Rect = NormalizeRect(0.0, 75.0, 40.0, 40.0, mirrored: false),
-                Primary = new KeyAction { Label = "Space" },
-                Hold = null,
-                Layer = 0
-            },
-            new CustomButton
-            {
-                Id = "default-left-0",
-                Side = TrackpadSide.Left,
-                Rect = NormalizeRect(0.0, 75.0, 40.0, 40.0, mirrored: true),
-                Primary = new KeyAction { Label = "Back" },
-                Hold = null,
-                Layer = 0
-            },
-            new CustomButton
-            {
-                Id = "default-left-1",
-                Side = TrackpadSide.Left,
-                Rect = NormalizeRect(40.0, 85.0, 40.0, 30.0, mirrored: true),
-                Primary = new KeyAction { Label = "MO(1)" },
-                Hold = null,
-                Layer = 0
-            }
-        };
-        defaults[0] = layer0;
-
-        List<CustomButton> layer1 = new(3)
-        {
-            new CustomButton
-            {
-                Id = "default-layer1-right-space",
-                Side = TrackpadSide.Right,
-                Rect = NormalizeRect(0.0, 75.0, 40.0, 40.0, mirrored: false),
-                Primary = new KeyAction { Label = "Space" },
-                Hold = null,
-                Layer = 1
-            },
-            new CustomButton
-            {
-                Id = "default-layer1-left-space",
-                Side = TrackpadSide.Left,
-                Rect = NormalizeRect(0.0, 75.0, 40.0, 40.0, mirrored: true),
-                Primary = new KeyAction { Label = "Space" },
-                Hold = null,
-                Layer = 1
-            },
-            new CustomButton
-            {
-                Id = "default-layer1-right-zero",
-                Side = TrackpadSide.Right,
-                Rect = ClampCustomButtonRect(new NormalizedRect(0.30, 0.67, 0.27, 0.20)),
-                Primary = new KeyAction { Label = "0" },
-                Hold = null,
-                Layer = 1
-            }
-        };
-        defaults[1] = layer1;
-        return defaults;
     }
 
     private void ApplyFrom(KeymapStore source)
@@ -634,7 +472,7 @@ public sealed class KeymapStore
 
     private static bool TryCreateFromJson(string json, bool allowEmpty, out KeymapStore store)
     {
-        store = CreateDefault(includeCustomDefaults: true);
+        store = CreateEmptyStore();
         if (string.IsNullOrWhiteSpace(json))
         {
             return allowEmpty;
@@ -659,7 +497,7 @@ public sealed class KeymapStore
                             continue;
                         }
 
-                        store._layouts[entry.Key] = NormalizeLayoutData(entry.Key, entry.Value);
+                        store._layouts[entry.Key] = NormalizeLayoutData(entry.Value);
                     }
                 }
 
@@ -677,29 +515,49 @@ public sealed class KeymapStore
             store._layouts[DefaultLayoutKey] = new LayoutKeymapData
             {
                 Mappings = NormalizeMappings(legacyMappings),
-                CustomButtons = BuildDefaultCustomButtons(DefaultLayoutKey)
+                CustomButtons = new Dictionary<int, List<CustomButton>>()
             };
             store.SetActiveLayout(DefaultLayoutKey);
             return true;
         }
         catch
         {
-            store = CreateDefault(includeCustomDefaults: true);
+            store = CreateEmptyStore();
             return false;
         }
     }
 
-    private static NormalizedRect NormalizeRect(double xMm, double yMm, double widthMm, double heightMm, bool mirrored)
+    private static bool TryCreateFromBundledDefaultJson(string json, out KeymapStore store)
     {
-        double width = widthMm / TrackpadWidthMm;
-        double height = heightMm / TrackpadHeightMm;
-        double x = xMm / TrackpadWidthMm;
-        if (mirrored)
+        if (TryCreateFromJson(json, allowEmpty: false, out store))
         {
-            x = 1.0 - x - width;
+            return true;
         }
-        double y = yMm / TrackpadHeightMm;
-        return ClampCustomButtonRect(new NormalizedRect(x, y, width, height));
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object ||
+                !TryGetPropertyIgnoreCase(root, "KeymapJson", out JsonElement keymapJsonElement) ||
+                keymapJsonElement.ValueKind != JsonValueKind.String)
+            {
+                return false;
+            }
+
+            string? keymapJson = keymapJsonElement.GetString();
+            if (string.IsNullOrWhiteSpace(keymapJson))
+            {
+                return false;
+            }
+
+            return TryCreateFromJson(keymapJson, allowEmpty: false, out store);
+        }
+        catch
+        {
+            store = CreateEmptyStore();
+            return false;
+        }
     }
 
     private static double ClampRange(double value, double min, double max)
@@ -711,14 +569,21 @@ public sealed class KeymapStore
 
     private static bool HasPropertyIgnoreCase(JsonElement element, string propertyName)
     {
+        return TryGetPropertyIgnoreCase(element, propertyName, out _);
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
         foreach (JsonProperty property in element.EnumerateObject())
         {
             if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
             {
+                value = property.Value;
                 return true;
             }
         }
 
+        value = default;
         return false;
     }
 
@@ -734,3 +599,4 @@ public sealed class KeymapStore
         public Dictionary<int, List<CustomButton>> CustomButtons { get; set; } = new();
     }
 }
+

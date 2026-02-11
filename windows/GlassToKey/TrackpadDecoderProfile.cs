@@ -5,7 +5,6 @@ namespace GlassToKey;
 
 internal enum TrackpadDecoderProfile
 {
-    Auto = 0,
     Legacy = 1,
     Official = 2
 }
@@ -40,7 +39,7 @@ internal static class TrackpadDecoderProfileMap
 
     public static bool TryParse(string? value, out TrackpadDecoderProfile profile)
     {
-        profile = TrackpadDecoderProfile.Auto;
+        profile = TrackpadDecoderProfile.Official;
         if (string.IsNullOrWhiteSpace(value))
         {
             return false;
@@ -48,7 +47,8 @@ internal static class TrackpadDecoderProfileMap
 
         if (string.Equals(value, "auto", StringComparison.OrdinalIgnoreCase))
         {
-            profile = TrackpadDecoderProfile.Auto;
+            // Backward compatibility: legacy "auto" is now treated as official.
+            profile = TrackpadDecoderProfile.Official;
             return true;
         }
 

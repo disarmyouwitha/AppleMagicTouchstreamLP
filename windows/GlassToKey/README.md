@@ -31,7 +31,7 @@ A minimal WPF visualizer for the Magic Trackpad 2 PTP input reports produced by 
 - **Rendering:** WPF `FrameworkElement` (`TouchView`) draws a padded surface, grid, and per-contact circles each frame.
 - **Tip-only visualization policy:** The visualizer intentionally ignores non-tip (`TipSwitch=false`) near-field/hover contacts to avoid lingering artifacts. Do not reintroduce hover circles unless behavior requirements change.
 - **Normalization:** Touches are normalized to a fixed Magic Trackpad 2 aspect ratio using `160.0mm x 114.9mm` for layout. Default logical maxima are `7612 x 5065` unless overridden with `--maxx/--maxy`.
-- **Keymap:** Layered mappings and custom buttons live in `keymap.json`, scoped by layout preset (`6x3`, `6x4`, `Blank`, etc.), layer, and side. Labels fall back to layout defaults when missing. Fresh `6x3` setups seed Layer 0/1 mappings plus default thumb buttons, and `Blank` starts with no grid keys and no preloaded custom buttons. The UI export/import actions now round-trip full user configuration plus keymap data and include all known layout presets in the export bundle.
+- **Keymap:** Layered mappings and custom buttons live in `keymap.json`, scoped by layout preset (`6x3`, `6x4`, `Blank`, etc.), layer, and side. Labels fall back to layout defaults when missing. When `%LOCALAPPDATA%\\GlassToKey\\keymap.json` does not exist, startup loads defaults from `GLASSTOKEY_DEFAULT_KEYMAP.json` located beside the app executable. If that file is missing or invalid, the app starts with an empty keymap.
 - **Diagnostics:** `--capture` writes binary frame captures; `--replay` runs deterministic two-pass replay + optional fixture checks.
 - **Keyboard mode click policy:** while typing is enabled and Keyboard mode is on, global click messages are suppressed for external apps; clicks inside the visualizer app remain allowed.
 - **Engine replay checks:** replay also computes intent trace fingerprint and transition count from the engine state machine.
@@ -130,6 +130,7 @@ dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --replay .\touch
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
+- On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
 
 ### Per-device decoder profile (mixed drivers)
 - Config UI exposes a per-side decoder dropdown with `Official` (default) and `Opensource`.

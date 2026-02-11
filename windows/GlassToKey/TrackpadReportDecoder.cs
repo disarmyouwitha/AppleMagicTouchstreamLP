@@ -31,7 +31,7 @@ internal static class TrackpadReportDecoder
         long arrivalQpcTicks,
         out TrackpadDecodeResult result)
     {
-        return TryDecode(payload, deviceInfo, arrivalQpcTicks, TrackpadDecoderProfile.Auto, out result);
+        return TryDecode(payload, deviceInfo, arrivalQpcTicks, TrackpadDecoderProfile.Official, out result);
     }
 
     public static bool TryDecode(
@@ -62,92 +62,27 @@ internal static class TrackpadReportDecoder
             return false;
         }
 
-        if (preferredProfile == TrackpadDecoderProfile.Official)
+        if (TryDecodePtp(
+            payload,
+            arrivalQpcTicks,
+            TrackpadDecoderProfile.Official,
+            strictLegacyValidation: true,
+            out result))
         {
-            if (TryDecodePtp(
-                payload,
-                arrivalQpcTicks,
-                TrackpadDecoderProfile.Official,
-                strictLegacyValidation: true,
-                out result))
-            {
-                return true;
-            }
-
-            if (TryDecodePtp(
-                payload,
-                arrivalQpcTicks,
-                TrackpadDecoderProfile.Legacy,
-                strictLegacyValidation: false,
-                out result))
-            {
-                return true;
-            }
-
-            return TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result);
+            return true;
         }
 
-        bool strictLegacyValidation = ShouldAttemptOfficialAuto(deviceInfo);
-        bool legacyDecoded = TryDecodePtp(
+        if (TryDecodePtp(
             payload,
             arrivalQpcTicks,
             TrackpadDecoderProfile.Legacy,
-            strictLegacyValidation,
-            out TrackpadDecodeResult legacyResult);
-        bool officialDecoded = false;
-        TrackpadDecodeResult officialResult = default;
-        if (ShouldAttemptOfficialAuto(deviceInfo))
-        {
-            officialDecoded = TryDecodePtp(
-                payload,
-                arrivalQpcTicks,
-                TrackpadDecoderProfile.Official,
-                strictLegacyValidation: true,
-                out officialResult);
-        }
-
-        if (legacyDecoded && officialDecoded)
-        {
-            if (ShouldPreferLegacyForAuto(legacyResult, officialResult))
-            {
-                result = legacyResult;
-                return true;
-            }
-
-            result = officialResult;
-            return true;
-        }
-
-        if (legacyDecoded)
-        {
-            result = legacyResult;
-            return true;
-        }
-
-        if (officialDecoded)
-        {
-            result = officialResult;
-            return true;
-        }
-
-        if (TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result))
+            strictLegacyValidation: false,
+            out result))
         {
             return true;
         }
 
-        return false;
-    }
-
-    private static bool ShouldAttemptOfficialAuto(in RawInputDeviceInfo deviceInfo)
-    {
-        ushort vid = (ushort)deviceInfo.VendorId;
-        ushort pid = (ushort)deviceInfo.ProductId;
-        if (vid != 0x05AC)
-        {
-            return false;
-        }
-
-        return pid == RawInputInterop.ProductIdMt2 || pid == RawInputInterop.ProductIdMt2UsbC;
+        return TryDecodeAppleNineByte(payload, deviceInfo, arrivalQpcTicks, out result);
     }
 
     private static bool TryDecodePtp(
@@ -449,72 +384,6 @@ internal static class TrackpadReportDecoder
     {
         int packed = (b0 << 27) | (b1 << 19) | (b2 << 11);
         return packed >> 22;
-    }
-
-    private static bool ShouldPreferLegacyForAuto(in TrackpadDecodeResult legacyResult, in TrackpadDecodeResult officialResult)
-    {
-        int legacyCount = legacyResult.Frame.GetClampedContactCount();
-        int officialCount = officialResult.Frame.GetClampedContactCount();
-        if (legacyCount == 0 && officialCount > 0)
-        {
-            return false;
-        }
-
-        if (officialCount == 0 && legacyCount > 0)
-        {
-            return true;
-        }
-
-        bool legacyHasNonZeroId = false;
-        for (int i = 0; i < legacyCount; i++)
-        {
-            ContactFrame contact = legacyResult.Frame.GetContact(i);
-            if (contact.Id != 0)
-            {
-                legacyHasNonZeroId = true;
-                break;
-            }
-        }
-
-        bool officialEdgeSaturated = false;
-        if (officialCount > 0)
-        {
-            officialEdgeSaturated = true;
-            for (int i = 0; i < officialCount; i++)
-            {
-                ContactFrame contact = officialResult.Frame.GetContact(i);
-                bool onEdge = contact.X == 0 ||
-                    contact.X >= RuntimeConfigurationFactory.DefaultMaxX ||
-                    contact.Y == 0 ||
-                    contact.Y >= RuntimeConfigurationFactory.DefaultMaxY;
-                if (!onEdge)
-                {
-                    officialEdgeSaturated = false;
-                    break;
-                }
-            }
-        }
-
-        if (legacyHasNonZeroId)
-        {
-            // Real PTP stream tends to carry stable non-zero contact IDs.
-            return true;
-        }
-
-        if (officialEdgeSaturated && legacyCount > 0)
-        {
-            // Official decode is saturated at boundaries; treat as likely misdecode.
-            return true;
-        }
-
-        if (legacyCount > 0 && officialCount > 0)
-        {
-            // Legacy contact IDs look synthetic (all zeros), while official has valid contacts.
-            return false;
-        }
-
-        // Ambiguous fallback: keep legacy to protect open-source/standard PTP paths.
-        return true;
     }
 
     private static void NormalizeOfficialTouchFields(ref InputFrame frame, ReadOnlySpan<byte> payload)
