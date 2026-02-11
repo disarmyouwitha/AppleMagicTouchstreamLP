@@ -1,5 +1,7 @@
 ## TODO: 
-- Add "Blank" layout
+- Export / import / saving is not working as expected
+- Are the current defaults hardcoded in? Could you set them to match my current export GLASSTOKEY_DEFAULT_KEYMAP.json
+- Remove "auto" decoder from the code since we are using a drop-down now. (unless it's really problematic)
 - Add left / right click as actions
 - Mobile should make LHS:blank + RHS: all QWERTY keys on 1 side
 - LHS: I can't hold shift and press another key (It only takes the first tap?) lol

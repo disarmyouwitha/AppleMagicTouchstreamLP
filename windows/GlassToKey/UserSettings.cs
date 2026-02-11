@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 namespace GlassToKey;
 
@@ -33,6 +34,9 @@ public sealed class UserSettings
     public double TapStaggerToleranceMs { get; set; } = 80.0;
     public double TapCadenceWindowMs { get; set; } = 200.0;
     public double TapMoveThresholdMm { get; set; } = 3.0;
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+    public Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>>? ColumnSettingsByLayoutLayer { get; set; }
+    public Dictionary<string, List<ColumnLayoutSettings>>? ColumnSettingsByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public List<ColumnLayoutSettings>? ColumnSettings { get; set; } = new()
     {
         new ColumnLayoutSettings(1.15, -6.0, -3.0, 0.0),
@@ -42,6 +46,53 @@ public sealed class UserSettings
         new ColumnLayoutSettings(1.15, -6.0, -1.0, 0.0),
         new ColumnLayoutSettings(1.15, -6.0, -1.0, 0.0)
     };
+
+    public UserSettings Clone()
+    {
+        UserSettings clone = new();
+        clone.CopyFrom(this);
+        return clone;
+    }
+
+    public void CopyFrom(UserSettings source)
+    {
+        if (source == null)
+        {
+            throw new ArgumentNullException(nameof(source));
+        }
+
+        LeftDevicePath = source.LeftDevicePath;
+        RightDevicePath = source.RightDevicePath;
+        ActiveLayer = source.ActiveLayer;
+        LayoutPresetName = source.LayoutPresetName;
+        DecoderProfilesByDevicePath = CloneDecoderProfiles(source.DecoderProfilesByDevicePath);
+        VisualizerEnabled = source.VisualizerEnabled;
+        KeyboardModeEnabled = source.KeyboardModeEnabled;
+        AllowMouseTakeover = source.AllowMouseTakeover;
+        ChordShiftEnabled = source.ChordShiftEnabled;
+        TypingEnabled = source.TypingEnabled;
+        RunAtStartup = source.RunAtStartup;
+        TapClickEnabled = source.TapClickEnabled;
+        TwoFingerTapEnabled = source.TwoFingerTapEnabled;
+        ThreeFingerTapEnabled = source.ThreeFingerTapEnabled;
+        HoldDurationMs = source.HoldDurationMs;
+        DragCancelMm = source.DragCancelMm;
+        TypingGraceMs = source.TypingGraceMs;
+        IntentMoveMm = source.IntentMoveMm;
+        IntentVelocityMmPerSec = source.IntentVelocityMmPerSec;
+        SnapRadiusPercent = source.SnapRadiusPercent;
+        SnapAmbiguityRatio = source.SnapAmbiguityRatio;
+        KeyBufferMs = source.KeyBufferMs;
+        KeyPaddingPercent = source.KeyPaddingPercent;
+        TapStaggerToleranceMs = source.TapStaggerToleranceMs;
+        TapCadenceWindowMs = source.TapCadenceWindowMs;
+        TapMoveThresholdMm = source.TapMoveThresholdMm;
+        ColumnSettingsByLayoutLayer = source.ColumnSettingsByLayoutLayer == null
+            ? null
+            : CloneColumnSettingsByLayoutLayer(source.ColumnSettingsByLayoutLayer);
+        ColumnSettingsByLayout = CloneColumnSettingsByLayout(source.ColumnSettingsByLayout);
+        ColumnSettings = CloneColumnSettingsList(source.ColumnSettings);
+    }
 
     public static string GetSettingsPath()
     {
@@ -100,6 +151,21 @@ public sealed class UserSettings
     public bool NormalizeRanges()
     {
         bool changed = false;
+
+        if (string.IsNullOrWhiteSpace(LayoutPresetName))
+        {
+            LayoutPresetName = "6x3";
+            changed = true;
+        }
+        else
+        {
+            string trimmedLayoutName = LayoutPresetName.Trim();
+            if (!string.Equals(LayoutPresetName, trimmedLayoutName, StringComparison.Ordinal))
+            {
+                LayoutPresetName = trimmedLayoutName;
+                changed = true;
+            }
+        }
 
         int normalizedLayer = Math.Clamp(ActiveLayer, 0, 3);
         if (normalizedLayer != ActiveLayer)
@@ -178,6 +244,302 @@ public sealed class UserSettings
             DecoderProfilesByDevicePath = normalized;
         }
 
+        Dictionary<string, List<ColumnLayoutSettings>> normalizedByLayout = new(StringComparer.OrdinalIgnoreCase);
+        if (ColumnSettingsByLayout != null)
+        {
+            foreach ((string key, List<ColumnLayoutSettings> value) in ColumnSettingsByLayout)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                string trimmedKey = key.Trim();
+                if (!string.Equals(trimmedKey, key, StringComparison.Ordinal))
+                {
+                    changed = true;
+                }
+
+                normalizedByLayout[trimmedKey] = NormalizeColumnSettingsList(value);
+            }
+        }
+
+        // Compatibility migration from older experimental layout+layer storage.
+        if (ColumnSettingsByLayoutLayer != null)
+        {
+            foreach ((string key, Dictionary<int, List<ColumnLayoutSettings>> layers) in ColumnSettingsByLayoutLayer)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                string trimmedKey = key.Trim();
+                if (normalizedByLayout.ContainsKey(trimmedKey))
+                {
+                    continue;
+                }
+
+                if (layers != null && layers.TryGetValue(0, out List<ColumnLayoutSettings>? layerZero))
+                {
+                    normalizedByLayout[trimmedKey] = NormalizeColumnSettingsList(layerZero);
+                    changed = true;
+                    continue;
+                }
+
+                if (layers != null)
+                {
+                    foreach ((int _, List<ColumnLayoutSettings> value) in layers)
+                    {
+                        normalizedByLayout[trimmedKey] = NormalizeColumnSettingsList(value);
+                        changed = true;
+                        break;
+                    }
+                }
+            }
+        }
+
+        if (ColumnSettings != null &&
+            ColumnSettings.Count > 0 &&
+            !normalizedByLayout.ContainsKey(LayoutPresetName))
+        {
+            normalizedByLayout[LayoutPresetName] = NormalizeColumnSettingsList(ColumnSettings);
+            changed = true;
+        }
+
+        if (!AreColumnSettingsMapsEquivalent(ColumnSettingsByLayout, normalizedByLayout))
+        {
+            ColumnSettingsByLayout = normalizedByLayout;
+            changed = true;
+        }
+        else if (ColumnSettingsByLayout == null)
+        {
+            ColumnSettingsByLayout = normalizedByLayout;
+        }
+
+        if (ColumnSettingsByLayoutLayer != null)
+        {
+            ColumnSettingsByLayoutLayer = null;
+            changed = true;
+        }
+
+        List<ColumnLayoutSettings> activeColumnSettings =
+            normalizedByLayout.TryGetValue(LayoutPresetName, out List<ColumnLayoutSettings>? byLayout)
+                ? CloneColumnSettingsList(byLayout)
+                : NormalizeColumnSettingsList(ColumnSettings);
+
+        if (activeColumnSettings.Count == 0)
+        {
+            activeColumnSettings = new List<ColumnLayoutSettings>();
+        }
+
+        if (!AreColumnSettingsListsEquivalent(ColumnSettings, activeColumnSettings))
+        {
+            ColumnSettings = activeColumnSettings;
+            changed = true;
+        }
+
         return changed;
+    }
+
+    private static Dictionary<string, string> CloneDecoderProfiles(Dictionary<string, string>? source)
+    {
+        Dictionary<string, string> clone = new(StringComparer.OrdinalIgnoreCase);
+        if (source == null)
+        {
+            return clone;
+        }
+
+        foreach ((string key, string value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key) || string.IsNullOrWhiteSpace(value))
+            {
+                continue;
+            }
+
+            clone[key] = value;
+        }
+
+        return clone;
+    }
+
+    private static Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>> CloneColumnSettingsByLayoutLayer(
+        Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>>? source)
+    {
+        Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>> clone = new(StringComparer.OrdinalIgnoreCase);
+        if (source == null)
+        {
+            return clone;
+        }
+
+        foreach ((string key, Dictionary<int, List<ColumnLayoutSettings>> value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            clone[key] = NormalizeColumnSettingsByLayer(value);
+        }
+
+        return clone;
+    }
+
+    private static Dictionary<string, List<ColumnLayoutSettings>> CloneColumnSettingsByLayout(
+        Dictionary<string, List<ColumnLayoutSettings>>? source)
+    {
+        Dictionary<string, List<ColumnLayoutSettings>> clone = new(StringComparer.OrdinalIgnoreCase);
+        if (source == null)
+        {
+            return clone;
+        }
+
+        foreach ((string key, List<ColumnLayoutSettings> value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            clone[key] = CloneColumnSettingsList(value);
+        }
+
+        return clone;
+    }
+
+    private static Dictionary<int, List<ColumnLayoutSettings>> NormalizeColumnSettingsByLayer(
+        Dictionary<int, List<ColumnLayoutSettings>>? source)
+    {
+        Dictionary<int, List<ColumnLayoutSettings>> normalized = new();
+        if (source == null)
+        {
+            return normalized;
+        }
+
+        foreach ((int layer, List<ColumnLayoutSettings> value) in source)
+        {
+            int clampedLayer = Math.Clamp(layer, 0, 7);
+            normalized[clampedLayer] = NormalizeColumnSettingsList(value);
+        }
+
+        return normalized;
+    }
+
+    private static List<ColumnLayoutSettings> CloneColumnSettingsList(IEnumerable<ColumnLayoutSettings>? source)
+    {
+        List<ColumnLayoutSettings> clone = new();
+        if (source == null)
+        {
+            return clone;
+        }
+
+        foreach (ColumnLayoutSettings item in source)
+        {
+            ColumnLayoutSettings safe = item ?? new ColumnLayoutSettings();
+            clone.Add(new ColumnLayoutSettings(
+                scale: safe.Scale,
+                offsetXPercent: safe.OffsetXPercent,
+                offsetYPercent: safe.OffsetYPercent,
+                rowSpacingPercent: safe.RowSpacingPercent));
+        }
+
+        return clone;
+    }
+
+    private static List<ColumnLayoutSettings> NormalizeColumnSettingsList(IEnumerable<ColumnLayoutSettings>? source)
+    {
+        List<ColumnLayoutSettings> normalized = new();
+        if (source == null)
+        {
+            return normalized;
+        }
+
+        foreach (ColumnLayoutSettings item in source)
+        {
+            ColumnLayoutSettings safe = item ?? new ColumnLayoutSettings();
+            normalized.Add(new ColumnLayoutSettings(
+                scale: Math.Clamp(safe.Scale, 0.25, 3.0),
+                offsetXPercent: safe.OffsetXPercent,
+                offsetYPercent: safe.OffsetYPercent,
+                rowSpacingPercent: safe.RowSpacingPercent));
+        }
+
+        return normalized;
+    }
+
+    private static bool AreColumnSettingsMapsEquivalent(
+        Dictionary<string, List<ColumnLayoutSettings>>? existing,
+        Dictionary<string, List<ColumnLayoutSettings>> normalized)
+    {
+        Dictionary<string, List<ColumnLayoutSettings>> comparable = new(StringComparer.OrdinalIgnoreCase);
+        if (existing != null)
+        {
+            foreach ((string key, List<ColumnLayoutSettings> value) in existing)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                comparable[key] = NormalizeColumnSettingsList(value);
+            }
+        }
+
+        if (comparable.Count != normalized.Count)
+        {
+            return false;
+        }
+
+        foreach ((string key, List<ColumnLayoutSettings> value) in normalized)
+        {
+            if (!comparable.TryGetValue(key, out List<ColumnLayoutSettings>? compareValue))
+            {
+                return false;
+            }
+
+            if (!AreColumnSettingsListsEquivalent(compareValue, value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreColumnSettingsListsEquivalent(
+        List<ColumnLayoutSettings>? left,
+        List<ColumnLayoutSettings>? right)
+    {
+        if (left == null && right == null)
+        {
+            return true;
+        }
+
+        if (left == null || right == null)
+        {
+            return false;
+        }
+
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < left.Count; i++)
+        {
+            ColumnLayoutSettings lhs = left[i] ?? new ColumnLayoutSettings();
+            ColumnLayoutSettings rhs = right[i] ?? new ColumnLayoutSettings();
+            if (Math.Abs(lhs.Scale - rhs.Scale) > 0.000001 ||
+                Math.Abs(lhs.OffsetXPercent - rhs.OffsetXPercent) > 0.000001 ||
+                Math.Abs(lhs.OffsetYPercent - rhs.OffsetYPercent) > 0.000001 ||
+                Math.Abs(lhs.RowSpacingPercent - rhs.RowSpacingPercent) > 0.000001)
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 }

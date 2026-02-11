@@ -104,6 +104,11 @@ public sealed class KeymapStore
         }
     }
 
+    public string SerializeToJson(bool writeIndented = true)
+    {
+        return Serialize(writeIndented);
+    }
+
     public bool TryExportToFile(string path, out string error)
     {
         error = string.Empty;
@@ -170,6 +175,16 @@ public sealed class KeymapStore
         string resolved = string.IsNullOrWhiteSpace(layoutKey) ? DefaultLayoutKey : layoutKey.Trim();
         _activeLayoutKey = resolved;
         EnsureLayoutData(_activeLayoutKey);
+    }
+
+    public void EnsureLayoutExists(string? layoutKey)
+    {
+        if (string.IsNullOrWhiteSpace(layoutKey))
+        {
+            return;
+        }
+
+        EnsureLayoutData(layoutKey.Trim());
     }
 
     public string ResolveLabel(int layer, string storageKey, string defaultLabel)
