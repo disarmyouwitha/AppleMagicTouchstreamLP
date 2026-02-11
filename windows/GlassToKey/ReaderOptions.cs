@@ -19,6 +19,7 @@ public sealed class ReaderOptions
     public bool ReplayInUi { get; private set; }
     public double ReplaySpeed { get; private set; } = 1.0;
     public bool StartInConfigUi { get; private set; }
+    public bool RelaunchTrayOnClose { get; private set; }
 
     public static ReaderOptions Parse(string[] args)
     {
@@ -71,6 +72,9 @@ public sealed class ReaderOptions
                 case "--config":
                     options.StartInConfigUi = true;
                     break;
+                case "--relaunch-tray-on-close":
+                    options.RelaunchTrayOnClose = true;
+                    break;
                 case "--metrics-out" when i + 1 < args.Length:
                     options.MetricsOutputPath = args[++i];
                     break;
@@ -89,7 +93,7 @@ public sealed class ReaderOptions
                 case "--help":
                 case "-h":
                 case "/?":
-                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--decoder-debug] [--config]");
+                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--decoder-debug] [--config] [--relaunch-tray-on-close]");
                 default:
                     break;
             }

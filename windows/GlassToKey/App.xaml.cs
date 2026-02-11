@@ -140,6 +140,13 @@ public partial class App : Application
         {
             MainWindow window = new MainWindow(options);
             MainWindow = window;
+            if (options.RelaunchTrayOnClose)
+            {
+                window.Closed += (_, _) =>
+                {
+                    _ = TryLaunchReplacementInstance(showErrors: true);
+                };
+            }
             window.Show();
             return;
         }
@@ -251,7 +258,7 @@ public partial class App : Application
             return;
         }
 
-        RestartApplicationWithArgs("--capture", dialog.FileName);
+        RestartApplicationWithArgs("--capture", dialog.FileName, "--relaunch-tray-on-close");
     }
 
     private void StartReplayFromTray()
@@ -270,7 +277,7 @@ public partial class App : Application
             return;
         }
 
-        RestartApplicationWithArgs("--replay", dialog.FileName, "--replay-ui");
+        RestartApplicationWithArgs("--replay", dialog.FileName, "--replay-ui", "--relaunch-tray-on-close");
     }
 
     private void RestartApplicationFromTray()
@@ -280,15 +287,27 @@ public partial class App : Application
 
     private void RestartApplicationWithArgs(params string[] args)
     {
+        if (TryLaunchReplacementInstance(showErrors: true, args: args))
+        {
+            ExitApplicationFromTray();
+        }
+    }
+
+    private bool TryLaunchReplacementInstance(bool showErrors, params string[] args)
+    {
         if (_restartRequested)
         {
-            return;
+            return false;
         }
 
         if (!TryBuildRestartStartInfo(out ProcessStartInfo startInfo))
         {
-            MessageBox.Show("Unable to determine executable path for restart.", "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
-            return;
+            if (showErrors)
+            {
+                MessageBox.Show("Unable to determine executable path for restart.", "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return false;
         }
 
         for (int i = 0; i < args.Length; i++)
@@ -300,11 +319,16 @@ public partial class App : Application
         {
             Process.Start(startInfo);
             _restartRequested = true;
-            ExitApplicationFromTray();
+            return true;
         }
         catch (Exception ex)
         {
-            MessageBox.Show(ex.Message, "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            if (showErrors)
+            {
+                MessageBox.Show(ex.Message, "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+
+            return false;
         }
     }
 
