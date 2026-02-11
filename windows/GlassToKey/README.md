@@ -74,6 +74,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
+- `--relaunch-tray-on-close`: Internal flag used by tray-initiated capture/replay to relaunch normal tray mode when the window closes.
 - `--replay-speed <x>`: Initial replay speed multiplier (for example: `0.5`, `1`, `2`).
 - `--fixture <fixturePath>`: Optional expected replay fingerprint/counts JSON (also supports intent fingerprint + transition count).
 - `--metrics-out <path>`: Write metrics JSON snapshot.
