@@ -168,6 +168,14 @@
                   <TextBlock Text="Column Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnOffsetYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
+                <Button x:Name="ColumnAutoSplayButton"
+                        Content="Auto Splay (4 Fingers)"
+                        Height="26"
+                        Margin="0,8,0,0" />
+                <Button x:Name="ColumnEvenSpaceButton"
+                        Content="e v e n s p a c e"
+                        Height="26"
+                        Margin="0,6,0,0" />
               </StackPanel>
             </Expander>
 
