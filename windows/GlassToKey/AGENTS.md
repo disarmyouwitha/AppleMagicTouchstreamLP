@@ -23,7 +23,7 @@
 - `GlassToKey/Core/Diagnostics/*`: capture format, replay runner, metrics, and self-tests.
 
 ## Working Agreements
-- **Build environment:** Visual Studio 2022/2023 + WDK for driver work; .NET 6 SDK for `GlassToKey` (`net6.0-windows`).
+- **Build environment:** Visual Studio 2022/2023 + WDK for driver work; .NET 10 SDK for `GlassToKey` (`net10.0-windows`).
 - **EFFICIENCY** Always write the most performant and efficient code to turn an Apple Magic Trackpad into a keyboard with an emphasis on running in the background as a status app and instant key detection.
 - **Hot-path discipline:** No avoidable allocations, logging spam, or file I/O in per-frame processing paths.
 - **Touch policy:** Visualizer intentionally renders tip contacts only (`TipSwitch=true`) to avoid hover artifacts.
