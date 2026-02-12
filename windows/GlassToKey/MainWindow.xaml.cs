@@ -997,7 +997,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnScaleBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
-        ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && _preset.Columns == 6;
+        ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && IsAutoSplaySupportedPreset();
 
         int previous = ColumnLayoutColumnCombo.SelectedIndex;
         ColumnLayoutColumnCombo.Items.Clear();
@@ -1099,11 +1099,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnColumnAutoSplayClicked(object sender, RoutedEventArgs e)
     {
-        if (!_preset.AllowsColumnSettings || _preset.Columns != 6 || _columnSettings.Length != 6)
+        if (!_preset.AllowsColumnSettings || !IsAutoSplaySupportedPreset())
         {
             MessageBox.Show(
                 this,
-                "Auto Splay is currently available only for 6-column layouts.",
+                "Auto Splay currently supports 6-column layouts and the 5x3 layout.",
                 "Auto Splay",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1238,34 +1238,72 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         int row = ResolveAutoSplayReferenceRow();
-        if (_rightLayout.Rects.Length <= row || _rightLayout.Rects[row].Length < 6)
+        if (_rightLayout.Rects.Length <= row)
         {
-            error = "Auto Splay could not resolve a valid 6-column reference row.";
+            error = "Auto Splay could not resolve a valid reference row.";
             return false;
         }
 
-        double leftEdgeOffsetX = _columnSettings[0].OffsetXPercent - _columnSettings[1].OffsetXPercent;
-        double rightEdgeOffsetX = _columnSettings[5].OffsetXPercent - _columnSettings[4].OffsetXPercent;
-
-        for (int i = 0; i < AutoSplayTouchCount; i++)
+        if (_preset.Columns == 6 && _columnSettings.Length >= 6 && _rightLayout.Rects[row].Length >= 6)
         {
-            int col = i + 1;
-            NormalizedRect reference = _rightLayout.Rects[row][col];
-            double currentX = reference.X + (reference.Width * 0.5);
-            double currentY = reference.Y + (reference.Height * 0.5);
-            AutoSplayTouch target = touches[i];
+            double leftEdgeOffsetX = _columnSettings[0].OffsetXPercent - _columnSettings[1].OffsetXPercent;
+            double rightEdgeOffsetX = _columnSettings[5].OffsetXPercent - _columnSettings[4].OffsetXPercent;
 
-            _columnSettings[col].OffsetXPercent += (target.XNorm - currentX) * 100.0;
-            _columnSettings[col].OffsetYPercent += (target.YNorm - currentY) * 100.0;
+            for (int i = 0; i < AutoSplayTouchCount; i++)
+            {
+                int col = i + 1;
+                NormalizedRect reference = _rightLayout.Rects[row][col];
+                double currentX = reference.X + (reference.Width * 0.5);
+                double currentY = reference.Y + (reference.Height * 0.5);
+                AutoSplayTouch target = touches[i];
+
+                _columnSettings[col].OffsetXPercent += (target.XNorm - currentX) * 100.0;
+                _columnSettings[col].OffsetYPercent += (target.YNorm - currentY) * 100.0;
+            }
+
+            _columnSettings[0].OffsetXPercent = _columnSettings[1].OffsetXPercent + leftEdgeOffsetX;
+            _columnSettings[0].OffsetYPercent = _columnSettings[1].OffsetYPercent;
+            _columnSettings[5].OffsetXPercent = _columnSettings[4].OffsetXPercent + rightEdgeOffsetX;
+            _columnSettings[5].OffsetYPercent = _columnSettings[4].OffsetYPercent;
+
+            error = string.Empty;
+            return true;
         }
 
-        _columnSettings[0].OffsetXPercent = _columnSettings[1].OffsetXPercent + leftEdgeOffsetX;
-        _columnSettings[0].OffsetYPercent = _columnSettings[1].OffsetYPercent;
-        _columnSettings[5].OffsetXPercent = _columnSettings[4].OffsetXPercent + rightEdgeOffsetX;
-        _columnSettings[5].OffsetYPercent = _columnSettings[4].OffsetYPercent;
+        bool isFiveByThree = string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByThree.Name, StringComparison.OrdinalIgnoreCase);
+        if (isFiveByThree && _preset.Columns == 5 && _columnSettings.Length >= 5 && _rightLayout.Rects[row].Length >= 5)
+        {
+            for (int i = 0; i < AutoSplayTouchCount; i++)
+            {
+                int col = i;
+                NormalizedRect reference = _rightLayout.Rects[row][col];
+                double currentX = reference.X + (reference.Width * 0.5);
+                double currentY = reference.Y + (reference.Height * 0.5);
+                AutoSplayTouch target = touches[i];
 
-        error = string.Empty;
-        return true;
+                _columnSettings[col].OffsetXPercent += (target.XNorm - currentX) * 100.0;
+                _columnSettings[col].OffsetYPercent += (target.YNorm - currentY) * 100.0;
+            }
+
+            _columnSettings[4].OffsetXPercent = _columnSettings[3].OffsetXPercent;
+            _columnSettings[4].OffsetYPercent = _columnSettings[3].OffsetYPercent;
+
+            error = string.Empty;
+            return true;
+        }
+
+        error = "Auto Splay could not apply to this layout configuration.";
+        return false;
+    }
+
+    private bool IsAutoSplaySupportedPreset()
+    {
+        if (_preset.Columns == 6)
+        {
+            return true;
+        }
+
+        return string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByThree.Name, StringComparison.OrdinalIgnoreCase);
     }
 
     private int ResolveAutoSplayReferenceRow()
