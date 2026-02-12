@@ -7,19 +7,9 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 
 ## WIN: **(PRE-REQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
-- **https://github.com/lc700x/MagicTrackPad2_Windows_Precision_Drivers/releases**
-
+- **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!
-
-## DRIVER INSTALL WINDOWS
-
-**For LIGHTNING:** I think you can just right-click the `.INF` files and click `Install`
-
-<img src="windows/GlassToKey/screenshots/0_INF_INSTALL.png" width="500px">
-
-**For USB-C, or if the above does not work:** 
-Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!
 
 
 ## Usage
