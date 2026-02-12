@@ -42,12 +42,12 @@ public sealed class TrackpadLayoutPreset
         rows: 4,
         columnAnchorsMm: new[]
         {
-            new PointMm(32.0, 14.0),
-            new PointMm(50.0, 14.0),
-            new PointMm(68.0, 14.0),
-            new PointMm(86.0, 14.0),
-            new PointMm(104.0, 14.0),
-            new PointMm(122.0, 14.0)
+            new PointMm(35.0, 20.9),
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6),
+            new PointMm(125.0, 22.6)
         },
         rightLabels: new[]
         {
@@ -65,17 +65,17 @@ public sealed class TrackpadLayoutPreset
         rows: 3,
         columnAnchorsMm: new[]
         {
-            new PointMm(36.0, 19.0),
-            new PointMm(56.0, 19.0),
-            new PointMm(76.0, 19.0),
-            new PointMm(96.0, 19.0),
-            new PointMm(116.0, 19.0)
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6),
+            new PointMm(125.0, 22.6)
         },
         rightLabels: new[]
         {
-            new[] { "Y", "U", "I", "O", "P" },
-            new[] { "H", "J", "K", "L", ";" },
-            new[] { "N", "M", ",", ".", "/" }
+            new[] { "U", "I", "O", "P", "Back" },
+            new[] { "J", "K", "L", ";", "Ret" },
+            new[] { "M", ",", ".", "/", "Ret" }
         }
     );
 
@@ -86,24 +86,24 @@ public sealed class TrackpadLayoutPreset
         rows: 4,
         columnAnchorsMm: new[]
         {
-            new PointMm(34.0, 12.0),
-            new PointMm(54.0, 12.0),
-            new PointMm(74.0, 12.0),
-            new PointMm(94.0, 12.0),
-            new PointMm(114.0, 12.0)
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6),
+            new PointMm(125.0, 22.6)
         },
         rightLabels: new[]
         {
-            new[] { "5", "6", "7", "8", "9" },
-            new[] { "T", "Y", "U", "I", "O" },
-            new[] { "G", "H", "J", "K", "L" },
-            new[] { "B", "N", "M", ",", "." }
+            new[] { "7", "8", "9", "0", "Back" },
+            new[] { "U", "I", "O", "P", "]" },
+            new[] { "J", "K", "L", ";", "Ret" },
+            new[] { "M", ",", ".", "/", "Ret" }
         }
     );
 
     public static TrackpadLayoutPreset Mobile { get; } = new(
         name: "mobile",
-        displayName: "Mobile QWERTY",
+        displayName: "Mobile",
         columns: 10,
         rows: 4,
         columnAnchorsMm: new[]
@@ -131,6 +131,38 @@ public sealed class TrackpadLayoutPreset
         fixedKeyScale: 0.75
     );
 
+    public static TrackpadLayoutPreset MobileOrthoTwelveByFour { get; } = new(
+        name: "mobile-ortho-12x4",
+        displayName: "Planck",
+        columns: 12,
+        rows: 4,
+        columnAnchorsMm: new[]
+        {
+            new PointMm(6.0, 10.0),
+            new PointMm(18.0, 10.0),
+            new PointMm(30.0, 10.0),
+            new PointMm(42.0, 10.0),
+            new PointMm(54.0, 10.0),
+            new PointMm(66.0, 10.0),
+            new PointMm(78.0, 10.0),
+            new PointMm(90.0, 10.0),
+            new PointMm(102.0, 10.0),
+            new PointMm(114.0, 10.0),
+            new PointMm(126.0, 10.0),
+            new PointMm(138.0, 10.0)
+        },
+        rightLabels: new[]
+        {
+            new[] { "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "-", "Back" },
+            new[] { "Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]" },
+            new[] { "A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Ret" },
+            new[] { "Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift", "Space" }
+        },
+        blankLeftSide: true,
+        fixedKeyScale: 0.70,
+        allowsColumnSettings: true
+    );
+
     public static TrackpadLayoutPreset[] All { get; } =
     {
         Blank,
@@ -138,6 +170,7 @@ public sealed class TrackpadLayoutPreset
         SixByFour,
         FiveByThree,
         FiveByFour,
+        MobileOrthoTwelveByFour,
         Mobile
     };
 
@@ -150,7 +183,7 @@ public sealed class TrackpadLayoutPreset
     public bool BlankLeftSide { get; }
     public bool UseFixedRightStaggeredQwerty { get; }
     public double FixedKeyScale { get; }
-    public bool AllowsColumnSettings => !UseFixedRightStaggeredQwerty;
+    public bool AllowsColumnSettings { get; }
     public string[][] LeftLabels => Mirror(RightLabels);
 
     private TrackpadLayoutPreset(
@@ -162,7 +195,8 @@ public sealed class TrackpadLayoutPreset
         string[][] rightLabels,
         bool blankLeftSide = false,
         bool useFixedRightStaggeredQwerty = false,
-        double fixedKeyScale = 1.0)
+        double fixedKeyScale = 1.0,
+        bool? allowsColumnSettings = null)
     {
         Name = name;
         DisplayName = string.IsNullOrWhiteSpace(displayName) ? name : displayName;
@@ -173,6 +207,7 @@ public sealed class TrackpadLayoutPreset
         BlankLeftSide = blankLeftSide;
         UseFixedRightStaggeredQwerty = useFixedRightStaggeredQwerty;
         FixedKeyScale = Math.Clamp(fixedKeyScale, 0.25, 2.0);
+        AllowsColumnSettings = allowsColumnSettings ?? !useFixedRightStaggeredQwerty;
     }
 
     public override string ToString()
