@@ -1103,7 +1103,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             MessageBox.Show(
                 this,
-                "Auto Splay currently supports 6-column layouts and the 5x3 layout.",
+                "Auto Splay currently supports 6-column layouts plus 5x3 and 5x4.",
                 "Auto Splay",
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
@@ -1270,8 +1270,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return true;
         }
 
-        bool isFiveByThree = string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByThree.Name, StringComparison.OrdinalIgnoreCase);
-        if (isFiveByThree && _preset.Columns == 5 && _columnSettings.Length >= 5 && _rightLayout.Rects[row].Length >= 5)
+        if (IsFiveColumnAutoSplayPreset() && _preset.Columns == 5 && _columnSettings.Length >= 5 && _rightLayout.Rects[row].Length >= 5)
         {
             for (int i = 0; i < AutoSplayTouchCount; i++)
             {
@@ -1303,7 +1302,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return true;
         }
 
-        return string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByThree.Name, StringComparison.OrdinalIgnoreCase);
+        return IsFiveColumnAutoSplayPreset();
+    }
+
+    private bool IsFiveColumnAutoSplayPreset()
+    {
+        if (!string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByThree.Name, StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(_preset.Name, TrackpadLayoutPreset.FiveByFour.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return _preset.Columns == 5;
     }
 
     private int ResolveAutoSplayReferenceRow()
@@ -1311,6 +1321,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (_preset.Rows <= 0)
         {
             return 0;
+        }
+
+        if (IsFiveColumnAutoSplayPreset())
+        {
+            // Keep the anchor on home row for 5-column layouts (2nd row from bottom).
+            return Math.Clamp(_preset.Rows - 2, 0, _preset.Rows - 1);
+        }
+
+        if (string.Equals(_preset.Name, TrackpadLayoutPreset.SixByFour.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            // For 6x4, anchor on home row (2nd row from bottom).
+            return Math.Clamp(_preset.Rows - 2, 0, _preset.Rows - 1);
         }
 
         return Math.Clamp((_preset.Rows - 1) / 2, 0, _preset.Rows - 1);
