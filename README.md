@@ -34,10 +34,9 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
 ## Intention
-<img src="touchstreamLP.jpg" width="900px" />
-The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was **totally rad.**
+<img src="touchstreamLP.jpg" width="900px">
+The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
-FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
 **So here we are:** it has come full circle. ⭕️
 
