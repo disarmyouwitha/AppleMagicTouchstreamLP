@@ -14,12 +14,13 @@ If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you
 
 ## DRIVER INSTALL WINDOWS
 
-**For LIGHTNING:** I think you can just right-click the .INF files and click Install
+**For LIGHTNING:** I think you can just right-click the `.INF` files and click `Install`
 
 <img src="windows/GlassToKey/screenshots/0_INF_INSTALL.png" width="500px">
 
 **For USB-C, or if the above does not work:** 
-Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">INSTALL GUIDE</a>!
+Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!
+
 
 ## Usage
 I have posted a Beta Release with a .app and .exe file and hopefully people will be able to run it! I cannot confirm it will work for anyone else, however I have tested it on both my Mac laptop/desktop and Windows laptop/desktop~
@@ -34,10 +35,9 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
 ## Intention
-<img src="touchstreamLP.jpg" width="900px" />
-The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was **totally rad.**
+<img src="touchstreamLP.jpg" width="900px">
+The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
-FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
 **So here we are:** it has come full circle. ⭕️
 
