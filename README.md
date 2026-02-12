@@ -18,9 +18,9 @@ I have posted a Beta Release with a .app and .exe file and hopefully people will
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
 **Useful Tips:**
-- I would turn off "tap to click" at the OS level, and turn it on within the app!
-- You can turn on Keyboard-only mode to toggle between mouse / keyboard (Rather than mouse / mixed)
-- ^ 5-finger left/right swipes will toggle Typing Mode on/off!
+- I would turn off "tap to click" at the OS level, and turn it on within the app! (Or turn on Keyboard mode)
+- If you turn on Keyboard mode you can toggle between mouse / keyboard (Rather than mouse / mixed)
+- 5-finger left/right swipes will toggle Typing Mode on/off!
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
