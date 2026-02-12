@@ -17,7 +17,7 @@ I have posted a Beta Release with a .app and .exe file and hopefully people will
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
-**Cool Features:**
+**Useful Tips:**
 - I would turn off "tap to click" at the OS level, and turn it on within the app!
 - You can turn on Keyboard-only mode to toggle between mouse / keyboard (Rather than mouse / mixed)
 - ^ 5-finger left/right swipes will toggle Typing Mode on/off!
@@ -28,8 +28,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 <img src="touchstreamLP.jpg" width="900px">
 The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
-
-**So here we are:** it has come full circle. ⭕️
+**——So here we are——:** it has come full circle. ⭕️
 
 I have been working to revive this ancient keyboard using the DNA of it’s own lineage — the Apple Magic Trackpad. 👀
 
