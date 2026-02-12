@@ -203,6 +203,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectionChanged += OnLayoutPresetChanged;
         ColumnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         ColumnAutoSplayButton.Click += OnColumnAutoSplayClicked;
+        ColumnEvenSpaceButton.Click += OnColumnEvenSpaceClicked;
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
@@ -998,6 +999,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
         ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && IsAutoSplaySupportedPreset();
+        ColumnEvenSpaceButton.IsEnabled = allowsColumnSettings && _preset.Columns >= 3;
 
         int previous = ColumnLayoutColumnCombo.SelectedIndex;
         ColumnLayoutColumnCombo.Items.Clear();
@@ -1129,6 +1131,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 "Auto Splay",
                 MessageBoxButton.OK,
                 MessageBoxImage.Warning);
+            return;
+        }
+
+        RefreshColumnLayoutFields();
+        RebuildLayouts();
+        RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
+        ApplyCoreSettings();
+        _settings.Save();
+        UpdateEngineStateDetails();
+    }
+
+    private void OnColumnEvenSpaceClicked(object sender, RoutedEventArgs e)
+    {
+        if (!TryApplyEvenColumnSpacing(out string error))
+        {
+            MessageBox.Show(
+                this,
+                error,
+                "Even Space",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
             return;
         }
 
@@ -1293,6 +1316,40 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         error = "Auto Splay could not apply to this layout configuration.";
         return false;
+    }
+
+    private bool TryApplyEvenColumnSpacing(out string error)
+    {
+        if (!_preset.AllowsColumnSettings || _preset.Columns < 3 || _columnSettings.Length < _preset.Columns)
+        {
+            error = "Even spacing requires a layout with at least 3 editable columns.";
+            return false;
+        }
+
+        int row = ResolveAutoSplayReferenceRow();
+        if (_rightLayout.Rects.Length <= row || _rightLayout.Rects[row].Length < _preset.Columns)
+        {
+            error = "Even spacing could not resolve a valid reference row.";
+            return false;
+        }
+
+        int last = _preset.Columns - 1;
+        NormalizedRect firstRect = _rightLayout.Rects[row][0];
+        NormalizedRect lastRect = _rightLayout.Rects[row][last];
+        double firstCenter = firstRect.X + (firstRect.Width * 0.5);
+        double lastCenter = lastRect.X + (lastRect.Width * 0.5);
+        double step = (lastCenter - firstCenter) / last;
+
+        for (int col = 1; col < last; col++)
+        {
+            NormalizedRect currentRect = _rightLayout.Rects[row][col];
+            double currentCenter = currentRect.X + (currentRect.Width * 0.5);
+            double targetCenter = firstCenter + (step * col);
+            _columnSettings[col].OffsetXPercent += (targetCenter - currentCenter) * 100.0;
+        }
+
+        error = string.Empty;
+        return true;
     }
 
     private bool IsAutoSplaySupportedPreset()

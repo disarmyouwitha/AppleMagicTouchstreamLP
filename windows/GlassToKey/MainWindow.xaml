@@ -172,6 +172,10 @@
                         Content="Auto Splay (4 Fingers)"
                         Height="26"
                         Margin="0,8,0,0" />
+                <Button x:Name="ColumnEvenSpaceButton"
+                        Content="e v e n s p a c e"
+                        Height="26"
+                        Margin="0,6,0,0" />
               </StackPanel>
             </Expander>
 
