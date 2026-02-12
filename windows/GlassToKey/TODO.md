@@ -1,4 +1,6 @@
 ## TODO:
+- Finish normalizeing x,y positions
+- Width is not fully displayed in trackpad GUI  (-20px?)
 - Add "Plank" name to dropdown for 12x4
 - Add actions like VOL_UP VOL_DOWN BRIGHT_UP BRIGHT_DOWN to the dropdown (cool separator)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??

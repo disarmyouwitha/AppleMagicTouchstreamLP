@@ -42,12 +42,12 @@ public sealed class TrackpadLayoutPreset
         rows: 4,
         columnAnchorsMm: new[]
         {
-            new PointMm(32.0, 14.0),
-            new PointMm(50.0, 14.0),
-            new PointMm(68.0, 14.0),
-            new PointMm(86.0, 14.0),
-            new PointMm(104.0, 14.0),
-            new PointMm(122.0, 14.0)
+            new PointMm(35.0, 20.9),
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6),
+            new PointMm(125.0, 22.6)
         },
         rightLabels: new[]
         {
@@ -65,17 +65,17 @@ public sealed class TrackpadLayoutPreset
         rows: 3,
         columnAnchorsMm: new[]
         {
-            new PointMm(36.0, 19.0),
-            new PointMm(56.0, 19.0),
-            new PointMm(76.0, 19.0),
-            new PointMm(96.0, 19.0),
-            new PointMm(116.0, 19.0)
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6),
+            new PointMm(125.0, 22.6)
         },
         rightLabels: new[]
         {
-            new[] { "Y", "U", "I", "O", "P" },
-            new[] { "H", "J", "K", "L", ";" },
-            new[] { "N", "M", ",", ".", "/" }
+            new[] { "U", "I", "O", "P", "Back" },
+            new[] { "J", "K", "L", ";", "Ret" },
+            new[] { "M", ",", ".", "/", "Ret" }
         }
     );
 
@@ -86,11 +86,11 @@ public sealed class TrackpadLayoutPreset
         rows: 4,
         columnAnchorsMm: new[]
         {
-            new PointMm(34.0, 12.0),
-            new PointMm(54.0, 12.0),
-            new PointMm(74.0, 12.0),
-            new PointMm(94.0, 12.0),
-            new PointMm(114.0, 12.0)
+            new PointMm(35.0, 20.9),
+            new PointMm(53.0, 19.2),
+            new PointMm(71.0, 17.5),
+            new PointMm(89.0, 19.2),
+            new PointMm(107.0, 22.6)
         },
         rightLabels: new[]
         {

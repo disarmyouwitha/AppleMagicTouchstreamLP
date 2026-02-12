@@ -64,7 +64,7 @@ public static class LayoutBuilder
                 double widthMm = keyWidthMm * scale;
                 double heightMm = keyHeightMm * scale;
                 double rowSpacing = heightMm * (settings[col].RowSpacingPercent / 100.0);
-                double xMm = anchor.X + (col * spacingXmm);
+                double xMm = anchor.X;
                 double yMm = anchor.Y + row * (heightMm + rowSpacing + spacingYmm);
 
                 NormalizedRect rect = new NormalizedRect(
