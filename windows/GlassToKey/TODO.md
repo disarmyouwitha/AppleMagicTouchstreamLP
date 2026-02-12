@@ -1,7 +1,10 @@
 ## TODO:
+- Add "Plank" name to dropdown for 12x4
+- Add actions like VOL_UP VOL_DOWN BRIGHT_UP BRIGHT_DOWN to the dropdown (cool separator)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? Windows variant?
 - Voice mode: "windows siri/dictation" (Win+H Dictation) + ESC to close window
+- Resting Fingers: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the ky
 - REFACTOR
 ---
 ## Gesture Config:
@@ -11,6 +14,7 @@
 ## Worth it?
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
 - Only worth persuing Pressure if we can get Haptics to work, I think
+- I think maybe on OSX I can tell if user is resting fingers or tapping by pressure?? (Move TODO)
 
 ## CURSED:
 - HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
