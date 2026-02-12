@@ -2,19 +2,20 @@
 You will need to install the driver for both USB and for Bluetooth! (For each Apple Magic Trackpad)
 
 ## Do you have drivers installed for your trackpad already??
-- Go to a web page and try to 2-finger scroll. 
-- If you can move your mouse and you can scroll with a 2-finger scroll gesture — you already have drivers installed! **(You should be able to start GlassToKey and select one of the decoders to see your touches.)**
+- Go to a web page and try to 2-finger scroll. If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed! **(You should be able to start GlassToKey and select one of the decoders to see your touches)**
 - ^The Official Apple driver is considered first-class by default. You may have issues with Capture/Record or other features if you are not using the Official drivers, however, any Opensource driver based off of `imbushuo/mac-precision-touchpad` should work!
 
 **If you can move your mouse but you can't scroll with a gesture — perfect!** *You need to install drivers:*
 
-## Install Official Apple Bootcamp drivers
+## Download the Official Apple Bootcamp drivers:
+- https://github.com/lc700x/MagicTrackPad2_Windows_Precision_Drivers/releases
 
-**For LIGHTNING:** I think you can just right-click the `.INF` files and click `Install`
+
+**——For LIGHTNING:——** I think you can just right-click the `.INF` files and click `Install`
 
 <img src="screenshots/0_INF_INSTALL.png">
 
-**For USB-C, or if the above does not work**
+**——For USB-C, or if the above does not work——**
 
 ### USB:
 1. Connect your trackpad via USB, then open device manager.
