@@ -28,6 +28,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double ControlsPaneExpandedWidth = 360.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
+    private const int AutoSplayTouchCount = 4;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
     private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
@@ -201,6 +202,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ReplayTimelineSlider.ValueChanged += OnReplayTimelineChanged;
         LayoutPresetCombo.SelectionChanged += OnLayoutPresetChanged;
         ColumnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
+        ColumnAutoSplayButton.Click += OnColumnAutoSplayClicked;
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
@@ -995,6 +997,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnScaleBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
+        ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && _preset.Columns == 6;
 
         int previous = ColumnLayoutColumnCombo.SelectedIndex;
         ColumnLayoutColumnCombo.Items.Clear();
@@ -1092,6 +1095,187 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
         return changed;
+    }
+
+    private void OnColumnAutoSplayClicked(object sender, RoutedEventArgs e)
+    {
+        if (!_preset.AllowsColumnSettings || _preset.Columns != 6 || _columnSettings.Length != 6)
+        {
+            MessageBox.Show(
+                this,
+                "Auto Splay is currently available only for 6-column layouts.",
+                "Auto Splay",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (!TryCaptureAutoSplayTouches(out _, out AutoSplayTouch[] touches, out string captureError))
+        {
+            MessageBox.Show(
+                this,
+                captureError,
+                "Auto Splay",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        if (!TryApplyAutoSplay(touches, out string applyError))
+        {
+            MessageBox.Show(
+                this,
+                applyError,
+                "Auto Splay",
+                MessageBoxButton.OK,
+                MessageBoxImage.Warning);
+            return;
+        }
+
+        RefreshColumnLayoutFields();
+        RebuildLayouts();
+        RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
+        ApplyCoreSettings();
+        _settings.Save();
+        UpdateEngineStateDetails();
+    }
+
+    private bool TryCaptureAutoSplayTouches(out TrackpadSide sourceSide, out AutoSplayTouch[] touches, out string error)
+    {
+        sourceSide = TrackpadSide.Left;
+        touches = Array.Empty<AutoSplayTouch>();
+
+        Span<AutoSplayTouch> left = stackalloc AutoSplayTouch[PtpReport.MaxContacts];
+        Span<AutoSplayTouch> right = stackalloc AutoSplayTouch[PtpReport.MaxContacts];
+        int leftCount = SnapshotAutoSplayTouches(TrackpadSide.Left, left);
+        int rightCount = SnapshotAutoSplayTouches(TrackpadSide.Right, right);
+
+        bool leftReady = leftCount == AutoSplayTouchCount;
+        bool rightReady = rightCount == AutoSplayTouchCount;
+        if (leftReady && rightReady)
+        {
+            error = "Detected 4 touches on both sides. Keep touches on only one side and retry.";
+            return false;
+        }
+
+        if (!leftReady && !rightReady)
+        {
+            error = leftCount == 0 && rightCount == 0
+                ? "Place exactly 4 fingertips on one side, then click Auto Splay."
+                : $"Auto Splay needs exactly 4 touches on one side (left: {leftCount}, right: {rightCount}).";
+            return false;
+        }
+
+        sourceSide = leftReady ? TrackpadSide.Left : TrackpadSide.Right;
+        Span<AutoSplayTouch> source = leftReady ? left : right;
+        touches = new AutoSplayTouch[AutoSplayTouchCount];
+        for (int i = 0; i < AutoSplayTouchCount; i++)
+        {
+            AutoSplayTouch contact = source[i];
+            double canonicalX = sourceSide == TrackpadSide.Left ? 1.0 - contact.XNorm : contact.XNorm;
+            touches[i] = new AutoSplayTouch(canonicalX, contact.YNorm);
+        }
+
+        Array.Sort(touches, static (a, b) =>
+        {
+            int byX = a.XNorm.CompareTo(b.XNorm);
+            return byX != 0 ? byX : a.YNorm.CompareTo(b.YNorm);
+        });
+
+        error = string.Empty;
+        return true;
+    }
+
+    private int SnapshotAutoSplayTouches(TrackpadSide side, Span<AutoSplayTouch> destination)
+    {
+        if (destination.Length == 0)
+        {
+            return 0;
+        }
+
+        ReaderSession session = side == TrackpadSide.Left ? _left : _right;
+        if (string.IsNullOrWhiteSpace(session.DeviceName))
+        {
+            return 0;
+        }
+
+        Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
+        int count = session.State.SnapshotContacts(contacts);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        TouchView surface = side == TrackpadSide.Left ? LeftSurface : RightSurface;
+        ushort maxX = surface.RequestedMaxX ?? DefaultMaxX;
+        ushort maxY = surface.RequestedMaxY ?? DefaultMaxY;
+        if (maxX == 0) maxX = 1;
+        if (maxY == 0) maxY = 1;
+
+        int written = 0;
+        for (int i = 0; i < count && written < destination.Length; i++)
+        {
+            TouchContact c = contacts[i];
+            if (!c.Tip)
+            {
+                continue;
+            }
+
+            destination[written++] = new AutoSplayTouch(
+                Math.Clamp(c.X / (double)maxX, 0.0, 1.0),
+                Math.Clamp(c.Y / (double)maxY, 0.0, 1.0));
+        }
+
+        return written;
+    }
+
+    private bool TryApplyAutoSplay(AutoSplayTouch[] touches, out string error)
+    {
+        if (touches.Length != AutoSplayTouchCount)
+        {
+            error = $"Auto Splay requires {AutoSplayTouchCount} touches.";
+            return false;
+        }
+
+        int row = ResolveAutoSplayReferenceRow();
+        if (_rightLayout.Rects.Length <= row || _rightLayout.Rects[row].Length < 6)
+        {
+            error = "Auto Splay could not resolve a valid 6-column reference row.";
+            return false;
+        }
+
+        double leftEdgeOffsetX = _columnSettings[0].OffsetXPercent - _columnSettings[1].OffsetXPercent;
+        double rightEdgeOffsetX = _columnSettings[5].OffsetXPercent - _columnSettings[4].OffsetXPercent;
+
+        for (int i = 0; i < AutoSplayTouchCount; i++)
+        {
+            int col = i + 1;
+            NormalizedRect reference = _rightLayout.Rects[row][col];
+            double currentX = reference.X + (reference.Width * 0.5);
+            double currentY = reference.Y + (reference.Height * 0.5);
+            AutoSplayTouch target = touches[i];
+
+            _columnSettings[col].OffsetXPercent += (target.XNorm - currentX) * 100.0;
+            _columnSettings[col].OffsetYPercent += (target.YNorm - currentY) * 100.0;
+        }
+
+        _columnSettings[0].OffsetXPercent = _columnSettings[1].OffsetXPercent + leftEdgeOffsetX;
+        _columnSettings[0].OffsetYPercent = _columnSettings[1].OffsetYPercent;
+        _columnSettings[5].OffsetXPercent = _columnSettings[4].OffsetXPercent + rightEdgeOffsetX;
+        _columnSettings[5].OffsetYPercent = _columnSettings[4].OffsetYPercent;
+
+        error = string.Empty;
+        return true;
+    }
+
+    private int ResolveAutoSplayReferenceRow()
+    {
+        if (_preset.Rows <= 0)
+        {
+            return 0;
+        }
+
+        return Math.Clamp((_preset.Rows - 1) / 2, 0, _preset.Rows - 1);
     }
 
     private static ColumnLayoutSettings[] CloneColumnSettings(ColumnLayoutSettings[] source)
@@ -3462,6 +3646,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         public override string ToString() => Label;
     }
+
+    private readonly record struct AutoSplayTouch(double XNorm, double YNorm);
 
     private sealed class SettingsBundleFile
     {
