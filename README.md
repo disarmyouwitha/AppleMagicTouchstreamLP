@@ -19,7 +19,8 @@ If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you
 <img src="windows/GlassToKey/screenshots/0_INF_INSTALL.png" width="500px">
 
 **For USB-C, or if the above does not work:** 
-Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">INSTALL GUIDE</a>!
+Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!
+
 
 ## Usage
 I have posted a Beta Release with a .app and .exe file and hopefully people will be able to run it! I cannot confirm it will work for anyone else, however I have tested it on both my Mac laptop/desktop and Windows laptop/desktop~

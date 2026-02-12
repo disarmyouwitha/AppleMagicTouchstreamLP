@@ -1,4 +1,4 @@
-# Install Guide
+# Driver Install Guide
 You will need to install the driver for both USB and for Bluetooth! (For each Apple Magic Trackpad)
 
 ## Do you have drivers installed for your trackpad already??
