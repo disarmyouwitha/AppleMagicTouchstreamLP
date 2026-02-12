@@ -49,7 +49,7 @@ public static class LayoutBuilder
             columnScales[i] = settings[i].Scale;
         }
 
-        PointMm[] adjustedAnchors = ScaledColumnAnchors(preset.ColumnAnchorsMm, columnScales);
+        PointMm[] adjustedAnchors = preset.ColumnAnchorsMm;
         double spacingXmm = keyWidthMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
         double spacingYmm = keyHeightMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
 
@@ -206,21 +206,4 @@ public static class LayoutBuilder
         return new KeyLayout(rects, labels);
     }
 
-    private static PointMm[] ScaledColumnAnchors(PointMm[] anchors, double[] columnScales)
-    {
-        if (anchors.Length == 0)
-        {
-            return anchors;
-        }
-
-        PointMm[] output = new PointMm[anchors.Length];
-        double originX = anchors[0].X;
-        for (int i = 0; i < anchors.Length; i++)
-        {
-            double scale = i < columnScales.Length ? columnScales[i] : 1.0;
-            double offsetX = anchors[i].X - originX;
-            output[i] = new PointMm(originX + offsetX * scale, anchors[i].Y);
-        }
-        return output;
-    }
 }
