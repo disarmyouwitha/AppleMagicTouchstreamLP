@@ -14,7 +14,7 @@ If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you
 
 ## DRIVER INSTALL WINDOWS
 
-**For LIGHTNING:** I think you can just right-click the .INF files and click Install
+**For LIGHTNING:** I think you can just right-click the `.INF` files and click `Install`
 
 <img src="windows/GlassToKey/screenshots/0_INF_INSTALL.png" width="500px">
 
