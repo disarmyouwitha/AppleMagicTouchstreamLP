@@ -1,4 +1,5 @@
 ## TODO:
+- Once decoder picks an ID it should not change while the touch is actively being held. 
 - When accessing MO() layer I can hit some number 1,3 but I cant hit 2 - what I noticed is when I try to hit 2 the indexes floating on my fingers change.. why would this affect if I can press a key on a MO() layer and can it be fixed?
 - MO layer should be able to fire even during Mouse mode (or keyboard mode)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
