@@ -1,4 +1,4 @@
-.# Apple Magic TouchstreamLP
+# Apple Magic TouchstreamLP
 Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
 
 ## OSX: **(Packaged with .APP)**
