@@ -65,17 +65,17 @@ public sealed class TrackpadLayoutPreset
         rows: 3,
         columnAnchorsMm: new[]
         {
+            new PointMm(35.0, 20.9),
             new PointMm(53.0, 19.2),
             new PointMm(71.0, 17.5),
             new PointMm(89.0, 19.2),
-            new PointMm(107.0, 22.6),
-            new PointMm(125.0, 22.6)
+            new PointMm(107.0, 22.6)
         },
         rightLabels: new[]
         {
-            new[] { "U", "I", "O", "P", "Back" },
-            new[] { "J", "K", "L", ";", "Ret" },
-            new[] { "M", ",", ".", "/", "Ret" }
+            new[] { "Y", "U", "I", "O", "P" },
+            new[] { "H", "J", "K", "L", ";" },
+            new[] { "N", "M", ",", ".", "/" }
         }
     );
 
@@ -86,18 +86,18 @@ public sealed class TrackpadLayoutPreset
         rows: 4,
         columnAnchorsMm: new[]
         {
+            new PointMm(35.0, 20.9),
             new PointMm(53.0, 19.2),
             new PointMm(71.0, 17.5),
             new PointMm(89.0, 19.2),
-            new PointMm(107.0, 22.6),
-            new PointMm(125.0, 22.6)
+            new PointMm(107.0, 22.6)
         },
         rightLabels: new[]
         {
-            new[] { "7", "8", "9", "0", "Back" },
-            new[] { "U", "I", "O", "P", "]" },
-            new[] { "J", "K", "L", ";", "Ret" },
-            new[] { "M", ",", ".", "/", "Ret" }
+            new[] { "6", "7", "8", "9", "0" },
+            new[] { "Y", "U", "I", "O", "P" },
+            new[] { "H", "J", "K", "L", ";" },
+            new[] { "N", "M", ",", ".", "/" }
         }
     );
 
