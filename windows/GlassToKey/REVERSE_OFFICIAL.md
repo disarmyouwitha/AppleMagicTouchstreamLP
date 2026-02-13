@@ -26,7 +26,8 @@ Current coordinate extraction:
 - `Y raw = LE u16 [slot+4 .. slot+5]`
 
 Current normalization behavior:
-- `Id = contactIndex` (stable, avoids giant packed IDs/jumping)
+- `Id = slot byte +0` (`payload[slotOffset + 0]`) for usage `0/0` official stream
+  - duplicate-safe fallback order: `contactIndex`, then first free byte in `0..255`
 - `Flags = (flags & 0xFC) | 0x03` (force tip + confidence true)
 
 Why:
@@ -61,7 +62,7 @@ Continuity comparison (nearest-neighbor continuation, threshold 220 decoded unit
 
 Working candidate model (research-only):
 - `candidateStableId = payload[slotOffset + 0]` where `slotOffset = 1 + contactIndex * 9`
-- keep existing assigned ID behavior unchanged until validated across more captures/devices
+- implemented in decoder for official usage `0/0` path with duplicate-safe fallback
 
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.

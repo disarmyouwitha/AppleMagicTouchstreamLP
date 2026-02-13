@@ -1,0 +1,46 @@
+{
+  "CapturePath": "C:\\Users\\jholloway\\Documents\\AppleMagicTouchstreamLP\\windows\\capture_new.atpcap",
+  "RecordsRead": 2596,
+  "RecordsDecoded": 2596,
+  "Signatures": [
+    {
+      "Signature": {
+        "VendorId": 65612,
+        "ProductId": 804,
+        "UsagePage": 0,
+        "Usage": 0,
+        "ReportId": 5,
+        "PayloadLength": 50
+      },
+      "Frames": 2596,
+      "DecodedFrames": 2596,
+      "DecodeKindCounts": [
+        0,
+        2596,
+        0,
+        0
+      ],
+      "MinContacts": 0,
+      "AvgContacts": 2.37904468412943,
+      "MaxContacts": 4,
+      "DecodeOffsets": [
+        0
+      ],
+      "HotByteIndexes": [
+        47,
+        46,
+        5,
+        3,
+        7,
+        6,
+        1,
+        4
+      ],
+      "SamplesHex": [
+        "0507007412B6100E00030000000000000000000000000000000000000000000000000000000000000000000000008EDD0100",
+        "0507007812B810160003000000000000000000000000000000000000000000000000000000000000000000000000FCDD0100",
+        "0507007212BE101E00030000000000000000000000000000000000000000000000000000000000000000000000006ADE0100"
+      ]
+    }
+  ]
+}

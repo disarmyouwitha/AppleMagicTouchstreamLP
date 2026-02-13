@@ -128,7 +128,7 @@ internal static class SelfTestRunner
             officialDecoded.Profile != TrackpadDecoderProfile.Official ||
             officialDecoded.Frame.GetClampedContactCount() != 1 ||
             !officialDecoded.Frame.GetContact(0).TipSwitch ||
-            officialDecoded.Frame.GetContact(0).Id != 0)
+            officialDecoded.Frame.GetContact(0).Id != 4)
         {
             failure = "official profile decode failed";
             return false;
