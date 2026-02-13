@@ -417,7 +417,7 @@ internal static class TrackpadReportDecoder
                 {
                     // Usage 0/0 official stream does not match native PTP field packing.
                     byte candidateId = payload[slotOffset];
-                    assignedId = AssignOfficialContactId(candidateId, (byte)i, usedAssignedIds);
+                    assignedId = AssignOfficialContactId(candidateId, usedAssignedIds);
                     int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
                     int rawY = ReadLittleEndianU16(payload[slotOffset + 4], payload[slotOffset + 5]);
                     x = ScaleOfficialCoordinate(rawX, maxRaw: OfficialMaxRawX, RuntimeConfigurationFactory.DefaultMaxX);
@@ -425,30 +425,24 @@ internal static class TrackpadReportDecoder
                 }
                 else
                 {
-                    assignedId = AssignOfficialContactId((byte)i, (byte)i, usedAssignedIds);
+                    assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
                 }
             }
             else
             {
-                assignedId = AssignOfficialContactId((byte)i, (byte)i, usedAssignedIds);
+                assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
             }
 
             frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags));
         }
     }
 
-    private static uint AssignOfficialContactId(byte candidateId, byte fallbackContactIndex, Span<bool> usedIds)
+    private static uint AssignOfficialContactId(byte candidateId, Span<bool> usedIds)
     {
         if (!usedIds[candidateId])
         {
             usedIds[candidateId] = true;
             return candidateId;
-        }
-
-        if (!usedIds[fallbackContactIndex])
-        {
-            usedIds[fallbackContactIndex] = true;
-            return fallbackContactIndex;
         }
 
         for (int id = 0; id < usedIds.Length; id++)
@@ -462,7 +456,7 @@ internal static class TrackpadReportDecoder
             return (uint)id;
         }
 
-        return fallbackContactIndex;
+        return candidateId;
     }
 
     private static int ReadBigEndianU16(byte hi, byte lo)
