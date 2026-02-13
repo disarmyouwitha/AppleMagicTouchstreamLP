@@ -42,6 +42,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         switch (dispatchEvent.Kind)
         {
             case DispatchEventKind.KeyTap:
+                if (TryDispatchSystemAction(dispatchEvent.VirtualKey))
+                {
+                    break;
+                }
+
                 if (dispatchEvent.VirtualKey != 0)
                 {
                     SendKeyTap(dispatchEvent.VirtualKey);
@@ -371,6 +376,23 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         return (long)Math.Round(milliseconds * Stopwatch.Frequency / 1000.0);
+    }
+
+    private static bool TryDispatchSystemAction(ushort virtualKey)
+    {
+        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessUp)
+        {
+            BrightnessController.StepUp();
+            return true;
+        }
+
+        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessDown)
+        {
+            BrightnessController.StepDown();
+            return true;
+        }
+
+        return false;
     }
 
     [StructLayout(LayoutKind.Sequential)]

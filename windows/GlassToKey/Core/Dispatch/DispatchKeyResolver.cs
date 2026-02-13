@@ -4,6 +4,9 @@ namespace GlassToKey;
 
 internal static class DispatchKeyResolver
 {
+    public const ushort VirtualKeyBrightnessDown = 0x0101;
+    public const ushort VirtualKeyBrightnessUp = 0x0102;
+
     public static bool TryResolveMouseButton(string label, out DispatchMouseButton button)
     {
         button = DispatchMouseButton.None;
@@ -264,6 +267,34 @@ internal static class DispatchKeyResolver
             fIndex <= 24)
         {
             virtualKey = (ushort)(0x70 + (fIndex - 1));
+            return true;
+        }
+
+        if (token.Equals("VOL_UP", StringComparison.OrdinalIgnoreCase) ||
+            token.Equals("VOLUME_UP", StringComparison.OrdinalIgnoreCase))
+        {
+            virtualKey = 0xAF;
+            return true;
+        }
+
+        if (token.Equals("VOL_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            token.Equals("VOLUME_DOWN", StringComparison.OrdinalIgnoreCase))
+        {
+            virtualKey = 0xAE;
+            return true;
+        }
+
+        if (token.Equals("BRIGHT_UP", StringComparison.OrdinalIgnoreCase) ||
+            token.Equals("BRIGHTNESS_UP", StringComparison.OrdinalIgnoreCase))
+        {
+            virtualKey = VirtualKeyBrightnessUp;
+            return true;
+        }
+
+        if (token.Equals("BRIGHT_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            token.Equals("BRIGHTNESS_DOWN", StringComparison.OrdinalIgnoreCase))
+        {
+            virtualKey = VirtualKeyBrightnessDown;
             return true;
         }
 

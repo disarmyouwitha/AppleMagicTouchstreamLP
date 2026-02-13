@@ -268,9 +268,25 @@ internal static class EngineActionResolver
             return new EngineKeyAction(EngineActionKind.TypingToggle, resolved, 0);
         }
 
-        if (TryParseCtrlChord(resolved, out EngineKeyAction chord))
+        if (TryParseModifierChord(resolved, "Ctrl+", 0x11, out EngineKeyAction chord))
         {
             return chord;
+        }
+
+        if (TryParseModifierChord(resolved, "Win+", 0x5B, out EngineKeyAction winChord))
+        {
+            return winChord;
+        }
+
+        if (resolved.Equals("EMOJI", StringComparison.OrdinalIgnoreCase))
+        {
+            return new EngineKeyAction(
+                EngineActionKind.KeyChord,
+                resolved,
+                LayerTarget: 0,
+                VirtualKey: 0xBE, // .
+                MouseButton: DispatchMouseButton.None,
+                ModifierVirtualKey: 0x5B); // LWin
         }
 
         if (TryParseShiftChord(resolved, out EngineKeyAction shiftChord))
@@ -314,10 +330,9 @@ internal static class EngineActionResolver
         return new EngineKeyAction(EngineActionKind.Key, resolved, 0);
     }
 
-    private static bool TryParseCtrlChord(string text, out EngineKeyAction action)
+    private static bool TryParseModifierChord(string text, string prefix, ushort modifierVirtualKey, out EngineKeyAction action)
     {
         action = EngineKeyAction.None;
-        const string prefix = "Ctrl+";
         if (!text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
         {
             return false;
@@ -335,7 +350,7 @@ internal static class EngineActionResolver
             LayerTarget: 0,
             VirtualKey: keyVk,
             MouseButton: DispatchMouseButton.None,
-            ModifierVirtualKey: 0x11);
+            ModifierVirtualKey: modifierVirtualKey);
         return true;
     }
 
