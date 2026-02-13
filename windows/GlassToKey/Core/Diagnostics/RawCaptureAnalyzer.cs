@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -88,48 +89,77 @@ internal readonly record struct RawCaptureAnalysisResult(
 
 internal static class RawCaptureAnalyzer
 {
-    public static RawCaptureAnalysisResult Analyze(string capturePath)
+    public static RawCaptureAnalysisResult Analyze(string capturePath, string? contactsCsvPath = null)
     {
         string fullPath = Path.GetFullPath(capturePath);
         Dictionary<RawReportSignature, MutableSignatureStats> signatures = new();
         int recordsRead = 0;
         int recordsDecoded = 0;
+        int frameIndex = 0;
 
-        using InputCaptureReader reader = new(fullPath);
-        while (reader.TryReadNext(out CaptureRecord record))
+        StreamWriter? contactsWriter = null;
+        if (!string.IsNullOrWhiteSpace(contactsCsvPath))
         {
-            recordsRead++;
-            ReadOnlySpan<byte> payload = record.Payload.Span;
-            if (payload.Length == 0)
+            string fullContactsCsvPath = Path.GetFullPath(contactsCsvPath);
+            string? csvDir = Path.GetDirectoryName(fullContactsCsvPath);
+            if (!string.IsNullOrWhiteSpace(csvDir))
             {
-                continue;
+                Directory.CreateDirectory(csvDir);
             }
 
-            RawReportSignature signature = new(
-                VendorId: record.VendorId,
-                ProductId: record.ProductId,
-                UsagePage: record.UsagePage,
-                Usage: record.Usage,
-                ReportId: payload[0],
-                PayloadLength: payload.Length);
+            contactsWriter = new StreamWriter(fullContactsCsvPath, append: false, Encoding.UTF8);
+            WriteContactTraceHeader(contactsWriter);
+        }
 
-            if (!signatures.TryGetValue(signature, out MutableSignatureStats? stats))
+        try
+        {
+            using InputCaptureReader reader = new(fullPath);
+            while (reader.TryReadNext(out CaptureRecord record))
             {
-                stats = new MutableSignatureStats(signature);
-                signatures[signature] = stats;
-            }
+                recordsRead++;
+                ReadOnlySpan<byte> payload = record.Payload.Span;
+                if (payload.Length == 0)
+                {
+                    frameIndex++;
+                    continue;
+                }
 
-            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-            bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decodeResult);
-            if (decoded)
-            {
-                recordsDecoded++;
-            }
+                RawReportSignature signature = new(
+                    VendorId: record.VendorId,
+                    ProductId: record.ProductId,
+                    UsagePage: record.UsagePage,
+                    Usage: record.Usage,
+                    ReportId: payload[0],
+                    PayloadLength: payload.Length);
 
-            stats.Add(payload, decoded, decodeResult);
+                if (!signatures.TryGetValue(signature, out MutableSignatureStats? stats))
+                {
+                    stats = new MutableSignatureStats(signature);
+                    signatures[signature] = stats;
+                }
+
+                RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+                TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                    ? TrackpadDecoderProfile.Legacy
+                    : TrackpadDecoderProfile.Official;
+                bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decodeResult);
+                if (decoded)
+                {
+                    recordsDecoded++;
+                }
+
+                stats.Add(payload, decoded, decodeResult);
+                if (contactsWriter != null && decoded)
+                {
+                    WriteContactTraceRows(contactsWriter, frameIndex, record, payload, decodeResult);
+                }
+
+                frameIndex++;
+            }
+        }
+        finally
+        {
+            contactsWriter?.Dispose();
         }
 
         RawSignatureAnalysis[] ordered = signatures.Values
@@ -139,6 +169,124 @@ internal static class RawCaptureAnalyzer
             .ToArray();
 
         return new RawCaptureAnalysisResult(fullPath, recordsRead, recordsDecoded, ordered);
+    }
+
+    private static void WriteContactTraceHeader(TextWriter writer)
+    {
+        writer.WriteLine(
+            "frame_index,decode_kind,profile,payload_offset,vendor_id,product_id,usage_page,usage,source_report_id,payload_length,contact_index,raw_contact_id,assigned_contact_id,raw_flags,assigned_flags,raw_x,raw_y,decoded_x,decoded_y,slot_offset,slot_hex");
+    }
+
+    private static void WriteContactTraceRows(
+        TextWriter writer,
+        int frameIndex,
+        in CaptureRecord record,
+        ReadOnlySpan<byte> payload,
+        in TrackpadDecodeResult decodeResult)
+    {
+        int decodedCount = decodeResult.Frame.GetClampedContactCount();
+        if (decodedCount <= 0)
+        {
+            return;
+        }
+
+        bool hasRawReport = TryParseRawPtpForDecode(payload, decodeResult, out PtpReport rawReport);
+        int rawCount = hasRawReport ? rawReport.GetClampedContactCount() : 0;
+        for (int i = 0; i < decodedCount; i++)
+        {
+            ContactFrame decodedContact = decodeResult.Frame.GetContact(i);
+            bool hasRawContact = hasRawReport && i < rawCount;
+            PtpContact rawContact = hasRawContact ? rawReport.GetContact(i) : default;
+
+            int slotOffset = decodeResult.PayloadOffset + 1 + (i * 9);
+            bool hasSlotBytes = slotOffset >= 0 && slotOffset + 8 < payload.Length;
+            string slotHex = hasSlotBytes
+                ? Convert.ToHexString(payload.Slice(slotOffset, 9))
+                : string.Empty;
+
+            writer.Write(frameIndex.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodeResult.Kind.ToString());
+            writer.Write(',');
+            writer.Write(decodeResult.Profile.ToString());
+            writer.Write(',');
+            writer.Write(decodeResult.PayloadOffset.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(((ushort)record.VendorId).ToString("X4", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(((ushort)record.ProductId).ToString("X4", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(record.UsagePage.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(record.Usage.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(decodeResult.SourceReportId.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(payload.Length.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(i.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            if (hasRawContact)
+            {
+                writer.Write("0x");
+                writer.Write(rawContact.ContactId.ToString("X8", CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(decodedContact.Id.ToString("X8", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            if (hasRawContact)
+            {
+                writer.Write("0x");
+                writer.Write(rawContact.Flags.ToString("X2", CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(decodedContact.Flags.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            if (hasRawContact)
+            {
+                writer.Write(rawContact.X.ToString(CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            if (hasRawContact)
+            {
+                writer.Write(rawContact.Y.ToString(CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            writer.Write(decodedContact.X.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodedContact.Y.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(hasSlotBytes ? slotOffset.ToString(CultureInfo.InvariantCulture) : string.Empty);
+            writer.Write(',');
+            writer.Write(slotHex);
+            writer.WriteLine();
+        }
+    }
+
+    private static bool TryParseRawPtpForDecode(
+        ReadOnlySpan<byte> payload,
+        in TrackpadDecodeResult decodeResult,
+        out PtpReport report)
+    {
+        report = default;
+        if (decodeResult.Kind is not TrackpadReportKind.PtpNative and not TrackpadReportKind.PtpEmbedded)
+        {
+            return false;
+        }
+
+        if (decodeResult.PayloadOffset < 0 || decodeResult.PayloadOffset > payload.Length - PtpReport.ExpectedSize)
+        {
+            return false;
+        }
+
+        return PtpReport.TryParse(payload.Slice(decodeResult.PayloadOffset), out report);
     }
 
     private sealed class MutableSignatureStats

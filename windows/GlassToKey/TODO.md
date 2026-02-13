@@ -1,4 +1,5 @@
 ## TODO:
+- Once decoder picks an ID it should not change while the touch is actively being held. 
 - When accessing MO() layer I can hit some number 1,3 but I cant hit 2 - what I noticed is when I try to hit 2 the indexes floating on my fingers change.. why would this affect if I can press a key on a MO() layer and can it be fixed?
 - MO layer should be able to fire even during Mouse mode (or keyboard mode)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
@@ -8,7 +9,7 @@
 - REFACTOR
 ---
 ## Gesture Config:
-- Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners
+- Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners    
 - Allow user to select their own action for a gesture from a pre-formed list: Typing Toggle, Chordal Shift, or allow them to select a regular Action from the drop-down
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 
@@ -20,3 +21,19 @@
 
 ## CURSED:
 - HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
+
+
+## CURRENT CONTEXT:
+  Notable Drift / Health
+
+  - Docs say key/mouse candidate buffer is fixed at 40ms (GlassToKey/README.md:45), but runtime config
+    currently hardcodes 20ms (GlassToKey/RuntimeConfigurationFactory.cs:13).
+  - Self-test baseline is currently failing locally: Engine intent tests failed: expected
+    mouseCandidate->mouseActive transitions were missing (dotnet run --project
+    GlassToKey\GlassToKey.csproj -c Release -- --selftest).
+
+  If you want, I can next do one of these:
+
+  1. Implement the allocation-free stable session ID tracker for lifecycle continuity.
+  2. Add per-frame CSV/JSON XY+slot-byte diagnostics to RawCaptureAnalyzer.
+  3. Triage and fix the current self-test failure first.  

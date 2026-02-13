@@ -401,28 +401,62 @@ internal static class TrackpadReportDecoder
         bool isNativeTouchpadUsage = deviceInfo.UsagePage == RawInputInterop.UsagePageDigitizer &&
                                      deviceInfo.Usage == RawInputInterop.UsageTouchpad;
         int count = frame.GetClampedContactCount();
+        Span<bool> usedAssignedIds = stackalloc bool[256];
         for (int i = 0; i < count; i++)
         {
             ContactFrame contact = frame.GetContact(i);
             byte normalizedFlags = (byte)((contact.Flags & 0xFC) | 0x03);
             ushort x = contact.X;
             ushort y = contact.Y;
+            uint assignedId = (uint)i;
 
             if (!isNativeTouchpadUsage)
             {
                 int slotOffset = 1 + (i * 9);
-                if (slotOffset + 7 < payload.Length)
+                if (slotOffset + 8 < payload.Length)
                 {
                     // Usage 0/0 official stream does not match native PTP field packing.
+                    byte candidateId = payload[slotOffset];
+                    assignedId = AssignOfficialContactId(candidateId, usedAssignedIds);
                     int rawX = ReadLittleEndianU16(payload[slotOffset + 2], payload[slotOffset + 3]);
                     int rawY = ReadLittleEndianU16(payload[slotOffset + 4], payload[slotOffset + 5]);
                     x = ScaleOfficialCoordinate(rawX, maxRaw: OfficialMaxRawX, RuntimeConfigurationFactory.DefaultMaxX);
                     y = ScaleOfficialCoordinate(rawY, maxRaw: OfficialMaxRawY, RuntimeConfigurationFactory.DefaultMaxY);
                 }
+                else
+                {
+                    assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
+                }
+            }
+            else
+            {
+                assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
             }
 
-            frame.SetContact(i, new ContactFrame((uint)i, x, y, normalizedFlags));
+            frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags));
         }
+    }
+
+    private static uint AssignOfficialContactId(byte candidateId, Span<bool> usedIds)
+    {
+        if (!usedIds[candidateId])
+        {
+            usedIds[candidateId] = true;
+            return candidateId;
+        }
+
+        for (int id = 0; id < usedIds.Length; id++)
+        {
+            if (usedIds[id])
+            {
+                continue;
+            }
+
+            usedIds[id] = true;
+            return (uint)id;
+        }
+
+        return candidateId;
     }
 
     private static int ReadBigEndianU16(byte hi, byte lo)

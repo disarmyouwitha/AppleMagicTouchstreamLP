@@ -3490,7 +3490,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     continue;
                 }
 
-                TraceDecoderSelection(snapshot, decoderProfile, decoded, leftMatch, rightMatch);
+                TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);
 
                 _liveMetrics.RecordParsed();
                 InputFrame frame = decoded.Frame;
@@ -3519,6 +3519,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void TraceDecoderSelection(
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded,
         bool leftMatch,
@@ -3531,18 +3532,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         if (leftMatch)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, payload, preferredProfile, decoded);
         }
 
         if (rightMatch)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, payload, preferredProfile, decoded);
         }
     }
 
     private void TraceDecoderSelectionForSide(
         TrackpadSide side,
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded)
     {
@@ -3581,6 +3583,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             $"first={firstContact} tag={RawInputInterop.FormatTag(snapshot.Tag)} " +
             $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
             $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
+        Console.WriteLine($"[decoder] side={side} ids {TrackpadDecoderDebugFormatter.BuildContactIdSummary(payload, decoded)}");
     }
 
     private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)

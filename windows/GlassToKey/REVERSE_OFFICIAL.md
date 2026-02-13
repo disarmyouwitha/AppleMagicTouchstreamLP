@@ -26,13 +26,62 @@ Current coordinate extraction:
 - `Y raw = LE u16 [slot+4 .. slot+5]`
 
 Current normalization behavior:
-- `Id = contactIndex` (stable, avoids giant packed IDs/jumping)
+- `Id = slot byte +0` (`payload[slotOffset + 0]`) for usage `0/0` official stream
+  - duplicate-safe fallback: first free byte in `0..255` (no fallback to `contactIndex`)
 - `Flags = (flags & 0xFC) | 0x03` (force tip + confidence true)
 
 Why:
 - Earlier packed-coordinate interpretation produced severe wrap and jumps.
 - Earlier overlapping byte choices contaminated one axis with non-position signals.
 - This non-overlapping mapping produced stable, usable motion in live tests.
+
+## Empirical Contact-ID Findings (capture.atpcap, analyzed 2026-02-13)
+Dataset summary:
+- `records=1044`, `decoded=1044`, `usage=0x00/0x00`, `reportId=0x05`, `len=50`
+- contact rows in CSV: `2594`
+- contact-count distribution by frame (non-zero contact frames): `1 finger=151`, `2 fingers=230`, `3 fingers=661`
+
+Raw ID reality in this stream:
+- `raw_contact_id` is exactly `LE u32 [slot+1 .. slot+4]` in every row (`2594/2594`).
+- low byte of `raw_contact_id` is always `0x00` (`2594/2594`), so it is not a normal independent finger/session ID field.
+- because bytes `+2..+5` are already used by position, `raw_contact_id` drifts with motion.
+
+Byte candidacy results for stable identity:
+- `slot+1` (`b1`) is constant `0` in this capture (not useful).
+- `slot+7` (`b7`) is constant `0` in this capture (not useful).
+- `slot+8` (`b8`) is almost always `3` and briefly `1` on transition moments (`9` rows total), likely state/quality not identity.
+- `slot+0` (`b0`) is the strongest candidate:
+  - no collisions among simultaneous contacts (0 collision frames in this capture)
+  - nearest-neighbor contact continuation stability: `100%` (`2584/2584` matched continuations)
+  - remained stable in all observed slot-reassignment events that changed assigned ID
+
+Continuity comparison (nearest-neighbor continuation, threshold 220 decoded units):
+- `b0` stability: `100%` (`2584/2584`)
+- current assigned ID (`contactIndex`) stability: `99.73%` (`2577/2584`) with `7` continuity breaks
+- `raw_contact_id` stability: `41.83%` (`1081/2584`)
+
+Working candidate model (research-only):
+- `candidateStableId = payload[slotOffset + 0]` where `slotOffset = 1 + contactIndex * 9`
+- implemented in decoder for official usage `0/0` path with duplicate-safe fallback
+
+## Validation Follow-up (capture_new.atpcap, analyzed 2026-02-13)
+Dataset summary:
+- `records=2596`, `decoded=2596`, `usage=0x00/0x00`, `reportId=0x05`, `len=50`
+- contact rows in CSV: `6176`
+- contact-count distribution by frame (non-zero contact frames): `1 finger=732`, `2 fingers=577`, `3 fingers=834`, `4 fingers=447`
+
+Stability and collision results:
+- same-frame duplicate check: `0` duplicate frames for both `b0` and assigned ID.
+- assigned ID matches `b0` in every row (`6176/6176`), so fallback was not needed in this capture.
+- nearest-neighbor contact continuation stability (threshold 220 decoded units):
+  - `b0`: `100%` (`6129/6129`)
+  - assigned ID: `100%` (`6129/6129`)
+  - `raw_contact_id`: `33.45%` (`2050/6129`)
+
+Other byte notes:
+- `slot+1` remained constant `0`.
+- `slot+7` remained constant `0`.
+- `slot+8` remained mostly `3` (`6128` rows) with brief `1` transitions (`48` rows), still consistent with a state/quality bit.
 
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
@@ -57,8 +106,9 @@ Observed behavior that drove these constants:
 - X and Y now both track with good stability in current live feedback.
 
 ## Known Unknowns
-- Some non-position bits likely still exist in nearby slot bytes (`+1`, `+7`, `+8`).
-- Raw analyzer JSON is summary-level only; no built-in per-frame XY dump yet.
+- Whether `slot+0` (`b0`) remains stable across longer sessions, different hardware revisions, and reconnect/reboot boundaries.
+- Exact semantics of `slot+8` toggles (`3 -> 1`) seen around release/transition boundaries.
+- Whether a higher-entropy composite (`b0` + another byte) is needed for rare collisions in larger datasets.
 
 ## Runtime Stability Guardrails
 Raw input exception handling now includes:
@@ -69,6 +119,14 @@ Raw input exception handling now includes:
 ## Analyzer + Validation Workflow
 Decoder debug output:
 - add `--decoder-debug` to print per-side chosen decode profile and sample contact fields.
+- `--decoder-debug` now also prints per-contact `rawId -> assignedId` mapping when the frame is PTP-decodable.
+
+Raw analyzer contact trace:
+- add `--raw-analyze-contacts-out <path>` to emit per-contact CSV rows with:
+  - raw parsed PTP fields (`raw_contact_id`, `raw_flags`, `raw_x`, `raw_y`)
+  - decoded assigned fields (`assigned_contact_id`, `assigned_flags`, `decoded_x`, `decoded_y`)
+  - slot bytes (`slot_hex`) and `slot_offset` for byte-level reverse-engineering
+- this capture strongly indicates `raw_contact_id` is not a true stable identity field for usage `0/0`.
 
 ## Tuning Procedure (If Scaling Drifts Again)
 Use this exact process:
@@ -84,8 +142,13 @@ Practical note:
 - If an axis overshoots/clamps too early at extremes, `maxRaw` is too low.
 
 ## Recommended Next Reverse-Engineering Steps
-1. Add optional per-frame CSV output in `RawCaptureAnalyzer` with raw slot bytes + decoded XY.
-2. Isolate tip/confidence bits using stationary-finger force ramps.
+1. Validate `slot+0` as candidate stable ID across additional captures:
+   - 1->2->3 staggered landings
+   - remove/re-add middle finger
+   - two-hand independent motion
+   - reconnect/reboot sessions
+2. Add analyzer-side collision reporting for `slot+0` (same-frame duplicate detection + continuity mismatch counters).
+3. Isolate tip/confidence bits using stationary-finger force ramps.
 
 ## Quick Context Summary For Next Session
 - Official USB-C path is now usable with profile-aware decoding and runtime stability guards.

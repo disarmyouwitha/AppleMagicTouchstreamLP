@@ -83,6 +83,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
   - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `tap_gesture_active`, `hold_consumed`) when a touch release does not emit a key dispatch.
 - `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
+- `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex).
 - `--selftest`: Run parser/replay smoke tests and exit.
 
 ## Files Created at Runtime
