@@ -459,7 +459,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
         TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
         TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
-        KeyPaddingBox.Text = FormatNumber(_settings.KeyPaddingPercent);
+        KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
         ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
         ToggleControlsButton.Content = "Hide Controls";
         RefreshColumnLayoutEditor();
@@ -724,11 +724,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         UserSettings snapshot = _settings.Clone();
         snapshot.NormalizeRanges();
+        snapshot.KeyPaddingPercentByLayout ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
         snapshot.ColumnSettingsByLayout ??= new Dictionary<string, List<ColumnLayoutSettings>>(StringComparer.OrdinalIgnoreCase);
 
         for (int i = 0; i < TrackpadLayoutPreset.All.Length; i++)
         {
             TrackpadLayoutPreset preset = TrackpadLayoutPreset.All[i];
+            snapshot.KeyPaddingPercentByLayout[preset.Name] =
+                RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(snapshot, preset);
+
             ColumnLayoutSettings[] source = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(snapshot, preset);
             List<ColumnLayoutSettings> list = new(source.Length);
             for (int c = 0; c < source.Length; c++)
@@ -745,6 +749,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         TrackpadLayoutPreset activePreset = TrackpadLayoutPreset.ResolveByNameOrDefault(snapshot.LayoutPresetName);
+        snapshot.KeyPaddingPercent =
+            RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(snapshot, activePreset);
         if (snapshot.ColumnSettingsByLayout.TryGetValue(activePreset.Name, out List<ColumnLayoutSettings>? activeList))
         {
             snapshot.ColumnSettings = new List<ColumnLayoutSettings>(activeList.Count);
@@ -995,6 +1001,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RefreshColumnLayoutEditor()
     {
+        KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
+
         bool allowsColumnSettings = _preset.AllowsColumnSettings;
         ColumnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
         ColumnScaleBox.IsEnabled = allowsColumnSettings;
@@ -1051,14 +1059,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool ApplyColumnLayoutFromUi()
     {
         bool changed = false;
-        double previousPadding = _settings.KeyPaddingPercent;
+        double previousPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset);
         double nextPadding = Math.Clamp(ReadDouble(KeyPaddingBox, previousPadding), 0.0, 90.0);
         if (Math.Abs(nextPadding - previousPadding) > 0.00001)
         {
-            _settings.KeyPaddingPercent = nextPadding;
+            RuntimeConfigurationFactory.SaveKeyPaddingForPreset(_settings, _preset, nextPadding);
             changed = true;
         }
-        KeyPaddingBox.Text = FormatNumber(_settings.KeyPaddingPercent);
+        KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
 
         if (!_preset.AllowsColumnSettings)
         {
@@ -1569,6 +1577,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         for (int i = 1; i <= 12; i++)
         {
             AddKeyActionOption(options, $"F{i}", "Function Keys");
+        }
+
+        string[] systemAndMedia =
+        {
+            "EMOJI",
+            "Win+H",
+            "VOL_UP",
+            "VOL_DOWN",
+            "BRIGHT_UP",
+            "BRIGHT_DOWN"
+        };
+        for (int i = 0; i < systemAndMedia.Length; i++)
+        {
+            AddKeyActionOption(options, systemAndMedia[i], "System & Media");
         }
 
         string[] shortcuts =
