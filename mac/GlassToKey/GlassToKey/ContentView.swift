@@ -10,6 +10,7 @@ import Combine
 import OpenMultitouchSupport
 import QuartzCore
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ContentView: View {
     private struct SelectedGridKey: Equatable {
@@ -44,6 +45,31 @@ struct ContentView: View {
     private struct KeyInspectorSelection: Equatable {
         let key: SelectedGridKey
         var mapping: KeyMapping
+    }
+
+    private struct KeymapProfile: Codable {
+        let schemaVersion: Int
+        let leftDeviceID: String
+        let rightDeviceID: String
+        let visualsEnabled: Bool
+        let layoutPreset: String
+        let autoResyncMissingTrackpads: Bool
+        let tapHoldDurationMs: Double
+        let dragCancelDistance: Double
+        let forceClickCap: Double
+        let hapticStrength: Double
+        let typingGraceMs: Double
+        let intentMoveThresholdMm: Double
+        let intentVelocityThresholdMmPerSec: Double
+        let autocorrectEnabled: Bool
+        let tapClickEnabled: Bool
+        let tapClickCadenceMs: Double
+        let snapRadiusPercent: Double
+        let chordalShiftEnabled: Bool
+        let keyboardModeEnabled: Bool
+        let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
+        let customButtonsByLayout: [String: [Int: [CustomButton]]]
+        let keyMappings: LayeredKeyMappings
     }
 
     @StateObject private var viewModel: ContentViewModel
@@ -433,6 +459,8 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
+            onImportKeymap: importKeymap,
+            onExportKeymap: exportKeymap,
             tapTraceDumpInProgress: tapTraceDumpInProgress,
             tapTraceDumpStatus: tapTraceDumpStatus,
             onDumpTapTrace: dumpTapTrace
@@ -447,6 +475,8 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
+            onImportKeymap: importKeymap,
+            onExportKeymap: exportKeymap
         )
 #endif
     }
@@ -541,6 +571,8 @@ struct ContentView: View {
         let intentDisplay: ContentViewModel.IntentDisplay
         let voiceGestureActive: Bool
         let voiceDebugStatus: String?
+        let onImportKeymap: () -> Void
+        let onExportKeymap: () -> Void
 #if DEBUG
         let tapTraceDumpInProgress: Bool
         let tapTraceDumpStatus: String?
@@ -579,6 +611,14 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 .disabled(tapTraceDumpInProgress)
 #endif
+                Button("Import keymap") {
+                    onImportKeymap()
+                }
+                .buttonStyle(.bordered)
+                Button("Export keymap") {
+                    onExportKeymap()
+                }
+                .buttonStyle(.bordered)
                 Toggle("Edit Keymap", isOn: $editModeEnabled)
                     .toggleStyle(SwitchToggleStyle())
                 Toggle("Visuals", isOn: $visualsEnabled)
@@ -2402,6 +2442,125 @@ struct ContentView: View {
         chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
+    }
+
+    private func exportKeymap() {
+        persistConfig()
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.allowedContentTypes = [.json]
+        panel.nameFieldStringValue = "GlassToKeyKeymap.json"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let profile = keymapProfileSnapshot()
+            let encoder = JSONEncoder()
+            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+            let data = try encoder.encode(profile)
+            try data.write(to: url, options: .atomic)
+            showKeymapAlert(
+                title: "Export complete",
+                message: "Keymap saved to:\n\(url.path)"
+            )
+        } catch {
+            showKeymapAlert(
+                title: "Export failed",
+                message: error.localizedDescription,
+                style: .warning
+            )
+        }
+    }
+
+    private func importKeymap() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+        panel.allowedContentTypes = [.json]
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let data = try Data(contentsOf: url)
+            let profile = try JSONDecoder().decode(KeymapProfile.self, from: data)
+            applyKeymapProfile(profile)
+            showKeymapAlert(
+                title: "Import complete",
+                message: "Loaded keymap from:\n\(url.path)"
+            )
+        } catch {
+            showKeymapAlert(
+                title: "Import failed",
+                message: error.localizedDescription,
+                style: .warning
+            )
+        }
+    }
+
+    private func keymapProfileSnapshot() -> KeymapProfile {
+        let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
+        let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
+        let mappings = KeyActionMappingStore.decode(storedKeyMappingsData) ?? keyMappingsByLayer
+        return KeymapProfile(
+            schemaVersion: 1,
+            leftDeviceID: storedLeftDeviceID,
+            rightDeviceID: storedRightDeviceID,
+            visualsEnabled: storedVisualsEnabled,
+            layoutPreset: storedLayoutPreset,
+            autoResyncMissingTrackpads: storedAutoResyncMissingTrackpads,
+            tapHoldDurationMs: tapHoldDurationMs,
+            dragCancelDistance: dragCancelDistanceSetting,
+            forceClickCap: forceClickCapSetting,
+            hapticStrength: hapticStrengthSetting,
+            typingGraceMs: typingGraceMsSetting,
+            intentMoveThresholdMm: intentMoveThresholdMmSetting,
+            intentVelocityThresholdMmPerSec: intentVelocityThresholdMmPerSecSetting,
+            autocorrectEnabled: autocorrectEnabled,
+            tapClickEnabled: tapClickEnabled,
+            tapClickCadenceMs: tapClickCadenceMsSetting,
+            snapRadiusPercent: snapRadiusPercentSetting,
+            chordalShiftEnabled: chordalShiftEnabled,
+            keyboardModeEnabled: keyboardModeEnabled,
+            columnSettingsByLayout: columnSettingsByLayout,
+            customButtonsByLayout: customButtonsByLayout,
+            keyMappings: mappings
+        )
+    }
+
+    private func applyKeymapProfile(_ profile: KeymapProfile) {
+        storedLeftDeviceID = profile.leftDeviceID
+        storedRightDeviceID = profile.rightDeviceID
+        storedVisualsEnabled = profile.visualsEnabled
+        storedLayoutPreset = profile.layoutPreset
+        storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
+        tapHoldDurationMs = profile.tapHoldDurationMs
+        dragCancelDistanceSetting = profile.dragCancelDistance
+        forceClickCapSetting = profile.forceClickCap
+        hapticStrengthSetting = profile.hapticStrength
+        typingGraceMsSetting = profile.typingGraceMs
+        intentMoveThresholdMmSetting = profile.intentMoveThresholdMm
+        intentVelocityThresholdMmPerSecSetting = profile.intentVelocityThresholdMmPerSec
+        autocorrectEnabled = profile.autocorrectEnabled
+        tapClickEnabled = profile.tapClickEnabled
+        tapClickCadenceMsSetting = profile.tapClickCadenceMs
+        snapRadiusPercentSetting = profile.snapRadiusPercent
+        chordalShiftEnabled = profile.chordalShiftEnabled
+        keyboardModeEnabled = profile.keyboardModeEnabled
+        storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
+        storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
+        storedKeyMappingsData = KeyActionMappingStore.encode(profile.keyMappings) ?? Data()
+        applySavedSettings()
+        viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+    }
+
+    private func showKeymapAlert(
+        title: String,
+        message: String,
+        style: NSAlert.Style = .informational
+    ) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = message
+        alert.alertStyle = style
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func saveSettings() {
