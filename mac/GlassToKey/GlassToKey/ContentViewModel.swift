@@ -4903,7 +4903,7 @@ enum KeyActionCatalog {
         "G": (CGKeyCode(kVK_ANSI_G), []),
         "Ctrl": (CGKeyCode(kVK_Control), []),
         "Cmd": (CGKeyCode(kVK_Command), []),
-        "Globe": (CGKeyCode(kVK_Function), []),
+        "Emoji": (CGKeyCode(kVK_Function), []),
         "Z": (CGKeyCode(kVK_ANSI_Z), []),
         "X": (CGKeyCode(kVK_ANSI_X), []),
         "C": (CGKeyCode(kVK_ANSI_C), []),
@@ -5085,6 +5085,13 @@ enum KeyActionCatalog {
                 flags: 0,
                 kind: .layerToggle,
                 layer: 1
+            )
+        }
+        if label == "Globe", let emojiBinding = bindingsByLabel["Emoji"] {
+            return KeyAction(
+                label: "Emoji",
+                keyCode: UInt16(emojiBinding.0),
+                flags: emojiBinding.1.rawValue
             )
         }
         guard let binding = bindingsByLabel[label] else { return nil }
