@@ -1,6 +1,5 @@
 ## TODO:
-- It looks like I can't hold MO on 1 side and hit keys on the new layer on the same hand. For instance, when I hit MO(1) on LHS and then try to hit Left Arrow on LHS it doesn't work. Holding MO(1) on LHS I can properly use RHS layer1
-- Cant hold Left/Right/Up/Down or Backspace for repeat.
+- Cant hold Left/Right/Up/Down for repeat.
 - MO layer should be able to fire even during Mouse mode (or keyboard mode)
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
@@ -11,6 +10,7 @@
 ## Gesture Config:
 - Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners
 - Allow user to select their own action for a gesture from a pre-formed list: Typing Toggle, Chordal Shift, or allow them to select a regular Action from the drop-down
+- If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 
 ## Worth it?
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch

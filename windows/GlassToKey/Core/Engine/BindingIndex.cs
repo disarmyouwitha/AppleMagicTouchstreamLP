@@ -299,8 +299,7 @@ internal static class EngineActionResolver
             return new EngineKeyAction(EngineActionKind.Modifier, resolved, 0, modifierKey);
         }
 
-        if (resolved.Equals("Space", StringComparison.OrdinalIgnoreCase) ||
-            resolved.Equals("Back", StringComparison.OrdinalIgnoreCase))
+        if (IsContinuousActionLabel(resolved))
         {
             if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort continuousVk))
             {
@@ -328,6 +327,17 @@ internal static class EngineActionResolver
         }
 
         return new EngineKeyAction(EngineActionKind.Key, resolved, 0);
+    }
+
+    private static bool IsContinuousActionLabel(string label)
+    {
+        return label.Equals("Space", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Back", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Backspace", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Left", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Right", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Up", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("Down", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool TryParseModifierChord(string text, string prefix, ushort modifierVirtualKey, out EngineKeyAction action)
