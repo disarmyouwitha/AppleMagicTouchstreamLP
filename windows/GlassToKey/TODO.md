@@ -9,7 +9,7 @@
 - REFACTOR
 ---
 ## Gesture Config:
-- Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners
+- Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners    
 - Allow user to select their own action for a gesture from a pre-formed list: Typing Toggle, Chordal Shift, or allow them to select a regular Action from the drop-down
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 
@@ -24,4 +24,16 @@
 
 
 ## CURRENT CONTEXT:
-- Do you need to add any output or debugging that would allow us to figure this out together?
+  Notable Drift / Health
+
+  - Docs say key/mouse candidate buffer is fixed at 40ms (GlassToKey/README.md:45), but runtime config
+    currently hardcodes 20ms (GlassToKey/RuntimeConfigurationFactory.cs:13).
+  - Self-test baseline is currently failing locally: Engine intent tests failed: expected
+    mouseCandidate->mouseActive transitions were missing (dotnet run --project
+    GlassToKey\GlassToKey.csproj -c Release -- --selftest).
+
+  If you want, I can next do one of these:
+
+  1. Implement the allocation-free stable session ID tracker for lifecycle continuity.
+  2. Add per-frame CSV/JSON XY+slot-byte diagnostics to RawCaptureAnalyzer.
+  3. Triage and fix the current self-test failure first.  
