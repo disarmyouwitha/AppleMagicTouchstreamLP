@@ -1,4 +1,6 @@
 ## TODO
+- autocorrect bugging.
+- auto-reconnect not working
 - Short drag sometimes fires click
 - not sure it should be able to go into gesture mode during typing intent/typing grace
 - sometimes click types letters (Lifting fingers after tap)
