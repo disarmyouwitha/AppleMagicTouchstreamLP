@@ -986,12 +986,12 @@ struct ContentView: View {
                     Spacer()
                     Picker("", selection: layoutSelection) {
                         ForEach(TrackpadLayoutPreset.allCases) { preset in
-                            Text(preset.rawValue).tag(preset)
+                            Text(preset.displayName).tag(preset)
                         }
                     }
                     .pickerStyle(MenuPickerStyle())
                 }
-                if layoutOption.hasGrid {
+                if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
                     if let selection {
                         Text("Selected column \(selection.index + 1)")
                             .font(.caption)
@@ -1067,8 +1067,8 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                     }
                 } else {
-                    Text(layoutOption == .mobile
-                        ? "Mobile preset uses a fixed QWERTY grid on the right trackpad; column tuning is disabled."
+                    Text(layoutOption.hasGrid
+                        ? "This preset uses a fixed right-side layout; column tuning is disabled."
                         : "Layout has no grid. Pick one of the presets to show keys.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -2265,7 +2265,7 @@ struct ContentView: View {
     }
 
     private func rebuildLayouts() {
-        if layoutOption == .mobile {
+        if layoutOption.usesFixedRightLayout {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentView.makeMobileKeyLayout(size: trackpadSize)
             viewModel.configureLayouts(
@@ -2283,6 +2283,29 @@ struct ContentView: View {
               layoutColumnAnchors.count == layoutColumns else {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
+            viewModel.configureLayouts(
+                leftLayout: leftLayout,
+                rightLayout: rightLayout,
+                leftLabels: leftGridLabels,
+                rightLabels: rightGridLabels,
+                trackpadSize: trackpadSize,
+                trackpadWidthMm: Self.trackpadWidthMM
+            )
+            return
+        }
+        if layoutOption.blankLeftSide {
+            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
+            rightLayout = ContentView.makeKeyLayout(
+                size: trackpadSize,
+                keyWidth: Self.baseKeyWidthMM,
+                keyHeight: Self.baseKeyHeightMM,
+                columns: layoutColumns,
+                rows: layoutRows,
+                trackpadWidth: Self.trackpadWidthMM,
+                trackpadHeight: Self.trackpadHeightMM,
+                columnAnchorsMM: layoutColumnAnchors,
+                columnSettings: columnSettings
+            )
             viewModel.configureLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
@@ -2398,6 +2421,9 @@ struct ContentView: View {
     private func columnSettings(
         for layout: TrackpadLayoutPreset
     ) -> [ColumnLayoutSettings] {
+        if !layout.allowsColumnSettings {
+            return ColumnLayoutDefaults.defaultSettings(columns: layout.columns)
+        }
         if let stored = LayoutColumnSettingsStorage.settings(
             for: layout,
             from: storedColumnSettingsData
@@ -2741,7 +2767,7 @@ struct ContentView: View {
     }
 
     private func updateGridLabelInfo() {
-        let allowHold = layoutOption != .mobile
+        let allowHold = layoutOption.allowHoldBindings
         leftGridLabelInfo = gridLabelInfo(for: leftGridLabels, side: .left, allowHold: allowHold)
         rightGridLabelInfo = gridLabelInfo(for: rightGridLabels, side: .right, allowHold: allowHold)
     }

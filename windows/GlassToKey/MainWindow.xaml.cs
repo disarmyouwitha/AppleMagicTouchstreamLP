@@ -56,6 +56,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly KeymapStore _keymap;
     private readonly ObservableCollection<KeyActionOption> _keyActionOptions = new();
     private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
+    private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
+    private bool _deferredKeyActionOptionsScheduled;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -1173,30 +1175,37 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int leftCount = SnapshotAutoSplayTouches(TrackpadSide.Left, left);
         int rightCount = SnapshotAutoSplayTouches(TrackpadSide.Right, right);
 
-        bool leftReady = leftCount == AutoSplayTouchCount;
-        bool rightReady = rightCount == AutoSplayTouchCount;
+        bool leftReady = leftCount >= AutoSplayTouchCount;
+        bool rightReady = rightCount >= AutoSplayTouchCount;
         if (leftReady && rightReady)
         {
-            error = "Detected 4 touches on both sides. Keep touches on only one side and retry.";
+            error = "Detected 4+ touches on both sides. Keep touches on only one side and retry.";
             return false;
         }
 
         if (!leftReady && !rightReady)
         {
             error = leftCount == 0 && rightCount == 0
-                ? "Place exactly 4 fingertips on one side, then click Auto Splay."
-                : $"Auto Splay needs exactly 4 touches on one side (left: {leftCount}, right: {rightCount}).";
+                ? "Place at least 4 fingertips on one side, then click Auto Splay."
+                : $"Auto Splay needs at least 4 touches on one side (left: {leftCount}, right: {rightCount}).";
             return false;
         }
 
         sourceSide = leftReady ? TrackpadSide.Left : TrackpadSide.Right;
         Span<AutoSplayTouch> source = leftReady ? left : right;
+        int sourceCount = leftReady ? leftCount : rightCount;
+        int skipIndex = IndexOfLowestAutoSplayTouch(source, sourceCount);
         touches = new AutoSplayTouch[AutoSplayTouchCount];
-        for (int i = 0; i < AutoSplayTouchCount; i++)
+        for (int i = 0, written = 0; i < sourceCount && written < AutoSplayTouchCount; i++)
         {
+            if (i == skipIndex)
+            {
+                continue;
+            }
+
             AutoSplayTouch contact = source[i];
             double canonicalX = sourceSide == TrackpadSide.Left ? 1.0 - contact.XNorm : contact.XNorm;
-            touches[i] = new AutoSplayTouch(canonicalX, contact.YNorm);
+            touches[written++] = new AutoSplayTouch(canonicalX, contact.YNorm);
         }
 
         Array.Sort(touches, static (a, b) =>
@@ -1207,6 +1216,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         error = string.Empty;
         return true;
+    }
+
+    private static int IndexOfLowestAutoSplayTouch(Span<AutoSplayTouch> source, int count)
+    {
+        if (count <= AutoSplayTouchCount)
+        {
+            return -1;
+        }
+
+        int index = 0;
+        for (int i = 1; i < count; i++)
+        {
+            AutoSplayTouch candidate = source[i];
+            AutoSplayTouch current = source[index];
+            if (candidate.YNorm > current.YNorm)
+            {
+                index = i;
+            }
+        }
+
+        return index;
     }
 
     private int SnapshotAutoSplayTouches(TrackpadSide side, Span<AutoSplayTouch> destination)
@@ -1578,12 +1608,90 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        if (!_keyActionOptionLookup.Add(action))
+        if (_keyActionOptionLookup.Contains(action))
         {
             return;
         }
 
-        _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
+        if (!TryAddActionOption(action))
+        {
+            QueueDeferredActionOption(action);
+        }
+    }
+
+    private bool TryAddActionOption(string action)
+    {
+        try
+        {
+            _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
+            _keyActionOptionLookup.Add(action);
+            return true;
+        }
+        catch (InvalidOperationException)
+        {
+            // WPF can throw reentrancy errors if this mutates during CollectionChanged dispatch.
+            return false;
+        }
+    }
+
+    private void QueueDeferredActionOption(string action)
+    {
+        if (string.IsNullOrWhiteSpace(action) || _keyActionOptionLookup.Contains(action))
+        {
+            return;
+        }
+
+        _deferredKeyActionOptions.Add(action);
+        if (_deferredKeyActionOptionsScheduled)
+        {
+            return;
+        }
+
+        _deferredKeyActionOptionsScheduled = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(FlushDeferredActionOptions));
+    }
+
+    private void FlushDeferredActionOptions()
+    {
+        _deferredKeyActionOptionsScheduled = false;
+        if (_deferredKeyActionOptions.Count == 0)
+        {
+            return;
+        }
+
+        string[] pending = new string[_deferredKeyActionOptions.Count];
+        _deferredKeyActionOptions.CopyTo(pending);
+        _deferredKeyActionOptions.Clear();
+
+        bool addedAny = false;
+        for (int i = 0; i < pending.Length; i++)
+        {
+            string action = pending[i];
+            if (string.IsNullOrWhiteSpace(action) || _keyActionOptionLookup.Contains(action))
+            {
+                continue;
+            }
+
+            if (TryAddActionOption(action))
+            {
+                addedAny = true;
+            }
+            else
+            {
+                _deferredKeyActionOptions.Add(action);
+            }
+        }
+
+        if (_deferredKeyActionOptions.Count > 0 && !_deferredKeyActionOptionsScheduled)
+        {
+            _deferredKeyActionOptionsScheduled = true;
+            Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(FlushDeferredActionOptions));
+        }
+
+        if (addedAny && !_suppressKeymapActionEvents)
+        {
+            RefreshKeymapEditor();
+        }
     }
 
     private void InitializeReplayControls()
