@@ -52,6 +52,11 @@ private protocol KeyDispatching: Sendable {
 }
 
 private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
+    private static let globeKeyCode = CGKeyCode(kVK_Function)
+    private static let globeModifierFlag = CGEventFlags.maskSecondaryFn
+    private static let emojiTriggerCode = CGKeyCode(kVK_Space)
+    private static let emojiTriggerFlags: CGEventFlags = [.maskCommand, .maskControl]
+
     private let queue = DispatchQueue(
         label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
         qos: .userInteractive
@@ -89,14 +94,39 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 ) else {
                     return
                 }
+                if code == Self.globeKeyCode {
+                    guard let emojiDown = CGEvent(
+                        keyboardEventSource: source,
+                        virtualKey: Self.emojiTriggerCode,
+                        keyDown: true
+                    ),
+                    let emojiUp = CGEvent(
+                        keyboardEventSource: source,
+                        virtualKey: Self.emojiTriggerCode,
+                        keyDown: false
+                    ) else {
+                        return
+                    }
+                    AutocorrectEngine.shared.recordDispatchedKey(
+                        code: Self.emojiTriggerCode,
+                        flags: Self.emojiTriggerFlags,
+                        keyDown: true,
+                        altAscii: 0
+                    )
+                    emojiDown.flags = Self.emojiTriggerFlags
+                    emojiUp.flags = Self.emojiTriggerFlags
+                    emojiDown.post(tap: .cghidEventTap)
+                    emojiUp.post(tap: .cghidEventTap)
+                    return
+                }
                 AutocorrectEngine.shared.recordDispatchedKey(
                     code: code,
-                    flags: flags,
+                    flags: resolvedFlags(for: code, flags: flags, keyDown: true),
                     keyDown: true,
                     altAscii: altAscii
                 )
-                keyDown.flags = flags
-                keyUp.flags = flags
+                configureKeyboardEvent(keyDown, code: code, keyDown: true, flags: flags)
+                configureKeyboardEvent(keyUp, code: code, keyDown: false, flags: flags)
                 keyDown.post(tap: .cghidEventTap)
                 keyUp.post(tap: .cghidEventTap)
             }
@@ -133,15 +163,44 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 if keyDown {
                     AutocorrectEngine.shared.recordDispatchedKey(
                         code: code,
-                        flags: flags,
+                        flags: resolvedFlags(for: code, flags: flags, keyDown: true),
                         keyDown: true,
                         altAscii: altAscii
                     )
                 }
-                event.flags = flags
+                configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
                 event.post(tap: .cghidEventTap)
             }
         }
+    }
+
+    @inline(__always)
+    private func configureKeyboardEvent(
+        _ event: CGEvent,
+        code: CGKeyCode,
+        keyDown: Bool,
+        flags: CGEventFlags
+    ) {
+        if code == Self.globeKeyCode {
+            event.type = .flagsChanged
+        }
+        event.flags = resolvedFlags(for: code, flags: flags, keyDown: keyDown)
+    }
+
+    @inline(__always)
+    private func resolvedFlags(
+        for code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool
+    ) -> CGEventFlags {
+        guard code == Self.globeKeyCode else { return flags }
+        var resolved = flags
+        if keyDown {
+            resolved.insert(Self.globeModifierFlag)
+        } else {
+            resolved.remove(Self.globeModifierFlag)
+        }
+        return resolved
     }
 
     func postLeftClick(clickCount: Int) {
