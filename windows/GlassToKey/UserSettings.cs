@@ -31,6 +31,7 @@ public sealed class UserSettings
     public double SnapAmbiguityRatio { get; set; } = 1.15;
     public double KeyBufferMs { get; set; } = 20.0;
     public double KeyPaddingPercent { get; set; } = 10.0;
+    public Dictionary<string, double>? KeyPaddingPercentByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public double TapStaggerToleranceMs { get; set; } = 80.0;
     public double TapCadenceWindowMs { get; set; } = 200.0;
     public double TapMoveThresholdMm { get; set; } = 3.0;
@@ -84,6 +85,7 @@ public sealed class UserSettings
         SnapAmbiguityRatio = source.SnapAmbiguityRatio;
         KeyBufferMs = source.KeyBufferMs;
         KeyPaddingPercent = source.KeyPaddingPercent;
+        KeyPaddingPercentByLayout = CloneKeyPaddingByLayout(source.KeyPaddingPercentByLayout);
         TapStaggerToleranceMs = source.TapStaggerToleranceMs;
         TapCadenceWindowMs = source.TapCadenceWindowMs;
         TapMoveThresholdMm = source.TapMoveThresholdMm;
@@ -197,6 +199,13 @@ public sealed class UserSettings
             changed = true;
         }
 
+        double normalizedPadding = Math.Clamp(KeyPaddingPercent, 0.0, 90.0);
+        if (Math.Abs(normalizedPadding - KeyPaddingPercent) > 0.00001)
+        {
+            KeyPaddingPercent = normalizedPadding;
+            changed = true;
+        }
+
         if (TwoFingerTapEnabled != TapClickEnabled)
         {
             TwoFingerTapEnabled = TapClickEnabled;
@@ -246,6 +255,56 @@ public sealed class UserSettings
             }
 
             DecoderProfilesByDevicePath = normalized;
+        }
+
+        Dictionary<string, double> normalizedKeyPaddingByLayout = new(StringComparer.OrdinalIgnoreCase);
+        if (KeyPaddingPercentByLayout != null)
+        {
+            foreach ((string key, double value) in KeyPaddingPercentByLayout)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    changed = true;
+                    continue;
+                }
+
+                string trimmedKey = key.Trim();
+                if (!string.Equals(trimmedKey, key, StringComparison.Ordinal))
+                {
+                    changed = true;
+                }
+
+                double clamped = Math.Clamp(value, 0.0, 90.0);
+                if (Math.Abs(clamped - value) > 0.00001)
+                {
+                    changed = true;
+                }
+
+                normalizedKeyPaddingByLayout[trimmedKey] = clamped;
+            }
+        }
+
+        if (!normalizedKeyPaddingByLayout.ContainsKey(LayoutPresetName))
+        {
+            normalizedKeyPaddingByLayout[LayoutPresetName] = Math.Clamp(KeyPaddingPercent, 0.0, 90.0);
+            changed = true;
+        }
+
+        if (!AreKeyPaddingMapsEquivalent(KeyPaddingPercentByLayout, normalizedKeyPaddingByLayout))
+        {
+            KeyPaddingPercentByLayout = normalizedKeyPaddingByLayout;
+            changed = true;
+        }
+        else if (KeyPaddingPercentByLayout == null)
+        {
+            KeyPaddingPercentByLayout = normalizedKeyPaddingByLayout;
+        }
+
+        if (normalizedKeyPaddingByLayout.TryGetValue(LayoutPresetName, out double activePadding) &&
+            Math.Abs(KeyPaddingPercent - activePadding) > 0.00001)
+        {
+            KeyPaddingPercent = activePadding;
+            changed = true;
         }
 
         Dictionary<string, List<ColumnLayoutSettings>> normalizedByLayout = new(StringComparer.OrdinalIgnoreCase);
@@ -364,6 +423,27 @@ public sealed class UserSettings
             }
 
             clone[key] = value;
+        }
+
+        return clone;
+    }
+
+    private static Dictionary<string, double> CloneKeyPaddingByLayout(Dictionary<string, double>? source)
+    {
+        Dictionary<string, double> clone = new(StringComparer.OrdinalIgnoreCase);
+        if (source == null)
+        {
+            return clone;
+        }
+
+        foreach ((string key, double value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            clone[key] = Math.Clamp(value, 0.0, 90.0);
         }
 
         return clone;
@@ -504,6 +584,45 @@ public sealed class UserSettings
             }
 
             if (!AreColumnSettingsListsEquivalent(compareValue, value))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static bool AreKeyPaddingMapsEquivalent(
+        Dictionary<string, double>? existing,
+        Dictionary<string, double> normalized)
+    {
+        Dictionary<string, double> comparable = new(StringComparer.OrdinalIgnoreCase);
+        if (existing != null)
+        {
+            foreach ((string key, double value) in existing)
+            {
+                if (string.IsNullOrWhiteSpace(key))
+                {
+                    continue;
+                }
+
+                comparable[key] = Math.Clamp(value, 0.0, 90.0);
+            }
+        }
+
+        if (comparable.Count != normalized.Count)
+        {
+            return false;
+        }
+
+        foreach ((string key, double value) in normalized)
+        {
+            if (!comparable.TryGetValue(key, out double compareValue))
+            {
+                return false;
+            }
+
+            if (Math.Abs(compareValue - value) > 0.000001)
             {
                 return false;
             }

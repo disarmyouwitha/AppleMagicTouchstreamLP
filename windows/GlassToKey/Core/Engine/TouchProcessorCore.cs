@@ -536,6 +536,26 @@ internal sealed class TouchProcessorCore
     {
         if (_touchStates.TryGetValue(touchKey, out TouchBindingState existing))
         {
+            if (existing.BindingIndex < 0 && hit.Found && IsMomentaryLayerActive())
+            {
+                // If a touch started while bindings were still on the previous layer, allow it to
+                // rebind once MO() is active so same-side layer keys can recover without lift/re-touch.
+                BindingIndex rebindIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+                EngineKeyBinding rebound = rebindIndex.Bindings[hit.BindingIndex];
+                existing.BindingIndex = hit.BindingIndex;
+                existing.HasHoldAction = rebound.Mapping.HasHold;
+                existing.HoldTriggered = false;
+                existing.Lifecycle = EngineTouchLifecycle.Pending;
+                existing.StartTicks = timestampTicks;
+                existing.StartXNorm = xNorm;
+                existing.StartYNorm = yNorm;
+                existing.MaxDistanceMm = 0;
+                if (!existing.HasHoldAction)
+                {
+                    TryBeginPressAction(rebound.Mapping.Primary, touchKey, timestampTicks, ref existing);
+                }
+            }
+
             double movementMm = DistanceMm(existing.StartXNorm, existing.StartYNorm, xNorm, yNorm);
             existing.LastXNorm = xNorm;
             existing.LastYNorm = yNorm;
@@ -561,7 +581,12 @@ internal sealed class TouchProcessorCore
                     TryBeginPressAction(existingBinding.Mapping.Hold, touchKey, timestampTicks, ref existing);
                     if (!existing.DispatchDownSent)
                     {
-                        ApplyReleaseAction(existingBinding.Mapping.Hold, side, touchKey, timestampTicks);
+                        ApplyReleaseAction(
+                            existingBinding.Mapping.Hold,
+                            side,
+                            touchKey,
+                            timestampTicks,
+                            allowTypingDisabledOverride: IsMomentaryLayerActive());
                     }
                 }
             }
@@ -729,7 +754,12 @@ internal sealed class TouchProcessorCore
 
         if (hasBoundBinding && binding.Rect.Contains(state.LastXNorm, state.LastYNorm))
         {
-            ApplyReleaseAction(action, state.Side, touchKey, timestampTicks);
+            ApplyReleaseAction(
+                action,
+                state.Side,
+                touchKey,
+                timestampTicks,
+                allowTypingDisabledOverride: IsMomentaryLayerActive());
             return;
         }
 
@@ -744,7 +774,12 @@ internal sealed class TouchProcessorCore
             }
 
             EngineKeyBinding directBinding = index.Bindings[directHit.BindingIndex];
-            ApplyReleaseAction(directBinding.Mapping.Primary, state.Side, touchKey, timestampTicks);
+            ApplyReleaseAction(
+                directBinding.Mapping.Primary,
+                state.Side,
+                touchKey,
+                timestampTicks,
+                allowTypingDisabledOverride: IsMomentaryLayerActive());
             return;
         }
 
@@ -754,7 +789,12 @@ internal sealed class TouchProcessorCore
             if (TrySnapBinding(state.Side, state.LastXNorm, state.LastYNorm, out EngineKeyBinding snapped))
             {
                 _snapAccepted++;
-                ApplyReleaseAction(snapped.Mapping.Primary, state.Side, touchKey, timestampTicks);
+                ApplyReleaseAction(
+                    snapped.Mapping.Primary,
+                    state.Side,
+                    touchKey,
+                    timestampTicks,
+                    allowTypingDisabledOverride: IsMomentaryLayerActive());
                 return;
             }
 
@@ -865,6 +905,7 @@ internal sealed class TouchProcessorCore
 
     private void TryBeginPressAction(EngineKeyAction action, ulong touchKey, long timestampTicks, ref TouchBindingState state)
     {
+        bool allowTypingDisabledOverride = IsMomentaryLayerActive();
         switch (action.Kind)
         {
             case EngineActionKind.Modifier:
@@ -882,7 +923,8 @@ internal sealed class TouchProcessorCore
                     DispatchEventFlags.None,
                     state.Side,
                     timestampTicks,
-                    dispatchLabel: action.Label))
+                    dispatchLabel: action.Label,
+                    allowTypingDisabledOverride))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.ModifierDown;
@@ -907,7 +949,8 @@ internal sealed class TouchProcessorCore
                     DispatchEventFlags.Repeatable,
                     state.Side,
                     timestampTicks,
-                    dispatchLabel: action.Label))
+                    dispatchLabel: action.Label,
+                    allowTypingDisabledOverride))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
@@ -982,13 +1025,23 @@ internal sealed class TouchProcessorCore
         state.DispatchDownLabel = string.Empty;
     }
 
-    private void ApplyReleaseAction(EngineKeyAction action, TrackpadSide side, ulong touchKey, long timestampTicks)
+    private void ApplyReleaseAction(
+        EngineKeyAction action,
+        TrackpadSide side,
+        ulong touchKey,
+        long timestampTicks,
+        bool allowTypingDisabledOverride = false)
     {
         ApplyActionState(action, timestampTicks);
-        EmitTapDispatch(action, side, touchKey, timestampTicks);
+        EmitTapDispatch(action, side, touchKey, timestampTicks, allowTypingDisabledOverride);
     }
 
-    private void EmitTapDispatch(EngineKeyAction action, TrackpadSide side, ulong touchKey, long timestampTicks)
+    private void EmitTapDispatch(
+        EngineKeyAction action,
+        TrackpadSide side,
+        ulong touchKey,
+        long timestampTicks,
+        bool allowTypingDisabledOverride)
     {
         switch (action.Kind)
         {
@@ -1004,7 +1057,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                 }
                 break;
             case EngineActionKind.Modifier:
@@ -1018,7 +1072,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.VirtualKey,
@@ -1027,7 +1082,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                 }
                 break;
             case EngineActionKind.MouseButton:
@@ -1055,7 +1111,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                     EnqueueDispatchEvent(
                         DispatchEventKind.KeyTap,
                         action.VirtualKey,
@@ -1064,7 +1121,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.ModifierVirtualKey,
@@ -1073,7 +1131,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride);
                 }
                 break;
             default:
@@ -1196,12 +1255,13 @@ internal sealed class TouchProcessorCore
         DispatchEventFlags flags,
         TrackpadSide side,
         long timestampTicks,
-        string dispatchLabel = "")
+        string dispatchLabel = "",
+        bool allowTypingDisabledOverride = false)
     {
         string normalizedDispatchLabel = _diagnosticsEnabled
             ? NormalizeDispatchLabel(kind, virtualKey, mouseButton, dispatchLabel)
             : string.Empty;
-        if (!_typingEnabled && IsTypingSuppressedDispatch(kind))
+        if (!_typingEnabled && IsTypingSuppressedDispatch(kind) && !allowTypingDisabledOverride)
         {
             _dispatchSuppressedTypingDisabled++;
             RecordDiagnostic(
@@ -1352,6 +1412,11 @@ internal sealed class TouchProcessorCore
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
             DispatchEventKind.ModifierDown;
+    }
+
+    private bool IsMomentaryLayerActive()
+    {
+        return _momentaryLayerTouches.Count > 0;
     }
 
     private void UpdateActiveLayer()

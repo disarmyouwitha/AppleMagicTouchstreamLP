@@ -45,6 +45,7 @@ internal static class RuntimeConfigurationFactory
         out KeyLayout leftLayout,
         out KeyLayout rightLayout)
     {
+        double keyPaddingPercent = GetKeyPaddingPercentForPreset(settings, preset);
         leftLayout = LayoutBuilder.BuildLayout(
             preset,
             TrackpadWidthMm,
@@ -53,7 +54,7 @@ internal static class RuntimeConfigurationFactory
             KeyHeightMm,
             columnSettings,
             mirrored: true,
-            keySpacingPercent: settings.KeyPaddingPercent);
+            keySpacingPercent: keyPaddingPercent);
 
         rightLayout = LayoutBuilder.BuildLayout(
             preset,
@@ -63,7 +64,37 @@ internal static class RuntimeConfigurationFactory
             KeyHeightMm,
             columnSettings,
             mirrored: false,
-            keySpacingPercent: settings.KeyPaddingPercent);
+            keySpacingPercent: keyPaddingPercent);
+    }
+
+    public static double GetKeyPaddingPercentForPreset(UserSettings settings, TrackpadLayoutPreset preset)
+    {
+        if (settings.KeyPaddingPercentByLayout != null &&
+            settings.KeyPaddingPercentByLayout.TryGetValue(preset.Name, out double byLayout))
+        {
+            return Math.Clamp(byLayout, 0.0, 90.0);
+        }
+
+        if (string.Equals(settings.LayoutPresetName, preset.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            return Math.Clamp(settings.KeyPaddingPercent, 0.0, 90.0);
+        }
+
+        return 10.0;
+    }
+
+    public static void SaveKeyPaddingForPreset(
+        UserSettings settings,
+        TrackpadLayoutPreset preset,
+        double keyPaddingPercent)
+    {
+        settings.KeyPaddingPercentByLayout ??= new Dictionary<string, double>(StringComparer.OrdinalIgnoreCase);
+        double clamped = Math.Clamp(keyPaddingPercent, 0.0, 90.0);
+        settings.KeyPaddingPercentByLayout[preset.Name] = clamped;
+        if (string.Equals(settings.LayoutPresetName, preset.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            settings.KeyPaddingPercent = clamped;
+        }
     }
 
     public static ColumnLayoutSettings[] CloneColumnSettings(ColumnLayoutSettings[] source)
