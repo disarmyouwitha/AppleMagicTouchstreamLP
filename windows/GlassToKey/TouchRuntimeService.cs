@@ -302,7 +302,7 @@ internal sealed class TouchRuntimeService : IDisposable
                     continue;
                 }
 
-                TraceDecoderSelection(snapshot, decoderProfile, decoded, routeLeft, routeRight);
+                TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, routeLeft, routeRight);
 
                 InputFrame frame = decoded.Frame;
 
@@ -352,6 +352,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private void TraceDecoderSelection(
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded,
         bool routeLeft,
@@ -364,18 +365,19 @@ internal sealed class TouchRuntimeService : IDisposable
 
         if (routeLeft)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, payload, preferredProfile, decoded);
         }
 
         if (routeRight)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, payload, preferredProfile, decoded);
         }
     }
 
     private void TraceDecoderSelectionForSide(
         TrackpadSide side,
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded)
     {
@@ -414,6 +416,7 @@ internal sealed class TouchRuntimeService : IDisposable
             $"first={firstContact} tag={RawInputInterop.FormatTag(snapshot.Tag)} " +
             $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
             $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
+        Console.WriteLine($"[decoder] side={side} ids {TrackpadDecoderDebugFormatter.BuildContactIdSummary(payload, decoded)}");
     }
 
     private void RegisterRawInputFault(

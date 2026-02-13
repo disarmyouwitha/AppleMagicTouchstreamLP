@@ -58,7 +58,7 @@ Observed behavior that drove these constants:
 
 ## Known Unknowns
 - Some non-position bits likely still exist in nearby slot bytes (`+1`, `+7`, `+8`).
-- Raw analyzer JSON is summary-level only; no built-in per-frame XY dump yet.
+- We still have not isolated true stable contact identity bytes for usage `0/0` official stream.
 
 ## Runtime Stability Guardrails
 Raw input exception handling now includes:
@@ -69,6 +69,13 @@ Raw input exception handling now includes:
 ## Analyzer + Validation Workflow
 Decoder debug output:
 - add `--decoder-debug` to print per-side chosen decode profile and sample contact fields.
+- `--decoder-debug` now also prints per-contact `rawId -> assignedId` mapping when the frame is PTP-decodable.
+
+Raw analyzer contact trace:
+- add `--raw-analyze-contacts-out <path>` to emit per-contact CSV rows with:
+  - raw parsed PTP fields (`raw_contact_id`, `raw_flags`, `raw_x`, `raw_y`)
+  - decoded assigned fields (`assigned_contact_id`, `assigned_flags`, `decoded_x`, `decoded_y`)
+  - slot bytes (`slot_hex`) and `slot_offset` for byte-level reverse-engineering
 
 ## Tuning Procedure (If Scaling Drifts Again)
 Use this exact process:
@@ -84,7 +91,7 @@ Practical note:
 - If an axis overshoots/clamps too early at extremes, `maxRaw` is too low.
 
 ## Recommended Next Reverse-Engineering Steps
-1. Add optional per-frame CSV output in `RawCaptureAnalyzer` with raw slot bytes + decoded XY.
+1. Use `--raw-analyze-contacts-out` captures to correlate candidate stable-ID bytes (for example slot `+1`, `+7`, `+8`) against `raw_contact_id` drift.
 2. Isolate tip/confidence bits using stationary-finger force ramps.
 
 ## Quick Context Summary For Next Session
