@@ -20,3 +20,7 @@
 
 ## CURSED:
 - HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
+
+
+## CURRENT CONTEXT:
+- Do you need to add any output or debugging that would allow us to figure this out together?
