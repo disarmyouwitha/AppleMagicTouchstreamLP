@@ -1,6 +1,9 @@
 ## TODO
+- export /import keymaps, load global.json default
+- capture / replay .atpcap
 - autocorrect bugging.
 - auto-reconnect not working
+- more realtime haptics? it still feels bad.
 - Short drag sometimes fires click
 - not sure it should be able to go into gesture mode during typing intent/typing grace
 - sometimes click types letters (Lifting fingers after tap)

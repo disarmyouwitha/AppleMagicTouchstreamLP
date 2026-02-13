@@ -4903,6 +4903,7 @@ enum KeyActionCatalog {
         "G": (CGKeyCode(kVK_ANSI_G), []),
         "Ctrl": (CGKeyCode(kVK_Control), []),
         "Cmd": (CGKeyCode(kVK_Command), []),
+        "Globe": (CGKeyCode(kVK_Function), []),
         "Z": (CGKeyCode(kVK_ANSI_Z), []),
         "X": (CGKeyCode(kVK_ANSI_X), []),
         "C": (CGKeyCode(kVK_ANSI_C), []),
