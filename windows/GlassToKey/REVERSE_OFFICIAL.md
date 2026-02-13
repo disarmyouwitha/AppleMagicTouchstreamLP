@@ -27,7 +27,7 @@ Current coordinate extraction:
 
 Current normalization behavior:
 - `Id = slot byte +0` (`payload[slotOffset + 0]`) for usage `0/0` official stream
-  - duplicate-safe fallback order: `contactIndex`, then first free byte in `0..255`
+  - duplicate-safe fallback: first free byte in `0..255` (no fallback to `contactIndex`)
 - `Flags = (flags & 0xFC) | 0x03` (force tip + confidence true)
 
 Why:
@@ -63,6 +63,25 @@ Continuity comparison (nearest-neighbor continuation, threshold 220 decoded unit
 Working candidate model (research-only):
 - `candidateStableId = payload[slotOffset + 0]` where `slotOffset = 1 + contactIndex * 9`
 - implemented in decoder for official usage `0/0` path with duplicate-safe fallback
+
+## Validation Follow-up (capture_new.atpcap, analyzed 2026-02-13)
+Dataset summary:
+- `records=2596`, `decoded=2596`, `usage=0x00/0x00`, `reportId=0x05`, `len=50`
+- contact rows in CSV: `6176`
+- contact-count distribution by frame (non-zero contact frames): `1 finger=732`, `2 fingers=577`, `3 fingers=834`, `4 fingers=447`
+
+Stability and collision results:
+- same-frame duplicate check: `0` duplicate frames for both `b0` and assigned ID.
+- assigned ID matches `b0` in every row (`6176/6176`), so fallback was not needed in this capture.
+- nearest-neighbor contact continuation stability (threshold 220 decoded units):
+  - `b0`: `100%` (`6129/6129`)
+  - assigned ID: `100%` (`6129/6129`)
+  - `raw_contact_id`: `33.45%` (`2050/6129`)
+
+Other byte notes:
+- `slot+1` remained constant `0`.
+- `slot+7` remained constant `0`.
+- `slot+8` remained mostly `3` (`6128` rows) with brief `1` transitions (`48` rows), still consistent with a state/quality bit.
 
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
