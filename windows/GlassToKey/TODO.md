@@ -15,6 +15,7 @@
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
 - Only worth persuing Pressure if we can get Haptics to work, I think
 - I think maybe on OSX I can tell if user is resting fingers or tapping by pressure?? (Move TODO)
+- "force click" mode — it only emits keystrokes on "click" [Can I tell tap/click in the PTP?] (for people who really want to press a key? it should force Keyboard mode.)
 
 ## CURSED:
 - HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
