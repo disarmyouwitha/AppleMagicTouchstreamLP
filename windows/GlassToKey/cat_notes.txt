@@ -1,11 +1,9 @@
-Great! It sounds like we have enough info to implement this: In 'force dbg' can you show a calculation of P+Ph scale 0-985, if that makes sense? like 0-255 for each phase 1-3 then 220 for the last phase?
-
-Can we set a variable for that like p and ph?
+In the GUI can we remove "Pressed:" true/false from the GUI overlay? Can we add "Peak: in it's place where we display the last highest force? (I want to be able to see how hard the keyboard was tapped or clicked)
 
 Can we wire a "force cap" slider into the GUI? (using new variable) /test
 
 Can we wire a "force min" slider into the GUI? (using new variable) /test
 
-^ These will both be in phase1
+^ These will both be in phase1, so, slider can be 0-255
 
 **Gestures** "click", Force click1, Force Click2.

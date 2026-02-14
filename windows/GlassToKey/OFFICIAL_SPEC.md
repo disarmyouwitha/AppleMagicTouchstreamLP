@@ -47,7 +47,12 @@ For non-native touchpad usage (`usagePage/usage != digitizer/touchpad`), the off
   - `phaseRaw = payload[slotOffset + 7]` (8-bit state-class value; observed set `0..3`)
 - flags normalization:
   - `normalizedFlags = (rawFlags & 0xFC) | 0x03`
-  - this forces tip+confidence bits on output contacts
+- this forces tip+confidence bits on output contacts
+
+Locked decoder contract (current):
+- `slot+6` is the official-stream source for per-contact pressure signal `p`.
+- `slot+7` is the official-stream source for per-contact phase signal `ph`.
+- `slot+8` remains lifecycle (`0x03` active/hold, `0x01` release in all analyzed datasets).
 
 ## 4. Coordinate Scaling (Implemented)
 
@@ -190,5 +195,5 @@ Analyzer support confirms:
 The following are explicitly still open:
 - long-session and cross-reconnect stability limits for `slot+0` identity
 - final semantic labels for `slot+8` states beyond observed `0x03` active / `0x01` release
-- exact physical meaning of `slot+6` and `slot+7` (only behavior correlations are confirmed)
+- exact physical units and calibration mapping for `slot+6` (`p`) and per-state semantics for `slot+7` (`ph`)
 - whether composite identity beyond `slot+0` is required for rare edge cases
