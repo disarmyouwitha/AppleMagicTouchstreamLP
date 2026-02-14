@@ -249,6 +249,27 @@ Practical note:
    - remove forced `| 0x03` only after stable rule confidence.
 5. Add analyzer-side collision reporting for `slot+0` (same-frame duplicate detection + continuity mismatch counters).
 
+## Late Session Handoff (2026-02-14)
+Capture hygiene:
+- prefer one device per file (mixed-device captures are still usable but slower to compare).
+- prefer one protocol per file (`tap-noclick`, `press-ramp`, `click-cycle`, `edge-quality`).
+- keep a short text note beside each capture describing exact finger/script actions.
+
+Fast quality checks before deep analysis:
+- no-click protocol should show `button[pressedFrames=0]`.
+- no-click protocol should usually show `slot+7` near-constant `0x00`.
+- release behavior should show `slot+8` shifting to `0x01` near lift-off.
+- press/click protocol should show `slot+6` range expansion and frequent odd values in button-down windows.
+
+Known interpretation pitfalls:
+- if capture ends while finger/button is still down, final release stats can contain one non-release tail sample (for example `slot+8=0x03`, non-zero `slot+6` at EOF).
+- `btnEdge` summaries report values on exact button-edge frames only; sustained click-state behavior is better read from `btnSlot` up/down distributions.
+
+Analyzer fields to trust first:
+- `slot+8` lifecycle (`down/hold/release`) and `btnSlot s8 top up/down`
+- `slot+6` up/down distributions + odd counters (`s6Odd`)
+- `slot+7` non-zero up/down counters (`s7NonZero`) and per-button top values
+
 ## Quick Context Summary For Next Session
 - Official USB-C path is now usable with profile-aware decoding and runtime stability guards.
 - Current slot decode and axis scales are empirical but working in live tests.
