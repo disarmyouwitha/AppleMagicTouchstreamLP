@@ -1,6 +1,8 @@
 ## TODO:
-- When accessing MO() layer I can hit some number 1,3 but I cant hit 2 - what I noticed is when I try to hit 2 the indexes floating on my fingers change.. why would this affect if I can press a key on a MO() layer and can it be fixed?
- 
+- In the GUI can we remove "Pressed:" true/false from the GUI overlay? Can we add "Peak: in it's place where we display the last highest force? (I want to be able to see how hard the keyboard was tapped or clicked)
+- Can we wire a "force cap" slider into the GUI? (using new variable) /test
+- Can we wire a "force min" slider into the GUI? (using new variable) /test
+^ These will both be in phase1, so, slider can be 0-255
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
 - Voice mode Gestue (Outer Corners): "windows siri/dictation" (Win+H Dictation) + ESC to close window
@@ -11,6 +13,7 @@
 - Shows available gestures: ("Tap Gestures") 2-finger tap, 3-finger tap ("Swipe Gestures") 5-finger swiper L/R ("Hold Gestures") 4-finger hold ("Corners") Outer corners, Inner corners    
 - Allow user to select their own action for a gesture from a pre-formed list: Typing Toggle, Chordal Shift, or allow them to select a regular Action from the drop-down
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
+**Gestures** "click"(btn47), **Ph:** Force click1, Force Click2.
 
 ## Worth it?
 - Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
