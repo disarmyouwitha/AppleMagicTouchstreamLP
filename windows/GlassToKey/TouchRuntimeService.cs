@@ -29,6 +29,8 @@ internal sealed class TouchRuntimeService : IDisposable
     private TrackpadDecoderProfile? _lastDecoderProfileRight;
     private long _lastDecoderProfileLogLeftTicks;
     private long _lastDecoderProfileLogRightTicks;
+    private ButtonEdgeTracker _leftButtonTracker;
+    private ButtonEdgeTracker _rightButtonTracker;
 
     private UserSettings _settings;
     private KeymapStore _keymap;
@@ -237,6 +239,8 @@ internal sealed class TouchRuntimeService : IDisposable
         _rawInputContext.SeedTags(seed);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
+        _leftButtonTracker.Reset();
+        _rightButtonTracker.Reset();
     }
 
     private void HandleRawInput(IntPtr lParam)
@@ -308,13 +312,15 @@ internal sealed class TouchRuntimeService : IDisposable
 
                 if (routeLeft)
                 {
-                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, snapshot.Tag);
+                    ButtonEdgeState buttonState = _leftButtonTracker.Update(in frame);
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
                     _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
                 }
 
                 if (routeRight)
                 {
-                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, snapshot.Tag);
+                    ButtonEdgeState buttonState = _rightButtonTracker.Update(in frame);
+                    _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
                     _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
                 }
             }

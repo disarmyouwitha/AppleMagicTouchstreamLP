@@ -53,6 +53,17 @@ Transitions and notes:
 - **Tap/Drag** immediately disqualifies the touch and forces `mouseActive`.
 - **GestureCandidate** enters when 2+ touches start within the key buffer window (or 3+ simultaneous touches) and exits back to `idle` once fewer than two contacts remain.
 
+## Button Edge Helpers
+For click/button-driven features, use the runtime button edge helpers instead of recomputing transitions in feature code:
+
+- `Core/Input/InputFrame.cs`: `InputFrame.IsButtonPressed` convenience (`IsButtonClicked != 0`).
+- `Core/Input/ButtonEdgeTracker.cs`:
+  - `ButtonEdgeTracker`: zero-allocation per-frame transition tracker.
+  - `ButtonEdgeState`: `IsPressed`, `JustPressed`, `JustReleased`, `Changed`, `HasHistory`.
+- First sample has no history (`HasHistory=false`), so it never reports a synthetic edge.
+- Shared runtime computes edges once per side on the hot path and forwards them through:
+  - `IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag)`
+
 ## Build
 ```
 dotnet build GlassToKey\GlassToKey.csproj -c Release
@@ -84,7 +95,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
-- `--selftest`: Run parser/replay smoke tests and exit.
+- `--selftest`: Run parser/button-edge/replay smoke tests and exit.
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
@@ -105,6 +116,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `RawInputInterop.cs`: Raw Input registration + device enumeration.
 - `PtpReport.cs`: zero-allocation report parsing.
 - `Core/Input/InputFrame.cs`: fixed-capacity frame/contact structs for engine handoff.
+- `Core/Input/ButtonEdgeTracker.cs`: hot-path button pressed/down/up edge tracking helpers.
 - `Core/Engine/*`: touch table, binding index, action model, `TouchProcessor` core + actor queue.
 - `Core/Diagnostics/*`: capture format, replay runner, self-tests, frame metrics.
 - `TouchState.cs`: Thread-safe state container.
