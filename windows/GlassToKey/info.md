@@ -26,7 +26,7 @@
 
   ---
 
-   Agree, IsButtonClicked is a good next target and probably the easiest high-confidence win.
+  IsButtonClicked (byte 49) is now treated as confirmed for this transport.
 
   What we are forcing for tip/confidence:
 
@@ -51,9 +51,6 @@
 
   Next logical steps (in order):
 
-  1. Map IsButtonClicked (byte 49) with controlled click-only captures.
-  2. Add analyzer output for raw slot bytes +1,+6,+7,+8 transition stats vs contact lifecycle events.
-  3. Recover true tip/confidence semantics, then remove forced | 0x03 when confidence is high.
-
-  If you want, I can implement step 1 next with a very small capture protocol and analysis output so we can confirm IsButtonClicked
-  quickly.
+  1. Use analyzer lifecycle output for slot bytes +1,+6,+7,+8 to isolate release/transition semantics.
+  2. Recover true tip/confidence semantics, then remove forced | 0x03 when confidence is high.
+  3. Clarify official ScanTime (bytes 46-47) behavior across longer captures.

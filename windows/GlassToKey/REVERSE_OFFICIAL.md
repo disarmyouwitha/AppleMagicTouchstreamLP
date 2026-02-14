@@ -150,6 +150,10 @@ Raw analyzer contact trace:
   - decoded/raw tail/button context (`decoded_is_button_clicked`, `raw_is_button_clicked`, `decoded_scan_time`, `raw_scan_time`, `raw_contact_count`)
 - this capture strongly indicates `raw_contact_id` is not a true stable identity field for usage `0/0`.
 - raw analysis summary now includes `button[...]` metrics (pressed-frame count, down/up edges, run length, with/without contacts) for `IsButtonClicked` mapping work.
+- raw analysis summary also includes slot-byte lifecycle stats for `slot+1`, `slot+6`, `slot+7`, `slot+8`:
+  - per-byte event counts split by `down`, `hold`, `release`
+  - top value histograms per lifecycle phase
+  - top hold transitions (`from -> to`) for correlation with contact-state changes
 
 ## Tuning Procedure (If Scaling Drifts Again)
 Use this exact process:
