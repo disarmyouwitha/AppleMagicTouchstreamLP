@@ -8,8 +8,8 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 ## WIN: **(PRE-REQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
-\
-If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!
+
+*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
 
 
 ## Usage
@@ -39,8 +39,8 @@ Since it is built on the same technology, I thought it would be fun to try and c
 <img src="splatpad.jpg" />
 
 ## FUTURE:
-Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls.
+Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
 
-One of my biggest gripes is that for Windows all known drivers don't expose Pressure data or allow you to trigger Haptics, which are killer features for OSX.
+One of my biggest gripes is that for Windows all known drivers don't allow you to trigger Haptics, which is killer features on OSX! 
 
-I have hacked pressure data into the PTP_REPORT for the open source driver DLLs as an experiment.. I hope to enable Haptics by extending the driver but I have had **NO** luck.
+I have taken a look at extending the driver to enable Haptics but I have had **NO** luck. I will take a look at exposed features, etc. I am super new to Windows driverland stuff.
