@@ -380,3 +380,70 @@ Analyzer fields to trust first:
   - `slot+6`: analog force/pressure candidate
   - `slot+7`: click/press phase-class signal (observed non-zero only in button-down windows in single-finger press capture)
 - Remaining work is mostly final semantic labeling and rule confidence, not crash triage.
+
+Yes, based on current evidence we can treat these as locked decoder bindings:
+
+  - slot+6 -> per-contact pressure signal p
+  - slot+7 -> per-contact phase signal ph
+
+  I updated GlassToKey/OFFICIAL_SPEC.md accordingly:
+
+  - Added explicit locked contract block at GlassToKey/OFFICIAL_SPEC.md:52
+  - Kept remaining unknowns focused on calibration/units and fine phase semantics (GlassToKey/OFFICIAL_SPEC.md:198)
+
+  So the byte-source mapping is locked; only higher-level interpretation/tuning remains open.
+
+
+## So what is left to figure out in our golden 50 bytes? What are the current unknowns and what is the next best step to decode them?
+
+• Unknowns left in the 50-byte model:
+
+  1. slot+6 units and calibration
+
+  - We know it is pressure/force-like.
+  - Unknown: physical scaling (grams/newtons-equivalent), device-to-device normalization.
+
+  2. slot+7 phase semantics
+
+  - We know values 0..3 and adjacent bidirectional transitions.
+  - Unknown: exact meaning of each state (engage, pre-pulse, pulse, recovery, etc.).
+
+  3. slot+8 edge cases
+
+  - We have 0x03 active / 0x01 release strongly.
+  - Unknown: whether rare third states appear in larger/longer datasets.
+
+  4. slot+0 long-horizon identity guarantees
+
+  - Strong in-session stability confirmed.
+  - Unknown: reconnect/reboot/session-boundary behavior and rare collision patterns.
+
+  5. Tail timing interpretation depth
+
+  - scanTime increments look stable (110/120 dominant).
+  - Unknown: exact relationship to polling cadence under all system load/device states.
+
+  Best next step (highest ROI):
+
+  1. Run a single, strict “state-labeling” protocol capture set:
+
+  - S1: constant light hold (no click), 20s
+  - S2: ramp to click then hold below pulse, 20s
+  - S3: controlled pulse cycles (exact count), 20s
+  - S4: slow release and re-engage, 20s
+  - S5: reconnect/reboot repeat of S1+S3
+
+  2. Analyze with per-frame transition labeling:
+
+  - derive (p, ph, btn, s8) state timeline
+  - count deterministic transition motifs
+  - correlate pulse events with ph transitions and p reset behavior
+
+  3. Lock outputs:
+
+  - finalize ph state table
+  - define recommended force_min/force_cap defaults from percentile stats
+  - add optional per-device auto-calibration profile
+
+  If you want, I can draft the exact capture script + pass/fail thresholds for S1..S5 next so you can run it once and we close this
+  out.
