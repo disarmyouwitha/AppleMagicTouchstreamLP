@@ -1,0 +1,317 @@
+{
+  "CapturePath": "C:\\Users\\jholloway\\Documents\\AppleMagicTouchstreamLP\\windows\\captures\\pressure\\analysis\\P12_noclick_hold_levels_center_two_fingers.atpcap",
+  "RecordsRead": 1071,
+  "RecordsDecoded": 1071,
+  "Signatures": [
+    {
+      "Signature": {
+        "VendorId": 65612,
+        "ProductId": 804,
+        "UsagePage": 0,
+        "Usage": 0,
+        "ReportId": 5,
+        "PayloadLength": 50
+      },
+      "Frames": 1071,
+      "DecodedFrames": 1071,
+      "DecodeKindCounts": [
+        0,
+        1071,
+        0,
+        0
+      ],
+      "MinContacts": 0,
+      "AvgContacts": 1.9971988795518207,
+      "MaxContacts": 2,
+      "ButtonPressedFrames": 0,
+      "ButtonDownEdges": 0,
+      "ButtonUpEdges": 0,
+      "ButtonPressedWithZeroContacts": 0,
+      "ButtonPressedWithActiveContacts": 0,
+      "MaxButtonPressedRunFrames": 0,
+      "DecodeOffsets": [
+        0
+      ],
+      "HotByteIndexes": [
+        7,
+        16,
+        47,
+        46,
+        12,
+        3,
+        14,
+        5
+      ],
+      "SlotByteLifecycle": [
+        {
+          "SlotByteOffset": 1,
+          "DownEvents": 2,
+          "HoldEvents": 2137,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 2137
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 2137
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 6,
+          "DownEvents": 2,
+          "HoldEvents": 2137,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 4,
+              "Count": 1
+            },
+            {
+              "Value": 8,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 32,
+              "Count": 345
+            },
+            {
+              "Value": 30,
+              "Count": 185
+            },
+            {
+              "Value": 34,
+              "Count": 168
+            },
+            {
+              "Value": 28,
+              "Count": 138
+            },
+            {
+              "Value": 56,
+              "Count": 102
+            },
+            {
+              "Value": 20,
+              "Count": 98
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 32,
+              "ToValue": 32,
+              "Count": 330
+            },
+            {
+              "FromValue": 30,
+              "ToValue": 30,
+              "Count": 171
+            },
+            {
+              "FromValue": 34,
+              "ToValue": 34,
+              "Count": 153
+            },
+            {
+              "FromValue": 28,
+              "ToValue": 28,
+              "Count": 124
+            },
+            {
+              "FromValue": 56,
+              "ToValue": 56,
+              "Count": 97
+            },
+            {
+              "FromValue": 20,
+              "ToValue": 20,
+              "Count": 93
+            },
+            {
+              "FromValue": 58,
+              "ToValue": 58,
+              "Count": 84
+            },
+            {
+              "FromValue": 36,
+              "ToValue": 36,
+              "Count": 75
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 7,
+          "DownEvents": 2,
+          "HoldEvents": 2137,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 2137
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 2137
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 8,
+          "DownEvents": 2,
+          "HoldEvents": 2137,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 3,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 3,
+              "Count": 2135
+            },
+            {
+              "Value": 1,
+              "Count": 2
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 1,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 3,
+              "ToValue": 3,
+              "Count": 2135
+            },
+            {
+              "FromValue": 3,
+              "ToValue": 1,
+              "Count": 2
+            }
+          ]
+        }
+      ],
+      "ButtonSlotCorrelation": {
+        "RowsButtonUp": 2139,
+        "RowsButtonDown": 0,
+        "Slot6OddButtonUp": 0,
+        "Slot6OddButtonDown": 0,
+        "Slot7NonZeroButtonUp": 0,
+        "Slot7NonZeroButtonDown": 0,
+        "Slot8Equals1ButtonUp": 2,
+        "Slot8Equals1ButtonDown": 0,
+        "ButtonDownEdgeRows": 0,
+        "ButtonUpEdgeRows": 0,
+        "Slot6TopButtonUp": [
+          {
+            "Value": 32,
+            "Count": 345
+          },
+          {
+            "Value": 30,
+            "Count": 185
+          },
+          {
+            "Value": 34,
+            "Count": 168
+          },
+          {
+            "Value": 28,
+            "Count": 138
+          },
+          {
+            "Value": 56,
+            "Count": 102
+          },
+          {
+            "Value": 20,
+            "Count": 98
+          },
+          {
+            "Value": 58,
+            "Count": 91
+          },
+          {
+            "Value": 36,
+            "Count": 85
+          }
+        ],
+        "Slot6TopButtonDown": [],
+        "Slot7TopButtonUp": [
+          {
+            "Value": 0,
+            "Count": 2139
+          }
+        ],
+        "Slot7TopButtonDown": [],
+        "Slot8TopButtonUp": [
+          {
+            "Value": 3,
+            "Count": 2137
+          },
+          {
+            "Value": 1,
+            "Count": 2
+          }
+        ],
+        "Slot8TopButtonDown": [],
+        "Slot6TopAtButtonDownEdge": [],
+        "Slot6TopAtButtonUpEdge": [],
+        "Slot7TopAtButtonDownEdge": [],
+        "Slot7TopAtButtonUpEdge": [],
+        "Slot8TopAtButtonDownEdge": [],
+        "Slot8TopAtButtonUpEdge": []
+      },
+      "SamplesHex": [
+        "0502002E17C01304000308004A1E2C120800030000000000000000000000000000000000000000000000000000009A800200",
+        "0502002E17D0130600030800301E2E120E000300000000000000000000000000000000000000000000000000000008810200",
+        "0502003817B8130A000308002C1E281212000300000000000000000000000000000000000000000000000000000076810200"
+      ]
+    }
+  ]
+}
