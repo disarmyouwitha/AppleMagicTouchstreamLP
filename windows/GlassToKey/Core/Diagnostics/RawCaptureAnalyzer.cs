@@ -16,6 +16,49 @@ internal readonly record struct RawReportSignature(
     byte ReportId,
     int PayloadLength);
 
+internal readonly record struct RawSlotByteValueCount(
+    byte Value,
+    long Count);
+
+internal readonly record struct RawSlotByteTransitionCount(
+    byte FromValue,
+    byte ToValue,
+    long Count);
+
+internal readonly record struct RawSlotByteLifecycleAnalysis(
+    int SlotByteOffset,
+    long DownEvents,
+    long HoldEvents,
+    long ReleaseEvents,
+    RawSlotByteValueCount[] DownTopValues,
+    RawSlotByteValueCount[] HoldTopValues,
+    RawSlotByteValueCount[] ReleaseTopValues,
+    RawSlotByteTransitionCount[] HoldTopTransitions);
+
+internal readonly record struct RawButtonSlotCorrelationAnalysis(
+    long RowsButtonUp,
+    long RowsButtonDown,
+    long Slot6OddButtonUp,
+    long Slot6OddButtonDown,
+    long Slot7NonZeroButtonUp,
+    long Slot7NonZeroButtonDown,
+    long Slot8Equals1ButtonUp,
+    long Slot8Equals1ButtonDown,
+    long ButtonDownEdgeRows,
+    long ButtonUpEdgeRows,
+    RawSlotByteValueCount[] Slot6TopButtonUp,
+    RawSlotByteValueCount[] Slot6TopButtonDown,
+    RawSlotByteValueCount[] Slot7TopButtonUp,
+    RawSlotByteValueCount[] Slot7TopButtonDown,
+    RawSlotByteValueCount[] Slot8TopButtonUp,
+    RawSlotByteValueCount[] Slot8TopButtonDown,
+    RawSlotByteValueCount[] Slot6TopAtButtonDownEdge,
+    RawSlotByteValueCount[] Slot6TopAtButtonUpEdge,
+    RawSlotByteValueCount[] Slot7TopAtButtonDownEdge,
+    RawSlotByteValueCount[] Slot7TopAtButtonUpEdge,
+    RawSlotByteValueCount[] Slot8TopAtButtonDownEdge,
+    RawSlotByteValueCount[] Slot8TopAtButtonUpEdge);
+
 internal readonly record struct RawSignatureAnalysis(
     RawReportSignature Signature,
     long Frames,
@@ -32,6 +75,8 @@ internal readonly record struct RawSignatureAnalysis(
     int MaxButtonPressedRunFrames,
     int[] DecodeOffsets,
     int[] HotByteIndexes,
+    RawSlotByteLifecycleAnalysis[] SlotByteLifecycle,
+    RawButtonSlotCorrelationAnalysis ButtonSlotCorrelation,
     string[] SamplesHex);
 
 internal readonly record struct RawCaptureAnalysisResult(
@@ -75,6 +120,46 @@ internal readonly record struct RawCaptureAnalysisResult(
                 sb.AppendLine($"   hotBytes=[{string.Join(",", signature.HotByteIndexes)}]");
             }
 
+            if (signature.SlotByteLifecycle.Length > 0)
+            {
+                for (int lifecycleIndex = 0; lifecycleIndex < signature.SlotByteLifecycle.Length; lifecycleIndex++)
+                {
+                    RawSlotByteLifecycleAnalysis lifecycle = signature.SlotByteLifecycle[lifecycleIndex];
+                    sb.AppendLine(
+                        $"   slot+{lifecycle.SlotByteOffset} lifecycle[down={lifecycle.DownEvents}, hold={lifecycle.HoldEvents}, release={lifecycle.ReleaseEvents}] " +
+                        $"downTop=[{FormatTopValues(lifecycle.DownTopValues)}] holdTop=[{FormatTopValues(lifecycle.HoldTopValues)}] " +
+                        $"releaseTop=[{FormatTopValues(lifecycle.ReleaseTopValues)}] holdTrans=[{FormatTopTransitions(lifecycle.HoldTopTransitions)}]");
+                }
+            }
+
+            RawButtonSlotCorrelationAnalysis buttonSlots = signature.ButtonSlotCorrelation;
+            if (buttonSlots.RowsButtonUp > 0 || buttonSlots.RowsButtonDown > 0)
+            {
+                sb.AppendLine(
+                    $"   btnSlot rows[up={buttonSlots.RowsButtonUp}, down={buttonSlots.RowsButtonDown}] " +
+                    $"s6Odd[up={buttonSlots.Slot6OddButtonUp}, down={buttonSlots.Slot6OddButtonDown}] " +
+                    $"s7NonZero[up={buttonSlots.Slot7NonZeroButtonUp}, down={buttonSlots.Slot7NonZeroButtonDown}] " +
+                    $"s8eq1[up={buttonSlots.Slot8Equals1ButtonUp}, down={buttonSlots.Slot8Equals1ButtonDown}]");
+                sb.AppendLine(
+                    $"   btnSlot s6 top up=[{FormatTopValues(buttonSlots.Slot6TopButtonUp)}] " +
+                    $"down=[{FormatTopValues(buttonSlots.Slot6TopButtonDown)}]");
+                sb.AppendLine(
+                    $"   btnSlot s7 top up=[{FormatTopValues(buttonSlots.Slot7TopButtonUp)}] " +
+                    $"down=[{FormatTopValues(buttonSlots.Slot7TopButtonDown)}]");
+                sb.AppendLine(
+                    $"   btnSlot s8 top up=[{FormatTopValues(buttonSlots.Slot8TopButtonUp)}] " +
+                    $"down=[{FormatTopValues(buttonSlots.Slot8TopButtonDown)}]");
+
+                if (buttonSlots.ButtonDownEdgeRows > 0 || buttonSlots.ButtonUpEdgeRows > 0)
+                {
+                    sb.AppendLine(
+                        $"   btnEdge rows[down={buttonSlots.ButtonDownEdgeRows}, up={buttonSlots.ButtonUpEdgeRows}] " +
+                        $"s6 down=[{FormatTopValues(buttonSlots.Slot6TopAtButtonDownEdge)}] up=[{FormatTopValues(buttonSlots.Slot6TopAtButtonUpEdge)}] " +
+                        $"s7 down=[{FormatTopValues(buttonSlots.Slot7TopAtButtonDownEdge)}] up=[{FormatTopValues(buttonSlots.Slot7TopAtButtonUpEdge)}] " +
+                        $"s8 down=[{FormatTopValues(buttonSlots.Slot8TopAtButtonDownEdge)}] up=[{FormatTopValues(buttonSlots.Slot8TopAtButtonUpEdge)}]");
+                }
+            }
+
             for (int sampleIndex = 0; sampleIndex < signature.SamplesHex.Length; sampleIndex++)
             {
                 sb.AppendLine($"   sample{sampleIndex + 1}: {signature.SamplesHex[sampleIndex]}");
@@ -94,6 +179,58 @@ internal readonly record struct RawCaptureAnalysisResult(
 
         JsonSerializerOptions options = new() { WriteIndented = true };
         File.WriteAllText(path, JsonSerializer.Serialize(this, options));
+    }
+
+    private static string FormatTopValues(ReadOnlySpan<RawSlotByteValueCount> values)
+    {
+        if (values.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        StringBuilder sb = new();
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            RawSlotByteValueCount entry = values[i];
+            sb.Append("0x")
+              .Append(entry.Value.ToString("X2", CultureInfo.InvariantCulture))
+              .Append(':')
+              .Append(entry.Count.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return sb.ToString();
+    }
+
+    private static string FormatTopTransitions(ReadOnlySpan<RawSlotByteTransitionCount> transitions)
+    {
+        if (transitions.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        StringBuilder sb = new();
+        for (int i = 0; i < transitions.Length; i++)
+        {
+            if (i > 0)
+            {
+                sb.Append(", ");
+            }
+
+            RawSlotByteTransitionCount entry = transitions[i];
+            sb.Append("0x")
+              .Append(entry.FromValue.ToString("X2", CultureInfo.InvariantCulture))
+              .Append("->0x")
+              .Append(entry.ToValue.ToString("X2", CultureInfo.InvariantCulture))
+              .Append(':')
+              .Append(entry.Count.ToString(CultureInfo.InvariantCulture));
+        }
+
+        return sb.ToString();
     }
 }
 
@@ -325,10 +462,31 @@ internal static class RawCaptureAnalyzer
         private const int MaxSamples = 3;
         private const int MaxSampleBytes = 96;
         private const int MaxHotBytes = 8;
+        private const int MaxTopLifecycleValues = 6;
+        private const int MaxTopLifecycleTransitions = 8;
+        private const int MaxTopButtonValues = 8;
 
         private readonly List<string> _samples = new(MaxSamples);
         private readonly long[] _decodeKindCounts = new long[Enum.GetValues<TrackpadReportKind>().Length];
         private readonly HashSet<int> _decodeOffsets = new();
+        private readonly Dictionary<uint, SlotByteSnapshot> _activeSlotsByContactId = new();
+        private readonly Dictionary<uint, SlotByteSnapshot> _currentSlotsByContactId = new();
+        private readonly SlotByteLifecycleAccumulator _slotBytePlus1 = new(1);
+        private readonly SlotByteLifecycleAccumulator _slotBytePlus6 = new(6);
+        private readonly SlotByteLifecycleAccumulator _slotBytePlus7 = new(7);
+        private readonly SlotByteLifecycleAccumulator _slotBytePlus8 = new(8);
+        private readonly long[] _slot6ButtonUp = new long[256];
+        private readonly long[] _slot6ButtonDown = new long[256];
+        private readonly long[] _slot7ButtonUp = new long[256];
+        private readonly long[] _slot7ButtonDown = new long[256];
+        private readonly long[] _slot8ButtonUp = new long[256];
+        private readonly long[] _slot8ButtonDown = new long[256];
+        private readonly long[] _slot6AtButtonDownEdge = new long[256];
+        private readonly long[] _slot6AtButtonUpEdge = new long[256];
+        private readonly long[] _slot7AtButtonDownEdge = new long[256];
+        private readonly long[] _slot7AtButtonUpEdge = new long[256];
+        private readonly long[] _slot8AtButtonDownEdge = new long[256];
+        private readonly long[] _slot8AtButtonUpEdge = new long[256];
 
         private byte[]? _firstPayload;
         private int[]? _changeCounts;
@@ -346,6 +504,16 @@ internal static class RawCaptureAnalyzer
         private int _currentButtonPressedRunFrames;
         private bool _hasPreviousButtonPressedState;
         private bool _previousButtonPressedState;
+        private long _buttonSlotRowsUp;
+        private long _buttonSlotRowsDown;
+        private long _slot6OddButtonUp;
+        private long _slot6OddButtonDown;
+        private long _slot7NonZeroButtonUp;
+        private long _slot7NonZeroButtonDown;
+        private long _slot8Eq1ButtonUp;
+        private long _slot8Eq1ButtonDown;
+        private long _buttonDownEdgeRows;
+        private long _buttonUpEdgeRows;
 
         public MutableSignatureStats(RawReportSignature signature)
         {
@@ -382,6 +550,7 @@ internal static class RawCaptureAnalyzer
 
             if (!decoded)
             {
+                ReleaseActiveSlotByteContacts();
                 return;
             }
 
@@ -402,14 +571,18 @@ internal static class RawCaptureAnalyzer
             }
 
             bool buttonPressed = decodeResult.Frame.IsButtonClicked != 0;
+            bool buttonJustPressed = false;
+            bool buttonJustReleased = false;
             if (_hasPreviousButtonPressedState)
             {
                 if (!_previousButtonPressedState && buttonPressed)
                 {
+                    buttonJustPressed = true;
                     _buttonDownEdges++;
                 }
                 else if (_previousButtonPressedState && !buttonPressed)
                 {
+                    buttonJustReleased = true;
                     _buttonUpEdges++;
                 }
             }
@@ -438,10 +611,166 @@ internal static class RawCaptureAnalyzer
             {
                 _currentButtonPressedRunFrames = 0;
             }
+
+            ObserveSlotByteLifecycle(payload, decodeResult, buttonPressed, buttonJustPressed, buttonJustReleased);
+        }
+
+        private void ObserveSlotByteLifecycle(
+            ReadOnlySpan<byte> payload,
+            in TrackpadDecodeResult decodeResult,
+            bool buttonPressed,
+            bool buttonJustPressed,
+            bool buttonJustReleased)
+        {
+            if (decodeResult.Profile != TrackpadDecoderProfile.Official ||
+                decodeResult.Kind is not TrackpadReportKind.PtpNative and not TrackpadReportKind.PtpEmbedded)
+            {
+                ReleaseActiveSlotByteContacts();
+                return;
+            }
+
+            _currentSlotsByContactId.Clear();
+            int count = decodeResult.Frame.GetClampedContactCount();
+            for (int i = 0; i < count; i++)
+            {
+                int slotOffset = decodeResult.PayloadOffset + 1 + (i * 9);
+                if (slotOffset < 0 || slotOffset + 8 >= payload.Length)
+                {
+                    continue;
+                }
+
+                uint contactId = decodeResult.Frame.GetContact(i).Id;
+                _currentSlotsByContactId[contactId] = new SlotByteSnapshot(
+                    Plus1: payload[slotOffset + 1],
+                    Plus6: payload[slotOffset + 6],
+                    Plus7: payload[slotOffset + 7],
+                    Plus8: payload[slotOffset + 8]);
+            }
+
+            foreach ((uint contactId, SlotByteSnapshot current) in _currentSlotsByContactId)
+            {
+                if (_activeSlotsByContactId.TryGetValue(contactId, out SlotByteSnapshot previous))
+                {
+                    _slotBytePlus1.CountHold(previous.Plus1, current.Plus1);
+                    _slotBytePlus6.CountHold(previous.Plus6, current.Plus6);
+                    _slotBytePlus7.CountHold(previous.Plus7, current.Plus7);
+                    _slotBytePlus8.CountHold(previous.Plus8, current.Plus8);
+                }
+                else
+                {
+                    _slotBytePlus1.CountDown(current.Plus1);
+                    _slotBytePlus6.CountDown(current.Plus6);
+                    _slotBytePlus7.CountDown(current.Plus7);
+                    _slotBytePlus8.CountDown(current.Plus8);
+                }
+
+                ObserveButtonSlotByteCorrelations(current, buttonPressed, buttonJustPressed, buttonJustReleased);
+            }
+
+            foreach ((uint contactId, SlotByteSnapshot previous) in _activeSlotsByContactId)
+            {
+                if (_currentSlotsByContactId.ContainsKey(contactId))
+                {
+                    continue;
+                }
+
+                _slotBytePlus1.CountRelease(previous.Plus1);
+                _slotBytePlus6.CountRelease(previous.Plus6);
+                _slotBytePlus7.CountRelease(previous.Plus7);
+                _slotBytePlus8.CountRelease(previous.Plus8);
+            }
+
+            _activeSlotsByContactId.Clear();
+            foreach ((uint contactId, SlotByteSnapshot current) in _currentSlotsByContactId)
+            {
+                _activeSlotsByContactId[contactId] = current;
+            }
+        }
+
+        private void ReleaseActiveSlotByteContacts()
+        {
+            foreach ((uint _, SlotByteSnapshot previous) in _activeSlotsByContactId)
+            {
+                _slotBytePlus1.CountRelease(previous.Plus1);
+                _slotBytePlus6.CountRelease(previous.Plus6);
+                _slotBytePlus7.CountRelease(previous.Plus7);
+                _slotBytePlus8.CountRelease(previous.Plus8);
+            }
+
+            _activeSlotsByContactId.Clear();
+            _currentSlotsByContactId.Clear();
+        }
+
+        private void ObserveButtonSlotByteCorrelations(
+            SlotByteSnapshot slot,
+            bool buttonPressed,
+            bool buttonJustPressed,
+            bool buttonJustReleased)
+        {
+            if (buttonPressed)
+            {
+                _buttonSlotRowsDown++;
+                _slot6ButtonDown[slot.Plus6]++;
+                _slot7ButtonDown[slot.Plus7]++;
+                _slot8ButtonDown[slot.Plus8]++;
+                if ((slot.Plus6 & 0x01) != 0)
+                {
+                    _slot6OddButtonDown++;
+                }
+
+                if (slot.Plus7 != 0)
+                {
+                    _slot7NonZeroButtonDown++;
+                }
+
+                if (slot.Plus8 == 1)
+                {
+                    _slot8Eq1ButtonDown++;
+                }
+            }
+            else
+            {
+                _buttonSlotRowsUp++;
+                _slot6ButtonUp[slot.Plus6]++;
+                _slot7ButtonUp[slot.Plus7]++;
+                _slot8ButtonUp[slot.Plus8]++;
+                if ((slot.Plus6 & 0x01) != 0)
+                {
+                    _slot6OddButtonUp++;
+                }
+
+                if (slot.Plus7 != 0)
+                {
+                    _slot7NonZeroButtonUp++;
+                }
+
+                if (slot.Plus8 == 1)
+                {
+                    _slot8Eq1ButtonUp++;
+                }
+            }
+
+            if (buttonJustPressed)
+            {
+                _buttonDownEdgeRows++;
+                _slot6AtButtonDownEdge[slot.Plus6]++;
+                _slot7AtButtonDownEdge[slot.Plus7]++;
+                _slot8AtButtonDownEdge[slot.Plus8]++;
+            }
+
+            if (buttonJustReleased)
+            {
+                _buttonUpEdgeRows++;
+                _slot6AtButtonUpEdge[slot.Plus6]++;
+                _slot7AtButtonUpEdge[slot.Plus7]++;
+                _slot8AtButtonUpEdge[slot.Plus8]++;
+            }
         }
 
         public RawSignatureAnalysis Build()
         {
+            ReleaseActiveSlotByteContacts();
+
             int minContacts = _decodedFrames == 0 ? 0 : _minContacts;
             double avgContacts = _decodedFrames == 0 ? 0 : _totalContacts / (double)_decodedFrames;
             int[] decodeOffsets = _decodeOffsets.OrderBy(static value => value).ToArray();
@@ -453,6 +782,39 @@ internal static class RawCaptureAnalyzer
                 .Take(MaxHotBytes)
                 .Select(static pair => pair.index)
                 .ToArray();
+            RawSlotByteLifecycleAnalysis[] slotByteLifecycle =
+            {
+                _slotBytePlus1.Build(MaxTopLifecycleValues, MaxTopLifecycleTransitions),
+                _slotBytePlus6.Build(MaxTopLifecycleValues, MaxTopLifecycleTransitions),
+                _slotBytePlus7.Build(MaxTopLifecycleValues, MaxTopLifecycleTransitions),
+                _slotBytePlus8.Build(MaxTopLifecycleValues, MaxTopLifecycleTransitions)
+            };
+            slotByteLifecycle = slotByteLifecycle
+                .Where(static stats => stats.DownEvents > 0 || stats.HoldEvents > 0 || stats.ReleaseEvents > 0)
+                .ToArray();
+            RawButtonSlotCorrelationAnalysis buttonSlotCorrelation = new(
+                RowsButtonUp: _buttonSlotRowsUp,
+                RowsButtonDown: _buttonSlotRowsDown,
+                Slot6OddButtonUp: _slot6OddButtonUp,
+                Slot6OddButtonDown: _slot6OddButtonDown,
+                Slot7NonZeroButtonUp: _slot7NonZeroButtonUp,
+                Slot7NonZeroButtonDown: _slot7NonZeroButtonDown,
+                Slot8Equals1ButtonUp: _slot8Eq1ButtonUp,
+                Slot8Equals1ButtonDown: _slot8Eq1ButtonDown,
+                ButtonDownEdgeRows: _buttonDownEdgeRows,
+                ButtonUpEdgeRows: _buttonUpEdgeRows,
+                Slot6TopButtonUp: BuildTopValueCounts(_slot6ButtonUp, MaxTopButtonValues),
+                Slot6TopButtonDown: BuildTopValueCounts(_slot6ButtonDown, MaxTopButtonValues),
+                Slot7TopButtonUp: BuildTopValueCounts(_slot7ButtonUp, MaxTopButtonValues),
+                Slot7TopButtonDown: BuildTopValueCounts(_slot7ButtonDown, MaxTopButtonValues),
+                Slot8TopButtonUp: BuildTopValueCounts(_slot8ButtonUp, MaxTopButtonValues),
+                Slot8TopButtonDown: BuildTopValueCounts(_slot8ButtonDown, MaxTopButtonValues),
+                Slot6TopAtButtonDownEdge: BuildTopValueCounts(_slot6AtButtonDownEdge, MaxTopButtonValues),
+                Slot6TopAtButtonUpEdge: BuildTopValueCounts(_slot6AtButtonUpEdge, MaxTopButtonValues),
+                Slot7TopAtButtonDownEdge: BuildTopValueCounts(_slot7AtButtonDownEdge, MaxTopButtonValues),
+                Slot7TopAtButtonUpEdge: BuildTopValueCounts(_slot7AtButtonUpEdge, MaxTopButtonValues),
+                Slot8TopAtButtonDownEdge: BuildTopValueCounts(_slot8AtButtonDownEdge, MaxTopButtonValues),
+                Slot8TopAtButtonUpEdge: BuildTopValueCounts(_slot8AtButtonUpEdge, MaxTopButtonValues));
 
             return new RawSignatureAnalysis(
                 Signature,
@@ -470,7 +832,131 @@ internal static class RawCaptureAnalyzer
                 _maxButtonPressedRunFrames,
                 decodeOffsets,
                 hotBytes,
+                slotByteLifecycle,
+                buttonSlotCorrelation,
                 _samples.ToArray());
+        }
+
+        private static RawSlotByteValueCount[] BuildTopValueCounts(long[] counts, int maxCount)
+        {
+            List<RawSlotByteValueCount> values = new();
+            for (int value = 0; value < counts.Length; value++)
+            {
+                long count = counts[value];
+                if (count <= 0)
+                {
+                    continue;
+                }
+
+                values.Add(new RawSlotByteValueCount((byte)value, count));
+            }
+
+            return values
+                .OrderByDescending(static entry => entry.Count)
+                .ThenBy(static entry => entry.Value)
+                .Take(maxCount)
+                .ToArray();
+        }
+
+        private readonly record struct SlotByteSnapshot(
+            byte Plus1,
+            byte Plus6,
+            byte Plus7,
+            byte Plus8);
+
+        private sealed class SlotByteLifecycleAccumulator
+        {
+            private readonly long[] _downCounts = new long[256];
+            private readonly long[] _holdCounts = new long[256];
+            private readonly long[] _releaseCounts = new long[256];
+            private readonly long[] _holdTransitions = new long[256 * 256];
+
+            public SlotByteLifecycleAccumulator(int slotByteOffset)
+            {
+                SlotByteOffset = slotByteOffset;
+            }
+
+            public int SlotByteOffset { get; }
+            public long DownEvents { get; private set; }
+            public long HoldEvents { get; private set; }
+            public long ReleaseEvents { get; private set; }
+
+            public void CountDown(byte value)
+            {
+                DownEvents++;
+                _downCounts[value]++;
+            }
+
+            public void CountHold(byte previousValue, byte currentValue)
+            {
+                HoldEvents++;
+                _holdCounts[currentValue]++;
+                _holdTransitions[(previousValue << 8) | currentValue]++;
+            }
+
+            public void CountRelease(byte value)
+            {
+                ReleaseEvents++;
+                _releaseCounts[value]++;
+            }
+
+            public RawSlotByteLifecycleAnalysis Build(int maxTopValues, int maxTopTransitions)
+            {
+                return new RawSlotByteLifecycleAnalysis(
+                    SlotByteOffset,
+                    DownEvents,
+                    HoldEvents,
+                    ReleaseEvents,
+                    BuildTopValues(_downCounts, maxTopValues),
+                    BuildTopValues(_holdCounts, maxTopValues),
+                    BuildTopValues(_releaseCounts, maxTopValues),
+                    BuildTopTransitions(_holdTransitions, maxTopTransitions));
+            }
+
+            private static RawSlotByteValueCount[] BuildTopValues(long[] counts, int maxCount)
+            {
+                List<RawSlotByteValueCount> values = new();
+                for (int value = 0; value < counts.Length; value++)
+                {
+                    long count = counts[value];
+                    if (count <= 0)
+                    {
+                        continue;
+                    }
+
+                    values.Add(new RawSlotByteValueCount((byte)value, count));
+                }
+
+                return values
+                    .OrderByDescending(static entry => entry.Count)
+                    .ThenBy(static entry => entry.Value)
+                    .Take(maxCount)
+                    .ToArray();
+            }
+
+            private static RawSlotByteTransitionCount[] BuildTopTransitions(long[] counts, int maxCount)
+            {
+                List<RawSlotByteTransitionCount> transitions = new();
+                for (int packed = 0; packed < counts.Length; packed++)
+                {
+                    long count = counts[packed];
+                    if (count <= 0)
+                    {
+                        continue;
+                    }
+
+                    byte fromValue = (byte)((packed >> 8) & 0xFF);
+                    byte toValue = (byte)(packed & 0xFF);
+                    transitions.Add(new RawSlotByteTransitionCount(fromValue, toValue, count));
+                }
+
+                return transitions
+                    .OrderByDescending(static entry => entry.Count)
+                    .ThenBy(static entry => entry.FromValue)
+                    .ThenBy(static entry => entry.ToValue)
+                    .Take(maxCount)
+                    .ToArray();
+            }
         }
 
         private static string ToHex(ReadOnlySpan<byte> payload, int maxBytes)
