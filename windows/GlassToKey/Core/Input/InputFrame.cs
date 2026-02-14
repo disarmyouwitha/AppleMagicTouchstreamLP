@@ -8,6 +8,7 @@ public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Fla
     public bool Confidence => (Flags & 0x01) != 0;
     public byte Pressure8 => Pressure;
     public byte Phase8 => Phase;
+    public int ForceNorm => ForceNormalizer.Compute(Pressure8, Phase8);
     public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
 

@@ -3925,9 +3925,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         private const byte PressurePulseArmThreshold = 180;
         private const byte PressurePulseDropThreshold = 12;
-        private const int ForceNormPhaseSpan = 255;
-        private const int ForceNormLastPhaseCap = 220;
-        private const int ForceNormMax = (ForceNormPhaseSpan * 3) + ForceNormLastPhaseCap; // 985
         private ButtonEdgeTracker _buttonTracker;
         private bool _pressurePulseArmed;
 
@@ -4057,25 +4054,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         public string BuildPressureDebugLabel()
         {
-            int forceNorm = ComputeForceNorm(LastPressure, LastPhase);
-            return $"btn={LastButtonRaw} ph={LastPhase} p={LastPressure} fn={forceNorm}/{ForceNormMax} pulses={PressurePulseCount}";
-        }
-
-        private static int ComputeForceNorm(byte pressure, byte phase)
-        {
-            // Experimental, debug-only staged force metric from raw pressure + phase.
-            // phase=0:   0..255
-            // phase=1: 255..510
-            // phase=2: 510..765
-            // phase=3: 765..985 (pressure capped to 220)
-            return phase switch
-            {
-                0 => pressure,
-                1 => ForceNormPhaseSpan + pressure,
-                2 => (ForceNormPhaseSpan * 2) + pressure,
-                3 => (ForceNormPhaseSpan * 3) + Math.Min((int)pressure, ForceNormLastPhaseCap),
-                _ => pressure
-            };
+            int forceNorm = ForceNormalizer.Compute(LastPressure, LastPhase);
+            return $"btn={LastButtonRaw} ph={LastPhase} p={LastPressure} fn={forceNorm}/{ForceNormalizer.Max} pulses={PressurePulseCount}";
         }
     }
 }

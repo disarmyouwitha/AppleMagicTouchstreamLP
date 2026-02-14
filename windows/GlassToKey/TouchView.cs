@@ -144,26 +144,17 @@ public sealed class TouchView : FrameworkElement
                     _textBrush,
                     1.0);
                 FormattedText pressureText = new(
-                    $"p:{c.Pressure8}",
+                    $"p:{c.Pressure8} ph:{c.Phase} fn:{c.ForceNorm}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,
                     9,
                     _textBrush,
                     1.0);
-                FormattedText phaseText = new(
-                    $"ph:{c.Phase}",
-                    CultureInfo.InvariantCulture,
-                    FlowDirection.LeftToRight,
-                    _monoTypeface,
-                    8,
-                    _textBrush,
-                    1.0);
                 double spacing = 1.0;
-                double startY = y - ((idText.Height + pressureText.Height + phaseText.Height + (spacing * 2)) / 2);
+                double startY = y - ((idText.Height + pressureText.Height + spacing) / 2);
                 dc.DrawText(idText, new Point(x - (idText.Width / 2), startY));
                 dc.DrawText(pressureText, new Point(x - (pressureText.Width / 2), startY + idText.Height + spacing));
-                dc.DrawText(phaseText, new Point(x - (phaseText.Width / 2), startY + idText.Height + pressureText.Height + (spacing * 2)));
             }
             else
             {

@@ -237,4 +237,5 @@ public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip
     public byte Pressure8 => Pressure;
     public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
+    public int ForceNorm => ForceNormalizer.Compute(Pressure8, Phase);
 }
