@@ -1,0 +1,465 @@
+{
+  "CapturePath": "C:\\Users\\jholloway\\Documents\\AppleMagicTouchstreamLP\\windows\\captures\\pressure\\analysis\\P21_click_pulses_planted.atpcap",
+  "RecordsRead": 474,
+  "RecordsDecoded": 474,
+  "Signatures": [
+    {
+      "Signature": {
+        "VendorId": 65612,
+        "ProductId": 804,
+        "UsagePage": 0,
+        "Usage": 0,
+        "ReportId": 5,
+        "PayloadLength": 50
+      },
+      "Frames": 474,
+      "DecodedFrames": 474,
+      "DecodeKindCounts": [
+        0,
+        474,
+        0,
+        0
+      ],
+      "MinContacts": 0,
+      "AvgContacts": 0.9978902953586498,
+      "MaxContacts": 1,
+      "ButtonPressedFrames": 246,
+      "ButtonDownEdges": 20,
+      "ButtonUpEdges": 20,
+      "ButtonPressedWithZeroContacts": 0,
+      "ButtonPressedWithActiveContacts": 246,
+      "MaxButtonPressedRunFrames": 14,
+      "DecodeOffsets": [
+        0
+      ],
+      "HotByteIndexes": [
+        5,
+        7,
+        47,
+        46,
+        3,
+        49,
+        8,
+        9
+      ],
+      "SlotByteLifecycle": [
+        {
+          "SlotByteOffset": 1,
+          "DownEvents": 1,
+          "HoldEvents": 472,
+          "ReleaseEvents": 1,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 472
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 1
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 472
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 6,
+          "DownEvents": 1,
+          "HoldEvents": 472,
+          "ReleaseEvents": 1,
+          "DownTopValues": [
+            {
+              "Value": 2,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 72,
+              "Count": 21
+            },
+            {
+              "Value": 58,
+              "Count": 17
+            },
+            {
+              "Value": 62,
+              "Count": 14
+            },
+            {
+              "Value": 56,
+              "Count": 13
+            },
+            {
+              "Value": 38,
+              "Count": 11
+            },
+            {
+              "Value": 68,
+              "Count": 11
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 1
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 72,
+              "ToValue": 72,
+              "Count": 13
+            },
+            {
+              "FromValue": 58,
+              "ToValue": 58,
+              "Count": 8
+            },
+            {
+              "FromValue": 62,
+              "ToValue": 62,
+              "Count": 6
+            },
+            {
+              "FromValue": 68,
+              "ToValue": 68,
+              "Count": 6
+            },
+            {
+              "FromValue": 56,
+              "ToValue": 56,
+              "Count": 5
+            },
+            {
+              "FromValue": 22,
+              "ToValue": 22,
+              "Count": 3
+            },
+            {
+              "FromValue": 38,
+              "ToValue": 38,
+              "Count": 3
+            },
+            {
+              "FromValue": 48,
+              "ToValue": 54,
+              "Count": 3
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 7,
+          "DownEvents": 1,
+          "HoldEvents": 472,
+          "ReleaseEvents": 1,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 422
+            },
+            {
+              "Value": 1,
+              "Count": 50
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 1
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 409
+            },
+            {
+              "FromValue": 1,
+              "ToValue": 1,
+              "Count": 37
+            },
+            {
+              "FromValue": 0,
+              "ToValue": 1,
+              "Count": 13
+            },
+            {
+              "FromValue": 1,
+              "ToValue": 0,
+              "Count": 13
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 8,
+          "DownEvents": 1,
+          "HoldEvents": 472,
+          "ReleaseEvents": 1,
+          "DownTopValues": [
+            {
+              "Value": 3,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 3,
+              "Count": 471
+            },
+            {
+              "Value": 1,
+              "Count": 1
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 1,
+              "Count": 1
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 3,
+              "ToValue": 3,
+              "Count": 471
+            },
+            {
+              "FromValue": 3,
+              "ToValue": 1,
+              "Count": 1
+            }
+          ]
+        }
+      ],
+      "ButtonSlotCorrelation": {
+        "RowsButtonUp": 227,
+        "RowsButtonDown": 246,
+        "Slot6OddButtonUp": 0,
+        "Slot6OddButtonDown": 29,
+        "Slot7NonZeroButtonUp": 0,
+        "Slot7NonZeroButtonDown": 50,
+        "Slot8Equals1ButtonUp": 1,
+        "Slot8Equals1ButtonDown": 0,
+        "ButtonDownEdgeRows": 20,
+        "ButtonUpEdgeRows": 20,
+        "Slot6TopButtonUp": [
+          {
+            "Value": 72,
+            "Count": 21
+          },
+          {
+            "Value": 58,
+            "Count": 17
+          },
+          {
+            "Value": 62,
+            "Count": 14
+          },
+          {
+            "Value": 56,
+            "Count": 13
+          },
+          {
+            "Value": 68,
+            "Count": 11
+          },
+          {
+            "Value": 38,
+            "Count": 10
+          },
+          {
+            "Value": 60,
+            "Count": 9
+          },
+          {
+            "Value": 64,
+            "Count": 8
+          }
+        ],
+        "Slot6TopButtonDown": [
+          {
+            "Value": 22,
+            "Count": 9
+          },
+          {
+            "Value": 152,
+            "Count": 7
+          },
+          {
+            "Value": 78,
+            "Count": 6
+          },
+          {
+            "Value": 234,
+            "Count": 6
+          },
+          {
+            "Value": 86,
+            "Count": 5
+          },
+          {
+            "Value": 136,
+            "Count": 5
+          },
+          {
+            "Value": 148,
+            "Count": 5
+          },
+          {
+            "Value": 162,
+            "Count": 5
+          }
+        ],
+        "Slot7TopButtonUp": [
+          {
+            "Value": 0,
+            "Count": 227
+          }
+        ],
+        "Slot7TopButtonDown": [
+          {
+            "Value": 0,
+            "Count": 196
+          },
+          {
+            "Value": 1,
+            "Count": 50
+          }
+        ],
+        "Slot8TopButtonUp": [
+          {
+            "Value": 3,
+            "Count": 226
+          },
+          {
+            "Value": 1,
+            "Count": 1
+          }
+        ],
+        "Slot8TopButtonDown": [
+          {
+            "Value": 3,
+            "Count": 246
+          }
+        ],
+        "Slot6TopAtButtonDownEdge": [
+          {
+            "Value": 152,
+            "Count": 3
+          },
+          {
+            "Value": 162,
+            "Count": 3
+          },
+          {
+            "Value": 136,
+            "Count": 2
+          },
+          {
+            "Value": 146,
+            "Count": 2
+          },
+          {
+            "Value": 172,
+            "Count": 2
+          },
+          {
+            "Value": 126,
+            "Count": 1
+          },
+          {
+            "Value": 128,
+            "Count": 1
+          },
+          {
+            "Value": 138,
+            "Count": 1
+          }
+        ],
+        "Slot6TopAtButtonUpEdge": [
+          {
+            "Value": 72,
+            "Count": 6
+          },
+          {
+            "Value": 58,
+            "Count": 3
+          },
+          {
+            "Value": 62,
+            "Count": 3
+          },
+          {
+            "Value": 68,
+            "Count": 3
+          },
+          {
+            "Value": 36,
+            "Count": 1
+          },
+          {
+            "Value": 52,
+            "Count": 1
+          },
+          {
+            "Value": 56,
+            "Count": 1
+          },
+          {
+            "Value": 64,
+            "Count": 1
+          }
+        ],
+        "Slot7TopAtButtonDownEdge": [
+          {
+            "Value": 0,
+            "Count": 20
+          }
+        ],
+        "Slot7TopAtButtonUpEdge": [
+          {
+            "Value": 0,
+            "Count": 20
+          }
+        ],
+        "Slot8TopAtButtonDownEdge": [
+          {
+            "Value": 3,
+            "Count": 20
+          }
+        ],
+        "Slot8TopAtButtonUpEdge": [
+          {
+            "Value": 3,
+            "Count": 20
+          }
+        ]
+      },
+      "SamplesHex": [
+        "050B007A1CD812020003000000000000000000000000000000000000000000000000000000000000000000000000CADF0100",
+        "050B006A1CDC1206000300000000000000000000000000000000000000000000000000000000000000000000000038E00100",
+        "050B006C1CCE12060003000000000000000000000000000000000000000000000000000000000000000000000000A6E00100"
+      ]
+    }
+  ]
+}
