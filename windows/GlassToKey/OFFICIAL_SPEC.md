@@ -42,6 +42,9 @@ For non-native touchpad usage (`usagePage/usage != digitizer/touchpad`), the off
 - coordinate extraction:
   - `rawX = LE u16 [slot+2..3]`
   - `rawY = LE u16 [slot+4..5]`
+- force/phase extraction (implemented):
+  - `pressureRaw = payload[slotOffset + 6]` (8-bit)
+  - `phaseRaw = payload[slotOffset + 7]` (8-bit state-class value; observed set `0..3`)
 - flags normalization:
   - `normalizedFlags = (rawFlags & 0xFC) | 0x03`
   - this forces tip+confidence bits on output contacts
@@ -146,14 +149,32 @@ Phase-protocol captures in `captures/pressure/analysis` (analyzed 2026-02-14):
     - both upward and downward transitions observed (not monotonic in one direction)
   - `slot+6` showed wide range (`1..255`) with frequent odd values in button-down rows.
 
-## 8. Runtime Guardrails (Implemented)
+## 8. Force Runtime Exposure (Implemented, Experimental Semantics)
+
+Current runtime/visualizer exposure for official stream contacts:
+- per-contact `Pressure8` is sourced from `slot+6`
+- per-contact `Phase8` is sourced from `slot+7`
+- per-contact `ForceNorm` is currently computed as:
+  - `ph=0`: `fn = p` (`0..255`)
+  - `ph=1`: `fn = 255 + p` (`255..510`)
+  - `ph=2`: `fn = 510 + p` (`510..765`)
+  - `ph=3`: `fn = 765 + min(p,220)` (`765..985`)
+- shared helper and max constant:
+  - `ForceNormalizer.Compute(pressure, phase)`
+  - `ForceNormalizer.Max == 985`
+
+Interpretation status:
+- extraction and scaling are implemented and validated in live debugging.
+- final semantic labels for each phase value remain research-open.
+
+## 9. Runtime Guardrails (Implemented)
 
 Raw-input fault handling includes:
 - exception logging to `%LOCALAPPDATA%\GlassToKey\runtime-errors.log`
 - contextual raw-input packet metadata in fault logs
 - temporary raw-input pause after repeated faults (`3` consecutive faults -> `2` second pause)
 
-## 9. Analyzer Outputs (Implemented)
+## 10. Analyzer Outputs (Implemented)
 
 Analyzer support confirms:
 - button summary metrics (`pressedFrames`, `downEdges`, `upEdges`, run-length, with/without contacts)
@@ -164,7 +185,7 @@ Analyzer support confirms:
   - decoded/raw button and tail context fields
 - slot lifecycle and button-correlated stats for `slot+1`, `slot+6`, `slot+7`, `slot+8`
 
-## 10. Not Yet Confirmed
+## 11. Not Yet Confirmed
 
 The following are explicitly still open:
 - long-session and cross-reconnect stability limits for `slot+0` identity

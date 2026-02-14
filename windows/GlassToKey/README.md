@@ -64,6 +64,22 @@ For click/button-driven features, use the runtime button edge helpers instead of
 - Shared runtime computes edges once per side on the hot path and forwards them through:
   - `IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag)`
 
+## Official Force Signals (Experimental)
+For official USB-C `usage=0x00/0x00`, the decoder now exposes reverse-engineered force-phase signals per contact:
+
+- `p`: pressure-like byte from `slot+6` (`0..255`)
+- `ph`: phase/state byte from `slot+7` (observed `0..3`)
+- `fn`: staged normalized force from `p+ph` using `Core/Input/ForceNormalizer.cs`:
+  - `ph=0`: `0..255`
+  - `ph=1`: `255..510`
+  - `ph=2`: `510..765`
+  - `ph=3`: `765..985` (caps `p` at `220`)
+
+Visualizer debug:
+- per-touch labels show `p`, `ph`, `fn`.
+- footer debug (`force dbg`) shows `btn`, `ph`, `p`, `fn`, and pulse counter.
+- this overlay is intentionally experimental and can be removed once semantics are finalized.
+
 ## Build
 ```
 dotnet build GlassToKey\GlassToKey.csproj -c Release
@@ -116,6 +132,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `RawInputInterop.cs`: Raw Input registration + device enumeration.
 - `PtpReport.cs`: zero-allocation report parsing.
 - `Core/Input/InputFrame.cs`: fixed-capacity frame/contact structs for engine handoff.
+- `Core/Input/ForceNormalizer.cs`: staged `p+ph` to `fn` helper (`0..985`).
 - `Core/Input/ButtonEdgeTracker.cs`: hot-path button pressed/down/up edge tracking helpers.
 - `Core/Engine/*`: touch table, binding index, action model, `TouchProcessor` core + actor queue.
 - `Core/Diagnostics/*`: capture format, replay runner, self-tests, frame metrics.

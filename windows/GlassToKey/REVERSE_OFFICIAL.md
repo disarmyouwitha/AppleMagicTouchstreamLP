@@ -242,6 +242,25 @@ Current confidence update from this batch:
 - `slot+7` behaves as a phase/state-class signal that can stay `0` in click-only protocols and engage `1/2/3` under force-pulse cycling.
 - `slot+8` lifecycle mapping still held (`0x03` active/hold, `0x01` release).
 
+## Runtime Exposure (Current Implementation)
+Implemented for official usage `0x00/0x00` path:
+- per-contact pressure signal:
+  - `p = slot+6` (`0..255`)
+- per-contact phase signal:
+  - `ph = slot+7` (observed `0..3`)
+- per-contact normalized force (experimental staged metric):
+  - helper: `Core/Input/ForceNormalizer.cs`
+  - `ForceNormalizer.Max = 985`
+  - mapping:
+    - `ph=0`: `fn = p` (`0..255`)
+    - `ph=1`: `fn = 255 + p` (`255..510`)
+    - `ph=2`: `fn = 510 + p` (`510..765`)
+    - `ph=3`: `fn = 765 + min(p,220)` (`765..985`)
+
+Visualizer/debug exposure:
+- per touch label now prints `p`, `ph`, and `fn`.
+- footer debug line prints `btn`, `ph`, `p`, staged `fn`, and pulse counter.
+
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
 
@@ -361,13 +380,3 @@ Analyzer fields to trust first:
   - `slot+6`: analog force/pressure candidate
   - `slot+7`: click/press phase-class signal (observed non-zero only in button-down windows in single-finger press capture)
 - Remaining work is mostly final semantic labeling and rule confidence, not crash triage.
-
-
-4. phaseD_force-pulse_cycles_10s
-
-  - Strong phase activity: ph had 0/1/2/3
-  - Transitions were both directions (up and down), and adjacent-step only:
-      - 0<->1, 1<->2, 2<->3
-      - no skipped jumps
-  - p ranged 1..255, many odd values in button-down rows
-  - Pulse heuristic detected repeated resets during button-down
