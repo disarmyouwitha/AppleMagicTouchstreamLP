@@ -54,6 +54,10 @@ Locked decoder contract (current):
 - `slot+7` is the official-stream source for per-contact phase signal `ph`.
 - `slot+8` remains lifecycle (`0x03` active/hold, `0x01` release in all analyzed datasets).
 
+Locked scope note:
+- `slot+0` is the active per-contact identity key used by decoder/runtime for current-touch tracking.
+- long-horizon identity across reconnect/reboot is out of scope for current lock criteria.
+
 ## 4. Coordinate Scaling (Implemented)
 
 Confirmed constants:
@@ -85,6 +89,14 @@ Confirmed scaling function:
   - assigned ID: `6129/6129` (`100%`)
   - `raw_contact_id`: `2050/6129` (`33.45%`)
 
+### `P12_noclick_hold_levels_center_two_fingers.atpcap` (analyzed 2026-02-14)
+- rows analyzed: `2139` contact rows, `1071` decoded frames (`avg contacts=2.00`)
+- assigned IDs matched `slot+0` values (`2`, `8`) in this capture.
+- same-frame duplicate assigned-ID frames: `0`.
+
+Identity lock decision:
+- `slot+0` is locked as definitive per-contact active ID source for official `usage=0x00/0x00` decoding.
+
 ## 6. Confirmed Button Mapping
 
 Byte `49` is confirmed as `IsButtonClicked` in analyzed official captures:
@@ -108,6 +120,14 @@ From no-click and press-isolation captures (2026-02-14):
 - `slot+6` behavior:
   - no-click release phase collapsed to `0x00`
   - one-finger press dataset showed higher/wider values during button-down windows, including odd values
+
+Lock decisions from pressure/phase protocols:
+- `slot+6` is locked as the definitive pressure signal byte (`p`).
+- `slot+7` is locked as the definitive phase/state signal byte (`ph`).
+- `slot+8` is locked for active/release mapping currently observed:
+  - `0x03` active/hold
+  - `0x01` release
+  - `0x02` has not been observed in analyzed datasets to date.
 
 Pressure-batch captures in `captures/pressure/analysis` (analyzed 2026-02-14):
 - `P00_idle_10s.atpcap`: `records=0`, `decoded=0`, `signatures=0` (no packet rows in this file).
@@ -170,7 +190,7 @@ Current runtime/visualizer exposure for official stream contacts:
 
 Interpretation status:
 - extraction and scaling are implemented and validated in live debugging.
-- final semantic labels for each phase value remain research-open.
+- final semantic labels for each phase value remain optional research-open, but source bytes are locked.
 
 ## 9. Runtime Guardrails (Implemented)
 
@@ -193,7 +213,42 @@ Analyzer support confirms:
 ## 11. Not Yet Confirmed
 
 The following are explicitly still open:
-- long-session and cross-reconnect stability limits for `slot+0` identity
-- final semantic labels for `slot+8` states beyond observed `0x03` active / `0x01` release
-- exact physical units and calibration mapping for `slot+6` (`p`) and per-state semantics for `slot+7` (`ph`)
-- whether composite identity beyond `slot+0` is required for rare edge cases
+- whether any rare third `slot+8` state (for example `0x02`) exists in larger/edge-case datasets
+- optional semantic naming refinements for `slot+7` state values (`0..3`)
+
+## 12. Slot+8 Closure Protocol (Exact Script + Pass/Fail)
+
+Use this only if you want to close the rare-state question (`slot+8==0x02`) before final freeze.
+
+Capture set:
+1. `S8A_edge_roll_noclick_20s.atpcap`
+   - one finger
+   - very light edge/partial contacts, rolling in/out, no click
+2. `S8B_two_finger_stagger_release_20s.atpcap`
+   - two fingers planted
+   - alternate staggered lift/replant cycles, no click
+3. `S8C_three_finger_stagger_release_20s.atpcap`
+   - three fingers planted
+   - remove/re-add middle finger repeatedly, no click
+4. `S8D_click_and_force_pulse_20s.atpcap`
+   - one finger
+   - click-hold with force pulses (deep press cycles)
+
+Capture command pattern:
+```powershell
+dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --capture .\captures\pressure\analysis\<name>.atpcap
+```
+
+Analyze command pattern:
+```powershell
+dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --raw-analyze .\captures\pressure\analysis\<name>.atpcap --raw-analyze-out .\captures\pressure\analysis\<name>.json --raw-analyze-contacts-out .\captures\pressure\analysis\<name>.csv | Tee-Object .\captures\pressure\analysis\<name>.summary.txt
+```
+
+Pass/Fail thresholds:
+- Pass lock (`slot+8` finalized to two-state active/release):
+  - across `S8A..S8D`, `slot+8` unique set is only `{0x03, 0x01}`
+  - `slot+8==0x01` occurs only on non-button-down release-side rows
+  - no rows with `slot+8==0x02`
+- Fail lock (needs update):
+  - any reproducible `slot+8==0x02` rows
+  - or `slot+8==0x01` frequently appearing during sustained active hold without release transitions
