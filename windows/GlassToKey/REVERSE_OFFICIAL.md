@@ -159,6 +159,48 @@ Key outcomes:
   - `slot+7` is likely a click/force phase-class signal.
   - `slot+6` remains the leading analog force/pressure candidate.
 
+## Pressure Protocol Batch (captures/pressure/analysis, analyzed 2026-02-14)
+Goal:
+- confirm pressure/click/lifecycle separation with one-finger controlled scripts.
+
+Datasets:
+- `P00_idle_10s.atpcap`:
+  - latest file summary: `records=0`, `decoded=0`, `signatures=0`.
+  - this file currently has no packet rows (cannot be used for slot-byte statistics).
+- `P10_noclick_ramp_center_3x.atpcap`:
+  - `records=750`, `decoded=750`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=0, downEdges=0, upEdges=0, maxRunFrames=0, withContacts=0, zeroContacts=0]`
+- `P11_noclick_hold_levels_center.atpcap`:
+  - `records=3344`, `decoded=3344`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=0, downEdges=0, upEdges=0, maxRunFrames=0, withContacts=0, zeroContacts=0]`
+- `P20_clickhold_ramp_center_3x.atpcap`:
+  - `records=1162`, `decoded=1162`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=665, downEdges=3, upEdges=3, maxRunFrames=267, withContacts=665, zeroContacts=0]`
+- `P21_click_pulses_planted.atpcap`:
+  - `records=474`, `decoded=474`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=246, downEdges=20, upEdges=20, maxRunFrames=14, withContacts=246, zeroContacts=0]`
+
+Cross-capture rollup (`P10/P11/P20/P21` only):
+- `btnSlot rows[up=4808, down=911]`
+- `s6Odd[up=0, down=100]` (odd `slot+6` appears only while button is down)
+- `s7NonZero[up=0, down=411]` (non-zero `slot+7` appears only while button is down)
+- `s8eq1[up=4, down=0]` (`slot+8==0x01` appears on release-side non-click rows only)
+
+Per-byte outcomes strengthened by this batch:
+- `slot+1` stayed constant `0x00` in all non-empty pressure-batch captures.
+- `slot+6` remains strongest pressure/force proxy:
+  - no-click runs (`P10/P11`) stayed even-only in button-up rows.
+  - click runs (`P20/P21`) shifted `slot+6` higher in button-down rows and introduced odd values.
+- `slot+7` remains click-phase correlated:
+  - button-up rows stayed `0x00` in all pressure-batch captures.
+  - button-down rows carried non-zero values (`0x01`, `0x02`, `0x03`) depending on protocol.
+- `slot+8` lifecycle mapping held:
+  - hold mostly `0x03`
+  - release marker `0x01` persisted and did not appear during button-down rows in this batch.
+
+Tail timing note from this batch:
+- `scanTime` deltas were dominated by `110` and `120` counts per frame.
+
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
 
