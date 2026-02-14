@@ -16,19 +16,29 @@ Confirmed stream signature:
 
 ## 2. Report Structure (50-byte packet)
 
-Confirmed byte layout for `reportId=0x05` packets:
+Confirmed packet envelope for `reportId=0x05`:
 - Byte `0`: `ReportId`
-- Bytes `1..45`: 5 contact slots, each 9 bytes
-  - slot `i` base: `slotOffset = 1 + i*9`
+- Bytes `1..45`: 5 contact slots, each 9 bytes (`slotOffset = 1 + i*9`)
 - Bytes `46..47`: `ScanTime` (little-endian `u16`)
 - Byte `48`: `ContactCount`
 - Byte `49`: `IsButtonClicked`
 
-Contact slot byte mapping in the parser:
-- `slot+0`: `Flags` byte in raw PTP parse
-- `slot+1..4`: `ContactId` (`u32` little-endian) in raw PTP parse
-- `slot+5..6`: `X` (`u16` little-endian) in raw PTP parse
-- `slot+7..8`: `Y` (`u16` little-endian) in raw PTP parse
+Confirmed contact-slot mapping has two valid views:
+
+Raw parser view (`PtpReport.TryParse`):
+- `slot+0`: `Flags`
+- `slot+1..4`: `ContactId` (`u32` little-endian)
+- `slot+5..6`: `X` (`u16` little-endian)
+- `slot+7..8`: `Y` (`u16` little-endian)
+
+Official usage `0x00/0x00` decode view (`TrackpadReportDecoder.NormalizeOfficialTouchFields`):
+- `slot+0`: per-contact ID candidate byte (also source byte for raw flags normalization path)
+- `slot+1`: tracked in analyzer lifecycle stats; semantic meaning not locked
+- `slot+2..3`: `rawX` (`u16` little-endian, then scaled)
+- `slot+4..5`: `rawY` (`u16` little-endian, then scaled)
+- `slot+6`: pressure byte `p` (`0..255`)
+- `slot+7`: phase/state byte `ph` (observed `0..3`)
+- `slot+8`: lifecycle byte in analyzed datasets (`0x03` active/hold, `0x01` release; `0x02` not yet observed)
 
 ## 3. Implemented Official Decode Rules (usage 0/0 path)
 
