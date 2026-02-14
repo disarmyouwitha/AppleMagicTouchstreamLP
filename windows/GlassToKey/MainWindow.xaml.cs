@@ -2189,19 +2189,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             : RightDeviceCombo.SelectedItem as HidDeviceInfo;
 
         bool showPressureValues = false;
-        bool showExperimentalDebug = false;
         bool likelyNoPressure = true;
         if (device != null && !device.IsNone && !string.IsNullOrWhiteSpace(device.Path))
         {
             TrackpadDecoderProfile profile = GetConfiguredDecoderProfile(device.Path!);
             showPressureValues = profile is TrackpadDecoderProfile.Legacy or TrackpadDecoderProfile.Official;
-            showExperimentalDebug = profile == TrackpadDecoderProfile.Official;
             likelyNoPressure = IsLikelyBluetoothDevice(device);
         }
 
         surface.ShowPressureValues = showPressureValues;
-        // Reverse-engineering-only overlay (easy toggle/remove once semantics are finalized).
-        surface.ShowExperimentalPressureDebugOverlay = showExperimentalDebug;
         session.State.ConfigurePressureHint(likelyNoPressure);
         InvalidateSurface(session);
     }
@@ -2979,7 +2975,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (side == TrackpadSide.Left)
         {
             LeftSurface.ClickLabel = FormatPressedState(_left.LastButtonState);
-            LeftSurface.PressureDebugLabel = _left.BuildPressureDebugLabel();
             LeftSurface.LastHitLabel = hitLabel;
             LeftSurface.InvalidateVisual();
             if (!string.Equals(_lastLeftHit, hitLabel, StringComparison.Ordinal))
@@ -2990,7 +2985,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         else
         {
             RightSurface.ClickLabel = FormatPressedState(_right.LastButtonState);
-            RightSurface.PressureDebugLabel = _right.BuildPressureDebugLabel();
             RightSurface.LastHitLabel = hitLabel;
             RightSurface.InvalidateVisual();
             if (!string.Equals(_lastRightHit, hitLabel, StringComparison.Ordinal))
@@ -3675,7 +3669,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyReport(ReaderSession session, RawInputDeviceTag tag, in InputFrame report, TrackpadSide side)
     {
-        session.UpdatePressureDebug(in report);
         session.State.Update(in report);
 
         string tagText = RawInputInterop.FormatTag(tag);
@@ -3923,10 +3916,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private sealed class ReaderSession
     {
-        private const byte PressurePulseArmThreshold = 180;
-        private const byte PressurePulseDropThreshold = 12;
         private ButtonEdgeTracker _buttonTracker;
-        private bool _pressurePulseArmed;
 
         public ReaderSession(string label)
         {
@@ -3940,10 +3930,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public RawInputDeviceTag? Tag { get; private set; }
         public string? TagText { get; private set; }
         public ButtonEdgeState LastButtonState { get; private set; }
-        public byte LastButtonRaw { get; private set; }
-        public byte LastPressure { get; private set; }
-        public byte LastPhase { get; private set; }
-        public int PressurePulseCount { get; private set; }
 
         public bool IsMatch(string deviceName)
         {
@@ -3958,11 +3944,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
-            LastButtonRaw = 0;
-            LastPressure = 0;
-            LastPhase = 0;
-            PressurePulseCount = 0;
-            _pressurePulseArmed = false;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3974,11 +3955,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
-            LastButtonRaw = 0;
-            LastPressure = 0;
-            LastPhase = 0;
-            PressurePulseCount = 0;
-            _pressurePulseArmed = false;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3997,65 +3973,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public void UpdateButtonState(in ButtonEdgeState state)
         {
             LastButtonState = state;
-        }
-
-        public void UpdatePressureDebug(in InputFrame frame)
-        {
-            LastButtonRaw = frame.IsButtonClicked;
-            byte maxPressure = 0;
-            byte maxPhase = 0;
-            int tipCount = 0;
-            int count = frame.GetClampedContactCount();
-            for (int i = 0; i < count; i++)
-            {
-                ContactFrame contact = frame.GetContact(i);
-                if (!contact.TipSwitch)
-                {
-                    continue;
-                }
-
-                tipCount++;
-                if (contact.Pressure8 > maxPressure)
-                {
-                    maxPressure = contact.Pressure8;
-                }
-
-                if (contact.Phase8 > maxPhase)
-                {
-                    maxPhase = contact.Phase8;
-                }
-            }
-
-            LastPressure = maxPressure;
-            LastPhase = maxPhase;
-
-            if (tipCount <= 0 || LastButtonRaw == 0)
-            {
-                _pressurePulseArmed = false;
-                return;
-            }
-
-            if (!_pressurePulseArmed)
-            {
-                if (maxPressure >= PressurePulseArmThreshold)
-                {
-                    _pressurePulseArmed = true;
-                }
-
-                return;
-            }
-
-            if (maxPressure <= PressurePulseDropThreshold)
-            {
-                PressurePulseCount++;
-                _pressurePulseArmed = false;
-            }
-        }
-
-        public string BuildPressureDebugLabel()
-        {
-            int forceNorm = ForceNormalizer.Compute(LastPressure, LastPhase);
-            return $"btn={LastButtonRaw} ph={LastPhase} p={LastPressure} fn={forceNorm}/{ForceNormalizer.Max} pulses={PressurePulseCount}";
         }
     }
 }

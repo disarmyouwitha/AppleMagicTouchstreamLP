@@ -23,8 +23,6 @@ public sealed class TouchView : FrameworkElement
     public string LastHitLabel { get; set; } = "--";
     public string ClickLabel { get; set; } = "--";
     public bool ShowPressureValues { get; set; } = true;
-    public bool ShowExperimentalPressureDebugOverlay { get; set; }
-    public string PressureDebugLabel { get; set; } = "--";
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
     private readonly Brush _canvasBrush = new SolidColorBrush(Color.FromRgb(12, 15, 18));
@@ -144,7 +142,7 @@ public sealed class TouchView : FrameworkElement
                     _textBrush,
                     1.0);
                 FormattedText pressureText = new(
-                    $"p:{c.Pressure8} ph:{c.Phase} fn:{c.ForceNorm}",
+                    $"fn:{c.ForceNorm}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,
@@ -194,18 +192,6 @@ public sealed class TouchView : FrameworkElement
             _footerBrush,
             1.0);
         dc.DrawText(footerLeft, new Point(pad.Left + 18, pad.Bottom - 24));
-        if (ShowExperimentalPressureDebugOverlay)
-        {
-            FormattedText debugText = new(
-                $"force dbg: {PressureDebugLabel}",
-                CultureInfo.InvariantCulture,
-                FlowDirection.LeftToRight,
-                _monoTypeface,
-                10,
-                _footerBrush,
-                1.0);
-            dc.DrawText(debugText, new Point(pad.Left + 18, pad.Bottom - 42));
-        }
 
         string hitText = $"Last hit: {LastHitLabel}";
         FormattedText footerRight = new(
