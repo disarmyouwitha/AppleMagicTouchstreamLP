@@ -87,7 +87,10 @@ public partial class App : Application
             try
             {
                 string inputPath = Path.GetFullPath(options.RawAnalyzePath);
-                RawCaptureAnalysisResult result = RawCaptureAnalyzer.Analyze(inputPath);
+                string? contactOutputPath = string.IsNullOrWhiteSpace(options.RawAnalyzeContactsOutputPath)
+                    ? null
+                    : Path.GetFullPath(options.RawAnalyzeContactsOutputPath);
+                RawCaptureAnalysisResult result = RawCaptureAnalyzer.Analyze(inputPath, contactOutputPath);
                 Console.WriteLine(result.ToSummary());
                 if (!string.IsNullOrWhiteSpace(options.RawAnalyzeOutputPath))
                 {

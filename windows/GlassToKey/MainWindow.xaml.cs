@@ -978,6 +978,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
+    private static string FormatPressedState(ButtonEdgeState state)
+    {
+        return state.IsPressed ? "true" : "false";
+    }
+
     private static double ReadDouble(TextBox box, double fallback)
     {
         if (double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
@@ -2969,6 +2974,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (side == TrackpadSide.Left)
         {
+            LeftSurface.ClickLabel = FormatPressedState(_left.LastButtonState);
             LeftSurface.LastHitLabel = hitLabel;
             LeftSurface.InvalidateVisual();
             if (!string.Equals(_lastLeftHit, hitLabel, StringComparison.Ordinal))
@@ -2978,6 +2984,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
         else
         {
+            RightSurface.ClickLabel = FormatPressedState(_right.LastButtonState);
             RightSurface.LastHitLabel = hitLabel;
             RightSurface.InvalidateVisual();
             if (!string.Equals(_lastRightHit, hitLabel, StringComparison.Ordinal))
@@ -3490,10 +3497,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     continue;
                 }
 
-                TraceDecoderSelection(snapshot, decoderProfile, decoded, leftMatch, rightMatch);
-
-                _liveMetrics.RecordParsed();
+                TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);
                 InputFrame frame = decoded.Frame;
+                _liveMetrics.RecordParsed();
                 if (!DispatchReport(snapshot, in frame))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
@@ -3519,6 +3525,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void TraceDecoderSelection(
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded,
         bool leftMatch,
@@ -3531,18 +3538,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         if (leftMatch)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Left, snapshot, payload, preferredProfile, decoded);
         }
 
         if (rightMatch)
         {
-            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, preferredProfile, decoded);
+            TraceDecoderSelectionForSide(TrackpadSide.Right, snapshot, payload, preferredProfile, decoded);
         }
     }
 
     private void TraceDecoderSelectionForSide(
         TrackpadSide side,
         in RawInputDeviceSnapshot snapshot,
+        ReadOnlySpan<byte> payload,
         TrackpadDecoderProfile preferredProfile,
         in TrackpadDecodeResult decoded)
     {
@@ -3581,6 +3589,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             $"first={firstContact} tag={RawInputInterop.FormatTag(snapshot.Tag)} " +
             $"vid=0x{(ushort)snapshot.Info.VendorId:X4} pid=0x{(ushort)snapshot.Info.ProductId:X4} " +
             $"usage=0x{snapshot.Info.UsagePage:X2}/0x{snapshot.Info.Usage:X2}");
+        Console.WriteLine($"[decoder] side={side} ids {TrackpadDecoderDebugFormatter.BuildContactIdSummary(payload, decoded)}");
     }
 
     private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
@@ -3654,6 +3663,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
+        session.UpdateButtonState(in report);
         ApplyReport(session, snapshot.Tag, in report, side);
     }
 
@@ -3677,7 +3687,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
     }
 
-    void IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, RawInputDeviceTag tag)
+    void IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag)
     {
         if (IsReplayMode || !UsesSharedRuntime)
         {
@@ -3690,6 +3700,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        session.UpdateButtonState(in buttonState);
         ApplyReport(session, tag, in frame, side);
     }
 
@@ -3905,6 +3916,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private sealed class ReaderSession
     {
+        private ButtonEdgeTracker _buttonTracker;
+
         public ReaderSession(string label)
         {
             State = new TouchState();
@@ -3916,6 +3929,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public string DisplayName { get; private set; }
         public RawInputDeviceTag? Tag { get; private set; }
         public string? TagText { get; private set; }
+        public ButtonEdgeState LastButtonState { get; private set; }
 
         public bool IsMatch(string deviceName)
         {
@@ -3929,6 +3943,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             DisplayName = displayName;
             Tag = null;
             TagText = null;
+            LastButtonState = ButtonEdgeState.Unknown;
+            _buttonTracker.Reset();
             State.Clear();
         }
 
@@ -3938,6 +3954,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             DisplayName = string.Empty;
             Tag = null;
             TagText = null;
+            LastButtonState = ButtonEdgeState.Unknown;
+            _buttonTracker.Reset();
             State.Clear();
         }
 
@@ -3945,6 +3963,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             Tag = tag;
             TagText = RawInputInterop.FormatTag(tag);
+        }
+
+        public void UpdateButtonState(in InputFrame frame)
+        {
+            LastButtonState = _buttonTracker.Update(in frame);
+        }
+
+        public void UpdateButtonState(in ButtonEdgeState state)
+        {
+            LastButtonState = state;
         }
     }
 }

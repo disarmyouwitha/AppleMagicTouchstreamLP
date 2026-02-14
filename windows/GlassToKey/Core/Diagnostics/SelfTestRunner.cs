@@ -13,6 +13,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Parser tests failed: {parserFailure}");
         }
 
+        if (!RunButtonEdgeTrackerTests(out string buttonFailure))
+        {
+            return new SelfTestResult(false, $"Button edge helper tests failed: {buttonFailure}");
+        }
+
         if (!RunReplayTests(out string replayFailure))
         {
             return new SelfTestResult(false, $"Replay tests failed: {replayFailure}");
@@ -128,7 +133,7 @@ internal static class SelfTestRunner
             officialDecoded.Profile != TrackpadDecoderProfile.Official ||
             officialDecoded.Frame.GetClampedContactCount() != 1 ||
             !officialDecoded.Frame.GetContact(0).TipSwitch ||
-            officialDecoded.Frame.GetContact(0).Id != 0)
+            officialDecoded.Frame.GetContact(0).Id != 4)
         {
             failure = "official profile decode failed";
             return false;
@@ -185,6 +190,67 @@ internal static class SelfTestRunner
         if (PtpReport.TryParse(malformed, out _))
         {
             failure = "short report should fail parsing";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunButtonEdgeTrackerTests(out string failure)
+    {
+        ButtonEdgeTracker tracker = default;
+        ButtonEdgeState state = tracker.Current;
+        if (state.HasHistory || state.IsPressed || state.Changed)
+        {
+            failure = "default tracker current state should be unknown";
+            return false;
+        }
+
+        state = tracker.Update(0);
+        if (state.HasHistory || state.IsPressed || state.Changed)
+        {
+            failure = "first up sample should have no history and no edges";
+            return false;
+        }
+
+        state = tracker.Update(1);
+        if (!state.HasHistory || !state.IsPressed || !state.JustPressed || state.JustReleased)
+        {
+            failure = "up-to-down transition should be reported as just-pressed";
+            return false;
+        }
+
+        state = tracker.Update(1);
+        if (!state.HasHistory || !state.IsPressed || state.Changed)
+        {
+            failure = "steady pressed sample should have no edge";
+            return false;
+        }
+
+        InputFrame released = MakeFrame(contactCount: 0);
+        released.IsButtonClicked = 0;
+        state = tracker.Update(in released);
+        if (!state.HasHistory || state.IsPressed || state.JustPressed || !state.JustReleased)
+        {
+            failure = "down-to-up transition should be reported as just-released";
+            return false;
+        }
+
+        tracker.Reset();
+        state = tracker.Current;
+        if (state.HasHistory || state.IsPressed || state.Changed)
+        {
+            failure = "reset tracker should clear history";
+            return false;
+        }
+
+        InputFrame pressed = MakeFrame(contactCount: 0);
+        pressed.IsButtonClicked = 1;
+        state = tracker.Update(in pressed);
+        if (state.HasHistory || !state.IsPressed || state.Changed)
+        {
+            failure = "first pressed sample after reset should not report an edge";
             return false;
         }
 

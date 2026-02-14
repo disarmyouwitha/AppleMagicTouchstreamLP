@@ -35,6 +35,8 @@ public struct InputFrame
         return ContactCount <= MaxContacts ? ContactCount : MaxContacts;
     }
 
+    public readonly bool IsButtonPressed => IsButtonClicked != 0;
+
     public readonly ContactFrame GetContact(int index)
     {
         return index switch

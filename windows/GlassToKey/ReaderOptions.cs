@@ -15,6 +15,7 @@ public sealed class ReaderOptions
     public string? ReplayTraceOutputPath { get; private set; }
     public string? RawAnalyzePath { get; private set; }
     public string? RawAnalyzeOutputPath { get; private set; }
+    public string? RawAnalyzeContactsOutputPath { get; private set; }
     public bool DecoderDebug { get; private set; }
     public bool ReplayInUi { get; private set; }
     public double ReplaySpeed { get; private set; } = 1.0;
@@ -87,13 +88,16 @@ public sealed class ReaderOptions
                 case "--raw-analyze-out" when i + 1 < args.Length:
                     options.RawAnalyzeOutputPath = args[++i];
                     break;
+                case "--raw-analyze-contacts-out" when i + 1 < args.Length:
+                    options.RawAnalyzeContactsOutputPath = args[++i];
+                    break;
                 case "--decoder-debug":
                     options.DecoderDebug = true;
                     break;
                 case "--help":
                 case "-h":
                 case "/?":
-                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--decoder-debug] [--config] [--relaunch-tray-on-close]");
+                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--raw-analyze-contacts-out <path>] [--decoder-debug] [--config] [--relaunch-tray-on-close]");
                 default:
                     break;
             }
