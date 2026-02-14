@@ -978,11 +978,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return value.ToString("0.###", CultureInfo.InvariantCulture);
     }
 
-    private static string FormatPressedState(ButtonEdgeState state)
-    {
-        return state.IsPressed ? "true" : "false";
-    }
-
     private static double ReadDouble(TextBox box, double fallback)
     {
         if (double.TryParse(box.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
@@ -2974,7 +2969,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (side == TrackpadSide.Left)
         {
-            LeftSurface.ClickLabel = FormatPressedState(_left.LastButtonState);
+            LeftSurface.PeakLabel = _left.GetPeakForceLabel();
             LeftSurface.LastHitLabel = hitLabel;
             LeftSurface.InvalidateVisual();
             if (!string.Equals(_lastLeftHit, hitLabel, StringComparison.Ordinal))
@@ -2984,7 +2979,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
         else
         {
-            RightSurface.ClickLabel = FormatPressedState(_right.LastButtonState);
+            RightSurface.PeakLabel = _right.GetPeakForceLabel();
             RightSurface.LastHitLabel = hitLabel;
             RightSurface.InvalidateVisual();
             if (!string.Equals(_lastRightHit, hitLabel, StringComparison.Ordinal))
@@ -3669,6 +3664,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyReport(ReaderSession session, RawInputDeviceTag tag, in InputFrame report, TrackpadSide side)
     {
+        session.UpdatePeakForce(in report);
         session.State.Update(in report);
 
         string tagText = RawInputInterop.FormatTag(tag);
@@ -3917,6 +3913,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private sealed class ReaderSession
     {
         private ButtonEdgeTracker _buttonTracker;
+        private int _activePeakForceNorm;
+        private bool _hasActivePeak;
+        private int? _lastPeakForceNorm;
 
         public ReaderSession(string label)
         {
@@ -3944,6 +3943,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
+            _activePeakForceNorm = 0;
+            _hasActivePeak = false;
+            _lastPeakForceNorm = null;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3955,6 +3957,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
+            _activePeakForceNorm = 0;
+            _hasActivePeak = false;
+            _lastPeakForceNorm = null;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3973,6 +3978,60 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public void UpdateButtonState(in ButtonEdgeState state)
         {
             LastButtonState = state;
+        }
+
+        public void UpdatePeakForce(in InputFrame frame)
+        {
+            int count = frame.GetClampedContactCount();
+            int framePeak = 0;
+            bool hasTipContact = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                ContactFrame contact = frame.GetContact(i);
+                if (!contact.TipSwitch)
+                {
+                    continue;
+                }
+
+                hasTipContact = true;
+                if (contact.ForceNorm > framePeak)
+                {
+                    framePeak = contact.ForceNorm;
+                }
+            }
+
+            if (hasTipContact)
+            {
+                if (!_hasActivePeak)
+                {
+                    _hasActivePeak = true;
+                    _activePeakForceNorm = 0;
+                }
+
+                if (framePeak > _activePeakForceNorm)
+                {
+                    _activePeakForceNorm = framePeak;
+                }
+
+                // Show live peak while touching; persists after release as the last interaction peak.
+                _lastPeakForceNorm = _activePeakForceNorm;
+                return;
+            }
+
+            if (_hasActivePeak)
+            {
+                _lastPeakForceNorm = _activePeakForceNorm;
+                _activePeakForceNorm = 0;
+                _hasActivePeak = false;
+            }
+        }
+
+        public string GetPeakForceLabel()
+        {
+            return _lastPeakForceNorm.HasValue
+                ? _lastPeakForceNorm.Value.ToString(CultureInfo.InvariantCulture)
+                : "--";
         }
     }
 }
