@@ -131,7 +131,7 @@ public sealed class TouchView : FrameworkElement
 
             dc.DrawEllipse(_tipBrush, null, new Point(x, y), 20, 20);
 
-            if (ShowPressureValues && pressureCapability == PressureCapability.Supported)
+            if (ShowPressureValues && pressureCapability != PressureCapability.Unsupported)
             {
                 FormattedText idText = new(
                     c.Id.ToString(CultureInfo.InvariantCulture),
@@ -142,7 +142,7 @@ public sealed class TouchView : FrameworkElement
                     _textBrush,
                     1.0);
                 FormattedText pressureText = new(
-                    $"p:{c.Pressure6}",
+                    $"p:{c.Pressure8}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,

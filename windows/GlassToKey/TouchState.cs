@@ -79,11 +79,12 @@ public sealed class TouchState
                     continue;
                 }
 
-                byte rawPressure6 = c.Pressure6;
+                byte rawPressure = c.Pressure8;
+                byte rawPressure6 = (byte)(rawPressure >> 2);
                 ObservePressureSampleCore(rawPressure6);
-                byte pressure6 = _pressureCapability == PressureCapability.Supported ? rawPressure6 : (byte)0;
+                byte pressure = _pressureCapability == PressureCapability.Supported ? rawPressure : (byte)0;
 
-                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence, pressure6);
+                _contacts[_contactCount++] = new TouchContact(c.Id, c.X, c.Y, c.TipSwitch, c.Confidence, pressure);
                 if (c.X > _maxX) _maxX = c.X;
                 if (c.Y > _maxY) _maxY = c.Y;
             }
@@ -230,7 +231,9 @@ public sealed class TouchState
     }
 }
 
-public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence, byte Pressure6)
+public readonly record struct TouchContact(uint Id, ushort X, ushort Y, bool Tip, bool Confidence, byte Pressure)
 {
+    public byte Pressure8 => Pressure;
+    public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
 }
