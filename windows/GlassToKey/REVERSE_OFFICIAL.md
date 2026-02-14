@@ -201,6 +201,47 @@ Per-byte outcomes strengthened by this batch:
 Tail timing note from this batch:
 - `scanTime` deltas were dominated by `110` and `120` counts per frame.
 
+## Force-Phase Protocol Batch (phaseA..phaseD, analyzed 2026-02-14)
+Goal:
+- characterize pressure (`slot+6`) and phase (`slot+7`) behavior across controlled force scripts.
+
+Datasets:
+- `phaseA_light_noclick_10s.atpcap`:
+  - `records=1159`, `decoded=1159`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=0, downEdges=0, upEdges=0, maxRunFrames=0, withContacts=0, zeroContacts=0]`
+  - `slot+7` stayed `0x00`; `slot+6` remained in no-click range (`up max=122`).
+- `phaseB_ramp_to_click_10s.atpcap`:
+  - `records=1135`, `decoded=1135`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=221, downEdges=6, upEdges=6, maxRunFrames=45, withContacts=221, zeroContacts=0]`
+  - `slot+7` remained `0x00` even during button-down rows.
+  - `slot+6` button-down range: `76..182`; no odd values in this protocol.
+- `phaseC_post_click_hold_10s.atpcap`:
+  - `records=1101`, `decoded=1101`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=1022, downEdges=1, upEdges=1, maxRunFrames=1022, withContacts=1022, zeroContacts=0]`
+  - `slot+7` remained `0x00` during long button-down hold.
+  - `slot+6` button-down range: `104..218`; no odd values in this protocol.
+- `phaseD_force-pulse_cycles_10s.atpcap`:
+  - `records=1724`, `decoded=1724`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - `button[pressedFrames=1526, downEdges=3, upEdges=3, maxRunFrames=674, withContacts=1526, zeroContacts=0]`
+  - `slot+7` held all four observed states in button-down rows (`0/1/2/3`).
+  - `slot+6` button-down range: `1..255` with frequent odd values (`s6Odd down=518`).
+
+Phase transition behavior (from `phaseD` button-down rows):
+- hold transitions are dominated by same-state runs (`3->3`, `2->2`, `1->1`, `0->0`).
+- cross-state transitions occur in both directions:
+  - rising: `0->1`, `1->2`, `2->3`
+  - falling: `3->2`, `2->1`, `1->0`
+- no direct skipped jumps observed (`|delta phase| > 1` was `0`).
+- implication: current observed phase movement is bidirectional, adjacent-step only.
+
+Pulse observation note:
+- a simple heuristic (`slot+6 >= 180` then drop to `<=12` while button remains down) counted repeated resets in `phaseD` (`14` events), consistent with force-pulse-like behavior in this protocol.
+
+Current confidence update from this batch:
+- `slot+6` remains a strong analog pressure/force signal.
+- `slot+7` behaves as a phase/state-class signal that can stay `0` in click-only protocols and engage `1/2/3` under force-pulse cycling.
+- `slot+8` lifecycle mapping still held (`0x03` active/hold, `0x01` release).
+
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
 
@@ -320,3 +361,13 @@ Analyzer fields to trust first:
   - `slot+6`: analog force/pressure candidate
   - `slot+7`: click/press phase-class signal (observed non-zero only in button-down windows in single-finger press capture)
 - Remaining work is mostly final semantic labeling and rule confidence, not crash triage.
+
+
+4. phaseD_force-pulse_cycles_10s
+
+  - Strong phase activity: ph had 0/1/2/3
+  - Transitions were both directions (up and down), and adjacent-step only:
+      - 0<->1, 1<->2, 2<->3
+      - no skipped jumps
+  - p ranged 1..255, many odd values in button-down rows
+  - Pulse heuristic detected repeated resets during button-down

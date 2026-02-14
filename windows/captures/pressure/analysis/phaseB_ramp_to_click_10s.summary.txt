@@ -1,0 +1,19 @@
+Raw analysis: C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows\captures\pressure\analysis\phaseB_ramp_to_click_10s.atpcap
+records=1135, decoded=1135, signatures=1
+1. vid=0x1004C, pid=0x0324, usage=0x00/0x00, reportId=0x05, len=50, frames=1135
+   decoded=1135 [ptp=1135, embedded=0, apple9=0]
+   contacts[min/avg/max]=0/1.00/1, offsets=[0]
+   button[pressedFrames=221, downEdges=6, upEdges=6, maxRunFrames=45, withContacts=221, zeroContacts=0]
+   hotBytes=[5,7,47,46,3,49,9,1]
+   slot+1 lifecycle[down=1, hold=1133, release=1] downTop=[0x00:1] holdTop=[0x00:1133] releaseTop=[0x00:1] holdTrans=[0x00->0x00:1133]
+   slot+6 lifecycle[down=1, hold=1133, release=1] downTop=[0x02:1] holdTop=[0x2E:67, 0x24:44, 0x2C:39, 0x20:38, 0x66:34, 0x32:32] releaseTop=[0x00:1] holdTrans=[0x2E->0x2E:57, 0x24->0x24:37, 0x20->0x20:33, 0x2C->0x2C:29, 0x66->0x66:25, 0x1E->0x1E:21, 0x32->0x32:21, 0x34->0x34:20]
+   slot+7 lifecycle[down=1, hold=1133, release=1] downTop=[0x00:1] holdTop=[0x00:1133] releaseTop=[0x00:1] holdTrans=[0x00->0x00:1133]
+   slot+8 lifecycle[down=1, hold=1133, release=1] downTop=[0x03:1] holdTop=[0x03:1132, 0x01:1] releaseTop=[0x01:1] holdTrans=[0x03->0x03:1132, 0x03->0x01:1]
+   btnSlot rows[up=913, down=221] s6Odd[up=0, down=0] s7NonZero[up=0, down=0] s8eq1[up=1, down=0]
+   btnSlot s6 top up=[0x2E:67, 0x24:44, 0x2C:39, 0x20:38, 0x32:32, 0x66:32, 0x34:28, 0x1E:25] down=[0x80:26, 0x84:16, 0x92:16, 0x8C:13, 0x7E:10, 0x8A:10, 0x78:9, 0x82:8]
+   btnSlot s7 top up=[0x00:913] down=[0x00:221]
+   btnSlot s8 top up=[0x03:912, 0x01:1] down=[0x03:221]
+   btnEdge rows[down=6, up=6] s6 down=[0x80:4, 0x7E:2] up=[0x48:2, 0x4A:2, 0x42:1, 0x4C:1] s7 down=[0x00:6] up=[0x00:6] s8 down=[0x03:6] up=[0x03:6]
+   sample1: 0509001A1A40150200030000000000000000000000000000000000000000000000000000000000000000000000004EE70100
+   sample2: 050900181A4415060003000000000000000000000000000000000000000000000000000000000000000000000000BCE70100
+   sample3: 0509001A1A48150800030000000000000000000000000000000000000000000000000000000000000000000000002AE80100
