@@ -1,0 +1,9 @@
+In the GUI can we remove "Pressed:" true/false from the GUI overlay? Can we add "Peak: in it's place where we display the last highest force? (I want to be able to see how hard the keyboard was tapped or clicked)
+
+Can we wire a "force cap" slider into the GUI? (using new variable) /test
+
+Can we wire a "force min" slider into the GUI? (using new variable) /test
+
+^ These will both be in phase1, so, slider can be 0-255
+
+**Gestures** "click", Force click1, Force Click2.

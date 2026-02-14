@@ -1,0 +1,18 @@
+Raw analysis: C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows\captures\pressure\analysis\P12_noclick_hold_levels_center_two_fingers.atpcap
+records=1071, decoded=1071, signatures=1
+1. vid=0x1004C, pid=0x0324, usage=0x00/0x00, reportId=0x05, len=50, frames=1071
+   decoded=1071 [ptp=1071, embedded=0, apple9=0]
+   contacts[min/avg/max]=0/2.00/2, offsets=[0]
+   button[pressedFrames=0, downEdges=0, upEdges=0, maxRunFrames=0, withContacts=0, zeroContacts=0]
+   hotBytes=[7,16,47,46,12,3,14,5]
+   slot+1 lifecycle[down=2, hold=2137, release=2] downTop=[0x00:2] holdTop=[0x00:2137] releaseTop=[0x00:2] holdTrans=[0x00->0x00:2137]
+   slot+6 lifecycle[down=2, hold=2137, release=2] downTop=[0x04:1, 0x08:1] holdTop=[0x20:345, 0x1E:185, 0x22:168, 0x1C:138, 0x38:102, 0x14:98] releaseTop=[0x00:2] holdTrans=[0x20->0x20:330, 0x1E->0x1E:171, 0x22->0x22:153, 0x1C->0x1C:124, 0x38->0x38:97, 0x14->0x14:93, 0x3A->0x3A:84, 0x24->0x24:75]
+   slot+7 lifecycle[down=2, hold=2137, release=2] downTop=[0x00:2] holdTop=[0x00:2137] releaseTop=[0x00:2] holdTrans=[0x00->0x00:2137]
+   slot+8 lifecycle[down=2, hold=2137, release=2] downTop=[0x03:2] holdTop=[0x03:2135, 0x01:2] releaseTop=[0x01:2] holdTrans=[0x03->0x03:2135, 0x03->0x01:2]
+   btnSlot rows[up=2139, down=0] s6Odd[up=0, down=0] s7NonZero[up=0, down=0] s8eq1[up=2, down=0]
+   btnSlot s6 top up=[0x20:345, 0x1E:185, 0x22:168, 0x1C:138, 0x38:102, 0x14:98, 0x3A:91, 0x24:85] down=[]
+   btnSlot s7 top up=[0x00:2139] down=[]
+   btnSlot s8 top up=[0x03:2137, 0x01:2] down=[]
+   sample1: 0502002E17C01304000308004A1E2C120800030000000000000000000000000000000000000000000000000000009A800200
+   sample2: 0502002E17D0130600030800301E2E120E000300000000000000000000000000000000000000000000000000000008810200
+   sample3: 0502003817B8130A000308002C1E281212000300000000000000000000000000000000000000000000000000000076810200
