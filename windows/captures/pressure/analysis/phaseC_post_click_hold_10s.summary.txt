@@ -1,0 +1,19 @@
+Raw analysis: C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows\captures\pressure\analysis\phaseC_post_click_hold_10s.atpcap
+records=1101, decoded=1101, signatures=1
+1. vid=0x1004C, pid=0x0324, usage=0x00/0x00, reportId=0x05, len=50, frames=1101
+   decoded=1101 [ptp=1101, embedded=0, apple9=0]
+   contacts[min/avg/max]=0/1.00/1, offsets=[0]
+   button[pressedFrames=1022, downEdges=1, upEdges=1, maxRunFrames=1022, withContacts=1022, zeroContacts=0]
+   hotBytes=[3,7,47,5,46,6,49,9]
+   slot+1 lifecycle[down=1, hold=1099, release=1] downTop=[0x00:1] holdTop=[0x00:1099] releaseTop=[0x00:1] holdTrans=[0x00->0x00:1099]
+   slot+6 lifecycle[down=1, hold=1099, release=1] downTop=[0x10:1] holdTop=[0xB8:170, 0xBA:85, 0xB0:78, 0xBE:77, 0xBC:67, 0xAC:62] releaseTop=[0x00:1] holdTrans=[0xB8->0xB8:168, 0xBA->0xBA:83, 0xB0->0xB0:75, 0xBE->0xBE:73, 0xBC->0xBC:65, 0xAC->0xAC:59, 0xAA->0xAA:54, 0xAE->0xAE:51]
+   slot+7 lifecycle[down=1, hold=1099, release=1] downTop=[0x00:1] holdTop=[0x00:1099] releaseTop=[0x00:1] holdTrans=[0x00->0x00:1099]
+   slot+8 lifecycle[down=1, hold=1099, release=1] downTop=[0x03:1] holdTop=[0x03:1098, 0x01:1] releaseTop=[0x01:1] holdTrans=[0x03->0x03:1098, 0x03->0x01:1]
+   btnSlot rows[up=78, down=1022] s6Odd[up=0, down=0] s7NonZero[up=0, down=0] s8eq1[up=1, down=0]
+   btnSlot s6 top up=[0x58:15, 0x40:8, 0x46:6, 0x52:3, 0x62:3, 0x1E:2, 0x26:2, 0x3E:2] down=[0xB8:170, 0xBA:85, 0xB0:78, 0xBE:77, 0xBC:67, 0xAC:62, 0xAA:57, 0xAE:54]
+   btnSlot s7 top up=[0x00:78] down=[0x00:1022]
+   btnSlot s8 top up=[0x03:77, 0x01:1] down=[0x03:1022]
+   btnEdge rows[down=1, up=1] s6 down=[0x80:1] up=[0x40:1] s7 down=[0x00:1] up=[0x00:1] s8 down=[0x03:1] up=[0x03:1]
+   sample1: 050600201B04151000030000000000000000000000000000000000000000000000000000000000000000000000002C870100
+   sample2: 0506002C1B02151800030000000000000000000000000000000000000000000000000000000000000000000000009A870100
+   sample3: 050600301B04151C000300000000000000000000000000000000000000000000000000000000000000000000000008880100

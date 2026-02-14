@@ -127,6 +127,25 @@ Aggregated pressure-batch evidence (from `P10/P11/P20/P21`):
 Scan-time behavior in these captures:
 - byte pair `[46..47]` (raw/decode `ScanTime`) increments mostly by `110` or `120` counts per frame.
 
+Phase-protocol captures in `captures/pressure/analysis` (analyzed 2026-02-14):
+- `phaseA_light_noclick_10s.atpcap`:
+  - `button[pressedFrames=0, downEdges=0, upEdges=0]`
+  - `slot+7` (`ph`) stayed `0x00`; `slot+6` stayed in no-click range.
+- `phaseB_ramp_to_click_10s.atpcap`:
+  - `button[pressedFrames=221, downEdges=6, upEdges=6]`
+  - `slot+7` (`ph`) remained `0x00` in both button-up and button-down rows.
+- `phaseC_post_click_hold_10s.atpcap`:
+  - `button[pressedFrames=1022, downEdges=1, upEdges=1]`
+  - `slot+7` (`ph`) remained `0x00` in both button-up and button-down rows.
+- `phaseD_force-pulse_cycles_10s.atpcap`:
+  - `button[pressedFrames=1526, downEdges=3, upEdges=3]`
+  - `slot+7` (`ph`) button-down values: `0x00/0x01/0x02/0x03`
+  - transition behavior during button-down rows:
+    - adjacent step transitions only (`0<->1`, `1<->2`, `2<->3`)
+    - no skipped transitions (`|delta| > 1` not observed)
+    - both upward and downward transitions observed (not monotonic in one direction)
+  - `slot+6` showed wide range (`1..255`) with frequent odd values in button-down rows.
+
 ## 8. Runtime Guardrails (Implemented)
 
 Raw-input fault handling includes:
