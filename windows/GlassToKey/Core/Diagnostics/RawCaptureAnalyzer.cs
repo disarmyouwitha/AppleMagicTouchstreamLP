@@ -24,6 +24,12 @@ internal readonly record struct RawSignatureAnalysis(
     int MinContacts,
     double AvgContacts,
     int MaxContacts,
+    long ButtonPressedFrames,
+    long ButtonDownEdges,
+    long ButtonUpEdges,
+    long ButtonPressedWithZeroContacts,
+    long ButtonPressedWithActiveContacts,
+    int MaxButtonPressedRunFrames,
     int[] DecodeOffsets,
     int[] HotByteIndexes,
     string[] SamplesHex);
@@ -58,6 +64,10 @@ internal readonly record struct RawCaptureAnalysisResult(
                 sb.AppendLine(
                     $"   contacts[min/avg/max]={signature.MinContacts}/{signature.AvgContacts:F2}/{signature.MaxContacts}, " +
                     $"offsets=[{string.Join(",", signature.DecodeOffsets)}]");
+                sb.AppendLine(
+                    $"   button[pressedFrames={signature.ButtonPressedFrames}, downEdges={signature.ButtonDownEdges}, " +
+                    $"upEdges={signature.ButtonUpEdges}, maxRunFrames={signature.MaxButtonPressedRunFrames}, " +
+                    $"withContacts={signature.ButtonPressedWithActiveContacts}, zeroContacts={signature.ButtonPressedWithZeroContacts}]");
             }
 
             if (signature.HotByteIndexes.Length > 0)
@@ -174,7 +184,7 @@ internal static class RawCaptureAnalyzer
     private static void WriteContactTraceHeader(TextWriter writer)
     {
         writer.WriteLine(
-            "frame_index,decode_kind,profile,payload_offset,vendor_id,product_id,usage_page,usage,source_report_id,payload_length,contact_index,raw_contact_id,assigned_contact_id,raw_flags,assigned_flags,raw_x,raw_y,decoded_x,decoded_y,slot_offset,slot_hex");
+            "frame_index,decode_kind,profile,payload_offset,vendor_id,product_id,usage_page,usage,source_report_id,payload_length,decoded_scan_time,decoded_contact_count,decoded_is_button_clicked,raw_scan_time,raw_contact_count,raw_is_button_clicked,contact_index,raw_contact_id,assigned_contact_id,raw_flags,assigned_flags,raw_x,raw_y,decoded_x,decoded_y,slot_offset,slot_hex");
     }
 
     private static void WriteContactTraceRows(
@@ -228,6 +238,27 @@ internal static class RawCaptureAnalyzer
             writer.Write(decodeResult.SourceReportId.ToString("X2", CultureInfo.InvariantCulture));
             writer.Write(',');
             writer.Write(payload.Length.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodeResult.Frame.ScanTime.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodedCount.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodeResult.Frame.IsButtonClicked.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            if (hasRawReport)
+            {
+                writer.Write(rawReport.ScanTime.ToString(CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            if (hasRawReport)
+            {
+                writer.Write(rawReport.ContactCount.ToString(CultureInfo.InvariantCulture));
+            }
+            writer.Write(',');
+            if (hasRawReport)
+            {
+                writer.Write(rawReport.IsButtonClicked.ToString(CultureInfo.InvariantCulture));
+            }
             writer.Write(',');
             writer.Write(i.ToString(CultureInfo.InvariantCulture));
             writer.Write(',');
@@ -306,6 +337,15 @@ internal static class RawCaptureAnalyzer
         private long _totalContacts;
         private int _minContacts = int.MaxValue;
         private int _maxContacts;
+        private long _buttonPressedFrames;
+        private long _buttonDownEdges;
+        private long _buttonUpEdges;
+        private long _buttonPressedWithZeroContacts;
+        private long _buttonPressedWithActiveContacts;
+        private int _maxButtonPressedRunFrames;
+        private int _currentButtonPressedRunFrames;
+        private bool _hasPreviousButtonPressedState;
+        private bool _previousButtonPressedState;
 
         public MutableSignatureStats(RawReportSignature signature)
         {
@@ -360,6 +400,44 @@ internal static class RawCaptureAnalyzer
             {
                 _maxContacts = contacts;
             }
+
+            bool buttonPressed = decodeResult.Frame.IsButtonClicked != 0;
+            if (_hasPreviousButtonPressedState)
+            {
+                if (!_previousButtonPressedState && buttonPressed)
+                {
+                    _buttonDownEdges++;
+                }
+                else if (_previousButtonPressedState && !buttonPressed)
+                {
+                    _buttonUpEdges++;
+                }
+            }
+
+            _hasPreviousButtonPressedState = true;
+            _previousButtonPressedState = buttonPressed;
+            if (buttonPressed)
+            {
+                _buttonPressedFrames++;
+                if (contacts <= 0)
+                {
+                    _buttonPressedWithZeroContacts++;
+                }
+                else
+                {
+                    _buttonPressedWithActiveContacts++;
+                }
+
+                _currentButtonPressedRunFrames++;
+                if (_currentButtonPressedRunFrames > _maxButtonPressedRunFrames)
+                {
+                    _maxButtonPressedRunFrames = _currentButtonPressedRunFrames;
+                }
+            }
+            else
+            {
+                _currentButtonPressedRunFrames = 0;
+            }
         }
 
         public RawSignatureAnalysis Build()
@@ -384,6 +462,12 @@ internal static class RawCaptureAnalyzer
                 minContacts,
                 avgContacts,
                 _maxContacts,
+                _buttonPressedFrames,
+                _buttonDownEdges,
+                _buttonUpEdges,
+                _buttonPressedWithZeroContacts,
+                _buttonPressedWithActiveContacts,
+                _maxButtonPressedRunFrames,
                 decodeOffsets,
                 hotBytes,
                 _samples.ToArray());
