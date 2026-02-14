@@ -23,6 +23,8 @@ public sealed class TouchView : FrameworkElement
     public string LastHitLabel { get; set; } = "--";
     public string ClickLabel { get; set; } = "--";
     public bool ShowPressureValues { get; set; } = true;
+    public bool ShowExperimentalPressureDebugOverlay { get; set; }
+    public string PressureDebugLabel { get; set; } = "--";
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
     private readonly Brush _canvasBrush = new SolidColorBrush(Color.FromRgb(12, 15, 18));
@@ -149,10 +151,19 @@ public sealed class TouchView : FrameworkElement
                     9,
                     _textBrush,
                     1.0);
+                FormattedText phaseText = new(
+                    $"ph:{c.Phase}",
+                    CultureInfo.InvariantCulture,
+                    FlowDirection.LeftToRight,
+                    _monoTypeface,
+                    8,
+                    _textBrush,
+                    1.0);
                 double spacing = 1.0;
-                double startY = y - ((idText.Height + pressureText.Height + spacing) / 2);
+                double startY = y - ((idText.Height + pressureText.Height + phaseText.Height + (spacing * 2)) / 2);
                 dc.DrawText(idText, new Point(x - (idText.Width / 2), startY));
                 dc.DrawText(pressureText, new Point(x - (pressureText.Width / 2), startY + idText.Height + spacing));
+                dc.DrawText(phaseText, new Point(x - (phaseText.Width / 2), startY + idText.Height + pressureText.Height + (spacing * 2)));
             }
             else
             {
@@ -192,6 +203,18 @@ public sealed class TouchView : FrameworkElement
             _footerBrush,
             1.0);
         dc.DrawText(footerLeft, new Point(pad.Left + 18, pad.Bottom - 24));
+        if (ShowExperimentalPressureDebugOverlay)
+        {
+            FormattedText debugText = new(
+                $"force dbg: {PressureDebugLabel}",
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                10,
+                _footerBrush,
+                1.0);
+            dc.DrawText(debugText, new Point(pad.Left + 18, pad.Bottom - 42));
+        }
 
         string hitText = $"Last hit: {LastHitLabel}";
         FormattedText footerRight = new(

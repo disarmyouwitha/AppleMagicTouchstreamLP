@@ -409,6 +409,7 @@ internal static class TrackpadReportDecoder
             ushort x = contact.X;
             ushort y = contact.Y;
             byte pressure = contact.Pressure8;
+            byte phase = contact.Phase8;
             uint assignedId = (uint)i;
 
             if (!isNativeTouchpadUsage)
@@ -427,6 +428,7 @@ internal static class TrackpadReportDecoder
                     // Experimental pressure path for official usage 0/0 stream.
                     // Empirically, slot+6 carries the strongest analog pressure/force signal.
                     pressure = payload[slotOffset + 6];
+                    phase = payload[slotOffset + 7];
                 }
                 else
                 {
@@ -438,7 +440,7 @@ internal static class TrackpadReportDecoder
                 assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
             }
 
-            frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags, pressure));
+            frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags, pressure, phase));
         }
     }
 
@@ -519,7 +521,7 @@ internal static class TrackpadReportDecoder
                 continue;
             }
 
-            frame.SetContact(i, new ContactFrame((uint)i, contact.X, contact.Y, contact.Flags, contact.Pressure8));
+            frame.SetContact(i, new ContactFrame((uint)i, contact.X, contact.Y, contact.Flags, contact.Pressure8, contact.Phase8));
         }
     }
 }

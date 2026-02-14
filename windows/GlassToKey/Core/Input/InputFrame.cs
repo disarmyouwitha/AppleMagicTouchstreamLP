@@ -2,11 +2,12 @@ using System;
 
 namespace GlassToKey;
 
-public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Flags, byte Pressure = 0)
+public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Flags, byte Pressure = 0, byte Phase = 0)
 {
     public bool TipSwitch => (Flags & 0x02) != 0;
     public bool Confidence => (Flags & 0x01) != 0;
     public byte Pressure8 => Pressure;
+    public byte Phase8 => Phase;
     public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
 
