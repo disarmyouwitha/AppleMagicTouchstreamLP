@@ -2193,8 +2193,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (device != null && !device.IsNone && !string.IsNullOrWhiteSpace(device.Path))
         {
             TrackpadDecoderProfile profile = GetConfiguredDecoderProfile(device.Path!);
-            showPressureValues = profile == TrackpadDecoderProfile.Legacy;
-            likelyNoPressure = !showPressureValues || IsLikelyBluetoothDevice(device);
+            showPressureValues = profile is TrackpadDecoderProfile.Legacy or TrackpadDecoderProfile.Official;
+            likelyNoPressure = IsLikelyBluetoothDevice(device);
         }
 
         surface.ShowPressureValues = showPressureValues;

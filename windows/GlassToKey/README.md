@@ -64,6 +64,22 @@ For click/button-driven features, use the runtime button edge helpers instead of
 - Shared runtime computes edges once per side on the hot path and forwards them through:
   - `IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag)`
 
+## Official Force Signals (Experimental)
+For official USB-C `usage=0x00/0x00`, the decoder now exposes reverse-engineered force-phase signals per contact:
+
+- `p`: pressure-like byte from `slot+6` (`0..255`)
+- `ph`: phase/state byte from `slot+7` (observed `0..3`)
+- `fn`: staged normalized force from `p+ph` using `Core/Input/ForceNormalizer.cs`:
+  - `ph=0`: `0..255`
+  - `ph=1`: `255..510`
+  - `ph=2`: `510..765`
+  - `ph=3`: `765..985` (caps `p` at `220`)
+
+Visualizer debug:
+- per-touch labels show `p`, `ph`, `fn`.
+- footer debug (`force dbg`) shows `btn`, `ph`, `p`, `fn`, and pulse counter.
+- this overlay is intentionally experimental and can be removed once semantics are finalized.
+
 ## Build
 ```
 dotnet build GlassToKey\GlassToKey.csproj -c Release
@@ -92,7 +108,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--replay-trace-out <path>`: Write detailed replay trace JSON (intent transitions, dispatch events, diagnostics).
   - Dispatch events/diagnostics include `dispatchLabel` (for example `A`, `TypingToggle`, `Ctrl+C`, `ChordShift`) for direct intent debugging.
   - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `tap_gesture_active`, `hold_consumed`) when a touch release does not emit a key dispatch.
-- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification.
+- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
 - `--selftest`: Run parser/button-edge/replay smoke tests and exit.
@@ -116,6 +132,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `RawInputInterop.cs`: Raw Input registration + device enumeration.
 - `PtpReport.cs`: zero-allocation report parsing.
 - `Core/Input/InputFrame.cs`: fixed-capacity frame/contact structs for engine handoff.
+- `Core/Input/ForceNormalizer.cs`: staged `p+ph` to `fn` helper (`0..985`).
 - `Core/Input/ButtonEdgeTracker.cs`: hot-path button pressed/down/up edge tracking helpers.
 - `Core/Engine/*`: touch table, binding index, action model, `TouchProcessor` core + actor queue.
 - `Core/Diagnostics/*`: capture format, replay runner, self-tests, frame metrics.

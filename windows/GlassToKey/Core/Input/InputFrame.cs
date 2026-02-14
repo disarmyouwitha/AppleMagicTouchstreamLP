@@ -2,16 +2,21 @@ using System;
 
 namespace GlassToKey;
 
-public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Flags)
+public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Flags, byte Pressure = 0, byte Phase = 0)
 {
     public bool TipSwitch => (Flags & 0x02) != 0;
     public bool Confidence => (Flags & 0x01) != 0;
-    public byte Pressure6 => (byte)((Flags >> 2) & 0x3F);
+    public byte Pressure8 => Pressure;
+    public byte Phase8 => Phase;
+    public int ForceNorm => ForceNormalizer.Compute(Pressure8, Phase8);
+    public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
 
     public static ContactFrame FromPtpContact(in PtpContact contact)
     {
-        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags);
+        // Legacy path packs pressure-like bits in Flags[7:2] (6-bit value).
+        byte pressureApprox = (byte)(((contact.Flags >> 2) & 0x3F) << 2);
+        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, pressureApprox);
     }
 }
 
