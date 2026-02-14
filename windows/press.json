@@ -1,0 +1,293 @@
+{
+  "CapturePath": "C:\\Users\\jholloway\\Documents\\AppleMagicTouchstreamLP\\windows\\press.atpcap",
+  "RecordsRead": 1673,
+  "RecordsDecoded": 1673,
+  "Signatures": [
+    {
+      "Signature": {
+        "VendorId": 65612,
+        "ProductId": 804,
+        "UsagePage": 0,
+        "Usage": 0,
+        "ReportId": 5,
+        "PayloadLength": 50
+      },
+      "Frames": 1673,
+      "DecodedFrames": 1673,
+      "DecodeKindCounts": [
+        0,
+        1673,
+        0,
+        0
+      ],
+      "MinContacts": 0,
+      "AvgContacts": 0.9988045427375971,
+      "MaxContacts": 1,
+      "ButtonPressedFrames": 539,
+      "ButtonDownEdges": 3,
+      "ButtonUpEdges": 3,
+      "ButtonPressedWithZeroContacts": 0,
+      "ButtonPressedWithActiveContacts": 539,
+      "MaxButtonPressedRunFrames": 213,
+      "DecodeOffsets": [
+        0
+      ],
+      "HotByteIndexes": [
+        7,
+        47,
+        46,
+        5,
+        3,
+        6,
+        49,
+        8
+      ],
+      "SlotByteLifecycle": [
+        {
+          "SlotByteOffset": 1,
+          "DownEvents": 2,
+          "HoldEvents": 1669,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 1669
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 1669
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 6,
+          "DownEvents": 2,
+          "HoldEvents": 1669,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 4,
+              "Count": 1
+            },
+            {
+              "Value": 10,
+              "Count": 1
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 220,
+              "Count": 207
+            },
+            {
+              "Value": 26,
+              "Count": 93
+            },
+            {
+              "Value": 102,
+              "Count": 69
+            },
+            {
+              "Value": 12,
+              "Count": 58
+            },
+            {
+              "Value": 106,
+              "Count": 55
+            },
+            {
+              "Value": 32,
+              "Count": 48
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 220,
+              "ToValue": 220,
+              "Count": 203
+            },
+            {
+              "FromValue": 26,
+              "ToValue": 26,
+              "Count": 83
+            },
+            {
+              "FromValue": 102,
+              "ToValue": 102,
+              "Count": 57
+            },
+            {
+              "FromValue": 12,
+              "ToValue": 12,
+              "Count": 51
+            },
+            {
+              "FromValue": 106,
+              "ToValue": 106,
+              "Count": 46
+            },
+            {
+              "FromValue": 32,
+              "ToValue": 32,
+              "Count": 36
+            },
+            {
+              "FromValue": 66,
+              "ToValue": 66,
+              "Count": 35
+            },
+            {
+              "FromValue": 10,
+              "ToValue": 10,
+              "Count": 31
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 7,
+          "DownEvents": 2,
+          "HoldEvents": 1669,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 0,
+              "Count": 1269
+            },
+            {
+              "Value": 3,
+              "Count": 255
+            },
+            {
+              "Value": 1,
+              "Count": 82
+            },
+            {
+              "Value": 2,
+              "Count": 63
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 0,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 0,
+              "ToValue": 0,
+              "Count": 1266
+            },
+            {
+              "FromValue": 3,
+              "ToValue": 3,
+              "Count": 252
+            },
+            {
+              "FromValue": 1,
+              "ToValue": 1,
+              "Count": 76
+            },
+            {
+              "FromValue": 2,
+              "ToValue": 2,
+              "Count": 57
+            },
+            {
+              "FromValue": 0,
+              "ToValue": 1,
+              "Count": 3
+            },
+            {
+              "FromValue": 1,
+              "ToValue": 0,
+              "Count": 3
+            },
+            {
+              "FromValue": 1,
+              "ToValue": 2,
+              "Count": 3
+            },
+            {
+              "FromValue": 2,
+              "ToValue": 1,
+              "Count": 3
+            }
+          ]
+        },
+        {
+          "SlotByteOffset": 8,
+          "DownEvents": 2,
+          "HoldEvents": 1669,
+          "ReleaseEvents": 2,
+          "DownTopValues": [
+            {
+              "Value": 3,
+              "Count": 2
+            }
+          ],
+          "HoldTopValues": [
+            {
+              "Value": 3,
+              "Count": 1667
+            },
+            {
+              "Value": 1,
+              "Count": 2
+            }
+          ],
+          "ReleaseTopValues": [
+            {
+              "Value": 1,
+              "Count": 2
+            }
+          ],
+          "HoldTopTransitions": [
+            {
+              "FromValue": 3,
+              "ToValue": 3,
+              "Count": 1667
+            },
+            {
+              "FromValue": 3,
+              "ToValue": 1,
+              "Count": 2
+            }
+          ]
+        }
+      ],
+      "SamplesHex": [
+        "050400F81B8A12040003000000000000000000000000000000000000000000000000000000000000000000000000286E0100",
+        "050400081C9012080003000000000000000000000000000000000000000000000000000000000000000000000000966E0100",
+        "050400081C92120A0003000000000000000000000000000000000000000000000000000000000000000000000000046F0100"
+      ]
+    }
+  ]
+}

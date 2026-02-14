@@ -104,6 +104,61 @@ Current interpretation:
 - byte `49` is a strong click/down state signal in this transport.
 - down/up edge parity can differ by 1 when a capture ends while still pressed.
 
+## No-Click Tip/Confidence Isolation (tapnoclick*.atpcap, analyzed 2026-02-14)
+Goal:
+- separate contact-lifecycle and force-like signals from click state.
+
+Datasets:
+- `tapnoclick.atpcap`:
+  - `records=4092`, `decoded=4092`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - two VID signatures were present in this run, both with the same byte-behavior conclusions.
+  - `button[pressedFrames=0, downEdges=0, upEdges=0, maxRunFrames=0, withContacts=0, zeroContacts=0]`
+- `tapnoclick_RHS.atpcap`:
+  - `records=2441`, `decoded=2441`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+  - one accidental click run only:
+    - `button[pressedFrames=61, downEdges=1, upEdges=1, maxRunFrames=61, withContacts=61, zeroContacts=0]`
+    - pressed frame window was contiguous (`2073..2133`).
+
+Byte-level outcomes:
+- `slot+1` remained constant `0` in these no-click datasets.
+- `slot+7` remained constant `0` in these no-click datasets.
+- `slot+8` now has stronger lifecycle evidence:
+  - down events: consistently `0x03`
+  - hold events: almost always `0x03`
+  - release events: consistently `0x01`
+  - hold transition pattern is dominated by `0x03 -> 0x03` with a small `0x03 -> 0x01` edge at release moments.
+- accidental click did not alter the `slot+8` release mapping in RHS capture:
+  - during click-down frames, `slot+8` remained `0x03`
+  - `slot+8 == 0x01` occurred on non-click frames at release transitions.
+- `slot+6` is the strongest pressure/force candidate so far:
+  - high-entropy, multi-level values while contact is active
+  - values were always even in these captures
+  - release-phase value collapsed to `0x00` (`releaseTop` for `slot+6` was entirely zero).
+
+## Single-Finger Press-Phase Isolation (press.atpcap, analyzed 2026-02-14)
+Goal:
+- isolate click-edge behavior from finger-count effects using one contact only.
+
+Dataset summary:
+- `records=1673`, `decoded=1673`, usage `0x00/0x00`, `reportId=0x05`, `len=50`
+- `contacts[min/avg/max]=0/1.00/1` (single-finger only)
+- `button[pressedFrames=539, downEdges=3, upEdges=3, maxRunFrames=213, withContacts=539, zeroContacts=0]`
+
+Key outcomes:
+- `slot+8` remained consistent with lifecycle-state behavior:
+  - button-down rows still held `slot+8=0x03`
+  - `slot+8=0x01` appeared only at release transitions (`2` rows).
+- `slot+7` changed only during button-down windows in this one-finger run:
+  - button-up rows: `slot+7` stayed `0x00` (`1132/1132`)
+  - button-down rows: `slot+7` distributed across `0x00/0x01/0x02/0x03` (`0x03` most common).
+- `slot+6` rose sharply during press/click phase:
+  - button-up rows: lower range, even-only values (`min/avg/max ~ 0/58/124`)
+  - button-down rows: wider/higher range (`min/avg/max ~ 1/163/254`) with odd values present.
+- interpretation from this dataset:
+  - `slot+7` is unlikely to be a pure finger-count classifier (it varies with one finger present).
+  - `slot+7` is likely a click/force phase-class signal.
+  - `slot+6` remains the leading analog force/pressure candidate.
+
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
 
@@ -128,7 +183,9 @@ Observed behavior that drove these constants:
 
 ## Known Unknowns
 - Whether `slot+0` (`b0`) remains stable across longer sessions, different hardware revisions, and reconnect/reboot boundaries.
-- Exact semantics of `slot+8` toggles (`3 -> 1`) seen around release/transition boundaries.
+- Exact final semantic labels for `slot+8` states (`3` active vs `1` release/transition) and whether any rare third state exists in larger datasets.
+- Exact mapping from `slot+6` analog-like behavior to force/pressure and/or confidence semantics.
+- Exact semantics of `slot+7` state classes (`0..3`) during button-down/click-force windows.
 - Whether a higher-entropy composite (`b0` + another byte) is needed for rare collisions in larger datasets.
 
 ## Runtime Stability Guardrails
@@ -154,6 +211,10 @@ Raw analyzer contact trace:
   - per-byte event counts split by `down`, `hold`, `release`
   - top value histograms per lifecycle phase
   - top hold transitions (`from -> to`) for correlation with contact-state changes
+- raw analysis summary now includes button-correlated slot stats for `slot+6/+7/+8`:
+  - top values when button is up vs down
+  - odd/even and non-zero counters (`slot+6` odd, `slot+7` non-zero, `slot+8==1`) by button state
+  - per-contact snapshots on button down/up edge frames.
 
 ## Tuning Procedure (If Scaling Drifts Again)
 Use this exact process:
@@ -174,10 +235,25 @@ Practical note:
    - remove/re-add middle finger
    - two-hand independent motion
    - reconnect/reboot sessions
-2. Add analyzer-side collision reporting for `slot+0` (same-frame duplicate detection + continuity mismatch counters).
-3. Isolate tip/confidence bits using stationary-finger force ramps.
+2. Calibrate `slot+6` as force proxy with controlled one-finger ramps:
+   - no-click ramps first
+   - then identical ramps with deliberate click windows
+   - compare `slot+6` trajectories at matched positions.
+3. Characterize `slot+7` click-phase states:
+   - one-finger click cycles (`down -> click -> unclick` while finger stays planted)
+   - compare one-finger vs two/three-finger click/tap-click captures
+   - build state-transition map for `slot+7` around button edges.
+4. Recover tip/confidence semantics:
+   - test edge/partial contacts and rolling/faint touches
+   - correlate candidate rules against `slot+8` release marker behavior
+   - remove forced `| 0x03` only after stable rule confidence.
+5. Add analyzer-side collision reporting for `slot+0` (same-frame duplicate detection + continuity mismatch counters).
 
 ## Quick Context Summary For Next Session
 - Official USB-C path is now usable with profile-aware decoding and runtime stability guards.
 - Current slot decode and axis scales are empirical but working in live tests.
-- Remaining work is mostly flag semantics and richer diagnostics, not crash triage.
+- Strong current byte hypotheses:
+  - `slot+8`: contact lifecycle marker (`0x03` active, `0x01` release transition)
+  - `slot+6`: analog force/pressure candidate
+  - `slot+7`: click/press phase-class signal (observed non-zero only in button-down windows in single-finger press capture)
+- Remaining work is mostly final semantic labeling and rule confidence, not crash triage.

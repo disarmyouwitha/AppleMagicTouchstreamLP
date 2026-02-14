@@ -92,7 +92,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--replay-trace-out <path>`: Write detailed replay trace JSON (intent transitions, dispatch events, diagnostics).
   - Dispatch events/diagnostics include `dispatchLabel` (for example `A`, `TypingToggle`, `Ctrl+C`, `ChordShift`) for direct intent debugging.
   - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `tap_gesture_active`, `hold_consumed`) when a touch release does not emit a key dispatch.
-- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) for official decoded PTP contacts.
+- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
 - `--selftest`: Run parser/button-edge/replay smoke tests and exit.
