@@ -95,8 +95,14 @@ From `capture_new.atpcap` (first pass):
 - decoded/raw button fields matched on every row in the CSV (`0` mismatches).
 - pressed windows were contiguous runs (`1595-1632` and `2595`), mostly while at least one contact remained active.
 
+From `clicked.atpcap` (click-pattern capture):
+- `button[pressedFrames=2576, downEdges=49, upEdges=48, maxRunFrames=766, withContacts=2576, zeroContacts=0]`
+- decoded/raw button fields matched on all analyzed rows (`0` mismatches).
+- run-length spread includes short and long windows, consistent with mixed short/long click script input.
+
 Current interpretation:
-- byte `49` is likely a valid click/down state signal in this transport, but more click-only captures are still needed to fully classify transition behavior (especially up-edge timing at capture boundaries).
+- byte `49` is a strong click/down state signal in this transport.
+- down/up edge parity can differ by 1 when a capture ends while still pressed.
 
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.

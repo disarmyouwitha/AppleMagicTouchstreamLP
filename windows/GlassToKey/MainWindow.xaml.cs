@@ -3491,9 +3491,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 }
 
                 TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);
-
-                _liveMetrics.RecordParsed();
                 InputFrame frame = decoded.Frame;
+                _liveMetrics.RecordParsed();
                 if (!DispatchReport(snapshot, in frame))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.RoutedToNoSession);
