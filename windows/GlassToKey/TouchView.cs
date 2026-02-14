@@ -21,6 +21,7 @@ public sealed class TouchView : FrameworkElement
     public string? SelectedCustomButtonId { get; set; }
     public string[][]? LabelMatrix { get; set; }
     public string LastHitLabel { get; set; } = "--";
+    public string ClickLabel { get; set; } = "--";
     public bool ShowPressureValues { get; set; } = true;
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
@@ -201,7 +202,24 @@ public sealed class TouchView : FrameworkElement
             12,
             _footerBrush,
             1.0);
-        dc.DrawText(footerRight, new Point(pad.Right - footerRight.Width - 18, pad.Bottom - 24));
+
+        string clickText = $"Pressed: {ClickLabel}";
+        FormattedText footerClick = new(
+            clickText,
+            CultureInfo.InvariantCulture,
+            FlowDirection.LeftToRight,
+            _uiTypeface,
+            12,
+            _footerBrush,
+            1.0);
+
+        const double rightPadding = 18;
+        const double footerGap = 14;
+        double footerY = pad.Bottom - 24;
+        double hitX = pad.Right - footerRight.Width - rightPadding;
+        double clickX = hitX - footerClick.Width - footerGap;
+        dc.DrawText(footerClick, new Point(clickX, footerY));
+        dc.DrawText(footerRight, new Point(hitX, footerY));
     }
 
     private void DrawKeyGrid(DrawingContext dc, Rect pad)

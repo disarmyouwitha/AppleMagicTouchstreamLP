@@ -83,6 +83,27 @@ Other byte notes:
 - `slot+7` remained constant `0`.
 - `slot+8` remained mostly `3` (`6128` rows) with brief `1` transitions (`48` rows), still consistent with a state/quality bit.
 
+## IsButtonClicked Early Mapping (byte 49)
+Analyzer support:
+- raw summary now reports `button[...]` metrics (pressed frame count, down/up edges, run length, pressed with/without contacts).
+- contact CSV now includes both decoded and raw button/tail context fields:
+  - `decoded_is_button_clicked`, `raw_is_button_clicked`
+  - `decoded_scan_time`, `raw_scan_time`, `raw_contact_count`
+
+From `capture_new.atpcap` (first pass):
+- `button[pressedFrames=39, downEdges=2, upEdges=1, maxRunFrames=38, withContacts=39, zeroContacts=0]`
+- decoded/raw button fields matched on every row in the CSV (`0` mismatches).
+- pressed windows were contiguous runs (`1595-1632` and `2595`), mostly while at least one contact remained active.
+
+From `clicked.atpcap` (click-pattern capture):
+- `button[pressedFrames=2576, downEdges=49, upEdges=48, maxRunFrames=766, withContacts=2576, zeroContacts=0]`
+- decoded/raw button fields matched on all analyzed rows (`0` mismatches).
+- run-length spread includes short and long windows, consistent with mixed short/long click script input.
+
+Current interpretation:
+- byte `49` is a strong click/down state signal in this transport.
+- down/up edge parity can differ by 1 when a capture ends while still pressed.
+
 ## Scaling Findings
 Axis raw ranges are not symmetric in this stream, so axis-specific maxima are required.
 
@@ -126,7 +147,9 @@ Raw analyzer contact trace:
   - raw parsed PTP fields (`raw_contact_id`, `raw_flags`, `raw_x`, `raw_y`)
   - decoded assigned fields (`assigned_contact_id`, `assigned_flags`, `decoded_x`, `decoded_y`)
   - slot bytes (`slot_hex`) and `slot_offset` for byte-level reverse-engineering
+  - decoded/raw tail/button context (`decoded_is_button_clicked`, `raw_is_button_clicked`, `decoded_scan_time`, `raw_scan_time`, `raw_contact_count`)
 - this capture strongly indicates `raw_contact_id` is not a true stable identity field for usage `0/0`.
+- raw analysis summary now includes `button[...]` metrics (pressed-frame count, down/up edges, run length, with/without contacts) for `IsButtonClicked` mapping work.
 
 ## Tuning Procedure (If Scaling Drifts Again)
 Use this exact process:

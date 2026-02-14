@@ -11,5 +11,5 @@ internal enum RuntimeModeIndicator : byte
 
 internal interface IRuntimeFrameObserver
 {
-    void OnRuntimeFrame(TrackpadSide side, in InputFrame frame, RawInputDeviceTag tag);
+    void OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag);
 }
