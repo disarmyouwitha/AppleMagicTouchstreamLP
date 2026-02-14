@@ -1,12 +1,15 @@
 ## TODO:
+- Driver Features? IOCTL? Start OFFICIAL_FEATURES.md for research.
+-------
 - In the GUI can we remove "Pressed:" true/false from the GUI overlay? Can we add "Peak: in it's place where we display the last highest force? (I want to be able to see how hard the keyboard was tapped or clicked)
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
 - Can we wire a "force min" slider into the GUI? (using new variable) /test
 ^ These will both be in phase1, so, slider can be 0-255
+^ Resting Fingers: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the ky
+-------
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
 - Voice mode Gestue (Outer Corners): "windows siri/dictation" (Win+H Dictation) + ESC to close window
-- Resting Fingers: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the ky
 - REFACTOR
 ---
 ## Gesture Config:
