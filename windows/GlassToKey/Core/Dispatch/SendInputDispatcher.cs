@@ -80,7 +80,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
         if ((dispatchEvent.Flags & DispatchEventFlags.Haptic) != 0)
         {
-            _ = MagicTrackpadActuatorHaptics.TryVibrate();
+            _ = MagicTrackpadActuatorHaptics.TryVibrate(dispatchEvent.Side);
         }
     }
 

@@ -1,6 +1,6 @@
 ## TODO:
-- Need per-device haptic routing. RHS taps are causing LHS haptics. 
-- Can you make an OFFICIAL_HAPTICS.md with all of the information other reverse engineers would need to figure it out in their projects?
+- Can we save Haptics info and any new fields into the GLASSTOKEY_DEFAULT_KEYMAP.json and have them read on load?
+- what % likelyhook do you give it that this haptics code will work out of the box on the older lightning USB device? I think like the VID is different? Maybe not for this feature? idk..
 - Lets test with bluetooth!
 - Any reason why this wouldn't work for the old Lightning version of the Apple magic trackpad2? It has different device params (you can look up in our connection code)
 -------

@@ -934,6 +934,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.SetPersistentLayer(_activeLayer);
         }
 
+        MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         MagicTrackpadActuatorHaptics.WarmupAsync();
 
@@ -942,56 +943,54 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SetHapticsStrengthUiFromSettings()
     {
-        int level = !_settings.HapticsEnabled ? 0 : StrengthToLevel(_settings.HapticsStrength);
-        HapticsStrengthSlider.Value = level;
-        HapticsStrengthValueText.Text = LevelToLabel(level);
+        const int maxAmp = 0x4A;
+
+        int amp = 0;
+        int rawAmp = 0;
+        if (_settings.HapticsEnabled)
+        {
+            rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
+            amp = Math.Clamp(rawAmp, 0, maxAmp);
+        }
+
+        HapticsStrengthSlider.Value = amp;
+        HapticsStrengthValueText.Text = AmpToLabel(amp, rawAmp, maxAmp);
     }
 
     private void ApplyHapticsStrengthFromUi()
     {
-        int level = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, 3);
-        (bool enabled, uint strength, string label) = LevelToHaptics(level);
-        _settings.HapticsEnabled = enabled;
-        if (enabled)
+        const int maxAmp = 0x4A;
+        int amp = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, maxAmp);
+        _settings.HapticsEnabled = amp != 0;
+        if (_settings.HapticsEnabled)
         {
-            _settings.HapticsStrength = strength;
+            // Default to the known-good profile, but preserve existing upper bytes so you can
+            // paste a raw strength via the hex box and still sweep the low byte via the slider.
+            uint upper = _settings.HapticsStrength & 0xFFFFFF00u;
+            if (upper == 0)
+            {
+                upper = 0x00026C00u;
+            }
+            _settings.HapticsStrength = upper | (uint)amp;
         }
-        HapticsStrengthValueText.Text = label;
+        int rawAmp = _settings.HapticsEnabled ? (int)(_settings.HapticsStrength & 0xFFu) : 0;
+        HapticsStrengthValueText.Text = AmpToLabel(amp, rawAmp, maxAmp);
     }
 
-    private static (bool Enabled, uint Strength, string Label) LevelToHaptics(int level)
+    private static string AmpToLabel(int amp, int rawAmp, int maxAmp)
     {
-        return level switch
+        if (amp <= 0)
         {
-            0 => (false, 0u, "Off"),
-            1 => (true, 0x00000040u, "Low"),
-            2 => (true, 0x00000080u, "Med"),
-            3 => (true, 0x00026C15u, "High"),
-            _ => (true, 0x00000080u, "Med")
-        };
-    }
+            return $"Off (0/{maxAmp})";
+        }
 
-    private static int StrengthToLevel(uint strength)
-    {
-        return strength switch
+        uint strength = 0x00026C00u | (uint)amp;
+        if (rawAmp != amp)
         {
-            0x00000040u => 1,
-            0x00000080u => 2,
-            0x00026C15u => 3,
-            _ => 2
-        };
-    }
+            return $"amp={amp}/{maxAmp} raw={rawAmp} strength~0x{strength:X8}";
+        }
 
-    private static string LevelToLabel(int level)
-    {
-        return level switch
-        {
-            0 => "Off",
-            1 => "Low",
-            2 => "Med",
-            3 => "High",
-            _ => "Med"
-        };
+        return $"amp={amp}/{maxAmp} strength=0x{strength:X8}";
     }
 
     private void RebuildLayouts()

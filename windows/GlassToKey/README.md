@@ -116,6 +116,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 ## Haptics
 - Haptics are driven by the trackpad's HID **Actuator** interface on supported devices.
 - Configure haptics in the UI under `Typing Tuning` via `Haptic Strength` (Off/Low/Med/High).
+- Implementation notes for other projects: `GlassToKey/OFFICIAL_HAPTICS.md`.
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.

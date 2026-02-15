@@ -23,7 +23,7 @@ public sealed class UserSettings
     public bool TwoFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerTapEnabled { get; set; } = true;
     public bool HapticsEnabled { get; set; } = true;
-    public uint HapticsStrength { get; set; } = 0x00026C15u;
+    public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
     public double HoldDurationMs { get; set; } = 220.0;
     public double DragCancelMm { get; set; } = 3.0;

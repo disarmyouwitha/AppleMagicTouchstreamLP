@@ -669,7 +669,8 @@ internal static class HidResearchTool
         templates.Add(new NamedPayload("base14_strength0", baseStrength));
         templates.Add(new NamedPayload("base14_strength0_padOut", PadPayload(baseStrength, outputReportBytes)));
 
-        uint[] strengthCandidates = { 0x00000010u, 0x00000040u, 0x00000080u, 0x00000100u, 0x00026C15u };
+        // Archived: old scanning candidates. Kept minimal now that production uses a strength slider.
+        uint[] strengthCandidates = { 0x00026C00u | 0x15u };
         for (int i = 0; i < strengthCandidates.Length; i++)
         {
             uint strength = strengthCandidates[i];
