@@ -199,6 +199,7 @@ public partial class App : Application
         _trayController = null;
         _runtimeService?.Dispose();
         _runtimeService = null;
+        MagicTrackpadActuatorHaptics.Dispose();
         base.OnExit(e);
     }
 

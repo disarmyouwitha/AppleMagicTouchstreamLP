@@ -5,6 +5,8 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - Built on top of the wonderful:
 - https://github.com/Kyome22/OpenMultitouchSupport
 
+*OSX will ask for elevated Accessibility permissions on first run*
+
 ## WIN: **(PRE-REQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
@@ -24,6 +26,10 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
+**Windows Pin Tray Icon**
+- `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
+- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
+
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
 The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
@@ -41,6 +47,4 @@ Since it is built on the same technology, I thought it would be fun to try and c
 ## FUTURE:
 Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
 
-One of my biggest gripes is that for Windows all known drivers don't allow you to trigger Haptics, which is killer features on OSX! 
-
-I have taken a look at extending the driver to enable Haptics but I have had **NO** luck. I will take a look at exposed features, etc. I am super new to Windows driverland stuff.
+TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD

@@ -21,7 +21,7 @@ public sealed class TouchView : FrameworkElement
     public string? SelectedCustomButtonId { get; set; }
     public string[][]? LabelMatrix { get; set; }
     public string LastHitLabel { get; set; } = "--";
-    public string ClickLabel { get; set; } = "--";
+    public string PeakLabel { get; set; } = "--";
     public bool ShowPressureValues { get; set; } = true;
 
     private readonly Pen _borderPen = new(new SolidColorBrush(Color.FromRgb(56, 62, 69)), 2);
@@ -203,9 +203,9 @@ public sealed class TouchView : FrameworkElement
             _footerBrush,
             1.0);
 
-        string clickText = $"Pressed: {ClickLabel}";
-        FormattedText footerClick = new(
-            clickText,
+        string peakText = $"Peak: {PeakLabel}";
+        FormattedText footerPeak = new(
+            peakText,
             CultureInfo.InvariantCulture,
             FlowDirection.LeftToRight,
             _uiTypeface,
@@ -217,8 +217,8 @@ public sealed class TouchView : FrameworkElement
         const double footerGap = 14;
         double footerY = pad.Bottom - 24;
         double hitX = pad.Right - footerRight.Width - rightPadding;
-        double clickX = hitX - footerClick.Width - footerGap;
-        dc.DrawText(footerClick, new Point(clickX, footerY));
+        double peakX = hitX - footerPeak.Width - footerGap;
+        dc.DrawText(footerPeak, new Point(peakX, footerY));
         dc.DrawText(footerRight, new Point(hitX, footerY));
     }
 
