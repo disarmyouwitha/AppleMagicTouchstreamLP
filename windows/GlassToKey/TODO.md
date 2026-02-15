@@ -1,5 +1,8 @@
 ## TODO:
-- Driver Features? IOCTL? Start OFFICIAL_FEATURES.md for research.
+- Add a "haptics mode" where any tap on the touchpad results in a haptic tap.
+- Add "set haptic strength" slider in Tuning options I know it has (Off, low, med, high) at least, so lets find those values!
+- Lets test with bluetooth!
+- Now that we have Haptics working can we remove all of the hid-probe/debug stuff we added to figure it out, leaving only what is nessisary to trigger the haptic in production? Maybe we write a helper function or something to make it easier to trigger? Remember to write only efficient and performant code and to keep the hot path hot!
 -------
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
 - Can we wire a "force min" slider into the GUI? (using new variable) /test
