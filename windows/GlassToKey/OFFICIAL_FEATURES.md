@@ -36,6 +36,11 @@ Last updated: 2026-02-14
 - `--hid-output <hex-bytes>`: Send output report payload.
 - `--hid-write <hex-bytes>`: Send raw write payload via `WriteFile`.
 - `--hid-repeat <n>` and `--hid-interval-ms <ms>`: burst or pulse tests.
+- `--hid-auto-probe`: sweep report IDs + safe payload variants and log API responses.
+- `--hid-auto-report-max <0..255>`: upper report ID bound for auto sweep (default `15`).
+- `--hid-auto-interval-ms <ms>`: delay between auto sweep steps (default `10`).
+- `--hid-auto-log <path>`: optional log output path.
+- auto-probe tests both `OutputReportByteLength` and `OutputReportByteLength + 1` payload lengths.
 
 ## Suggested Test Flow
 1. Enumerate and probe:
@@ -51,6 +56,10 @@ dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --
 ```powershell
 dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-output "01 00 00 00" --hid-repeat 10 --hid-interval-ms 40
 ```
+4. Automated actuator sweep:
+```powershell
+dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-auto-probe --hid-index 3 --hid-auto-report-max 63 --hid-auto-log .\captures\haptics\auto-probe.log
+```
 
 ## Local Probe Snapshot (2026-02-14)
 - Enumerated multiple AMT HID collections on one host (`COL01`, `COL02`, `COL03`, and additional `MI_02`/`MI_03`).
@@ -63,6 +72,7 @@ dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-output "
 - `MI_03` identifies as **`Product: Accelerometer`**.
 - `COL03` opened read/write and responded to `HidD_SetFeature` (`UsagePage=0x000D`, `Usage=0x000E`, `FeatureReportByteLength=2`).
 - Initial actuator write probes with all-zero 64/65-byte payloads were rejected by both `HidD_SetOutputReport` and `WriteFile`, so payload format/report ID is still unknown.
+- Current actuator sweep responses are consistent `Win32=0x57` (`ERROR_INVALID_PARAMETER`) for tested report IDs and safe payload variants, which strongly suggests packet framing/content is validated by the stack/firmware.
 - One observed `COL03` caps snapshot:
   - `UsagePage=0x000D`, `Usage=0x000E`
   - `FeatureReportByteLength=2`
