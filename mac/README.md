@@ -1,13 +1,5 @@
 # GlassToKey
 
-## Intention
-An attempt to use the Apple Magic Trackpad as a keyboard (and mouse!) like the TouchStream LP~
-Since it is built on the same technology, I thought it would be fun to try and create an open source version!
-
-<img src="touchstreamLP.jpg" alt="Fingerworks Touchstream LP" width="900px" />
-
-It's just Codex and I vibe coding~ You can submit an issue but this is really just a repo for me, you might have to fork and extend!
-
 ## Usage
 
 Build the GlassToKey project and you are good to go! A status bar indicator shows the active mode:
@@ -77,7 +69,4 @@ Keyboard Mode’s global click blocking requires system permission:
 1. Open **System Settings → Privacy & Security → Input Monitoring** and enable GlassToKey.
 2. Also enable **System Settings → Privacy & Security → Accessibility** for GlassToKey.
 3. Restart GlassToKey after granting permissions.
-
-## CURRENTLY:
-- Adding windows support: https://github.com/disarmyouwitha/GlassToKeyForWindows
 - Based on https://github.com/vitoplantamura/MagicTrackpad2ForWindows (They should have bluetooth drivers for USB-C support soon?)
