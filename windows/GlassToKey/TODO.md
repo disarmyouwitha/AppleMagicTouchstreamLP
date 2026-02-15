@@ -1,8 +1,11 @@
 ## TODO:
-- Lets test with bluetooth
+*When I have LHS:USB, RHS:Bletooth it's failing on the bluetooth side but playing on the LHS over USB
+- USB-only haptics as the supported path, and degrade gracefully on BT.
 [] When using 1 device over USB and 1 over Bluetooth, both on the official drivers, if I connect to USB first, then I can no longer select the Bluetooth device from the list.. it immediately swaps to USB. 
 
 [] when I have 1 official and 1 opensource plugged in via USB I can only see the opensource one? Seems like there are device list inconsistencies?? When this happens the Opensource device will trigger haptics on the other device ** lets check this after we figure out per-device haptics
+-------
+- check capture/record with opensource driver so I can see if I need to mention it in INSTALL
 -------
 - When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
 - remove legacy/opensource pressure "P:" support entirely
