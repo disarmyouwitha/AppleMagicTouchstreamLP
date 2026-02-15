@@ -11,7 +11,7 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
-*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!
+*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
 
 
 ## Usage
