@@ -1,12 +1,10 @@
 ## TODO:
-- what % likelyhook do you give it that this haptics code will work out of the box on the older lightning USB device? I think like the VID is different? Maybe not for this feature? idk..
-- Lets test with bluetooth!
-- Any reason why this wouldn't work for the old Lightning version of the Apple magic trackpad2? It has different device params (you can look up in our connection code)
--------
+- Lets test with bluetooth
 [] When using 1 device over USB and 1 over Bluetooth, both on the official drivers, if I connect to USB first, then I can no longer select the Bluetooth device from the list.. it immediately swaps to USB. 
 
 [] when I have 1 official and 1 opensource plugged in via USB I can only see the opensource one? Seems like there are device list inconsistencies?? When this happens the Opensource device will trigger haptics on the other device ** lets check this after we figure out per-device haptics
 -------
+- When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
 - remove legacy/opensource pressure "P:" support entirely
 - Test with opensource drivers
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
