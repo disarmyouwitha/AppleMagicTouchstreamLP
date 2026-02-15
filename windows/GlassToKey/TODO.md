@@ -1,11 +1,6 @@
 ## TODO:
-- Haptics on Custom Buttons!
-- When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
-- Re-write Pressure as Force throughout the readme
-- Can we wire a "force cap" slider into the GUI? (using new variable) /test
-- Can we wire a "force min" slider into the GUI? (using new variable) /test
-^ These will both be in phase1, so, slider can be 0-255
-^ Resting Fingers: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the ky
+- Resting Fingers mode: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
+- ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE!)
 -------
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
@@ -20,7 +15,7 @@
 
 
 ## Notable Drift / Health
+- Are we currently failing any of our self tests?:
   - Self-test baseline is currently failing locally: Engine intent tests failed: expected
     mouseCandidate->mouseActive transitions were missing (dotnet run --project
     GlassToKey\GlassToKey.csproj -c Release -- --selftest).
-  - Need to make sure CODEX isn't faking self-test and that it's tests are good...
