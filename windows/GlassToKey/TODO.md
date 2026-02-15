@@ -5,6 +5,7 @@
 - Any reason why this wouldn't work for the old Lightning version of the Apple magic trackpad2? It has different device params (you can look up in our connection code)
 -------
 - remove legacy/opensource pressure "P:" support entirely
+- Test with opensource drivers
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
 - Can we wire a "force min" slider into the GUI? (using new variable) /test
 ^ These will both be in phase1, so, slider can be 0-255
