@@ -214,7 +214,7 @@ internal sealed class TouchRuntimeService : IDisposable
         }
 
         TouchProcessorSnapshot snapshot = actor.Snapshot();
-        _globalClickSuppressor.SetEnabled(snapshot.KeyboardModeEnabled && snapshot.TypingEnabled);
+        _globalClickSuppressor.SetEnabled(snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive);
         RuntimeModeIndicator nextMode = ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled, snapshot.ActiveLayer);
         if (nextMode == _lastModeIndicator)
         {

@@ -42,6 +42,7 @@ internal sealed class TouchProcessorCore
     private long _gestureCandidateStartTicks;
     private long _typingGraceDeadlineTicks;
     private bool _typingCommittedUntilAllUp;
+    private bool _typingCommittedByKeyboardOnly;
     private bool _allowMouseTakeoverDuringTyping;
     private bool _hapticsOnKeyDispatch;
 
@@ -198,6 +199,7 @@ internal sealed class TouchProcessorCore
         _gestureCandidateStartTicks = 0;
         _typingGraceDeadlineTicks = 0;
         _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
         _fiveFingerSwipeLeft = default;
         _fiveFingerSwipeRight = default;
         _chordShiftLeft = false;
@@ -377,6 +379,7 @@ internal sealed class TouchProcessorCore
         return new TouchProcessorSnapshot(
             IntentMode: _intentMode,
             ActiveLayer: _activeLayer,
+            MomentaryLayerActive: IsMomentaryLayerActive(),
             TypingEnabled: _typingEnabled,
             KeyboardModeEnabled: _keyboardModeEnabled,
             ContactCount: aggregate.ContactCount,
@@ -443,6 +446,7 @@ internal sealed class TouchProcessorCore
         }
 
         _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
         _lastContactCount = 0;
         TransitionTo(IntentMode.Idle, nowTicks, "all_up_snapshot");
     }
@@ -1301,6 +1305,7 @@ internal sealed class TouchProcessorCore
         _typingGraceDeadlineTicks = 0;
         _intentMode = IntentMode.Idle;
         _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
         _lastContactCount = 0;
         _chordShiftLeft = false;
         _chordShiftRight = false;
@@ -1484,6 +1489,11 @@ internal sealed class TouchProcessorCore
         return _momentaryLayerTouches.Count > 0;
     }
 
+    private bool ShouldEnforceKeyboardOnlyMode()
+    {
+        return _keyboardModeEnabled && _typingEnabled && !IsMomentaryLayerActive();
+    }
+
     private void UpdateActiveLayer()
     {
         int layer = _persistentLayer;
@@ -1595,7 +1605,7 @@ internal sealed class TouchProcessorCore
     private void UpdateIntentState(in IntentAggregate aggregate, long nowTicks)
     {
         bool graceActive = IsTypingGraceActive(nowTicks);
-        bool keyboardOnly = _keyboardModeEnabled && _typingEnabled;
+        bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
         if (aggregate.ContactCount <= 0)
         {
             if (graceActive)
@@ -1604,6 +1614,7 @@ internal sealed class TouchProcessorCore
             }
             else
             {
+                _typingCommittedByKeyboardOnly = false;
                 TransitionTo(IntentMode.Idle, nowTicks, "all_up");
             }
 
@@ -1615,8 +1626,14 @@ internal sealed class TouchProcessorCore
         if (keyboardOnly)
         {
             _lastContactCount = aggregate.ContactCount;
-            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "keyboard_only");
+            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "keyboard_only", keyboardOnlyLock: true);
             return;
+        }
+
+        if (_typingCommittedByKeyboardOnly && IsMomentaryLayerActive())
+        {
+            _typingCommittedByKeyboardOnly = false;
+            _typingCommittedUntilAllUp = false;
         }
 
         long keyBufferTicks = MsToTicks(_config.KeyBufferMs);
@@ -1741,9 +1758,10 @@ internal sealed class TouchProcessorCore
         }
     }
 
-    private void SetTypingCommittedState(long nowTicks, bool untilAllUp, string reason)
+    private void SetTypingCommittedState(long nowTicks, bool untilAllUp, string reason, bool keyboardOnlyLock = false)
     {
         _typingCommittedUntilAllUp = untilAllUp;
+        _typingCommittedByKeyboardOnly = keyboardOnlyLock;
         TransitionTo(IntentMode.TypingCommitted, nowTicks, reason);
     }
 
@@ -1876,7 +1894,7 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool keyboardOnly = _keyboardModeEnabled && _typingEnabled;
+        bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
         bool typingSuppressed = _typingEnabled && (_intentMode == IntentMode.TypingCommitted || IsTypingGraceActive(nowTicks));
         bool suppressed = keyboardOnly || typingSuppressed;
         bool cadenceExpired = (nowTicks - _pendingTapGesture.StartedTicks) > cadenceTicks;

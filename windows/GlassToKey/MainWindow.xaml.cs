@@ -3787,7 +3787,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             rightContacts = snapshot.RightContacts;
             (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
             (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
-            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled;
+            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive;
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;
