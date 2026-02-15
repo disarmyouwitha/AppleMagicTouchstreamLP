@@ -105,7 +105,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--hid-write <hex-bytes>`: Send one raw HID write payload via `WriteFile`.
 - `--hid-repeat <n>`: Repeat HID send sequence `n` times (default `1`).
 - `--hid-interval-ms <ms>`: Delay between repeated HID sends.
-- `--hid-auto-probe`: Sweep candidate report IDs on the selected actuator interface using safe output/write payload patterns and log each response.
+- `--hid-auto-probe`: Sweep report IDs and payload templates on the selected actuator interface and log each response (includes a focused phase for any report IDs that are accepted).
 - `--hid-auto-report-max <0..255>`: Highest report ID to test during auto-probe (default `15`).
 - `--hid-auto-interval-ms <ms>`: Delay between each report ID probe step (default `10`).
 - `--hid-auto-log <path>`: Optional output path for auto-probe log (defaults to `%LOCALAPPDATA%\GlassToKey\hid-auto-probe-*.log`).

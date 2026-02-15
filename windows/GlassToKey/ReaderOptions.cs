@@ -17,6 +17,11 @@ public sealed class ReaderOptions
     public int HidAutoReportMax { get; private set; } = 15;
     public int HidAutoIntervalMs { get; private set; } = 10;
     public string? HidAutoLogPath { get; private set; }
+    public bool HidActuatorPulse { get; private set; }
+    public bool HidActuatorVibrate { get; private set; }
+    public int HidActuatorCount { get; private set; } = 10;
+    public int HidActuatorIntervalMs { get; private set; } = 60;
+    public uint HidActuatorParam32 { get; private set; } = 0x00026C15u;
     public bool RunSelfTest { get; private set; }
     public ushort? MaxX { get; private set; }
     public ushort? MaxY { get; private set; }
@@ -36,11 +41,15 @@ public sealed class ReaderOptions
     public bool HasHidResearchCommand =>
         HidProbe ||
         HidAutoProbe ||
+        HidActuatorPulse ||
+        HidActuatorVibrate ||
         !string.IsNullOrWhiteSpace(HidFeaturePayloadHex) ||
         !string.IsNullOrWhiteSpace(HidOutputPayloadHex) ||
         !string.IsNullOrWhiteSpace(HidWritePayloadHex);
     public bool RequiresHidWriteAccess =>
         HidAutoProbe ||
+        HidActuatorPulse ||
+        HidActuatorVibrate ||
         !string.IsNullOrWhiteSpace(HidFeaturePayloadHex) ||
         !string.IsNullOrWhiteSpace(HidOutputPayloadHex) ||
         !string.IsNullOrWhiteSpace(HidWritePayloadHex);
@@ -111,6 +120,38 @@ public sealed class ReaderOptions
                 case "--hid-auto-log" when i + 1 < args.Length:
                     options.HidAutoLogPath = args[++i];
                     break;
+                case "--hid-actuator-pulse":
+                    options.HidActuatorPulse = true;
+                    break;
+                case "--hid-actuator-vibrate":
+                    options.HidActuatorVibrate = true;
+                    break;
+                case "--hid-actuator-count" when i + 1 < args.Length:
+                    if (!int.TryParse(args[++i], out int hidActuatorCount) || hidActuatorCount <= 0)
+                    {
+                        throw new ArgumentException("--hid-actuator-count requires a positive integer.");
+                    }
+                    options.HidActuatorCount = hidActuatorCount;
+                    break;
+                case "--hid-actuator-interval-ms" when i + 1 < args.Length:
+                    if (!int.TryParse(args[++i], out int hidActuatorIntervalMs) || hidActuatorIntervalMs < 0)
+                    {
+                        throw new ArgumentException("--hid-actuator-interval-ms requires a non-negative integer.");
+                    }
+                    options.HidActuatorIntervalMs = hidActuatorIntervalMs;
+                    break;
+                case "--hid-actuator-param32" when i + 1 < args.Length:
+                    string token = args[++i];
+                    if (token.StartsWith("0x", StringComparison.OrdinalIgnoreCase))
+                    {
+                        token = token.Substring(2);
+                    }
+                    if (!uint.TryParse(token, System.Globalization.NumberStyles.HexNumber, System.Globalization.CultureInfo.InvariantCulture, out uint param32))
+                    {
+                        throw new ArgumentException("--hid-actuator-param32 requires a hex uint32 (for example 0x00026C15).");
+                    }
+                    options.HidActuatorParam32 = param32;
+                    break;
                 case "--selftest":
                     options.RunSelfTest = true;
                     break;
@@ -174,7 +215,7 @@ public sealed class ReaderOptions
                 case "--help":
                 case "-h":
                 case "/?":
-                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--hid-probe] [--hid-index <n>] [--hid-feature <hex-bytes>] [--hid-output <hex-bytes>] [--hid-write <hex-bytes>] [--hid-repeat <n>] [--hid-interval-ms <ms>] [--hid-auto-probe] [--hid-auto-report-max <0..255>] [--hid-auto-interval-ms <ms>] [--hid-auto-log <path>] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--raw-analyze-contacts-out <path>] [--decoder-debug] [--config] [--relaunch-tray-on-close]");
+                    throw new ArgumentException("Usage: GlassToKey [--maxx <value>] [--maxy <value>] [--list] [--hid-probe] [--hid-index <n>] [--hid-feature <hex-bytes>] [--hid-output <hex-bytes>] [--hid-write <hex-bytes>] [--hid-repeat <n>] [--hid-interval-ms <ms>] [--hid-auto-probe] [--hid-auto-report-max <0..255>] [--hid-auto-interval-ms <ms>] [--hid-auto-log <path>] [--hid-actuator-pulse] [--hid-actuator-vibrate] [--hid-actuator-count <n>] [--hid-actuator-interval-ms <ms>] [--hid-actuator-param32 <hex>] [--capture <path>] [--replay <capturePath>] [--replay-ui] [--replay-speed <x>] [--fixture <fixturePath>] [--selftest] [--metrics-out <path>] [--replay-trace-out <path>] [--raw-analyze <capturePath>] [--raw-analyze-out <path>] [--raw-analyze-contacts-out <path>] [--decoder-debug] [--config] [--relaunch-tray-on-close]");
                 default:
                     break;
             }

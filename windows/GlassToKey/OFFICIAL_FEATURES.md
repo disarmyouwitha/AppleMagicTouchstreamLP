@@ -41,6 +41,7 @@ Last updated: 2026-02-14
 - `--hid-auto-interval-ms <ms>`: delay between auto sweep steps (default `10`).
 - `--hid-auto-log <path>`: optional log output path.
 - auto-probe tests both `OutputReportByteLength` and `OutputReportByteLength + 1` payload lengths.
+- auto-probe runs a second focused phase on any report IDs that return `ok=True`, trying known actuator packet templates (including the 14-byte pattern seen in other reverse-engineering attempts).
 
 ## Suggested Test Flow
 1. Enumerate and probe:

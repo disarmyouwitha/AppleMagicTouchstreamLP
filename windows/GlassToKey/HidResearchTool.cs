@@ -92,7 +92,7 @@ internal static class HidResearchTool
                 !string.IsNullOrWhiteSpace(options.HidFeaturePayloadHex) ||
                 !string.IsNullOrWhiteSpace(options.HidOutputPayloadHex) ||
                 !string.IsNullOrWhiteSpace(options.HidWritePayloadHex);
-            if (!hasCommandPayload && !options.HidAutoProbe)
+            if (!hasCommandPayload && !options.HidAutoProbe && !options.HidActuatorPulse && !options.HidActuatorVibrate)
             {
                 return 0;
             }
@@ -139,6 +139,22 @@ internal static class HidResearchTool
                 if (!RunAutoProbe(handle, probe, target.Path, options))
                 {
                     return 29;
+                }
+            }
+
+            if (options.HidActuatorPulse)
+            {
+                if (!RunActuatorPulse(handle, probe, options))
+                {
+                    return 30;
+                }
+            }
+
+            if (options.HidActuatorVibrate)
+            {
+                if (!RunActuatorVibrate(handle, probe, options))
+                {
+                    return 31;
                 }
             }
         }
@@ -517,10 +533,11 @@ internal static class HidResearchTool
         int totalAttempts = 0;
         int outputSuccess = 0;
         int writeSuccess = 0;
+        HashSet<int> successfulReportIds = new();
 
         for (int reportId = 0; reportId <= options.HidAutoReportMax; reportId++)
         {
-            int[] lengths = { probe.OutputReportBytes, alternateLength };
+            int[] lengths = { 14, probe.OutputReportBytes, alternateLength };
             foreach (int length in lengths)
             {
                 if (length <= 0 || length > 512)
@@ -541,6 +558,10 @@ internal static class HidResearchTool
                 if (writeZeros.Ok) writeSuccess++;
                 if (outputMarker.Ok) outputSuccess++;
                 if (writeMarker.Ok) writeSuccess++;
+                if (outputZeros.Ok || writeZeros.Ok || outputMarker.Ok || writeMarker.Ok)
+                {
+                    _ = successfulReportIds.Add(reportId);
+                }
 
                 log.Info(outputZeros.ToLogLine());
                 log.Info(writeZeros.ToLogLine());
@@ -552,6 +573,29 @@ internal static class HidResearchTool
             {
                 Thread.Sleep(options.HidAutoIntervalMs);
             }
+        }
+
+        if (successfulReportIds.Count > 0)
+        {
+            List<int> hitList = new(successfulReportIds);
+            hitList.Sort();
+            log.Info($"phase2_focus report_ids={FormatReportIdList(hitList)}");
+            for (int i = 0; i < hitList.Count; i++)
+            {
+                int reportId = hitList[i];
+                RunFocusedTemplateProbe(
+                    handle,
+                    probe,
+                    reportId,
+                    log,
+                    ref totalAttempts,
+                    ref outputSuccess,
+                    ref writeSuccess);
+            }
+        }
+        else
+        {
+            log.Info("phase2_focus report_ids=<none>");
         }
 
         log.Info($"summary attempts={totalAttempts} output_ok={outputSuccess} write_ok={writeSuccess}");
@@ -568,6 +612,270 @@ internal static class HidResearchTool
         }
 
         return true;
+    }
+
+    private static void RunFocusedTemplateProbe(
+        SafeFileHandle handle,
+        in HidProbeResult probe,
+        int reportId,
+        ProbeLog log,
+        ref int totalAttempts,
+        ref int outputSuccess,
+        ref int writeSuccess)
+    {
+        log.Info($"phase2_begin rid=0x{reportId:X2}");
+        List<NamedPayload> templates = BuildKnownActuatorTemplates(reportId, probe.OutputReportBytes);
+        for (int i = 0; i < templates.Count; i++)
+        {
+            NamedPayload template = templates[i];
+            string variant = $"tpl:{template.Name}";
+            ProbeAttemptResult outAttempt = ProbeOutputAttempt(handle, reportId, variant, template.Payload);
+            ProbeAttemptResult wrAttempt = ProbeWriteAttempt(handle, reportId, variant, template.Payload);
+
+            totalAttempts += 2;
+            if (outAttempt.Ok) outputSuccess++;
+            if (wrAttempt.Ok) writeSuccess++;
+
+            log.Info(outAttempt.ToLogLine());
+            log.Info(wrAttempt.ToLogLine());
+
+            if (probe.InputReportBytes > 0)
+            {
+                InputReportSnapshot snap = TryReadInputReport(handle, probe.InputReportBytes, (byte)reportId);
+                log.Info(snap.ToLogLine(reportId, variant));
+            }
+        }
+
+        log.Info($"phase2_end rid=0x{reportId:X2} templates={templates.Count}");
+    }
+
+    private static List<NamedPayload> BuildKnownActuatorTemplates(int reportId, int outputReportBytes)
+    {
+        List<NamedPayload> templates = new();
+
+        byte[] exact14 = BuildBytes(
+            (byte)reportId, 0x01, 0x15, 0x6C, 0x02, 0x00,
+            0x21, 0x2B, 0x06, 0x01, 0x00, 0x16, 0x41, 0x13);
+        templates.Add(new NamedPayload("imbushuo14", exact14));
+        templates.Add(new NamedPayload("imbushuo14_padOut", PadPayload(exact14, outputReportBytes)));
+
+        byte[] zeros14 = BuildAutoPayload(14, (byte)reportId, secondByte: 0x00);
+        templates.Add(new NamedPayload("zeros14_cmd0", zeros14));
+        templates.Add(new NamedPayload("zeros14_cmd1", BuildAutoPayload(14, (byte)reportId, secondByte: 0x01)));
+
+        byte[] baseStrength = BuildBytes(
+            (byte)reportId, 0x01, 0x00, 0x00, 0x00, 0x00,
+            0x21, 0x2B, 0x06, 0x01, 0x00, 0x16, 0x41, 0x13);
+        templates.Add(new NamedPayload("base14_strength0", baseStrength));
+        templates.Add(new NamedPayload("base14_strength0_padOut", PadPayload(baseStrength, outputReportBytes)));
+
+        uint[] strengthCandidates = { 0x00000010u, 0x00000040u, 0x00000080u, 0x00000100u, 0x00026C15u };
+        for (int i = 0; i < strengthCandidates.Length; i++)
+        {
+            uint strength = strengthCandidates[i];
+            byte[] candidate = (byte[])baseStrength.Clone();
+            candidate[2] = (byte)(strength & 0xFF);
+            candidate[3] = (byte)((strength >> 8) & 0xFF);
+            candidate[4] = (byte)((strength >> 16) & 0xFF);
+            candidate[5] = (byte)((strength >> 24) & 0xFF);
+            templates.Add(new NamedPayload($"base14_strength_{strength:X8}", candidate));
+            templates.Add(new NamedPayload($"base14_strength_{strength:X8}_padOut", PadPayload(candidate, outputReportBytes)));
+        }
+
+        byte[] xorChecksum = (byte[])baseStrength.Clone();
+        xorChecksum[13] = ComputeXorChecksum(xorChecksum, 13);
+        templates.Add(new NamedPayload("base14_xorchk", xorChecksum));
+        templates.Add(new NamedPayload("base14_xorchk_padOut", PadPayload(xorChecksum, outputReportBytes)));
+
+        byte[] sumChecksum = (byte[])baseStrength.Clone();
+        sumChecksum[13] = ComputeSumChecksum(sumChecksum, 13);
+        templates.Add(new NamedPayload("base14_sumchk", sumChecksum));
+        templates.Add(new NamedPayload("base14_sumchk_padOut", PadPayload(sumChecksum, outputReportBytes)));
+
+        // dos1 / Linux-Magic-Trackpad-2-Driver issue hints: USB form (BT form prefixes 0xF2).
+        // Body (14 bytes, USB): 22/23, 01, s1, 78, 02, s2, 24, 30, 06, 01, s3, 18, 48, 13.
+        byte[] dos1ClickLow = BuildDos1StrengthConfigBody(eventId: 0x22, s1: 0x15, s2: 0x04, s3: 0x04);
+        byte[] dos1ReleaseLow = BuildDos1StrengthConfigBody(eventId: 0x23, s1: 0x10, s2: 0x00, s3: 0x00);
+        templates.Add(new NamedPayload("dos1_click_low_14", PrependReportId(reportId, dos1ClickLow)));
+        templates.Add(new NamedPayload("dos1_click_low_padOut", PadPayload(PrependReportId(reportId, dos1ClickLow), outputReportBytes)));
+        templates.Add(new NamedPayload("dos1_release_low_14", PrependReportId(reportId, dos1ReleaseLow)));
+        templates.Add(new NamedPayload("dos1_release_low_padOut", PadPayload(PrependReportId(reportId, dos1ReleaseLow), outputReportBytes)));
+
+        byte[] dos1ClickMed = BuildDos1StrengthConfigBody(eventId: 0x22, s1: 0x17, s2: 0x06, s3: 0x06);
+        byte[] dos1ReleaseMed = BuildDos1StrengthConfigBody(eventId: 0x23, s1: 0x14, s2: 0x00, s3: 0x00);
+        templates.Add(new NamedPayload("dos1_click_med_padOut", PadPayload(PrependReportId(reportId, dos1ClickMed), outputReportBytes)));
+        templates.Add(new NamedPayload("dos1_release_med_padOut", PadPayload(PrependReportId(reportId, dos1ReleaseMed), outputReportBytes)));
+
+        byte[] dos1ClickHigh = BuildDos1StrengthConfigBody(eventId: 0x22, s1: 0x1E, s2: 0x08, s3: 0x08);
+        byte[] dos1ReleaseHigh = BuildDos1StrengthConfigBody(eventId: 0x23, s1: 0x18, s2: 0x02, s3: 0x02);
+        templates.Add(new NamedPayload("dos1_click_high_padOut", PadPayload(PrependReportId(reportId, dos1ClickHigh), outputReportBytes)));
+        templates.Add(new NamedPayload("dos1_release_high_padOut", PadPayload(PrependReportId(reportId, dos1ReleaseHigh), outputReportBytes)));
+
+        return templates;
+    }
+
+    private static bool RunActuatorPulse(SafeFileHandle handle, in HidProbeResult probe, ReaderOptions options)
+    {
+        if (probe.OutputReportBytes <= 0)
+        {
+            Console.Error.WriteLine("Actuator pulse requires OutputReportByteLength > 0 (select actuator interface).");
+            return false;
+        }
+
+        // Your sweeps show report ID 0x53 is accepted on the Actuator interface.
+        const int reportId = 0x53;
+
+        byte s1 = (byte)(options.HidActuatorParam32 & 0xFF);
+        byte s2 = (byte)((options.HidActuatorParam32 >> 8) & 0xFF);
+        byte s3 = (byte)((options.HidActuatorParam32 >> 16) & 0xFF);
+
+        byte[] clickBody = BuildDos1StrengthConfigBody(eventId: 0x22, s1: s1, s2: s2, s3: s3);
+        byte[] releaseBody = BuildDos1StrengthConfigBody(eventId: 0x23, s1: 0x00, s2: 0x00, s3: 0x00);
+
+        byte[] click = PadPayload(PrependReportId(reportId, clickBody), probe.OutputReportBytes);
+        byte[] release = PadPayload(PrependReportId(reportId, releaseBody), probe.OutputReportBytes);
+
+        Console.WriteLine();
+        Console.WriteLine($"Actuator pulse: rid=0x{reportId:X2} count={options.HidActuatorCount} interval_ms={options.HidActuatorIntervalMs} param32=0x{options.HidActuatorParam32:X8} (s1={s1:X2} s2={s2:X2} s3={s3:X2})");
+
+        for (int i = 0; i < options.HidActuatorCount; i++)
+        {
+            int frame = i + 1;
+            bool okClick = TrySetOutputReport(handle, click, out int errClick) || TryWriteReport(handle, click, out errClick, out _);
+            Console.WriteLine($"[{frame}] click_cfg ok={okClick} win32=0x{errClick:X}");
+
+            bool okRelease = TrySetOutputReport(handle, release, out int errRelease) || TryWriteReport(handle, release, out errRelease, out _);
+            Console.WriteLine($"[{frame}] release_cfg ok={okRelease} win32=0x{errRelease:X}");
+
+            if (options.HidActuatorIntervalMs > 0 && frame < options.HidActuatorCount)
+            {
+                Thread.Sleep(options.HidActuatorIntervalMs);
+            }
+        }
+
+        return true;
+    }
+
+    private static bool RunActuatorVibrate(SafeFileHandle handle, in HidProbeResult probe, ReaderOptions options)
+    {
+        if (probe.OutputReportBytes <= 0)
+        {
+            Console.Error.WriteLine("Actuator vibrate requires OutputReportByteLength > 0 (select actuator interface).");
+            return false;
+        }
+
+        // Reverse-engineered by others: this "0x53" report appears to trigger immediate haptic output
+        // on at least some AMT2 firmwares when sent to the Actuator interface.
+        const int reportId = 0x53;
+
+        uint strength = options.HidActuatorParam32;
+        byte b0 = (byte)(strength & 0xFF);
+        byte b1 = (byte)((strength >> 8) & 0xFF);
+        byte b2 = (byte)((strength >> 16) & 0xFF);
+        byte b3 = (byte)((strength >> 24) & 0xFF);
+
+        // Matches https://gist.github.com/imbushuo/bed4c3641a827c62ffdd8629b5d04c74 (amt2-vibrator.cs)
+        // Format:
+        //  [0]  report id (0x53)
+        //  [1]  magic (0x01)
+        //  [2..5] strength (uint32 LE)
+        //  [6..13] tail constants
+        byte[] raw14 = BuildBytes(
+            (byte)reportId, 0x01, b0, b1, b2, b3,
+            0x21, 0x2B, 0x06, 0x01, 0x00, 0x16, 0x41, 0x13);
+
+        byte[] payload = PadPayload(raw14, probe.OutputReportBytes);
+
+        Console.WriteLine();
+        Console.WriteLine($"Actuator vibrate: rid=0x{reportId:X2} count={options.HidActuatorCount} interval_ms={options.HidActuatorIntervalMs} strength=0x{strength:X8}");
+
+        for (int i = 0; i < options.HidActuatorCount; i++)
+        {
+            int frame = i + 1;
+            bool ok = TrySetOutputReport(handle, payload, out int err) || TryWriteReport(handle, payload, out err, out _);
+            Console.WriteLine($"[{frame}] vibrate ok={ok} win32=0x{err:X}");
+
+            if (options.HidActuatorIntervalMs > 0 && frame < options.HidActuatorCount)
+            {
+                Thread.Sleep(options.HidActuatorIntervalMs);
+            }
+        }
+
+        return true;
+    }
+
+    private static byte[] BuildDos1StrengthConfigBody(byte eventId, byte s1, byte s2, byte s3)
+    {
+        // USB form: 14 bytes.
+        return BuildBytes(
+            eventId, 0x01,
+            s1, 0x78, 0x02,
+            s2, 0x24, 0x30, 0x06, 0x01,
+            s3, 0x18, 0x48, 0x13);
+    }
+
+    private static byte[] PrependReportId(int reportId, byte[] body)
+    {
+        byte[] payload = new byte[1 + body.Length];
+        payload[0] = (byte)reportId;
+        Buffer.BlockCopy(body, 0, payload, 1, body.Length);
+        return payload;
+    }
+
+    private static byte[] BuildBytes(params byte[] bytes)
+    {
+        byte[] payload = new byte[bytes.Length];
+        Buffer.BlockCopy(bytes, 0, payload, 0, bytes.Length);
+        return payload;
+    }
+
+    private static byte[] PadPayload(byte[] source, int length)
+    {
+        int targetLength = Math.Max(length, source.Length);
+        byte[] payload = new byte[targetLength];
+        Buffer.BlockCopy(source, 0, payload, 0, source.Length);
+        return payload;
+    }
+
+    private static byte ComputeXorChecksum(byte[] buffer, int count)
+    {
+        byte checksum = 0;
+        for (int i = 0; i < count && i < buffer.Length; i++)
+        {
+            checksum ^= buffer[i];
+        }
+        return checksum;
+    }
+
+    private static byte ComputeSumChecksum(byte[] buffer, int count)
+    {
+        int sum = 0;
+        for (int i = 0; i < count && i < buffer.Length; i++)
+        {
+            sum = (sum + buffer[i]) & 0xFF;
+        }
+        return (byte)sum;
+    }
+
+    private static string FormatReportIdList(List<int> reportIds)
+    {
+        if (reportIds.Count == 0)
+        {
+            return "<none>";
+        }
+
+        StringBuilder sb = new();
+        for (int i = 0; i < reportIds.Count; i++)
+        {
+            if (i > 0)
+            {
+                _ = sb.Append(',');
+            }
+            _ = sb.Append("0x");
+            _ = sb.Append(reportIds[i].ToString("X2"));
+        }
+
+        return sb.ToString();
     }
 
     private static byte[] BuildAutoPayload(int length, byte reportId, byte? secondByte)
@@ -620,6 +928,21 @@ internal static class HidResearchTool
         bool ok = WriteFile(handle, payload, (uint)payload.Length, out bytesWritten, IntPtr.Zero);
         win32Error = ok ? 0 : Marshal.GetLastWin32Error();
         return ok;
+    }
+
+    private static InputReportSnapshot TryReadInputReport(SafeFileHandle handle, int inputLength, byte reportId)
+    {
+        if (inputLength <= 0)
+        {
+            return new InputReportSnapshot(false, 0, null);
+        }
+
+        byte[] buffer = new byte[inputLength];
+        buffer[0] = reportId;
+        bool ok = HidD_GetInputReport(handle, buffer, buffer.Length);
+        int win32Error = ok ? 0 : Marshal.GetLastWin32Error();
+        string? payloadHex = ok ? FormatHex(buffer) : null;
+        return new InputReportSnapshot(ok, win32Error, payloadHex);
     }
 
     private static string ResolveAutoProbeLogPath(string? requestedPath)
@@ -794,6 +1117,8 @@ internal static class HidResearchTool
 
     private readonly record struct CandidateHidInterface(string Path, string DisplayName);
 
+    private readonly record struct NamedPayload(string Name, byte[] Payload);
+
     private readonly record struct ProbeAttemptResult(
         string Api,
         int ReportId,
@@ -806,6 +1131,22 @@ internal static class HidResearchTool
         public string ToLogLine()
         {
             return $"api={Api} rid=0x{ReportId:X2} variant={Variant} len={Length} ok={Ok} win32=0x{Win32Error:X} bytes={BytesWritten}";
+        }
+    }
+
+    private readonly record struct InputReportSnapshot(
+        bool Ok,
+        int Win32Error,
+        string? PayloadHex)
+    {
+        public string ToLogLine(int reportId, string variant)
+        {
+            if (!Ok)
+            {
+                return $"api=get_input rid=0x{reportId:X2} variant={variant} ok=False win32=0x{Win32Error:X}";
+            }
+
+            return $"api=get_input rid=0x{reportId:X2} variant={variant} ok=True win32=0x0 payload={PayloadHex}";
         }
     }
 
@@ -902,6 +1243,9 @@ internal static class HidResearchTool
 
     [DllImport("hid.dll", SetLastError = true)]
     private static extern bool HidD_SetOutputReport(SafeFileHandle hidDeviceObject, byte[] reportBuffer, int reportBufferLength);
+
+    [DllImport("hid.dll", SetLastError = true)]
+    private static extern bool HidD_GetInputReport(SafeFileHandle hidDeviceObject, byte[] reportBuffer, int reportBufferLength);
 
     [DllImport("hid.dll", SetLastError = true)]
     private static extern bool HidD_GetManufacturerString(SafeFileHandle hidDeviceObject, byte[] buffer, int bufferLength);

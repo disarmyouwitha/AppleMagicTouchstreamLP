@@ -5,8 +5,9 @@ I'm not sure if this is helpful for the official driver, but if not I would like
 
 -------
 
-  How to use it now
-
-  1. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe
-  2. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index 3
-  3. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-index 3 --hid-output "<candidate 64-byte hex payload>"
+cd C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows && dotnet run --project .\GlassToKey\GlassToKey.csproj -c
+  │ Release -- --hid-probe --hid-index 3 --hid-actuator-pulse --hid-actuator-count 30 --hid-actuator-interval-ms 40
+  │ --hid-actuator-param32 0x0008081E
+  └ Detected trackpad interfaces:
+    [0] Magic Trackpad 2 [05AC:0324 COL01] [locked (rw 0x5, r 0x5)] :: \\?
+    … +19 lines
