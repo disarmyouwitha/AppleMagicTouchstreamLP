@@ -27,8 +27,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
 **Windows Pin Tray Icon**
-- `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
-- You can also drag the icon from the hidden tray (`^`) to the visible tray area.
+- You can drag the icon from the hidden tray (`^`) to the visible tray area.
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
