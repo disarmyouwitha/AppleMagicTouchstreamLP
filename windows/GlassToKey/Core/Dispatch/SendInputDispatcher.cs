@@ -77,6 +77,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             default:
                 break;
         }
+
+        if ((dispatchEvent.Flags & DispatchEventFlags.Haptic) != 0)
+        {
+            _ = MagicTrackpadActuatorHaptics.TryVibrate(dispatchEvent.Side);
+        }
     }
 
     public void Tick(long nowTicks)

@@ -922,10 +922,13 @@ internal static class SelfTestRunner
         // mouse candidate -> mouse active path
         core.ResetState();
         now = 0;
-        InputFrame offKey = MakeFrame(contactCount: 1, id0: 2, x0: 120, y0: 120);
+        BindingIndex leftIndex = BindingIndex.Build(leftLayout, TrackpadSide.Left, layer: 0, keymap);
+        (ushort offX, ushort offY) = FindOffKeyPoint(leftIndex, maxX, maxY, preferTopLeft: true);
+        InputFrame offKey = MakeFrame(contactCount: 1, id0: 2, x0: offX, y0: offY);
         core.ProcessFrame(TrackpadSide.Left, in offKey, maxX, maxY, now);
         now += MsToTicks(10);
-        InputFrame moved = MakeFrame(contactCount: 1, id0: 2, x0: 6000, y0: 4200);
+        (ushort movedX, ushort movedY) = FindOffKeyPoint(leftIndex, maxX, maxY, preferTopLeft: false);
+        InputFrame moved = MakeFrame(contactCount: 1, id0: 2, x0: movedX, y0: movedY);
         core.ProcessFrame(TrackpadSide.Left, in moved, maxX, maxY, now);
         transitionCount = core.CopyIntentTransitions(transitions);
         if (!ContainsMode(transitions.AsSpan(0, transitionCount), IntentMode.MouseCandidate) ||
@@ -985,6 +988,47 @@ internal static class SelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static (ushort X, ushort Y) FindOffKeyPoint(BindingIndex index, ushort maxX, ushort maxY, bool preferTopLeft)
+    {
+        const int steps = 24;
+        if (preferTopLeft)
+        {
+            for (int yi = 0; yi <= steps; yi++)
+            {
+                double y = (yi + 0.5) / (steps + 1.0);
+                for (int xi = 0; xi <= steps; xi++)
+                {
+                    double x = (xi + 0.5) / (steps + 1.0);
+                    if (!index.HitTest(x, y).Found)
+                    {
+                        ushort rawX = (ushort)Math.Clamp((int)Math.Round(x * maxX), 1, maxX - 1);
+                        ushort rawY = (ushort)Math.Clamp((int)Math.Round(y * maxY), 1, maxY - 1);
+                        return (rawX, rawY);
+                    }
+                }
+            }
+        }
+        else
+        {
+            for (int yi = steps; yi >= 0; yi--)
+            {
+                double y = (yi + 0.5) / (steps + 1.0);
+                for (int xi = steps; xi >= 0; xi--)
+                {
+                    double x = (xi + 0.5) / (steps + 1.0);
+                    if (!index.HitTest(x, y).Found)
+                    {
+                        ushort rawX = (ushort)Math.Clamp((int)Math.Round(x * maxX), 1, maxX - 1);
+                        ushort rawY = (ushort)Math.Clamp((int)Math.Round(y * maxY), 1, maxY - 1);
+                        return (rawX, rawY);
+                    }
+                }
+            }
+        }
+
+        return (1, 1);
     }
 
     private static bool RunEngineDispatchTests(out string failure)
@@ -1112,20 +1156,42 @@ internal static class SelfTestRunner
         ushort snapPrimeX = (ushort)Math.Clamp((int)Math.Round((snapPrimeRect.X + (snapPrimeRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort snapPrimeY = (ushort)Math.Clamp((int)Math.Round((snapPrimeRect.Y + (snapPrimeRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
-        double offKeySnapXNorm = snapResolveRect.X + snapResolveRect.Width + 0.005;
-        double offKeySnapYNorm = snapResolveRect.Y + (snapResolveRect.Height * 0.5);
-        for (int attempt = 0; attempt < 12 && IsInsideAnyKeyRect(snapGapLeftLayout, offKeySnapXNorm, offKeySnapYNorm); attempt++)
+        double resolveCenterY = snapResolveRect.Y + (snapResolveRect.Height * 0.5);
+        double offKeySnapXNorm = 0.0;
+        double offKeySnapYNorm = 0.0;
+        bool foundOffKeySnap = false;
+
+        for (int yStep = 0; yStep <= 30 && !foundOffKeySnap; yStep++)
         {
-            offKeySnapXNorm += 0.005;
+            double yOffset = yStep * 0.002;
+            for (int sign = 0; sign < 2 && !foundOffKeySnap; sign++)
+            {
+                double y = resolveCenterY + (sign == 0 ? yOffset : -yOffset);
+                if (y <= 0.01 || y >= 0.99)
+                {
+                    continue;
+                }
+
+                for (double x = snapResolveRect.X + snapResolveRect.Width + 0.001; x < 0.99; x += 0.002)
+                {
+                    if (IsInsideAnyKeyRect(snapGapLeftLayout, x, y))
+                    {
+                        continue;
+                    }
+
+                    (int row, int col, _) = FindNearestKeyCenter(snapGapLeftLayout, x, y);
+                    if (row == 1 && col == 4)
+                    {
+                        offKeySnapXNorm = x;
+                        offKeySnapYNorm = y;
+                        foundOffKeySnap = true;
+                        break;
+                    }
+                }
+            }
         }
 
-        if (offKeySnapXNorm <= 0 || offKeySnapXNorm >= 0.999 || offKeySnapYNorm <= 0 || offKeySnapYNorm >= 0.999)
-        {
-            failure = "off-key snap probe went out of bounds while searching for a deterministic miss point";
-            return false;
-        }
-
-        if (IsInsideAnyKeyRect(snapGapLeftLayout, offKeySnapXNorm, offKeySnapYNorm))
+        if (!foundOffKeySnap)
         {
             failure = "failed to find an off-key snap probe point";
             return false;

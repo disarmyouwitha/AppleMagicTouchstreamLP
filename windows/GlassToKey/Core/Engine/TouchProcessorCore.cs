@@ -43,6 +43,7 @@ internal sealed class TouchProcessorCore
     private long _typingGraceDeadlineTicks;
     private bool _typingCommittedUntilAllUp;
     private bool _allowMouseTakeoverDuringTyping;
+    private bool _hapticsOnKeyDispatch;
 
     private bool _typingEnabled = true;
     private bool _keyboardModeEnabled;
@@ -140,6 +141,11 @@ internal sealed class TouchProcessorCore
     public void SetAllowMouseTakeover(bool enabled)
     {
         _allowMouseTakeoverDuringTyping = enabled;
+    }
+
+    public void SetHapticsOnKeyDispatchEnabled(bool enabled)
+    {
+        _hapticsOnKeyDispatch = enabled;
     }
 
     public void SetDiagnosticsEnabled(bool enabled)
@@ -1258,6 +1264,11 @@ internal sealed class TouchProcessorCore
         string dispatchLabel = "",
         bool allowTypingDisabledOverride = false)
     {
+        if (_hapticsOnKeyDispatch && kind == DispatchEventKind.KeyTap)
+        {
+            flags |= DispatchEventFlags.Haptic;
+        }
+
         string normalizedDispatchLabel = _diagnosticsEnabled
             ? NormalizeDispatchLabel(kind, virtualKey, mouseButton, dispatchLabel)
             : string.Empty;
@@ -2700,6 +2711,14 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetAllowMouseTakeover(enabled);
+        }
+    }
+
+    public void SetHapticsOnKeyDispatchEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetHapticsOnKeyDispatchEnabled(enabled);
         }
     }
 

@@ -6,19 +6,24 @@ public sealed class ReaderOptions
 {
     public bool ListDevices { get; private set; }
     public bool RunSelfTest { get; private set; }
+
     public ushort? MaxX { get; private set; }
     public ushort? MaxY { get; private set; }
+
     public string? CapturePath { get; private set; }
     public string? ReplayPath { get; private set; }
+    public bool ReplayInUi { get; private set; }
+    public double ReplaySpeed { get; private set; } = 1.0;
     public string? ReplayFixturePath { get; private set; }
+
     public string? MetricsOutputPath { get; private set; }
     public string? ReplayTraceOutputPath { get; private set; }
+
     public string? RawAnalyzePath { get; private set; }
     public string? RawAnalyzeOutputPath { get; private set; }
     public string? RawAnalyzeContactsOutputPath { get; private set; }
     public bool DecoderDebug { get; private set; }
-    public bool ReplayInUi { get; private set; }
-    public double ReplaySpeed { get; private set; } = 1.0;
+
     public bool StartInConfigUi { get; private set; }
     public bool RelaunchTrayOnClose { get; private set; }
 
@@ -106,3 +111,4 @@ public sealed class ReaderOptions
         return options;
     }
 }
+
