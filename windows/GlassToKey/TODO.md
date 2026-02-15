@@ -1,10 +1,10 @@
 ## TODO:
-- Add a "haptics mode" where any tap on the touchpad results in a haptic tap.
-- Add "set haptic strength" slider in Tuning options I know it has (Off, low, med, high) at least, so lets find those values!
+- Need per-device haptic routing. RHS taps are causing LHS haptics. 
+- Can you make an OFFICIAL_HAPTICS.md with all of the information other reverse engineers would need to figure it out in their projects?
 - Lets test with bluetooth!
-- Now that we have Haptics working can we remove all of the hid-probe/debug stuff we added to figure it out, leaving only what is nessisary to trigger the haptic in production? Maybe we write a helper function or something to make it easier to trigger? Remember to write only efficient and performant code and to keep the hot path hot!
+- Any reason why this wouldn't work for the old Lightning version of the Apple magic trackpad2? It has different device params (you can look up in our connection code)
 -------
-- remove "legacy pressure" support entirely
+- remove legacy/opensource pressure "P:" support entirely
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
 - Can we wire a "force min" slider into the GUI? (using new variable) /test
 ^ These will both be in phase1, so, slider can be 0-255
