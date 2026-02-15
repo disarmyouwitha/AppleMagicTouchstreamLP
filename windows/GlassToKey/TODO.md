@@ -1,10 +1,6 @@
 ## TODO:
-- Can we wire a "force cap" slider into the GUI? (using "f:" variable)
-+ Force Cap: If F goes higher than Force Cap then a key should not be dispatched.
-- Can we wire a "force min" slider into the GUI? (using "f:" variable)
-+ Force Min: If F is below Force Mine then a key should not be dispatched.
-^ These will both be in phase1, so, slider can be 0-255
-^ Resting Fingers: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the ky
+- Resting Fingers mode: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
+- ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE!)
 -------
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
