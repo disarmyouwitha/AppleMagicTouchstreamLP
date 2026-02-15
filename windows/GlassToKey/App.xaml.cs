@@ -74,6 +74,13 @@ public partial class App : Application
             return;
         }
 
+        if (options.HasHidResearchCommand)
+        {
+            int code = HidResearchTool.Run(options);
+            Shutdown(code);
+            return;
+        }
+
         if (options.RunSelfTest)
         {
             SelfTestResult result = SelfTestRunner.Run();
@@ -398,8 +405,9 @@ public partial class App : Application
         bool hasReplay = args.Any(arg => string.Equals(arg, "--replay", StringComparison.OrdinalIgnoreCase));
         bool replayInUi = args.Any(arg => string.Equals(arg, "--replay-ui", StringComparison.OrdinalIgnoreCase));
         bool listOnly = args.Any(arg => string.Equals(arg, "--list", StringComparison.OrdinalIgnoreCase));
+        bool hidResearchOnly = args.Any(arg => arg.StartsWith("--hid-", StringComparison.OrdinalIgnoreCase));
         bool selfTestOnly = args.Any(arg => string.Equals(arg, "--selftest", StringComparison.OrdinalIgnoreCase));
         bool rawAnalyzeOnly = args.Any(arg => string.Equals(arg, "--raw-analyze", StringComparison.OrdinalIgnoreCase));
-        return !(listOnly || selfTestOnly || rawAnalyzeOnly || (hasReplay && !replayInUi));
+        return !(listOnly || hidResearchOnly || selfTestOnly || rawAnalyzeOnly || (hasReplay && !replayInUi));
     }
 }

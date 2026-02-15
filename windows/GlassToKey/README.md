@@ -98,6 +98,13 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
 - `--list`: Print available HID interfaces.
+- `--hid-probe`: Open selected trackpad HID handle and print HID attributes/caps (VID/PID, usage, report lengths).
+- `--hid-index <n>`: Select target from probe enumeration (if omitted, first openable interface is auto-selected).
+- `--hid-feature <hex-bytes>`: Send one HID feature report payload (first byte must be report ID if required by device).
+- `--hid-output <hex-bytes>`: Send one HID output report payload (first byte must be report ID if required by device).
+- `--hid-write <hex-bytes>`: Send one raw HID write payload via `WriteFile`.
+- `--hid-repeat <n>`: Repeat HID send sequence `n` times (default `1`).
+- `--hid-interval-ms <ms>`: Delay between repeated HID sends.
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
