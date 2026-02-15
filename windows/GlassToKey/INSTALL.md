@@ -3,7 +3,7 @@ You will need to install the driver for both USB and for Bluetooth! (For each Ap
 
 ## Do you have drivers installed for your trackpad already??
 - Go to a webpage and try to 2-finger scroll. If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed! **(You should be able to start GlassToKey and select one of the decoders to see your touches)**
-- ^The Official Apple driver is considered first-class by default. You may have issues with Capture/Record and **other features such as Pressure and Haptics will not work if you are not using the Official drivers**, however, any Opensource driver based off of `imbushuo/mac-precision-touchpad` should work!
+- ^The Official Apple driver is considered first-class by default. **Features such as Pressure, Haptics, Capture and Replay will not work if you are not using the Official drivers**, however, any Opensource driver based off of `imbushuo/mac-precision-touchpad` should work!
 - If you already have Opensource drivers installed and you want to upgrade, you can just follow the install guide below!
 
 **If you can move your mouse but you can't scroll with a gesture — perfect!** *You need to install drivers:*
