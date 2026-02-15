@@ -36,7 +36,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Haptics:**
 - Working over USB!!!
-- Only works over USB. =x **I do not see a path forward!** 
+- Only works over USB. =x **I do not see a path forward for Bluetooth on Windows!** 
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
