@@ -1,14 +1,4 @@
 ## TODO:
-When I have LHS:official and RHS:opensource both plugged in via USB I can only see the opensource one!
-(When I have LHS:official and RHS:opensource with LHS:BT and RHS:USB, both show in the list)
-(When both are Opensource and both are plugged in via USB, both show in the device list)
-(When both are Official and 1 is USB and 1 is bluetooth, both show in the device list), 
-(When both are Official and both are Bluetooth, both show in the device list.). 
-Seems like there are device list inconsistencies?? Why is that and can you fix it?
--------
-- Can we make capture/replay work with opensource/legacy decoders or will it be a pain in the ass? =x do the .atpcap understand which decoder they were recorded from? Ideally it could be recorded on either, like one official and one opensource and it would recognize which decoder to use for which side. (mention it in INSTALL if we can!)
-- Test with opensource drivers
--------
 - Haptics on Custom Buttons!
 - When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
 - Re-write Pressure as Force throughout the readme
@@ -30,9 +20,7 @@ Seems like there are device list inconsistencies?? Why is that and can you fix i
 
 
 ## Notable Drift / Health
-
-  - Docs say key/mouse candidate buffer is fixed at 40ms (GlassToKey/README.md:45), but runtime config
-    currently hardcodes 20ms (GlassToKey/RuntimeConfigurationFactory.cs:13).
   - Self-test baseline is currently failing locally: Engine intent tests failed: expected
     mouseCandidate->mouseActive transitions were missing (dotnet run --project
     GlassToKey\GlassToKey.csproj -c Release -- --selftest).
+  - Need to make sure CODEX isn't faking self-test and that it's tests are good...
