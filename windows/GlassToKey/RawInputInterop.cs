@@ -66,7 +66,8 @@ internal static class RawInputInterop
             }
 
             bool hasTokens = HasVidPidTokens(deviceName);
-            candidates.Add(new RawInputCandidate(deviceName, info.VendorId, info.ProductId, hasTokens));
+            string interfaceGroupKey = BuildInterfaceGroupKey(deviceName, info.VendorId, info.ProductId);
+            candidates.Add(new RawInputCandidate(deviceName, hasTokens, interfaceGroupKey));
         }
 
         List<RawInputCandidate> filtered = FilterByVidPidTokens(candidates);
@@ -339,39 +340,39 @@ internal static class RawInputInterop
 
     private static List<RawInputCandidate> FilterByVidPidTokens(List<RawInputCandidate> candidates)
     {
-        Dictionary<(ushort, ushort), bool> hasTokensById = new();
-        Dictionary<(ushort, ushort), bool> hasNonLocalMfgById = new();
-        Dictionary<(ushort, ushort), bool> hasCol01ById = new();
+        Dictionary<string, bool> hasTokensByGroup = new(StringComparer.Ordinal);
+        Dictionary<string, bool> hasNonLocalMfgByGroup = new(StringComparer.Ordinal);
+        Dictionary<string, bool> hasCol01ByGroup = new(StringComparer.Ordinal);
         foreach (RawInputCandidate candidate in candidates)
         {
-            (ushort vid, ushort pid) = NormalizeVidPid(candidate.Vid, candidate.Pid);
+            string groupKey = candidate.InterfaceGroupKey;
             if (candidate.HasVidPidTokens)
             {
-                hasTokensById[(vid, pid)] = true;
+                hasTokensByGroup[groupKey] = true;
             }
             if (!IsLocalMfg(candidate.DeviceName))
             {
-                hasNonLocalMfgById[(vid, pid)] = true;
+                hasNonLocalMfgByGroup[groupKey] = true;
             }
             if (HasCol01(candidate.DeviceName))
             {
-                hasCol01ById[(vid, pid)] = true;
+                hasCol01ByGroup[groupKey] = true;
             }
         }
 
         List<RawInputCandidate> filtered = new();
         foreach (RawInputCandidate candidate in candidates)
         {
-            (ushort vid, ushort pid) = NormalizeVidPid(candidate.Vid, candidate.Pid);
-            if (hasTokensById.TryGetValue((vid, pid), out bool hasTokens) && hasTokens && !candidate.HasVidPidTokens)
+            string groupKey = candidate.InterfaceGroupKey;
+            if (hasTokensByGroup.TryGetValue(groupKey, out bool hasTokens) && hasTokens && !candidate.HasVidPidTokens)
             {
                 continue;
             }
-            if (hasNonLocalMfgById.TryGetValue((vid, pid), out bool hasNonLocalMfg) && hasNonLocalMfg && IsLocalMfg(candidate.DeviceName))
+            if (hasNonLocalMfgByGroup.TryGetValue(groupKey, out bool hasNonLocalMfg) && hasNonLocalMfg && IsLocalMfg(candidate.DeviceName))
             {
                 continue;
             }
-            if (hasCol01ById.TryGetValue((vid, pid), out bool hasCol01) && hasCol01 && HasColToken(candidate.DeviceName) && !HasCol01(candidate.DeviceName))
+            if (hasCol01ByGroup.TryGetValue(groupKey, out bool hasCol01) && hasCol01 && HasColToken(candidate.DeviceName) && !HasCol01(candidate.DeviceName))
             {
                 continue;
             }
@@ -381,9 +382,42 @@ internal static class RawInputInterop
         return filtered;
     }
 
-    private static (ushort Vid, ushort Pid) NormalizeVidPid(uint vid, uint pid)
+    private static string BuildInterfaceGroupKey(string deviceName, uint vid, uint pid)
     {
-        return ((ushort)vid, (ushort)pid);
+        string prefix = $"{(ushort)vid:X4}:{(ushort)pid:X4}:";
+        if (string.IsNullOrWhiteSpace(deviceName))
+        {
+            return prefix;
+        }
+
+        string upper = deviceName.ToUpperInvariant();
+        string instanceId = ExtractInstanceId(upper);
+        return string.IsNullOrWhiteSpace(instanceId)
+            ? prefix + upper
+            : prefix + instanceId;
+    }
+
+    private static string ExtractInstanceId(string deviceNameUpper)
+    {
+        int firstHash = deviceNameUpper.IndexOf('#');
+        if (firstHash < 0)
+        {
+            return string.Empty;
+        }
+
+        int secondHash = deviceNameUpper.IndexOf('#', firstHash + 1);
+        if (secondHash < 0)
+        {
+            return string.Empty;
+        }
+
+        int thirdHash = deviceNameUpper.IndexOf('#', secondHash + 1);
+        if (thirdHash < 0 || thirdHash <= secondHash + 1)
+        {
+            return string.Empty;
+        }
+
+        return deviceNameUpper.Substring(secondHash + 1, thirdHash - secondHash - 1);
     }
 
     private static bool IsLocalMfg(string deviceName)
@@ -484,7 +518,7 @@ internal static class RawInputInterop
         [FieldOffset(8)] public RID_DEVICE_INFO_HID hid;
     }
 
-    private readonly record struct RawInputCandidate(string DeviceName, uint Vid, uint Pid, bool HasVidPidTokens);
+    private readonly record struct RawInputCandidate(string DeviceName, bool HasVidPidTokens, string InterfaceGroupKey);
 
 
     [DllImport("user32.dll", SetLastError = true)]
