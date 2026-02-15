@@ -976,7 +976,7 @@ internal sealed class TouchProcessorCore
 
                 ApplyActionState(action, timestampTicks);
                 DispatchEventFlags continuousFlags = DispatchEventFlags.Repeatable;
-                if (hapticOnDispatch && _hapticsOnKeyDispatch)
+                if (_hapticsOnKeyDispatch)
                 {
                     continuousFlags |= DispatchEventFlags.Haptic;
                 }
