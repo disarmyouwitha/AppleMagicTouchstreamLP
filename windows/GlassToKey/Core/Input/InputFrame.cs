@@ -14,9 +14,9 @@ public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Fla
 
     public static ContactFrame FromPtpContact(in PtpContact contact)
     {
-        // Legacy path packs pressure-like bits in Flags[7:2] (6-bit value).
-        byte pressureApprox = (byte)(((contact.Flags >> 2) & 0x3F) << 2);
-        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, pressureApprox);
+        // Do not attempt to synthesize pressure from legacy/open-source PTP flag bits.
+        // Only the official decoder path may populate Pressure/Phase from known fields.
+        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, Pressure: 0, Phase: 0);
     }
 }
 
