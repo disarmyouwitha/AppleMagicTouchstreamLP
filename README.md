@@ -39,9 +39,9 @@ The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed
 
 **——So here we are——:** it has come full circle. ⭕️
 
-I have been working to revive this ancient keyboard using the DNA of it’s own lineage — the Apple Magic Trackpad.
+I have been working to revive this ancient keyboard using the DNA of it’s own lineage — the Apple Magic Trackpad!
 
-Since it is built on the same technology, I thought it would be fun to try and create an open source version!
+Since it is built on the same technology, I thought it would be fun to try and create an open source version~
 
 <img src="apple-magic-touchstreamlp.jpg" />
 
