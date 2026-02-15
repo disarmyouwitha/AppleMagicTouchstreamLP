@@ -1247,6 +1247,120 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // MO() bypass: if a key touch starts before MO goes active, release should still resolve on the MO layer.
+        KeymapStore momentaryBypassKeymap = KeymapStore.LoadBundledDefault();
+        string moStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 0);
+        string moTargetStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
+        momentaryBypassKeymap.Mappings[0][moStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "MO(1)" },
+            Hold = null
+        };
+        momentaryBypassKeymap.Mappings[0][moTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        momentaryBypassKeymap.Mappings[1][moTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        NormalizedRect moRect = leftLayout.Rects[0][0];
+        NormalizedRect moTargetRect = leftLayout.Rects[0][1];
+        ushort moX = (ushort)Math.Clamp((int)Math.Round((moRect.X + (moRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort moY = (ushort)Math.Clamp((int)Math.Round((moRect.Y + (moRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort moTargetX = (ushort)Math.Clamp((int)Math.Round((moTargetRect.X + (moTargetRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort moTargetY = (ushort)Math.Clamp((int)Math.Round((moTargetRect.Y + (moTargetRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        InputFrame moTargetDown = MakeFrame(contactCount: 1, id0: 150, x0: moTargetX, y0: moTargetY);
+        InputFrame moAndTargetDown = MakeFrame(contactCount: 2, id0: 150, x0: moTargetX, y0: moTargetY, id1: 151, x1: moX, y1: moY);
+        InputFrame moOnlyDown = MakeFrame(contactCount: 1, id0: 151, x0: moX, y0: moY);
+        InputFrame moAllUp = MakeFrame(contactCount: 0);
+
+        // Sanity: MO key should actually activate layer 1 when held.
+        TouchProcessorCore moSanityCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        using DispatchEventQueue moSanityQueue = new();
+        using TouchProcessorActor moSanityActor = new(moSanityCore, dispatchQueue: moSanityQueue);
+        now = 0;
+        moSanityActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        moSanityActor.WaitForIdle();
+        TouchProcessorSnapshot moSanitySnapshot = moSanityActor.Snapshot();
+        if (moSanitySnapshot.ActiveLayer != 1 || !moSanitySnapshot.MomentaryLayerActive)
+        {
+            failure = $"MO sanity failed to activate layer 1 (snapshot={moSanitySnapshot.ToSummary()})";
+            return false;
+        }
+
+        // Mouse-only mode (typing disabled): MO should allow key dispatch.
+        TouchProcessorCore moBypassMouseCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        moBypassMouseCore.SetTypingEnabled(false);
+        using DispatchEventQueue moBypassMouseQueue = new();
+        using TouchProcessorActor moBypassMouseActor = new(moBypassMouseCore, dispatchQueue: moBypassMouseQueue);
+
+        now = 0;
+        moBypassMouseActor.Post(TrackpadSide.Left, in moTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moAndTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moAllUp, maxX, maxY, now);
+        moBypassMouseActor.WaitForIdle();
+        TouchProcessorSnapshot moBypassMouseSnapshot = moBypassMouseActor.Snapshot();
+
+        bool sawMouseModeBypassTap = false;
+        List<string> moBypassMouseEvents = new();
+        while (moBypassMouseQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            moBypassMouseEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                sawMouseModeBypassTap = true;
+            }
+        }
+
+        if (!sawMouseModeBypassTap)
+        {
+            failure = $"MO bypass failed in mouse-only mode (events=[{string.Join(", ", moBypassMouseEvents)}], snapshot={moBypassMouseSnapshot.ToSummary()})";
+            return false;
+        }
+
+        // Keyboard-only mode: MO should bypass keyboard-only intent lock for dispatch.
+        TouchProcessorCore moBypassKeyboardCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        moBypassKeyboardCore.SetTypingEnabled(true);
+        moBypassKeyboardCore.SetKeyboardModeEnabled(true);
+        using DispatchEventQueue moBypassKeyboardQueue = new();
+        using TouchProcessorActor moBypassKeyboardActor = new(moBypassKeyboardCore, dispatchQueue: moBypassKeyboardQueue);
+
+        now = 0;
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moAndTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moAllUp, maxX, maxY, now);
+        moBypassKeyboardActor.WaitForIdle();
+
+        bool sawKeyboardModeBypassTap = false;
+        List<string> moBypassKeyboardEvents = new();
+        while (moBypassKeyboardQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            moBypassKeyboardEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                sawKeyboardModeBypassTap = true;
+            }
+        }
+
+        if (!sawKeyboardModeBypassTap)
+        {
+            failure = $"MO bypass failed in keyboard-only mode (events=[{string.Join(", ", moBypassKeyboardEvents)}])";
+            return false;
+        }
+
         KeymapStore modifierKeymap = KeymapStore.LoadBundledDefault();
         string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
         modifierKeymap.Mappings[0][storageKey] = new KeyMapping
