@@ -142,7 +142,7 @@ public sealed class TouchView : FrameworkElement
                     _textBrush,
                     1.0);
                 FormattedText pressureText = new(
-                    $"fn:{c.ForceNorm}",
+                    $"f:{c.ForceNorm}",
                     CultureInfo.InvariantCulture,
                     FlowDirection.LeftToRight,
                     _monoTypeface,
