@@ -121,6 +121,7 @@ Implementation details:
 Flags in `GlassToKey/ReaderOptions.cs`:
 
 - `--hid-actuator-pulse`
+- `--hid-actuator-vibrate`
 - `--hid-actuator-count <n>` (default 10)
 - `--hid-actuator-interval-ms <ms>` (default 60)
 - `--hid-actuator-param32 <hex>` (default `0x00026C15`)
@@ -128,6 +129,23 @@ Flags in `GlassToKey/ReaderOptions.cs`:
     - `s1 = param32 & 0xFF`
     - `s2 = (param32 >> 8) & 0xFF`
     - `s3 = (param32 >> 16) & 0xFF`
+
+### 3. Explicit actuator "vibrate now" test (WORKING)
+
+CLI: `--hid-actuator-vibrate`
+
+Purpose: send the known 14-byte "vibrate now" packet (report ID `0x53`) padded to the actuator `OutputReportByteLength` (64) to trigger an immediate haptic pulse.
+
+Implementation details:
+
+- Uses `rid=0x53` (first byte) and the known constant tail:
+  - `0x21 0x2B 0x06 0x01 0x00 0x16 0x41 0x13`
+- Inserts a 32-bit little-endian "strength" value at bytes `[2..5]` from `--hid-actuator-param32`.
+- Sends via `HidD_SetOutputReport(...)` or `WriteFile(...)`.
+
+Observed on this host (USB Actuator interface, `MI_02`) on 2026-02-15:
+
+- `--hid-actuator-vibrate` produced physical haptics ("THAT WORKED") with `ok=True win32=0x0`.
 
 ## How To Run (Recommended Sequence)
 
@@ -174,6 +192,12 @@ Other preset examples:
 - low click: `0x00040415`
 - medium click: `0x00060617`
 
+6. Actuator vibrate now (this is the current confirmed haptics trigger)
+
+```powershell
+dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index <n> --hid-actuator-vibrate --hid-actuator-count 20 --hid-actuator-interval-ms 60 --hid-actuator-param32 0x00026C15
+```
+
 ## Interpreting Results
 
 ### API-level acceptance vs physical haptics
@@ -214,4 +238,3 @@ Any of:
 
 - Many "collections" are locked if opened by another consumer. USB-only during tests reduces ambiguity.
 - In this environment, Git-for-Windows `nl.exe`/`sed.exe` may fail with Win32 error 5; use PowerShell `Get-Content` for paging.
-

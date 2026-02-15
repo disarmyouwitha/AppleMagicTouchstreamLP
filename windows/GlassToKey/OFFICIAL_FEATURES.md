@@ -40,6 +40,8 @@ Last updated: 2026-02-14
 - `--hid-auto-report-max <0..255>`: upper report ID bound for auto sweep (default `15`).
 - `--hid-auto-interval-ms <ms>`: delay between auto sweep steps (default `10`).
 - `--hid-auto-log <path>`: optional log output path.
+- `--hid-actuator-pulse`: send Linux-derived click/release strength-config frames repeatedly (may configure click feel depending on mode/firmware).
+- `--hid-actuator-vibrate`: send known "vibrate now" actuator packet repeatedly (confirmed immediate haptics on this host).
 - auto-probe tests both `OutputReportByteLength` and `OutputReportByteLength + 1` payload lengths.
 - auto-probe runs a second focused phase on any report IDs that return `ok=True`, trying known actuator packet templates (including the 14-byte pattern seen in other reverse-engineering attempts).
 
@@ -60,6 +62,11 @@ dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-output "
 4. Automated actuator sweep:
 ```powershell
 dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-auto-probe --hid-index 3 --hid-auto-report-max 63 --hid-auto-log .\captures\haptics\auto-probe.log
+```
+
+5. Confirmed actuator haptics trigger (vibrate now):
+```powershell
+dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-index 3 --hid-actuator-vibrate --hid-actuator-count 20 --hid-actuator-interval-ms 60 --hid-actuator-param32 0x00026C15
 ```
 
 ## Local Probe Snapshot (2026-02-14)

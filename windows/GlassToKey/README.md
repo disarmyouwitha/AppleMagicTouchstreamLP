@@ -109,6 +109,11 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--hid-auto-report-max <0..255>`: Highest report ID to test during auto-probe (default `15`).
 - `--hid-auto-interval-ms <ms>`: Delay between each report ID probe step (default `10`).
 - `--hid-auto-log <path>`: Optional output path for auto-probe log (defaults to `%LOCALAPPDATA%\GlassToKey\hid-auto-probe-*.log`).
+- `--hid-actuator-pulse`: Send the Linux-derived click/release strength-config packets repeatedly to the actuator interface (useful to see if click strength changes).
+- `--hid-actuator-vibrate`: Send the known "vibrate now" actuator packet repeatedly (immediate haptics on supported firmwares).
+- `--hid-actuator-count <n>`: Repeat count for `--hid-actuator-*` commands (default `10`).
+- `--hid-actuator-interval-ms <ms>`: Delay between repeats for `--hid-actuator-*` (default `60`).
+- `--hid-actuator-param32 <hex>`: Parameter used by actuator commands (for `--hid-actuator-vibrate` it is the strength uint32; for `--hid-actuator-pulse` the low 3 bytes are used as `s1,s2,s3`).
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
