@@ -12,7 +12,7 @@
 
 ## Key Files & Responsibilities
 - `GlassToKey/PtpReport.cs`: zero-allocation parser for touchpad report payloads.
-- `GlassToKey/HidResearchTool.cs`: CLI-only HID probe/send utility for feature/output/write reverse-engineering experiments.
+- `GlassToKey/Core/Haptics/MagicTrackpadActuatorHaptics.cs`: user-mode AMT2 actuator haptics helper (keeps enumeration/opening off the hot path).
 - `GlassToKey/TouchRuntimeService.cs`: hot-path runtime host (WM_INPUT routing, touch actor, key dispatch, click suppression).
 - `GlassToKey/StatusTrayController.cs`: tray icon/menu actions (`Config...`, separator, `Capture`, `Replay`, separator, `Restart`, `Exit`) and config launch flow.
 - `GlassToKey/RuntimeObserverContracts.cs`: read-only observer contracts for runtime frame mirroring and tray mode indication.

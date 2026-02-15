@@ -97,23 +97,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
-- `--list`: Print available HID interfaces.
-- `--hid-probe`: Open selected trackpad HID handle and print HID attributes/caps (VID/PID, usage, report lengths).
-- `--hid-index <n>`: Select target from probe enumeration (if omitted, first openable interface is auto-selected).
-- `--hid-feature <hex-bytes>`: Send one HID feature report payload (first byte must be report ID if required by device).
-- `--hid-output <hex-bytes>`: Send one HID output report payload (first byte must be report ID if required by device).
-- `--hid-write <hex-bytes>`: Send one raw HID write payload via `WriteFile`.
-- `--hid-repeat <n>`: Repeat HID send sequence `n` times (default `1`).
-- `--hid-interval-ms <ms>`: Delay between repeated HID sends.
-- `--hid-auto-probe`: Sweep report IDs and payload templates on the selected actuator interface and log each response (includes a focused phase for any report IDs that are accepted).
-- `--hid-auto-report-max <0..255>`: Highest report ID to test during auto-probe (default `15`).
-- `--hid-auto-interval-ms <ms>`: Delay between each report ID probe step (default `10`).
-- `--hid-auto-log <path>`: Optional output path for auto-probe log (defaults to `%LOCALAPPDATA%\GlassToKey\hid-auto-probe-*.log`).
-- `--hid-actuator-pulse`: Send the Linux-derived click/release strength-config packets repeatedly to the actuator interface (useful to see if click strength changes).
-- `--hid-actuator-vibrate`: Send the known "vibrate now" actuator packet repeatedly (immediate haptics on supported firmwares).
-- `--hid-actuator-count <n>`: Repeat count for `--hid-actuator-*` commands (default `10`).
-- `--hid-actuator-interval-ms <ms>`: Delay between repeats for `--hid-actuator-*` (default `60`).
-- `--hid-actuator-param32 <hex>`: Parameter used by actuator commands (for `--hid-actuator-vibrate` it is the strength uint32; for `--hid-actuator-pulse` the low 3 bytes are used as `s1,s2,s3`).
+- `--list`: Print available trackpad interfaces.
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
@@ -128,6 +112,10 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
 - `--selftest`: Run parser/button-edge/replay smoke tests and exit.
+
+## Haptics
+- Haptics are driven by the trackpad's HID **Actuator** interface on supported devices.
+- Configure haptics in the UI under `Typing Tuning` via `Haptic Strength` (Off/Low/Med/High).
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.

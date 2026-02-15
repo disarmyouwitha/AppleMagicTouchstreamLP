@@ -219,6 +219,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ChordShiftCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
+        HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -459,6 +460,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
         TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
         TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
+        SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
         ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
         ToggleControlsButton.Content = "Hide Controls";
@@ -528,6 +530,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     }
 
     private void OnModeSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsEvents)
+        {
+            return;
+        }
+
+        ApplySettingsFromUi();
+    }
+
+    private void OnHapticsStrengthChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_suppressSettingsEvents)
         {
@@ -660,6 +672,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
         _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
         _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);
+        ApplyHapticsStrengthFromUi();
 
         bool layoutChanged = ApplyColumnLayoutFromUi();
         _settings.ActiveLayer = _activeLayer;
@@ -915,12 +928,70 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.Configure(BuildConfigFromSettings());
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
+            _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);
         }
 
+        MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
+        MagicTrackpadActuatorHaptics.WarmupAsync();
+
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
+    }
+
+    private void SetHapticsStrengthUiFromSettings()
+    {
+        int level = !_settings.HapticsEnabled ? 0 : StrengthToLevel(_settings.HapticsStrength);
+        HapticsStrengthSlider.Value = level;
+        HapticsStrengthValueText.Text = LevelToLabel(level);
+    }
+
+    private void ApplyHapticsStrengthFromUi()
+    {
+        int level = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, 3);
+        (bool enabled, uint strength, string label) = LevelToHaptics(level);
+        _settings.HapticsEnabled = enabled;
+        if (enabled)
+        {
+            _settings.HapticsStrength = strength;
+        }
+        HapticsStrengthValueText.Text = label;
+    }
+
+    private static (bool Enabled, uint Strength, string Label) LevelToHaptics(int level)
+    {
+        return level switch
+        {
+            0 => (false, 0u, "Off"),
+            1 => (true, 0x00000040u, "Low"),
+            2 => (true, 0x00000080u, "Med"),
+            3 => (true, 0x00026C15u, "High"),
+            _ => (true, 0x00000080u, "Med")
+        };
+    }
+
+    private static int StrengthToLevel(uint strength)
+    {
+        return strength switch
+        {
+            0x00000040u => 1,
+            0x00000080u => 2,
+            0x00026C15u => 3,
+            _ => 2
+        };
+    }
+
+    private static string LevelToLabel(int level)
+    {
+        return level switch
+        {
+            0 => "Off",
+            1 => "Low",
+            2 => "Med",
+            3 => "High",
+            _ => "Med"
+        };
     }
 
     private void RebuildLayouts()

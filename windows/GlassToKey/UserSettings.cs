@@ -22,6 +22,9 @@ public sealed class UserSettings
     public bool TapClickEnabled { get; set; } = true;
     public bool TwoFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerTapEnabled { get; set; } = true;
+    public bool HapticsEnabled { get; set; } = true;
+    public uint HapticsStrength { get; set; } = 0x00026C15u;
+    public int HapticsMinIntervalMs { get; set; } = 20;
     public double HoldDurationMs { get; set; } = 220.0;
     public double DragCancelMm { get; set; } = 3.0;
     public double TypingGraceMs { get; set; } = 600.0;
@@ -76,6 +79,9 @@ public sealed class UserSettings
         TapClickEnabled = source.TapClickEnabled;
         TwoFingerTapEnabled = source.TwoFingerTapEnabled;
         ThreeFingerTapEnabled = source.ThreeFingerTapEnabled;
+        HapticsEnabled = source.HapticsEnabled;
+        HapticsStrength = source.HapticsStrength;
+        HapticsMinIntervalMs = source.HapticsMinIntervalMs;
         HoldDurationMs = source.HoldDurationMs;
         DragCancelMm = source.DragCancelMm;
         TypingGraceMs = source.TypingGraceMs;
@@ -215,6 +221,13 @@ public sealed class UserSettings
         if (ThreeFingerTapEnabled != TapClickEnabled)
         {
             ThreeFingerTapEnabled = TapClickEnabled;
+            changed = true;
+        }
+
+        int normalizedHapticsInterval = Math.Clamp(HapticsMinIntervalMs, 0, 500);
+        if (normalizedHapticsInterval != HapticsMinIntervalMs)
+        {
+            HapticsMinIntervalMs = normalizedHapticsInterval;
             changed = true;
         }
 

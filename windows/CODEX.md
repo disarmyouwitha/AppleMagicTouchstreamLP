@@ -14,14 +14,18 @@ Second phase (only if needed): driver / lower-level USB control experiments.
 
 - `GlassToKey/OFFICIAL_SPEC.md`
   - Reverse engineering notes for report decoding and device behavior.
-- `GlassToKey/OFFICIAL_FEATURES.md`
-  - Current research CLI overview and local device snapshot notes.
-- `GlassToKey/HidResearchTool.cs`
-  - HID enumeration (SetupAPI), probing, payload send helpers, auto-probe scanner, known template probes, actuator pulse test.
-- `GlassToKey/ReaderOptions.cs`
-  - CLI flags for HID research mode.
-- `GlassToKey/App.xaml.cs`
-  - Bootstraps "HID research mode": if any `--hid-*` flags are present, runs `HidResearchTool.Run(...)` and exits.
+- `GlassToKey/Core/Haptics/MagicTrackpadActuatorHaptics.cs`
+  - Production haptics helper (user-mode HID Actuator output report, warmup in background, throttled trigger).
+- `GlassToKey/Core/Dispatch/SendInputDispatcher.cs`
+  - Dispatch pump thread triggers haptics when `DispatchEventFlags.Haptic` is set.
+- `GlassToKey/Core/Engine/TouchProcessorCore.cs`
+  - Tags key dispatch events with `DispatchEventFlags.Haptic` when enabled.
+- `GlassToKey/UserSettings.cs`
+  - Persists haptics settings (`HapticsEnabled`, `HapticsStrength`, `HapticsMinIntervalMs`).
+- `GlassToKey/MainWindow.xaml` / `GlassToKey/MainWindow.xaml.cs`
+  - UI slider: `Haptic Strength` (Off/Low/Med/High).
+- `_research/hid/HidResearchTool.cs`
+  - Archived HID probing/scanner used during reverse engineering (no longer wired into the production app).
 
 ## What We Know So Far (Empirical)
 
@@ -81,122 +85,21 @@ macOS presets reported there:
 
 ## Current Implementation State (Windows)
 
-Implemented in `GlassToKey/HidResearchTool.cs`:
+Production haptics path:
 
-### 1. Auto-probe
+- `MagicTrackpadActuatorHaptics.TryVibrate()` sends the known-good AMT2 actuator output report (`rid=0x53`, 14-byte body padded to 64).
+- `TouchProcessorCore` can tag key dispatch events with `DispatchEventFlags.Haptic`.
+- `SendInputDispatcher` triggers haptics on the dispatch pump thread when that flag is present.
+- UI controls `UserSettings.HapticsEnabled` and chooses strength via the 4-step `Haptic Strength` slider (Off/Low/Med/High).
 
-CLI: `--hid-auto-probe`
+## How To Run (Production)
 
-- Enumerates candidate interfaces.
-- Opens selected interface.
-- Sweeps report IDs and payload variants using both:
-  - `HidD_SetOutputReport` ("control-like" path)
-  - `WriteFile` (raw write path)
-- Logs every attempt to a log file (default `%LOCALAPPDATA%\\GlassToKey\\hid-auto-probe-*.log`).
-- If any report IDs return `ok=True`, runs a focused Phase 2 against only those IDs using "known templates".
+- Launch GlassToKey normally (tray app), then open `Config...`.
+- Under `Typing Tuning`, set `Haptic Strength` to `Off/Low/Med/High`.
 
-Known templates (Phase 2) currently include:
+Notes:
 
-- A previously seen 14-byte "base" pattern with optional XOR/sum checksums and padding.
-- The dos1/Linux issue #28 strength-config bodies for click/release at low/medium/high, with:
-  - `rid=0x53` prepended
-  - padded to the device's `OutputReportByteLength` (usually 64)
-
-### 2. Explicit actuator pulse test
-
-CLI: `--hid-actuator-pulse`
-
-Purpose: send the dos1/Linux "strength config" frames repeatedly so you can physically feel if anything changes/triggers.
-
-Implementation details:
-
-- Hard-codes report ID `0x53` (based on prior sweep data).
-- Builds two frames:
-  - click config: `eventId=0x22` with strength bytes from `--hid-actuator-param32`
-  - release config: `eventId=0x23` with strength bytes currently hard-coded to `00 00 00`
-- Prepends report ID, pads to `OutputReportByteLength`, then for each pulse:
-  - tries `HidD_SetOutputReport(...)` OR falls back to `WriteFile(...)`
-  - prints `ok=<bool>` and `win32=0x...`
-
-Flags in `GlassToKey/ReaderOptions.cs`:
-
-- `--hid-actuator-pulse`
-- `--hid-actuator-vibrate`
-- `--hid-actuator-count <n>` (default 10)
-- `--hid-actuator-interval-ms <ms>` (default 60)
-- `--hid-actuator-param32 <hex>` (default `0x00026C15`)
-  - low 3 bytes are interpreted as `s1`, `s2`, `s3`:
-    - `s1 = param32 & 0xFF`
-    - `s2 = (param32 >> 8) & 0xFF`
-    - `s3 = (param32 >> 16) & 0xFF`
-
-### 3. Explicit actuator "vibrate now" test (WORKING)
-
-CLI: `--hid-actuator-vibrate`
-
-Purpose: send the known 14-byte "vibrate now" packet (report ID `0x53`) padded to the actuator `OutputReportByteLength` (64) to trigger an immediate haptic pulse.
-
-Implementation details:
-
-- Uses `rid=0x53` (first byte) and the known constant tail:
-  - `0x21 0x2B 0x06 0x01 0x00 0x16 0x41 0x13`
-- Inserts a 32-bit little-endian "strength" value at bytes `[2..5]` from `--hid-actuator-param32`.
-- Sends via `HidD_SetOutputReport(...)` or `WriteFile(...)`.
-
-Observed on this host (USB Actuator interface, `MI_02`) on 2026-02-15:
-
-- `--hid-actuator-vibrate` produced physical haptics ("THAT WORKED") with `ok=True win32=0x0`.
-
-## How To Run (Recommended Sequence)
-
-All commands are from `C:\\Users\\jholloway\\Documents\\AppleMagicTouchstreamLP\\windows`.
-
-1. Build
-
-```powershell
-dotnet build .\GlassToKey\GlassToKey.csproj -c Release
-```
-
-2. List all interfaces
-
-```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --list
-```
-
-Pick the interface that shows `Product: Actuator` and `OutputReportByteLength=64` when probed.
-
-3. Probe the actuator interface (replace `<n>`)
-
-```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index <n>
-```
-
-4. Auto-probe (wide sweep, logs responses)
-
-```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-auto-probe --hid-index <n> --hid-auto-report-max 255 --hid-auto-interval-ms 5 --hid-auto-log .\captures\haptics\auto-probe.log
-```
-
-5. Actuator pulse (start with macOS "high click" strengths)
-
-`high click` strength triple is `1E 08 08` so:
-
-- `param32 = 0x0008081E`
-
-```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index <n> --hid-actuator-pulse --hid-actuator-count 30 --hid-actuator-interval-ms 40 --hid-actuator-param32 0x0008081E
-```
-
-Other preset examples:
-
-- low click: `0x00040415`
-- medium click: `0x00060617`
-
-6. Actuator vibrate now (this is the current confirmed haptics trigger)
-
-```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index <n> --hid-actuator-vibrate --hid-actuator-count 20 --hid-actuator-interval-ms 60 --hid-actuator-param32 0x00026C15
-```
+- The old `--hid-*` research CLI was removed from the production app. The historical scanner/prober code lives in `_research/hid/` if you want to revive it in a separate tool.
 
 ## Interpreting Results
 

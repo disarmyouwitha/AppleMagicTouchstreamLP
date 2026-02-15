@@ -67,6 +67,10 @@ internal sealed class TouchRuntimeService : IDisposable
             _dispatchQueue = new DispatchEventQueue();
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+            _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
+
+            MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
+            MagicTrackpadActuatorHaptics.WarmupAsync();
 
             int layer = 0;
             _touchActor.ConfigureLayouts(leftLayout, rightLayout);
@@ -116,6 +120,8 @@ internal sealed class TouchRuntimeService : IDisposable
         int activeLayer)
     {
         _settings = settings;
+        MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
+        _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
         _keymap = keymap;
         _preset = preset;
         _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columnSettings);
