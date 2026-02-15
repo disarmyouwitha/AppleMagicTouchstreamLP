@@ -31,7 +31,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Haptics**
 - Working over USB-C!!!
-- Only works over USB-C. =x I don't see a path forward 
+- Only works over USB-C. =x **I do not see a path forward!** 
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
