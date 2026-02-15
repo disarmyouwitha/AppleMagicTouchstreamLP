@@ -1,9 +1,12 @@
-In the GUI can we remove "Pressed:" true/false from the GUI overlay? Can we add "Peak: in it's place where we display the last highest force? (I want to be able to see how hard the keyboard was tapped or clicked)
+Additionally, I found this info which (vitoplantamura/MagicTrackpad2ForWindows) used to set Haptic strength in the open source driver.
+https://github.com/mwyborski/Linux-Magic-Trackpad-2-Driver/issues/28#issuecomment-451625504
 
-Can we wire a "force cap" slider into the GUI? (using new variable) /test
+I'm not sure if this is helpful for the official driver, but if not I would like to explore implementing Haptic features explicitly left unimplemented in MagicTrackpad2ForWindows -- Please let me know if this is the ONLY route.
 
-Can we wire a "force min" slider into the GUI? (using new variable) /test
+-------
 
-^ These will both be in phase1, so, slider can be 0-255
+  How to use it now
 
-**Gestures** "click", Force click1, Force Click2.
+  1. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe
+  2. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-probe --hid-index 3
+  3. dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --hid-index 3 --hid-output "<candidate 64-byte hex payload>"
