@@ -26,10 +26,10 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
-**Windows Pin Tray Icon**
+**Windows Pin Tray Icon:**
 - You can drag the icon from the hidden tray (`^`) to the visible tray area.
 
-**Windows Haptics**
+**Windows Haptics:**
 - Working over USB-C!!!
 - Only works over USB-C. =x **I do not see a path forward!** 
 
