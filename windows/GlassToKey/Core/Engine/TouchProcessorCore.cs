@@ -546,19 +546,25 @@ internal sealed class TouchProcessorCore
     {
         if (_touchStates.TryGetValue(touchKey, out TouchBindingState existing))
         {
-            if (existing.BindingIndex < 0 && hit.Found && IsMomentaryLayerActive())
+            if (!existing.DispatchDownSent &&
+                hit.Found &&
+                IsMomentaryLayerActive() &&
+                (existing.BindingIndex < 0 || existing.BindingLayer != _activeLayer))
             {
                 // If a touch started while bindings were still on the previous layer, allow it to
                 // rebind once MO() is active so same-side layer keys can recover without lift/re-touch.
                 BindingIndex rebindIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                 EngineKeyBinding rebound = rebindIndex.Bindings[hit.BindingIndex];
                 existing.BindingIndex = hit.BindingIndex;
+                existing.BindingLayer = _activeLayer;
                 existing.HasHoldAction = rebound.Mapping.HasHold;
                 existing.HoldTriggered = false;
                 existing.Lifecycle = EngineTouchLifecycle.Pending;
                 existing.StartTicks = timestampTicks;
                 existing.StartXNorm = xNorm;
                 existing.StartYNorm = yNorm;
+                existing.LastXNorm = xNorm;
+                existing.LastYNorm = yNorm;
                 existing.MaxDistanceMm = 0;
                 if (!existing.HasHoldAction)
                 {
@@ -626,6 +632,7 @@ internal sealed class TouchProcessorCore
             TouchBindingState offKey = new(
                 Side: side,
                 BindingIndex: -1,
+                BindingLayer: _activeLayer,
                 Lifecycle: EngineTouchLifecycle.Pending,
                 StartTicks: timestampTicks,
                 StartXNorm: xNorm,
@@ -651,6 +658,7 @@ internal sealed class TouchProcessorCore
         TouchBindingState next = new(
             Side: side,
             BindingIndex: hit.BindingIndex,
+            BindingLayer: _activeLayer,
             Lifecycle: EngineTouchLifecycle.Pending,
             StartTicks: timestampTicks,
             StartXNorm: xNorm,
@@ -754,6 +762,25 @@ internal sealed class TouchProcessorCore
             if (state.HoldTriggered && binding.Mapping.HasHold)
             {
                 action = binding.Mapping.Hold;
+            }
+        }
+
+        if (!hadDispatchDown &&
+            IsMomentaryLayerActive() &&
+            state.BindingLayer != _activeLayer)
+        {
+            EngineBindingHit reboundHit = index.HitTest(state.LastXNorm, state.LastYNorm);
+            if (reboundHit.Found)
+            {
+                state.BindingIndex = reboundHit.BindingIndex;
+                state.BindingLayer = _activeLayer;
+                hasBoundBinding = true;
+                binding = index.Bindings[reboundHit.BindingIndex];
+                action = binding.Mapping.Primary;
+                if (state.HoldTriggered && binding.Mapping.HasHold)
+                {
+                    action = binding.Mapping.Hold;
+                }
             }
         }
 
@@ -1486,7 +1513,15 @@ internal sealed class TouchProcessorCore
 
     private bool IsMomentaryLayerActive()
     {
-        return _momentaryLayerTouches.Count > 0;
+        for (int i = 0; i < _momentaryLayerTouches.Capacity; i++)
+        {
+            if (_momentaryLayerTouches.IsOccupiedAt(i))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool ShouldEnforceKeyboardOnlyMode()
@@ -2582,6 +2617,7 @@ internal sealed class TouchProcessorCore
         public TouchBindingState(
             TrackpadSide Side,
             int BindingIndex,
+            int BindingLayer,
             EngineTouchLifecycle Lifecycle,
             long StartTicks,
             double StartXNorm,
@@ -2601,6 +2637,7 @@ internal sealed class TouchProcessorCore
         {
             this.Side = Side;
             this.BindingIndex = BindingIndex;
+            this.BindingLayer = BindingLayer;
             this.Lifecycle = Lifecycle;
             this.StartTicks = StartTicks;
             this.StartXNorm = StartXNorm;
@@ -2621,6 +2658,7 @@ internal sealed class TouchProcessorCore
 
         public TrackpadSide Side;
         public int BindingIndex;
+        public int BindingLayer;
         public EngineTouchLifecycle Lifecycle;
         public long StartTicks;
         public double StartXNorm;

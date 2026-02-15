@@ -106,6 +106,7 @@ internal readonly record struct EngineBindingHit(bool Found, int BindingIndex)
 internal readonly record struct TouchProcessorSnapshot(
     IntentMode IntentMode,
     int ActiveLayer,
+    bool MomentaryLayerActive,
     bool TypingEnabled,
     bool KeyboardModeEnabled,
     int ContactCount,
@@ -128,7 +129,7 @@ internal readonly record struct TouchProcessorSnapshot(
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"intent={IntentMode}, layer={ActiveLayer}, typing={TypingEnabled}, contacts={ContactCount} (L={LeftContacts}, R={RightContacts}), frames={FramesProcessed}, drops={QueueDrops}, dispatch={DispatchEnqueued} (suppressed:{DispatchSuppressedTypingDisabled}, ring:{DispatchSuppressedRingFull}), snap={SnapAccepted}/{SnapAttempts}, trace=0x{IntentTraceFingerprint:X16}");
+            $"intent={IntentMode}, layer={ActiveLayer}, mo={MomentaryLayerActive}, typing={TypingEnabled}, contacts={ContactCount} (L={LeftContacts}, R={RightContacts}), frames={FramesProcessed}, drops={QueueDrops}, dispatch={DispatchEnqueued} (suppressed:{DispatchSuppressedTypingDisabled}, ring:{DispatchSuppressedRingFull}), snap={SnapAccepted}/{SnapAttempts}, trace=0x{IntentTraceFingerprint:X16}");
     }
 }
 
