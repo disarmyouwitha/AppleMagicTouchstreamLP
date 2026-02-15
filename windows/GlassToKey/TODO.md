@@ -1,14 +1,16 @@
 ## TODO:
-*When I have LHS:USB, RHS:Bletooth it's failing on the bluetooth side but playing on the LHS over USB
-- USB-only haptics as the supported path, and degrade gracefully on BT.
-[] When using 1 device over USB and 1 over Bluetooth, both on the official drivers, if I connect to USB first, then I can no longer select the Bluetooth device from the list.. it immediately swaps to USB. 
+When I have LHS:official and RHS:opensource both plugged in via USB I can only see the opensource one!
+(When both are Opensource and both are plugged in via USB,)
+(When both are Official and 1 is USB and 1 is bluetooth, both show in the device list), 
+(When both are Official and both are Bluetooth, both show in the device list.). 
+Seems like there are device list inconsistencies?? 
 
-[] when I have 1 official and 1 opensource plugged in via USB I can only see the opensource one? Seems like there are device list inconsistencies?? When this happens the Opensource device will trigger haptics on the other device ** lets check this after we figure out per-device haptics
-[] I got an extension of this bug where I was getting haptics on the Opensource driver, which indicates we may be able to enable Haptics for open source driver ??
+
 -------
 - Can we make capture/replay work with opensource/legacy decoders or will it be a pain in the ass? =x do the .atpcap understand which decoder they were recorded from? Ideally it could be recorded on either, like one official and one opensource and it would recognize which decoder to use for which side. (mention it in INSTALL if we can!)
 - Test with opensource drivers
 -------
+- Haptics on Custom Buttons!
 - When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
 - Re-write Pressure as Force throughout the readme
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
