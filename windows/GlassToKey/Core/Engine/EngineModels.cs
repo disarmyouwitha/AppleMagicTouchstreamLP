@@ -57,7 +57,8 @@ internal enum DispatchSuppressReason : byte
 {
     None = 0,
     TypingDisabled = 1,
-    DispatchRingFull = 2
+    DispatchRingFull = 2,
+    ForceThreshold = 3
 }
 
 internal readonly record struct EngineKeyAction(
@@ -177,6 +178,8 @@ internal readonly record struct TouchProcessorConfig(
     double TapStaggerToleranceMs,
     double TapCadenceWindowMs,
     double TapMoveThresholdMm,
+    int ForceMin,
+    int ForceCap,
     bool ChordShiftEnabled)
 {
     public static TouchProcessorConfig Default => new(
@@ -196,5 +199,7 @@ internal readonly record struct TouchProcessorConfig(
         TapStaggerToleranceMs: 40.0,
         TapCadenceWindowMs: 260.0,
         TapMoveThresholdMm: 2.2,
+        ForceMin: 0,
+        ForceCap: 255,
         ChordShiftEnabled: true);
 }
