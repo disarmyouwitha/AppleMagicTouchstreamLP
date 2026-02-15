@@ -943,54 +943,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SetHapticsStrengthUiFromSettings()
     {
-        const int maxAmp = 0x4A;
+        const int maxAmp = 70;
 
         int amp = 0;
-        int rawAmp = 0;
         if (_settings.HapticsEnabled)
         {
-            rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
+            int rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
             amp = Math.Clamp(rawAmp, 0, maxAmp);
         }
 
         HapticsStrengthSlider.Value = amp;
-        HapticsStrengthValueText.Text = AmpToLabel(amp, rawAmp, maxAmp);
     }
 
     private void ApplyHapticsStrengthFromUi()
     {
-        const int maxAmp = 0x4A;
+        const int maxAmp = 70;
         int amp = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, maxAmp);
         _settings.HapticsEnabled = amp != 0;
         if (_settings.HapticsEnabled)
         {
-            // Default to the known-good profile, but preserve existing upper bytes so you can
-            // paste a raw strength via the hex box and still sweep the low byte via the slider.
-            uint upper = _settings.HapticsStrength & 0xFFFFFF00u;
-            if (upper == 0)
-            {
-                upper = 0x00026C00u;
-            }
-            _settings.HapticsStrength = upper | (uint)amp;
+            _settings.HapticsStrength = 0x00026C00u | (uint)amp;
         }
-        int rawAmp = _settings.HapticsEnabled ? (int)(_settings.HapticsStrength & 0xFFu) : 0;
-        HapticsStrengthValueText.Text = AmpToLabel(amp, rawAmp, maxAmp);
-    }
-
-    private static string AmpToLabel(int amp, int rawAmp, int maxAmp)
-    {
-        if (amp <= 0)
-        {
-            return $"Off (0/{maxAmp})";
-        }
-
-        uint strength = 0x00026C00u | (uint)amp;
-        if (rawAmp != amp)
-        {
-            return $"amp={amp}/{maxAmp} raw={rawAmp} strength~0x{strength:X8}";
-        }
-
-        return $"amp={amp}/{maxAmp} strength=0x{strength:X8}";
     }
 
     private void RebuildLayouts()

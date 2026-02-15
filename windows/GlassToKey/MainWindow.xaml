@@ -319,16 +319,15 @@
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Haptic Strength" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                    <Slider x:Name="HapticsStrengthSlider" Minimum="0" Maximum="74" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
+                    <Slider x:Name="HapticsStrengthSlider" Minimum="0" Maximum="70" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
                     <Grid Margin="0,2,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                     <TextBlock Text="0" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Left" />
-                    <TextBlock Grid.Column="1" Text="74 (0x4A)" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
+                    <TextBlock Grid.Column="1" Text="70" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
                     </Grid>
-                    <TextBlock x:Name="HapticsStrengthValueText" Text="n/a" Foreground="#8b949e" FontSize="11" HorizontalAlignment="Center" Margin="0,2,0,0" />
                   </StackPanel>
                 </Grid>
               </StackPanel>
