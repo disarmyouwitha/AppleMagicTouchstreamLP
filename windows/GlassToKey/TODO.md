@@ -1,15 +1,18 @@
 ## TODO:
+- Code to prevent you from opening up multiple instances: alert -> close duplicate instance.
+---
 *When I have LHS:USB, RHS:Bletooth it's failing on the bluetooth side but playing on the LHS over USB
 - USB-only haptics as the supported path, and degrade gracefully on BT.
 [] When using 1 device over USB and 1 over Bluetooth, both on the official drivers, if I connect to USB first, then I can no longer select the Bluetooth device from the list.. it immediately swaps to USB. 
 
 [] when I have 1 official and 1 opensource plugged in via USB I can only see the opensource one? Seems like there are device list inconsistencies?? When this happens the Opensource device will trigger haptics on the other device ** lets check this after we figure out per-device haptics
+[] I got an extension of this bug where I was getting haptics on the Opensource driver, which indicates we may be able to enable Haptics for open source driver ??
 -------
-- check capture/record with opensource driver so I can see if I need to mention it in INSTALL
+- Can we make capture/replay work with opensource/legacy decoders or will it be a pain in the ass? =x do the .atpcap understand which decoder they were recorded from? Ideally it could be recorded on either, like one official and one opensource and it would recognize which decoder to use for which side. (mention it in INSTALL if we can!)
+- Test with opensource drivers
 -------
 - When I am holding a MO() button it should allow you to bypass Mouse-only ans Keyboard-only mode.
-- remove legacy/opensource pressure "P:" support entirely
-- Test with opensource drivers
+- Re-write Pressure as Force throughout the readme
 - Can we wire a "force cap" slider into the GUI? (using new variable) /test
 - Can we wire a "force min" slider into the GUI? (using new variable) /test
 ^ These will both be in phase1, so, slider can be 0-255
@@ -26,27 +29,11 @@
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 **Gestures** "click"(btn47), **Ph:** Force click1, Force Click2.
 
-## Worth it?
-- Add force cut off into GUI and settings. Make pressure over cutoff disqualify key dispatch
-- Only worth persuing Pressure if we can get Haptics to work, I think
-- I think maybe on OSX I can tell if user is resting fingers or tapping by pressure?? (Move TODO)
-- "force click" mode — it only emits keystrokes on "click" [Can I tell tap/click in the PTP?] (for people who really want to press a key? it should force Keyboard mode.)
 
-## CURSED:
-- HAPTICS: Not sure if I can get codex to figure it out, I certainly cant. 
-
-
-## CURRENT CONTEXT:
-  Notable Drift / Health
+## Notable Drift / Health
 
   - Docs say key/mouse candidate buffer is fixed at 40ms (GlassToKey/README.md:45), but runtime config
     currently hardcodes 20ms (GlassToKey/RuntimeConfigurationFactory.cs:13).
   - Self-test baseline is currently failing locally: Engine intent tests failed: expected
     mouseCandidate->mouseActive transitions were missing (dotnet run --project
     GlassToKey\GlassToKey.csproj -c Release -- --selftest).
-
-  If you want, I can next do one of these:
-
-  1. Implement the allocation-free stable session ID tracker for lifecycle continuity.
-  2. Add per-frame CSV/JSON XY+slot-byte diagnostics to RawCaptureAnalyzer.
-  3. Triage and fix the current self-test failure first.  
