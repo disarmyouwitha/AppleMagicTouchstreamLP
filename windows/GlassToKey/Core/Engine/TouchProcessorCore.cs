@@ -558,7 +558,12 @@ internal sealed class TouchProcessorCore
                 existing.MaxDistanceMm = 0;
                 if (!existing.HasHoldAction)
                 {
-                    TryBeginPressAction(rebound.Mapping.Primary, touchKey, timestampTicks, ref existing);
+                    TryBeginPressAction(
+                        rebound.Mapping.Primary,
+                        touchKey,
+                        timestampTicks,
+                        ref existing,
+                        hapticOnDispatch: IsCustomBinding(rebound));
                 }
             }
 
@@ -584,7 +589,12 @@ internal sealed class TouchProcessorCore
                     existing.HoldTriggered = true;
                     BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                     EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
-                    TryBeginPressAction(existingBinding.Mapping.Hold, touchKey, timestampTicks, ref existing);
+                    TryBeginPressAction(
+                        existingBinding.Mapping.Hold,
+                        touchKey,
+                        timestampTicks,
+                        ref existing,
+                        hapticOnDispatch: IsCustomBinding(existingBinding));
                     if (!existing.DispatchDownSent)
                     {
                         ApplyReleaseAction(
@@ -592,7 +602,8 @@ internal sealed class TouchProcessorCore
                             side,
                             touchKey,
                             timestampTicks,
-                            allowTypingDisabledOverride: IsMomentaryLayerActive());
+                            allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                            hapticOnDispatch: IsCustomBinding(existingBinding));
                     }
                 }
             }
@@ -662,7 +673,12 @@ internal sealed class TouchProcessorCore
 
         if (!next.HasHoldAction)
         {
-            TryBeginPressAction(binding.Mapping.Primary, touchKey, timestampTicks, ref next);
+            TryBeginPressAction(
+                binding.Mapping.Primary,
+                touchKey,
+                timestampTicks,
+                ref next,
+                hapticOnDispatch: IsCustomBinding(binding));
             _touchStates.Set(touchKey, next);
         }
     }
@@ -765,7 +781,8 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
-                allowTypingDisabledOverride: IsMomentaryLayerActive());
+                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                hapticOnDispatch: IsCustomBinding(binding));
             return;
         }
 
@@ -785,7 +802,8 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
-                allowTypingDisabledOverride: IsMomentaryLayerActive());
+                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                hapticOnDispatch: IsCustomBinding(directBinding));
             return;
         }
 
@@ -800,7 +818,8 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     touchKey,
                     timestampTicks,
-                    allowTypingDisabledOverride: IsMomentaryLayerActive());
+                    allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                    hapticOnDispatch: IsCustomBinding(snapped));
                 return;
             }
 
@@ -909,7 +928,12 @@ internal sealed class TouchProcessorCore
         return true;
     }
 
-    private void TryBeginPressAction(EngineKeyAction action, ulong touchKey, long timestampTicks, ref TouchBindingState state)
+    private void TryBeginPressAction(
+        EngineKeyAction action,
+        ulong touchKey,
+        long timestampTicks,
+        ref TouchBindingState state,
+        bool hapticOnDispatch)
     {
         bool allowTypingDisabledOverride = IsMomentaryLayerActive();
         switch (action.Kind)
@@ -921,12 +945,16 @@ internal sealed class TouchProcessorCore
                 }
 
                 ApplyActionState(action, timestampTicks);
+                DispatchEventFlags modifierFlags =
+                    hapticOnDispatch && _hapticsOnKeyDispatch
+                        ? DispatchEventFlags.Haptic
+                        : DispatchEventFlags.None;
                 if (EnqueueDispatchEvent(
                     DispatchEventKind.ModifierDown,
                     action.VirtualKey,
                     DispatchMouseButton.None,
                     repeatToken: 0,
-                    DispatchEventFlags.None,
+                    modifierFlags,
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
@@ -947,12 +975,17 @@ internal sealed class TouchProcessorCore
                 }
 
                 ApplyActionState(action, timestampTicks);
+                DispatchEventFlags continuousFlags = DispatchEventFlags.Repeatable;
+                if (hapticOnDispatch && _hapticsOnKeyDispatch)
+                {
+                    continuousFlags |= DispatchEventFlags.Haptic;
+                }
                 if (EnqueueDispatchEvent(
                     DispatchEventKind.KeyDown,
                     action.VirtualKey,
                     DispatchMouseButton.None,
                     repeatToken: touchKey,
-                    DispatchEventFlags.Repeatable,
+                    continuousFlags,
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
@@ -1036,10 +1069,11 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         ulong touchKey,
         long timestampTicks,
-        bool allowTypingDisabledOverride = false)
+        bool allowTypingDisabledOverride = false,
+        bool hapticOnDispatch = false)
     {
         ApplyActionState(action, timestampTicks);
-        EmitTapDispatch(action, side, touchKey, timestampTicks, allowTypingDisabledOverride);
+        EmitTapDispatch(action, side, touchKey, timestampTicks, allowTypingDisabledOverride, hapticOnDispatch);
     }
 
     private void EmitTapDispatch(
@@ -1047,7 +1081,8 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         ulong touchKey,
         long timestampTicks,
-        bool allowTypingDisabledOverride)
+        bool allowTypingDisabledOverride,
+        bool hapticOnDispatch)
     {
         switch (action.Kind)
         {
@@ -1055,12 +1090,16 @@ internal sealed class TouchProcessorCore
             case EngineActionKind.Continuous:
                 if (action.VirtualKey != 0)
                 {
+                    DispatchEventFlags keyTapFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
                     EnqueueDispatchEvent(
                         DispatchEventKind.KeyTap,
                         action.VirtualKey,
                         DispatchMouseButton.None,
                         repeatToken: touchKey,
-                        DispatchEventFlags.None,
+                        keyTapFlags,
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
@@ -1070,12 +1109,16 @@ internal sealed class TouchProcessorCore
             case EngineActionKind.Modifier:
                 if (action.VirtualKey != 0)
                 {
+                    DispatchEventFlags modifierFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierDown,
                         action.VirtualKey,
                         DispatchMouseButton.None,
                         repeatToken: 0,
-                        DispatchEventFlags.None,
+                        modifierFlags,
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
@@ -1095,12 +1138,16 @@ internal sealed class TouchProcessorCore
             case EngineActionKind.MouseButton:
                 if (action.MouseButton != DispatchMouseButton.None)
                 {
+                    DispatchEventFlags mouseFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
                     EnqueueDispatchEvent(
                         DispatchEventKind.MouseButtonClick,
                         0,
                         action.MouseButton,
                         repeatToken: 0,
-                        DispatchEventFlags.None,
+                        mouseFlags,
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label);
@@ -1124,7 +1171,9 @@ internal sealed class TouchProcessorCore
                         action.VirtualKey,
                         DispatchMouseButton.None,
                         repeatToken: touchKey,
-                        DispatchEventFlags.None,
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None,
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
@@ -1144,6 +1193,11 @@ internal sealed class TouchProcessorCore
             default:
                 break;
         }
+    }
+
+    private static bool IsCustomBinding(EngineKeyBinding binding)
+    {
+        return binding.Row < 0;
     }
 
     private void ApplyActionState(EngineKeyAction action, long timestampTicks)
