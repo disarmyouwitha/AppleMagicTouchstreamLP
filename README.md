@@ -1,13 +1,13 @@
 # Apple Magic TouchstreamLP
 Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
 
-## MAC: **(Packaged with .APP)**
+## Mac: **(Packaged with .APP)**
 - Built on top of the wonderful:
 - https://github.com/Kyome22/OpenMultitouchSupport
 
 *The app will ask for elevated Accessibility permissions on first run*
 
-## WIN: **(PREREQUISITE INSTALL)**
+## Windows: **(PREREQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
