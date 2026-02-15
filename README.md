@@ -20,8 +20,8 @@ I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstream
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
 **Useful Tips:**
-- I would turn off "tap to click" at the OS level (Or turn on Keyboard mode)
-- If you turn on Keyboard mode you can toggle between mouse / keyboard (Rather than mouse / mixed)
+- I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
+- In Keyboard/Mouse mode there is a hard switch between using the keyboard and mouse. (Rather than the default: Mixed/Mouse mode)
 - 5-finger left/right swipes will toggle Typing Mode on/off!
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
