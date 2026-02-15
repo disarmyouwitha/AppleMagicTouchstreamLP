@@ -38,6 +38,8 @@ public sealed class UserSettings
     public double TapStaggerToleranceMs { get; set; } = 80.0;
     public double TapCadenceWindowMs { get; set; } = 200.0;
     public double TapMoveThresholdMm { get; set; } = 3.0;
+    public int ForceMin { get; set; }
+    public int ForceCap { get; set; } = 255;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>>? ColumnSettingsByLayoutLayer { get; set; }
     public Dictionary<string, List<ColumnLayoutSettings>>? ColumnSettingsByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -95,6 +97,8 @@ public sealed class UserSettings
         TapStaggerToleranceMs = source.TapStaggerToleranceMs;
         TapCadenceWindowMs = source.TapCadenceWindowMs;
         TapMoveThresholdMm = source.TapMoveThresholdMm;
+        ForceMin = source.ForceMin;
+        ForceCap = source.ForceCap;
         ColumnSettingsByLayoutLayer = source.ColumnSettingsByLayoutLayer == null
             ? null
             : CloneColumnSettingsByLayoutLayer(source.ColumnSettingsByLayoutLayer);
@@ -228,6 +232,20 @@ public sealed class UserSettings
         if (normalizedHapticsInterval != HapticsMinIntervalMs)
         {
             HapticsMinIntervalMs = normalizedHapticsInterval;
+            changed = true;
+        }
+
+        int normalizedForceMin = Math.Clamp(ForceMin, 0, 255);
+        if (normalizedForceMin != ForceMin)
+        {
+            ForceMin = normalizedForceMin;
+            changed = true;
+        }
+
+        int normalizedForceCap = Math.Clamp(ForceCap, 0, 255);
+        if (normalizedForceCap != ForceCap)
+        {
+            ForceCap = normalizedForceCap;
             changed = true;
         }
 

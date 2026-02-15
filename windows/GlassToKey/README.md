@@ -25,6 +25,10 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
 - Drag cancel (mm): How far you need to move before tap becomes a drag
 - Intent Move (mm): Movement threshold before a touch is treated as mouse intent.
 - Intent Velocity (mm/s): Speed threshold before a touch is treated as mouse intent.
+- Force Min (f:, 0-255): If `f` is below this value, key dispatch is blocked.
+- Force Cap (f:, 0-255): If `f` is above this value, key dispatch is blocked.
+  - Key dispatch is allowed only when `f` is within `[Force Min, Force Cap]` (inclusive).
+  - Setting `Force Cap` to `0` blocks all key dispatches.
 - Tap Click: two-finger tap = left click, three-finger tap = right click
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 - Keyboard Mode: When enabled, the typing toggle (and 5‑finger swipe) switches between **full keyboard** and **mouse‑only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window) and tap‑click gestures are disabled. Blocking clicks requires Input Monitoring/Accessibility permission.

@@ -220,6 +220,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
+        ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
+        ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -460,6 +462,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
         TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
         TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
+        SetForceThresholdUiFromSettings();
         SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
         ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
@@ -541,6 +544,17 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnHapticsStrengthChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
+        if (_suppressSettingsEvents)
+        {
+            return;
+        }
+
+        ApplySettingsFromUi();
+    }
+
+    private void OnForceThresholdSliderChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+        UpdateForceThresholdLabels();
         if (_suppressSettingsEvents)
         {
             return;
@@ -672,6 +686,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
         _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
         _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);
+        _settings.ForceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
+        _settings.ForceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
+        UpdateForceThresholdLabels();
         ApplyHapticsStrengthFromUi();
 
         bool layoutChanged = ApplyColumnLayoutFromUi();
@@ -953,6 +970,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         HapticsStrengthSlider.Value = amp;
+    }
+
+    private void SetForceThresholdUiFromSettings()
+    {
+        int forceMin = Math.Clamp(_settings.ForceMin, 0, 255);
+        int forceCap = Math.Clamp(_settings.ForceCap, 0, 255);
+        ForceMinSlider.Value = forceMin;
+        ForceCapSlider.Value = forceCap;
+        UpdateForceThresholdLabels();
+    }
+
+    private void UpdateForceThresholdLabels()
+    {
+        int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
+        int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
+        ForceMinValueText.Text = forceMin.ToString(CultureInfo.InvariantCulture);
+        ForceCapValueText.Text = forceCap.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ApplyHapticsStrengthFromUi()
@@ -3787,7 +3821,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             rightContacts = snapshot.RightContacts;
             (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
             (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
-            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled;
+            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive;
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;

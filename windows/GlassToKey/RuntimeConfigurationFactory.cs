@@ -34,6 +34,8 @@ internal static class RuntimeConfigurationFactory
             TapStaggerToleranceMs = settings.TapStaggerToleranceMs,
             TapCadenceWindowMs = settings.TapCadenceWindowMs,
             TapMoveThresholdMm = settings.TapMoveThresholdMm,
+            ForceMin = settings.ForceMin,
+            ForceCap = settings.ForceCap,
             ChordShiftEnabled = settings.ChordShiftEnabled
         };
     }
