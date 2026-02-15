@@ -1,21 +1,21 @@
 # Apple Magic TouchstreamLP
 Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
 
-## OSX: **(Packaged with .APP)**
+## MAC: **(Packaged with .APP)**
 - Built on top of the wonderful:
 - https://github.com/Kyome22/OpenMultitouchSupport
 
-*OSX will ask for elevated Accessibility permissions on first run*
+*The app will ask for elevated Accessibility permissions on first run*
 
-## WIN: **(PRE-REQUISITE INSTALL)**
+## WIN: **(PREREQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
-*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
+*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported! * **Pressure && Haptics only supported on Official drivers***
 
 
 ## Usage
-I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a .app and .exe file and hopefully people will be able to run it! I cannot confirm it will work for anyone else, however I have tested it on both my Mac laptop/desktop and Windows laptop/desktop~
+I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a .app and .exe file and hopefully people will be able to run it!
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
