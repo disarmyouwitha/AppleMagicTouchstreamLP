@@ -27,7 +27,8 @@ internal enum DispatchMouseButton : byte
 internal enum DispatchEventFlags : byte
 {
     None = 0,
-    Repeatable = 1
+    Repeatable = 1,
+    Haptic = 2
 }
 
 internal readonly record struct DispatchEvent(

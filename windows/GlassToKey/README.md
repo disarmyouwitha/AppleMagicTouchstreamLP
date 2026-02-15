@@ -97,7 +97,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 ### Optional arguments
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
-- `--list`: Print available HID interfaces.
+- `--list`: Print available trackpad interfaces.
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
@@ -112,6 +112,11 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
 - `--selftest`: Run parser/button-edge/replay smoke tests and exit.
+
+## Haptics
+- Haptics are driven by the trackpad's HID **Actuator** interface on supported devices.
+- Configure haptics in the UI under `Typing Tuning` via `Haptic Strength` (Off/Low/Med/High).
+- Implementation notes for other projects: `GlassToKey/OFFICIAL_HAPTICS.md`.
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.

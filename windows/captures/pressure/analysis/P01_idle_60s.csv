@@ -1,1 +1,0 @@
-﻿frame_index,decode_kind,profile,payload_offset,vendor_id,product_id,usage_page,usage,source_report_id,payload_length,decoded_scan_time,decoded_contact_count,decoded_is_button_clicked,raw_scan_time,raw_contact_count,raw_is_button_clicked,contact_index,raw_contact_id,assigned_contact_id,raw_flags,assigned_flags,raw_x,raw_y,decoded_x,decoded_y,slot_offset,slot_hex

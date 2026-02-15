@@ -1,2 +1,0 @@
-Raw analysis: C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows\captures\pressure\analysis\P01_idle_60s.atpcap
-records=0, decoded=0, signatures=0

@@ -219,6 +219,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ChordShiftCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
+        HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -459,6 +460,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
         TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
         TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
+        SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
         ControlsPaneBorder.Width = ControlsPaneExpandedWidth;
         ToggleControlsButton.Content = "Hide Controls";
@@ -528,6 +530,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     }
 
     private void OnModeSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsEvents)
+        {
+            return;
+        }
+
+        ApplySettingsFromUi();
+    }
+
+    private void OnHapticsStrengthChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
     {
         if (_suppressSettingsEvents)
         {
@@ -660,6 +672,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
         _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
         _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);
+        ApplyHapticsStrengthFromUi();
 
         bool layoutChanged = ApplyColumnLayoutFromUi();
         _settings.ActiveLayer = _activeLayer;
@@ -915,12 +928,42 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.Configure(BuildConfigFromSettings());
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
+            _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);
         }
 
+        MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
+        MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
+        MagicTrackpadActuatorHaptics.WarmupAsync();
+
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
+    }
+
+    private void SetHapticsStrengthUiFromSettings()
+    {
+        const int maxAmp = 70;
+
+        int amp = 0;
+        if (_settings.HapticsEnabled)
+        {
+            int rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
+            amp = Math.Clamp(rawAmp, 0, maxAmp);
+        }
+
+        HapticsStrengthSlider.Value = amp;
+    }
+
+    private void ApplyHapticsStrengthFromUi()
+    {
+        const int maxAmp = 70;
+        int amp = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, maxAmp);
+        _settings.HapticsEnabled = amp != 0;
+        if (_settings.HapticsEnabled)
+        {
+            _settings.HapticsStrength = 0x00026C00u | (uint)amp;
+        }
     }
 
     private void RebuildLayouts()
@@ -976,11 +1019,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static string FormatNumber(double value)
     {
         return value.ToString("0.###", CultureInfo.InvariantCulture);
-    }
-
-    private static string FormatPressedState(ButtonEdgeState state)
-    {
-        return state.IsPressed ? "true" : "false";
     }
 
     private static double ReadDouble(TextBox box, double fallback)
@@ -2974,7 +3012,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (side == TrackpadSide.Left)
         {
-            LeftSurface.ClickLabel = FormatPressedState(_left.LastButtonState);
+            LeftSurface.PeakLabel = _left.GetPeakForceLabel();
             LeftSurface.LastHitLabel = hitLabel;
             LeftSurface.InvalidateVisual();
             if (!string.Equals(_lastLeftHit, hitLabel, StringComparison.Ordinal))
@@ -2984,7 +3022,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
         else
         {
-            RightSurface.ClickLabel = FormatPressedState(_right.LastButtonState);
+            RightSurface.PeakLabel = _right.GetPeakForceLabel();
             RightSurface.LastHitLabel = hitLabel;
             RightSurface.InvalidateVisual();
             if (!string.Equals(_lastRightHit, hitLabel, StringComparison.Ordinal))
@@ -3669,6 +3707,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyReport(ReaderSession session, RawInputDeviceTag tag, in InputFrame report, TrackpadSide side)
     {
+        session.UpdatePeakForce(in report);
         session.State.Update(in report);
 
         string tagText = RawInputInterop.FormatTag(tag);
@@ -3917,6 +3956,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private sealed class ReaderSession
     {
         private ButtonEdgeTracker _buttonTracker;
+        private int _activePeakForceNorm;
+        private bool _hasActivePeak;
+        private int? _lastPeakForceNorm;
 
         public ReaderSession(string label)
         {
@@ -3944,6 +3986,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
+            _activePeakForceNorm = 0;
+            _hasActivePeak = false;
+            _lastPeakForceNorm = null;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3955,6 +4000,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             Tag = null;
             TagText = null;
             LastButtonState = ButtonEdgeState.Unknown;
+            _activePeakForceNorm = 0;
+            _hasActivePeak = false;
+            _lastPeakForceNorm = null;
             _buttonTracker.Reset();
             State.Clear();
         }
@@ -3973,6 +4021,60 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public void UpdateButtonState(in ButtonEdgeState state)
         {
             LastButtonState = state;
+        }
+
+        public void UpdatePeakForce(in InputFrame frame)
+        {
+            int count = frame.GetClampedContactCount();
+            int framePeak = 0;
+            bool hasTipContact = false;
+
+            for (int i = 0; i < count; i++)
+            {
+                ContactFrame contact = frame.GetContact(i);
+                if (!contact.TipSwitch)
+                {
+                    continue;
+                }
+
+                hasTipContact = true;
+                if (contact.ForceNorm > framePeak)
+                {
+                    framePeak = contact.ForceNorm;
+                }
+            }
+
+            if (hasTipContact)
+            {
+                if (!_hasActivePeak)
+                {
+                    _hasActivePeak = true;
+                    _activePeakForceNorm = 0;
+                }
+
+                if (framePeak > _activePeakForceNorm)
+                {
+                    _activePeakForceNorm = framePeak;
+                }
+
+                // Show live peak while touching; persists after release as the last interaction peak.
+                _lastPeakForceNorm = _activePeakForceNorm;
+                return;
+            }
+
+            if (_hasActivePeak)
+            {
+                _lastPeakForceNorm = _activePeakForceNorm;
+                _activePeakForceNorm = 0;
+                _hasActivePeak = false;
+            }
+        }
+
+        public string GetPeakForceLabel()
+        {
+            return _lastPeakForceNorm.HasValue
+                ? _lastPeakForceNorm.Value.ToString(CultureInfo.InvariantCulture)
+                : "--";
         }
     }
 }
