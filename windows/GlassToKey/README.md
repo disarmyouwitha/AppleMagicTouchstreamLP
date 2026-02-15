@@ -72,7 +72,25 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
-- `--selftest`: Run parser/button-edge/replay smoke tests and exit.
+- `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, tap/click gesture, five-finger swipe) and exit.
+
+### Self-Tests
+- Entry point: `Core/Diagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --selftest`).
+- Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, tap/click gesture recognition and suppression, and five-finger swipe toggle behavior.
+- Data source is primarily synthetic and deterministic: tests build `InputFrame` sequences in memory and assert emitted snapshots/events.
+- Replay self-tests also generate a temporary synthetic `.atpcap` capture on disk, then replay and validate expected fingerprints/counters.
+- Recorded captures are still supported for manual or fixture-based replay via `--capture`, `--replay`, and `--fixture`, but they are not required for the built-in self-test pass.
+
+### Generate Replay Fixture From Capture
+1. Capture or choose a replay file (`.atpcap`).
+2. Generate fixture JSON:
+   - `powershell -ExecutionPolicy Bypass -File GlassToKey\fixtures\replay\New-ReplayFixture.ps1 -CapturePath GlassToKey\fixtures\replay\your_capture.atpcap -RelativeCapturePath`
+3. Validate replay against the generated fixture:
+   - `dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --replay GlassToKey\fixtures\replay\your_capture.atpcap --fixture GlassToKey\fixtures\replay\your_capture.fixture.json`
+
+Notes:
+- If `-FixturePath` is omitted, the script writes `<capture-name>.fixture.json` next to the capture.
+- Use `-ProjectPath` if `GlassToKey.csproj` is not at the default relative path.
 
 
 ## Files Created at Runtime
