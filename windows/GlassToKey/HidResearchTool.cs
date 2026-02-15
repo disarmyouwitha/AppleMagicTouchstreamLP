@@ -2,6 +2,7 @@ using Microsoft.Win32.SafeHandles;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -47,7 +48,8 @@ internal static class HidResearchTool
         int selectedIndex = options.HidDeviceIndex;
         if (!options.HidIndexSpecified)
         {
-            int autoIndex = FindFirstOpenableIndex(devices, options.RequiresHidWriteAccess);
+            int actuatorIndex = FindPreferredActuatorIndex(devices, options.RequiresHidWriteAccess);
+            int autoIndex = actuatorIndex >= 0 ? actuatorIndex : FindFirstOpenableIndex(devices, options.RequiresHidWriteAccess);
             if (autoIndex >= 0)
             {
                 selectedIndex = autoIndex;
@@ -90,7 +92,7 @@ internal static class HidResearchTool
                 !string.IsNullOrWhiteSpace(options.HidFeaturePayloadHex) ||
                 !string.IsNullOrWhiteSpace(options.HidOutputPayloadHex) ||
                 !string.IsNullOrWhiteSpace(options.HidWritePayloadHex);
-            if (!hasCommandPayload)
+            if (!hasCommandPayload && !options.HidAutoProbe)
             {
                 return 0;
             }
@@ -131,6 +133,14 @@ internal static class HidResearchTool
                     Thread.Sleep(options.HidIntervalMs);
                 }
             }
+
+            if (options.HidAutoProbe)
+            {
+                if (!RunAutoProbe(handle, probe, target.Path, options))
+                {
+                    return 29;
+                }
+            }
         }
 
         return 0;
@@ -148,6 +158,41 @@ internal static class HidResearchTool
 
             handle?.Dispose();
             return i;
+        }
+
+        return -1;
+    }
+
+    private static int FindPreferredActuatorIndex(List<CandidateHidInterface> devices, bool requireWriteAccess)
+    {
+        for (int i = 0; i < devices.Count; i++)
+        {
+            CandidateHidInterface device = devices[i];
+            if (!TryOpenDevice(device.Path, requireWriteAccess, out SafeFileHandle? handle, out _))
+            {
+                continue;
+            }
+
+            if (handle == null)
+            {
+                continue;
+            }
+
+            using (handle)
+            {
+                if (!TryReadProbe(handle, out HidProbeResult probe, out _))
+                {
+                    continue;
+                }
+
+                bool actuatorByName = !string.IsNullOrWhiteSpace(probe.Product) &&
+                                      probe.Product.Contains("Actuator", StringComparison.OrdinalIgnoreCase);
+                bool actuatorByUsage = probe.UsagePage == 0xFF00 && probe.OutputReportBytes > 0;
+                if (actuatorByName || actuatorByUsage)
+                {
+                    return i;
+                }
+            }
         }
 
         return -1;
@@ -425,10 +470,10 @@ internal static class HidResearchTool
 
     private static bool SendOutput(SafeFileHandle handle, byte[] payload, int frame)
     {
-        bool ok = HidD_SetOutputReport(handle, payload, payload.Length);
+        bool ok = TrySetOutputReport(handle, payload, out int win32Error);
         if (!ok)
         {
-            Console.Error.WriteLine($"[{frame}] HidD_SetOutputReport failed (Win32=0x{Marshal.GetLastWin32Error():X}) payload={FormatHex(payload)}");
+            Console.Error.WriteLine($"[{frame}] HidD_SetOutputReport failed (Win32=0x{win32Error:X}) payload={FormatHex(payload)}");
             return false;
         }
 
@@ -438,15 +483,156 @@ internal static class HidResearchTool
 
     private static bool SendWrite(SafeFileHandle handle, byte[] payload, int frame)
     {
-        bool ok = WriteFile(handle, payload, (uint)payload.Length, out uint written, IntPtr.Zero);
+        bool ok = TryWriteReport(handle, payload, out int win32Error, out uint written);
         if (!ok)
         {
-            Console.Error.WriteLine($"[{frame}] WriteFile failed (Win32=0x{Marshal.GetLastWin32Error():X}) payload={FormatHex(payload)}");
+            Console.Error.WriteLine($"[{frame}] WriteFile failed (Win32=0x{win32Error:X}) payload={FormatHex(payload)}");
             return false;
         }
 
         Console.WriteLine($"[{frame}] WriteFile OK bytes={written}/{payload.Length} payload={FormatHex(payload)}");
         return written == payload.Length;
+    }
+
+    private static bool RunAutoProbe(SafeFileHandle handle, in HidProbeResult probe, string path, ReaderOptions options)
+    {
+        if (probe.OutputReportBytes == 0)
+        {
+            Console.Error.WriteLine("Auto probe requires an interface with OutputReportByteLength > 0. Select actuator interface with --hid-index.");
+            return false;
+        }
+
+        ProbeLog log = new();
+        log.Info($"timestamp_utc={DateTime.UtcNow:O}");
+        log.Info($"path={path}");
+        log.Info($"vidpid={probe.VendorId:X4}:{probe.ProductId:X4}");
+        log.Info($"usage={probe.UsagePage:X4}/{probe.Usage:X4}");
+        log.Info($"product={probe.Product ?? "<null>"}");
+        log.Info($"output_len={probe.OutputReportBytes}");
+        int alternateLength = probe.OutputReportBytes + 1;
+        log.Info($"tested_lengths={probe.OutputReportBytes},{alternateLength}");
+        log.Info($"scan_report_id_range=0x00..0x{options.HidAutoReportMax:X2}");
+        log.Info($"interval_ms={options.HidAutoIntervalMs}");
+
+        int totalAttempts = 0;
+        int outputSuccess = 0;
+        int writeSuccess = 0;
+
+        for (int reportId = 0; reportId <= options.HidAutoReportMax; reportId++)
+        {
+            int[] lengths = { probe.OutputReportBytes, alternateLength };
+            foreach (int length in lengths)
+            {
+                if (length <= 0 || length > 512)
+                {
+                    continue;
+                }
+
+                byte[] zeros = BuildAutoPayload(length, (byte)reportId, secondByte: null);
+                byte[] marker = BuildAutoPayload(length, (byte)reportId, secondByte: 0x01);
+
+                ProbeAttemptResult outputZeros = ProbeOutputAttempt(handle, reportId, "zeros", zeros);
+                ProbeAttemptResult writeZeros = ProbeWriteAttempt(handle, reportId, "zeros", zeros);
+                ProbeAttemptResult outputMarker = ProbeOutputAttempt(handle, reportId, "marker01", marker);
+                ProbeAttemptResult writeMarker = ProbeWriteAttempt(handle, reportId, "marker01", marker);
+
+                totalAttempts += 4;
+                if (outputZeros.Ok) outputSuccess++;
+                if (writeZeros.Ok) writeSuccess++;
+                if (outputMarker.Ok) outputSuccess++;
+                if (writeMarker.Ok) writeSuccess++;
+
+                log.Info(outputZeros.ToLogLine());
+                log.Info(writeZeros.ToLogLine());
+                log.Info(outputMarker.ToLogLine());
+                log.Info(writeMarker.ToLogLine());
+            }
+
+            if (options.HidAutoIntervalMs > 0)
+            {
+                Thread.Sleep(options.HidAutoIntervalMs);
+            }
+        }
+
+        log.Info($"summary attempts={totalAttempts} output_ok={outputSuccess} write_ok={writeSuccess}");
+        string logPath = ResolveAutoProbeLogPath(options.HidAutoLogPath);
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(logPath)!);
+            File.WriteAllLines(logPath, log.Lines);
+            Console.WriteLine($"Auto probe log written: {logPath}");
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"Failed to write auto probe log '{logPath}': {ex.Message}");
+        }
+
+        return true;
+    }
+
+    private static byte[] BuildAutoPayload(int length, byte reportId, byte? secondByte)
+    {
+        byte[] payload = new byte[length];
+        payload[0] = reportId;
+        if (secondByte.HasValue && length > 1)
+        {
+            payload[1] = secondByte.Value;
+        }
+
+        return payload;
+    }
+
+    private static ProbeAttemptResult ProbeOutputAttempt(SafeFileHandle handle, int reportId, string variant, byte[] payload)
+    {
+        bool ok = TrySetOutputReport(handle, payload, out int win32Error);
+        return new ProbeAttemptResult(
+            "set_output",
+            reportId,
+            variant,
+            payload.Length,
+            ok,
+            win32Error,
+            ok ? payload.Length : 0);
+    }
+
+    private static ProbeAttemptResult ProbeWriteAttempt(SafeFileHandle handle, int reportId, string variant, byte[] payload)
+    {
+        bool ok = TryWriteReport(handle, payload, out int win32Error, out uint bytesWritten);
+        return new ProbeAttemptResult(
+            "write_file",
+            reportId,
+            variant,
+            payload.Length,
+            ok,
+            win32Error,
+            (int)bytesWritten);
+    }
+
+    private static bool TrySetOutputReport(SafeFileHandle handle, byte[] payload, out int win32Error)
+    {
+        bool ok = HidD_SetOutputReport(handle, payload, payload.Length);
+        win32Error = ok ? 0 : Marshal.GetLastWin32Error();
+        return ok;
+    }
+
+    private static bool TryWriteReport(SafeFileHandle handle, byte[] payload, out int win32Error, out uint bytesWritten)
+    {
+        bool ok = WriteFile(handle, payload, (uint)payload.Length, out bytesWritten, IntPtr.Zero);
+        win32Error = ok ? 0 : Marshal.GetLastWin32Error();
+        return ok;
+    }
+
+    private static string ResolveAutoProbeLogPath(string? requestedPath)
+    {
+        if (!string.IsNullOrWhiteSpace(requestedPath))
+        {
+            return Path.GetFullPath(requestedPath);
+        }
+
+        string localRoot = Path.Combine(
+            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+            "GlassToKey");
+        return Path.Combine(localRoot, $"hid-auto-probe-{DateTime.Now:yyyyMMdd-HHmmss}.log");
     }
 
     private static string FormatHex(byte[] bytes)
@@ -607,6 +793,34 @@ internal static class HidResearchTool
         string? SerialNumber);
 
     private readonly record struct CandidateHidInterface(string Path, string DisplayName);
+
+    private readonly record struct ProbeAttemptResult(
+        string Api,
+        int ReportId,
+        string Variant,
+        int Length,
+        bool Ok,
+        int Win32Error,
+        int BytesWritten)
+    {
+        public string ToLogLine()
+        {
+            return $"api={Api} rid=0x{ReportId:X2} variant={Variant} len={Length} ok={Ok} win32=0x{Win32Error:X} bytes={BytesWritten}";
+        }
+    }
+
+    private sealed class ProbeLog
+    {
+        private readonly List<string> _lines = new();
+
+        public IReadOnlyList<string> Lines => _lines;
+
+        public void Info(string line)
+        {
+            _lines.Add(line);
+            Console.WriteLine(line);
+        }
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct HiddAttributes
