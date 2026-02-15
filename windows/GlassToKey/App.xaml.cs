@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Windows;
 using WinForms = System.Windows.Forms;
 
@@ -9,6 +10,9 @@ namespace GlassToKey;
 
 public partial class App : Application
 {
+    private const string SingleInstanceMutexName = @"Local\GlassToKey.SingleInstance";
+    private Mutex? _singleInstanceMutex;
+    private bool _singleInstanceOwned;
     private TouchRuntimeService? _runtimeService;
     private StatusTrayController? _trayController;
     private MainWindow? _configWindow;
@@ -136,6 +140,12 @@ public partial class App : Application
             return;
         }
 
+        if (!TryAcquireSingleInstanceLock(e.Args, showErrorDialogs))
+        {
+            Shutdown(8);
+            return;
+        }
+
         bool useLegacyWindowRuntime =
             (options.ReplayInUi && !string.IsNullOrWhiteSpace(options.ReplayPath)) ||
             !string.IsNullOrWhiteSpace(options.CapturePath);
@@ -200,7 +210,86 @@ public partial class App : Application
         _runtimeService?.Dispose();
         _runtimeService = null;
         MagicTrackpadActuatorHaptics.Dispose();
+
+        if (_singleInstanceMutex != null)
+        {
+            try
+            {
+                if (_singleInstanceOwned)
+                {
+                    _singleInstanceMutex.ReleaseMutex();
+                }
+            }
+            catch
+            {
+                // Best-effort release; app is exiting anyway.
+            }
+            finally
+            {
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+                _singleInstanceOwned = false;
+            }
+        }
+
         base.OnExit(e);
+    }
+
+    private bool TryAcquireSingleInstanceLock(string[] args, bool showErrorDialogs)
+    {
+        bool replaceInstance = args.Any(static a => string.Equals(a, "--replace-instance", StringComparison.OrdinalIgnoreCase));
+        TimeSpan timeout = replaceInstance ? TimeSpan.FromSeconds(5) : TimeSpan.Zero;
+
+        try
+        {
+            _singleInstanceMutex = new Mutex(initiallyOwned: false, name: SingleInstanceMutexName, createdNew: out _);
+
+            bool acquired;
+            try
+            {
+                acquired = _singleInstanceMutex.WaitOne(timeout);
+            }
+            catch (AbandonedMutexException)
+            {
+                acquired = true;
+            }
+
+            if (!acquired)
+            {
+                _singleInstanceMutex.Dispose();
+                _singleInstanceMutex = null;
+                _singleInstanceOwned = false;
+
+                string message = "GlassToKey is already running.\n\nClose the existing instance (check the system tray), then try again.";
+                if (showErrorDialogs)
+                {
+                    MessageBox.Show(message, "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Information);
+                }
+                else
+                {
+                    Console.Error.WriteLine(message);
+                }
+
+                return false;
+            }
+
+            _singleInstanceOwned = true;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _singleInstanceMutex?.Dispose();
+            _singleInstanceMutex = null;
+            _singleInstanceOwned = false;
+
+            // If the lock mechanism fails, prefer continuing rather than blocking startup.
+            if (!showErrorDialogs)
+            {
+                Console.Error.WriteLine($"[single-instance] failed to acquire mutex: {ex.Message}");
+            }
+
+            return true;
+        }
     }
 
     private void OpenConfigWindow()
@@ -318,6 +407,10 @@ public partial class App : Application
         {
             startInfo.ArgumentList.Add(args[i]);
         }
+
+        // The existing instance will exit immediately after launching; this tells the next instance
+        // to briefly wait for the mutex to be released instead of treating it as a duplicate launch.
+        startInfo.ArgumentList.Add("--replace-instance");
 
         try
         {
