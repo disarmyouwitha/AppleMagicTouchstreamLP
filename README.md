@@ -15,7 +15,7 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 
 
 ## Usage
-I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a .app and .exe file and hopefully people will be able to run it!
+I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a **.app** and **.exe** file and hopefully people will be able to run it!
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
