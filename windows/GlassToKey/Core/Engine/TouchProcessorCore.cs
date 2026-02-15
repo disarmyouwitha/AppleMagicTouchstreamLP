@@ -346,6 +346,7 @@ internal sealed class TouchProcessorCore
                 hit,
                 xNorm,
                 yNorm,
+                contact.ForceNorm,
                 timestampTicks);
         }
 
@@ -542,10 +543,13 @@ internal sealed class TouchProcessorCore
         EngineBindingHit hit,
         double xNorm,
         double yNorm,
+        int forceNorm,
         long timestampTicks)
     {
         if (_touchStates.TryGetValue(touchKey, out TouchBindingState existing))
         {
+            existing.LastForceNorm = forceNorm;
+            existing.PeakForceNorm = Math.Max(existing.PeakForceNorm, forceNorm);
             if (!existing.DispatchDownSent &&
                 hit.Found &&
                 IsMomentaryLayerActive() &&
@@ -566,6 +570,7 @@ internal sealed class TouchProcessorCore
                 existing.LastXNorm = xNorm;
                 existing.LastYNorm = yNorm;
                 existing.MaxDistanceMm = 0;
+                existing.PeakForceNorm = forceNorm;
                 if (!existing.HasHoldAction)
                 {
                     TryBeginPressAction(
@@ -573,6 +578,7 @@ internal sealed class TouchProcessorCore
                         touchKey,
                         timestampTicks,
                         ref existing,
+                        existing.PeakForceNorm,
                         hapticOnDispatch: IsCustomBinding(rebound));
                 }
             }
@@ -604,6 +610,7 @@ internal sealed class TouchProcessorCore
                         touchKey,
                         timestampTicks,
                         ref existing,
+                        existing.PeakForceNorm,
                         hapticOnDispatch: IsCustomBinding(existingBinding));
                     if (!existing.DispatchDownSent)
                     {
@@ -612,6 +619,7 @@ internal sealed class TouchProcessorCore
                             side,
                             touchKey,
                             timestampTicks,
+                            existing.PeakForceNorm,
                             allowTypingDisabledOverride: IsMomentaryLayerActive(),
                             hapticOnDispatch: IsCustomBinding(existingBinding));
                     }
@@ -648,6 +656,8 @@ internal sealed class TouchProcessorCore
                 DispatchDownVirtualKey: 0,
                 DispatchDownMouseButton: DispatchMouseButton.None,
                 RepeatToken: 0,
+                LastForceNorm: forceNorm,
+                PeakForceNorm: forceNorm,
                 DispatchDownLabel: string.Empty);
             _touchStates.Set(touchKey, offKey);
             return;
@@ -674,6 +684,8 @@ internal sealed class TouchProcessorCore
             DispatchDownVirtualKey: 0,
             DispatchDownMouseButton: DispatchMouseButton.None,
             RepeatToken: 0,
+            LastForceNorm: forceNorm,
+            PeakForceNorm: forceNorm,
             DispatchDownLabel: string.Empty);
 
         _touchStates.Set(touchKey, next);
@@ -690,6 +702,7 @@ internal sealed class TouchProcessorCore
                 touchKey,
                 timestampTicks,
                 ref next,
+                next.PeakForceNorm,
                 hapticOnDispatch: IsCustomBinding(binding));
             _touchStates.Set(touchKey, next);
         }
@@ -812,6 +825,7 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
+                state.PeakForceNorm,
                 allowTypingDisabledOverride: IsMomentaryLayerActive(),
                 hapticOnDispatch: IsCustomBinding(binding));
             return;
@@ -833,6 +847,7 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
+                state.PeakForceNorm,
                 allowTypingDisabledOverride: IsMomentaryLayerActive(),
                 hapticOnDispatch: IsCustomBinding(directBinding));
             return;
@@ -849,6 +864,7 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     touchKey,
                     timestampTicks,
+                    state.PeakForceNorm,
                     allowTypingDisabledOverride: IsMomentaryLayerActive(),
                     hapticOnDispatch: IsCustomBinding(snapped));
                 return;
@@ -964,6 +980,7 @@ internal sealed class TouchProcessorCore
         ulong touchKey,
         long timestampTicks,
         ref TouchBindingState state,
+        int forceNorm,
         bool hapticOnDispatch)
     {
         bool allowTypingDisabledOverride = IsMomentaryLayerActive();
@@ -989,7 +1006,8 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride))
+                    allowTypingDisabledOverride,
+                    forceNorm))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.ModifierDown;
@@ -1020,7 +1038,8 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride))
+                    allowTypingDisabledOverride,
+                    forceNorm))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
@@ -1100,11 +1119,12 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         ulong touchKey,
         long timestampTicks,
+        int forceNorm = -1,
         bool allowTypingDisabledOverride = false,
         bool hapticOnDispatch = false)
     {
         ApplyActionState(action, timestampTicks);
-        EmitTapDispatch(action, side, touchKey, timestampTicks, allowTypingDisabledOverride, hapticOnDispatch);
+        EmitTapDispatch(action, side, touchKey, timestampTicks, forceNorm, allowTypingDisabledOverride, hapticOnDispatch);
     }
 
     private void EmitTapDispatch(
@@ -1112,6 +1132,7 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         ulong touchKey,
         long timestampTicks,
+        int forceNorm,
         bool allowTypingDisabledOverride,
         bool hapticOnDispatch)
     {
@@ -1134,7 +1155,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                 }
                 break;
             case EngineActionKind.Modifier:
@@ -1153,7 +1175,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.VirtualKey,
@@ -1163,7 +1186,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                 }
                 break;
             case EngineActionKind.MouseButton:
@@ -1181,7 +1205,8 @@ internal sealed class TouchProcessorCore
                         mouseFlags,
                         side,
                         timestampTicks,
-                        dispatchLabel: action.Label);
+                        dispatchLabel: action.Label,
+                        forceNorm: forceNorm);
                 }
                 break;
             case EngineActionKind.KeyChord:
@@ -1196,7 +1221,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.KeyTap,
                         action.VirtualKey,
@@ -1208,7 +1234,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.ModifierVirtualKey,
@@ -1218,7 +1245,8 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride);
+                        allowTypingDisabledOverride,
+                        forceNorm);
                 }
                 break;
             default:
@@ -1348,7 +1376,8 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         long timestampTicks,
         string dispatchLabel = "",
-        bool allowTypingDisabledOverride = false)
+        bool allowTypingDisabledOverride = false,
+        int forceNorm = -1)
     {
         if (_hapticsOnKeyDispatch && kind == DispatchEventKind.KeyTap)
         {
@@ -1380,6 +1409,33 @@ internal sealed class TouchProcessorCore
                 _lastRawLeftContacts,
                 _lastRawRightContacts,
                 "typing_disabled",
+                normalizedDispatchLabel);
+            return false;
+        }
+
+        if (forceNorm >= 0 &&
+            IsForceSuppressedDispatch(kind) &&
+            (_config.ForceCap <= 0 || forceNorm < _config.ForceMin || forceNorm > _config.ForceCap))
+        {
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.DispatchSuppressed,
+                side,
+                _intentMode,
+                kind,
+                DispatchSuppressReason.ForceThreshold,
+                TypingToggleSource.Api,
+                virtualKey,
+                mouseButton,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                "force_threshold",
                 normalizedDispatchLabel);
             return false;
         }
@@ -1505,6 +1561,13 @@ internal sealed class TouchProcessorCore
     }
 
     private static bool IsTypingSuppressedDispatch(DispatchEventKind kind)
+    {
+        return kind is DispatchEventKind.KeyTap or
+            DispatchEventKind.KeyDown or
+            DispatchEventKind.ModifierDown;
+    }
+
+    private static bool IsForceSuppressedDispatch(DispatchEventKind kind)
     {
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
@@ -2371,7 +2434,9 @@ internal sealed class TouchProcessorCore
             KeyBufferMs = Math.Max(0, config.KeyBufferMs),
             TapStaggerToleranceMs = Math.Max(0, config.TapStaggerToleranceMs),
             TapCadenceWindowMs = Math.Max(1, config.TapCadenceWindowMs),
-            TapMoveThresholdMm = Math.Max(0, config.TapMoveThresholdMm)
+            TapMoveThresholdMm = Math.Max(0, config.TapMoveThresholdMm),
+            ForceMin = Math.Clamp(config.ForceMin, 0, 255),
+            ForceCap = Math.Clamp(config.ForceCap, 0, 255)
         };
     }
 
@@ -2633,6 +2698,8 @@ internal sealed class TouchProcessorCore
             ushort DispatchDownVirtualKey,
             DispatchMouseButton DispatchDownMouseButton,
             ulong RepeatToken,
+            int LastForceNorm,
+            int PeakForceNorm,
             string DispatchDownLabel)
         {
             this.Side = Side;
@@ -2653,6 +2720,8 @@ internal sealed class TouchProcessorCore
             this.DispatchDownVirtualKey = DispatchDownVirtualKey;
             this.DispatchDownMouseButton = DispatchDownMouseButton;
             this.RepeatToken = RepeatToken;
+            this.LastForceNorm = LastForceNorm;
+            this.PeakForceNorm = PeakForceNorm;
             this.DispatchDownLabel = DispatchDownLabel;
         }
 
@@ -2674,6 +2743,8 @@ internal sealed class TouchProcessorCore
         public ushort DispatchDownVirtualKey;
         public DispatchMouseButton DispatchDownMouseButton;
         public ulong RepeatToken;
+        public int LastForceNorm;
+        public int PeakForceNorm;
         public string DispatchDownLabel;
     }
 
