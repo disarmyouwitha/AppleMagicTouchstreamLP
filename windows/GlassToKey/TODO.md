@@ -1,6 +1,4 @@
 ## TODO:
-- Code to prevent you from opening up multiple instances: alert -> close duplicate instance.
----
 *When I have LHS:USB, RHS:Bletooth it's failing on the bluetooth side but playing on the LHS over USB
 - USB-only haptics as the supported path, and degrade gracefully on BT.
 [] When using 1 device over USB and 1 over Bluetooth, both on the official drivers, if I connect to USB first, then I can no longer select the Bluetooth device from the list.. it immediately swaps to USB. 

@@ -118,10 +118,6 @@ internal static class MagicTrackpadActuatorHaptics
         ActuatorDevice? device = side == TrackpadSide.Right ? _right : _left;
         if (device == null)
         {
-            device = side == TrackpadSide.Right ? _left : _right;
-        }
-        if (device == null)
-        {
             return false;
         }
 
@@ -226,14 +222,6 @@ internal static class MagicTrackpadActuatorHaptics
 
                 _left = left;
                 _right = right;
-                if (_left == null && _right != null)
-                {
-                    _left = _right;
-                }
-                else if (_right == null && _left != null)
-                {
-                    _right = _left;
-                }
             }
 
             Volatile.Write(ref _initState, InitReady);
@@ -345,41 +333,62 @@ internal static class MagicTrackpadActuatorHaptics
                 }
             }
 
-            // Fallback: if we couldn't match container IDs, use the "best any" actuator.
-            Candidate selectedLeft = string.IsNullOrWhiteSpace(bestLeft.Path) ? bestAny : bestLeft;
-            Candidate selectedRight = string.IsNullOrWhiteSpace(bestRight.Path) ? bestAny : bestRight;
-            if (selectedLeft.Path == null && selectedRight.Path == null)
+            // Important: never "cross-route" haptics. If we cannot confidently match a side to a physical device,
+            // that side must not vibrate (it should not fall back to the other side's actuator).
+            Candidate selectedLeft = leftTarget.HasValue ? bestLeft : default;
+            Candidate selectedRight = rightTarget.HasValue ? bestRight : default;
+
+            // Back-compat: if neither side is routed (no targets), allow a best-effort single-device setup.
+            if (!leftTarget.HasValue && !rightTarget.HasValue)
             {
-                return false;
+                selectedLeft = bestAny;
+                selectedRight = bestAny;
+            }
+
+            if (string.IsNullOrWhiteSpace(selectedLeft.Path))
+            {
+                selectedLeft = default;
+            }
+            if (string.IsNullOrWhiteSpace(selectedRight.Path))
+            {
+                selectedRight = default;
             }
 
             // Open final selected handles.
-            if (selectedLeft.Path != null)
+            if (selectedLeft.Path != null &&
+                selectedRight.Path != null &&
+                selectedLeft.Path.Equals(selectedRight.Path, StringComparison.OrdinalIgnoreCase))
             {
-                if (!TryOpenHidPath(selectedLeft.Path, out SafeFileHandle? leftHandle) || leftHandle == null || leftHandle.IsInvalid)
+                if (!TryOpenHidPath(selectedLeft.Path, out SafeFileHandle? handle) || handle == null || handle.IsInvalid)
                 {
                     return false;
                 }
-                left = new ActuatorDevice { Handle = leftHandle, OutputReportBytes = selectedLeft.OutputReportBytes, ContainerId = selectedLeft.ContainerId };
-            }
 
-            if (selectedRight.Path != null)
+                // Shared physical device: one handle backs both sides.
+                left = new ActuatorDevice { Handle = handle, OutputReportBytes = selectedLeft.OutputReportBytes, ContainerId = selectedLeft.ContainerId };
+                right = left;
+            }
+            else
             {
-                if (selectedLeft.Path != null &&
-                    selectedRight.Path.Equals(selectedLeft.Path, StringComparison.OrdinalIgnoreCase) &&
-                    left != null)
+                if (selectedLeft.Path != null)
                 {
-                    right = left;
-                }
-                else
-                {
-                    if (!TryOpenHidPath(selectedRight.Path, out SafeFileHandle? rightHandle) || rightHandle == null || rightHandle.IsInvalid)
+                    if (TryOpenHidPath(selectedLeft.Path, out SafeFileHandle? leftHandle) && leftHandle != null && !leftHandle.IsInvalid)
                     {
-                        left?.Handle.Dispose();
-                        left = null;
-                        return false;
+                        left = new ActuatorDevice { Handle = leftHandle, OutputReportBytes = selectedLeft.OutputReportBytes, ContainerId = selectedLeft.ContainerId };
                     }
-                    right = new ActuatorDevice { Handle = rightHandle, OutputReportBytes = selectedRight.OutputReportBytes, ContainerId = selectedRight.ContainerId };
+                }
+
+                if (selectedRight.Path != null)
+                {
+                    if (TryOpenHidPath(selectedRight.Path, out SafeFileHandle? rightHandle) && rightHandle != null && !rightHandle.IsInvalid)
+                    {
+                        right = new ActuatorDevice { Handle = rightHandle, OutputReportBytes = selectedRight.OutputReportBytes, ContainerId = selectedRight.ContainerId };
+                    }
+                }
+
+                if (left == null && right == null)
+                {
+                    return false;
                 }
             }
 

@@ -86,6 +86,10 @@ Strategy:
 4. For each actuator interface, read its `ContainerId` and match it to the Left/Right ContainerId.
 5. Open one actuator handle per side and send the packet to that handle.
 
+Routing rule (important):
+
+- If a side's actuator cannot be matched, that side must not vibrate (no cross-side fallback).
+
 In this repo, this is implemented in:
 
 - `MagicTrackpadActuatorHaptics.SetRoutes(leftTouchHidPath, rightTouchHidPath)`
