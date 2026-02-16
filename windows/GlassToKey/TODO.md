@@ -1,6 +1,7 @@
 ## TODO:
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
 - ^^^ This has to be next bro, lol.
+^^ Tap clicks don't put us in `gest` ??
 - Double check intent state on Windows for Mixed
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
 - Voice mode Gestue (Outer Corners): "windows siri/dictation" (Win+H Dictation) + ESC to close window
@@ -11,7 +12,7 @@
 ## Gesture Config:
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 
-Working: 5-finger swipe left/right; 2/3finger tap
+Working: 5-finger swipe left/right is perfect!
 
 Working: Inner corners 
 Not Working: Outer corners
@@ -24,5 +25,34 @@ ALSO: 4-finger hold is only working for chordal shift. For other actions it shou
 **corners** upper-left,upper-right,lower-left,lower-right corner taps holds
 **corners** Inner corners hold, Outer Corner Hold
 
+- Rename Column Settings> Column Tuning, Keymap Editor > Keymap Tuning, Gesture Config > Gesture Tuning in the GUI. Make Gesture Tuning collapsed by default. 
 - After we get 4-finger hold working we can remove chordal shift, tap click from the Mode checkboxes (they can just set/unset them in the Gesture menu)
-- Move Keyboard/Mouse mode on top of the 3 remaining options.
+- Move Keyboard/Mouse mode on top of the 3 remaining options. 
+
+
+Inner Corners: I have custom buttons on the corner and those
+  are taking priority, we are in typing mode and it does the
+  custom button action. 
+  
+Outer Corners: I have no custom buttons
+  or actions and I can see we go into `gest` however no action
+  ever fires. 
+  
+4-finger hold: is only being considered a `gest`
+  if none of my fingers are on a key or custom button, otherwise it dispatches keys. 
+  
+  Anything assigned to this gesture should work like Chordal Shift does: If 4-finger hold is triggered, no regular keys or custom button actions should disptch, only the 4-finger hold action.
+  *(Chordal Shift is a special gesture that allows you
+  to type on the other side!). 
+  
+  Currently when 4-finger hold hits any keys they all trigger on release - they should not.
+
+  ---
+
+  If 4-finger hold is triggered it should block normal key
+  dispatch and only send the gesture keycode. Re:corners, You
+  have it backwards.. I want to be able to trigger the corner
+  gestures regardless of if they are on a key, or a custom
+  button or nothing at all. If one of the "two finger" corner
+  gestures triggers it should take priority over the key/button
+  it hit and only output the gesture action.
