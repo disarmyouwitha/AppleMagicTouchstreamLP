@@ -1,8 +1,11 @@
 ## Gestures
 - How hard would it be for you to write something to automaticaly take a capture and make a gesture, just like you did? 
 
-**Ph  based:** Force click1 (ph:1), Force Click2 (ph:2)
-**Click/Force Click Corners??** upper-left,upper-right,lower-left,lower-right corner
+**Force Gestures** (ph based) Force click1 (ph:1), Force Click2 (ph:2), Force Click3?    
+**Click Corners** upper-left,upper-right,lower-left,lower-right corner
+
+**Force Click Corners??** upper-left,upper-right,lower-left,lower-right corner
+- ^ Could maybe be a 2nd drop down under each Click Corner "force"
 
 ## TODO:
 - 3-finger taps do not trigger well.. can you help me out?
