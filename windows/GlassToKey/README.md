@@ -30,6 +30,7 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Cap]` (inclusive).
   - Setting `Force Cap` to `0` blocks all key dispatches.
 - Gesture Config: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 4-finger hold, and outer/inner corner holds can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
+  - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 - Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window), and tap gestures only fire when `Tap Click` is enabled. Blocking clicks requires Input Monitoring/Accessibility permission.
 
@@ -62,6 +63,7 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
+  - Capture/replay UI sessions launch maximized for full-screen inspection.
 - `--relaunch-tray-on-close`: Internal flag used by tray-initiated capture/replay to relaunch normal tray mode when the window closes.
 - `--replay-speed <x>`: Initial replay speed multiplier (for example: `0.5`, `1`, `2`).
 - `--fixture <fixturePath>`: Optional expected replay fingerprint/counts JSON (also supports intent fingerprint + transition count).

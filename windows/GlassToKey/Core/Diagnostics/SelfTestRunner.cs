@@ -58,6 +58,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Tap gesture tests failed: {tapFailure}");
         }
 
+        if (!RunThreePlusGesturePriorityTests(out string threePlusFailure))
+        {
+            return new SelfTestResult(false, $"Three-plus gesture priority tests failed: {threePlusFailure}");
+        }
+
         if (!RunCornerHoldGestureTests(out string cornerFailure))
         {
             return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
@@ -1891,6 +1896,99 @@ internal static class SelfTestRunner
         return true;
     }
 
+    private static bool RunThreePlusGesturePriorityTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        // Any 3+ contact set should suppress normal key/custom dispatch.
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore threeFingerCore = TouchProcessorFactory.CreateDefault(keymap);
+        using DispatchEventQueue threeFingerQueue = new(capacity: 4096);
+        using TouchProcessorActor threeFingerActor = new(threeFingerCore, dispatchQueue: threeFingerQueue);
+
+        NormalizedRect key0 = leftLayout.Rects[0][2];
+        NormalizedRect key1 = leftLayout.Rects[0][3];
+        NormalizedRect key2 = leftLayout.Rects[1][2];
+        ushort key0X = (ushort)Math.Clamp((int)Math.Round((key0.X + (key0.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key0Y = (ushort)Math.Clamp((int)Math.Round((key0.Y + (key0.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key1X = (ushort)Math.Clamp((int)Math.Round((key1.X + (key1.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key1Y = (ushort)Math.Clamp((int)Math.Round((key1.Y + (key1.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key2X = (ushort)Math.Clamp((int)Math.Round((key2.X + (key2.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key2Y = (ushort)Math.Clamp((int)Math.Round((key2.Y + (key2.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        long now = 0;
+        InputFrame threeDown = MakeFrame(contactCount: 3, id0: 101, x0: key0X, y0: key0Y, id1: 102, x1: key1X, y1: key1Y, id2: 103, x2: key2X, y2: key2Y);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        threeFingerActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        threeFingerActor.WaitForIdle();
+
+        int threeFingerKeyTaps = 0;
+        while (threeFingerQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                threeFingerKeyTaps++;
+            }
+        }
+
+        if (threeFingerKeyTaps != 0)
+        {
+            failure = $"three-finger priority mismatch (keyTaps={threeFingerKeyTaps}, expected=0)";
+            return false;
+        }
+
+        // Four-finger hold action should fire, and key hits under those fingers should stay suppressed.
+        TouchProcessorCore fourFingerCore = TouchProcessorFactory.CreateDefault(keymap);
+        fourFingerCore.SetTypingEnabled(true);
+        fourFingerCore.Configure(fourFingerCore.CurrentConfig with
+        {
+            FourFingerHoldAction = "Typing Toggle",
+            HoldDurationMs = 120.0
+        });
+        using DispatchEventQueue fourFingerQueue = new(capacity: 4096);
+        using TouchProcessorActor fourFingerActor = new(fourFingerCore, dispatchQueue: fourFingerQueue);
+
+        NormalizedRect key3 = leftLayout.Rects[1][3];
+        ushort key3X = (ushort)Math.Clamp((int)Math.Round((key3.X + (key3.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key3Y = (ushort)Math.Clamp((int)Math.Round((key3.Y + (key3.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        now = 0;
+        InputFrame fourDown = MakeFrame(contactCount: 4, id0: 111, x0: key0X, y0: key0Y, id1: 112, x1: key1X, y1: key1Y, id2: 113, x2: key2X, y2: key2Y, id3: 114, x3: key3X, y3: key3Y);
+        fourFingerActor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        fourFingerActor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        fourFingerActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        fourFingerActor.WaitForIdle();
+        TouchProcessorSnapshot fourFingerSnapshot = fourFingerActor.Snapshot();
+
+        int fourFingerKeyTaps = 0;
+        while (fourFingerQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                fourFingerKeyTaps++;
+            }
+        }
+
+        if (fourFingerSnapshot.TypingEnabled || fourFingerKeyTaps != 0)
+        {
+            failure = $"four-finger hold priority mismatch (typingEnabled={fourFingerSnapshot.TypingEnabled}, keyTaps={fourFingerKeyTaps}, expected=false/0)";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
     private static bool RunCornerHoldGestureTests(out string failure)
     {
         const ushort maxX = 7612;
@@ -1898,14 +1996,16 @@ internal static class SelfTestRunner
         TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
         ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
-        if (!TryFindOuterCornerOffKeyPoint(leftLayout, out double cornerXNorm, out double cornerYNorm))
+        if (!TryFindOuterCornerOffKeyPair(leftLayout, out double topXNorm, out double topYNorm, out double bottomXNorm, out double bottomYNorm))
         {
-            failure = "failed to find an off-key outer-corner test point";
+            failure = "failed to find off-key outer-corner pair points";
             return false;
         }
 
-        ushort cornerX = (ushort)Math.Clamp((int)Math.Round(cornerXNorm * maxX), 1, maxX - 1);
-        ushort cornerY = (ushort)Math.Clamp((int)Math.Round(cornerYNorm * maxY), 1, maxY - 1);
+        ushort topX = (ushort)Math.Clamp((int)Math.Round(topXNorm * maxX), 1, maxX - 1);
+        ushort topY = (ushort)Math.Clamp((int)Math.Round(topYNorm * maxY), 1, maxY - 1);
+        ushort bottomX = (ushort)Math.Clamp((int)Math.Round(bottomXNorm * maxX), 1, maxX - 1);
+        ushort bottomY = (ushort)Math.Clamp((int)Math.Round(bottomYNorm * maxY), 1, maxY - 1);
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
@@ -1921,7 +2021,7 @@ internal static class SelfTestRunner
         using TouchProcessorActor actor = new(core, dispatchQueue: queue);
 
         long now = 0;
-        InputFrame down = MakeFrame(contactCount: 1, id0: 90, x0: cornerX, y0: cornerY);
+        InputFrame down = MakeFrame(contactCount: 2, id0: 90, x0: topX, y0: topY, id1: 91, x1: bottomX, y1: bottomY);
         InputFrame up = MakeFrame(contactCount: 0);
 
         // Below hold duration: should not emit.
@@ -1942,8 +2042,15 @@ internal static class SelfTestRunner
 
         int cornerATaps = 0;
         int otherKeyTaps = 0;
+        int cornerMouseClicks = 0;
         while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                cornerMouseClicks++;
+                continue;
+            }
+
             if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
             {
                 continue;
@@ -1959,9 +2066,9 @@ internal static class SelfTestRunner
             }
         }
 
-        if (cornerATaps != 1 || otherKeyTaps != 0)
+        if (cornerATaps != 1 || otherKeyTaps != 0 || cornerMouseClicks != 0)
         {
-            failure = $"corner hold dispatch mismatch (A={cornerATaps}, otherKeyTaps={otherKeyTaps}, expected=1/0)";
+            failure = $"corner hold dispatch mismatch (A={cornerATaps}, otherKeyTaps={otherKeyTaps}, mouseClicks={cornerMouseClicks}, expected=1/0/0)";
             return false;
         }
 
@@ -2113,19 +2220,34 @@ internal static class SelfTestRunner
         return false;
     }
 
-    private static bool TryFindOuterCornerOffKeyPoint(KeyLayout layout, out double xNorm, out double yNorm)
+    private static bool TryFindOuterCornerOffKeyPair(
+        KeyLayout layout,
+        out double topXNorm,
+        out double topYNorm,
+        out double bottomXNorm,
+        out double bottomYNorm)
     {
         const double cornerThreshold = 0.16;
+        topXNorm = 0;
+        topYNorm = 0;
+        bottomXNorm = 0;
+        bottomYNorm = 0;
+
         for (double y = 0.01; y <= (cornerThreshold - 0.005); y += 0.005)
         {
             for (double x = 0.01; x <= (cornerThreshold - 0.005); x += 0.005)
             {
                 if (!IsInsideAnyKeyRect(layout, x, y))
                 {
-                    xNorm = x;
-                    yNorm = y;
-                    return true;
+                    topXNorm = x;
+                    topYNorm = y;
+                    break;
                 }
+            }
+
+            if (topXNorm > 0)
+            {
+                break;
             }
         }
 
@@ -2135,16 +2257,19 @@ internal static class SelfTestRunner
             {
                 if (!IsInsideAnyKeyRect(layout, x, y))
                 {
-                    xNorm = x;
-                    yNorm = y;
-                    return true;
+                    bottomXNorm = x;
+                    bottomYNorm = y;
+                    break;
                 }
+            }
+
+            if (bottomXNorm > 0)
+            {
+                break;
             }
         }
 
-        xNorm = 0;
-        yNorm = 0;
-        return false;
+        return topXNorm > 0 && bottomXNorm > 0;
     }
 
     private static (int Row, int Col, double DistSq) FindNearestKeyCenter(KeyLayout layout, double xNorm, double yNorm)

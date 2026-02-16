@@ -57,6 +57,10 @@ internal sealed class TouchProcessorCore
     private bool _chordShiftLeft;
     private bool _chordShiftRight;
     private bool _chordShiftKeyDown;
+    private bool _threePlusGestureSuppressLeft;
+    private bool _threePlusGestureSuppressRight;
+    private CornerHoldGesture _cornerHoldGestureLeft;
+    private CornerHoldGesture _cornerHoldGestureRight;
     private int _lastRawLeftContacts;
     private int _lastRawRightContacts;
     private long _lastRawLeftUpdateTicks = -1;
@@ -223,6 +227,10 @@ internal sealed class TouchProcessorCore
         _chordShiftLeft = false;
         _chordShiftRight = false;
         _chordShiftKeyDown = false;
+        _threePlusGestureSuppressLeft = false;
+        _threePlusGestureSuppressRight = false;
+        _cornerHoldGestureLeft = default;
+        _cornerHoldGestureRight = default;
         _lastRawLeftContacts = 0;
         _lastRawRightContacts = 0;
         _lastRawLeftUpdateTicks = -1;
@@ -275,6 +283,14 @@ internal sealed class TouchProcessorCore
         {
             _lastRawRightContacts = tipContactsInFrame;
             _lastRawRightUpdateTicks = timestampTicks;
+        }
+        if (tipContactsInFrame >= 3)
+        {
+            SetThreePlusGestureSuppress(side, enabled: true);
+        }
+        else if (!HasActiveTouchStateForSide(side))
+        {
+            SetThreePlusGestureSuppress(side, enabled: false);
         }
         UpdateChordShift(_lastRawLeftContacts, _lastRawRightContacts, timestampTicks);
         double tipSumXNorm = 0;
@@ -370,9 +386,14 @@ internal sealed class TouchProcessorCore
         }
 
         RemoveStaleTouchesForSide(side, frameKeys.Slice(0, frameKeyCount), timestampTicks);
+        if (tipContactsInFrame == 0 && !HasActiveTouchStateForSide(side))
+        {
+            SetThreePlusGestureSuppress(side, enabled: false);
+        }
 
         IntentAggregate aggregate = BuildIntentAggregate();
         int previousContactCount = _lastContactCount;
+        bool cornerPriorityBeforeUpdate = IsCornerGesturePriorityActive(side);
         if (tipContactsInFrame > 0)
         {
             double centroidX = tipSumXNorm / tipContactsInFrame;
@@ -384,7 +405,9 @@ internal sealed class TouchProcessorCore
             UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
         }
         UpdateFourFingerHoldGesture(aggregate, timestampTicks);
-        UpdateTapGestureState(aggregate, timestampTicks, previousContactCount);
+        UpdateCornerHoldGesture(side, timestampTicks);
+        bool suppressTapGestures = cornerPriorityBeforeUpdate || IsCornerGesturePriorityActive(side);
+        UpdateTapGestureState(aggregate, timestampTicks, previousContactCount, suppressTapGestures);
         UpdateIntentState(aggregate, timestampTicks);
     }
 
@@ -593,7 +616,7 @@ internal sealed class TouchProcessorCore
                 existing.PeakForceNorm = forceNorm;
                 if (!existing.HasHoldAction)
                 {
-                    if (!IsThreePlusGesturePriorityActive(side))
+                    if (!IsGestureDispatchPriorityActive(side))
                     {
                         TryBeginPressAction(
                             rebound.Mapping.Primary,
@@ -622,7 +645,7 @@ internal sealed class TouchProcessorCore
             {
                 long holdTicks = MsToTicks(_config.HoldDurationMs);
                 if (existing.MaxDistanceMm <= _config.DragCancelMm &&
-                    !IsThreePlusGesturePriorityActive(side) &&
+                    !IsGestureDispatchPriorityActive(side) &&
                     timestampTicks - existing.StartTicks >= holdTicks)
                 {
                     existing.Lifecycle = EngineTouchLifecycle.Active;
@@ -721,7 +744,7 @@ internal sealed class TouchProcessorCore
 
         if (!next.HasHoldAction)
         {
-            if (!IsThreePlusGesturePriorityActive(side))
+            if (!IsGestureDispatchPriorityActive(side))
             {
                 TryBeginPressAction(
                     binding.Mapping.Primary,
@@ -844,15 +867,9 @@ internal sealed class TouchProcessorCore
             RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
             return;
         }
-        if (IsThreePlusGesturePriorityActive(state.Side))
+        if (IsGestureDispatchPriorityActive(state.Side))
         {
             RecordReleaseDropped(state.Side, action, timestampTicks, "gesture_priority_active");
-            return;
-        }
-
-        if (!hadDispatchDown &&
-            TryEmitCornerGestureAction(state.Side, state.StartXNorm, state.StartYNorm, state.LastXNorm, state.LastYNorm, touchKey, state.StartTicks, timestampTicks))
-        {
             return;
         }
 
@@ -959,10 +976,14 @@ internal sealed class TouchProcessorCore
                _innerCornersGestureAction.Kind != EngineActionKind.None;
     }
 
+    private bool IsGestureDispatchPriorityActive(TrackpadSide side)
+    {
+        return IsThreePlusGesturePriorityActive(side) || IsCornerGesturePriorityActive(side);
+    }
+
     private bool IsThreePlusGesturePriorityActive(TrackpadSide side)
     {
-        int sideRawContacts = side == TrackpadSide.Left ? _lastRawLeftContacts : _lastRawRightContacts;
-        if (sideRawContacts >= 3)
+        if (GetThreePlusGestureSuppress(side))
         {
             return true;
         }
@@ -975,7 +996,54 @@ internal sealed class TouchProcessorCore
         ref FiveFingerSwipeState swipe = ref side == TrackpadSide.Left
             ? ref _fiveFingerSwipeLeft
             : ref _fiveFingerSwipeRight;
-        return swipe.Active;
+        if (swipe.Active)
+        {
+            return true;
+        }
+
+        return _pendingTapGesture.Active &&
+               _pendingTapGesture.ContactCount >= 3 &&
+               _pendingTapGesture.Side == side;
+    }
+
+    private bool IsCornerGesturePriorityActive(TrackpadSide side)
+    {
+        CornerHoldGesture gesture = side == TrackpadSide.Left ? _cornerHoldGestureLeft : _cornerHoldGestureRight;
+        return gesture.Active;
+    }
+
+    private void SetThreePlusGestureSuppress(TrackpadSide side, bool enabled)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _threePlusGestureSuppressLeft = enabled;
+            return;
+        }
+
+        _threePlusGestureSuppressRight = enabled;
+    }
+
+    private bool GetThreePlusGestureSuppress(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left ? _threePlusGestureSuppressLeft : _threePlusGestureSuppressRight;
+    }
+
+    private bool HasActiveTouchStateForSide(TrackpadSide side)
+    {
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            if (_touchStates.ValueRefAt(i).Side == side)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private bool TrySnapBinding(TrackpadSide side, double xNorm, double yNorm, out EngineKeyBinding binding)
@@ -1965,9 +2033,15 @@ internal sealed class TouchProcessorCore
         return false;
     }
 
-    private void UpdateTapGestureState(in IntentAggregate aggregate, long nowTicks, int previousContactCount)
+    private void UpdateTapGestureState(in IntentAggregate aggregate, long nowTicks, int previousContactCount, bool suppressTapGestures)
     {
         if (!_config.TapClickEnabled)
+        {
+            _pendingTapGesture = default;
+            return;
+        }
+
+        if (suppressTapGestures)
         {
             _pendingTapGesture = default;
             return;
@@ -2156,47 +2230,194 @@ internal sealed class TouchProcessorCore
         _fourFingerHoldGesture.Triggered = true;
     }
 
-    private bool TryEmitCornerGestureAction(
-        TrackpadSide side,
-        double startXNorm,
-        double startYNorm,
-        double endXNorm,
-        double endYNorm,
-        ulong touchKey,
-        long touchStartTicks,
-        long nowTicks)
+    private void UpdateCornerHoldGesture(TrackpadSide side, long nowTicks)
     {
+        ref CornerHoldGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerHoldGestureLeft
+            : ref _cornerHoldGestureRight;
+        if (!TryGetCornerHoldPairCandidate(side, out CornerZone zone, out long pairStartTicks))
+        {
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active || gesture.Zone != zone)
+        {
+            gesture = new CornerHoldGesture(
+                Active: true,
+                Triggered: false,
+                Side: side,
+                Zone: zone,
+                StartedTicks: pairStartTicks);
+            return;
+        }
+
+        if (pairStartTicks > gesture.StartedTicks)
+        {
+            gesture.StartedTicks = pairStartTicks;
+            gesture.Triggered = false;
+        }
+
+        if (gesture.Triggered)
+        {
+            return;
+        }
+
         long holdTicks = MsToTicks(_config.HoldDurationMs);
-        if (nowTicks - touchStartTicks < holdTicks)
+        if (nowTicks - gesture.StartedTicks < holdTicks)
         {
+            return;
+        }
+
+        EngineKeyAction action = GetCornerGestureAction(zone);
+        if (action.Kind == EngineActionKind.None)
+        {
+            return;
+        }
+
+        EmitGestureAction(action, side, touchKey: 0, nowTicks);
+        gesture.Triggered = true;
+    }
+
+    private bool TryGetCornerHoldPairCandidate(TrackpadSide side, out CornerZone zone, out long pairStartTicks)
+    {
+        bool outerTop = false;
+        bool outerBottom = false;
+        bool innerTop = false;
+        bool innerBottom = false;
+        long outerTopStart = long.MaxValue;
+        long outerBottomStart = long.MaxValue;
+        long innerTopStart = long.MaxValue;
+        long innerBottomStart = long.MaxValue;
+
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            TouchBindingState state = _touchStates.ValueRefAt(i);
+            if (state.Side != side)
+            {
+                continue;
+            }
+            if (state.MaxDistanceMm > _config.DragCancelMm)
+            {
+                continue;
+            }
+
+            CornerZone start = ClassifyCornerZone(side, state.StartXNorm, state.StartYNorm);
+            if (start == CornerZone.None)
+            {
+                continue;
+            }
+
+            CornerZone end = ClassifyCornerZone(side, state.LastXNorm, state.LastYNorm);
+            if (start != end)
+            {
+                continue;
+            }
+
+            bool top = IsTopCorner(state.StartYNorm);
+            bool bottom = IsBottomCorner(state.StartYNorm);
+            if (!top && !bottom)
+            {
+                continue;
+            }
+
+            if (start == CornerZone.Outer)
+            {
+                if (top)
+                {
+                    outerTop = true;
+                    outerTopStart = Math.Min(outerTopStart, state.StartTicks);
+                }
+                if (bottom)
+                {
+                    outerBottom = true;
+                    outerBottomStart = Math.Min(outerBottomStart, state.StartTicks);
+                }
+            }
+            else if (start == CornerZone.Inner)
+            {
+                if (top)
+                {
+                    innerTop = true;
+                    innerTopStart = Math.Min(innerTopStart, state.StartTicks);
+                }
+                if (bottom)
+                {
+                    innerBottom = true;
+                    innerBottomStart = Math.Min(innerBottomStart, state.StartTicks);
+                }
+            }
+        }
+
+        bool outerEligible = outerTop &&
+                             outerBottom &&
+                             _outerCornersGestureAction.Kind != EngineActionKind.None &&
+                             outerTopStart != long.MaxValue &&
+                             outerBottomStart != long.MaxValue;
+        bool innerEligible = innerTop &&
+                             innerBottom &&
+                             _innerCornersGestureAction.Kind != EngineActionKind.None &&
+                             innerTopStart != long.MaxValue &&
+                             innerBottomStart != long.MaxValue;
+        if (!outerEligible && !innerEligible)
+        {
+            zone = CornerZone.None;
+            pairStartTicks = 0;
             return false;
         }
 
-        CornerZone start = ClassifyCornerZone(side, startXNorm, startYNorm);
-        if (start == CornerZone.None)
+        CornerHoldGesture current = side == TrackpadSide.Left ? _cornerHoldGestureLeft : _cornerHoldGestureRight;
+        if (outerEligible && innerEligible)
         {
-            return false;
+            if (current.Active && current.Zone == CornerZone.Inner)
+            {
+                zone = CornerZone.Inner;
+                pairStartTicks = Math.Max(innerTopStart, innerBottomStart);
+                return true;
+            }
+
+            zone = CornerZone.Outer;
+            pairStartTicks = Math.Max(outerTopStart, outerBottomStart);
+            return true;
         }
 
-        CornerZone end = ClassifyCornerZone(side, endXNorm, endYNorm);
-        if (start != end)
+        if (outerEligible)
         {
-            return false;
+            zone = CornerZone.Outer;
+            pairStartTicks = Math.Max(outerTopStart, outerBottomStart);
+            return true;
         }
 
-        EngineKeyAction action = start switch
+        zone = CornerZone.Inner;
+        pairStartTicks = Math.Max(innerTopStart, innerBottomStart);
+        return true;
+    }
+
+    private EngineKeyAction GetCornerGestureAction(CornerZone zone)
+    {
+        return zone switch
         {
             CornerZone.Outer => _outerCornersGestureAction,
             CornerZone.Inner => _innerCornersGestureAction,
             _ => EngineKeyAction.None
         };
-        if (action.Kind == EngineActionKind.None)
-        {
-            return false;
-        }
+    }
 
-        EmitGestureAction(action, side, touchKey, nowTicks);
-        return true;
+    private static bool IsTopCorner(double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        return yNorm <= cornerThreshold;
+    }
+
+    private static bool IsBottomCorner(double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        return yNorm >= (1.0 - cornerThreshold);
     }
 
     private static CornerZone ClassifyCornerZone(TrackpadSide side, double xNorm, double yNorm)
@@ -3032,6 +3253,29 @@ internal sealed class TouchProcessorCore
         public bool Active;
         public bool Triggered;
         public TrackpadSide Side;
+        public long StartedTicks;
+    }
+
+    private struct CornerHoldGesture
+    {
+        public CornerHoldGesture(
+            bool Active,
+            bool Triggered,
+            TrackpadSide Side,
+            CornerZone Zone,
+            long StartedTicks)
+        {
+            this.Active = Active;
+            this.Triggered = Triggered;
+            this.Side = Side;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+        }
+
+        public bool Active;
+        public bool Triggered;
+        public TrackpadSide Side;
+        public CornerZone Zone;
         public long StartedTicks;
     }
 
