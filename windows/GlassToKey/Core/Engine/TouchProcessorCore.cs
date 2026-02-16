@@ -76,6 +76,15 @@ internal sealed class TouchProcessorCore
     private long _dispatchSuppressedTypingDisabled;
     private long _dispatchSuppressedRingFull;
     private PendingTapGesture _pendingTapGesture;
+    private FourFingerHoldGesture _fourFingerHoldGesture;
+    private EngineKeyAction _twoFingerTapGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerTapGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fiveFingerSwipeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fiveFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
+    private bool _fourFingerHoldUsesChordShift;
     private bool _diagnosticsEnabled;
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
     private int _diagnosticRingHead;
@@ -93,6 +102,7 @@ internal sealed class TouchProcessorCore
         _rightLayout = rightLayout;
         _keymap = keymap;
         _config = NormalizeConfig(config ?? TouchProcessorConfig.Default);
+        RefreshGestureActionsFromConfig();
     }
 
     public TouchProcessorConfig CurrentConfig => _config;
@@ -117,9 +127,17 @@ internal sealed class TouchProcessorCore
             Math.Abs(normalized.SnapRadiusPercent - _config.SnapRadiusPercent) > 0.0001 ||
             Math.Abs(normalized.SnapAmbiguityRatio - _config.SnapAmbiguityRatio) > 0.0001;
         _config = normalized;
+        RefreshGestureActionsFromConfig();
         if (rebuildBindings)
         {
             InvalidateBindings();
+        }
+
+        if (!_fourFingerHoldUsesChordShift)
+        {
+            _chordShiftLeft = false;
+            _chordShiftRight = false;
+            UpdateChordShiftKeyState(Stopwatch.GetTimestamp());
         }
     }
 
@@ -219,6 +237,7 @@ internal sealed class TouchProcessorCore
         _dispatchSuppressedTypingDisabled = 0;
         _dispatchSuppressedRingFull = 0;
         _pendingTapGesture = default;
+        _fourFingerHoldGesture = default;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
         _clockAnchorTimestampTicks = 0;
@@ -364,6 +383,7 @@ internal sealed class TouchProcessorCore
         {
             UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
         }
+        UpdateFourFingerHoldGesture(aggregate, timestampTicks);
         UpdateTapGestureState(aggregate, timestampTicks, previousContactCount);
         UpdateIntentState(aggregate, timestampTicks);
     }
@@ -815,6 +835,13 @@ internal sealed class TouchProcessorCore
         if (state.HoldTriggered)
         {
             RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
+            return;
+        }
+
+        if (!hadDispatchDown &&
+            state.BindingIndex < 0 &&
+            TryEmitCornerGestureAction(state.Side, state.StartXNorm, state.StartYNorm, state.LastXNorm, state.LastYNorm, touchKey, timestampTicks))
+        {
             return;
         }
 
@@ -1998,17 +2025,18 @@ internal sealed class TouchProcessorCore
         bool cadenceExpired = (nowTicks - _pendingTapGesture.StartedTicks) > cadenceTicks;
         if (_pendingTapGesture.CandidateValid && !suppressed && !cadenceExpired)
         {
-            EmitTapGestureClick(_pendingTapGesture.ContactCount, _pendingTapGesture.Side, nowTicks);
+            EngineKeyAction tapAction = ResolveTapGestureAction(_pendingTapGesture.ContactCount);
+            EmitGestureAction(tapAction, _pendingTapGesture.Side, touchKey: 0, nowTicks: nowTicks);
             RecordDiagnostic(
                 nowTicks,
                 EngineDiagnosticEventKind.TapGesture,
                 _pendingTapGesture.Side,
                 _intentMode,
-                DispatchEventKind.MouseButtonClick,
+                ToDiagnosticDispatchKind(tapAction),
                 DispatchSuppressReason.None,
                 TypingToggleSource.Api,
                 0,
-                _pendingTapGesture.ContactCount == 3 ? DispatchMouseButton.Right : DispatchMouseButton.Left,
+                tapAction.MouseButton,
                 _typingEnabled,
                 false,
                 _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
@@ -2048,29 +2076,150 @@ internal sealed class TouchProcessorCore
         _pendingTapGesture = default;
     }
 
-    private void EmitTapGestureClick(int contactCount, TrackpadSide side, long nowTicks)
+    private void UpdateFourFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
     {
-        DispatchMouseButton button = contactCount switch
+        if (_fourFingerHoldUsesChordShift)
         {
-            2 when _config.TwoFingerTapEnabled => DispatchMouseButton.Left,
-            3 when _config.ThreeFingerTapEnabled => DispatchMouseButton.Right,
-            _ => DispatchMouseButton.None
-        };
+            _fourFingerHoldGesture = default;
+            return;
+        }
 
-        if (button == DispatchMouseButton.None)
+        bool eligible =
+            aggregate.ContactCount == 4 &&
+            aggregate.OnKeyCount == 0 &&
+            !aggregate.KeyboardAnchor;
+        if (!eligible)
+        {
+            _fourFingerHoldGesture = default;
+            return;
+        }
+
+        TrackpadSide side = aggregate.RightContacts > aggregate.LeftContacts
+            ? TrackpadSide.Right
+            : TrackpadSide.Left;
+        if (!_fourFingerHoldGesture.Active)
+        {
+            _fourFingerHoldGesture = new FourFingerHoldGesture(
+                Active: true,
+                Triggered: false,
+                Side: side,
+                StartedTicks: nowTicks);
+            return;
+        }
+
+        if (_fourFingerHoldGesture.Triggered)
         {
             return;
         }
 
-        EnqueueDispatchEvent(
-            DispatchEventKind.MouseButtonClick,
-            0,
-            button,
-            repeatToken: 0,
-            DispatchEventFlags.None,
+        long holdTicks = MsToTicks(_config.HoldDurationMs);
+        if (nowTicks - _fourFingerHoldGesture.StartedTicks < holdTicks)
+        {
+            return;
+        }
+
+        EmitGestureAction(_fourFingerHoldGestureAction, _fourFingerHoldGesture.Side, touchKey: 0, nowTicks: nowTicks);
+        _fourFingerHoldGesture.Triggered = true;
+    }
+
+    private bool TryEmitCornerGestureAction(
+        TrackpadSide side,
+        double startXNorm,
+        double startYNorm,
+        double endXNorm,
+        double endYNorm,
+        ulong touchKey,
+        long nowTicks)
+    {
+        CornerZone start = ClassifyCornerZone(side, startXNorm, startYNorm);
+        if (start == CornerZone.None)
+        {
+            return false;
+        }
+
+        CornerZone end = ClassifyCornerZone(side, endXNorm, endYNorm);
+        if (start != end)
+        {
+            return false;
+        }
+
+        EngineKeyAction action = start switch
+        {
+            CornerZone.Outer => _outerCornersGestureAction,
+            CornerZone.Inner => _innerCornersGestureAction,
+            _ => EngineKeyAction.None
+        };
+        if (action.Kind == EngineActionKind.None)
+        {
+            return false;
+        }
+
+        EmitGestureAction(action, side, touchKey, nowTicks);
+        return true;
+    }
+
+    private static CornerZone ClassifyCornerZone(TrackpadSide side, double xNorm, double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        bool topOrBottom = yNorm <= cornerThreshold || yNorm >= (1.0 - cornerThreshold);
+        if (!topOrBottom)
+        {
+            return CornerZone.None;
+        }
+
+        bool nearLeft = xNorm <= cornerThreshold;
+        bool nearRight = xNorm >= (1.0 - cornerThreshold);
+        if (!nearLeft && !nearRight)
+        {
+            return CornerZone.None;
+        }
+
+        bool outer = side == TrackpadSide.Left ? nearLeft : nearRight;
+        if (outer)
+        {
+            return CornerZone.Outer;
+        }
+
+        bool inner = side == TrackpadSide.Left ? nearRight : nearLeft;
+        return inner ? CornerZone.Inner : CornerZone.None;
+    }
+
+    private EngineKeyAction ResolveTapGestureAction(int contactCount)
+    {
+        return contactCount switch
+        {
+            2 when _config.TwoFingerTapEnabled => _twoFingerTapGestureAction,
+            3 when _config.ThreeFingerTapEnabled => _threeFingerTapGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private static DispatchEventKind ToDiagnosticDispatchKind(EngineKeyAction action)
+    {
+        return action.Kind switch
+        {
+            EngineActionKind.Key or EngineActionKind.Continuous or EngineActionKind.KeyChord => DispatchEventKind.KeyTap,
+            EngineActionKind.Modifier => DispatchEventKind.ModifierDown,
+            EngineActionKind.MouseButton => DispatchEventKind.MouseButtonClick,
+            _ => DispatchEventKind.None
+        };
+    }
+
+    private void EmitGestureAction(EngineKeyAction action, TrackpadSide side, ulong touchKey, long nowTicks)
+    {
+        if (action.Kind == EngineActionKind.None)
+        {
+            return;
+        }
+
+        ApplyReleaseAction(
+            action,
             side,
+            touchKey,
             nowTicks,
-            dispatchLabel: button == DispatchMouseButton.Left ? "TapClickLeft" : "TapClickRight");
+            forceNorm: -1,
+            allowTypingDisabledOverride: true,
+            hapticOnDispatch: false);
     }
 
     private void ExtendTypingGrace(long nowTicks)
@@ -2177,9 +2326,11 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        double dxMm = Math.Abs((centroidX - swipe.StartX) * _config.TrackpadWidthMm);
-        double dyMm = Math.Abs((centroidY - swipe.StartY) * _config.TrackpadHeightMm);
-        if (Math.Max(dxMm, dyMm) >= FiveFingerSwipeThresholdMm)
+        double dxMm = (centroidX - swipe.StartX) * _config.TrackpadWidthMm;
+        double dyMm = (centroidY - swipe.StartY) * _config.TrackpadHeightMm;
+        double absDxMm = Math.Abs(dxMm);
+        double absDyMm = Math.Abs(dyMm);
+        if (absDxMm >= FiveFingerSwipeThresholdMm && absDxMm >= absDyMm)
         {
             swipe.Triggered = true;
             RecordDiagnostic(
@@ -2201,7 +2352,10 @@ internal sealed class TouchProcessorCore
                 _lastRawLeftContacts,
                 _lastRawRightContacts,
                 "triggered");
-            SetTypingEnabledState(!_typingEnabled, timestampTicks, TypingToggleSource.FiveFingerSwipe);
+            EngineKeyAction swipeAction = dxMm >= 0
+                ? _fiveFingerSwipeRightGestureAction
+                : _fiveFingerSwipeLeftGestureAction;
+            EmitGestureAction(swipeAction, side, touchKey: 0, nowTicks: timestampTicks);
         }
     }
 
@@ -2209,7 +2363,7 @@ internal sealed class TouchProcessorCore
     {
         bool prevLeft = _chordShiftLeft;
         bool prevRight = _chordShiftRight;
-        if (!_config.ChordShiftEnabled)
+        if (!_config.ChordShiftEnabled || !_fourFingerHoldUsesChordShift)
         {
             _chordShiftLeft = false;
             _chordShiftRight = false;
@@ -2380,7 +2534,7 @@ internal sealed class TouchProcessorCore
 
     private void UpdateChordShiftKeyState(long timestampTicks)
     {
-        bool shouldBeDown = _config.ChordShiftEnabled && (_chordShiftLeft || _chordShiftRight);
+        bool shouldBeDown = _config.ChordShiftEnabled && _fourFingerHoldUsesChordShift && (_chordShiftLeft || _chordShiftRight);
         if (shouldBeDown == _chordShiftKeyDown)
         {
             return;
@@ -2420,6 +2574,32 @@ internal sealed class TouchProcessorCore
         }
     }
 
+    private void RefreshGestureActionsFromConfig()
+    {
+        _twoFingerTapGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerTapAction);
+        _threeFingerTapGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerTapAction);
+        _fiveFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeLeftAction);
+        _fiveFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeRightAction);
+        _fourFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.FourFingerHoldAction);
+        _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
+            ? EngineKeyAction.None
+            : EngineActionResolver.ResolveActionLabel(_config.FourFingerHoldAction);
+        _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
+        _innerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.InnerCornersAction);
+    }
+
+    private static bool IsChordShiftGestureLabel(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        return action.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+               action.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
+               action.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static TouchProcessorConfig NormalizeConfig(TouchProcessorConfig config)
     {
         return config with
@@ -2432,12 +2612,29 @@ internal sealed class TouchProcessorCore
             SnapRadiusPercent = Math.Clamp(config.SnapRadiusPercent, 0, 200),
             SnapAmbiguityRatio = Math.Max(1.0, config.SnapAmbiguityRatio),
             KeyBufferMs = Math.Max(0, config.KeyBufferMs),
+            TwoFingerTapAction = NormalizeGestureAction(config.TwoFingerTapAction, "Left Click"),
+            ThreeFingerTapAction = NormalizeGestureAction(config.ThreeFingerTapAction, "Right Click"),
+            FiveFingerSwipeLeftAction = NormalizeGestureAction(config.FiveFingerSwipeLeftAction, "Typing Toggle"),
+            FiveFingerSwipeRightAction = NormalizeGestureAction(config.FiveFingerSwipeRightAction, "Typing Toggle"),
+            FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
+            OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
+            InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
             TapStaggerToleranceMs = Math.Max(0, config.TapStaggerToleranceMs),
             TapCadenceWindowMs = Math.Max(1, config.TapCadenceWindowMs),
             TapMoveThresholdMm = Math.Max(0, config.TapMoveThresholdMm),
             ForceMin = Math.Clamp(config.ForceMin, 0, 255),
             ForceCap = Math.Clamp(config.ForceCap, 0, 255)
         };
+    }
+
+    private static string NormalizeGestureAction(string? action, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return fallback;
+        }
+
+        return action.Trim();
     }
 
     private void TransitionTo(IntentMode next, long timestampTicks, string reason)
@@ -2775,6 +2972,33 @@ internal sealed class TouchProcessorCore
         public long StartedTicks;
         public long EarliestTouchTicks;
         public long LatestTouchTicks;
+    }
+
+    private struct FourFingerHoldGesture
+    {
+        public FourFingerHoldGesture(
+            bool Active,
+            bool Triggered,
+            TrackpadSide Side,
+            long StartedTicks)
+        {
+            this.Active = Active;
+            this.Triggered = Triggered;
+            this.Side = Side;
+            this.StartedTicks = StartedTicks;
+        }
+
+        public bool Active;
+        public bool Triggered;
+        public TrackpadSide Side;
+        public long StartedTicks;
+    }
+
+    private enum CornerZone : byte
+    {
+        None = 0,
+        Outer = 1,
+        Inner = 2
     }
 
     private struct FiveFingerSwipeState

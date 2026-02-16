@@ -375,6 +375,105 @@
 
             <Expander IsExpanded="True" Margin="0,12,0,0">
               <Expander.Header>
+                <TextBlock Text="Gesture Config" Foreground="#8b949e" FontSize="12" />
+              </Expander.Header>
+              <StackPanel Margin="0,6,0,0">
+                <TextBlock Text="Tap Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="2-finger tap" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="TwoFingerTapGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="3-finger tap" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="ThreeFingerTapGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+
+                <TextBlock Text="Swipe Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="5-finger swipe left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeLeftGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="5-finger swipe right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeRightGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+
+                <TextBlock Text="Hold Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="4-finger hold" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="FourFingerHoldGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+
+                <TextBlock Text="Corners" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Outer corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="OuterCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Inner corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="InnerCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+              </StackPanel>
+            </Expander>
+
+            <Expander IsExpanded="True" Margin="0,12,0,0">
+              <Expander.Header>
                 <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">

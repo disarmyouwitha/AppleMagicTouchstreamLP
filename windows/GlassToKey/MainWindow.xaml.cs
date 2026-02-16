@@ -224,6 +224,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        TwoFingerTapGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerTapGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        OuterCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        InnerCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -436,6 +443,35 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         KeymapPrimaryCombo.ItemsSource = CreateGroupedKeyActionView();
         KeymapHoldCombo.ItemsSource = CreateGroupedKeyActionView();
+        TwoFingerTapGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        ThreeFingerTapGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        FiveFingerSwipeLeftGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        FiveFingerSwipeRightGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        FourFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        OuterCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        InnerCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+
+        string twoFingerTapAction = NormalizeGestureActionForUi(_settings.TwoFingerTapAction, "Left Click");
+        string threeFingerTapAction = NormalizeGestureActionForUi(_settings.ThreeFingerTapAction, "Right Click");
+        string fiveFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeLeftAction, "Typing Toggle");
+        string fiveFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeRightAction, "Typing Toggle");
+        string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Chordal Shift");
+        string outerCornersAction = NormalizeGestureActionForUi(_settings.OuterCornersAction, "None");
+        string innerCornersAction = NormalizeGestureActionForUi(_settings.InnerCornersAction, "None");
+        _settings.TwoFingerTapAction = twoFingerTapAction;
+        _settings.ThreeFingerTapAction = threeFingerTapAction;
+        _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
+        _settings.FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        _settings.FourFingerHoldAction = fourFingerHoldAction;
+        _settings.OuterCornersAction = outerCornersAction;
+        _settings.InnerCornersAction = innerCornersAction;
+        TwoFingerTapGestureCombo.SelectedValue = twoFingerTapAction;
+        ThreeFingerTapGestureCombo.SelectedValue = threeFingerTapAction;
+        FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
+        FiveFingerSwipeRightGestureCombo.SelectedValue = fiveFingerSwipeRightAction;
+        FourFingerHoldGestureCombo.SelectedValue = fourFingerHoldAction;
+        OuterCornersGestureCombo.SelectedValue = outerCornersAction;
+        InnerCornersGestureCombo.SelectedValue = innerCornersAction;
 
         LayoutPresetCombo.Items.Clear();
         foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.All)
@@ -479,6 +515,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ListCollectionView view = new(_keyActionOptions);
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(KeyActionOption.Group)));
         return view;
+    }
+
+    private string NormalizeGestureActionForUi(string? action, string fallback)
+    {
+        string normalized = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
+        EnsureActionOption(normalized);
+        return normalized;
+    }
+
+    private static string ReadGestureActionSelection(ComboBox combo, string fallback)
+    {
+        string? selected = combo.SelectedValue as string ?? combo.Text;
+        return string.IsNullOrWhiteSpace(selected) ? fallback : selected.Trim();
     }
 
     private void HookTuningAutoApplyHandlers()
@@ -533,6 +582,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     }
 
     private void OnModeSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsEvents)
+        {
+            return;
+        }
+
+        ApplySettingsFromUi();
+    }
+
+    private void OnGestureActionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressSettingsEvents)
         {
@@ -650,6 +709,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TapClickEnabled = TapClickEnabledCheck.IsChecked == true;
         _settings.TwoFingerTapEnabled = _settings.TapClickEnabled;
         _settings.ThreeFingerTapEnabled = _settings.TapClickEnabled;
+        _settings.TwoFingerTapAction = ReadGestureActionSelection(TwoFingerTapGestureCombo, "Left Click");
+        _settings.ThreeFingerTapAction = ReadGestureActionSelection(ThreeFingerTapGestureCombo, "Right Click");
+        _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
+        _settings.FiveFingerSwipeRightAction = ReadGestureActionSelection(FiveFingerSwipeRightGestureCombo, "Typing Toggle");
+        _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Chordal Shift");
+        _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
+        _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
@@ -1598,10 +1664,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string[] modifiersAndModes =
         {
             "Shift",
+            "Chordal Shift",
             "Ctrl",
             "Alt",
             "LWin",
             "RWin",
+            "Typing Toggle",
             "TT"
         };
         for (int i = 0; i < modifiersAndModes.Length; i++)

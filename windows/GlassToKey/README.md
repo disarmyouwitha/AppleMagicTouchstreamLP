@@ -29,9 +29,9 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
 - Force Cap (f:, 0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Cap]` (inclusive).
   - Setting `Force Cap` to `0` blocks all key dispatches.
-- Tap Click: two-finger tap = left click, three-finger tap = right click
+- Gesture Config: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 4-finger hold, and outer/inner corner taps can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
-- Keyboard Mode: When enabled, the typing toggle (and 5‑finger swipe) switches between **full keyboard** and **mouse‑only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window) and tap‑click gestures are disabled. Blocking clicks requires Input Monitoring/Accessibility permission.
+- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window), and tap gestures only fire when `Tap Click` is enabled. Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
 GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
@@ -100,3 +100,4 @@ Notes:
 - `.atpcap` records embed side hints (`left`/`right`/`unknown`) and decoder profile (`official`/`opensource`) metadata for deterministic replay routing.
 - Current capture format version is `2` (`ATPCAP01` + v2 record headers); replay expects v2 captures.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
+

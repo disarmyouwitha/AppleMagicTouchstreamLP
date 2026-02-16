@@ -22,6 +22,13 @@ public sealed class UserSettings
     public bool TapClickEnabled { get; set; } = true;
     public bool TwoFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerTapEnabled { get; set; } = true;
+    public string TwoFingerTapAction { get; set; } = "Left Click";
+    public string ThreeFingerTapAction { get; set; } = "Right Click";
+    public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
+    public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
+    public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string OuterCornersAction { get; set; } = "None";
+    public string InnerCornersAction { get; set; } = "None";
     public bool HapticsEnabled { get; set; } = true;
     public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
@@ -81,6 +88,13 @@ public sealed class UserSettings
         TapClickEnabled = source.TapClickEnabled;
         TwoFingerTapEnabled = source.TwoFingerTapEnabled;
         ThreeFingerTapEnabled = source.ThreeFingerTapEnabled;
+        TwoFingerTapAction = source.TwoFingerTapAction;
+        ThreeFingerTapAction = source.ThreeFingerTapAction;
+        FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
+        FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
+        FourFingerHoldAction = source.FourFingerHoldAction;
+        OuterCornersAction = source.OuterCornersAction;
+        InnerCornersAction = source.InnerCornersAction;
         HapticsEnabled = source.HapticsEnabled;
         HapticsStrength = source.HapticsStrength;
         HapticsMinIntervalMs = source.HapticsMinIntervalMs;
@@ -227,6 +241,21 @@ public sealed class UserSettings
             ThreeFingerTapEnabled = TapClickEnabled;
             changed = true;
         }
+
+        changed |= NormalizeGestureAction(TwoFingerTapAction, "Left Click", out string twoFingerTapAction);
+        TwoFingerTapAction = twoFingerTapAction;
+        changed |= NormalizeGestureAction(ThreeFingerTapAction, "Right Click", out string threeFingerTapAction);
+        ThreeFingerTapAction = threeFingerTapAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeLeftAction, "Typing Toggle", out string fiveFingerSwipeLeftAction);
+        FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeRightAction, "Typing Toggle", out string fiveFingerSwipeRightAction);
+        FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        changed |= NormalizeGestureAction(FourFingerHoldAction, "Chordal Shift", out string fourFingerHoldAction);
+        FourFingerHoldAction = fourFingerHoldAction;
+        changed |= NormalizeGestureAction(OuterCornersAction, "None", out string outerCornersAction);
+        OuterCornersAction = outerCornersAction;
+        changed |= NormalizeGestureAction(InnerCornersAction, "None", out string innerCornersAction);
+        InnerCornersAction = innerCornersAction;
 
         int normalizedHapticsInterval = Math.Clamp(HapticsMinIntervalMs, 0, 500);
         if (normalizedHapticsInterval != HapticsMinIntervalMs)
@@ -751,5 +780,18 @@ public sealed class UserSettings
 
         value = default;
         return false;
+    }
+
+    private static bool NormalizeGestureAction(string? action, string fallback, out string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            normalized = fallback;
+            return true;
+        }
+
+        string trimmed = action.Trim();
+        normalized = trimmed;
+        return !string.Equals(trimmed, action, StringComparison.Ordinal);
     }
 }
