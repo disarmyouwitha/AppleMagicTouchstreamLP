@@ -58,6 +58,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Tap gesture tests failed: {tapFailure}");
         }
 
+        if (!RunCornerHoldGestureTests(out string cornerFailure))
+        {
+            return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
+        }
+
         if (!RunFiveFingerSwipeTests(out string fiveFingerFailure))
         {
             return new SelfTestResult(false, $"Five-finger swipe tests failed: {fiveFingerFailure}");
@@ -1701,6 +1706,12 @@ internal static class SelfTestRunner
     {
         const ushort maxX = 7612;
         const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        NormalizedRect keyRect = leftLayout.Rects[0][2];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
         // Positive: two-finger single tap -> left click.
         if (!RunTapScenario(
@@ -1786,6 +1797,40 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Priority: three-finger tap should still win even when one touch is on a key.
+        KeymapStore priorityKeymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore priorityCore = TouchProcessorFactory.CreateDefault(priorityKeymap);
+        using DispatchEventQueue priorityQueue = new(capacity: 2048);
+        using TouchProcessorActor priorityActor = new(priorityCore, dispatchQueue: priorityQueue);
+        long priorityNow = 0;
+        InputFrame priorityDown = MakeFrame(contactCount: 3, id0: 14, x0: keyX, y0: keyY, id1: 15, x1: 420, y1: 260, id2: 16, x2: 760, y2: 300);
+        InputFrame priorityUp = MakeFrame(contactCount: 0);
+        priorityActor.Post(TrackpadSide.Left, in priorityDown, maxX, maxY, priorityNow);
+        priorityNow += MsToTicks(22);
+        priorityActor.Post(TrackpadSide.Left, in priorityUp, maxX, maxY, priorityNow);
+        priorityActor.WaitForIdle();
+
+        int priorityRightClicks = 0;
+        int priorityKeyTaps = 0;
+        while (priorityQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick &&
+                dispatchEvent.MouseButton == DispatchMouseButton.Right)
+            {
+                priorityRightClicks++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                priorityKeyTaps++;
+            }
+        }
+
+        if (priorityRightClicks != 1 || priorityKeyTaps != 0)
+        {
+            failure = $"three-finger tap priority mismatch (rightClicks={priorityRightClicks}, keyTaps={priorityKeyTaps}, expected=1/0)";
+            return false;
+        }
+
         // Suppression: keyboard-only mode disables tap-click.
         if (!RunTapScenario(
             configure: core =>
@@ -1839,6 +1884,84 @@ internal static class SelfTestRunner
             expectedRightClicks: 0,
             out failure))
         {
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunCornerHoldGestureTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        if (!TryFindOuterCornerOffKeyPoint(leftLayout, out double cornerXNorm, out double cornerYNorm))
+        {
+            failure = "failed to find an off-key outer-corner test point";
+            return false;
+        }
+
+        ushort cornerX = (ushort)Math.Clamp((int)Math.Round(cornerXNorm * maxX), 1, maxX - 1);
+        ushort cornerY = (ushort)Math.Clamp((int)Math.Round(cornerYNorm * maxY), 1, maxY - 1);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            OuterCornersAction = "A",
+            HoldDurationMs = 120.0,
+            SnapRadiusPercent = 0.0,
+            DragCancelMm = 1000.0
+        });
+
+        using DispatchEventQueue queue = new(capacity: 2048);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame down = MakeFrame(contactCount: 1, id0: 90, x0: cornerX, y0: cornerY);
+        InputFrame up = MakeFrame(contactCount: 0);
+
+        // Below hold duration: should not emit.
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(70);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+
+        // Above hold duration: should emit configured corner action once.
+        now += MsToTicks(60);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(135);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int cornerATaps = 0;
+        int otherKeyTaps = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.VirtualKey == 0x41)
+            {
+                cornerATaps++;
+            }
+            else
+            {
+                otherKeyTaps++;
+            }
+        }
+
+        if (cornerATaps != 1 || otherKeyTaps != 0)
+        {
+            failure = $"corner hold dispatch mismatch (A={cornerATaps}, otherKeyTaps={otherKeyTaps}, expected=1/0)";
             return false;
         }
 
@@ -1987,6 +2110,40 @@ internal static class SelfTestRunner
             }
         }
 
+        return false;
+    }
+
+    private static bool TryFindOuterCornerOffKeyPoint(KeyLayout layout, out double xNorm, out double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        for (double y = 0.01; y <= (cornerThreshold - 0.005); y += 0.005)
+        {
+            for (double x = 0.01; x <= (cornerThreshold - 0.005); x += 0.005)
+            {
+                if (!IsInsideAnyKeyRect(layout, x, y))
+                {
+                    xNorm = x;
+                    yNorm = y;
+                    return true;
+                }
+            }
+        }
+
+        for (double y = (1.0 - cornerThreshold + 0.005); y <= 0.99; y += 0.005)
+        {
+            for (double x = 0.01; x <= (cornerThreshold - 0.005); x += 0.005)
+            {
+                if (!IsInsideAnyKeyRect(layout, x, y))
+                {
+                    xNorm = x;
+                    yNorm = y;
+                    return true;
+                }
+            }
+        }
+
+        xNorm = 0;
+        yNorm = 0;
         return false;
     }
 

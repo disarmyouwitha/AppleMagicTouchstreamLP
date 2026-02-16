@@ -10,6 +10,13 @@
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE!)
 
 ## Gesture Config:
+[1] If 3+ fingers are on the touchpad we are in gesture mode, even if we are on keys. When this happens we should consume all keys so no keys are dispatched on release. This is currently happening on 3finger tap and holds on keys and 4-finger hold on keys (except for chordal shift, which works exactly how I want it to work for the rest of them) 3plus_finger_gesture_dispatch.atpcap
+
+[2] CORNERS: You did something intersting, but wrong. You made each corner an individual hold that triggers individually but the actual gesture is like this: Inner: BOTH top and bottom corners are held at the same time for the inner corners. Outer: BOTH top and bottom corners are held at the same time for the outer corners. Right now, Tap-click also interferes with this gesture. 
+
+[3] Can Capture and Replay open in Fullscreen mode?
+
+
 - If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
 
 Working: 5-finger swipe left/right is perfect!

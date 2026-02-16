@@ -29,7 +29,7 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
 - Force Cap (f:, 0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Cap]` (inclusive).
   - Setting `Force Cap` to `0` blocks all key dispatches.
-- Gesture Config: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 4-finger hold, and outer/inner corner taps can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
+- Gesture Config: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 4-finger hold, and outer/inner corner holds can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 - Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window), and tap gestures only fire when `Tap Click` is enabled. Blocking clicks requires Input Monitoring/Accessibility permission.
 

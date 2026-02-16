@@ -593,13 +593,16 @@ internal sealed class TouchProcessorCore
                 existing.PeakForceNorm = forceNorm;
                 if (!existing.HasHoldAction)
                 {
-                    TryBeginPressAction(
-                        rebound.Mapping.Primary,
-                        touchKey,
-                        timestampTicks,
-                        ref existing,
-                        existing.PeakForceNorm,
-                        hapticOnDispatch: IsCustomBinding(rebound));
+                    if (!IsThreePlusGesturePriorityActive(side))
+                    {
+                        TryBeginPressAction(
+                            rebound.Mapping.Primary,
+                            touchKey,
+                            timestampTicks,
+                            ref existing,
+                            existing.PeakForceNorm,
+                            hapticOnDispatch: IsCustomBinding(rebound));
+                    }
                 }
             }
 
@@ -619,6 +622,7 @@ internal sealed class TouchProcessorCore
             {
                 long holdTicks = MsToTicks(_config.HoldDurationMs);
                 if (existing.MaxDistanceMm <= _config.DragCancelMm &&
+                    !IsThreePlusGesturePriorityActive(side) &&
                     timestampTicks - existing.StartTicks >= holdTicks)
                 {
                     existing.Lifecycle = EngineTouchLifecycle.Active;
@@ -717,13 +721,16 @@ internal sealed class TouchProcessorCore
 
         if (!next.HasHoldAction)
         {
-            TryBeginPressAction(
-                binding.Mapping.Primary,
-                touchKey,
-                timestampTicks,
-                ref next,
-                next.PeakForceNorm,
-                hapticOnDispatch: IsCustomBinding(binding));
+            if (!IsThreePlusGesturePriorityActive(side))
+            {
+                TryBeginPressAction(
+                    binding.Mapping.Primary,
+                    touchKey,
+                    timestampTicks,
+                    ref next,
+                    next.PeakForceNorm,
+                    hapticOnDispatch: IsCustomBinding(binding));
+            }
             _touchStates.Set(touchKey, next);
         }
     }
@@ -837,9 +844,14 @@ internal sealed class TouchProcessorCore
             RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
             return;
         }
+        if (IsThreePlusGesturePriorityActive(state.Side))
+        {
+            RecordReleaseDropped(state.Side, action, timestampTicks, "gesture_priority_active");
+            return;
+        }
 
         if (!hadDispatchDown &&
-            TryEmitCornerGestureAction(state.Side, state.StartXNorm, state.StartYNorm, state.LastXNorm, state.LastYNorm, touchKey, timestampTicks))
+            TryEmitCornerGestureAction(state.Side, state.StartXNorm, state.StartYNorm, state.LastXNorm, state.LastYNorm, touchKey, state.StartTicks, timestampTicks))
         {
             return;
         }
@@ -938,7 +950,32 @@ internal sealed class TouchProcessorCore
 
     private bool ShouldTrackOffKeyTouchForSnap()
     {
-        return ShouldAttemptSnap();
+        return ShouldAttemptSnap() || AreCornerGesturesEnabled();
+    }
+
+    private bool AreCornerGesturesEnabled()
+    {
+        return _outerCornersGestureAction.Kind != EngineActionKind.None ||
+               _innerCornersGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool IsThreePlusGesturePriorityActive(TrackpadSide side)
+    {
+        int sideRawContacts = side == TrackpadSide.Left ? _lastRawLeftContacts : _lastRawRightContacts;
+        if (sideRawContacts >= 3)
+        {
+            return true;
+        }
+
+        if (_fourFingerHoldGesture.Active && _fourFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        ref FiveFingerSwipeState swipe = ref side == TrackpadSide.Left
+            ? ref _fiveFingerSwipeLeft
+            : ref _fiveFingerSwipeRight;
+        return swipe.Active;
     }
 
     private bool TrySnapBinding(TrackpadSide side, double xNorm, double yNorm, out EngineKeyBinding binding)
@@ -1941,11 +1978,12 @@ internal sealed class TouchProcessorCore
         bool releaseBoundary = aggregate.ContactCount == 0 && previousContactCount > 0;
         bool candidateContactCount = (_config.TwoFingerTapEnabled && aggregate.ContactCount == 2) ||
                                      (_config.ThreeFingerTapEnabled && aggregate.ContactCount == 3);
+        bool allowOnKeyForTapCandidate = aggregate.ContactCount >= 3;
         bool couldStartCandidate = previousContactCount <= 1 &&
-                                   candidateContactCount &&
-                                   aggregate.OnKeyCount == 0 &&
-                                   !aggregate.KeyboardAnchor &&
-                                   (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) <= staggerTicks;
+                                    candidateContactCount &&
+                                    (allowOnKeyForTapCandidate || aggregate.OnKeyCount == 0) &&
+                                    !aggregate.KeyboardAnchor &&
+                                    (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) <= staggerTicks;
 
         if (!_pendingTapGesture.Active && couldStartCandidate)
         {
@@ -2125,8 +2163,15 @@ internal sealed class TouchProcessorCore
         double endXNorm,
         double endYNorm,
         ulong touchKey,
+        long touchStartTicks,
         long nowTicks)
     {
+        long holdTicks = MsToTicks(_config.HoldDurationMs);
+        if (nowTicks - touchStartTicks < holdTicks)
+        {
+            return false;
+        }
+
         CornerZone start = ClassifyCornerZone(side, startXNorm, startYNorm);
         if (start == CornerZone.None)
         {
