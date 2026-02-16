@@ -1,4 +1,5 @@
 ## TODO:
+- 2 / 3 finger tap should not happen if drag cancel is triggered! (scrolling/swiping, not holding)
 - Can we add 2-finger and 3-finger hold gestures to the "Hold Gestures" section? 2 and 3 finger hold gestures should trigger when the user keeps the specified number of fingers on the board for Hold(ms) multifinger_hold.atpcap
 - 2 and 3-finger taps do not trigger well.. can you help me out? Stagger? Recording?
 - Revisit tap-click.. it feels awful. Settings? Maybe 2-finger and 3-finger hold to trigger click??
@@ -10,3 +11,6 @@
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE?!)
 ---
 - REFACTOR
+
+## FUTURE:
+- `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)
