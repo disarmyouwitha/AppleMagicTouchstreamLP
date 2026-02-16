@@ -1,6 +1,4 @@
 ## Gestures
-- How hard would it be for you to write something to automaticaly take a capture and make a gesture, just like you did? 
-
 **Force Gestures** (ph based) Force click1 (ph:1), Force Click2 (ph:2), Force Click3?    
 **Click Corners** upper-left,upper-right,lower-left,lower-right corner
 
@@ -20,3 +18,4 @@
 - REFACTOR
 - [Resting Fingers mode]: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE!)
+**Gestures:** Automated Gesture extraction
