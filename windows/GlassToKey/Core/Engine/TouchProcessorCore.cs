@@ -26,6 +26,7 @@ internal sealed class TouchProcessorCore
     private const double ForceClickMaxDurationMs = 2000.0;
     private const double CornerClickZoneThreshold = 0.14;
     private const int CornerClickForceThresholdNorm = 125;
+    private const double CornerClickMaxDurationMs = 2000.0;
     private const int ChordShiftContactThreshold = 4;
     private const double ChordSourceStaleTimeoutMs = 200.0;
     private const ushort ShiftVirtualKey = 0x10;
@@ -1135,7 +1136,9 @@ internal sealed class TouchProcessorCore
     private bool IsForceClickGesturePriorityActive(TrackpadSide side)
     {
         ForceClickGesture gesture = side == TrackpadSide.Left ? _forceClickGestureLeft : _forceClickGestureRight;
-        return gesture.Active && gesture.CandidateValid;
+        return gesture.Active &&
+               gesture.CandidateValid &&
+               ResolveForceClickGestureAction(gesture.PeakForceNorm).Kind != EngineActionKind.None;
     }
 
     private bool IsCornerClickTapGesturePriorityActive(TrackpadSide side)
@@ -2637,7 +2640,7 @@ internal sealed class TouchProcessorCore
                 gesture.Active &&
                 gesture.CandidateValid &&
                 gesture.ForceArmed &&
-                (nowTicks - gesture.StartedTicks) <= MsToTicks(_config.TapCadenceWindowMs))
+                (nowTicks - gesture.StartedTicks) <= MsToTicks(CornerClickMaxDurationMs))
             {
                 EngineKeyAction action = GetCornerClickTapGestureAction(gesture.Zone);
                 EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
@@ -2649,7 +2652,7 @@ internal sealed class TouchProcessorCore
 
         if (!gesture.Active)
         {
-            if (keyboardAnchor || !TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone))
+            if (!TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone))
             {
                 return;
             }
@@ -2694,8 +2697,8 @@ internal sealed class TouchProcessorCore
             gesture.MaxDistanceMm = movementMm;
         }
 
-        if (gesture.MaxDistanceMm > _config.TapMoveThresholdMm ||
-            (nowTicks - gesture.StartedTicks) > MsToTicks(_config.TapCadenceWindowMs) ||
+        if (gesture.MaxDistanceMm > _config.DragCancelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(CornerClickMaxDurationMs) ||
             !TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone currentZone) ||
             currentZone != gesture.Zone)
         {
