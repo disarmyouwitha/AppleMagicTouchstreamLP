@@ -1,17 +1,8 @@
 ## GlassToKey
 GlassToKey for Windows.
 
-## Intention
-An attempt to use the Apple Magic Trackpad as a keyboard (and mouse!) like the TouchStream LP~
-Since it is built on the same technology, I thought it would be fun to try and create an open source version!
-
-<img src="../../touchstreamLP.jpg" alt="Fingerworks Touchstream LP" width="900px" />
-
-It's just Codex and I vibe coding~ You can submit an issue but this is really just a repo for me, you might have to fork and extend!
-
 ## Usage
-
-Build the GlassToKey project and you are good to go! A status bar indicator shows the active mode:
+A status bar indicator shows the active mode:
 - **Green**: Mixed mode (typing + mouse intent)
 - **Purple**: Keyboard mode (full keyboard, no mouse intent)
 - **Red**: Mouse-only mode (typing disabled)
@@ -34,64 +25,35 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
 - Drag cancel (mm): How far you need to move before tap becomes a drag
 - Intent Move (mm): Movement threshold before a touch is treated as mouse intent.
 - Intent Velocity (mm/s): Speed threshold before a touch is treated as mouse intent.
-- Tap Click: two-finger tap = left click, three-finger tap = right click
+- Force Min (0-255): If `f` is below this value, key dispatch is blocked.
+- Force Max (0-255): If `f` is above this value, key dispatch is blocked.
+  - Key dispatch is allowed only when `f` is within `[Force Min, Force Max]` (inclusive).
+  - Setting `Force Max` to `0` blocks all key dispatches.
+- Gesture Tuning: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 4-finger hold, and outer/inner corner holds can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
+  - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
-- Keyboard Mode: When enabled, the typing toggle (and 5‑finger swipe) switches between **full keyboard** and **mouse‑only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window) and tap‑click gestures are disabled. Blocking clicks requires Input Monitoring/Accessibility permission.
+- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window), and tap gestures only fire when the corresponding 2-finger/3-finger gesture action is assigned (not `None`). Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
 GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
 
 - **Idle (`idle`)**: No active contacts. Any touch that begins on a key enters `keyCandidate`; otherwise it enters `mouseCandidate`.
-- **KeyCandidate (`cand`)**: A short buffer window (fixed at 40ms) watches for mouse-like motion. If the touch stays within thresholds, it becomes `typingCommitted`.
+- **KeyCandidate (`cand`)**: A short buffer window (fixed at 20ms) watches for mouse-like motion. If the touch stays within thresholds, it becomes `typingCommitted`.
 - **TypingCommitted (`typing`)**: Key dispatches are allowed. Typing Grace keeps this state alive for a short window after a key is released.
-- **MouseCandidate (`mouse`)**: Short buffer window (fixed at 40ms) watching for mouse-like motion. If motion exceeds thresholds or the buffer elapses, it becomes `mouseActive`.
+- **MouseCandidate (`mouse`)**: Short buffer window (fixed at 20ms) watching for mouse-like motion. If motion exceeds thresholds or the buffer elapses, it becomes `mouseActive`.
 - **MouseActive (`mouse`)**: Typing is suppressed while mouse intent is active.
-- **GestureCandidate (`gest`)**: Multi-finger gesture guard. If 2+ touches begin within the 40ms buffer (or 3+ touches arrive together), typing is suppressed and intent displays as gesture until the contact count drops.
+- **GestureCandidate (`gest`)**: Multi-finger gesture guard. If 2+ touches begin within the 20ms buffer (or 3+ touches arrive together), typing is suppressed and intent displays as gesture until the contact count drops.
 
 Transitions and notes:
 - **Typing Grace** extends `typingCommitted` after a key dispatch, even if all fingers lift.
 - **Tap/Drag** immediately disqualifies the touch and forces `mouseActive`.
 - **GestureCandidate** enters when 2+ touches start within the key buffer window (or 3+ simultaneous touches) and exits back to `idle` once fewer than two contacts remain.
 
-## Button Edge Helpers
-For click/button-driven features, use the runtime button edge helpers instead of recomputing transitions in feature code:
-
-- `Core/Input/InputFrame.cs`: `InputFrame.IsButtonPressed` convenience (`IsButtonClicked != 0`).
-- `Core/Input/ButtonEdgeTracker.cs`:
-  - `ButtonEdgeTracker`: zero-allocation per-frame transition tracker.
-  - `ButtonEdgeState`: `IsPressed`, `JustPressed`, `JustReleased`, `Changed`, `HasHistory`.
-- First sample has no history (`HasHistory=false`), so it never reports a synthetic edge.
-- Shared runtime computes edges once per side on the hot path and forwards them through:
-  - `IRuntimeFrameObserver.OnRuntimeFrame(TrackpadSide side, in InputFrame frame, in ButtonEdgeState buttonState, RawInputDeviceTag tag)`
-
-## Official Force Signals (Experimental)
-For official USB-C `usage=0x00/0x00`, the decoder now exposes reverse-engineered force-phase signals per contact:
-
-- `p`: pressure-like byte from `slot+6` (`0..255`)
-- `ph`: phase/state byte from `slot+7` (observed `0..3`)
-- `fn`: staged normalized force from `p+ph` using `Core/Input/ForceNormalizer.cs`:
-  - `ph=0`: `0..255`
-  - `ph=1`: `255..510`
-  - `ph=2`: `510..765`
-  - `ph=3`: `765..985` (caps `p` at `220`)
-
-Visualizer debug:
-- per-touch labels show `p`, `ph`, `fn`.
-- footer debug (`force dbg`) shows `btn`, `ph`, `p`, `fn`, and pulse counter.
-- this overlay is intentionally experimental and can be removed once semantics are finalized.
 
 ## Build
 ```
 dotnet build GlassToKey\GlassToKey.csproj -c Release
 ```
-
-## Run
-```
-dotnet run --project GlassToKey\GlassToKey.csproj -c Release
-```
-
-- Default live launch starts in tray mode (status app) without opening the visualizer.
-- Use the tray icon `Open Config` action or `--config` to open the visualizer immediately.
 
 
 ### Optional arguments
@@ -101,6 +63,7 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--capture <path>`: Write captured reports to binary `.atpcap` format.
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
+  - Capture/replay UI sessions launch maximized for full-screen inspection.
 - `--relaunch-tray-on-close`: Internal flag used by tray-initiated capture/replay to relaunch normal tray mode when the window closes.
 - `--replay-speed <x>`: Initial replay speed multiplier (for example: `0.5`, `1`, `2`).
 - `--fixture <fixturePath>`: Optional expected replay fingerprint/counts JSON (also supports intent fingerprint + transition count).
@@ -111,12 +74,26 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
-- `--selftest`: Run parser/button-edge/replay smoke tests and exit.
+- `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, tap/click gesture, five-finger swipe) and exit.
 
-## Haptics
-- Haptics are driven by the trackpad's HID **Actuator** interface on supported devices.
-- Configure haptics in the UI under `Typing Tuning` via `Haptic Strength` (Off/Low/Med/High).
-- Implementation notes for other projects: `GlassToKey/OFFICIAL_HAPTICS.md`.
+### Self-Tests
+- Entry point: `Core/Diagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --selftest`).
+- Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, tap/click gesture recognition and suppression, and five-finger swipe toggle behavior.
+- Data source is primarily synthetic and deterministic: tests build `InputFrame` sequences in memory and assert emitted snapshots/events.
+- Replay self-tests also generate a temporary synthetic `.atpcap` capture on disk, then replay and validate expected fingerprints/counters.
+- Recorded captures are still supported for manual or fixture-based replay via `--capture`, `--replay`, and `--fixture`, but they are not required for the built-in self-test pass.
+
+### Generate Replay Fixture From Capture
+1. Capture or choose a replay file (`.atpcap`).
+2. Generate fixture JSON:
+   - `powershell -ExecutionPolicy Bypass -File GlassToKey\fixtures\replay\New-ReplayFixture.ps1 -CapturePath GlassToKey\fixtures\replay\your_capture.atpcap -RelativeCapturePath`
+3. Validate replay against the generated fixture:
+   - `dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --replay GlassToKey\fixtures\replay\your_capture.atpcap --fixture GlassToKey\fixtures\replay\your_capture.fixture.json`
+
+Notes:
+- If `-FixturePath` is omitted, the script writes `<capture-name>.fixture.json` next to the capture.
+- Use `-ProjectPath` if `GlassToKey.csproj` is not at the default relative path.
+
 
 ## Files Created at Runtime
 - `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
@@ -126,20 +103,3 @@ dotnet run --project GlassToKey\GlassToKey.csproj -c Release
 - Current capture format version is `2` (`ATPCAP01` + v2 record headers); replay expects v2 captures.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
 
-## Files
-- `App.xaml` / `App.xaml.cs`: App bootstrap + exception dialog.
-- `StatusTrayController.cs`: tray icon/menu (`Config...`, separator, `Capture`, `Replay`, separator, `Restart`, `Exit`).
-- `TouchRuntimeService.cs`: background runtime host for WM_INPUT + engine + dispatch.
-- `RuntimeObserverContracts.cs`: runtime mode + frame observer contracts for live visualization mirroring.
-- `RuntimeConfigurationFactory.cs`: shared settings-to-layout/config builders for UI/runtime parity.
-- `StartupRegistration.cs`: Windows startup (`HKCU\\...\\Run`) registration helper.
-- `MainWindow.xaml` / `MainWindow.xaml.cs`: secondary config/visualizer UI (plus replay UI path).
-- `RawInputInterop.cs`: Raw Input registration + device enumeration.
-- `PtpReport.cs`: zero-allocation report parsing.
-- `Core/Input/InputFrame.cs`: fixed-capacity frame/contact structs for engine handoff.
-- `Core/Input/ForceNormalizer.cs`: staged `p+ph` to `fn` helper (`0..985`).
-- `Core/Input/ButtonEdgeTracker.cs`: hot-path button pressed/down/up edge tracking helpers.
-- `Core/Engine/*`: touch table, binding index, action model, `TouchProcessor` core + actor queue.
-- `Core/Diagnostics/*`: capture format, replay runner, self-tests, frame metrics.
-- `TouchState.cs`: Thread-safe state container.
-- `TouchView.cs`: WPF drawing.

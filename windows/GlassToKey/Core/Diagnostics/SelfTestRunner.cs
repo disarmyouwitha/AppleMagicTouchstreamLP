@@ -58,6 +58,16 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Tap gesture tests failed: {tapFailure}");
         }
 
+        if (!RunThreePlusGesturePriorityTests(out string threePlusFailure))
+        {
+            return new SelfTestResult(false, $"Three-plus gesture priority tests failed: {threePlusFailure}");
+        }
+
+        if (!RunCornerHoldGestureTests(out string cornerFailure))
+        {
+            return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
+        }
+
         if (!RunFiveFingerSwipeTests(out string fiveFingerFailure))
         {
             return new SelfTestResult(false, $"Five-finger swipe tests failed: {fiveFingerFailure}");
@@ -1247,6 +1257,120 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // MO() bypass: if a key touch starts before MO goes active, release should still resolve on the MO layer.
+        KeymapStore momentaryBypassKeymap = KeymapStore.LoadBundledDefault();
+        string moStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 0);
+        string moTargetStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
+        momentaryBypassKeymap.Mappings[0][moStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "MO(1)" },
+            Hold = null
+        };
+        momentaryBypassKeymap.Mappings[0][moTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        momentaryBypassKeymap.Mappings[1][moTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        NormalizedRect moRect = leftLayout.Rects[0][0];
+        NormalizedRect moTargetRect = leftLayout.Rects[0][1];
+        ushort moX = (ushort)Math.Clamp((int)Math.Round((moRect.X + (moRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort moY = (ushort)Math.Clamp((int)Math.Round((moRect.Y + (moRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort moTargetX = (ushort)Math.Clamp((int)Math.Round((moTargetRect.X + (moTargetRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort moTargetY = (ushort)Math.Clamp((int)Math.Round((moTargetRect.Y + (moTargetRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        InputFrame moTargetDown = MakeFrame(contactCount: 1, id0: 150, x0: moTargetX, y0: moTargetY);
+        InputFrame moAndTargetDown = MakeFrame(contactCount: 2, id0: 150, x0: moTargetX, y0: moTargetY, id1: 151, x1: moX, y1: moY);
+        InputFrame moOnlyDown = MakeFrame(contactCount: 1, id0: 151, x0: moX, y0: moY);
+        InputFrame moAllUp = MakeFrame(contactCount: 0);
+
+        // Sanity: MO key should actually activate layer 1 when held.
+        TouchProcessorCore moSanityCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        using DispatchEventQueue moSanityQueue = new();
+        using TouchProcessorActor moSanityActor = new(moSanityCore, dispatchQueue: moSanityQueue);
+        now = 0;
+        moSanityActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        moSanityActor.WaitForIdle();
+        TouchProcessorSnapshot moSanitySnapshot = moSanityActor.Snapshot();
+        if (moSanitySnapshot.ActiveLayer != 1 || !moSanitySnapshot.MomentaryLayerActive)
+        {
+            failure = $"MO sanity failed to activate layer 1 (snapshot={moSanitySnapshot.ToSummary()})";
+            return false;
+        }
+
+        // Mouse-only mode (typing disabled): MO should allow key dispatch.
+        TouchProcessorCore moBypassMouseCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        moBypassMouseCore.SetTypingEnabled(false);
+        using DispatchEventQueue moBypassMouseQueue = new();
+        using TouchProcessorActor moBypassMouseActor = new(moBypassMouseCore, dispatchQueue: moBypassMouseQueue);
+
+        now = 0;
+        moBypassMouseActor.Post(TrackpadSide.Left, in moTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moAndTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassMouseActor.Post(TrackpadSide.Left, in moAllUp, maxX, maxY, now);
+        moBypassMouseActor.WaitForIdle();
+        TouchProcessorSnapshot moBypassMouseSnapshot = moBypassMouseActor.Snapshot();
+
+        bool sawMouseModeBypassTap = false;
+        List<string> moBypassMouseEvents = new();
+        while (moBypassMouseQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            moBypassMouseEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                sawMouseModeBypassTap = true;
+            }
+        }
+
+        if (!sawMouseModeBypassTap)
+        {
+            failure = $"MO bypass failed in mouse-only mode (events=[{string.Join(", ", moBypassMouseEvents)}], snapshot={moBypassMouseSnapshot.ToSummary()})";
+            return false;
+        }
+
+        // Keyboard-only mode: MO should bypass keyboard-only intent lock for dispatch.
+        TouchProcessorCore moBypassKeyboardCore = TouchProcessorFactory.CreateDefault(momentaryBypassKeymap);
+        moBypassKeyboardCore.SetTypingEnabled(true);
+        moBypassKeyboardCore.SetKeyboardModeEnabled(true);
+        using DispatchEventQueue moBypassKeyboardQueue = new();
+        using TouchProcessorActor moBypassKeyboardActor = new(moBypassKeyboardCore, dispatchQueue: moBypassKeyboardQueue);
+
+        now = 0;
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moAndTargetDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moOnlyDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        moBypassKeyboardActor.Post(TrackpadSide.Left, in moAllUp, maxX, maxY, now);
+        moBypassKeyboardActor.WaitForIdle();
+
+        bool sawKeyboardModeBypassTap = false;
+        List<string> moBypassKeyboardEvents = new();
+        while (moBypassKeyboardQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            moBypassKeyboardEvents.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                sawKeyboardModeBypassTap = true;
+            }
+        }
+
+        if (!sawKeyboardModeBypassTap)
+        {
+            failure = $"MO bypass failed in keyboard-only mode (events=[{string.Join(", ", moBypassKeyboardEvents)}])";
+            return false;
+        }
+
         KeymapStore modifierKeymap = KeymapStore.LoadBundledDefault();
         string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
         modifierKeymap.Mappings[0][storageKey] = new KeyMapping
@@ -1587,6 +1711,12 @@ internal static class SelfTestRunner
     {
         const ushort maxX = 7612;
         const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        NormalizedRect keyRect = leftLayout.Rects[0][2];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
         // Positive: two-finger single tap -> left click.
         if (!RunTapScenario(
@@ -1672,6 +1802,40 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Priority: three-finger tap should still win even when one touch is on a key.
+        KeymapStore priorityKeymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore priorityCore = TouchProcessorFactory.CreateDefault(priorityKeymap);
+        using DispatchEventQueue priorityQueue = new(capacity: 2048);
+        using TouchProcessorActor priorityActor = new(priorityCore, dispatchQueue: priorityQueue);
+        long priorityNow = 0;
+        InputFrame priorityDown = MakeFrame(contactCount: 3, id0: 14, x0: keyX, y0: keyY, id1: 15, x1: 420, y1: 260, id2: 16, x2: 760, y2: 300);
+        InputFrame priorityUp = MakeFrame(contactCount: 0);
+        priorityActor.Post(TrackpadSide.Left, in priorityDown, maxX, maxY, priorityNow);
+        priorityNow += MsToTicks(22);
+        priorityActor.Post(TrackpadSide.Left, in priorityUp, maxX, maxY, priorityNow);
+        priorityActor.WaitForIdle();
+
+        int priorityRightClicks = 0;
+        int priorityKeyTaps = 0;
+        while (priorityQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick &&
+                dispatchEvent.MouseButton == DispatchMouseButton.Right)
+            {
+                priorityRightClicks++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                priorityKeyTaps++;
+            }
+        }
+
+        if (priorityRightClicks != 1 || priorityKeyTaps != 0)
+        {
+            failure = $"three-finger tap priority mismatch (rightClicks={priorityRightClicks}, keyTaps={priorityKeyTaps}, expected=1/0)";
+            return false;
+        }
+
         // Suppression: keyboard-only mode disables tap-click.
         if (!RunTapScenario(
             configure: core =>
@@ -1725,6 +1889,186 @@ internal static class SelfTestRunner
             expectedRightClicks: 0,
             out failure))
         {
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunThreePlusGesturePriorityTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        // Any 3+ contact set should suppress normal key/custom dispatch.
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore threeFingerCore = TouchProcessorFactory.CreateDefault(keymap);
+        using DispatchEventQueue threeFingerQueue = new(capacity: 4096);
+        using TouchProcessorActor threeFingerActor = new(threeFingerCore, dispatchQueue: threeFingerQueue);
+
+        NormalizedRect key0 = leftLayout.Rects[0][2];
+        NormalizedRect key1 = leftLayout.Rects[0][3];
+        NormalizedRect key2 = leftLayout.Rects[1][2];
+        ushort key0X = (ushort)Math.Clamp((int)Math.Round((key0.X + (key0.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key0Y = (ushort)Math.Clamp((int)Math.Round((key0.Y + (key0.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key1X = (ushort)Math.Clamp((int)Math.Round((key1.X + (key1.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key1Y = (ushort)Math.Clamp((int)Math.Round((key1.Y + (key1.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key2X = (ushort)Math.Clamp((int)Math.Round((key2.X + (key2.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key2Y = (ushort)Math.Clamp((int)Math.Round((key2.Y + (key2.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        long now = 0;
+        InputFrame threeDown = MakeFrame(contactCount: 3, id0: 101, x0: key0X, y0: key0Y, id1: 102, x1: key1X, y1: key1Y, id2: 103, x2: key2X, y2: key2Y);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        threeFingerActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        threeFingerActor.WaitForIdle();
+
+        int threeFingerKeyTaps = 0;
+        while (threeFingerQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                threeFingerKeyTaps++;
+            }
+        }
+
+        if (threeFingerKeyTaps != 0)
+        {
+            failure = $"three-finger priority mismatch (keyTaps={threeFingerKeyTaps}, expected=0)";
+            return false;
+        }
+
+        // Four-finger hold action should fire, and key hits under those fingers should stay suppressed.
+        TouchProcessorCore fourFingerCore = TouchProcessorFactory.CreateDefault(keymap);
+        fourFingerCore.SetTypingEnabled(true);
+        fourFingerCore.Configure(fourFingerCore.CurrentConfig with
+        {
+            FourFingerHoldAction = "Typing Toggle",
+            HoldDurationMs = 120.0
+        });
+        using DispatchEventQueue fourFingerQueue = new(capacity: 4096);
+        using TouchProcessorActor fourFingerActor = new(fourFingerCore, dispatchQueue: fourFingerQueue);
+
+        NormalizedRect key3 = leftLayout.Rects[1][3];
+        ushort key3X = (ushort)Math.Clamp((int)Math.Round((key3.X + (key3.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key3Y = (ushort)Math.Clamp((int)Math.Round((key3.Y + (key3.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        now = 0;
+        InputFrame fourDown = MakeFrame(contactCount: 4, id0: 111, x0: key0X, y0: key0Y, id1: 112, x1: key1X, y1: key1Y, id2: 113, x2: key2X, y2: key2Y, id3: 114, x3: key3X, y3: key3Y);
+        fourFingerActor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        fourFingerActor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        fourFingerActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        fourFingerActor.WaitForIdle();
+        TouchProcessorSnapshot fourFingerSnapshot = fourFingerActor.Snapshot();
+
+        int fourFingerKeyTaps = 0;
+        while (fourFingerQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                fourFingerKeyTaps++;
+            }
+        }
+
+        if (fourFingerSnapshot.TypingEnabled || fourFingerKeyTaps != 0)
+        {
+            failure = $"four-finger hold priority mismatch (typingEnabled={fourFingerSnapshot.TypingEnabled}, keyTaps={fourFingerKeyTaps}, expected=false/0)";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunCornerHoldGestureTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        if (!TryFindOuterCornerOffKeyPair(leftLayout, out double topXNorm, out double topYNorm, out double bottomXNorm, out double bottomYNorm))
+        {
+            failure = "failed to find off-key outer-corner pair points";
+            return false;
+        }
+
+        ushort topX = (ushort)Math.Clamp((int)Math.Round(topXNorm * maxX), 1, maxX - 1);
+        ushort topY = (ushort)Math.Clamp((int)Math.Round(topYNorm * maxY), 1, maxY - 1);
+        ushort bottomX = (ushort)Math.Clamp((int)Math.Round(bottomXNorm * maxX), 1, maxX - 1);
+        ushort bottomY = (ushort)Math.Clamp((int)Math.Round(bottomYNorm * maxY), 1, maxY - 1);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            OuterCornersAction = "A",
+            HoldDurationMs = 120.0,
+            SnapRadiusPercent = 0.0,
+            DragCancelMm = 1000.0
+        });
+
+        using DispatchEventQueue queue = new(capacity: 2048);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame down = MakeFrame(contactCount: 2, id0: 90, x0: topX, y0: topY, id1: 91, x1: bottomX, y1: bottomY);
+        InputFrame up = MakeFrame(contactCount: 0);
+
+        // Below hold duration: should not emit.
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(70);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+
+        // Above hold duration: should emit configured corner action once.
+        now += MsToTicks(60);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(135);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int cornerATaps = 0;
+        int otherKeyTaps = 0;
+        int cornerMouseClicks = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                cornerMouseClicks++;
+                continue;
+            }
+
+            if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.VirtualKey == 0x41)
+            {
+                cornerATaps++;
+            }
+            else
+            {
+                otherKeyTaps++;
+            }
+        }
+
+        if (cornerATaps != 1 || otherKeyTaps != 0 || cornerMouseClicks != 0)
+        {
+            failure = $"corner hold dispatch mismatch (A={cornerATaps}, otherKeyTaps={otherKeyTaps}, mouseClicks={cornerMouseClicks}, expected=1/0/0)";
             return false;
         }
 
@@ -1874,6 +2218,58 @@ internal static class SelfTestRunner
         }
 
         return false;
+    }
+
+    private static bool TryFindOuterCornerOffKeyPair(
+        KeyLayout layout,
+        out double topXNorm,
+        out double topYNorm,
+        out double bottomXNorm,
+        out double bottomYNorm)
+    {
+        const double cornerThreshold = 0.16;
+        topXNorm = 0;
+        topYNorm = 0;
+        bottomXNorm = 0;
+        bottomYNorm = 0;
+
+        for (double y = 0.01; y <= (cornerThreshold - 0.005); y += 0.005)
+        {
+            for (double x = 0.01; x <= (cornerThreshold - 0.005); x += 0.005)
+            {
+                if (!IsInsideAnyKeyRect(layout, x, y))
+                {
+                    topXNorm = x;
+                    topYNorm = y;
+                    break;
+                }
+            }
+
+            if (topXNorm > 0)
+            {
+                break;
+            }
+        }
+
+        for (double y = (1.0 - cornerThreshold + 0.005); y <= 0.99; y += 0.005)
+        {
+            for (double x = 0.01; x <= (cornerThreshold - 0.005); x += 0.005)
+            {
+                if (!IsInsideAnyKeyRect(layout, x, y))
+                {
+                    bottomXNorm = x;
+                    bottomYNorm = y;
+                    break;
+                }
+            }
+
+            if (bottomXNorm > 0)
+            {
+                break;
+            }
+        }
+
+        return topXNorm > 0 && bottomXNorm > 0;
     }
 
     private static (int Row, int Col, double DistSq) FindNearestKeyCenter(KeyLayout layout, double xNorm, double yNorm)

@@ -11,7 +11,7 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
-*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!
+*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
 
 
 ## Usage
@@ -20,18 +20,28 @@ I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstream
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
 **Useful Tips:**
-- I would turn off "tap to click" at the OS level, and turn it on within the app! (Or turn on Keyboard mode)
-- If you turn on Keyboard mode you can toggle between mouse / keyboard (Rather than mouse / mixed)
+- I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
+- In Keyboard/Mouse mode there is a hard switch between using the keyboard and mouse. (Rather than the default: Mixed/Mouse mode)
 - 5-finger left/right swipes will toggle Typing Mode on/off!
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
+
+**You can use just 1 Trackpad!**
+- I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit! Just set your AMT to one side and next time you want to type just don't move your hand from the mouse~
+- There is also a "Blank" mode where you can just use it as a Trackpad + Custom buttons
+- There is also a "Planck" mode where all 12x4 are on 1 trackpad xD (It's terrible)
 
 **Windows Pin Tray Icon:**
 - You can drag the icon from the hidden tray (`^`) to the visible tray area.
 
 **Windows Haptics:**
-- Working over USB-C!!!
-- Only works over USB-C. =x **I do not see a path forward!** 
+- Working over USB!!!
+- Only works over USB. =x **I do not see a path forward for Bluetooth Haptics on Windows!**
+
+## FUTURE:
+Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
+
+TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
@@ -46,8 +56,3 @@ Since it is built on the same technology, I thought it would be fun to try and c
 <img src="apple-magic-touchstreamlp.jpg" />
 
 <img src="splatpad.jpg" />
-
-## FUTURE:
-Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
-
-TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD

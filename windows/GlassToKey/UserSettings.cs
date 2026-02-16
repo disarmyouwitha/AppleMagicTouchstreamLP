@@ -22,6 +22,13 @@ public sealed class UserSettings
     public bool TapClickEnabled { get; set; } = true;
     public bool TwoFingerTapEnabled { get; set; } = true;
     public bool ThreeFingerTapEnabled { get; set; } = true;
+    public string TwoFingerTapAction { get; set; } = "Left Click";
+    public string ThreeFingerTapAction { get; set; } = "Right Click";
+    public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
+    public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
+    public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string OuterCornersAction { get; set; } = "None";
+    public string InnerCornersAction { get; set; } = "None";
     public bool HapticsEnabled { get; set; } = true;
     public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
@@ -38,6 +45,8 @@ public sealed class UserSettings
     public double TapStaggerToleranceMs { get; set; } = 80.0;
     public double TapCadenceWindowMs { get; set; } = 200.0;
     public double TapMoveThresholdMm { get; set; } = 3.0;
+    public int ForceMin { get; set; }
+    public int ForceCap { get; set; } = 255;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>>? ColumnSettingsByLayoutLayer { get; set; }
     public Dictionary<string, List<ColumnLayoutSettings>>? ColumnSettingsByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -79,6 +88,13 @@ public sealed class UserSettings
         TapClickEnabled = source.TapClickEnabled;
         TwoFingerTapEnabled = source.TwoFingerTapEnabled;
         ThreeFingerTapEnabled = source.ThreeFingerTapEnabled;
+        TwoFingerTapAction = source.TwoFingerTapAction;
+        ThreeFingerTapAction = source.ThreeFingerTapAction;
+        FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
+        FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
+        FourFingerHoldAction = source.FourFingerHoldAction;
+        OuterCornersAction = source.OuterCornersAction;
+        InnerCornersAction = source.InnerCornersAction;
         HapticsEnabled = source.HapticsEnabled;
         HapticsStrength = source.HapticsStrength;
         HapticsMinIntervalMs = source.HapticsMinIntervalMs;
@@ -95,6 +111,8 @@ public sealed class UserSettings
         TapStaggerToleranceMs = source.TapStaggerToleranceMs;
         TapCadenceWindowMs = source.TapCadenceWindowMs;
         TapMoveThresholdMm = source.TapMoveThresholdMm;
+        ForceMin = source.ForceMin;
+        ForceCap = source.ForceCap;
         ColumnSettingsByLayoutLayer = source.ColumnSettingsByLayoutLayer == null
             ? null
             : CloneColumnSettingsByLayoutLayer(source.ColumnSettingsByLayoutLayer);
@@ -212,15 +230,46 @@ public sealed class UserSettings
             changed = true;
         }
 
-        if (TwoFingerTapEnabled != TapClickEnabled)
+        changed |= NormalizeGestureAction(TwoFingerTapAction, "Left Click", out string twoFingerTapAction);
+        TwoFingerTapAction = twoFingerTapAction;
+        changed |= NormalizeGestureAction(ThreeFingerTapAction, "Right Click", out string threeFingerTapAction);
+        ThreeFingerTapAction = threeFingerTapAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeLeftAction, "Typing Toggle", out string fiveFingerSwipeLeftAction);
+        FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeRightAction, "Typing Toggle", out string fiveFingerSwipeRightAction);
+        FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        changed |= NormalizeGestureAction(FourFingerHoldAction, "Chordal Shift", out string fourFingerHoldAction);
+        FourFingerHoldAction = fourFingerHoldAction;
+        changed |= NormalizeGestureAction(OuterCornersAction, "None", out string outerCornersAction);
+        OuterCornersAction = outerCornersAction;
+        changed |= NormalizeGestureAction(InnerCornersAction, "None", out string innerCornersAction);
+        InnerCornersAction = innerCornersAction;
+
+        bool twoFingerTapEnabled = IsGestureActionAssigned(TwoFingerTapAction);
+        if (TwoFingerTapEnabled != twoFingerTapEnabled)
         {
-            TwoFingerTapEnabled = TapClickEnabled;
+            TwoFingerTapEnabled = twoFingerTapEnabled;
             changed = true;
         }
 
-        if (ThreeFingerTapEnabled != TapClickEnabled)
+        bool threeFingerTapEnabled = IsGestureActionAssigned(ThreeFingerTapAction);
+        if (ThreeFingerTapEnabled != threeFingerTapEnabled)
         {
-            ThreeFingerTapEnabled = TapClickEnabled;
+            ThreeFingerTapEnabled = threeFingerTapEnabled;
+            changed = true;
+        }
+
+        bool tapClickEnabled = twoFingerTapEnabled || threeFingerTapEnabled;
+        if (TapClickEnabled != tapClickEnabled)
+        {
+            TapClickEnabled = tapClickEnabled;
+            changed = true;
+        }
+
+        bool chordShiftEnabled = IsChordShiftGestureAction(FourFingerHoldAction);
+        if (ChordShiftEnabled != chordShiftEnabled)
+        {
+            ChordShiftEnabled = chordShiftEnabled;
             changed = true;
         }
 
@@ -228,6 +277,20 @@ public sealed class UserSettings
         if (normalizedHapticsInterval != HapticsMinIntervalMs)
         {
             HapticsMinIntervalMs = normalizedHapticsInterval;
+            changed = true;
+        }
+
+        int normalizedForceMin = Math.Clamp(ForceMin, 0, 255);
+        if (normalizedForceMin != ForceMin)
+        {
+            ForceMin = normalizedForceMin;
+            changed = true;
+        }
+
+        int normalizedForceCap = Math.Clamp(ForceCap, 0, 255);
+        if (normalizedForceCap != ForceCap)
+        {
+            ForceCap = normalizedForceCap;
             changed = true;
         }
 
@@ -733,5 +796,29 @@ public sealed class UserSettings
 
         value = default;
         return false;
+    }
+
+    private static bool NormalizeGestureAction(string? action, string fallback, out string normalized)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            normalized = fallback;
+            return true;
+        }
+
+        string trimmed = action.Trim();
+        normalized = trimmed;
+        return !string.Equals(trimmed, action, StringComparison.Ordinal);
+    }
+
+    private static bool IsGestureActionAssigned(string? action)
+    {
+        return !string.IsNullOrWhiteSpace(action) &&
+               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsChordShiftGestureAction(string? action)
+    {
+        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
     }
 }
