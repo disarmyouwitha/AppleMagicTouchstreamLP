@@ -231,12 +231,12 @@ internal static class EngineActionResolver
 {
     public static EngineKeyMapping Resolve(KeyMapping mapping, string defaultLabel)
     {
-        EngineKeyAction primary = ResolveAction(mapping.Primary.Label, defaultLabel);
-        EngineKeyAction hold = mapping.Hold == null ? EngineKeyAction.None : ResolveAction(mapping.Hold.Label, defaultLabel);
+        EngineKeyAction primary = ResolveActionLabel(mapping.Primary.Label, defaultLabel);
+        EngineKeyAction hold = mapping.Hold == null ? EngineKeyAction.None : ResolveActionLabel(mapping.Hold.Label, defaultLabel);
         return new EngineKeyMapping(primary, hold, mapping.Hold != null);
     }
 
-    private static EngineKeyAction ResolveAction(string? label, string fallbackLabel)
+    public static EngineKeyAction ResolveActionLabel(string? label, string fallbackLabel = "None")
     {
         string resolved = string.IsNullOrWhiteSpace(label) ? fallbackLabel : label.Trim();
         if (DispatchKeyResolver.TryResolveMouseButton(resolved, out DispatchMouseButton mouseButton))
@@ -266,6 +266,13 @@ internal static class EngineActionResolver
             resolved.Equals("Typing Toggle (Dispatch)", StringComparison.OrdinalIgnoreCase))
         {
             return new EngineKeyAction(EngineActionKind.TypingToggle, resolved, 0);
+        }
+
+        if (resolved.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("ChordShift", StringComparison.OrdinalIgnoreCase))
+        {
+            return new EngineKeyAction(EngineActionKind.Modifier, resolved, 0, 0x10);
         }
 
         if (TryParseModifierChord(resolved, "Ctrl+", 0x11, out EngineKeyAction chord))

@@ -16,6 +16,11 @@ internal static class RuntimeConfigurationFactory
 
     public static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
     {
+        bool twoFingerTapEnabled = IsGestureActionAssigned(settings.TwoFingerTapAction);
+        bool threeFingerTapEnabled = IsGestureActionAssigned(settings.ThreeFingerTapAction);
+        bool tapClickEnabled = twoFingerTapEnabled || threeFingerTapEnabled;
+        bool chordShiftEnabled = IsChordShiftGestureAction(settings.FourFingerHoldAction);
+
         return TouchProcessorConfig.Default with
         {
             TrackpadWidthMm = TrackpadWidthMm,
@@ -28,16 +33,34 @@ internal static class RuntimeConfigurationFactory
             SnapRadiusPercent = settings.SnapRadiusPercent > 0.0 ? HardcodedSnapRadiusPercent : 0.0,
             SnapAmbiguityRatio = settings.SnapAmbiguityRatio,
             KeyBufferMs = HardcodedKeyBufferMs,
-            TapClickEnabled = settings.TapClickEnabled,
-            TwoFingerTapEnabled = settings.TwoFingerTapEnabled,
-            ThreeFingerTapEnabled = settings.ThreeFingerTapEnabled,
+            TapClickEnabled = tapClickEnabled,
+            TwoFingerTapEnabled = twoFingerTapEnabled,
+            ThreeFingerTapEnabled = threeFingerTapEnabled,
+            TwoFingerTapAction = settings.TwoFingerTapAction,
+            ThreeFingerTapAction = settings.ThreeFingerTapAction,
+            FiveFingerSwipeLeftAction = settings.FiveFingerSwipeLeftAction,
+            FiveFingerSwipeRightAction = settings.FiveFingerSwipeRightAction,
+            FourFingerHoldAction = settings.FourFingerHoldAction,
+            OuterCornersAction = settings.OuterCornersAction,
+            InnerCornersAction = settings.InnerCornersAction,
             TapStaggerToleranceMs = settings.TapStaggerToleranceMs,
             TapCadenceWindowMs = settings.TapCadenceWindowMs,
             TapMoveThresholdMm = settings.TapMoveThresholdMm,
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
-            ChordShiftEnabled = settings.ChordShiftEnabled
+            ChordShiftEnabled = chordShiftEnabled
         };
+    }
+
+    private static bool IsGestureActionAssigned(string? action)
+    {
+        return !string.IsNullOrWhiteSpace(action) &&
+               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsChordShiftGestureAction(string? action)
+    {
+        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
     }
 
     public static void BuildLayouts(
