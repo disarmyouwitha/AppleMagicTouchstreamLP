@@ -36,7 +36,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Haptics:**
 - Working over USB!!!
-- Only works over USB. =x **I do not see a path forward for Bluetooth on Windows!**
+- Only works over USB. =x **I do not see a path forward for Bluetooth Haptics on Windows!**
 
 ## FUTURE:
 Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
