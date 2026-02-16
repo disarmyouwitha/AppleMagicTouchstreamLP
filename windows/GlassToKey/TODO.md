@@ -14,11 +14,8 @@
 
 Working: 5-finger swipe left/right is perfect!
 
-Working: Inner corners 
-Not Working: Outer corners
-(This seems to be because my inner corners land on custom buttons or os there )
+Observation: [1] Corner gestures should only fire after hold duration [2] Both Inner and Outer Corner gestures only fire when at least 1 finger is on a custom button, and not when both fingers are off key [3] 2+ Finger holds, and 3+ Finger gestures should take priority over Key/Custom Button hits!
 
-ALSO: 4-finger hold is only working for chordal shift. For other actions it should fire like a normal key/toggle/etc. from the action menu.
 
 **Gestures**  
 **Ph  based:** Force click1 (ph:1), Force Click2 (ph:2)
