@@ -36,7 +36,12 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Haptics:**
 - Working over USB!!!
-- Only works over USB. =x **I do not see a path forward for Bluetooth on Windows!** 
+- Only works over USB. =x **I do not see a path forward for Bluetooth on Windows!**
+
+## FUTURE:
+Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
+
+TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
@@ -51,8 +56,3 @@ Since it is built on the same technology, I thought it would be fun to try and c
 <img src="apple-magic-touchstreamlp.jpg" />
 
 <img src="splatpad.jpg" />
-
-## FUTURE:
-Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
-
-TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD
