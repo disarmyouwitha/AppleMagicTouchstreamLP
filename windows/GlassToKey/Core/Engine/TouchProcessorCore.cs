@@ -2253,6 +2253,7 @@ internal sealed class TouchProcessorCore
         {
             if (aggregate.ContactCount != _pendingTapGesture.ContactCount ||
                 aggregate.MaxDistanceMm > _config.TapMoveThresholdMm ||
+                aggregate.MaxDistanceMm > _config.DragCancelMm ||
                 (nowTicks - _pendingTapGesture.StartedTicks) > cadenceTicks ||
                 (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) > staggerTicks)
             {

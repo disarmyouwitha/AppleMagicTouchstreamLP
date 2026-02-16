@@ -1802,6 +1802,35 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Negative: drag-cancel motion should reject tap even if tap-move threshold is relaxed.
+        if (!RunTapScenario(
+            configure: core =>
+            {
+                core.Configure(core.CurrentConfig with
+                {
+                    DragCancelMm = 1.0,
+                    TapMoveThresholdMm = 10.0
+                });
+            },
+            act: actor =>
+            {
+                long now = 0;
+                InputFrame down = MakeFrame(contactCount: 2, id0: 24, x0: 120, y0: 120, id1: 25, x1: 420, y1: 220);
+                InputFrame moved = MakeFrame(contactCount: 2, id0: 24, x0: 220, y0: 120, id1: 25, x1: 520, y1: 220);
+                InputFrame up = MakeFrame(contactCount: 0);
+                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+                now += MsToTicks(20);
+                actor.Post(TrackpadSide.Left, in moved, maxX, maxY, now);
+                now += MsToTicks(20);
+                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+            },
+            expectedLeftClicks: 0,
+            expectedRightClicks: 0,
+            out failure))
+        {
+            return false;
+        }
+
         // Priority: three-finger tap should still win even when one touch is on a key.
         KeymapStore priorityKeymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore priorityCore = TouchProcessorFactory.CreateDefault(priorityKeymap);
