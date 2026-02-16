@@ -153,6 +153,7 @@ public partial class App : Application
         {
             MainWindow window = new MainWindow(options);
             MainWindow = window;
+            window.WindowState = WindowState.Maximized;
             if (options.RelaunchTrayOnClose)
             {
                 window.Closed += (_, _) =>
