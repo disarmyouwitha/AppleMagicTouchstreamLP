@@ -26,6 +26,8 @@ public sealed class UserSettings
     public string ThreeFingerTapAction { get; set; } = "Right Click";
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
+    public string TwoFingerHoldAction { get; set; } = "None";
+    public string ThreeFingerHoldAction { get; set; } = "None";
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
     public string OuterCornersAction { get; set; } = "None";
     public string InnerCornersAction { get; set; } = "None";
@@ -103,6 +105,8 @@ public sealed class UserSettings
         ThreeFingerTapAction = source.ThreeFingerTapAction;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
+        TwoFingerHoldAction = source.TwoFingerHoldAction;
+        ThreeFingerHoldAction = source.ThreeFingerHoldAction;
         FourFingerHoldAction = source.FourFingerHoldAction;
         OuterCornersAction = source.OuterCornersAction;
         InnerCornersAction = source.InnerCornersAction;
@@ -260,6 +264,10 @@ public sealed class UserSettings
         FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         changed |= NormalizeGestureAction(FiveFingerSwipeRightAction, "Typing Toggle", out string fiveFingerSwipeRightAction);
         FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        changed |= NormalizeGestureAction(TwoFingerHoldAction, "None", out string twoFingerHoldAction);
+        TwoFingerHoldAction = twoFingerHoldAction;
+        changed |= NormalizeGestureAction(ThreeFingerHoldAction, "None", out string threeFingerHoldAction);
+        ThreeFingerHoldAction = threeFingerHoldAction;
         changed |= NormalizeGestureAction(FourFingerHoldAction, "Chordal Shift", out string fourFingerHoldAction);
         FourFingerHoldAction = fourFingerHoldAction;
         changed |= NormalizeGestureAction(OuterCornersAction, "None", out string outerCornersAction);

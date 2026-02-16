@@ -40,6 +40,8 @@ internal static class RuntimeConfigurationFactory
             ThreeFingerTapAction = settings.ThreeFingerTapAction,
             FiveFingerSwipeLeftAction = settings.FiveFingerSwipeLeftAction,
             FiveFingerSwipeRightAction = settings.FiveFingerSwipeRightAction,
+            TwoFingerHoldAction = settings.TwoFingerHoldAction,
+            ThreeFingerHoldAction = settings.ThreeFingerHoldAction,
             FourFingerHoldAction = settings.FourFingerHoldAction,
             OuterCornersAction = settings.OuterCornersAction,
             InnerCornersAction = settings.InnerCornersAction,

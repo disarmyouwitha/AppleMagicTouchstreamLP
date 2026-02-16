@@ -97,11 +97,15 @@ internal sealed class TouchProcessorCore
     private long _dispatchSuppressedTypingDisabled;
     private long _dispatchSuppressedRingFull;
     private PendingTapGesture _pendingTapGesture;
-    private FourFingerHoldGesture _fourFingerHoldGesture;
+    private MultiFingerHoldGesture _twoFingerHoldGesture;
+    private MultiFingerHoldGesture _threeFingerHoldGesture;
+    private MultiFingerHoldGesture _fourFingerHoldGesture;
     private EngineKeyAction _twoFingerTapGestureAction = EngineKeyAction.None;
     private EngineKeyAction _threeFingerTapGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fiveFingerSwipeLeftGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fiveFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _twoFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
@@ -305,6 +309,8 @@ internal sealed class TouchProcessorCore
         _dispatchSuppressedTypingDisabled = 0;
         _dispatchSuppressedRingFull = 0;
         _pendingTapGesture = default;
+        _twoFingerHoldGesture = default;
+        _threeFingerHoldGesture = default;
         _fourFingerHoldGesture = default;
         _triangleGestureLeft = default;
         _triangleGestureRight = default;
@@ -488,6 +494,8 @@ internal sealed class TouchProcessorCore
         {
             UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
         }
+        UpdateTwoFingerHoldGesture(aggregate, timestampTicks);
+        UpdateThreeFingerHoldGesture(aggregate, timestampTicks);
         UpdateFourFingerHoldGesture(aggregate, timestampTicks);
         UpdateCornerHoldGesture(side, timestampTicks);
         UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
@@ -1099,6 +1107,16 @@ internal sealed class TouchProcessorCore
     private bool IsThreePlusGesturePriorityActive(TrackpadSide side)
     {
         if (GetThreePlusGestureSuppress(side))
+        {
+            return true;
+        }
+
+        if (_twoFingerHoldGesture.Active && _twoFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        if (_threeFingerHoldGesture.Active && _threeFingerHoldGesture.Side == side)
         {
             return true;
         }
@@ -2336,19 +2354,53 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool eligible = aggregate.ContactCount == 4;
-        if (!eligible)
+        UpdateMultiFingerHoldGesture(
+            ref _fourFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 4,
+            _fourFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateTwoFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _twoFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 2,
+            _twoFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateThreeFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _threeFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 3,
+            _threeFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateMultiFingerHoldGesture(
+        ref MultiFingerHoldGesture gesture,
+        in IntentAggregate aggregate,
+        int requiredContactCount,
+        EngineKeyAction action,
+        long nowTicks)
+    {
+        if (action.Kind == EngineActionKind.None || aggregate.ContactCount != requiredContactCount)
         {
-            _fourFingerHoldGesture = default;
+            gesture = default;
             return;
         }
 
         TrackpadSide side = aggregate.RightContacts > aggregate.LeftContacts
             ? TrackpadSide.Right
             : TrackpadSide.Left;
-        if (!_fourFingerHoldGesture.Active)
+        if (!gesture.Active || gesture.Side != side)
         {
-            _fourFingerHoldGesture = new FourFingerHoldGesture(
+            gesture = new MultiFingerHoldGesture(
                 Active: true,
                 Triggered: false,
                 Side: side,
@@ -2356,19 +2408,26 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        if (_fourFingerHoldGesture.Triggered)
+        if (gesture.Triggered)
         {
             return;
         }
 
         long holdTicks = MsToTicks(_config.HoldDurationMs);
-        if (nowTicks - _fourFingerHoldGesture.StartedTicks < holdTicks)
+        if (nowTicks - gesture.StartedTicks < holdTicks)
         {
             return;
         }
 
-        EmitGestureAction(_fourFingerHoldGestureAction, _fourFingerHoldGesture.Side, touchKey: 0, nowTicks: nowTicks);
-        _fourFingerHoldGesture.Triggered = true;
+        EmitGestureAction(action, gesture.Side, touchKey: 0, nowTicks: nowTicks);
+        gesture.Triggered = true;
+
+        if (_pendingTapGesture.Active &&
+            _pendingTapGesture.ContactCount == requiredContactCount &&
+            _pendingTapGesture.Side == side)
+        {
+            _pendingTapGesture = default;
+        }
     }
 
     private void UpdateCornerHoldGesture(TrackpadSide side, long nowTicks)
@@ -3490,6 +3549,8 @@ internal sealed class TouchProcessorCore
         _threeFingerTapGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerTapAction);
         _fiveFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeLeftAction);
         _fiveFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeRightAction);
+        _twoFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerHoldAction);
+        _threeFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerHoldAction);
         _fourFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.FourFingerHoldAction);
         _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
             ? EngineKeyAction.None
@@ -3537,6 +3598,8 @@ internal sealed class TouchProcessorCore
             ThreeFingerTapAction = NormalizeGestureAction(config.ThreeFingerTapAction, "Right Click"),
             FiveFingerSwipeLeftAction = NormalizeGestureAction(config.FiveFingerSwipeLeftAction, "Typing Toggle"),
             FiveFingerSwipeRightAction = NormalizeGestureAction(config.FiveFingerSwipeRightAction, "Typing Toggle"),
+            TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
+            ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
             FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
             OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
             InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
@@ -3906,9 +3969,9 @@ internal sealed class TouchProcessorCore
         public long LatestTouchTicks;
     }
 
-    private struct FourFingerHoldGesture
+    private struct MultiFingerHoldGesture
     {
-        public FourFingerHoldGesture(
+        public MultiFingerHoldGesture(
             bool Active,
             bool Triggered,
             TrackpadSide Side,

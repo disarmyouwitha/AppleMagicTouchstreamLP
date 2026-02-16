@@ -1945,6 +1945,85 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Two-finger hold action should fire once after hold duration.
+        TouchProcessorCore twoFingerHoldCore = TouchProcessorFactory.CreateDefault(keymap);
+        twoFingerHoldCore.Configure(twoFingerHoldCore.CurrentConfig with
+        {
+            TwoFingerTapAction = "None",
+            ThreeFingerTapAction = "None",
+            TwoFingerHoldAction = "Left Click",
+            HoldDurationMs = 120.0
+        });
+        using DispatchEventQueue twoFingerHoldQueue = new(capacity: 4096);
+        using TouchProcessorActor twoFingerHoldActor = new(twoFingerHoldCore, dispatchQueue: twoFingerHoldQueue);
+
+        now = 0;
+        InputFrame twoDown = MakeFrame(contactCount: 2, id0: 121, x0: key0X, y0: key0Y, id1: 122, x1: key1X, y1: key1Y);
+        twoFingerHoldActor.Post(TrackpadSide.Left, in twoDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        twoFingerHoldActor.Post(TrackpadSide.Left, in twoDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        twoFingerHoldActor.WaitForIdle();
+
+        int twoFingerHoldClicks = 0;
+        int twoFingerHoldKeyTaps = 0;
+        while (twoFingerHoldQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                twoFingerHoldClicks++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                twoFingerHoldKeyTaps++;
+            }
+        }
+
+        if (twoFingerHoldClicks != 1 || twoFingerHoldKeyTaps != 0)
+        {
+            failure = $"two-finger hold mismatch (clicks={twoFingerHoldClicks}, keyTaps={twoFingerHoldKeyTaps}, expected=1/0)";
+            return false;
+        }
+
+        // Three-finger hold action should fire once after hold duration.
+        TouchProcessorCore threeFingerHoldCore = TouchProcessorFactory.CreateDefault(keymap);
+        threeFingerHoldCore.SetTypingEnabled(true);
+        threeFingerHoldCore.Configure(threeFingerHoldCore.CurrentConfig with
+        {
+            TwoFingerTapAction = "None",
+            ThreeFingerTapAction = "None",
+            ThreeFingerHoldAction = "Typing Toggle",
+            HoldDurationMs = 120.0
+        });
+        using DispatchEventQueue threeFingerHoldQueue = new(capacity: 4096);
+        using TouchProcessorActor threeFingerHoldActor = new(threeFingerHoldCore, dispatchQueue: threeFingerHoldQueue);
+
+        now = 0;
+        InputFrame threeHoldDown = MakeFrame(contactCount: 3, id0: 131, x0: key0X, y0: key0Y, id1: 132, x1: key1X, y1: key1Y, id2: 133, x2: key2X, y2: key2Y);
+        threeFingerHoldActor.Post(TrackpadSide.Left, in threeHoldDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        threeFingerHoldActor.Post(TrackpadSide.Left, in threeHoldDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        threeFingerHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        threeFingerHoldActor.WaitForIdle();
+        TouchProcessorSnapshot threeFingerHoldSnapshot = threeFingerHoldActor.Snapshot();
+
+        int threeFingerHoldKeyTaps = 0;
+        while (threeFingerHoldQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                threeFingerHoldKeyTaps++;
+            }
+        }
+
+        if (threeFingerHoldSnapshot.TypingEnabled || threeFingerHoldKeyTaps != 0)
+        {
+            failure = $"three-finger hold mismatch (typingEnabled={threeFingerHoldSnapshot.TypingEnabled}, keyTaps={threeFingerHoldKeyTaps}, expected=false/0)";
+            return false;
+        }
+
         // Four-finger hold action should fire, and key hits under those fingers should stay suppressed.
         TouchProcessorCore fourFingerCore = TouchProcessorFactory.CreateDefault(keymap);
         fourFingerCore.SetTypingEnabled(true);

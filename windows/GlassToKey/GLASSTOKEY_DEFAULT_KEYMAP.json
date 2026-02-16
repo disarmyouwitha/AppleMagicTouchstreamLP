@@ -21,6 +21,8 @@
     "ThreeFingerTapAction": "None",
     "FiveFingerSwipeLeftAction": "Typing Toggle",
     "FiveFingerSwipeRightAction": "Typing Toggle",
+    "TwoFingerHoldAction": "None",
+    "ThreeFingerHoldAction": "None",
     "FourFingerHoldAction": "Chordal Shift",
     "OuterCornersAction": "Win\u002BH",
     "InnerCornersAction": "None",
