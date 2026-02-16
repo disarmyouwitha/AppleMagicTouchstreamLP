@@ -448,8 +448,8 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Outer corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="OuterCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                  <TextBlock Text="Inner corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="InnerCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
                     </ComboBox.GroupStyle>
@@ -460,14 +460,13 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Inner corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="InnerCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                  <TextBlock Text="Outer corners" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="OuterCornersGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
                     </ComboBox.GroupStyle>
                   </ComboBox>
                 </Grid>
-
                 <TextBlock Text="Triangle Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
@@ -518,6 +517,56 @@
                   </ComboBox>
                 </Grid>
 
+                <TextBlock Text="Click Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Top Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="UpperLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Top Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="UpperRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Bottom Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="LowerLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Bottom Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="LowerRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+
                 <TextBlock Text="Force Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
@@ -556,55 +605,6 @@
                   </ComboBox>
                 </Grid>
 
-                <TextBlock Text="Click Corners" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" Margin="0,10,0,0" />
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Upper Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="UpperLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                    <ComboBox.GroupStyle>
-                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                    </ComboBox.GroupStyle>
-                  </ComboBox>
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Upper Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="UpperRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                    <ComboBox.GroupStyle>
-                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                    </ComboBox.GroupStyle>
-                  </ComboBox>
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Lower Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="LowerLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                    <ComboBox.GroupStyle>
-                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                    </ComboBox.GroupStyle>
-                  </ComboBox>
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Lower Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="LowerRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                    <ComboBox.GroupStyle>
-                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                    </ComboBox.GroupStyle>
-                  </ComboBox>
-                </Grid>
               </StackPanel>
             </Expander>
 
