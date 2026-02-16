@@ -10,6 +10,23 @@ internal sealed class TouchProcessorCore
     private const int FiveFingerSwipeArmContacts = 5;
     private const int FiveFingerSwipeSustainContacts = 4;
     private const int FiveFingerSwipeReleaseContacts = 2;
+    private const double TriangleStartCornerThreshold = 0.12;
+    private const double TriangleArmDxThreshold = 0.06;
+    private const double TriangleArmDyThreshold = 0.08;
+    private const double TriangleFirstLegDxThreshold = 0.16;
+    private const double TriangleFirstLegDyThreshold = 0.22;
+    private const double TriangleReturnDxThreshold = 0.14;
+    private const double TriangleEndNearStartXThreshold = 0.08;
+    private const double TriangleMaxDurationMs = 3000.0;
+    private const double TriangleTurnDotUpperBound = -0.15;
+    private const double TriangleReturnDominanceRatio = 2.0;
+    private const int ForceClick1ThresholdNorm = 255;
+    private const int ForceClick2ThresholdNorm = 500;
+    private const int ForceClick3ThresholdNorm = 750;
+    private const double ForceClickMaxDurationMs = 2000.0;
+    private const double CornerClickZoneThreshold = 0.14;
+    private const int CornerClickForceThresholdNorm = 125;
+    private const double CornerClickMaxDurationMs = 2000.0;
     private const int ChordShiftContactThreshold = 4;
     private const double ChordSourceStaleTimeoutMs = 200.0;
     private const ushort ShiftVirtualKey = 0x10;
@@ -88,6 +105,23 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _forceClick1GestureAction = EngineKeyAction.None;
+    private EngineKeyAction _forceClick2GestureAction = EngineKeyAction.None;
+    private EngineKeyAction _forceClick3GestureAction = EngineKeyAction.None;
+    private EngineKeyAction _upperLeftCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _upperRightCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _lowerLeftCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _lowerRightCornerClickGestureAction = EngineKeyAction.None;
+    private TriangleGesture _triangleGestureLeft;
+    private TriangleGesture _triangleGestureRight;
+    private ForceClickGesture _forceClickGestureLeft;
+    private ForceClickGesture _forceClickGestureRight;
+    private CornerClickTapGesture _cornerClickTapGestureLeft;
+    private CornerClickTapGesture _cornerClickTapGestureRight;
     private bool _fourFingerHoldUsesChordShift;
     private bool _diagnosticsEnabled;
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
@@ -142,6 +176,32 @@ internal sealed class TouchProcessorCore
             _chordShiftLeft = false;
             _chordShiftRight = false;
             UpdateChordShiftKeyState(Stopwatch.GetTimestamp());
+        }
+
+        if (_topLeftTriangleGestureAction.Kind == EngineActionKind.None &&
+            _topRightTriangleGestureAction.Kind == EngineActionKind.None &&
+            _bottomLeftTriangleGestureAction.Kind == EngineActionKind.None &&
+            _bottomRightTriangleGestureAction.Kind == EngineActionKind.None)
+        {
+            _triangleGestureLeft = default;
+            _triangleGestureRight = default;
+        }
+
+        if (_forceClick1GestureAction.Kind == EngineActionKind.None &&
+            _forceClick2GestureAction.Kind == EngineActionKind.None &&
+            _forceClick3GestureAction.Kind == EngineActionKind.None)
+        {
+            _forceClickGestureLeft = default;
+            _forceClickGestureRight = default;
+        }
+
+        if (_upperLeftCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _upperRightCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _lowerLeftCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _lowerRightCornerClickGestureAction.Kind == EngineActionKind.None)
+        {
+            _cornerClickTapGestureLeft = default;
+            _cornerClickTapGestureRight = default;
         }
     }
 
@@ -246,6 +306,12 @@ internal sealed class TouchProcessorCore
         _dispatchSuppressedRingFull = 0;
         _pendingTapGesture = default;
         _fourFingerHoldGesture = default;
+        _triangleGestureLeft = default;
+        _triangleGestureRight = default;
+        _forceClickGestureLeft = default;
+        _forceClickGestureRight = default;
+        _cornerClickTapGestureLeft = default;
+        _cornerClickTapGestureRight = default;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
         _clockAnchorTimestampTicks = 0;
@@ -297,6 +363,12 @@ internal sealed class TouchProcessorCore
         double tipSumYNorm = 0;
         Span<ulong> frameKeys = stackalloc ulong[InputFrame.MaxContacts];
         int frameKeyCount = 0;
+        bool hasSingleTipSnapshot = false;
+        double singleTipXNorm = 0;
+        double singleTipYNorm = 0;
+        int singleTipForceNorm = 0;
+        bool singleTipKeyboardAnchor = false;
+        int singleTipSnapshotCount = 0;
         bool suppressSideForChordSource = IsChordSourceSide(side);
         if (suppressSideForChordSource)
         {
@@ -352,6 +424,14 @@ internal sealed class TouchProcessorCore
                 EngineActionKind kind = sideIndex.Bindings[hit.BindingIndex].Mapping.Primary.Kind;
                 keyboardAnchor = kind is EngineActionKind.Modifier or EngineActionKind.Continuous or EngineActionKind.MomentaryLayer or EngineActionKind.KeyChord;
             }
+            if (singleTipSnapshotCount == 0)
+            {
+                singleTipXNorm = xNorm;
+                singleTipYNorm = yNorm;
+                singleTipForceNorm = contact.ForceNorm;
+                singleTipKeyboardAnchor = keyboardAnchor;
+            }
+            singleTipSnapshotCount++;
 
             if (_intentTouches.TryGetValue(touchKey, out IntentTouchInfo existing))
             {
@@ -384,6 +464,7 @@ internal sealed class TouchProcessorCore
                 contact.ForceNorm,
                 timestampTicks);
         }
+        hasSingleTipSnapshot = singleTipSnapshotCount == 1;
 
         RemoveStaleTouchesForSide(side, frameKeys.Slice(0, frameKeyCount), timestampTicks);
         if (tipContactsInFrame == 0 && !HasActiveTouchStateForSide(side))
@@ -394,6 +475,9 @@ internal sealed class TouchProcessorCore
         IntentAggregate aggregate = BuildIntentAggregate();
         int previousContactCount = _lastContactCount;
         bool cornerPriorityBeforeUpdate = IsCornerGesturePriorityActive(side);
+        bool trianglePriorityBeforeUpdate = IsTriangleGesturePriorityActive(side);
+        bool forcePriorityBeforeUpdate = IsForceClickGesturePriorityActive(side);
+        bool cornerClickPriorityBeforeUpdate = IsCornerClickTapGesturePriorityActive(side);
         if (tipContactsInFrame > 0)
         {
             double centroidX = tipSumXNorm / tipContactsInFrame;
@@ -406,7 +490,34 @@ internal sealed class TouchProcessorCore
         }
         UpdateFourFingerHoldGesture(aggregate, timestampTicks);
         UpdateCornerHoldGesture(side, timestampTicks);
-        bool suppressTapGestures = cornerPriorityBeforeUpdate || IsCornerGesturePriorityActive(side);
+        UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
+        UpdateForceClickGesture(
+            side,
+            tipContactsInFrame,
+            hasSingleTipSnapshot,
+            singleTipXNorm,
+            singleTipYNorm,
+            singleTipForceNorm,
+            singleTipKeyboardAnchor,
+            timestampTicks);
+        UpdateCornerClickTapGesture(
+            side,
+            tipContactsInFrame,
+            hasSingleTipSnapshot,
+            singleTipXNorm,
+            singleTipYNorm,
+            singleTipForceNorm,
+            singleTipKeyboardAnchor,
+            timestampTicks);
+        bool suppressTapGestures =
+            cornerPriorityBeforeUpdate ||
+            IsCornerGesturePriorityActive(side) ||
+            trianglePriorityBeforeUpdate ||
+            IsTriangleGesturePriorityActive(side) ||
+            forcePriorityBeforeUpdate ||
+            IsForceClickGesturePriorityActive(side) ||
+            cornerClickPriorityBeforeUpdate ||
+            IsCornerClickTapGesturePriorityActive(side);
         UpdateTapGestureState(aggregate, timestampTicks, previousContactCount, suppressTapGestures);
         UpdateIntentState(aggregate, timestampTicks);
     }
@@ -978,7 +1089,11 @@ internal sealed class TouchProcessorCore
 
     private bool IsGestureDispatchPriorityActive(TrackpadSide side)
     {
-        return IsThreePlusGesturePriorityActive(side) || IsCornerGesturePriorityActive(side);
+        return IsThreePlusGesturePriorityActive(side) ||
+               IsCornerGesturePriorityActive(side) ||
+               IsTriangleGesturePriorityActive(side) ||
+               IsForceClickGesturePriorityActive(side) ||
+               IsCornerClickTapGesturePriorityActive(side);
     }
 
     private bool IsThreePlusGesturePriorityActive(TrackpadSide side)
@@ -1010,6 +1125,26 @@ internal sealed class TouchProcessorCore
     {
         CornerHoldGesture gesture = side == TrackpadSide.Left ? _cornerHoldGestureLeft : _cornerHoldGestureRight;
         return gesture.Active;
+    }
+
+    private bool IsTriangleGesturePriorityActive(TrackpadSide side)
+    {
+        TriangleGesture gesture = side == TrackpadSide.Left ? _triangleGestureLeft : _triangleGestureRight;
+        return gesture.Active && gesture.PriorityArmed;
+    }
+
+    private bool IsForceClickGesturePriorityActive(TrackpadSide side)
+    {
+        ForceClickGesture gesture = side == TrackpadSide.Left ? _forceClickGestureLeft : _forceClickGestureRight;
+        return gesture.Active &&
+               gesture.CandidateValid &&
+               ResolveForceClickGestureAction(gesture.PeakForceNorm).Kind != EngineActionKind.None;
+    }
+
+    private bool IsCornerClickTapGesturePriorityActive(TrackpadSide side)
+    {
+        CornerClickTapGesture gesture = side == TrackpadSide.Left ? _cornerClickTapGestureLeft : _cornerClickTapGestureRight;
+        return gesture.Active && gesture.CandidateValid && gesture.ForceArmed;
     }
 
     private void SetThreePlusGestureSuppress(TrackpadSide side, bool enabled)
@@ -1488,6 +1623,12 @@ internal sealed class TouchProcessorCore
         _intentTouches.RemoveAll();
         _momentaryLayerTouches.RemoveAll();
         _pendingTapGesture = default;
+        _triangleGestureLeft = default;
+        _triangleGestureRight = default;
+        _forceClickGestureLeft = default;
+        _forceClickGestureRight = default;
+        _cornerClickTapGestureLeft = default;
+        _cornerClickTapGestureRight = default;
         _typingGraceDeadlineTicks = 0;
         _intentMode = IntentMode.Idle;
         _typingCommittedUntilAllUp = false;
@@ -2279,6 +2420,513 @@ internal sealed class TouchProcessorCore
         gesture.Triggered = true;
     }
 
+    private void UpdateTriangleGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
+    {
+        ref TriangleGesture gesture = ref side == TrackpadSide.Left
+            ? ref _triangleGestureLeft
+            : ref _triangleGestureRight;
+        if (!AreTriangleGesturesEnabled())
+        {
+            gesture = default;
+            return;
+        }
+
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out IntentTouchInfo touch);
+        if (tipContactsInFrame != 1 || !hasSingleTouch)
+        {
+            if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                IsTriangleMatch(in gesture, nowTicks))
+            {
+                EngineKeyAction action = GetTriangleGestureAction(gesture.Corner);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        double xNorm = touch.LastXNorm;
+        double yNorm = touch.LastYNorm;
+        if (!gesture.Active)
+        {
+            if (touch.KeyboardAnchor ||
+                !TryClassifyTriangleCorner(xNorm, yNorm, out TriangleCorner corner))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetTriangleGestureAction(corner);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            int outboundXSign = IsLeftCorner(corner) ? 1 : -1;
+            int outboundYSign = IsTopCorner(corner) ? 1 : -1;
+            gesture = new TriangleGesture(
+                Active: true,
+                CandidateValid: true,
+                PriorityArmed: false,
+                ReturnedLaterally: false,
+                Corner: corner,
+                OutboundXSign: outboundXSign,
+                OutboundYSign: outboundYSign,
+                StartedTicks: nowTicks,
+                LastTicks: nowTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                TurnXNorm: xNorm,
+                TurnYAtTurnXNorm: yNorm,
+                ExtentYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.LastTicks = nowTicks;
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+
+        if (gesture.OutboundXSign > 0)
+        {
+            if (xNorm > gesture.TurnXNorm)
+            {
+                gesture.TurnXNorm = xNorm;
+                gesture.TurnYAtTurnXNorm = yNorm;
+            }
+        }
+        else if (xNorm < gesture.TurnXNorm)
+        {
+            gesture.TurnXNorm = xNorm;
+            gesture.TurnYAtTurnXNorm = yNorm;
+        }
+
+        if (gesture.OutboundYSign > 0)
+        {
+            if (yNorm > gesture.ExtentYNorm)
+            {
+                gesture.ExtentYNorm = yNorm;
+            }
+        }
+        else if (yNorm < gesture.ExtentYNorm)
+        {
+            gesture.ExtentYNorm = yNorm;
+        }
+
+        double outboundDx = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double outboundDy = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        if (!gesture.PriorityArmed &&
+            outboundDx >= TriangleArmDxThreshold &&
+            outboundDy >= TriangleArmDyThreshold)
+        {
+            gesture.PriorityArmed = true;
+        }
+
+        double lateralReturnDx = (gesture.TurnXNorm - xNorm) * gesture.OutboundXSign;
+        if (lateralReturnDx >= TriangleReturnDxThreshold)
+        {
+            gesture.ReturnedLaterally = true;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(TriangleMaxDurationMs))
+        {
+            gesture.CandidateValid = false;
+        }
+    }
+
+    private void UpdateForceClickGesture(
+        TrackpadSide side,
+        int tipContactsInFrame,
+        bool hasSingleTipSnapshot,
+        double xNorm,
+        double yNorm,
+        int forceNorm,
+        bool keyboardAnchor,
+        long nowTicks)
+    {
+        ref ForceClickGesture gesture = ref side == TrackpadSide.Left
+            ? ref _forceClickGestureLeft
+            : ref _forceClickGestureRight;
+        if (!AreForceClickGesturesEnabled())
+        {
+            gesture = default;
+            return;
+        }
+
+        if (tipContactsInFrame != 1 || !hasSingleTipSnapshot)
+        {
+            if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                (nowTicks - gesture.StartedTicks) <= MsToTicks(ForceClickMaxDurationMs))
+            {
+                EngineKeyAction action = ResolveForceClickGestureAction(gesture.PeakForceNorm);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active)
+        {
+            if (keyboardAnchor)
+            {
+                return;
+            }
+
+            gesture = new ForceClickGesture(
+                Active: true,
+                CandidateValid: true,
+                StartedTicks: nowTicks,
+                PeakForceNorm: Math.Max(0, forceNorm),
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+        double movementMm = DistanceMm(gesture.StartXNorm, gesture.StartYNorm, xNorm, yNorm);
+        if (movementMm > gesture.MaxDistanceMm)
+        {
+            gesture.MaxDistanceMm = movementMm;
+        }
+
+        if (gesture.MaxDistanceMm > _config.DragCancelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(ForceClickMaxDurationMs))
+        {
+            gesture.CandidateValid = false;
+        }
+    }
+
+    private void UpdateCornerClickTapGesture(
+        TrackpadSide side,
+        int tipContactsInFrame,
+        bool hasSingleTipSnapshot,
+        double xNorm,
+        double yNorm,
+        int forceNorm,
+        bool keyboardAnchor,
+        long nowTicks)
+    {
+        ref CornerClickTapGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerClickTapGestureLeft
+            : ref _cornerClickTapGestureRight;
+        if (!AreCornerClickTapGesturesEnabled())
+        {
+            gesture = default;
+            return;
+        }
+
+        if (tipContactsInFrame != 1 || !hasSingleTipSnapshot)
+        {
+            if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                gesture.ForceArmed &&
+                (nowTicks - gesture.StartedTicks) <= MsToTicks(CornerClickMaxDurationMs))
+            {
+                EngineKeyAction action = GetCornerClickTapGestureAction(gesture.Zone);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active)
+        {
+            if (!TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetCornerClickTapGestureAction(zone);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            gesture = new CornerClickTapGesture(
+                Active: true,
+                CandidateValid: true,
+                ForceArmed: forceNorm >= CornerClickForceThresholdNorm,
+                PeakForceNorm: Math.Max(0, forceNorm),
+                Zone: zone,
+                StartedTicks: nowTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        if (!gesture.ForceArmed && gesture.PeakForceNorm >= CornerClickForceThresholdNorm)
+        {
+            gesture.ForceArmed = true;
+        }
+
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+        double movementMm = DistanceMm(gesture.StartXNorm, gesture.StartYNorm, xNorm, yNorm);
+        if (movementMm > gesture.MaxDistanceMm)
+        {
+            gesture.MaxDistanceMm = movementMm;
+        }
+
+        if (gesture.MaxDistanceMm > _config.DragCancelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(CornerClickMaxDurationMs) ||
+            !TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone currentZone) ||
+            currentZone != gesture.Zone)
+        {
+            gesture.CandidateValid = false;
+        }
+    }
+
+    private bool TryGetSingleIntentTouchForSide(TrackpadSide side, out IntentTouchInfo touch)
+    {
+        touch = default;
+        bool found = false;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            IntentTouchInfo candidate = _intentTouches.ValueRefAt(i);
+            if (candidate.Side != side)
+            {
+                continue;
+            }
+
+            if (found)
+            {
+                touch = default;
+                return false;
+            }
+
+            found = true;
+            touch = candidate;
+        }
+
+        return found;
+    }
+
+    private bool AreTriangleGesturesEnabled()
+    {
+        return _topLeftTriangleGestureAction.Kind != EngineActionKind.None ||
+               _topRightTriangleGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftTriangleGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightTriangleGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool AreForceClickGesturesEnabled()
+    {
+        return _forceClick1GestureAction.Kind != EngineActionKind.None ||
+               _forceClick2GestureAction.Kind != EngineActionKind.None ||
+               _forceClick3GestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool AreCornerClickTapGesturesEnabled()
+    {
+        return _upperLeftCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _upperRightCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _lowerLeftCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _lowerRightCornerClickGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private EngineKeyAction GetTriangleGestureAction(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => _topLeftTriangleGestureAction,
+            TriangleCorner.TopRight => _topRightTriangleGestureAction,
+            TriangleCorner.BottomLeft => _bottomLeftTriangleGestureAction,
+            TriangleCorner.BottomRight => _bottomRightTriangleGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction ResolveForceClickGestureAction(int peakForceNorm)
+    {
+        if (peakForceNorm >= ForceClick3ThresholdNorm &&
+            _forceClick3GestureAction.Kind != EngineActionKind.None)
+        {
+            return _forceClick3GestureAction;
+        }
+
+        if (peakForceNorm >= ForceClick2ThresholdNorm &&
+            _forceClick2GestureAction.Kind != EngineActionKind.None)
+        {
+            return _forceClick2GestureAction;
+        }
+
+        if (peakForceNorm >= ForceClick1ThresholdNorm &&
+            _forceClick1GestureAction.Kind != EngineActionKind.None)
+        {
+            return _forceClick1GestureAction;
+        }
+
+        return EngineKeyAction.None;
+    }
+
+    private EngineKeyAction GetCornerClickTapGestureAction(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _upperLeftCornerClickGestureAction,
+            CornerClickTapZone.UpperRight => _upperRightCornerClickGestureAction,
+            CornerClickTapZone.LowerLeft => _lowerLeftCornerClickGestureAction,
+            CornerClickTapZone.LowerRight => _lowerRightCornerClickGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private static bool TryClassifyTriangleCorner(double xNorm, double yNorm, out TriangleCorner corner)
+    {
+        bool left = xNorm <= TriangleStartCornerThreshold;
+        bool right = xNorm >= (1.0 - TriangleStartCornerThreshold);
+        bool top = yNorm <= TriangleStartCornerThreshold;
+        bool bottom = yNorm >= (1.0 - TriangleStartCornerThreshold);
+        if (top && left)
+        {
+            corner = TriangleCorner.TopLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            corner = TriangleCorner.TopRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            corner = TriangleCorner.BottomLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            corner = TriangleCorner.BottomRight;
+            return true;
+        }
+
+        corner = TriangleCorner.None;
+        return false;
+    }
+
+    private static bool IsLeftCorner(TriangleCorner corner)
+    {
+        return corner is TriangleCorner.TopLeft or TriangleCorner.BottomLeft;
+    }
+
+    private static bool IsTopCorner(TriangleCorner corner)
+    {
+        return corner is TriangleCorner.TopLeft or TriangleCorner.TopRight;
+    }
+
+    private static bool TryClassifyCornerClickTapZone(double xNorm, double yNorm, out CornerClickTapZone zone)
+    {
+        bool left = xNorm <= CornerClickZoneThreshold;
+        bool right = xNorm >= (1.0 - CornerClickZoneThreshold);
+        bool top = yNorm <= CornerClickZoneThreshold;
+        bool bottom = yNorm >= (1.0 - CornerClickZoneThreshold);
+        if (top && left)
+        {
+            zone = CornerClickTapZone.UpperLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            zone = CornerClickTapZone.UpperRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            zone = CornerClickTapZone.LowerLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            zone = CornerClickTapZone.LowerRight;
+            return true;
+        }
+
+        zone = CornerClickTapZone.None;
+        return false;
+    }
+
+    private static bool IsTriangleMatch(in TriangleGesture gesture, long nowTicks)
+    {
+        if (!gesture.Active || !gesture.CandidateValid || !gesture.PriorityArmed || !gesture.ReturnedLaterally)
+        {
+            return false;
+        }
+
+        double dxFirstLeg = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double dyFirstLeg = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        double dxReturnLeg = (gesture.TurnXNorm - gesture.LastXNorm) * gesture.OutboundXSign;
+        if (dxFirstLeg < TriangleFirstLegDxThreshold ||
+            dyFirstLeg < TriangleFirstLegDyThreshold ||
+            dxReturnLeg < TriangleReturnDxThreshold ||
+            Math.Abs(gesture.LastXNorm - gesture.StartXNorm) > TriangleEndNearStartXThreshold)
+        {
+            return false;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(TriangleMaxDurationMs))
+        {
+            return false;
+        }
+
+        double v1x = gesture.TurnXNorm - gesture.StartXNorm;
+        double v1y = gesture.TurnYAtTurnXNorm - gesture.StartYNorm;
+        double v2x = gesture.LastXNorm - gesture.TurnXNorm;
+        double v2y = gesture.LastYNorm - gesture.TurnYAtTurnXNorm;
+        double v1Mag = Math.Sqrt((v1x * v1x) + (v1y * v1y));
+        double v2Mag = Math.Sqrt((v2x * v2x) + (v2y * v2y));
+        if (v1Mag <= 0.000001 || v2Mag <= 0.000001)
+        {
+            return false;
+        }
+
+        double turnDot = ((v1x * v2x) + (v1y * v2y)) / (v1Mag * v2Mag);
+        if (turnDot > TriangleTurnDotUpperBound)
+        {
+            return false;
+        }
+
+        return Math.Abs(v2x) >= (Math.Abs(v2y) * TriangleReturnDominanceRatio);
+    }
+
     private bool TryGetCornerHoldPairCandidate(TrackpadSide side, out CornerZone zone, out long pairStartTicks)
     {
         bool outerTop = false;
@@ -2848,6 +3496,17 @@ internal sealed class TouchProcessorCore
             : EngineActionResolver.ResolveActionLabel(_config.FourFingerHoldAction);
         _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
         _innerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.InnerCornersAction);
+        _topLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftTriangleAction);
+        _topRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightTriangleAction);
+        _bottomLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftTriangleAction);
+        _bottomRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightTriangleAction);
+        _forceClick1GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick1Action);
+        _forceClick2GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick2Action);
+        _forceClick3GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick3Action);
+        _upperLeftCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.UpperLeftCornerClickAction);
+        _upperRightCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.UpperRightCornerClickAction);
+        _lowerLeftCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.LowerLeftCornerClickAction);
+        _lowerRightCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.LowerRightCornerClickAction);
     }
 
     private static bool IsChordShiftGestureLabel(string? action)
@@ -2881,6 +3540,17 @@ internal sealed class TouchProcessorCore
             FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
             OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
             InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
+            TopLeftTriangleAction = NormalizeGestureAction(config.TopLeftTriangleAction, "None"),
+            TopRightTriangleAction = NormalizeGestureAction(config.TopRightTriangleAction, "None"),
+            BottomLeftTriangleAction = NormalizeGestureAction(config.BottomLeftTriangleAction, "None"),
+            BottomRightTriangleAction = NormalizeGestureAction(config.BottomRightTriangleAction, "None"),
+            ForceClick1Action = NormalizeGestureAction(config.ForceClick1Action, "None"),
+            ForceClick2Action = NormalizeGestureAction(config.ForceClick2Action, "None"),
+            ForceClick3Action = NormalizeGestureAction(config.ForceClick3Action, "None"),
+            UpperLeftCornerClickAction = NormalizeGestureAction(config.UpperLeftCornerClickAction, "None"),
+            UpperRightCornerClickAction = NormalizeGestureAction(config.UpperRightCornerClickAction, "None"),
+            LowerLeftCornerClickAction = NormalizeGestureAction(config.LowerLeftCornerClickAction, "None"),
+            LowerRightCornerClickAction = NormalizeGestureAction(config.LowerRightCornerClickAction, "None"),
             TapStaggerToleranceMs = Math.Max(0, config.TapStaggerToleranceMs),
             TapCadenceWindowMs = Math.Max(1, config.TapCadenceWindowMs),
             TapMoveThresholdMm = Math.Max(0, config.TapMoveThresholdMm),
@@ -3254,6 +3924,156 @@ internal sealed class TouchProcessorCore
         public bool Triggered;
         public TrackpadSide Side;
         public long StartedTicks;
+    }
+
+    private struct TriangleGesture
+    {
+        public TriangleGesture(
+            bool Active,
+            bool CandidateValid,
+            bool PriorityArmed,
+            bool ReturnedLaterally,
+            TriangleCorner Corner,
+            int OutboundXSign,
+            int OutboundYSign,
+            long StartedTicks,
+            long LastTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double TurnXNorm,
+            double TurnYAtTurnXNorm,
+            double ExtentYNorm,
+            double LastXNorm,
+            double LastYNorm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.PriorityArmed = PriorityArmed;
+            this.ReturnedLaterally = ReturnedLaterally;
+            this.Corner = Corner;
+            this.OutboundXSign = OutboundXSign;
+            this.OutboundYSign = OutboundYSign;
+            this.StartedTicks = StartedTicks;
+            this.LastTicks = LastTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.TurnXNorm = TurnXNorm;
+            this.TurnYAtTurnXNorm = TurnYAtTurnXNorm;
+            this.ExtentYNorm = ExtentYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool PriorityArmed;
+        public bool ReturnedLaterally;
+        public TriangleCorner Corner;
+        public int OutboundXSign;
+        public int OutboundYSign;
+        public long StartedTicks;
+        public long LastTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double TurnXNorm;
+        public double TurnYAtTurnXNorm;
+        public double ExtentYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+    }
+
+    private enum TriangleCorner : byte
+    {
+        None = 0,
+        TopLeft = 1,
+        TopRight = 2,
+        BottomLeft = 3,
+        BottomRight = 4
+    }
+
+    private struct ForceClickGesture
+    {
+        public ForceClickGesture(
+            bool Active,
+            bool CandidateValid,
+            long StartedTicks,
+            int PeakForceNorm,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MaxDistanceMm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.StartedTicks = StartedTicks;
+            this.PeakForceNorm = PeakForceNorm;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MaxDistanceMm = MaxDistanceMm;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public long StartedTicks;
+        public int PeakForceNorm;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MaxDistanceMm;
+    }
+
+    private struct CornerClickTapGesture
+    {
+        public CornerClickTapGesture(
+            bool Active,
+            bool CandidateValid,
+            bool ForceArmed,
+            int PeakForceNorm,
+            CornerClickTapZone Zone,
+            long StartedTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MaxDistanceMm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.ForceArmed = ForceArmed;
+            this.PeakForceNorm = PeakForceNorm;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MaxDistanceMm = MaxDistanceMm;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool ForceArmed;
+        public int PeakForceNorm;
+        public CornerClickTapZone Zone;
+        public long StartedTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MaxDistanceMm;
+    }
+
+    private enum CornerClickTapZone : byte
+    {
+        None = 0,
+        UpperLeft = 1,
+        UpperRight = 2,
+        LowerLeft = 3,
+        LowerRight = 4
     }
 
     private struct CornerHoldGesture
