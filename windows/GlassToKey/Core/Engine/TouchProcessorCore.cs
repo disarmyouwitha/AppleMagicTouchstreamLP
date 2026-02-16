@@ -20,11 +20,12 @@ internal sealed class TouchProcessorCore
     private const double TriangleMaxDurationMs = 3000.0;
     private const double TriangleTurnDotUpperBound = -0.15;
     private const double TriangleReturnDominanceRatio = 2.0;
-    private const int ForceClick1ThresholdNorm = 72;
-    private const int ForceClick2ThresholdNorm = 120;
-    private const int ForceClick3ThresholdNorm = 170;
+    private const int ForceClick1ThresholdNorm = 255;
+    private const int ForceClick2ThresholdNorm = 500;
+    private const int ForceClick3ThresholdNorm = 750;
     private const double ForceClickMaxDurationMs = 2000.0;
     private const double CornerClickZoneThreshold = 0.14;
+    private const int CornerClickForceThresholdNorm = 125;
     private const int ChordShiftContactThreshold = 4;
     private const double ChordSourceStaleTimeoutMs = 200.0;
     private const ushort ShiftVirtualKey = 0x10;
@@ -504,6 +505,7 @@ internal sealed class TouchProcessorCore
             hasSingleTipSnapshot,
             singleTipXNorm,
             singleTipYNorm,
+            singleTipForceNorm,
             singleTipKeyboardAnchor,
             timestampTicks);
         bool suppressTapGestures =
@@ -1139,7 +1141,7 @@ internal sealed class TouchProcessorCore
     private bool IsCornerClickTapGesturePriorityActive(TrackpadSide side)
     {
         CornerClickTapGesture gesture = side == TrackpadSide.Left ? _cornerClickTapGestureLeft : _cornerClickTapGestureRight;
-        return gesture.Active && gesture.CandidateValid;
+        return gesture.Active && gesture.CandidateValid && gesture.ForceArmed;
     }
 
     private void SetThreePlusGestureSuppress(TrackpadSide side, bool enabled)
@@ -2616,6 +2618,7 @@ internal sealed class TouchProcessorCore
         bool hasSingleTipSnapshot,
         double xNorm,
         double yNorm,
+        int forceNorm,
         bool keyboardAnchor,
         long nowTicks)
     {
@@ -2633,6 +2636,7 @@ internal sealed class TouchProcessorCore
             if (tipContactsInFrame == 0 &&
                 gesture.Active &&
                 gesture.CandidateValid &&
+                gesture.ForceArmed &&
                 (nowTicks - gesture.StartedTicks) <= MsToTicks(_config.TapCadenceWindowMs))
             {
                 EngineKeyAction action = GetCornerClickTapGestureAction(gesture.Zone);
@@ -2659,6 +2663,8 @@ internal sealed class TouchProcessorCore
             gesture = new CornerClickTapGesture(
                 Active: true,
                 CandidateValid: true,
+                ForceArmed: forceNorm >= CornerClickForceThresholdNorm,
+                PeakForceNorm: Math.Max(0, forceNorm),
                 Zone: zone,
                 StartedTicks: nowTicks,
                 StartXNorm: xNorm,
@@ -2672,6 +2678,12 @@ internal sealed class TouchProcessorCore
         if (!gesture.CandidateValid)
         {
             return;
+        }
+
+        gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        if (!gesture.ForceArmed && gesture.PeakForceNorm >= CornerClickForceThresholdNorm)
+        {
+            gesture.ForceArmed = true;
         }
 
         gesture.LastXNorm = xNorm;
@@ -4016,6 +4028,8 @@ internal sealed class TouchProcessorCore
         public CornerClickTapGesture(
             bool Active,
             bool CandidateValid,
+            bool ForceArmed,
+            int PeakForceNorm,
             CornerClickTapZone Zone,
             long StartedTicks,
             double StartXNorm,
@@ -4026,6 +4040,8 @@ internal sealed class TouchProcessorCore
         {
             this.Active = Active;
             this.CandidateValid = CandidateValid;
+            this.ForceArmed = ForceArmed;
+            this.PeakForceNorm = PeakForceNorm;
             this.Zone = Zone;
             this.StartedTicks = StartedTicks;
             this.StartXNorm = StartXNorm;
@@ -4037,6 +4053,8 @@ internal sealed class TouchProcessorCore
 
         public bool Active;
         public bool CandidateValid;
+        public bool ForceArmed;
+        public int PeakForceNorm;
         public CornerClickTapZone Zone;
         public long StartedTicks;
         public double StartXNorm;

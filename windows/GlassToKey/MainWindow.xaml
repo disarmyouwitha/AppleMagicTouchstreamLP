@@ -573,7 +573,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force click 1 (ph:1)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Force Click1" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="ForceClick1GestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
@@ -585,7 +585,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force click 2 (ph:2)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Force Click2" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="ForceClick2GestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
@@ -597,7 +597,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force click 3 (ph:3)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Force Click3" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="ForceClick3GestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
