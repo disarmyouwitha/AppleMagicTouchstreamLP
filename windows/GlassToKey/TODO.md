@@ -23,3 +23,6 @@ ALSO: 4-finger hold is only working for chordal shift. For other actions it shou
 **Ph  based:** Force click1 (ph:1), Force Click2 (ph:2)
 **corners** upper-left,upper-right,lower-left,lower-right corner taps holds
 **corners** Inner corners hold, Outer Corner Hold
+
+- After we get 4-finger hold working we can remove chordal shift, tap click from the Mode checkboxes (they can just set/unset them in the Gesture menu)
+- Move Keyboard/Mouse mode on top of the 3 remaining options.

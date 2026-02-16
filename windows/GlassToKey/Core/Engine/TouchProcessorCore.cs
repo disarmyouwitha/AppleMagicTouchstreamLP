@@ -839,7 +839,6 @@ internal sealed class TouchProcessorCore
         }
 
         if (!hadDispatchDown &&
-            state.BindingIndex < 0 &&
             TryEmitCornerGestureAction(state.Side, state.StartXNorm, state.StartYNorm, state.LastXNorm, state.LastYNorm, touchKey, timestampTicks))
         {
             return;
@@ -2084,10 +2083,7 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool eligible =
-            aggregate.ContactCount == 4 &&
-            aggregate.OnKeyCount == 0 &&
-            !aggregate.KeyboardAnchor;
+        bool eligible = aggregate.ContactCount == 4;
         if (!eligible)
         {
             _fourFingerHoldGesture = default;
