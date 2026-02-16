@@ -125,7 +125,7 @@
             <ComboBox x:Name="LayoutPresetCombo" Height="26" />
             <Expander IsExpanded="False" Margin="0,8,0,0">
               <Expander.Header>
-                <TextBlock Text="Column Settings" Foreground="#8b949e" FontSize="12" />
+                <TextBlock Text="Column Tuning" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
                 <Grid>
@@ -181,7 +181,7 @@
 
             <Expander x:Name="KeymapEditorExpander" IsExpanded="False" Margin="0,12,0,0">
               <Expander.Header>
-                <TextBlock Text="Keymap Editor" Foreground="#8b949e" FontSize="12" />
+                <TextBlock Text="Keymap Tuning" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
                 <ComboBox x:Name="LayerCombo" Height="26" />
@@ -317,7 +317,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force Min (f:)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Force Min" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
                     <Slider x:Name="ForceMinSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
                     <Grid Margin="0,2,0,0">
@@ -337,7 +337,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="170" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force Cap (f:)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Force Max" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
                     <Slider x:Name="ForceCapSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
                     <Grid Margin="0,2,0,0">
@@ -373,9 +373,9 @@
               </StackPanel>
             </Expander>
 
-            <Expander IsExpanded="True" Margin="0,12,0,0">
+            <Expander IsExpanded="False" Margin="0,12,0,0">
               <Expander.Header>
-                <TextBlock Text="Gesture Config" Foreground="#8b949e" FontSize="12" />
+                <TextBlock Text="Gesture Tuning" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
                 <TextBlock Text="Tap Gestures" Foreground="#8b949e" FontSize="12" FontWeight="SemiBold" />
@@ -475,11 +475,9 @@
                 <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
-                <CheckBox x:Name="TapClickEnabledCheck" Content="Tap Click" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="ChordShiftCheck" Content="Chordal Shift" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" />
               </StackPanel>
             </Expander>
 

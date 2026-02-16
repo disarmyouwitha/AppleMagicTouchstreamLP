@@ -230,18 +230,6 @@ public sealed class UserSettings
             changed = true;
         }
 
-        if (TwoFingerTapEnabled != TapClickEnabled)
-        {
-            TwoFingerTapEnabled = TapClickEnabled;
-            changed = true;
-        }
-
-        if (ThreeFingerTapEnabled != TapClickEnabled)
-        {
-            ThreeFingerTapEnabled = TapClickEnabled;
-            changed = true;
-        }
-
         changed |= NormalizeGestureAction(TwoFingerTapAction, "Left Click", out string twoFingerTapAction);
         TwoFingerTapAction = twoFingerTapAction;
         changed |= NormalizeGestureAction(ThreeFingerTapAction, "Right Click", out string threeFingerTapAction);
@@ -256,6 +244,34 @@ public sealed class UserSettings
         OuterCornersAction = outerCornersAction;
         changed |= NormalizeGestureAction(InnerCornersAction, "None", out string innerCornersAction);
         InnerCornersAction = innerCornersAction;
+
+        bool twoFingerTapEnabled = IsGestureActionAssigned(TwoFingerTapAction);
+        if (TwoFingerTapEnabled != twoFingerTapEnabled)
+        {
+            TwoFingerTapEnabled = twoFingerTapEnabled;
+            changed = true;
+        }
+
+        bool threeFingerTapEnabled = IsGestureActionAssigned(ThreeFingerTapAction);
+        if (ThreeFingerTapEnabled != threeFingerTapEnabled)
+        {
+            ThreeFingerTapEnabled = threeFingerTapEnabled;
+            changed = true;
+        }
+
+        bool tapClickEnabled = twoFingerTapEnabled || threeFingerTapEnabled;
+        if (TapClickEnabled != tapClickEnabled)
+        {
+            TapClickEnabled = tapClickEnabled;
+            changed = true;
+        }
+
+        bool chordShiftEnabled = IsChordShiftGestureAction(FourFingerHoldAction);
+        if (ChordShiftEnabled != chordShiftEnabled)
+        {
+            ChordShiftEnabled = chordShiftEnabled;
+            changed = true;
+        }
 
         int normalizedHapticsInterval = Math.Clamp(HapticsMinIntervalMs, 0, 500);
         if (normalizedHapticsInterval != HapticsMinIntervalMs)
@@ -793,5 +809,16 @@ public sealed class UserSettings
         string trimmed = action.Trim();
         normalized = trimmed;
         return !string.Equals(trimmed, action, StringComparison.Ordinal);
+    }
+
+    private static bool IsGestureActionAssigned(string? action)
+    {
+        return !string.IsNullOrWhiteSpace(action) &&
+               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsChordShiftGestureAction(string? action)
+    {
+        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
     }
 }

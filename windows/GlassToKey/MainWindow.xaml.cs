@@ -209,14 +209,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
-        TapClickEnabledCheck.Checked += OnModeSettingChanged;
-        TapClickEnabledCheck.Unchecked += OnModeSettingChanged;
         KeyboardModeCheck.Checked += OnModeSettingChanged;
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
-        ChordShiftCheck.Checked += OnModeSettingChanged;
-        ChordShiftCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
@@ -480,10 +476,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         LayoutPresetCombo.SelectedItem = _preset;
-        TapClickEnabledCheck.IsChecked = _settings.TapClickEnabled;
+        SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
-        ChordShiftCheck.IsChecked = _settings.ChordShiftEnabled;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
@@ -528,6 +523,25 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         string? selected = combo.SelectedValue as string ?? combo.Text;
         return string.IsNullOrWhiteSpace(selected) ? fallback : selected.Trim();
+    }
+
+    private void SyncDerivedGestureToggleSettings()
+    {
+        _settings.TwoFingerTapEnabled = IsGestureActionAssigned(_settings.TwoFingerTapAction);
+        _settings.ThreeFingerTapEnabled = IsGestureActionAssigned(_settings.ThreeFingerTapAction);
+        _settings.TapClickEnabled = _settings.TwoFingerTapEnabled || _settings.ThreeFingerTapEnabled;
+        _settings.ChordShiftEnabled = IsChordShiftGestureAction(_settings.FourFingerHoldAction);
+    }
+
+    private static bool IsGestureActionAssigned(string? action)
+    {
+        return !string.IsNullOrWhiteSpace(action) &&
+               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool IsChordShiftGestureAction(string? action)
+    {
+        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
     }
 
     private void HookTuningAutoApplyHandlers()
@@ -706,9 +720,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _settings.TapClickEnabled = TapClickEnabledCheck.IsChecked == true;
-        _settings.TwoFingerTapEnabled = _settings.TapClickEnabled;
-        _settings.ThreeFingerTapEnabled = _settings.TapClickEnabled;
         _settings.TwoFingerTapAction = ReadGestureActionSelection(TwoFingerTapGestureCombo, "Left Click");
         _settings.ThreeFingerTapAction = ReadGestureActionSelection(ThreeFingerTapGestureCombo, "Right Click");
         _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
@@ -716,11 +727,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Chordal Shift");
         _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
         _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
+        SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
-        _settings.ChordShiftEnabled = ChordShiftCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)
         {
