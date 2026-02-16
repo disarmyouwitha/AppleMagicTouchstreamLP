@@ -227,6 +227,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         FourFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         OuterCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         InnerCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -446,6 +450,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         FourFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         OuterCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         InnerCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        TopLeftTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        TopRightTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        BottomLeftTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        BottomRightTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
 
         string twoFingerTapAction = NormalizeGestureActionForUi(_settings.TwoFingerTapAction, "Left Click");
         string threeFingerTapAction = NormalizeGestureActionForUi(_settings.ThreeFingerTapAction, "Right Click");
@@ -454,6 +462,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Chordal Shift");
         string outerCornersAction = NormalizeGestureActionForUi(_settings.OuterCornersAction, "None");
         string innerCornersAction = NormalizeGestureActionForUi(_settings.InnerCornersAction, "None");
+        string topLeftTriangleAction = NormalizeGestureActionForUi(_settings.TopLeftTriangleAction, "None");
+        string topRightTriangleAction = NormalizeGestureActionForUi(_settings.TopRightTriangleAction, "None");
+        string bottomLeftTriangleAction = NormalizeGestureActionForUi(_settings.BottomLeftTriangleAction, "None");
+        string bottomRightTriangleAction = NormalizeGestureActionForUi(_settings.BottomRightTriangleAction, "None");
         _settings.TwoFingerTapAction = twoFingerTapAction;
         _settings.ThreeFingerTapAction = threeFingerTapAction;
         _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
@@ -461,6 +473,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.FourFingerHoldAction = fourFingerHoldAction;
         _settings.OuterCornersAction = outerCornersAction;
         _settings.InnerCornersAction = innerCornersAction;
+        _settings.TopLeftTriangleAction = topLeftTriangleAction;
+        _settings.TopRightTriangleAction = topRightTriangleAction;
+        _settings.BottomLeftTriangleAction = bottomLeftTriangleAction;
+        _settings.BottomRightTriangleAction = bottomRightTriangleAction;
         TwoFingerTapGestureCombo.SelectedValue = twoFingerTapAction;
         ThreeFingerTapGestureCombo.SelectedValue = threeFingerTapAction;
         FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
@@ -468,6 +484,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         FourFingerHoldGestureCombo.SelectedValue = fourFingerHoldAction;
         OuterCornersGestureCombo.SelectedValue = outerCornersAction;
         InnerCornersGestureCombo.SelectedValue = innerCornersAction;
+        TopLeftTriangleGestureCombo.SelectedValue = topLeftTriangleAction;
+        TopRightTriangleGestureCombo.SelectedValue = topRightTriangleAction;
+        BottomLeftTriangleGestureCombo.SelectedValue = bottomLeftTriangleAction;
+        BottomRightTriangleGestureCombo.SelectedValue = bottomRightTriangleAction;
 
         LayoutPresetCombo.Items.Clear();
         foreach (TrackpadLayoutPreset preset in TrackpadLayoutPreset.All)
@@ -727,6 +747,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Chordal Shift");
         _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
         _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
+        _settings.TopLeftTriangleAction = ReadGestureActionSelection(TopLeftTriangleGestureCombo, "None");
+        _settings.TopRightTriangleAction = ReadGestureActionSelection(TopRightTriangleGestureCombo, "None");
+        _settings.BottomLeftTriangleAction = ReadGestureActionSelection(BottomLeftTriangleGestureCombo, "None");
+        _settings.BottomRightTriangleAction = ReadGestureActionSelection(BottomRightTriangleGestureCombo, "None");
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true

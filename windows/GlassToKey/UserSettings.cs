@@ -29,6 +29,10 @@ public sealed class UserSettings
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
     public string OuterCornersAction { get; set; } = "None";
     public string InnerCornersAction { get; set; } = "None";
+    public string TopLeftTriangleAction { get; set; } = "None";
+    public string TopRightTriangleAction { get; set; } = "None";
+    public string BottomLeftTriangleAction { get; set; } = "None";
+    public string BottomRightTriangleAction { get; set; } = "None";
     public bool HapticsEnabled { get; set; } = true;
     public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
@@ -95,6 +99,10 @@ public sealed class UserSettings
         FourFingerHoldAction = source.FourFingerHoldAction;
         OuterCornersAction = source.OuterCornersAction;
         InnerCornersAction = source.InnerCornersAction;
+        TopLeftTriangleAction = source.TopLeftTriangleAction;
+        TopRightTriangleAction = source.TopRightTriangleAction;
+        BottomLeftTriangleAction = source.BottomLeftTriangleAction;
+        BottomRightTriangleAction = source.BottomRightTriangleAction;
         HapticsEnabled = source.HapticsEnabled;
         HapticsStrength = source.HapticsStrength;
         HapticsMinIntervalMs = source.HapticsMinIntervalMs;
@@ -244,6 +252,14 @@ public sealed class UserSettings
         OuterCornersAction = outerCornersAction;
         changed |= NormalizeGestureAction(InnerCornersAction, "None", out string innerCornersAction);
         InnerCornersAction = innerCornersAction;
+        changed |= NormalizeGestureAction(TopLeftTriangleAction, "None", out string topLeftTriangleAction);
+        TopLeftTriangleAction = topLeftTriangleAction;
+        changed |= NormalizeGestureAction(TopRightTriangleAction, "None", out string topRightTriangleAction);
+        TopRightTriangleAction = topRightTriangleAction;
+        changed |= NormalizeGestureAction(BottomLeftTriangleAction, "None", out string bottomLeftTriangleAction);
+        BottomLeftTriangleAction = bottomLeftTriangleAction;
+        changed |= NormalizeGestureAction(BottomRightTriangleAction, "None", out string bottomRightTriangleAction);
+        BottomRightTriangleAction = bottomRightTriangleAction;
 
         bool twoFingerTapEnabled = IsGestureActionAssigned(TwoFingerTapAction);
         if (TwoFingerTapEnabled != twoFingerTapEnabled)

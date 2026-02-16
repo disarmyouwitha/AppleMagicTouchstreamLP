@@ -13,7 +13,8 @@
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE!)
 
 ## Gestures
-- If I make a recording of a gesture, can Codex understand it enough to write the logic to catch the gesture? 
+- How hard would it be for you to write something to automaticaly take a capture and make a gesture, just like you did? 
 
 **Ph  based:** Force click1 (ph:1), Force Click2 (ph:2)
 **corners** upper-left,upper-right,lower-left,lower-right corner taps holds
+**Force Click Corners??**
