@@ -1959,9 +1959,12 @@ internal static class SelfTestRunner
 
         now = 0;
         InputFrame twoDown = MakeFrame(contactCount: 2, id0: 121, x0: key0X, y0: key0Y, id1: 122, x1: key1X, y1: key1Y);
+        InputFrame oneStillDown = MakeFrame(contactCount: 1, id0: 121, x0: key0X, y0: key0Y);
         twoFingerHoldActor.Post(TrackpadSide.Left, in twoDown, maxX, maxY, now);
         now += MsToTicks(140);
         twoFingerHoldActor.Post(TrackpadSide.Left, in twoDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerHoldActor.Post(TrackpadSide.Left, in oneStillDown, maxX, maxY, now);
         now += MsToTicks(10);
         twoFingerHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
         twoFingerHoldActor.WaitForIdle();

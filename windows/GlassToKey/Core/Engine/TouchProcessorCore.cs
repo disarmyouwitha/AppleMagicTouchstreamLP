@@ -2389,15 +2389,13 @@ internal sealed class TouchProcessorCore
         EngineKeyAction action,
         long nowTicks)
     {
-        if (action.Kind == EngineActionKind.None || aggregate.ContactCount != requiredContactCount)
+        if (action.Kind == EngineActionKind.None ||
+            !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side))
         {
             gesture = default;
             return;
         }
 
-        TrackpadSide side = aggregate.RightContacts > aggregate.LeftContacts
-            ? TrackpadSide.Right
-            : TrackpadSide.Left;
         if (!gesture.Active || gesture.Side != side)
         {
             gesture = new MultiFingerHoldGesture(
@@ -2421,12 +2419,48 @@ internal sealed class TouchProcessorCore
 
         EmitGestureAction(action, gesture.Side, touchKey: 0, nowTicks: nowTicks);
         gesture.Triggered = true;
+        MarkSideTouchStatesHoldConsumed(gesture.Side);
 
         if (_pendingTapGesture.Active &&
             _pendingTapGesture.ContactCount == requiredContactCount &&
             _pendingTapGesture.Side == side)
         {
             _pendingTapGesture = default;
+        }
+    }
+
+    private static bool TryGetEligibleHoldSide(in IntentAggregate aggregate, int requiredContactCount, out TrackpadSide side)
+    {
+        if (aggregate.LeftContacts == requiredContactCount && aggregate.RightContacts == 0)
+        {
+            side = TrackpadSide.Left;
+            return true;
+        }
+
+        if (aggregate.RightContacts == requiredContactCount && aggregate.LeftContacts == 0)
+        {
+            side = TrackpadSide.Right;
+            return true;
+        }
+
+        side = TrackpadSide.Left;
+        return false;
+    }
+
+    private void MarkSideTouchStatesHoldConsumed(TrackpadSide side)
+    {
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref TouchBindingState state = ref _touchStates.ValueRefAt(i);
+            if (state.Side == side)
+            {
+                state.HoldTriggered = true;
+            }
         }
     }
 
