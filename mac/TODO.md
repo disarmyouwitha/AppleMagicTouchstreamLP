@@ -1,8 +1,7 @@
 ## TODO
-A few things about the gestures:
-[0]: sometimes using Typing Toggle on 5F Swipe it will change twice during 1 swipe! As long as you are going in the same direction it should be considered the same gesture so it doesn't fire twice!
-[2]: Corners, dictate enough be an action and set to Outer corners.. right now it fires independently of the action set. 
-[3]: 2 finger hold shouldn't fire on corner gestures. (again look at "../windows/glasstokey" if you need to!)
+Great! You fixed everything except 5F Swipe Left /Right! 5-finger swipe used to be PERFECT when triggering Typing toggle but now it's busted. =x It appears to understand we are using a gesture 'gest' and it sees 5 contacts so I'm not sure why it is not triggering correctly. 
+---
+Great! Now I need you to look at how "../windows/glasstokey" implemented a deterministic capture and replay system using capture and analysis tools —— we need to accept the same files and replay in the same deterministic way!
 ---
 - left, middle right click actions!
 - export /import keymaps, load global.json default

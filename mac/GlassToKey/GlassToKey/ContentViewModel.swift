@@ -1550,6 +1550,8 @@ final class ContentViewModel: ObservableObject {
             var startTime: TimeInterval = 0
             var startX: CGFloat = 0
             var startY: CGFloat = 0
+            var requiresFullLiftToRearm: Bool = false
+            var liftStartTime: TimeInterval = 0
         }
         private struct MultiFingerHoldGestureState {
             var active: Bool = false
@@ -3834,6 +3836,19 @@ final class ContentViewModel: ObservableObject {
             unitsPerMm: CGFloat
         ) {
             var state = fiveFingerSwipeStateBySide[side]
+            if state.requiresFullLiftToRearm {
+                if contactCount == 0 {
+                    if state.liftStartTime == 0 {
+                        state.liftStartTime = now
+                    } else if now - state.liftStartTime >= contactCountHoldDuration {
+                        state = FiveFingerSwipeState()
+                    }
+                } else {
+                    state.liftStartTime = 0
+                }
+                fiveFingerSwipeStateBySide[side] = state
+                return
+            }
             if !state.active {
                 if contactCount >= fiveFingerSwipeArmContacts, let centroid {
                     state.active = true
@@ -3845,17 +3860,8 @@ final class ContentViewModel: ObservableObject {
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
-            if contactCount == 0 {
-                if now - state.startTime >= contactCountHoldDuration {
-                    fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
-                } else {
-                    fiveFingerSwipeStateBySide[side] = state
-                }
-                return
-            }
-            state.startTime = now
             if contactCount <= fiveFingerSwipeReleaseContacts {
-                fiveFingerSwipeStateBySide[side] = state
+                fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
                 return
             }
             guard contactCount >= fiveFingerSwipeSustainContacts, let centroid else {
@@ -3871,6 +3877,9 @@ final class ContentViewModel: ObservableObject {
             let threshold = fiveFingerSwipeThresholdMm * unitsPerMm
             if abs(dx) >= threshold, abs(dx) >= abs(dy) {
                 state.triggered = true
+                state.active = false
+                state.requiresFullLiftToRearm = true
+                state.liftStartTime = 0
                 fiveFingerSwipeStateBySide[side] = state
                 let action = dx >= 0
                     ? fiveFingerSwipeRightGestureAction
@@ -4119,6 +4128,9 @@ final class ContentViewModel: ObservableObject {
                     holdAction: binding.holdAction
                 )
             }
+            // Custom buttons (position == nil) should not inherit default hold actions
+            // from key labels unless an explicit custom-button hold action is set.
+            guard binding.position != nil else { return nil }
             guard let action = holdAction(for: binding.position, label: binding.label) else { return nil }
             return makeBinding(
                 for: action,
