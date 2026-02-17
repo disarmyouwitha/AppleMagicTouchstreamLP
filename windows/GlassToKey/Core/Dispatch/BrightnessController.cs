@@ -2,12 +2,15 @@ using System;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace GlassToKey;
 
 internal static class BrightnessController
 {
     private const int StepPercent = 5;
+    private static readonly object InternalBrightnessLock = new();
+    private static bool _internalWorkerRunning;
 
     public static void StepUp()
     {
@@ -38,8 +41,44 @@ internal static class BrightnessController
 
         if (!adjusted)
         {
-            _ = TryAdjustInternalDisplayBrightness(direction);
+            QueueInternalDisplayBrightnessStep(direction);
         }
+    }
+
+    private static void QueueInternalDisplayBrightnessStep(int direction)
+    {
+        if (direction == 0)
+        {
+            return;
+        }
+
+        int stepCount = Math.Sign(direction);
+        lock (InternalBrightnessLock)
+        {
+            if (_internalWorkerRunning)
+            {
+                // Drop while busy: do not queue another WMI call if one is already in flight.
+                return;
+            }
+
+            _internalWorkerRunning = true;
+        }
+
+        ThreadPool.QueueUserWorkItem(static state =>
+        {
+            try
+            {
+                int queuedStepCount = state is int value ? value : 0;
+                _ = TryAdjustInternalDisplayBrightness(queuedStepCount);
+            }
+            finally
+            {
+                lock (InternalBrightnessLock)
+                {
+                    _internalWorkerRunning = false;
+                }
+            }
+        }, stepCount);
     }
 
     private static bool AdjustPhysicalMonitors(IntPtr hMonitor, int direction)
@@ -89,9 +128,14 @@ internal static class BrightnessController
         return adjusted;
     }
 
-    private static bool TryAdjustInternalDisplayBrightness(int direction)
+    private static bool TryAdjustInternalDisplayBrightness(int stepCount)
     {
-        int step = direction > 0 ? StepPercent : -StepPercent;
+        int step = Math.Sign(stepCount) * StepPercent;
+        if (step == 0)
+        {
+            return false;
+        }
+
         string script =
             "$step = " + step + "; " +
             "$brightness = Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction SilentlyContinue; " +
