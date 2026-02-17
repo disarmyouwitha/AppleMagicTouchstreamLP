@@ -1550,6 +1550,7 @@ final class ContentViewModel: ObservableObject {
             var startTime: TimeInterval = 0
             var startX: CGFloat = 0
             var startY: CGFloat = 0
+            var lowContactStartTime: TimeInterval = 0
             var requiresFullLiftToRearm: Bool = false
             var liftStartTime: TimeInterval = 0
         }
@@ -1610,6 +1611,8 @@ final class ContentViewModel: ObservableObject {
         private var chordShiftState = SidePair(left: ChordShiftState(), right: ChordShiftState())
         private var chordShiftLastContactTime = SidePair(left: TimeInterval(0), right: TimeInterval(0))
         private var chordShiftKeyDown = false
+        private var lastTypingToggleTime: TimeInterval = 0
+        private let typingToggleMinInterval: TimeInterval = 0.2
         private var voiceDictationGestureState = VoiceDictationGestureState()
         private var voiceGestureActive = false
 
@@ -3856,14 +3859,23 @@ final class ContentViewModel: ObservableObject {
                     state.startTime = now
                     state.startX = centroid.x
                     state.startY = centroid.y
+                    state.lowContactStartTime = 0
                 }
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
-            if contactCount <= fiveFingerSwipeReleaseContacts {
-                fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
+            if contactCount == 0 {
+                if state.lowContactStartTime == 0 {
+                    state.lowContactStartTime = now
+                }
+                if now - state.lowContactStartTime >= contactCountHoldDuration {
+                    fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
+                } else {
+                    fiveFingerSwipeStateBySide[side] = state
+                }
                 return
             }
+            state.lowContactStartTime = 0
             guard contactCount >= fiveFingerSwipeSustainContacts, let centroid else {
                 fiveFingerSwipeStateBySide[side] = state
                 return
@@ -4063,6 +4075,11 @@ final class ContentViewModel: ObservableObject {
         }
 
         private func toggleTypingMode() {
+            let now = Self.now()
+            if now - lastTypingToggleTime < typingToggleMinInterval {
+                return
+            }
+            lastTypingToggleTime = now
             let updated = !isTypingEnabled
             if updated != isTypingEnabled {
                 isTypingEnabled = updated
