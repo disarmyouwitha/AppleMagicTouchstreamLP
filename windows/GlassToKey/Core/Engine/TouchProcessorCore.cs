@@ -3231,20 +3231,22 @@ internal sealed class TouchProcessorCore
 
         // Latch chord-shift once 4+ contacts are present on a side.
         // Keep it active until that source side fully releases (0 contacts).
-        if (rightContacts >= ChordShiftContactThreshold && rightStationaryForHold)
+        if (rightContacts >= ChordShiftContactThreshold &&
+            (_chordShiftLeft || rightStationaryForHold))
         {
             _chordShiftLeft = true;
         }
-        else if (rightContacts == 0 || !rightStationaryForHold)
+        else if (rightContacts == 0)
         {
             _chordShiftLeft = false;
         }
 
-        if (leftContacts >= ChordShiftContactThreshold && leftStationaryForHold)
+        if (leftContacts >= ChordShiftContactThreshold &&
+            (_chordShiftRight || leftStationaryForHold))
         {
             _chordShiftRight = true;
         }
-        else if (leftContacts == 0 || !leftStationaryForHold)
+        else if (leftContacts == 0)
         {
             _chordShiftRight = false;
         }
