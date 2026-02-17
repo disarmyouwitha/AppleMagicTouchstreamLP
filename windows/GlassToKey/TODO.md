@@ -1,5 +1,5 @@
 ## TODO:
-- Holding keys is funny? Holding.. Bright_up/Bright down gets stuck.. Is it because it is dispatching a powershell script every hit? It apears to be countted as a continuous key or something.. If I hold my fingers on BRIGHT_UP or BRIGHT_DOWN it keeps triggering
+- Holding Bright_up/Bright down gets stuck.. Is it because it is dispatching a powershell script every hit? It apears to be countted as a continuous key or something.. If I hold my fingers on BRIGHT_UP or BRIGHT_DOWN it keeps triggering
 - Is typing... bad? lol. Try Keyboard mode and see if it's any better.. Snap radius on first hit?
 - Can we add "double-click" action that fires 2 clicks quickly? 
 - What other actions could we add?? 
