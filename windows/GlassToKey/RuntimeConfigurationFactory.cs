@@ -16,9 +16,6 @@ internal static class RuntimeConfigurationFactory
 
     public static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
     {
-        bool twoFingerTapEnabled = IsGestureActionAssigned(settings.TwoFingerTapAction);
-        bool threeFingerTapEnabled = IsGestureActionAssigned(settings.ThreeFingerTapAction);
-        bool tapClickEnabled = twoFingerTapEnabled || threeFingerTapEnabled;
         bool chordShiftEnabled = IsChordShiftGestureAction(settings.FourFingerHoldAction);
 
         return TouchProcessorConfig.Default with
@@ -33,11 +30,6 @@ internal static class RuntimeConfigurationFactory
             SnapRadiusPercent = settings.SnapRadiusPercent > 0.0 ? HardcodedSnapRadiusPercent : 0.0,
             SnapAmbiguityRatio = settings.SnapAmbiguityRatio,
             KeyBufferMs = HardcodedKeyBufferMs,
-            TapClickEnabled = tapClickEnabled,
-            TwoFingerTapEnabled = twoFingerTapEnabled,
-            ThreeFingerTapEnabled = threeFingerTapEnabled,
-            TwoFingerTapAction = settings.TwoFingerTapAction,
-            ThreeFingerTapAction = settings.ThreeFingerTapAction,
             FiveFingerSwipeLeftAction = settings.FiveFingerSwipeLeftAction,
             FiveFingerSwipeRightAction = settings.FiveFingerSwipeRightAction,
             TwoFingerHoldAction = settings.TwoFingerHoldAction,
@@ -56,19 +48,10 @@ internal static class RuntimeConfigurationFactory
             UpperRightCornerClickAction = settings.UpperRightCornerClickAction,
             LowerLeftCornerClickAction = settings.LowerLeftCornerClickAction,
             LowerRightCornerClickAction = settings.LowerRightCornerClickAction,
-            TapStaggerToleranceMs = settings.TapStaggerToleranceMs,
-            TapCadenceWindowMs = settings.TapCadenceWindowMs,
-            TapMoveThresholdMm = settings.TapMoveThresholdMm,
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
             ChordShiftEnabled = chordShiftEnabled
         };
-    }
-
-    private static bool IsGestureActionAssigned(string? action)
-    {
-        return !string.IsNullOrWhiteSpace(action) &&
-               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsChordShiftGestureAction(string? action)

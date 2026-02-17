@@ -14,11 +14,6 @@
     "ChordShiftEnabled": true,
     "TypingEnabled": true,
     "RunAtStartup": true,
-    "TapClickEnabled": false,
-    "TwoFingerTapEnabled": false,
-    "ThreeFingerTapEnabled": false,
-    "TwoFingerTapAction": "None",
-    "ThreeFingerTapAction": "None",
     "FiveFingerSwipeLeftAction": "Typing Toggle",
     "FiveFingerSwipeRightAction": "Typing Toggle",
     "TwoFingerHoldAction": "Left Click",
@@ -58,9 +53,6 @@
       "mobile-ortho-12x4": 10,
       "mobile": 10
     },
-    "TapStaggerToleranceMs": 80,
-    "TapCadenceWindowMs": 200,
-    "TapMoveThresholdMm": 3,
     "ForceMin": 0,
     "ForceCap": 255,
     "ColumnSettingsByLayout": {

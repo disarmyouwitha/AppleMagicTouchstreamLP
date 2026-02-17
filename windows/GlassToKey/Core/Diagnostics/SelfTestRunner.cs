@@ -53,11 +53,6 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Chord-shift tap tests failed: {chordTapFailure}");
         }
 
-        if (!RunTapGestureTests(out string tapFailure))
-        {
-            return new SelfTestResult(false, $"Tap gesture tests failed: {tapFailure}");
-        }
-
         if (!RunThreePlusGesturePriorityTests(out string threePlusFailure))
         {
             return new SelfTestResult(false, $"Three-plus gesture priority tests failed: {threePlusFailure}");
@@ -1707,224 +1702,6 @@ internal static class SelfTestRunner
         return true;
     }
 
-    private static bool RunTapGestureTests(out string failure)
-    {
-        const ushort maxX = 7612;
-        const ushort maxY = 5065;
-        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
-        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
-        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
-        NormalizedRect keyRect = leftLayout.Rects[0][2];
-        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
-        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
-
-        // Positive: two-finger single tap -> left click.
-        if (!RunTapScenario(
-            configure: core => { },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame down = MakeFrame(contactCount: 2, id0: 1, x0: 120, y0: 120, id1: 2, x1: 420, y1: 220);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
-                now += MsToTicks(24);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 1,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        // Positive: two-finger double tap cadence -> two left clicks.
-        if (!RunTapScenario(
-            configure: core => { },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame downA = MakeFrame(contactCount: 2, id0: 3, x0: 130, y0: 130, id1: 4, x1: 460, y1: 240);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in downA, maxX, maxY, now);
-                now += MsToTicks(18);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-                now += MsToTicks(120);
-                InputFrame downB = MakeFrame(contactCount: 2, id0: 5, x0: 140, y0: 140, id1: 6, x1: 500, y1: 260);
-                actor.Post(TrackpadSide.Left, in downB, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 2,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        // Positive: three-finger tap -> right click.
-        if (!RunTapScenario(
-            configure: core => { },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame down = MakeFrame(contactCount: 3, id0: 7, x0: 120, y0: 140, id1: 8, x1: 420, y1: 260, id2: 9, x2: 760, y2: 300);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
-                now += MsToTicks(22);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 0,
-            expectedRightClicks: 1,
-            out failure))
-        {
-            return false;
-        }
-
-        // Negative: movement stress should reject false positives.
-        if (!RunTapScenario(
-            configure: core => { },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame down = MakeFrame(contactCount: 2, id0: 10, x0: 120, y0: 120, id1: 11, x1: 420, y1: 220);
-                InputFrame moved = MakeFrame(contactCount: 2, id0: 10, x0: 120, y0: 120, id1: 11, x1: 3400, y1: 1900);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in moved, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 0,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        // Negative: drag-cancel motion should reject tap even if tap-move threshold is relaxed.
-        if (!RunTapScenario(
-            configure: core =>
-            {
-                core.Configure(core.CurrentConfig with
-                {
-                    DragCancelMm = 1.0,
-                    TapMoveThresholdMm = 10.0
-                });
-            },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame down = MakeFrame(contactCount: 2, id0: 24, x0: 120, y0: 120, id1: 25, x1: 420, y1: 220);
-                InputFrame moved = MakeFrame(contactCount: 2, id0: 24, x0: 220, y0: 120, id1: 25, x1: 520, y1: 220);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in moved, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 0,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        // Priority: three-finger tap should still win even when one touch is on a key.
-        KeymapStore priorityKeymap = KeymapStore.LoadBundledDefault();
-        TouchProcessorCore priorityCore = TouchProcessorFactory.CreateDefault(priorityKeymap);
-        using DispatchEventQueue priorityQueue = new(capacity: 2048);
-        using TouchProcessorActor priorityActor = new(priorityCore, dispatchQueue: priorityQueue);
-        long priorityNow = 0;
-        InputFrame priorityDown = MakeFrame(contactCount: 3, id0: 14, x0: keyX, y0: keyY, id1: 15, x1: 420, y1: 260, id2: 16, x2: 760, y2: 300);
-        InputFrame priorityUp = MakeFrame(contactCount: 0);
-        priorityActor.Post(TrackpadSide.Left, in priorityDown, maxX, maxY, priorityNow);
-        priorityNow += MsToTicks(22);
-        priorityActor.Post(TrackpadSide.Left, in priorityUp, maxX, maxY, priorityNow);
-        priorityActor.WaitForIdle();
-
-        int priorityRightClicks = 0;
-        int priorityKeyTaps = 0;
-        while (priorityQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
-        {
-            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick &&
-                dispatchEvent.MouseButton == DispatchMouseButton.Right)
-            {
-                priorityRightClicks++;
-            }
-            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
-            {
-                priorityKeyTaps++;
-            }
-        }
-
-        if (priorityRightClicks != 1 || priorityKeyTaps != 0)
-        {
-            failure = $"three-finger tap priority mismatch (rightClicks={priorityRightClicks}, keyTaps={priorityKeyTaps}, expected=1/0)";
-            return false;
-        }
-
-        // Suppression: keyboard-only mode disables tap-click.
-        if (!RunTapScenario(
-            configure: core =>
-            {
-                core.SetKeyboardModeEnabled(true);
-                core.SetTypingEnabled(true);
-            },
-            act: actor =>
-            {
-                long now = 0;
-                InputFrame down = MakeFrame(contactCount: 2, id0: 12, x0: 130, y0: 120, id1: 13, x1: 430, y1: 240);
-                InputFrame up = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
-            },
-            expectedLeftClicks: 0,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        // Suppression: typing grace suppresses tap-click.
-        if (!RunTapScenario(
-            configure: core => { },
-            act: actor =>
-            {
-                long now = 0;
-                TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
-                ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
-                KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
-                NormalizedRect keyRect = leftLayout.Rects[0][2];
-                ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
-                ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
-
-                InputFrame keyDown = MakeFrame(contactCount: 1, id0: 21, x0: keyX, y0: keyY);
-                InputFrame keyUp = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in keyDown, maxX, maxY, now);
-                now += MsToTicks(50);
-                actor.Post(TrackpadSide.Left, in keyUp, maxX, maxY, now);
-
-                now += MsToTicks(30); // inside default typing grace window.
-                InputFrame tapDown = MakeFrame(contactCount: 2, id0: 22, x0: 120, y0: 140, id1: 23, x1: 420, y1: 240);
-                InputFrame tapUp = MakeFrame(contactCount: 0);
-                actor.Post(TrackpadSide.Left, in tapDown, maxX, maxY, now);
-                now += MsToTicks(20);
-                actor.Post(TrackpadSide.Left, in tapUp, maxX, maxY, now);
-            },
-            expectedLeftClicks: 0,
-            expectedRightClicks: 0,
-            out failure))
-        {
-            return false;
-        }
-
-        failure = string.Empty;
-        return true;
-    }
-
     private static bool RunThreePlusGesturePriorityTests(out string failure)
     {
         const ushort maxX = 7612;
@@ -1933,11 +1710,7 @@ internal static class SelfTestRunner
         ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
 
-        // Any 3+ contact set should suppress normal key/custom dispatch.
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
-        TouchProcessorCore threeFingerCore = TouchProcessorFactory.CreateDefault(keymap);
-        using DispatchEventQueue threeFingerQueue = new(capacity: 4096);
-        using TouchProcessorActor threeFingerActor = new(threeFingerCore, dispatchQueue: threeFingerQueue);
 
         NormalizedRect key0 = leftLayout.Rects[0][2];
         NormalizedRect key1 = leftLayout.Rects[0][3];
@@ -1948,38 +1721,13 @@ internal static class SelfTestRunner
         ushort key1Y = (ushort)Math.Clamp((int)Math.Round((key1.Y + (key1.Height * 0.5)) * maxY), 1, maxY - 1);
         ushort key2X = (ushort)Math.Clamp((int)Math.Round((key2.X + (key2.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort key2Y = (ushort)Math.Clamp((int)Math.Round((key2.Y + (key2.Height * 0.5)) * maxY), 1, maxY - 1);
-
         long now = 0;
-        InputFrame threeDown = MakeFrame(contactCount: 3, id0: 101, x0: key0X, y0: key0Y, id1: 102, x1: key1X, y1: key1Y, id2: 103, x2: key2X, y2: key2Y);
         InputFrame allUp = MakeFrame(contactCount: 0);
-        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
-        now += MsToTicks(140);
-        threeFingerActor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
-        now += MsToTicks(10);
-        threeFingerActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
-        threeFingerActor.WaitForIdle();
-
-        int threeFingerKeyTaps = 0;
-        while (threeFingerQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
-        {
-            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
-            {
-                threeFingerKeyTaps++;
-            }
-        }
-
-        if (threeFingerKeyTaps != 0)
-        {
-            failure = $"three-finger priority mismatch (keyTaps={threeFingerKeyTaps}, expected=0)";
-            return false;
-        }
 
         // Two-finger hold action should fire once after hold duration.
         TouchProcessorCore twoFingerHoldCore = TouchProcessorFactory.CreateDefault(keymap);
         twoFingerHoldCore.Configure(twoFingerHoldCore.CurrentConfig with
         {
-            TwoFingerTapAction = "None",
-            ThreeFingerTapAction = "None",
             TwoFingerHoldAction = "Left Click",
             HoldDurationMs = 120.0
         });
@@ -2022,8 +1770,6 @@ internal static class SelfTestRunner
         TouchProcessorCore twoFingerHoldMoveCore = TouchProcessorFactory.CreateDefault(keymap);
         twoFingerHoldMoveCore.Configure(twoFingerHoldMoveCore.CurrentConfig with
         {
-            TwoFingerTapAction = "None",
-            ThreeFingerTapAction = "None",
             TwoFingerHoldAction = "Left Click",
             HoldDurationMs = 120.0,
             DragCancelMm = 1000.0
@@ -2063,8 +1809,6 @@ internal static class SelfTestRunner
         threeFingerHoldCore.SetTypingEnabled(true);
         threeFingerHoldCore.Configure(threeFingerHoldCore.CurrentConfig with
         {
-            TwoFingerTapAction = "None",
-            ThreeFingerTapAction = "None",
             ThreeFingerHoldAction = "Typing Toggle",
             HoldDurationMs = 120.0
         });
@@ -2307,52 +2051,6 @@ internal static class SelfTestRunner
         if (!core.Snapshot().TypingEnabled)
         {
             failure = "typing toggle did not switch back on after second five-finger swipe";
-            return false;
-        }
-
-        failure = string.Empty;
-        return true;
-    }
-
-    private static bool RunTapScenario(
-        Action<TouchProcessorCore> configure,
-        Action<TouchProcessorActor> act,
-        int expectedLeftClicks,
-        int expectedRightClicks,
-        out string failure)
-    {
-        KeymapStore keymap = KeymapStore.LoadBundledDefault();
-        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
-        configure(core);
-
-        using DispatchEventQueue queue = new(capacity: 8192);
-        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
-
-        act(actor);
-        actor.WaitForIdle();
-
-        int leftClicks = 0;
-        int rightClicks = 0;
-        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
-        {
-            if (dispatchEvent.Kind != DispatchEventKind.MouseButtonClick)
-            {
-                continue;
-            }
-
-            if (dispatchEvent.MouseButton == DispatchMouseButton.Left)
-            {
-                leftClicks++;
-            }
-            else if (dispatchEvent.MouseButton == DispatchMouseButton.Right)
-            {
-                rightClicks++;
-            }
-        }
-
-        if (leftClicks != expectedLeftClicks || rightClicks != expectedRightClicks)
-        {
-            failure = $"tap scenario mismatch (left={leftClicks}/{expectedLeftClicks}, right={rightClicks}/{expectedRightClicks})";
             return false;
         }
 

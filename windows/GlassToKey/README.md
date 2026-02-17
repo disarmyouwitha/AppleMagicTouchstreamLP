@@ -29,10 +29,10 @@ Right-clicking the indicator opens tray actions: `Config...`, separator, `Captur
 - Force Max (0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Max]` (inclusive).
   - Setting `Force Max` to `0` blocks all key dispatches.
-- Gesture Tuning: 2-finger tap, 3-finger tap, 5-finger swipe L/R, 2-finger hold, 3-finger hold, 4-finger hold, and outer/inner corner holds can each be mapped to any action (defaults preserve classic tap-click + typing-toggle behavior).
+- Gesture Tuning: 5-finger swipe L/R, 2-finger hold, 3-finger hold, 4-finger hold, and outer/inner corner holds can each be mapped to any action.
   - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
-- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window), and tap gestures only fire when the corresponding 2-finger/3-finger gesture action is assigned (not `None`). Blocking clicks requires Input Monitoring/Accessibility permission.
+- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window). Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
 GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
@@ -70,15 +70,15 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--metrics-out <path>`: Write metrics JSON snapshot.
 - `--replay-trace-out <path>`: Write detailed replay trace JSON (intent transitions, dispatch events, diagnostics).
   - Dispatch events/diagnostics include `dispatchLabel` (for example `A`, `TypingToggle`, `Ctrl+C`, `ChordShift`) for direct intent debugging.
-  - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `tap_gesture_active`, `hold_consumed`) when a touch release does not emit a key dispatch.
+  - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `hold_consumed`) when a touch release does not emit a key dispatch.
 - `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
 - `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
-- `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, tap/click gesture, five-finger swipe) and exit.
+- `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, five-finger swipe) and exit.
 
 ### Self-Tests
 - Entry point: `Core/Diagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --selftest`).
-- Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, tap/click gesture recognition and suppression, and five-finger swipe toggle behavior.
+- Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, and five-finger swipe toggle behavior.
 - Data source is primarily synthetic and deterministic: tests build `InputFrame` sequences in memory and assert emitted snapshots/events.
 - Replay self-tests also generate a temporary synthetic `.atpcap` capture on disk, then replay and validate expected fingerprints/counters.
 - Recorded captures are still supported for manual or fixture-based replay via `--capture`, `--replay`, and `--fixture`, but they are not required for the built-in self-test pass.

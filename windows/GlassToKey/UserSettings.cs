@@ -19,11 +19,6 @@ public sealed class UserSettings
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
     public bool RunAtStartup { get; set; }
-    public bool TapClickEnabled { get; set; } = true;
-    public bool TwoFingerTapEnabled { get; set; } = true;
-    public bool ThreeFingerTapEnabled { get; set; } = true;
-    public string TwoFingerTapAction { get; set; } = "Left Click";
-    public string ThreeFingerTapAction { get; set; } = "Right Click";
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
     public string TwoFingerHoldAction { get; set; } = "None";
@@ -55,9 +50,6 @@ public sealed class UserSettings
     public double KeyBufferMs { get; set; } = 20.0;
     public double KeyPaddingPercent { get; set; } = 10.0;
     public Dictionary<string, double>? KeyPaddingPercentByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
-    public double TapStaggerToleranceMs { get; set; } = 80.0;
-    public double TapCadenceWindowMs { get; set; } = 200.0;
-    public double TapMoveThresholdMm { get; set; } = 3.0;
     public int ForceMin { get; set; }
     public int ForceCap { get; set; } = 255;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
@@ -98,11 +90,6 @@ public sealed class UserSettings
         ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;
         RunAtStartup = source.RunAtStartup;
-        TapClickEnabled = source.TapClickEnabled;
-        TwoFingerTapEnabled = source.TwoFingerTapEnabled;
-        ThreeFingerTapEnabled = source.ThreeFingerTapEnabled;
-        TwoFingerTapAction = source.TwoFingerTapAction;
-        ThreeFingerTapAction = source.ThreeFingerTapAction;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
         TwoFingerHoldAction = source.TwoFingerHoldAction;
@@ -134,9 +121,6 @@ public sealed class UserSettings
         KeyBufferMs = source.KeyBufferMs;
         KeyPaddingPercent = source.KeyPaddingPercent;
         KeyPaddingPercentByLayout = CloneKeyPaddingByLayout(source.KeyPaddingPercentByLayout);
-        TapStaggerToleranceMs = source.TapStaggerToleranceMs;
-        TapCadenceWindowMs = source.TapCadenceWindowMs;
-        TapMoveThresholdMm = source.TapMoveThresholdMm;
         ForceMin = source.ForceMin;
         ForceCap = source.ForceCap;
         ColumnSettingsByLayoutLayer = source.ColumnSettingsByLayoutLayer == null
@@ -256,10 +240,6 @@ public sealed class UserSettings
             changed = true;
         }
 
-        changed |= NormalizeGestureAction(TwoFingerTapAction, "Left Click", out string twoFingerTapAction);
-        TwoFingerTapAction = twoFingerTapAction;
-        changed |= NormalizeGestureAction(ThreeFingerTapAction, "Right Click", out string threeFingerTapAction);
-        ThreeFingerTapAction = threeFingerTapAction;
         changed |= NormalizeGestureAction(FiveFingerSwipeLeftAction, "Typing Toggle", out string fiveFingerSwipeLeftAction);
         FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         changed |= NormalizeGestureAction(FiveFingerSwipeRightAction, "Typing Toggle", out string fiveFingerSwipeRightAction);
@@ -296,27 +276,6 @@ public sealed class UserSettings
         LowerLeftCornerClickAction = lowerLeftCornerClickAction;
         changed |= NormalizeGestureAction(LowerRightCornerClickAction, "None", out string lowerRightCornerClickAction);
         LowerRightCornerClickAction = lowerRightCornerClickAction;
-
-        bool twoFingerTapEnabled = IsGestureActionAssigned(TwoFingerTapAction);
-        if (TwoFingerTapEnabled != twoFingerTapEnabled)
-        {
-            TwoFingerTapEnabled = twoFingerTapEnabled;
-            changed = true;
-        }
-
-        bool threeFingerTapEnabled = IsGestureActionAssigned(ThreeFingerTapAction);
-        if (ThreeFingerTapEnabled != threeFingerTapEnabled)
-        {
-            ThreeFingerTapEnabled = threeFingerTapEnabled;
-            changed = true;
-        }
-
-        bool tapClickEnabled = twoFingerTapEnabled || threeFingerTapEnabled;
-        if (TapClickEnabled != tapClickEnabled)
-        {
-            TapClickEnabled = tapClickEnabled;
-            changed = true;
-        }
 
         bool chordShiftEnabled = IsChordShiftGestureAction(FourFingerHoldAction);
         if (ChordShiftEnabled != chordShiftEnabled)
@@ -861,12 +820,6 @@ public sealed class UserSettings
         string trimmed = action.Trim();
         normalized = trimmed;
         return !string.Equals(trimmed, action, StringComparison.Ordinal);
-    }
-
-    private static bool IsGestureActionAssigned(string? action)
-    {
-        return !string.IsNullOrWhiteSpace(action) &&
-               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsChordShiftGestureAction(string? action)

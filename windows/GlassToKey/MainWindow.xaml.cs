@@ -220,8 +220,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
-        TwoFingerTapGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ThreeFingerTapGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         TwoFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -452,8 +450,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         KeymapPrimaryCombo.ItemsSource = CreateGroupedKeyActionView();
         KeymapHoldCombo.ItemsSource = CreateGroupedKeyActionView();
-        TwoFingerTapGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        ThreeFingerTapGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         FiveFingerSwipeLeftGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         FiveFingerSwipeRightGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         TwoFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
@@ -473,8 +469,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LowerLeftCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         LowerRightCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
 
-        string twoFingerTapAction = NormalizeGestureActionForUi(_settings.TwoFingerTapAction, "Left Click");
-        string threeFingerTapAction = NormalizeGestureActionForUi(_settings.ThreeFingerTapAction, "Right Click");
         string fiveFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeLeftAction, "Typing Toggle");
         string fiveFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeRightAction, "Typing Toggle");
         string twoFingerHoldAction = NormalizeGestureActionForUi(_settings.TwoFingerHoldAction, "None");
@@ -493,8 +487,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string upperRightCornerClickAction = NormalizeGestureActionForUi(_settings.UpperRightCornerClickAction, "None");
         string lowerLeftCornerClickAction = NormalizeGestureActionForUi(_settings.LowerLeftCornerClickAction, "None");
         string lowerRightCornerClickAction = NormalizeGestureActionForUi(_settings.LowerRightCornerClickAction, "None");
-        _settings.TwoFingerTapAction = twoFingerTapAction;
-        _settings.ThreeFingerTapAction = threeFingerTapAction;
         _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         _settings.FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
         _settings.TwoFingerHoldAction = twoFingerHoldAction;
@@ -513,8 +505,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.UpperRightCornerClickAction = upperRightCornerClickAction;
         _settings.LowerLeftCornerClickAction = lowerLeftCornerClickAction;
         _settings.LowerRightCornerClickAction = lowerRightCornerClickAction;
-        TwoFingerTapGestureCombo.SelectedValue = twoFingerTapAction;
-        ThreeFingerTapGestureCombo.SelectedValue = threeFingerTapAction;
         FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
         FiveFingerSwipeRightGestureCombo.SelectedValue = fiveFingerSwipeRightAction;
         TwoFingerHoldGestureCombo.SelectedValue = twoFingerHoldAction;
@@ -555,9 +545,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TypingGraceBox.Text = FormatNumber(_settings.TypingGraceMs);
         IntentMoveBox.Text = FormatNumber(_settings.IntentMoveMm);
         IntentVelocityBox.Text = FormatNumber(_settings.IntentVelocityMmPerSec);
-        TapStaggerBox.Text = FormatNumber(_settings.TapStaggerToleranceMs);
-        TapCadenceBox.Text = FormatNumber(_settings.TapCadenceWindowMs);
-        TapMoveBox.Text = FormatNumber(_settings.TapMoveThresholdMm);
         SetForceThresholdUiFromSettings();
         SetHapticsStrengthUiFromSettings();
         KeyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset));
@@ -592,16 +579,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SyncDerivedGestureToggleSettings()
     {
-        _settings.TwoFingerTapEnabled = IsGestureActionAssigned(_settings.TwoFingerTapAction);
-        _settings.ThreeFingerTapEnabled = IsGestureActionAssigned(_settings.ThreeFingerTapAction);
-        _settings.TapClickEnabled = _settings.TwoFingerTapEnabled || _settings.ThreeFingerTapEnabled;
         _settings.ChordShiftEnabled = IsChordShiftGestureAction(_settings.FourFingerHoldAction);
-    }
-
-    private static bool IsGestureActionAssigned(string? action)
-    {
-        return !string.IsNullOrWhiteSpace(action) &&
-               !string.Equals(action.Trim(), "None", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsChordShiftGestureAction(string? action)
@@ -621,10 +599,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeyPaddingBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
-            ColumnOffsetYBox,
-            TapStaggerBox,
-            TapCadenceBox,
-            TapMoveBox
+            ColumnOffsetYBox
         };
 
         foreach (TextBox box in boxes)
@@ -785,8 +760,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _settings.TwoFingerTapAction = ReadGestureActionSelection(TwoFingerTapGestureCombo, "Left Click");
-        _settings.ThreeFingerTapAction = ReadGestureActionSelection(ThreeFingerTapGestureCombo, "Right Click");
         _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
         _settings.FiveFingerSwipeRightAction = ReadGestureActionSelection(FiveFingerSwipeRightGestureCombo, "Typing Toggle");
         _settings.TwoFingerHoldAction = ReadGestureActionSelection(TwoFingerHoldGestureCombo, "None");
@@ -838,9 +811,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.IntentMoveMm = ReadDouble(IntentMoveBox, _settings.IntentMoveMm);
         _settings.IntentVelocityMmPerSec = ReadDouble(IntentVelocityBox, _settings.IntentVelocityMmPerSec);
         _settings.KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
-        _settings.TapStaggerToleranceMs = ReadDouble(TapStaggerBox, _settings.TapStaggerToleranceMs);
-        _settings.TapCadenceWindowMs = ReadDouble(TapCadenceBox, _settings.TapCadenceWindowMs);
-        _settings.TapMoveThresholdMm = ReadDouble(TapMoveBox, _settings.TapMoveThresholdMm);
         _settings.ForceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
         _settings.ForceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
         UpdateForceThresholdLabels();
