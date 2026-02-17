@@ -5,18 +5,9 @@
 - Is typing... bad? lol. Try Keyboard mode and see if it's any better.. Snap radius on first hit?
 - Can we add "double-click" action that fires 2 clicks quickly? 
 - Can we add Volumn Up and Volume down?
-- What other actions could we add?? 
-- 3-finger drag *disables 3-finger swipes
--------
-I have 4 new Gestures recorded if you could analyze the atpcaps and wire them up into the logic and the GUI! 
-- 3-finger swipe up/down left/right
-- 4-finger swipe up/down left/right
-
-3finger_swipe_left_right.atpcap 3finger_swipe_left_right.atpcap 4finger_swipe_left_right.atpcap 4finger_swipe_left_right.atpcap
-
-- Can we combine 5-finger left/right swipe logic to match the others now? 
----
-- Can we make the dropdown a searchable dropdown? Is there a better way to display this info in such a small area?
+- What other actions could we add??
+------- 
+- Can we make the action dropdown a searchable dropdown? Is there a better way to display this info in such a small area?
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
 - `Resting Fingers` Mde: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE?!)

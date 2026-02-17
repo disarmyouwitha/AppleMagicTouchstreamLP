@@ -80,8 +80,8 @@ internal sealed class TouchProcessorCore
     private int _persistentLayer;
     private int _activeLayer;
 
-    private FiveFingerSwipeState _fiveFingerSwipeLeft;
-    private FiveFingerSwipeState _fiveFingerSwipeRight;
+    private DirectionalSwipeState _fiveFingerSwipeLeft;
+    private DirectionalSwipeState _fiveFingerSwipeRight;
     private DirectionalSwipeState _threeFingerSwipeStateLeft;
     private DirectionalSwipeState _threeFingerSwipeStateRight;
     private DirectionalSwipeState _fourFingerSwipeStateLeft;
@@ -1146,7 +1146,7 @@ internal sealed class TouchProcessorCore
             return true;
         }
 
-        ref FiveFingerSwipeState swipe = ref side == TrackpadSide.Left
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
             ? ref _fiveFingerSwipeLeft
             : ref _fiveFingerSwipeRight;
         if (swipe.Active)
@@ -3131,45 +3131,47 @@ internal sealed class TouchProcessorCore
         double centroidY,
         long timestampTicks)
     {
-        ref FiveFingerSwipeState swipe = ref side == TrackpadSide.Left
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
             ? ref _fiveFingerSwipeLeft
             : ref _fiveFingerSwipeRight;
+        bool wasActive = swipe.Active;
+        bool wasTriggered = swipe.Triggered;
 
-        if (!swipe.Active)
+        UpdateDirectionalSwipe(
+            ref swipe,
+            side,
+            contactCount,
+            centroidX,
+            centroidY,
+            timestampTicks,
+            armContacts: FiveFingerSwipeArmContacts,
+            sustainContacts: FiveFingerSwipeSustainContacts,
+            releaseContacts: FiveFingerSwipeReleaseContacts,
+            thresholdMm: FiveFingerSwipeThresholdMm,
+            leftAction: _fiveFingerSwipeLeftGestureAction,
+            rightAction: _fiveFingerSwipeRightGestureAction,
+            upAction: EngineKeyAction.None,
+            downAction: EngineKeyAction.None,
+            enabled: HasAnyFiveFingerSwipeAction(),
+            cancelChordShiftOnTrigger: false,
+            lateralOnly: true);
+
+        string? reason = null;
+        if (!wasActive && swipe.Active)
         {
-            if (contactCount >= FiveFingerSwipeArmContacts)
-            {
-                swipe.Active = true;
-                swipe.Triggered = false;
-                swipe.StartX = centroidX;
-                swipe.StartY = centroidY;
-                RecordDiagnostic(
-                    timestampTicks,
-                    EngineDiagnosticEventKind.FiveFingerState,
-                    side,
-                    _intentMode,
-                    DispatchEventKind.None,
-                    DispatchSuppressReason.None,
-                    TypingToggleSource.FiveFingerSwipe,
-                    0,
-                    DispatchMouseButton.None,
-                    _typingEnabled,
-                    false,
-                    swipe.Active,
-                    swipe.Triggered,
-                    contactCount,
-                    contactCount,
-                    _lastRawLeftContacts,
-                    _lastRawRightContacts,
-                    "armed");
-            }
-            return;
+            reason = "armed";
+        }
+        else if (wasActive && !swipe.Active)
+        {
+            reason = "released";
+        }
+        else if (!wasTriggered && swipe.Triggered)
+        {
+            reason = "triggered";
         }
 
-        if (contactCount <= FiveFingerSwipeReleaseContacts)
+        if (reason != null)
         {
-            swipe.Active = false;
-            swipe.Triggered = false;
             RecordDiagnostic(
                 timestampTicks,
                 EngineDiagnosticEventKind.FiveFingerState,
@@ -3188,50 +3190,7 @@ internal sealed class TouchProcessorCore
                 contactCount,
                 _lastRawLeftContacts,
                 _lastRawRightContacts,
-                "released");
-            return;
-        }
-
-        if (contactCount < FiveFingerSwipeSustainContacts)
-        {
-            return;
-        }
-
-        if (swipe.Triggered)
-        {
-            return;
-        }
-
-        double dxMm = (centroidX - swipe.StartX) * _config.TrackpadWidthMm;
-        double dyMm = (centroidY - swipe.StartY) * _config.TrackpadHeightMm;
-        double absDxMm = Math.Abs(dxMm);
-        double absDyMm = Math.Abs(dyMm);
-        if (absDxMm >= FiveFingerSwipeThresholdMm && absDxMm >= absDyMm)
-        {
-            swipe.Triggered = true;
-            RecordDiagnostic(
-                timestampTicks,
-                EngineDiagnosticEventKind.FiveFingerState,
-                side,
-                _intentMode,
-                DispatchEventKind.None,
-                DispatchSuppressReason.None,
-                TypingToggleSource.FiveFingerSwipe,
-                0,
-                DispatchMouseButton.None,
-                _typingEnabled,
-                false,
-                swipe.Active,
-                swipe.Triggered,
-                contactCount,
-                contactCount,
-                _lastRawLeftContacts,
-                _lastRawRightContacts,
-                "triggered");
-            EngineKeyAction swipeAction = dxMm >= 0
-                ? _fiveFingerSwipeRightGestureAction
-                : _fiveFingerSwipeLeftGestureAction;
-            EmitGestureAction(swipeAction, side, touchKey: 0, nowTicks: timestampTicks);
+                reason);
         }
     }
 
@@ -3320,7 +3279,8 @@ internal sealed class TouchProcessorCore
         EngineKeyAction upAction,
         EngineKeyAction downAction,
         bool enabled,
-        bool cancelChordShiftOnTrigger)
+        bool cancelChordShiftOnTrigger,
+        bool lateralOnly = false)
     {
         if (!enabled)
         {
@@ -3370,7 +3330,16 @@ internal sealed class TouchProcessorCore
         }
 
         SwipeDirection direction;
-        if (absDxMm >= thresholdMm && absDxMm >= absDyMm * DirectionalSwipeAxisDominanceRatio)
+        if (lateralOnly)
+        {
+            if (absDxMm < thresholdMm || absDxMm < absDyMm)
+            {
+                return;
+            }
+
+            direction = dxMm >= 0 ? SwipeDirection.Right : SwipeDirection.Left;
+        }
+        else if (absDxMm >= thresholdMm && absDxMm >= absDyMm * DirectionalSwipeAxisDominanceRatio)
         {
             direction = dxMm >= 0 ? SwipeDirection.Right : SwipeDirection.Left;
         }
@@ -3458,6 +3427,12 @@ internal sealed class TouchProcessorCore
                _threeFingerSwipeRightGestureAction.Kind != EngineActionKind.None ||
                _threeFingerSwipeUpGestureAction.Kind != EngineActionKind.None ||
                _threeFingerSwipeDownGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool HasAnyFiveFingerSwipeAction()
+    {
+        return _fiveFingerSwipeLeftGestureAction.Kind != EngineActionKind.None ||
+               _fiveFingerSwipeRightGestureAction.Kind != EngineActionKind.None;
     }
 
     private bool HasAnyFourFingerSwipeAction()
@@ -4311,13 +4286,6 @@ internal sealed class TouchProcessorCore
         public double StartY;
     }
 
-    private struct FiveFingerSwipeState
-    {
-        public bool Active;
-        public bool Triggered;
-        public double StartX;
-        public double StartY;
-    }
 }
 
 internal sealed class TouchProcessorActor : IDisposable
