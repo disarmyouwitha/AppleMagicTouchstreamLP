@@ -1578,10 +1578,18 @@ internal static class SelfTestRunner
             id1: 61, x1: 1200, y1: 1100,
             id2: 62, x2: 1600, y2: 1300,
             id3: 63, x3: 2000, y3: 1500);
+        InputFrame leftChordHoldMoved = MakeFrame(
+            contactCount: 4,
+            id0: 60, x0: 1200, y0: 900,
+            id1: 61, x1: 1600, y1: 1100,
+            id2: 62, x2: 2000, y2: 1300,
+            id3: 63, x3: 2400, y3: 1500);
         InputFrame rightKeyDown = MakeFrame(contactCount: 1, id0: 64, x0: rightKeyX, y0: rightKeyY);
         InputFrame rightKeyUp = MakeFrame(contactCount: 0);
 
         chordShiftActor.Post(TrackpadSide.Left, in leftChordHold, maxX, maxY, now);
+        now += MsToTicks(10);
+        chordShiftActor.Post(TrackpadSide.Left, in leftChordHoldMoved, maxX, maxY, now);
         now += MsToTicks(10);
         chordShiftActor.Post(TrackpadSide.Right, in rightKeyDown, maxX, maxY, now);
         now += MsToTicks(10);
