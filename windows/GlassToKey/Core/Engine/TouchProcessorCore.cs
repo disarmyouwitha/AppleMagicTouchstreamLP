@@ -20,6 +20,7 @@ internal sealed class TouchProcessorCore
     private const double TriangleMaxDurationMs = 3000.0;
     private const double TriangleTurnDotUpperBound = -0.15;
     private const double TriangleReturnDominanceRatio = 2.0;
+    private const double HoldGestureMoveCancelMm = 1.0;
     private const int ForceClick1ThresholdNorm = 255;
     private const int ForceClick2ThresholdNorm = 500;
     private const int ForceClick3ThresholdNorm = 750;
@@ -96,12 +97,13 @@ internal sealed class TouchProcessorCore
     private long _dispatchEnqueued;
     private long _dispatchSuppressedTypingDisabled;
     private long _dispatchSuppressedRingFull;
-    private PendingTapGesture _pendingTapGesture;
-    private FourFingerHoldGesture _fourFingerHoldGesture;
-    private EngineKeyAction _twoFingerTapGestureAction = EngineKeyAction.None;
-    private EngineKeyAction _threeFingerTapGestureAction = EngineKeyAction.None;
+    private MultiFingerHoldGesture _twoFingerHoldGesture;
+    private MultiFingerHoldGesture _threeFingerHoldGesture;
+    private MultiFingerHoldGesture _fourFingerHoldGesture;
     private EngineKeyAction _fiveFingerSwipeLeftGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fiveFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _twoFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
@@ -304,7 +306,8 @@ internal sealed class TouchProcessorCore
         _dispatchEnqueued = 0;
         _dispatchSuppressedTypingDisabled = 0;
         _dispatchSuppressedRingFull = 0;
-        _pendingTapGesture = default;
+        _twoFingerHoldGesture = default;
+        _threeFingerHoldGesture = default;
         _fourFingerHoldGesture = default;
         _triangleGestureLeft = default;
         _triangleGestureRight = default;
@@ -473,11 +476,6 @@ internal sealed class TouchProcessorCore
         }
 
         IntentAggregate aggregate = BuildIntentAggregate();
-        int previousContactCount = _lastContactCount;
-        bool cornerPriorityBeforeUpdate = IsCornerGesturePriorityActive(side);
-        bool trianglePriorityBeforeUpdate = IsTriangleGesturePriorityActive(side);
-        bool forcePriorityBeforeUpdate = IsForceClickGesturePriorityActive(side);
-        bool cornerClickPriorityBeforeUpdate = IsCornerClickTapGesturePriorityActive(side);
         if (tipContactsInFrame > 0)
         {
             double centroidX = tipSumXNorm / tipContactsInFrame;
@@ -488,6 +486,8 @@ internal sealed class TouchProcessorCore
         {
             UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
         }
+        UpdateTwoFingerHoldGesture(aggregate, timestampTicks);
+        UpdateThreeFingerHoldGesture(aggregate, timestampTicks);
         UpdateFourFingerHoldGesture(aggregate, timestampTicks);
         UpdateCornerHoldGesture(side, timestampTicks);
         UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
@@ -509,16 +509,6 @@ internal sealed class TouchProcessorCore
             singleTipForceNorm,
             singleTipKeyboardAnchor,
             timestampTicks);
-        bool suppressTapGestures =
-            cornerPriorityBeforeUpdate ||
-            IsCornerGesturePriorityActive(side) ||
-            trianglePriorityBeforeUpdate ||
-            IsTriangleGesturePriorityActive(side) ||
-            forcePriorityBeforeUpdate ||
-            IsForceClickGesturePriorityActive(side) ||
-            cornerClickPriorityBeforeUpdate ||
-            IsCornerClickTapGesturePriorityActive(side);
-        UpdateTapGestureState(aggregate, timestampTicks, previousContactCount, suppressTapGestures);
         UpdateIntentState(aggregate, timestampTicks);
     }
 
@@ -968,11 +958,6 @@ internal sealed class TouchProcessorCore
         {
             return;
         }
-        if (_pendingTapGesture.Active)
-        {
-            RecordReleaseDropped(state.Side, action, timestampTicks, "tap_gesture_active");
-            return;
-        }
         if (state.HoldTriggered)
         {
             RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
@@ -1103,6 +1088,16 @@ internal sealed class TouchProcessorCore
             return true;
         }
 
+        if (_twoFingerHoldGesture.Active && _twoFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        if (_threeFingerHoldGesture.Active && _threeFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
         if (_fourFingerHoldGesture.Active && _fourFingerHoldGesture.Side == side)
         {
             return true;
@@ -1116,9 +1111,7 @@ internal sealed class TouchProcessorCore
             return true;
         }
 
-        return _pendingTapGesture.Active &&
-               _pendingTapGesture.ContactCount >= 3 &&
-               _pendingTapGesture.Side == side;
+        return false;
     }
 
     private bool IsCornerGesturePriorityActive(TrackpadSide side)
@@ -1622,7 +1615,6 @@ internal sealed class TouchProcessorCore
         _touchStates.RemoveAll();
         _intentTouches.RemoveAll();
         _momentaryLayerTouches.RemoveAll();
-        _pendingTapGesture = default;
         _triangleGestureLeft = default;
         _triangleGestureRight = default;
         _forceClickGestureLeft = default;
@@ -2174,160 +2166,6 @@ internal sealed class TouchProcessorCore
         return false;
     }
 
-    private void UpdateTapGestureState(in IntentAggregate aggregate, long nowTicks, int previousContactCount, bool suppressTapGestures)
-    {
-        if (!_config.TapClickEnabled)
-        {
-            _pendingTapGesture = default;
-            return;
-        }
-
-        if (suppressTapGestures)
-        {
-            _pendingTapGesture = default;
-            return;
-        }
-
-        long staggerTicks = MsToTicks(_config.TapStaggerToleranceMs);
-        long cadenceTicks = MsToTicks(_config.TapCadenceWindowMs);
-        bool releaseBoundary = aggregate.ContactCount == 0 && previousContactCount > 0;
-        bool candidateContactCount = (_config.TwoFingerTapEnabled && aggregate.ContactCount == 2) ||
-                                     (_config.ThreeFingerTapEnabled && aggregate.ContactCount == 3);
-        bool allowOnKeyForTapCandidate = aggregate.ContactCount >= 3;
-        bool couldStartCandidate = previousContactCount <= 1 &&
-                                    candidateContactCount &&
-                                    (allowOnKeyForTapCandidate || aggregate.OnKeyCount == 0) &&
-                                    !aggregate.KeyboardAnchor &&
-                                    (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) <= staggerTicks;
-
-        if (!_pendingTapGesture.Active && couldStartCandidate)
-        {
-            _pendingTapGesture = new PendingTapGesture(
-                Active: true,
-                CandidateValid: true,
-                ContactCount: aggregate.ContactCount,
-                Side: aggregate.RightContacts > aggregate.LeftContacts ? TrackpadSide.Right : TrackpadSide.Left,
-                StartedTicks: nowTicks,
-                EarliestTouchTicks: aggregate.EarliestStartTicks,
-                LatestTouchTicks: aggregate.LatestStartTicks);
-            RecordDiagnostic(
-                nowTicks,
-                EngineDiagnosticEventKind.TapGesture,
-                _pendingTapGesture.Side,
-                _intentMode,
-                DispatchEventKind.None,
-                DispatchSuppressReason.None,
-                TypingToggleSource.Api,
-                0,
-                DispatchMouseButton.None,
-                _typingEnabled,
-                false,
-                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
-                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
-                aggregate.ContactCount,
-                aggregate.ContactCount,
-                _lastRawLeftContacts,
-                _lastRawRightContacts,
-                "candidate_start");
-        }
-
-        if (_pendingTapGesture.Active && aggregate.ContactCount > 0)
-        {
-            if (aggregate.ContactCount != _pendingTapGesture.ContactCount ||
-                aggregate.MaxDistanceMm > _config.TapMoveThresholdMm ||
-                (nowTicks - _pendingTapGesture.StartedTicks) > cadenceTicks ||
-                (aggregate.LatestStartTicks - aggregate.EarliestStartTicks) > staggerTicks)
-            {
-                _pendingTapGesture.CandidateValid = false;
-                RecordDiagnostic(
-                    nowTicks,
-                    EngineDiagnosticEventKind.TapGesture,
-                    _pendingTapGesture.Side,
-                    _intentMode,
-                    DispatchEventKind.None,
-                    DispatchSuppressReason.None,
-                    TypingToggleSource.Api,
-                    0,
-                    DispatchMouseButton.None,
-                    _typingEnabled,
-                    false,
-                    _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
-                    _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
-                    aggregate.ContactCount,
-                    aggregate.ContactCount,
-                    _lastRawLeftContacts,
-                    _lastRawRightContacts,
-                    "candidate_invalidated");
-            }
-        }
-
-        if (!releaseBoundary)
-        {
-            return;
-        }
-
-        if (!_pendingTapGesture.Active)
-        {
-            return;
-        }
-
-        bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
-        bool typingSuppressed = _typingEnabled && (_intentMode == IntentMode.TypingCommitted || IsTypingGraceActive(nowTicks));
-        bool suppressed = keyboardOnly || typingSuppressed;
-        bool cadenceExpired = (nowTicks - _pendingTapGesture.StartedTicks) > cadenceTicks;
-        if (_pendingTapGesture.CandidateValid && !suppressed && !cadenceExpired)
-        {
-            EngineKeyAction tapAction = ResolveTapGestureAction(_pendingTapGesture.ContactCount);
-            EmitGestureAction(tapAction, _pendingTapGesture.Side, touchKey: 0, nowTicks: nowTicks);
-            RecordDiagnostic(
-                nowTicks,
-                EngineDiagnosticEventKind.TapGesture,
-                _pendingTapGesture.Side,
-                _intentMode,
-                ToDiagnosticDispatchKind(tapAction),
-                DispatchSuppressReason.None,
-                TypingToggleSource.Api,
-                0,
-                tapAction.MouseButton,
-                _typingEnabled,
-                false,
-                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
-                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
-                aggregate.ContactCount,
-                aggregate.ContactCount,
-                _lastRawLeftContacts,
-                _lastRawRightContacts,
-                "click_emitted");
-        }
-        else
-        {
-            string reason = !_pendingTapGesture.CandidateValid
-                ? "candidate_invalid"
-                : suppressed ? "suppressed" : "cadence_expired";
-            RecordDiagnostic(
-                nowTicks,
-                EngineDiagnosticEventKind.TapGesture,
-                _pendingTapGesture.Side,
-                _intentMode,
-                DispatchEventKind.None,
-                DispatchSuppressReason.None,
-                TypingToggleSource.Api,
-                0,
-                DispatchMouseButton.None,
-                _typingEnabled,
-                false,
-                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
-                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
-                aggregate.ContactCount,
-                aggregate.ContactCount,
-                _lastRawLeftContacts,
-                _lastRawRightContacts,
-                reason);
-        }
-
-        _pendingTapGesture = default;
-    }
-
     private void UpdateFourFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
     {
         if (_fourFingerHoldUsesChordShift)
@@ -2336,19 +2174,52 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool eligible = aggregate.ContactCount == 4;
-        if (!eligible)
+        UpdateMultiFingerHoldGesture(
+            ref _fourFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 4,
+            _fourFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateTwoFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _twoFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 2,
+            _twoFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateThreeFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _threeFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 3,
+            _threeFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateMultiFingerHoldGesture(
+        ref MultiFingerHoldGesture gesture,
+        in IntentAggregate aggregate,
+        int requiredContactCount,
+        EngineKeyAction action,
+        long nowTicks)
+    {
+        if (action.Kind == EngineActionKind.None ||
+            !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side) ||
+            !AreSideTouchesStationaryForHold(side))
         {
-            _fourFingerHoldGesture = default;
+            gesture = default;
             return;
         }
 
-        TrackpadSide side = aggregate.RightContacts > aggregate.LeftContacts
-            ? TrackpadSide.Right
-            : TrackpadSide.Left;
-        if (!_fourFingerHoldGesture.Active)
+        if (!gesture.Active || gesture.Side != side)
         {
-            _fourFingerHoldGesture = new FourFingerHoldGesture(
+            gesture = new MultiFingerHoldGesture(
                 Active: true,
                 Triggered: false,
                 Side: side,
@@ -2356,19 +2227,81 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        if (_fourFingerHoldGesture.Triggered)
+        if (gesture.Triggered)
         {
             return;
         }
 
         long holdTicks = MsToTicks(_config.HoldDurationMs);
-        if (nowTicks - _fourFingerHoldGesture.StartedTicks < holdTicks)
+        if (nowTicks - gesture.StartedTicks < holdTicks)
         {
             return;
         }
 
-        EmitGestureAction(_fourFingerHoldGestureAction, _fourFingerHoldGesture.Side, touchKey: 0, nowTicks: nowTicks);
-        _fourFingerHoldGesture.Triggered = true;
+        EmitGestureAction(action, gesture.Side, touchKey: 0, nowTicks: nowTicks);
+        gesture.Triggered = true;
+        MarkSideTouchStatesHoldConsumed(gesture.Side);
+    }
+
+    private static bool TryGetEligibleHoldSide(in IntentAggregate aggregate, int requiredContactCount, out TrackpadSide side)
+    {
+        if (aggregate.LeftContacts == requiredContactCount && aggregate.RightContacts == 0)
+        {
+            side = TrackpadSide.Left;
+            return true;
+        }
+
+        if (aggregate.RightContacts == requiredContactCount && aggregate.LeftContacts == 0)
+        {
+            side = TrackpadSide.Right;
+            return true;
+        }
+
+        side = TrackpadSide.Left;
+        return false;
+    }
+
+    private bool AreSideTouchesStationaryForHold(TrackpadSide side)
+    {
+        int sideTouchCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref IntentTouchInfo touch = ref _intentTouches.ValueRefAt(i);
+            if (touch.Side != side)
+            {
+                continue;
+            }
+
+            sideTouchCount++;
+            if (touch.MaxDistanceMm > HoldGestureMoveCancelMm)
+            {
+                return false;
+            }
+        }
+
+        return sideTouchCount > 0;
+    }
+
+    private void MarkSideTouchStatesHoldConsumed(TrackpadSide side)
+    {
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref TouchBindingState state = ref _touchStates.ValueRefAt(i);
+            if (state.Side == side)
+            {
+                state.HoldTriggered = true;
+            }
+        }
     }
 
     private void UpdateCornerHoldGesture(TrackpadSide side, long nowTicks)
@@ -2950,7 +2883,7 @@ internal sealed class TouchProcessorCore
             {
                 continue;
             }
-            if (state.MaxDistanceMm > _config.DragCancelMm)
+            if (state.MaxDistanceMm > HoldGestureMoveCancelMm)
             {
                 continue;
             }
@@ -3092,16 +3025,6 @@ internal sealed class TouchProcessorCore
 
         bool inner = side == TrackpadSide.Left ? nearRight : nearLeft;
         return inner ? CornerZone.Inner : CornerZone.None;
-    }
-
-    private EngineKeyAction ResolveTapGestureAction(int contactCount)
-    {
-        return contactCount switch
-        {
-            2 when _config.TwoFingerTapEnabled => _twoFingerTapGestureAction,
-            3 when _config.ThreeFingerTapEnabled => _threeFingerTapGestureAction,
-            _ => EngineKeyAction.None
-        };
     }
 
     private static DispatchEventKind ToDiagnosticDispatchKind(EngineKeyAction action)
@@ -3303,22 +3226,25 @@ internal sealed class TouchProcessorCore
             return;
         }
 
+        bool rightStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Right);
+        bool leftStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Left);
+
         // Latch chord-shift once 4+ contacts are present on a side.
         // Keep it active until that source side fully releases (0 contacts).
-        if (rightContacts >= ChordShiftContactThreshold)
+        if (rightContacts >= ChordShiftContactThreshold && rightStationaryForHold)
         {
             _chordShiftLeft = true;
         }
-        else if (rightContacts == 0)
+        else if (rightContacts == 0 || !rightStationaryForHold)
         {
             _chordShiftLeft = false;
         }
 
-        if (leftContacts >= ChordShiftContactThreshold)
+        if (leftContacts >= ChordShiftContactThreshold && leftStationaryForHold)
         {
             _chordShiftRight = true;
         }
-        else if (leftContacts == 0)
+        else if (leftContacts == 0 || !leftStationaryForHold)
         {
             _chordShiftRight = false;
         }
@@ -3486,10 +3412,10 @@ internal sealed class TouchProcessorCore
 
     private void RefreshGestureActionsFromConfig()
     {
-        _twoFingerTapGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerTapAction);
-        _threeFingerTapGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerTapAction);
         _fiveFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeLeftAction);
         _fiveFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeRightAction);
+        _twoFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerHoldAction);
+        _threeFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerHoldAction);
         _fourFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.FourFingerHoldAction);
         _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
             ? EngineKeyAction.None
@@ -3533,10 +3459,10 @@ internal sealed class TouchProcessorCore
             SnapRadiusPercent = Math.Clamp(config.SnapRadiusPercent, 0, 200),
             SnapAmbiguityRatio = Math.Max(1.0, config.SnapAmbiguityRatio),
             KeyBufferMs = Math.Max(0, config.KeyBufferMs),
-            TwoFingerTapAction = NormalizeGestureAction(config.TwoFingerTapAction, "Left Click"),
-            ThreeFingerTapAction = NormalizeGestureAction(config.ThreeFingerTapAction, "Right Click"),
             FiveFingerSwipeLeftAction = NormalizeGestureAction(config.FiveFingerSwipeLeftAction, "Typing Toggle"),
             FiveFingerSwipeRightAction = NormalizeGestureAction(config.FiveFingerSwipeRightAction, "Typing Toggle"),
+            TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
+            ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
             FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
             OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
             InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
@@ -3551,9 +3477,6 @@ internal sealed class TouchProcessorCore
             UpperRightCornerClickAction = NormalizeGestureAction(config.UpperRightCornerClickAction, "None"),
             LowerLeftCornerClickAction = NormalizeGestureAction(config.LowerLeftCornerClickAction, "None"),
             LowerRightCornerClickAction = NormalizeGestureAction(config.LowerRightCornerClickAction, "None"),
-            TapStaggerToleranceMs = Math.Max(0, config.TapStaggerToleranceMs),
-            TapCadenceWindowMs = Math.Max(1, config.TapCadenceWindowMs),
-            TapMoveThresholdMm = Math.Max(0, config.TapMoveThresholdMm),
             ForceMin = Math.Clamp(config.ForceMin, 0, 255),
             ForceCap = Math.Clamp(config.ForceCap, 0, 255)
         };
@@ -3877,38 +3800,9 @@ internal sealed class TouchProcessorCore
         public string DispatchDownLabel;
     }
 
-    private struct PendingTapGesture
+    private struct MultiFingerHoldGesture
     {
-        public PendingTapGesture(
-            bool Active,
-            bool CandidateValid,
-            int ContactCount,
-            TrackpadSide Side,
-            long StartedTicks,
-            long EarliestTouchTicks,
-            long LatestTouchTicks)
-        {
-            this.Active = Active;
-            this.CandidateValid = CandidateValid;
-            this.ContactCount = ContactCount;
-            this.Side = Side;
-            this.StartedTicks = StartedTicks;
-            this.EarliestTouchTicks = EarliestTouchTicks;
-            this.LatestTouchTicks = LatestTouchTicks;
-        }
-
-        public bool Active;
-        public bool CandidateValid;
-        public int ContactCount;
-        public TrackpadSide Side;
-        public long StartedTicks;
-        public long EarliestTouchTicks;
-        public long LatestTouchTicks;
-    }
-
-    private struct FourFingerHoldGesture
-    {
-        public FourFingerHoldGesture(
+        public MultiFingerHoldGesture(
             bool Active,
             bool Triggered,
             TrackpadSide Side,
