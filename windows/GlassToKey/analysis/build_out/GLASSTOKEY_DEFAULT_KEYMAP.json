@@ -16,6 +16,8 @@
     "RunAtStartup": true,
     "FiveFingerSwipeLeftAction": "Typing Toggle",
     "FiveFingerSwipeRightAction": "Typing Toggle",
+    "FiveFingerSwipeUpAction": "None",
+    "FiveFingerSwipeDownAction": "None",
     "ThreeFingerSwipeLeftAction": "None",
     "ThreeFingerSwipeRightAction": "None",
     "ThreeFingerSwipeUpAction": "None",

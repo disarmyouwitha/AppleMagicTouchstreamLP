@@ -222,6 +222,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ThreeFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ThreeFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ThreeFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -460,6 +462,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.ItemsSource = CreateGroupedKeyActionView();
         FiveFingerSwipeLeftGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         FiveFingerSwipeRightGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        FiveFingerSwipeUpGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        FiveFingerSwipeDownGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         ThreeFingerSwipeLeftGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         ThreeFingerSwipeRightGestureCombo.ItemsSource = CreateGroupedKeyActionView();
         ThreeFingerSwipeUpGestureCombo.ItemsSource = CreateGroupedKeyActionView();
@@ -487,6 +491,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         string fiveFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeLeftAction, "Typing Toggle");
         string fiveFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeRightAction, "Typing Toggle");
+        string fiveFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeUpAction, "None");
+        string fiveFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeDownAction, "None");
         string threeFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeLeftAction, "None");
         string threeFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeRightAction, "None");
         string threeFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeUpAction, "None");
@@ -513,6 +519,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string lowerRightCornerClickAction = NormalizeGestureActionForUi(_settings.LowerRightCornerClickAction, "None");
         _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         _settings.FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        _settings.FiveFingerSwipeUpAction = fiveFingerSwipeUpAction;
+        _settings.FiveFingerSwipeDownAction = fiveFingerSwipeDownAction;
         _settings.ThreeFingerSwipeLeftAction = threeFingerSwipeLeftAction;
         _settings.ThreeFingerSwipeRightAction = threeFingerSwipeRightAction;
         _settings.ThreeFingerSwipeUpAction = threeFingerSwipeUpAction;
@@ -539,6 +547,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LowerRightCornerClickAction = lowerRightCornerClickAction;
         FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
         FiveFingerSwipeRightGestureCombo.SelectedValue = fiveFingerSwipeRightAction;
+        FiveFingerSwipeUpGestureCombo.SelectedValue = fiveFingerSwipeUpAction;
+        FiveFingerSwipeDownGestureCombo.SelectedValue = fiveFingerSwipeDownAction;
         ThreeFingerSwipeLeftGestureCombo.SelectedValue = threeFingerSwipeLeftAction;
         ThreeFingerSwipeRightGestureCombo.SelectedValue = threeFingerSwipeRightAction;
         ThreeFingerSwipeUpGestureCombo.SelectedValue = threeFingerSwipeUpAction;
@@ -802,6 +812,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
         _settings.FiveFingerSwipeRightAction = ReadGestureActionSelection(FiveFingerSwipeRightGestureCombo, "Typing Toggle");
+        _settings.FiveFingerSwipeUpAction = ReadGestureActionSelection(FiveFingerSwipeUpGestureCombo, "None");
+        _settings.FiveFingerSwipeDownAction = ReadGestureActionSelection(FiveFingerSwipeDownGestureCombo, "None");
         _settings.ThreeFingerSwipeLeftAction = ReadGestureActionSelection(ThreeFingerSwipeLeftGestureCombo, "None");
         _settings.ThreeFingerSwipeRightAction = ReadGestureActionSelection(ThreeFingerSwipeRightGestureCombo, "None");
         _settings.ThreeFingerSwipeUpAction = ReadGestureActionSelection(ThreeFingerSwipeUpGestureCombo, "None");

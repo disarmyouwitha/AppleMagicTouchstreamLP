@@ -32,6 +32,8 @@ internal static class RuntimeConfigurationFactory
             KeyBufferMs = HardcodedKeyBufferMs,
             FiveFingerSwipeLeftAction = settings.FiveFingerSwipeLeftAction,
             FiveFingerSwipeRightAction = settings.FiveFingerSwipeRightAction,
+            FiveFingerSwipeUpAction = settings.FiveFingerSwipeUpAction,
+            FiveFingerSwipeDownAction = settings.FiveFingerSwipeDownAction,
             ThreeFingerSwipeLeftAction = settings.ThreeFingerSwipeLeftAction,
             ThreeFingerSwipeRightAction = settings.ThreeFingerSwipeRightAction,
             ThreeFingerSwipeUpAction = settings.ThreeFingerSwipeUpAction,

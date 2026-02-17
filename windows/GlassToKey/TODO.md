@@ -1,13 +1,13 @@
 ## TODO:
 - Can we make the max scaling of the Trackpad devices in the GUI match the physical diminsions of the apple magic trackpad2? (Look it up) I think that will give us more room to add to the GUI!
 - Any way to make the headers inside of the Gesture Tuning config also collapsable? Is there a better way to do this GUI? lol
+- Can we make the action dropdown a searchable dropdown? Is there a better way to display this info in such a small area?
 ---
 - Is typing... bad? lol. Try Keyboard mode and see if it's any better.. Snap radius on first hit?
 - Can we add "double-click" action that fires 2 clicks quickly? 
 - Can we add Volumn Up and Volume down?
 - What other actions could we add??
 ------- 
-- Can we make the action dropdown a searchable dropdown? Is there a better way to display this info in such a small area?
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
 - `Resting Fingers` Mde: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE?!)

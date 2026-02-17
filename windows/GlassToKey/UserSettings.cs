@@ -21,6 +21,8 @@ public sealed class UserSettings
     public bool RunAtStartup { get; set; }
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
+    public string FiveFingerSwipeUpAction { get; set; } = "None";
+    public string FiveFingerSwipeDownAction { get; set; } = "None";
     public string ThreeFingerSwipeLeftAction { get; set; } = "None";
     public string ThreeFingerSwipeRightAction { get; set; } = "None";
     public string ThreeFingerSwipeUpAction { get; set; } = "None";
@@ -100,6 +102,8 @@ public sealed class UserSettings
         RunAtStartup = source.RunAtStartup;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
+        FiveFingerSwipeUpAction = source.FiveFingerSwipeUpAction;
+        FiveFingerSwipeDownAction = source.FiveFingerSwipeDownAction;
         ThreeFingerSwipeLeftAction = source.ThreeFingerSwipeLeftAction;
         ThreeFingerSwipeRightAction = source.ThreeFingerSwipeRightAction;
         ThreeFingerSwipeUpAction = source.ThreeFingerSwipeUpAction;
@@ -260,6 +264,10 @@ public sealed class UserSettings
         FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         changed |= NormalizeGestureAction(FiveFingerSwipeRightAction, "Typing Toggle", out string fiveFingerSwipeRightAction);
         FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeUpAction, "None", out string fiveFingerSwipeUpAction);
+        FiveFingerSwipeUpAction = fiveFingerSwipeUpAction;
+        changed |= NormalizeGestureAction(FiveFingerSwipeDownAction, "None", out string fiveFingerSwipeDownAction);
+        FiveFingerSwipeDownAction = fiveFingerSwipeDownAction;
         changed |= NormalizeGestureAction(ThreeFingerSwipeLeftAction, "None", out string threeFingerSwipeLeftAction);
         ThreeFingerSwipeLeftAction = threeFingerSwipeLeftAction;
         changed |= NormalizeGestureAction(ThreeFingerSwipeRightAction, "None", out string threeFingerSwipeRightAction);
