@@ -19,6 +19,8 @@ internal sealed class TouchProcessorCore
     private const int FourFingerSwipeSustainContacts = 3;
     private const int FourFingerSwipeReleaseContacts = 1;
     private const double DirectionalSwipeAxisDominanceRatio = 1.2;
+    private const double FourFingerDominanceSuppressMs = 180.0;
+    private const double SwipeChordCancelPreTriggerRatio = 0.35;
     private const double TriangleStartCornerThreshold = 0.12;
     private const double TriangleArmDxThreshold = 0.06;
     private const double TriangleArmDyThreshold = 0.08;
@@ -96,6 +98,8 @@ internal sealed class TouchProcessorCore
     private int _lastRawRightContacts;
     private long _lastRawLeftUpdateTicks = -1;
     private long _lastRawRightUpdateTicks = -1;
+    private long _lastFourPlusLeftTicks = -1;
+    private long _lastFourPlusRightTicks = -1;
 
     private long _framesProcessed;
     private long _queueDrops;
@@ -322,6 +326,8 @@ internal sealed class TouchProcessorCore
         _lastRawRightContacts = 0;
         _lastRawLeftUpdateTicks = -1;
         _lastRawRightUpdateTicks = -1;
+        _lastFourPlusLeftTicks = -1;
+        _lastFourPlusRightTicks = -1;
         _intentTraceFingerprint = 14695981039346656037ul;
         _transitionRingHead = 0;
         _transitionRingCount = 0;
@@ -372,11 +378,19 @@ internal sealed class TouchProcessorCore
         {
             _lastRawLeftContacts = tipContactsInFrame;
             _lastRawLeftUpdateTicks = timestampTicks;
+            if (tipContactsInFrame >= FourFingerSwipeArmContacts)
+            {
+                _lastFourPlusLeftTicks = timestampTicks;
+            }
         }
         else
         {
             _lastRawRightContacts = tipContactsInFrame;
             _lastRawRightUpdateTicks = timestampTicks;
+            if (tipContactsInFrame >= FourFingerSwipeArmContacts)
+            {
+                _lastFourPlusRightTicks = timestampTicks;
+            }
         }
         if (tipContactsInFrame >= 3)
         {
@@ -3231,6 +3245,17 @@ internal sealed class TouchProcessorCore
         ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
             ? ref _threeFingerSwipeStateLeft
             : ref _threeFingerSwipeStateRight;
+        ref DirectionalSwipeState fourSwipe = ref side == TrackpadSide.Left
+            ? ref _fourFingerSwipeStateLeft
+            : ref _fourFingerSwipeStateRight;
+        if (contactCount >= FourFingerSwipeArmContacts ||
+            fourSwipe.Active ||
+            HadRecentFourPlusContactOnSide(side, timestampTicks))
+        {
+            swipe = default;
+            return;
+        }
+
         UpdateDirectionalSwipe(
             ref swipe,
             side,
@@ -3246,7 +3271,8 @@ internal sealed class TouchProcessorCore
             rightAction: _threeFingerSwipeRightGestureAction,
             upAction: _threeFingerSwipeUpGestureAction,
             downAction: _threeFingerSwipeDownGestureAction,
-            enabled: HasAnyThreeFingerSwipeAction());
+            enabled: HasAnyThreeFingerSwipeAction(),
+            cancelChordShiftOnTrigger: false);
     }
 
     private void UpdateFourFingerSwipe(
@@ -3274,7 +3300,8 @@ internal sealed class TouchProcessorCore
             rightAction: _fourFingerSwipeRightGestureAction,
             upAction: _fourFingerSwipeUpGestureAction,
             downAction: _fourFingerSwipeDownGestureAction,
-            enabled: HasAnyFourFingerSwipeAction());
+            enabled: HasAnyFourFingerSwipeAction(),
+            cancelChordShiftOnTrigger: true);
     }
 
     private void UpdateDirectionalSwipe(
@@ -3292,7 +3319,8 @@ internal sealed class TouchProcessorCore
         EngineKeyAction rightAction,
         EngineKeyAction upAction,
         EngineKeyAction downAction,
-        bool enabled)
+        bool enabled,
+        bool cancelChordShiftOnTrigger)
     {
         if (!enabled)
         {
@@ -3327,6 +3355,15 @@ internal sealed class TouchProcessorCore
         double dyMm = (centroidY - swipe.StartY) * _config.TrackpadHeightMm;
         double absDxMm = Math.Abs(dxMm);
         double absDyMm = Math.Abs(dyMm);
+        if (cancelChordShiftOnTrigger)
+        {
+            double cancelMoveThresholdMm = Math.Max(HoldGestureMoveCancelMm * 2.0, thresholdMm * SwipeChordCancelPreTriggerRatio);
+            if (absDxMm >= cancelMoveThresholdMm || absDyMm >= cancelMoveThresholdMm)
+            {
+                CancelChordShiftForSourceSide(side, timestampTicks);
+            }
+        }
+
         if (absDxMm < thresholdMm && absDyMm < thresholdMm)
         {
             return;
@@ -3347,8 +3384,55 @@ internal sealed class TouchProcessorCore
         }
 
         swipe.Triggered = true;
+        if (cancelChordShiftOnTrigger)
+        {
+            CancelChordShiftForSourceSide(side, timestampTicks);
+        }
+
         EngineKeyAction action = ResolveDirectionalSwipeAction(direction, leftAction, rightAction, upAction, downAction);
         EmitGestureAction(action, side, touchKey: 0, nowTicks: timestampTicks);
+    }
+
+    private bool HadRecentFourPlusContactOnSide(TrackpadSide side, long timestampTicks)
+    {
+        long last = side == TrackpadSide.Left ? _lastFourPlusLeftTicks : _lastFourPlusRightTicks;
+        if (last < 0)
+        {
+            return false;
+        }
+
+        long delta = timestampTicks - last;
+        if (delta < 0)
+        {
+            return false;
+        }
+
+        return delta <= MsToTicks(FourFingerDominanceSuppressMs);
+    }
+
+    private void CancelChordShiftForSourceSide(TrackpadSide sourceSide, long timestampTicks)
+    {
+        bool changed = false;
+        if (sourceSide == TrackpadSide.Left)
+        {
+            if (_chordShiftRight)
+            {
+                _chordShiftRight = false;
+                changed = true;
+            }
+        }
+        else if (_chordShiftLeft)
+        {
+            _chordShiftLeft = false;
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        UpdateChordShiftKeyState(timestampTicks);
     }
 
     private static EngineKeyAction ResolveDirectionalSwipeAction(
