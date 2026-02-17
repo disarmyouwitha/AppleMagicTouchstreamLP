@@ -17,3 +17,7 @@
 ## FUTURE:
 - `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicated
+
+Actually, I would like to decouple all Hold Gestures from Drag Cancel as well and give them their own cancel logic. For all Hold gestures if the fingers move even a little like they are being dragged or swiped we should not trigger the hold. Hold gestures are for stationary fingers. I have recorded hold_good.atpcap and hold_bad.atpacp examples for you.
+
+You can download the executables here but please read the <github link>README</a> for Usage and Install instructions!
