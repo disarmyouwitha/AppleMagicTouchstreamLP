@@ -24,6 +24,64 @@ enum TrackpadSide: String, Codable, CaseIterable, Identifiable {
 
 typealias LayeredKeyMappings = [Int: [String: KeyMapping]]
 
+struct GestureTuningSettings: Sendable, Equatable {
+    var fiveFingerSwipeLeftAction: String
+    var fiveFingerSwipeRightAction: String
+    var twoFingerHoldAction: String
+    var threeFingerHoldAction: String
+    var fourFingerHoldAction: String
+    var outerCornersAction: String
+    var innerCornersAction: String
+
+    static let defaults = GestureTuningSettings(
+        fiveFingerSwipeLeftAction: "Typing Toggle",
+        fiveFingerSwipeRightAction: "Typing Toggle",
+        twoFingerHoldAction: "None",
+        threeFingerHoldAction: "None",
+        fourFingerHoldAction: "Chordal Shift",
+        outerCornersAction: "None",
+        innerCornersAction: "None"
+    )
+
+    func normalized() -> GestureTuningSettings {
+        GestureTuningSettings(
+            fiveFingerSwipeLeftAction: Self.normalizeLabel(
+                fiveFingerSwipeLeftAction,
+                fallback: Self.defaults.fiveFingerSwipeLeftAction
+            ),
+            fiveFingerSwipeRightAction: Self.normalizeLabel(
+                fiveFingerSwipeRightAction,
+                fallback: Self.defaults.fiveFingerSwipeRightAction
+            ),
+            twoFingerHoldAction: Self.normalizeLabel(
+                twoFingerHoldAction,
+                fallback: Self.defaults.twoFingerHoldAction
+            ),
+            threeFingerHoldAction: Self.normalizeLabel(
+                threeFingerHoldAction,
+                fallback: Self.defaults.threeFingerHoldAction
+            ),
+            fourFingerHoldAction: Self.normalizeLabel(
+                fourFingerHoldAction,
+                fallback: Self.defaults.fourFingerHoldAction
+            ),
+            outerCornersAction: Self.normalizeLabel(
+                outerCornersAction,
+                fallback: Self.defaults.outerCornersAction
+            ),
+            innerCornersAction: Self.normalizeLabel(
+                innerCornersAction,
+                fallback: Self.defaults.innerCornersAction
+            )
+        )
+    }
+
+    private static func normalizeLabel(_ label: String, fallback: String) -> String {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? fallback : trimmed
+    }
+}
+
 struct SidePair<Value> {
     var left: Value
     var right: Value
@@ -831,6 +889,12 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    func updateGestureTuning(_ settings: GestureTuningSettings) {
+        Task { [processor] in
+            await processor.updateGestureTuning(settings)
+        }
+    }
+
     func updateChordalShiftEnabled(_ enabled: Bool) {
         Task { [processor] in
             await processor.updateChordalShiftEnabled(enabled)
@@ -841,18 +905,6 @@ final class ContentViewModel: ObservableObject {
         keyboardModeEnabled = enabled
         Task { [processor] in
             await processor.updateKeyboardModeEnabled(enabled)
-        }
-    }
-
-    func updateTapClickEnabled(_ enabled: Bool) {
-        Task { [processor] in
-            await processor.updateTapClickEnabled(enabled)
-        }
-    }
-
-    func updateTapClickCadenceMs(_ milliseconds: Double) {
-        Task { [processor] in
-            await processor.updateTapClickCadence(milliseconds)
         }
     }
 
@@ -990,6 +1042,7 @@ final class ContentViewModel: ObservableObject {
         }
 
         private struct IntentTouchInfo {
+            let side: TrackpadSide
             let startPoint: CGPoint
             let startTime: TimeInterval
             var lastPoint: CGPoint
@@ -1489,17 +1542,8 @@ final class ContentViewModel: ObservableObject {
         private var intentMoveThresholdSquared: CGFloat = 0
         private var intentVelocityThreshold: CGFloat = 0
         private var allowMouseTakeoverDuringTyping = false
-        private var tapClickEnabled = false
         private var typingGraceDeadline: TimeInterval?
         private var typingGraceTask: Task<Void, Never>?
-        private var doubleTapDeadline: TimeInterval?
-        private var awaitingSecondTap = false
-        private var tapClickCadenceSeconds: TimeInterval = 0.28
-        private struct TapCandidate {
-            let deadline: TimeInterval
-        }
-        private var twoFingerTapCandidate: TapCandidate?
-        private var threeFingerTapCandidate: TapCandidate?
         private struct FiveFingerSwipeState {
             var active: Bool = false
             var triggered: Bool = false
@@ -1507,8 +1551,53 @@ final class ContentViewModel: ObservableObject {
             var startX: CGFloat = 0
             var startY: CGFloat = 0
         }
-        private var fiveFingerSwipeState = FiveFingerSwipeState()
+        private struct MultiFingerHoldGestureState {
+            var active: Bool = false
+            var triggered: Bool = false
+            var side: TrackpadSide = .left
+            var startTime: TimeInterval = 0
+        }
+        private enum CornerHoldZone {
+            case outer
+            case inner
+        }
+        private struct CornerHoldGestureState {
+            var active: Bool = false
+            var triggered: Bool = false
+            var side: TrackpadSide = .left
+            var zone: CornerHoldZone = .outer
+            var startTime: TimeInterval = 0
+        }
+        private var gestureTuning = GestureTuningSettings.defaults
+        private var fiveFingerSwipeLeftGestureAction: KeyAction? = KeyActionCatalog.action(
+            for: GestureTuningSettings.defaults.fiveFingerSwipeLeftAction
+        )
+        private var fiveFingerSwipeRightGestureAction: KeyAction? = KeyActionCatalog.action(
+            for: GestureTuningSettings.defaults.fiveFingerSwipeRightAction
+        )
+        private var twoFingerHoldGestureAction: KeyAction? = nil
+        private var threeFingerHoldGestureAction: KeyAction? = nil
+        private var fourFingerHoldGestureAction: KeyAction? = nil
+        private var outerCornersGestureAction: KeyAction? = nil
+        private var innerCornersGestureAction: KeyAction? = nil
+        private var fourFingerHoldUsesChordShift = true
+        private var fiveFingerSwipeStateBySide = SidePair(
+            left: FiveFingerSwipeState(),
+            right: FiveFingerSwipeState()
+        )
+        private var twoFingerHoldGestureState = MultiFingerHoldGestureState()
+        private var threeFingerHoldGestureState = MultiFingerHoldGestureState()
+        private var fourFingerHoldGestureState = MultiFingerHoldGestureState()
+        private var cornerHoldGestureBySide = SidePair(
+            left: CornerHoldGestureState(),
+            right: CornerHoldGestureState()
+        )
         private let fiveFingerSwipeThresholdMm: CGFloat = 8.0
+        private let fiveFingerSwipeArmContacts = 5
+        private let fiveFingerSwipeSustainContacts = 4
+        private let fiveFingerSwipeReleaseContacts = 2
+        private let holdGestureMoveCancelMm: CGFloat = 1.0
+        private let cornerHoldThresholdNorm: CGFloat = 0.16
         private struct ChordShiftState {
             var active: Bool = false
         }
@@ -1665,15 +1754,10 @@ final class ContentViewModel: ObservableObject {
             invalidateBindingsCache()
         }
 
-        func updateTapClickEnabled(_ enabled: Bool) {
-            tapClickEnabled = enabled
-        }
-
-        func updateTapClickCadence(_ milliseconds: Double) {
-            let clampedMs = min(max(milliseconds, 50.0), 1000.0)
-            tapClickCadenceSeconds = clampedMs / 1000.0
-            awaitingSecondTap = false
-            doubleTapDeadline = nil
+        func updateGestureTuning(_ settings: GestureTuningSettings) {
+            gestureTuning = settings.normalized()
+            refreshGestureActionsFromSettings()
+            updateChordalShiftEnabled(fourFingerHoldUsesChordShift)
         }
 
         func updateKeyboardModeEnabled(_ enabled: Bool) {
@@ -1689,6 +1773,59 @@ final class ContentViewModel: ObservableObject {
                 chordShiftLastContactTime[.right] = 0
                 updateChordShiftKeyState()
             }
+        }
+
+        private func refreshGestureActionsFromSettings() {
+            fiveFingerSwipeLeftGestureAction = resolvedGestureAction(
+                gestureTuning.fiveFingerSwipeLeftAction,
+                fallback: GestureTuningSettings.defaults.fiveFingerSwipeLeftAction
+            )
+            fiveFingerSwipeRightGestureAction = resolvedGestureAction(
+                gestureTuning.fiveFingerSwipeRightAction,
+                fallback: GestureTuningSettings.defaults.fiveFingerSwipeRightAction
+            )
+            twoFingerHoldGestureAction = resolvedGestureAction(
+                gestureTuning.twoFingerHoldAction,
+                fallback: GestureTuningSettings.defaults.twoFingerHoldAction
+            )
+            threeFingerHoldGestureAction = resolvedGestureAction(
+                gestureTuning.threeFingerHoldAction,
+                fallback: GestureTuningSettings.defaults.threeFingerHoldAction
+            )
+            fourFingerHoldUsesChordShift = KeyActionCatalog.isChordalShiftGestureLabel(
+                gestureTuning.fourFingerHoldAction
+            )
+            fourFingerHoldGestureAction = fourFingerHoldUsesChordShift
+                ? nil
+                : resolvedGestureAction(
+                    gestureTuning.fourFingerHoldAction,
+                    fallback: GestureTuningSettings.defaults.fourFingerHoldAction
+                )
+            outerCornersGestureAction = resolvedGestureAction(
+                gestureTuning.outerCornersAction,
+                fallback: GestureTuningSettings.defaults.outerCornersAction
+            )
+            innerCornersGestureAction = resolvedGestureAction(
+                gestureTuning.innerCornersAction,
+                fallback: GestureTuningSettings.defaults.innerCornersAction
+            )
+            fiveFingerSwipeStateBySide[.left] = FiveFingerSwipeState()
+            fiveFingerSwipeStateBySide[.right] = FiveFingerSwipeState()
+            twoFingerHoldGestureState = MultiFingerHoldGestureState()
+            threeFingerHoldGestureState = MultiFingerHoldGestureState()
+            fourFingerHoldGestureState = MultiFingerHoldGestureState()
+            cornerHoldGestureBySide[.left] = CornerHoldGestureState()
+            cornerHoldGestureBySide[.right] = CornerHoldGestureState()
+        }
+
+        private func resolvedGestureAction(_ label: String, fallback: String) -> KeyAction? {
+            let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
+            let actionLabel = normalized.isEmpty ? fallback : normalized
+            guard let action = KeyActionCatalog.gestureAction(for: actionLabel),
+                  action.kind != .none else {
+                return nil
+            }
+            return action
         }
 
         func processRawFrame(_ frame: OMSRawTouchFrame) {
@@ -3028,15 +3165,12 @@ final class ContentViewModel: ObservableObject {
             var maxDistanceSquared: CGFloat = 0
             var sumX: CGFloat = 0
             var sumY: CGFloat = 0
-            var gestureContactCount = 0
-            var gestureSumX: CGFloat = 0
-            var gestureSumY: CGFloat = 0
+            var gestureContactCounts = SidePair(left: 0, right: 0)
+            var gestureSumX = SidePair<CGFloat>(left: 0, right: 0)
+            var gestureSumY = SidePair<CGFloat>(left: 0, right: 0)
             var firstOnKeyTouchKey: TouchKey?
             intentCurrentKeys.removeAll(keepingCapacity: true)
             var hasKeyboardAnchor = false
-            var twoFingerTapDetected = false
-            var threeFingerTapDetected = false
-            let staggerWindow = max(tapClickCadenceSeconds, contactCountHoldDuration)
 
             func process(_ touch: OMSRawTouch, deviceIndex: Int, side: TrackpadSide, bindings: BindingIndex) {
                 let isChordState = Self.isChordShiftContactState(touch.state)
@@ -3049,9 +3183,9 @@ final class ContentViewModel: ObservableObject {
                 )
                 framePointCache.set(touchKey, point)
                 if isChordState {
-                    gestureContactCount += 1
-                    gestureSumX += point.x
-                    gestureSumY += point.y
+                    gestureContactCounts[side] += 1
+                    gestureSumX[side] += point.x
+                    gestureSumY[side] += point.y
                 }
                 if !isIntentState {
                     return
@@ -3092,6 +3226,7 @@ final class ContentViewModel: ObservableObject {
                     state.touches.set(touchKey, info)
                 } else {
                     state.touches.set(touchKey, IntentTouchInfo(
+                        side: side,
                         startPoint: point,
                         startTime: now,
                         lastPoint: point,
@@ -3112,74 +3247,6 @@ final class ContentViewModel: ObservableObject {
                 }
             }
 
-            if let candidate = twoFingerTapCandidate, now > candidate.deadline {
-                twoFingerTapCandidate = nil
-            }
-            if let candidate = threeFingerTapCandidate, now > candidate.deadline {
-                threeFingerTapCandidate = nil
-            }
-            if let deadline = doubleTapDeadline, now > deadline {
-                doubleTapDeadline = nil
-                awaitingSecondTap = false
-            }
-
-            if keyboardOnly {
-                twoFingerTapCandidate = nil
-                threeFingerTapCandidate = nil
-                awaitingSecondTap = false
-                doubleTapDeadline = nil
-            } else if tapClickEnabled {
-                if intentCurrentKeys.count == 2,
-                   state.touches.count == 3,
-                   shouldTriggerTapClick(
-                    state: state.touches,
-                    now: now,
-                    moveThresholdSquared: moveThresholdSquared,
-                    fingerCount: 3
-                   ) {
-                    threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-                } else if intentCurrentKeys.count == 0,
-                          state.touches.count == 3,
-                          shouldTriggerTapClick(
-                            state: state.touches,
-                            now: now,
-                            moveThresholdSquared: moveThresholdSquared,
-                            fingerCount: 3
-                          ) {
-                    threeFingerTapDetected = true
-                    threeFingerTapCandidate = nil
-                } else if intentCurrentKeys.count == 0,
-                          let candidate = threeFingerTapCandidate,
-                          now <= candidate.deadline {
-                    threeFingerTapDetected = true
-                    threeFingerTapCandidate = nil
-                } else if intentCurrentKeys.count == 1,
-                          state.touches.count == 2,
-                          shouldTriggerTapClick(
-                            state: state.touches,
-                            now: now,
-                            moveThresholdSquared: moveThresholdSquared,
-                            fingerCount: 2
-                          ) {
-                    twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-                } else if intentCurrentKeys.count == 0,
-                          state.touches.count == 2,
-                          shouldTriggerTapClick(
-                            state: state.touches,
-                            now: now,
-                            moveThresholdSquared: moveThresholdSquared,
-                            fingerCount: 2
-                          ) {
-                    twoFingerTapDetected = true
-                    twoFingerTapCandidate = nil
-                } else if intentCurrentKeys.count == 0,
-                          let candidate = twoFingerTapCandidate,
-                          now <= candidate.deadline {
-                    twoFingerTapDetected = true
-                    twoFingerTapCandidate = nil
-                }
-            }
-
             if state.touches.count != intentCurrentKeys.count {
                 intentRemovalBuffer.removeAll(keepingCapacity: true)
                 state.touches.forEach { key, _ in
@@ -3191,6 +3258,37 @@ final class ContentViewModel: ObservableObject {
                     state.touches.remove(key)
                 }
             }
+            let gestureCentroidLeft: CGPoint? = gestureContactCounts[.left] > 0
+                ? CGPoint(
+                    x: gestureSumX[.left] / CGFloat(gestureContactCounts[.left]),
+                    y: gestureSumY[.left] / CGFloat(gestureContactCounts[.left])
+                )
+                : nil
+            let gestureCentroidRight: CGPoint? = gestureContactCounts[.right] > 0
+                ? CGPoint(
+                    x: gestureSumX[.right] / CGFloat(gestureContactCounts[.right]),
+                    y: gestureSumY[.right] / CGFloat(gestureContactCounts[.right])
+                )
+                : nil
+            updateFiveFingerSwipe(
+                for: .left,
+                contactCount: gestureContactCounts[.left],
+                centroid: gestureCentroidLeft,
+                now: now,
+                unitsPerMm: unitsPerMm
+            )
+            updateFiveFingerSwipe(
+                for: .right,
+                contactCount: gestureContactCounts[.right],
+                centroid: gestureCentroidRight,
+                now: now,
+                unitsPerMm: unitsPerMm
+            )
+            updateTwoFingerHoldGesture(state: state.touches, now: now, unitsPerMm: unitsPerMm)
+            updateThreeFingerHoldGesture(state: state.touches, now: now, unitsPerMm: unitsPerMm)
+            updateFourFingerHoldGesture(state: state.touches, now: now, unitsPerMm: unitsPerMm)
+            updateCornerHoldGestures(state: state.touches, now: now, unitsPerMm: unitsPerMm)
+
             let dictationHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
             let dictationGestureEngaged = updateVoiceDictationGesture(
                 holdSide: dictationHoldSide,
@@ -3200,15 +3298,7 @@ final class ContentViewModel: ObservableObject {
             let centroid: CGPoint? = contactCount > 0
                 ? CGPoint(x: sumX / CGFloat(contactCount), y: sumY / CGFloat(contactCount))
                 : nil
-            let gestureCentroid: CGPoint? = gestureContactCount > 0
-                ? CGPoint(x: gestureSumX / CGFloat(gestureContactCount), y: gestureSumY / CGFloat(gestureContactCount))
-                : nil
-            updateFiveFingerSwipe(
-                contactCount: gestureContactCount,
-                centroid: gestureCentroid,
-                now: now,
-                unitsPerMm: unitsPerMm
-            )
+            let totalGestureContactCount = gestureContactCounts[.left] + gestureContactCounts[.right]
             let previousContactCount = state.lastContactCount
             let secondFingerAppeared = contactCount > 1 && contactCount > previousContactCount
             let anyOnKey = onKeyCount > 0
@@ -3225,43 +3315,11 @@ final class ContentViewModel: ObservableObject {
                 || (secondFingerAppeared && anyOffKey)
                 || centroidMoved
 
-            let wasTwoFingerTapDetected = twoFingerTapDetected
-            let isTypingCommitted: Bool
-            if case .typingCommitted = state.mode {
-                isTypingCommitted = true
-            } else {
-                isTypingCommitted = false
-            }
-            let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
-            if dictationGestureEngaged {
-                twoFingerTapCandidate = nil
-                threeFingerTapCandidate = nil
-                twoFingerTapDetected = false
-                threeFingerTapDetected = false
-                awaitingSecondTap = false
-                doubleTapDeadline = nil
-            }
             guard contactCount > 0 else {
                 state.touches.removeAll()
-                if gestureContactCount == 0, !momentaryLayerTouches.isEmpty {
+                if totalGestureContactCount == 0, !momentaryLayerTouches.isEmpty {
                     momentaryLayerTouches.removeAll()
                     updateActiveLayer()
-                }
-                if suppressTapClicks {
-                    awaitingSecondTap = false
-                    doubleTapDeadline = nil
-                } else if threeFingerTapDetected {
-                    keyDispatcher.postRightClick()
-                } else if wasTwoFingerTapDetected {
-                    if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
-                        keyDispatcher.postLeftClick(clickCount: 2)
-                        awaitingSecondTap = false
-                        doubleTapDeadline = nil
-                    } else {
-                        keyDispatcher.postLeftClick()
-                        awaitingSecondTap = true
-                        doubleTapDeadline = now + tapClickCadenceSeconds
-                    }
                 }
                 if graceActive {
                     state.mode = .typingCommitted(untilAllUp: true)
@@ -3394,35 +3452,6 @@ final class ContentViewModel: ObservableObject {
             return allowTyping
         }
 
-        private func shouldTriggerTapClick(
-            state: TouchTable<IntentTouchInfo>,
-            now: TimeInterval,
-            moveThresholdSquared: CGFloat,
-            fingerCount: Int
-        ) -> Bool {
-            if state.count != fingerCount {
-                return false
-            }
-            var maxDuration: TimeInterval = 0
-            var maxDistanceSquared: CGFloat = 0
-            state.forEach { _, info in
-                let duration = now - info.startTime
-                if duration > maxDuration {
-                    maxDuration = duration
-                }
-                if info.maxDistanceSquared > maxDistanceSquared {
-                    maxDistanceSquared = info.maxDistanceSquared
-                }
-            }
-            if maxDuration > tapMaxDuration {
-                return false
-            }
-            if maxDistanceSquared > moveThresholdSquared {
-                return false
-            }
-            return true
-        }
-
         private func updateIntentDisplayIfNeeded() {
             let next = intentDisplay(for: intentState.mode)
             if next == intentDisplayBySide[.left], next == intentDisplayBySide[.right] {
@@ -3473,29 +3502,350 @@ final class ContentViewModel: ObservableObject {
             }
         }
 
+        private func suppressKeyProcessing(for side: TrackpadSide, touchKeys: TouchTable<Bool>) {
+            if isTypingGraceActive() {
+                return
+            }
+            touchKeys.forEach { touchKey, _ in
+                guard touchBelongsToSide(touchKey, side: side) else { return }
+                if momentaryLayerTouches.value(for: touchKey) != nil {
+                    return
+                }
+                disqualifyTouch(touchKey, reason: .intentMouse)
+                toggleTouchStarts.remove(touchKey)
+                layerToggleTouchStarts.remove(touchKey)
+            }
+        }
+
+        private func touchBelongsToSide(_ touchKey: TouchKey, side: TrackpadSide) -> Bool {
+            let deviceIndex = Self.touchKeyDeviceIndex(touchKey)
+            switch side {
+            case .left:
+                return leftDeviceIndex == deviceIndex
+            case .right:
+                return rightDeviceIndex == deviceIndex
+            }
+        }
+
+        private func updateTwoFingerHoldGesture(
+            state: TouchTable<IntentTouchInfo>,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            updateMultiFingerHoldGesture(
+                gestureState: &twoFingerHoldGestureState,
+                state: state,
+                requiredContactCount: 2,
+                action: twoFingerHoldGestureAction,
+                now: now,
+                unitsPerMm: unitsPerMm
+            )
+        }
+
+        private func updateThreeFingerHoldGesture(
+            state: TouchTable<IntentTouchInfo>,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            updateMultiFingerHoldGesture(
+                gestureState: &threeFingerHoldGestureState,
+                state: state,
+                requiredContactCount: 3,
+                action: threeFingerHoldGestureAction,
+                now: now,
+                unitsPerMm: unitsPerMm
+            )
+        }
+
+        private func updateFourFingerHoldGesture(
+            state: TouchTable<IntentTouchInfo>,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            if fourFingerHoldUsesChordShift {
+                fourFingerHoldGestureState = MultiFingerHoldGestureState()
+                return
+            }
+            updateMultiFingerHoldGesture(
+                gestureState: &fourFingerHoldGestureState,
+                state: state,
+                requiredContactCount: 4,
+                action: fourFingerHoldGestureAction,
+                now: now,
+                unitsPerMm: unitsPerMm
+            )
+        }
+
+        private func updateMultiFingerHoldGesture(
+            gestureState: inout MultiFingerHoldGestureState,
+            state: TouchTable<IntentTouchInfo>,
+            requiredContactCount: Int,
+            action: KeyAction?,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            guard let action,
+                  let side = eligibleHoldSide(from: state, requiredContactCount: requiredContactCount),
+                  areSideTouchesStationaryForHold(state: state, side: side, unitsPerMm: unitsPerMm) else {
+                gestureState = MultiFingerHoldGestureState()
+                return
+            }
+            if !gestureState.active || gestureState.side != side {
+                gestureState = MultiFingerHoldGestureState(
+                    active: true,
+                    triggered: false,
+                    side: side,
+                    startTime: now
+                )
+                return
+            }
+            if gestureState.triggered || now - gestureState.startTime < holdMinDuration {
+                return
+            }
+            triggerGestureAction(action, side: side)
+            suppressKeyProcessing(for: side, touchKeys: intentCurrentKeys)
+            gestureState.triggered = true
+        }
+
+        private func eligibleHoldSide(
+            from state: TouchTable<IntentTouchInfo>,
+            requiredContactCount: Int
+        ) -> TrackpadSide? {
+            let leftCount = sideIntentContactCount(state: state, side: .left)
+            let rightCount = sideIntentContactCount(state: state, side: .right)
+            if leftCount == requiredContactCount, rightCount == 0 {
+                return .left
+            }
+            if rightCount == requiredContactCount, leftCount == 0 {
+                return .right
+            }
+            return nil
+        }
+
+        private func sideIntentContactCount(
+            state: TouchTable<IntentTouchInfo>,
+            side: TrackpadSide
+        ) -> Int {
+            var count = 0
+            state.forEach { _, info in
+                if info.side == side {
+                    count += 1
+                }
+            }
+            return count
+        }
+
+        private func areSideTouchesStationaryForHold(
+            state: TouchTable<IntentTouchInfo>,
+            side: TrackpadSide,
+            unitsPerMm: CGFloat
+        ) -> Bool {
+            let threshold = holdGestureMoveCancelMm * unitsPerMm
+            let thresholdSquared = threshold * threshold
+            var sideTouchCount = 0
+            var exceededThreshold = false
+            state.forEach { _, info in
+                guard info.side == side else { return }
+                sideTouchCount += 1
+                if info.maxDistanceSquared > thresholdSquared {
+                    exceededThreshold = true
+                }
+            }
+            return sideTouchCount > 0 && !exceededThreshold
+        }
+
+        private func updateCornerHoldGestures(
+            state: TouchTable<IntentTouchInfo>,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            updateCornerHoldGesture(for: .left, state: state, now: now, unitsPerMm: unitsPerMm)
+            updateCornerHoldGesture(for: .right, state: state, now: now, unitsPerMm: unitsPerMm)
+        }
+
+        private struct CornerHoldPairCandidate {
+            let zone: CornerHoldZone
+            let startTime: TimeInterval
+        }
+
+        private func updateCornerHoldGesture(
+            for side: TrackpadSide,
+            state: TouchTable<IntentTouchInfo>,
+            now: TimeInterval,
+            unitsPerMm: CGFloat
+        ) {
+            var gestureState = cornerHoldGestureBySide[side]
+            guard let candidate = cornerHoldPairCandidate(
+                for: side,
+                state: state,
+                unitsPerMm: unitsPerMm,
+                currentState: gestureState
+            ) else {
+                cornerHoldGestureBySide[side] = CornerHoldGestureState()
+                return
+            }
+            if !gestureState.active || gestureState.zone != candidate.zone {
+                cornerHoldGestureBySide[side] = CornerHoldGestureState(
+                    active: true,
+                    triggered: false,
+                    side: side,
+                    zone: candidate.zone,
+                    startTime: candidate.startTime
+                )
+                return
+            }
+            if candidate.startTime > gestureState.startTime {
+                gestureState.startTime = candidate.startTime
+                gestureState.triggered = false
+            }
+            if gestureState.triggered || now - gestureState.startTime < holdMinDuration {
+                cornerHoldGestureBySide[side] = gestureState
+                return
+            }
+            let action = gestureState.zone == .outer
+                ? outerCornersGestureAction
+                : innerCornersGestureAction
+            if let action {
+                triggerGestureAction(action, side: side)
+                suppressKeyProcessing(for: side, touchKeys: intentCurrentKeys)
+                gestureState.triggered = true
+            }
+            cornerHoldGestureBySide[side] = gestureState
+        }
+
+        private func cornerHoldPairCandidate(
+            for side: TrackpadSide,
+            state: TouchTable<IntentTouchInfo>,
+            unitsPerMm: CGFloat,
+            currentState: CornerHoldGestureState
+        ) -> CornerHoldPairCandidate? {
+            var outerTop = false
+            var outerBottom = false
+            var innerTop = false
+            var innerBottom = false
+            var outerTopStart = TimeInterval.greatestFiniteMagnitude
+            var outerBottomStart = TimeInterval.greatestFiniteMagnitude
+            var innerTopStart = TimeInterval.greatestFiniteMagnitude
+            var innerBottomStart = TimeInterval.greatestFiniteMagnitude
+            let threshold = holdGestureMoveCancelMm * unitsPerMm
+            let thresholdSquared = threshold * threshold
+
+            state.forEach { _, info in
+                guard info.side == side else { return }
+                guard info.maxDistanceSquared <= thresholdSquared else { return }
+                guard let startZone = classifyCornerHoldZone(side: side, point: info.startPoint),
+                      let endZone = classifyCornerHoldZone(side: side, point: info.lastPoint),
+                      startZone == endZone else { return }
+                let yNorm = normalizedY(info.startPoint)
+                let isTop = yNorm <= cornerHoldThresholdNorm
+                let isBottom = yNorm >= (1 - cornerHoldThresholdNorm)
+                guard isTop || isBottom else { return }
+                switch startZone {
+                case .outer:
+                    if isTop {
+                        outerTop = true
+                        outerTopStart = min(outerTopStart, info.startTime)
+                    }
+                    if isBottom {
+                        outerBottom = true
+                        outerBottomStart = min(outerBottomStart, info.startTime)
+                    }
+                case .inner:
+                    if isTop {
+                        innerTop = true
+                        innerTopStart = min(innerTopStart, info.startTime)
+                    }
+                    if isBottom {
+                        innerBottom = true
+                        innerBottomStart = min(innerBottomStart, info.startTime)
+                    }
+                }
+            }
+
+            let outerEligible = outerTop && outerBottom && outerCornersGestureAction != nil
+            let innerEligible = innerTop && innerBottom && innerCornersGestureAction != nil
+            if !outerEligible && !innerEligible {
+                return nil
+            }
+            if outerEligible && innerEligible {
+                if currentState.active, currentState.zone == .inner {
+                    return CornerHoldPairCandidate(
+                        zone: .inner,
+                        startTime: max(innerTopStart, innerBottomStart)
+                    )
+                }
+                return CornerHoldPairCandidate(
+                    zone: .outer,
+                    startTime: max(outerTopStart, outerBottomStart)
+                )
+            }
+            if outerEligible {
+                return CornerHoldPairCandidate(
+                    zone: .outer,
+                    startTime: max(outerTopStart, outerBottomStart)
+                )
+            }
+            return CornerHoldPairCandidate(
+                zone: .inner,
+                startTime: max(innerTopStart, innerBottomStart)
+            )
+        }
+
+        private func classifyCornerHoldZone(
+            side: TrackpadSide,
+            point: CGPoint
+        ) -> CornerHoldZone? {
+            let xNorm = normalizedX(point)
+            let yNorm = normalizedY(point)
+            let threshold = cornerHoldThresholdNorm
+            let topOrBottom = yNorm <= threshold || yNorm >= (1 - threshold)
+            guard topOrBottom else { return nil }
+            let nearLeft = xNorm <= threshold
+            let nearRight = xNorm >= (1 - threshold)
+            guard nearLeft || nearRight else { return nil }
+            let isOuter = side == .left ? nearLeft : nearRight
+            return isOuter ? .outer : .inner
+        }
+
+        private func normalizedX(_ point: CGPoint) -> CGFloat {
+            guard trackpadSize.width > 0 else { return 0 }
+            return min(max(point.x / trackpadSize.width, 0), 1)
+        }
+
+        private func normalizedY(_ point: CGPoint) -> CGFloat {
+            guard trackpadSize.height > 0 else { return 0 }
+            return min(max(point.y / trackpadSize.height, 0), 1)
+        }
+
         private func updateFiveFingerSwipe(
+            for side: TrackpadSide,
             contactCount: Int,
             centroid: CGPoint?,
             now: TimeInterval,
             unitsPerMm: CGFloat
         ) {
-            guard contactCount >= 5, let centroid else {
-                if fiveFingerSwipeState.active || fiveFingerSwipeState.triggered {
-                    fiveFingerSwipeState = FiveFingerSwipeState()
+            var state = fiveFingerSwipeStateBySide[side]
+            if !state.active {
+                if contactCount >= fiveFingerSwipeArmContacts, let centroid {
+                    state.active = true
+                    state.triggered = false
+                    state.startTime = now
+                    state.startX = centroid.x
+                    state.startY = centroid.y
                 }
+                fiveFingerSwipeStateBySide[side] = state
                 return
             }
-            var state = fiveFingerSwipeState
-            if !state.active {
-                state.active = true
-                state.triggered = false
-                state.startTime = now
-                state.startX = centroid.x
-                state.startY = centroid.y
-                fiveFingerSwipeState = state
+            if contactCount <= fiveFingerSwipeReleaseContacts {
+                fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
+                return
+            }
+            guard contactCount >= fiveFingerSwipeSustainContacts, let centroid else {
+                fiveFingerSwipeStateBySide[side] = state
                 return
             }
             if state.triggered {
+                fiveFingerSwipeStateBySide[side] = state
                 return
             }
             let dx = centroid.x - state.startX
@@ -3503,11 +3853,30 @@ final class ContentViewModel: ObservableObject {
             let threshold = fiveFingerSwipeThresholdMm * unitsPerMm
             if abs(dx) >= threshold, abs(dx) >= abs(dy) {
                 state.triggered = true
-                fiveFingerSwipeState = state
-                toggleTypingMode()
+                fiveFingerSwipeStateBySide[side] = state
+                let action = dx >= 0
+                    ? fiveFingerSwipeRightGestureAction
+                    : fiveFingerSwipeLeftGestureAction
+                if let action {
+                    triggerGestureAction(action, side: side)
+                    suppressKeyProcessing(for: side, touchKeys: intentCurrentKeys)
+                }
             } else {
-                fiveFingerSwipeState = state
+                fiveFingerSwipeStateBySide[side] = state
             }
+        }
+
+        private func triggerGestureAction(_ action: KeyAction, side: TrackpadSide) {
+            guard let binding = makeBinding(
+                for: action,
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                position: nil,
+                side: side
+            ) else {
+                return
+            }
+            triggerBinding(binding, touchKey: nil)
         }
 
         private func voiceDictationHoldSide(
@@ -4106,6 +4475,13 @@ final class ContentViewModel: ObservableObject {
         private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
+            fiveFingerSwipeStateBySide[.left] = FiveFingerSwipeState()
+            fiveFingerSwipeStateBySide[.right] = FiveFingerSwipeState()
+            twoFingerHoldGestureState = MultiFingerHoldGestureState()
+            threeFingerHoldGestureState = MultiFingerHoldGestureState()
+            fourFingerHoldGestureState = MultiFingerHoldGestureState()
+            cornerHoldGestureBySide[.left] = CornerHoldGestureState()
+            cornerHoldGestureBySide[.right] = CornerHoldGestureState()
             if chordShiftKeyDown {
                 let shiftBinding = KeyBinding(
                     rect: .zero,
@@ -4829,6 +5205,7 @@ enum LayoutCustomButtonStorage {
 enum KeyActionCatalog {
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
+    static let chordalShiftLabel = "Chordal Shift"
     static let momentaryLayer1Label = "MO(1)"
     static let toggleLayer1Label = "TO(1)"
     static let noneLabel = "None"
@@ -4838,6 +5215,13 @@ enum KeyActionCatalog {
             keyCode: UInt16.max,
             flags: 0,
             kind: .none
+        )
+    }
+    static var chordalShiftTapAction: KeyAction {
+        KeyAction(
+            label: chordalShiftLabel,
+            keyCode: UInt16(kVK_Shift),
+            flags: 0
         )
     }
     static let holdBindingsByLabel: [String: (CGKeyCode, CGEventFlags)] = [
@@ -5056,6 +5440,37 @@ enum KeyActionCatalog {
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
     }()
+
+    static let gesturePresets: [KeyAction] = {
+        var actions = presets
+        actions.append(noneAction)
+        if !actions.contains(where: { $0.label == chordalShiftLabel }) {
+            actions.append(chordalShiftTapAction)
+        }
+        return actions.sorted { $0.label < $1.label }
+    }()
+
+    static let gestureActionLabels: [String] = {
+        gesturePresets.map(\.label)
+    }()
+
+    static func isChordalShiftGestureLabel(_ label: String?) -> Bool {
+        guard let label else { return false }
+        let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.isEmpty {
+            return false
+        }
+        return normalized.caseInsensitiveCompare(chordalShiftLabel) == .orderedSame
+            || normalized.caseInsensitiveCompare("Chord Shift") == .orderedSame
+            || normalized.caseInsensitiveCompare("ChordShift") == .orderedSame
+    }
+
+    static func gestureAction(for label: String) -> KeyAction? {
+        if isChordalShiftGestureLabel(label) {
+            return chordalShiftTapAction
+        }
+        return action(for: label)
+    }
 
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {
