@@ -2018,6 +2018,46 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Two-finger hold should cancel when fingers move, even if drag-cancel is very high.
+        TouchProcessorCore twoFingerHoldMoveCore = TouchProcessorFactory.CreateDefault(keymap);
+        twoFingerHoldMoveCore.Configure(twoFingerHoldMoveCore.CurrentConfig with
+        {
+            TwoFingerTapAction = "None",
+            ThreeFingerTapAction = "None",
+            TwoFingerHoldAction = "Left Click",
+            HoldDurationMs = 120.0,
+            DragCancelMm = 1000.0
+        });
+        using DispatchEventQueue twoFingerHoldMoveQueue = new(capacity: 4096);
+        using TouchProcessorActor twoFingerHoldMoveActor = new(twoFingerHoldMoveCore, dispatchQueue: twoFingerHoldMoveQueue);
+
+        now = 0;
+        InputFrame twoMoveDown = MakeFrame(contactCount: 2, id0: 141, x0: 120, y0: 120, id1: 142, x1: 420, y1: 220);
+        InputFrame twoMoveMoved = MakeFrame(contactCount: 2, id0: 141, x0: 220, y0: 120, id1: 142, x1: 520, y1: 220);
+        twoFingerHoldMoveActor.Post(TrackpadSide.Left, in twoMoveDown, maxX, maxY, now);
+        now += MsToTicks(30);
+        twoFingerHoldMoveActor.Post(TrackpadSide.Left, in twoMoveMoved, maxX, maxY, now);
+        now += MsToTicks(120);
+        twoFingerHoldMoveActor.Post(TrackpadSide.Left, in twoMoveMoved, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerHoldMoveActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        twoFingerHoldMoveActor.WaitForIdle();
+
+        int twoFingerHoldMoveClicks = 0;
+        while (twoFingerHoldMoveQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                twoFingerHoldMoveClicks++;
+            }
+        }
+
+        if (twoFingerHoldMoveClicks != 0)
+        {
+            failure = $"two-finger hold movement cancel mismatch (clicks={twoFingerHoldMoveClicks}, expected=0)";
+            return false;
+        }
+
         // Three-finger hold action should fire once after hold duration.
         TouchProcessorCore threeFingerHoldCore = TouchProcessorFactory.CreateDefault(keymap);
         threeFingerHoldCore.SetTypingEnabled(true);
@@ -2117,6 +2157,14 @@ internal static class SelfTestRunner
         ushort topY = (ushort)Math.Clamp((int)Math.Round(topYNorm * maxY), 1, maxY - 1);
         ushort bottomX = (ushort)Math.Clamp((int)Math.Round(bottomXNorm * maxX), 1, maxX - 1);
         ushort bottomY = (ushort)Math.Clamp((int)Math.Round(bottomYNorm * maxY), 1, maxY - 1);
+        double movedTopXNorm = topXNorm <= 0.5
+            ? Math.Min(topXNorm + 0.03, 0.15)
+            : Math.Max(topXNorm - 0.03, 0.85);
+        double movedBottomXNorm = bottomXNorm <= 0.5
+            ? Math.Min(bottomXNorm + 0.03, 0.15)
+            : Math.Max(bottomXNorm - 0.03, 0.85);
+        ushort movedTopX = (ushort)Math.Clamp((int)Math.Round(movedTopXNorm * maxX), 1, maxX - 1);
+        ushort movedBottomX = (ushort)Math.Clamp((int)Math.Round(movedBottomXNorm * maxX), 1, maxX - 1);
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
@@ -2133,6 +2181,7 @@ internal static class SelfTestRunner
 
         long now = 0;
         InputFrame down = MakeFrame(contactCount: 2, id0: 90, x0: topX, y0: topY, id1: 91, x1: bottomX, y1: bottomY);
+        InputFrame moved = MakeFrame(contactCount: 2, id0: 90, x0: movedTopX, y0: topY, id1: 91, x1: movedBottomX, y1: bottomY);
         InputFrame up = MakeFrame(contactCount: 0);
 
         // Below hold duration: should not emit.
@@ -2147,6 +2196,16 @@ internal static class SelfTestRunner
         actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
         now += MsToTicks(135);
         actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
+
+        // Motion above hold-gesture threshold should cancel, even with high drag-cancel.
+        now += MsToTicks(60);
+        actor.Post(TrackpadSide.Left, in down, maxX, maxY, now);
+        now += MsToTicks(40);
+        actor.Post(TrackpadSide.Left, in moved, maxX, maxY, now);
+        now += MsToTicks(100);
+        actor.Post(TrackpadSide.Left, in moved, maxX, maxY, now);
         now += MsToTicks(10);
         actor.Post(TrackpadSide.Left, in up, maxX, maxY, now);
         actor.WaitForIdle();

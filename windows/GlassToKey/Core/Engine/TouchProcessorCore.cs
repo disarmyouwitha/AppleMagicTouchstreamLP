@@ -20,6 +20,7 @@ internal sealed class TouchProcessorCore
     private const double TriangleMaxDurationMs = 3000.0;
     private const double TriangleTurnDotUpperBound = -0.15;
     private const double TriangleReturnDominanceRatio = 2.0;
+    private const double HoldGestureMoveCancelMm = 1.0;
     private const int ForceClick1ThresholdNorm = 255;
     private const int ForceClick2ThresholdNorm = 500;
     private const int ForceClick3ThresholdNorm = 750;
@@ -2391,7 +2392,8 @@ internal sealed class TouchProcessorCore
         long nowTicks)
     {
         if (action.Kind == EngineActionKind.None ||
-            !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side))
+            !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side) ||
+            !AreSideTouchesStationaryForHold(side))
         {
             gesture = default;
             return;
@@ -2446,6 +2448,32 @@ internal sealed class TouchProcessorCore
 
         side = TrackpadSide.Left;
         return false;
+    }
+
+    private bool AreSideTouchesStationaryForHold(TrackpadSide side)
+    {
+        int sideTouchCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref IntentTouchInfo touch = ref _intentTouches.ValueRefAt(i);
+            if (touch.Side != side)
+            {
+                continue;
+            }
+
+            sideTouchCount++;
+            if (touch.MaxDistanceMm > HoldGestureMoveCancelMm)
+            {
+                return false;
+            }
+        }
+
+        return sideTouchCount > 0;
     }
 
     private void MarkSideTouchStatesHoldConsumed(TrackpadSide side)
@@ -3044,7 +3072,7 @@ internal sealed class TouchProcessorCore
             {
                 continue;
             }
-            if (state.MaxDistanceMm > _config.DragCancelMm)
+            if (state.MaxDistanceMm > HoldGestureMoveCancelMm)
             {
                 continue;
             }
@@ -3397,22 +3425,25 @@ internal sealed class TouchProcessorCore
             return;
         }
 
+        bool rightStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Right);
+        bool leftStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Left);
+
         // Latch chord-shift once 4+ contacts are present on a side.
         // Keep it active until that source side fully releases (0 contacts).
-        if (rightContacts >= ChordShiftContactThreshold)
+        if (rightContacts >= ChordShiftContactThreshold && rightStationaryForHold)
         {
             _chordShiftLeft = true;
         }
-        else if (rightContacts == 0)
+        else if (rightContacts == 0 || !rightStationaryForHold)
         {
             _chordShiftLeft = false;
         }
 
-        if (leftContacts >= ChordShiftContactThreshold)
+        if (leftContacts >= ChordShiftContactThreshold && leftStationaryForHold)
         {
             _chordShiftRight = true;
         }
-        else if (leftContacts == 0)
+        else if (leftContacts == 0 || !leftStationaryForHold)
         {
             _chordShiftRight = false;
         }
