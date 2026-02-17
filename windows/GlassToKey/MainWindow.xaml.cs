@@ -1816,7 +1816,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string[] systemAndMedia =
         {
             "EMOJI",
-            "Win+H",
+            "VOICE",
             "VOL_UP",
             "VOL_DOWN",
             "BRIGHT_UP",
