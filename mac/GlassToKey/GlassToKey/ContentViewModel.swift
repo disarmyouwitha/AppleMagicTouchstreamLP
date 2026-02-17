@@ -1602,11 +1602,7 @@ final class ContentViewModel: ObservableObject {
             var active: Bool = false
         }
         private struct VoiceDictationGestureState {
-            var holdStart: TimeInterval = 0
-            var holdCandidateActive = false
-            var holdDidToggle = false
             var isDictating = false
-            var side: TrackpadSide?
         }
         private var chordShiftEnabled = true
         private var chordShiftState = SidePair(left: ChordShiftState(), right: ChordShiftState())
@@ -1614,11 +1610,6 @@ final class ContentViewModel: ObservableObject {
         private var chordShiftKeyDown = false
         private var voiceDictationGestureState = VoiceDictationGestureState()
         private var voiceGestureActive = false
-        private let voiceDictationHoldSeconds: TimeInterval = 0.35
-        private let voiceDictationLeftEdgeMaxX: CGFloat = 0.28
-        private let voiceDictationRightEdgeMinX: CGFloat = 0.72
-        private let voiceDictationTopMaxY: CGFloat = 0.28
-        private let voiceDictationBottomMinY: CGFloat = 0.72
 
         struct StatusSnapshot: Sendable {
             let contactCounts: SidePair<Int>
@@ -1822,7 +1813,7 @@ final class ContentViewModel: ObservableObject {
             let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
             let actionLabel = normalized.isEmpty ? fallback : normalized
             guard let action = KeyActionCatalog.gestureAction(for: actionLabel),
-                  action.kind != .none else {
+                  (action.kind != .none || KeyActionCatalog.isDictationGestureLabel(action.label)) else {
                 return nil
             }
             return action
@@ -3047,15 +3038,6 @@ final class ContentViewModel: ObservableObject {
             }
         }
 
-        private static func isDictationContactState(_ state: OpenMTState) -> Bool {
-            switch state {
-            case .starting, .making, .touching, .lingering:
-                return true
-            default:
-                return false
-            }
-        }
-
         private func contactCount(in touches: [OMSRawTouch]) -> Int {
             var count = 0
             for touch in touches where Self.isChordShiftContactState(touch.state) {
@@ -3289,12 +3271,6 @@ final class ContentViewModel: ObservableObject {
             updateFourFingerHoldGesture(state: state.touches, now: now, unitsPerMm: unitsPerMm)
             updateCornerHoldGestures(state: state.touches, now: now, unitsPerMm: unitsPerMm)
 
-            let dictationHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
-            let dictationGestureEngaged = updateVoiceDictationGesture(
-                holdSide: dictationHoldSide,
-                now: now
-            )
-
             let centroid: CGPoint? = contactCount > 0
                 ? CGPoint(x: sumX / CGFloat(contactCount), y: sumY / CGFloat(contactCount))
                 : nil
@@ -3331,15 +3307,6 @@ final class ContentViewModel: ObservableObject {
                 intentState = state
                 updateIntentDisplayIfNeeded()
                 return true
-            }
-
-            if dictationGestureEngaged {
-                state.lastContactCount = contactCount
-                state.mode = .gestureCandidate(start: voiceDictationGestureState.holdStart > 0 ? voiceDictationGestureState.holdStart : now)
-                suppressKeyProcessing(for: intentCurrentKeys)
-                intentState = state
-                updateIntentDisplayIfNeeded()
-                return false
             }
 
             if keyboardOnly {
@@ -3503,8 +3470,19 @@ final class ContentViewModel: ObservableObject {
         }
 
         private func suppressKeyProcessing(for side: TrackpadSide, touchKeys: TouchTable<Bool>) {
-            if isTypingGraceActive() {
-                return
+            var sideTouchKeys: [TouchKey] = []
+            touchStates.forEach { touchKey, _ in
+                if touchBelongsToSide(touchKey, side: side) {
+                    sideTouchKeys.append(touchKey)
+                }
+            }
+            for touchKey in sideTouchKeys {
+                if momentaryLayerTouches.value(for: touchKey) != nil {
+                    continue
+                }
+                disqualifyTouch(touchKey, reason: .intentMouse)
+                toggleTouchStarts.remove(touchKey)
+                layerToggleTouchStarts.remove(touchKey)
             }
             touchKeys.forEach { touchKey, _ in
                 guard touchBelongsToSide(touchKey, side: side) else { return }
@@ -3532,14 +3510,28 @@ final class ContentViewModel: ObservableObject {
             now: TimeInterval,
             unitsPerMm: CGFloat
         ) {
-            updateMultiFingerHoldGesture(
-                gestureState: &twoFingerHoldGestureState,
-                state: state,
-                requiredContactCount: 2,
-                action: twoFingerHoldGestureAction,
-                now: now,
-                unitsPerMm: unitsPerMm
-            )
+            guard let action = twoFingerHoldGestureAction,
+                  let side = eligibleHoldSide(from: state, requiredContactCount: 2),
+                  !hasCornerHoldPairCandidate(for: side, state: state, unitsPerMm: unitsPerMm),
+                  areSideTouchesStationaryForHold(state: state, side: side, unitsPerMm: unitsPerMm) else {
+                twoFingerHoldGestureState = MultiFingerHoldGestureState()
+                return
+            }
+            if !twoFingerHoldGestureState.active || twoFingerHoldGestureState.side != side {
+                twoFingerHoldGestureState = MultiFingerHoldGestureState(
+                    active: true,
+                    triggered: false,
+                    side: side,
+                    startTime: now
+                )
+                return
+            }
+            if twoFingerHoldGestureState.triggered || now - twoFingerHoldGestureState.startTime < holdMinDuration {
+                return
+            }
+            triggerGestureAction(action, side: side)
+            suppressKeyProcessing(for: side, touchKeys: intentCurrentKeys)
+            twoFingerHoldGestureState.triggered = true
         }
 
         private func updateThreeFingerHoldGesture(
@@ -3620,6 +3612,20 @@ final class ContentViewModel: ObservableObject {
                 return .right
             }
             return nil
+        }
+
+        private func hasCornerHoldPairCandidate(
+            for side: TrackpadSide,
+            state: TouchTable<IntentTouchInfo>,
+            unitsPerMm: CGFloat
+        ) -> Bool {
+            cornerHoldPairCandidate(
+                for: side,
+                state: state,
+                unitsPerMm: unitsPerMm,
+                currentState: cornerHoldGestureBySide[side],
+                requireConfiguredAction: false
+            ) != nil
         }
 
         private func sideIntentContactCount(
@@ -3717,7 +3723,8 @@ final class ContentViewModel: ObservableObject {
             for side: TrackpadSide,
             state: TouchTable<IntentTouchInfo>,
             unitsPerMm: CGFloat,
-            currentState: CornerHoldGestureState
+            currentState: CornerHoldGestureState,
+            requireConfiguredAction: Bool = true
         ) -> CornerHoldPairCandidate? {
             var outerTop = false
             var outerBottom = false
@@ -3762,8 +3769,10 @@ final class ContentViewModel: ObservableObject {
                 }
             }
 
-            let outerEligible = outerTop && outerBottom && outerCornersGestureAction != nil
-            let innerEligible = innerTop && innerBottom && innerCornersGestureAction != nil
+            let outerActionEnabled = !requireConfiguredAction || outerCornersGestureAction != nil
+            let innerActionEnabled = !requireConfiguredAction || innerCornersGestureAction != nil
+            let outerEligible = outerTop && outerBottom && outerActionEnabled
+            let innerEligible = innerTop && innerBottom && innerActionEnabled
             if !outerEligible && !innerEligible {
                 return nil
             }
@@ -3836,8 +3845,17 @@ final class ContentViewModel: ObservableObject {
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
+            if contactCount == 0 {
+                if now - state.startTime >= contactCountHoldDuration {
+                    fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
+                } else {
+                    fiveFingerSwipeStateBySide[side] = state
+                }
+                return
+            }
+            state.startTime = now
             if contactCount <= fiveFingerSwipeReleaseContacts {
-                fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
+                fiveFingerSwipeStateBySide[side] = state
                 return
             }
             guard contactCount >= fiveFingerSwipeSustainContacts, let centroid else {
@@ -3867,6 +3885,10 @@ final class ContentViewModel: ObservableObject {
         }
 
         private func triggerGestureAction(_ action: KeyAction, side: TrackpadSide) {
+            if KeyActionCatalog.isDictationGestureLabel(action.label) {
+                toggleVoiceDictationGesture(on: side)
+                return
+            }
             guard let binding = makeBinding(
                 for: action,
                 rect: .zero,
@@ -3879,92 +3901,22 @@ final class ContentViewModel: ObservableObject {
             triggerBinding(binding, touchKey: nil)
         }
 
-        private func voiceDictationHoldSide(
-            leftTouches: [OMSRawTouch],
-            rightTouches: [OMSRawTouch]
-        ) -> TrackpadSide? {
-            var leftContactCount = 0
-            var topNearLeftEdge = false
-            var bottomNearLeftEdge = false
-            for touch in leftTouches {
-                guard Self.isDictationContactState(touch.state) else { continue }
-                leftContactCount += 1
-                let x = CGFloat(touch.posX)
-                let y = CGFloat(1.0 - touch.posY)
-                if x <= voiceDictationLeftEdgeMaxX, y <= voiceDictationTopMaxY {
-                    topNearLeftEdge = true
-                }
-                if x <= voiceDictationLeftEdgeMaxX, y >= voiceDictationBottomMinY {
-                    bottomNearLeftEdge = true
-                }
-            }
-
-            var rightContactCount = 0
-            var topNearRightEdge = false
-            var bottomNearRightEdge = false
-            for touch in rightTouches {
-                guard Self.isDictationContactState(touch.state) else { continue }
-                rightContactCount += 1
-                let x = CGFloat(touch.posX)
-                let y = CGFloat(1.0 - touch.posY)
-                if x >= voiceDictationRightEdgeMinX, y <= voiceDictationTopMaxY {
-                    topNearRightEdge = true
-                }
-                if x >= voiceDictationRightEdgeMinX, y >= voiceDictationBottomMinY {
-                    bottomNearRightEdge = true
-                }
-            }
-
-            let leftHold = leftContactCount == 2
-                && rightContactCount == 0
-                && topNearLeftEdge
-                && bottomNearLeftEdge
-            if leftHold { return .left }
-
-            let rightHold = rightContactCount == 2
-                && leftContactCount == 0
-                && topNearRightEdge
-                && bottomNearRightEdge
-            if rightHold { return .right }
-
-            return nil
-        }
-
-        private func updateVoiceDictationGesture(
-            holdSide: TrackpadSide?,
-            now: TimeInterval
-        ) -> Bool {
+        private func toggleVoiceDictationGesture(on side: TrackpadSide) {
             var state = voiceDictationGestureState
-            if let holdSide {
-                if !state.holdCandidateActive || state.side != holdSide {
-                    state.holdCandidateActive = true
-                    state.holdDidToggle = false
-                    state.holdStart = now
-                    state.side = holdSide
-                } else if !state.holdDidToggle, now - state.holdStart >= voiceDictationHoldSeconds {
-                    state.holdDidToggle = true
-                    if state.isDictating {
-                        state.isDictating = false
-                        VoiceDictationManager.shared.endSession()
-                    } else {
-                        state.isDictating = true
-                        VoiceDictationManager.shared.beginSession()
-                    }
-                    playHapticIfNeeded(on: holdSide)
-                }
+            if state.isDictating {
+                VoiceDictationManager.shared.endSession()
+                state.isDictating = false
             } else {
-                state.holdCandidateActive = false
-                state.holdDidToggle = false
-                state.holdStart = 0
-                state.side = nil
+                VoiceDictationManager.shared.beginSession()
+                state.isDictating = true
             }
             voiceDictationGestureState = state
-            let isActive = state.isDictating || state.holdCandidateActive
+            let isActive = state.isDictating
             if voiceGestureActive != isActive {
                 voiceGestureActive = isActive
                 onVoiceGestureChanged(isActive)
             }
-            return isActive
+            playHapticIfNeeded(on: side)
         }
 
         private func stopVoiceDictationGesture() {
@@ -5206,6 +5158,7 @@ enum KeyActionCatalog {
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let chordalShiftLabel = "Chordal Shift"
+    static let dictationToggleLabel = "Dictate Toggle"
     static let momentaryLayer1Label = "MO(1)"
     static let toggleLayer1Label = "TO(1)"
     static let noneLabel = "None"
@@ -5447,6 +5400,12 @@ enum KeyActionCatalog {
         if !actions.contains(where: { $0.label == chordalShiftLabel }) {
             actions.append(chordalShiftTapAction)
         }
+        actions.append(KeyAction(
+            label: dictationToggleLabel,
+            keyCode: 0,
+            flags: 0,
+            kind: .none
+        ))
         return actions.sorted { $0.label < $1.label }
     }()
 
@@ -5465,9 +5424,28 @@ enum KeyActionCatalog {
             || normalized.caseInsensitiveCompare("ChordShift") == .orderedSame
     }
 
+    static func isDictationGestureLabel(_ label: String?) -> Bool {
+        guard let label else { return false }
+        let normalized = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        if normalized.isEmpty {
+            return false
+        }
+        return normalized.caseInsensitiveCompare(dictationToggleLabel) == .orderedSame
+            || normalized.caseInsensitiveCompare("Dictation Toggle") == .orderedSame
+            || normalized.caseInsensitiveCompare("Dictate") == .orderedSame
+    }
+
     static func gestureAction(for label: String) -> KeyAction? {
         if isChordalShiftGestureLabel(label) {
             return chordalShiftTapAction
+        }
+        if isDictationGestureLabel(label) {
+            return KeyAction(
+                label: dictationToggleLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .none
+            )
         }
         return action(for: label)
     }
