@@ -296,6 +296,17 @@ internal static class EngineActionResolver
                 ModifierVirtualKey: 0x5B); // LWin
         }
 
+        if (resolved.Equals("VOICE", StringComparison.OrdinalIgnoreCase))
+        {
+            return new EngineKeyAction(
+                EngineActionKind.KeyChord,
+                resolved,
+                LayerTarget: 0,
+                VirtualKey: 0x48, // H
+                MouseButton: DispatchMouseButton.None,
+                ModifierVirtualKey: 0x5B); // LWin
+        }
+
         if (TryParseShiftChord(resolved, out EngineKeyAction shiftChord))
         {
             return shiftChord;
