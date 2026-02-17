@@ -1,4 +1,7 @@
 ## TODO:
+- Can we make the max scaling of the Trackpad devices in the GUI match the physical diminsions of the apple magic trackpad2? (Look it up) I think that will give us more room to add to the GUI!
+- Any way to make the headers inside of the Gesture Tuning config also collapsable? Is there a better way to do this GUI? lol
+---
 - Is typing... bad? lol. Try Keyboard mode and see if it's any better.. Snap radius on first hit?
 - Can we add "double-click" action that fires 2 clicks quickly? 
 - What other actions could we add?? 
@@ -9,7 +12,7 @@ I have 4 new Gestures recorded if you could analyze the atpcaps and wire them up
 
 3finger_swipe_left_right.atpcap 3finger_swipe_left_right.atpcap 4finger_swipe_left_right.atpcap 4finger_swipe_left_right.atpcap
 
-- Can we combine 5-finger left/right swipe logic to match the others now?
+- Can we combine 5-finger left/right swipe logic to match the others now? 
 ---
 - Can we make the dropdown a searchable dropdown? Is there a better way to display this info in such a small area?
 - Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
