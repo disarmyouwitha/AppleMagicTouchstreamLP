@@ -63,6 +63,14 @@
   - Menu bar -> `Replay...` -> choose `.atpcap`.
   - Confirm touches are rendered in the main GUI and header controls work (play/pause/step/seek).
   - Close config window and confirm live listening resumes if it was active before replay.
+- Capture compatibility check:
+  - Headless capture:
+    - `./GlassToKey.app/Contents/MacOS/GlassToKey --capture /tmp/capture.atpcap`
+    - stop the process after generating touch activity.
+  - Replay the generated file:
+    - `./GlassToKey.app/Contents/MacOS/GlassToKey --replay /tmp/capture.atpcap`
+  - Confirm deterministic replay summary (`deterministic=true`, matching pass fingerprints).
+  - Optional parity check: replay the same `/tmp/capture.atpcap` in `../windows/GlassToKey`.
   
 ## Important notes for next instance of Codex
 - None given.

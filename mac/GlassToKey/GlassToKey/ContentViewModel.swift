@@ -278,6 +278,51 @@ final class ContentViewModel: ObservableObject {
         var rightIndex: Int?
     }
 
+    private final class CaptureSession: @unchecked Sendable {
+        private struct State {
+            var writer: ATPCaptureWriter?
+        }
+
+        private let lock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+        let outputPath: String
+
+        init(outputPath: String) throws {
+            self.outputPath = outputPath
+            let writer = try ATPCaptureWriter(path: outputPath)
+            lock.withLockUnchecked { $0.writer = writer }
+        }
+
+        func append(
+            frame: OMSRawTouchFrame,
+            sideHint: ATPCaptureSideHint,
+            arrivalQpcTicks: Int64
+        ) throws {
+            var writeError: Error?
+            lock.withLockUnchecked { state in
+                guard let writer = state.writer else { return }
+                do {
+                    try writer.writeSyntheticLegacyFrame(
+                        frame,
+                        arrivalQpcTicks: arrivalQpcTicks,
+                        sideHint: sideHint
+                    )
+                } catch {
+                    writeError = error
+                }
+            }
+            if let writeError {
+                throw writeError
+            }
+        }
+
+        func close() {
+            lock.withLockUnchecked { state in
+                state.writer?.close()
+                state.writer = nil
+            }
+        }
+    }
+
     nonisolated private let touchSnapshotLock = OSAllocatedUnfairLock<TouchSnapshot>(
         uncheckedState: TouchSnapshot()
     )
@@ -313,6 +358,9 @@ final class ContentViewModel: ObservableObject {
     nonisolated private let snapshotRecordingLock = OSAllocatedUnfairLock<Bool>(
         uncheckedState: true
     )
+    nonisolated private let captureSessionLock = OSAllocatedUnfairLock<CaptureSession?>(
+        uncheckedState: nil
+    )
     final class ContinuationHolder: @unchecked Sendable {
         var continuation: AsyncStream<UInt64>.Continuation?
     }
@@ -327,6 +375,7 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var voiceGestureActive = false
     @Published private(set) var voiceDebugStatus: String?
     @Published private(set) var replayUIState: ReplayUIState?
+    @Published private(set) var captureOutputPath: String?
     private let isDragDetectionEnabled = true
     @Published var availableDevices = [OMSDeviceInfo]()
     @Published var leftDevice: OMSDeviceInfo?
@@ -449,8 +498,9 @@ final class ContentViewModel: ObservableObject {
         let snapshotLock = touchSnapshotLock
         let selectionLock = deviceSelectionLock
         let recordingLock = snapshotRecordingLock
+        let captureLock = captureSessionLock
         let snapshotQueue = snapshotQueue
-        task = Task.detached(priority: .userInitiated) { [manager, processor, snapshotLock, selectionLock, recordingLock, snapshotQueue, self] in
+        task = Task.detached(priority: .userInitiated) { [manager, processor, snapshotLock, selectionLock, recordingLock, captureLock, snapshotQueue, self] in
             for await rawFrame in manager.rawTouchStream {
 #if DEBUG
                 let signpostState = pipelineSignposter.beginInterval("InputFrame")
@@ -502,6 +552,17 @@ final class ContentViewModel: ObservableObject {
                     if let revision = updatedRevision {
                         self.touchRevisionContinuationHolder.continuation?.yield(revision)
                     }
+                    }
+                }
+                if let captureSession = captureLock.withLockUnchecked(\.self) {
+                    do {
+                        try captureSession.append(
+                            frame: rawFrame,
+                            sideHint: Self.captureSideHint(isLeft: isLeft, isRight: isRight),
+                            arrivalQpcTicks: Self.currentMonotonicCaptureTicks()
+                        )
+                    } catch {
+                        await self.handleCaptureWriteFailure(error)
                     }
                 }
                 await processor.processRawFrame(rawFrame)
@@ -955,6 +1016,28 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    func startCapture(outputPath: String) throws {
+        let fullPath = URL(fileURLWithPath: outputPath).standardizedFileURL.path
+        let session = try CaptureSession(outputPath: fullPath)
+        let previous = captureSessionLock.withLockUnchecked { current in
+            let old = current
+            current = session
+            return old
+        }
+        previous?.close()
+        captureOutputPath = fullPath
+    }
+
+    func stopCapture() {
+        let session = captureSessionLock.withLockUnchecked { current in
+            let old = current
+            current = nil
+            return old
+        }
+        session?.close()
+        captureOutputPath = nil
+    }
+
     func runDeterministicReplay(capturePath: String) async throws -> DeterministicReplayResult {
         let firstPass = try await runDeterministicReplayPass(capturePath: capturePath)
         let secondPass = try await runDeterministicReplayPass(capturePath: capturePath)
@@ -1295,6 +1378,32 @@ final class ContentViewModel: ObservableObject {
             isPlaying: replayIsPlaying,
             speed: replaySpeed
         )
+    }
+
+    private func handleCaptureWriteFailure(_ error: Error) {
+        stopCapture()
+        let text = "Capture stopped: \(error.localizedDescription)\n"
+        _ = text.withCString { pointer in
+            fputs(pointer, stderr)
+        }
+    }
+
+    nonisolated private static func currentMonotonicCaptureTicks() -> Int64 {
+        let ticks = DispatchTime.now().uptimeNanoseconds
+        if ticks > UInt64(Int64.max) {
+            return Int64.max
+        }
+        return Int64(ticks)
+    }
+
+    nonisolated private static func captureSideHint(isLeft: Bool, isRight: Bool) -> ATPCaptureSideHint {
+        if isLeft && !isRight {
+            return .left
+        }
+        if isRight && !isLeft {
+            return .right
+        }
+        return .unknown
     }
 
     func clearTouchState() {

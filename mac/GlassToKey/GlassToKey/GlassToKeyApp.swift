@@ -21,12 +21,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private enum LaunchMode {
         case normal
         case replay(path: String)
+        case capture(path: String)
     }
 
     private let controller = GlassToKeyController()
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
+    private var captureStatusCancellable: AnyCancellable?
+    private var captureMenuItem: NSMenuItem?
     private var replayTask: Task<Void, Never>?
     private var shouldResumeLiveAfterReplay = false
     private let mouseEventBlocker = MouseEventBlocker()
@@ -38,6 +41,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             NSApp.setActivationPolicy(.prohibited)
             runHeadlessReplay(capturePath: path)
             return
+        case let .capture(path):
+            NSApp.setActivationPolicy(.prohibited)
+            runHeadlessCapture(capturePath: path)
+            return
         case .normal:
             break
         }
@@ -48,6 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        controller.viewModel.stopCapture()
+    }
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
@@ -102,6 +113,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         replayItem.target = self
         menu.addItem(replayItem)
+        let captureItem = NSMenuItem(
+            title: "Capture...",
+            action: #selector(toggleCaptureFile),
+            keyEquivalent: "c"
+        )
+        captureItem.target = self
+        menu.addItem(captureItem)
+        captureMenuItem = captureItem
         menu.addItem(.separator())
 
         let restartItem = NSMenuItem(
@@ -128,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads,
             keyboardModeEnabled: controller.viewModel.keyboardModeEnabled
         )
+        updateCaptureMenuItem(capturePath: controller.viewModel.captureOutputPath)
         mouseEventBlocker.setBlockingEnabled(
             controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled
         )
@@ -149,6 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
             self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
+        captureStatusCancellable = controller.viewModel.$captureOutputPath
+            .removeDuplicates()
+            .sink { [weak self] capturePath in
+                self?.updateCaptureMenuItem(capturePath: capturePath)
+            }
     }
 
     private func updateStatusIndicator(
@@ -229,7 +254,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.refreshDevicesAndListeners()
     }
 
+    @objc private func toggleCaptureFile() {
+        if controller.viewModel.captureOutputPath != nil {
+            controller.viewModel.stopCapture()
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap")].compactMap { $0 }
+        panel.canCreateDirectories = true
+        panel.title = "Capture Output"
+        panel.nameFieldStringValue = Self.defaultCaptureFilename()
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return
+        }
+        do {
+            if !controller.viewModel.isListening {
+                controller.viewModel.start()
+            }
+            try controller.viewModel.startCapture(outputPath: url.path)
+        } catch {
+            presentReplayAlert(
+                title: "Capture Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+
     @objc private func replayCaptureFile() {
+        if controller.viewModel.captureOutputPath != nil {
+            controller.viewModel.stopCapture()
+        }
         let panel = NSOpenPanel()
         panel.allowedContentTypes = [UTType(filenameExtension: "atpcap")].compactMap { $0 }
         panel.allowsMultipleSelection = false
@@ -367,6 +423,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
     }
 
+    private func runHeadlessCapture(capturePath: String) {
+        controller.start()
+        do {
+            try controller.viewModel.startCapture(outputPath: capturePath)
+        } catch {
+            let text = "Capture failed: \(error.localizedDescription)\n"
+            _ = text.withCString { pointer in
+                fputs(pointer, stderr)
+            }
+            Darwin.exit(1)
+        }
+        print("Capture started: '\(URL(fileURLWithPath: capturePath).standardizedFileURL.path)'")
+    }
+
+    private func updateCaptureMenuItem(capturePath: String?) {
+        guard let item = captureMenuItem else { return }
+        if capturePath == nil {
+            item.title = "Capture..."
+            item.keyEquivalent = "c"
+        } else {
+            item.title = "Stop Capture"
+            item.keyEquivalent = ""
+        }
+    }
+
+    private static func defaultCaptureFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "capture-\(formatter.string(from: Date())).atpcap"
+    }
+
     private func presentReplayAlert(title: String, message: String) {
         let alert = NSAlert()
         alert.alertStyle = .informational
@@ -383,6 +471,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let arg = args[index]
             if arg == "--replay", index + 1 < args.count {
                 return .replay(path: args[index + 1])
+            }
+            if arg == "--capture", index + 1 < args.count {
+                return .capture(path: args[index + 1])
             }
             index += 1
         }
