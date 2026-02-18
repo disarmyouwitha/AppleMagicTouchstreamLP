@@ -3365,7 +3365,8 @@ struct ContentView: View {
     ) {
         touches.forEach { touch in
             let path = makeEllipse(touch: touch, size: trackpadSize)
-            context.fill(path, with: .color(.primary.opacity(Double(touch.total))))
+            let opacity = min(1.0, max(0.18, Double(touch.total)))
+            context.fill(path, with: .color(.primary.opacity(opacity)))
         }
     }
 

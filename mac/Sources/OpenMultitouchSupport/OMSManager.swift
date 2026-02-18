@@ -44,6 +44,9 @@ public final class OMSManager: Sendable {
     private let protectedDeviceIndexStore = OSAllocatedUnfairLock<DeviceIndexStore>(
         uncheckedState: DeviceIndexStore()
     )
+    private let captureMetadataCache = OSAllocatedUnfairLock<[UInt64: OMSCaptureDeviceMetadata]>(
+        uncheckedState: [:]
+    )
     private let deviceIDStringCache = OSAllocatedUnfairLock<[UInt64: String]>(
         uncheckedState: [:]
     )
@@ -64,6 +67,11 @@ public final class OMSManager: Sendable {
         category: "OpenMT"
     )
 #endif
+    private static let defaultCaptureVendorId: UInt32 = 0x05AC
+    private static let defaultCaptureProductId: UInt32 = 0
+    private static let defaultCaptureUsagePage: UInt16 = 0x0D
+    private static let defaultCaptureUsage: UInt16 = 0x05
+
     public var touchDataStream: AsyncStream<[OMSTouchData]> {
         AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
             let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
@@ -224,12 +232,21 @@ public final class OMSManager: Sendable {
         let deviceID = event.deviceID ?? "Unknown"
         let numericID = UInt64(deviceID) ?? 0
         let deviceIndex = resolveDeviceIndex(for: numericID)
+        let captureMetadata = captureMetadata(
+            for: numericID,
+            fallbackDeviceID: deviceID
+        )
         if touches.isEmpty {
             emitRawTouchFrame(
                 OMSRawTouchFrame(
                     deviceID: deviceID,
                     deviceIDNumeric: numericID,
                     deviceIndex: deviceIndex,
+                    deviceHash: captureMetadata.deviceHash,
+                    vendorId: captureMetadata.vendorId,
+                    productId: captureMetadata.productId,
+                    usagePage: captureMetadata.usagePage,
+                    usage: captureMetadata.usage,
                     timestamp: frameTimestamp,
                     buffer: nil,
                     releaseHandler: nil
@@ -257,6 +274,11 @@ public final class OMSManager: Sendable {
             deviceID: deviceID,
             deviceIDNumeric: numericID,
             deviceIndex: deviceIndex,
+            deviceHash: captureMetadata.deviceHash,
+            vendorId: captureMetadata.vendorId,
+            productId: captureMetadata.productId,
+            usagePage: captureMetadata.usagePage,
+            usage: captureMetadata.usage,
             timestamp: frameTimestamp,
             buffer: buffer,
             releaseHandler: { [rawBufferPool] buffer in
@@ -285,12 +307,21 @@ public final class OMSManager: Sendable {
 #endif
         let deviceIndex = resolveDeviceIndex(for: deviceID)
         let deviceIDString = deviceIDString(for: deviceID)
+        let captureMetadata = captureMetadata(
+            for: deviceID,
+            fallbackDeviceID: deviceIDString
+        )
         guard let touches, count > 0 else {
             emitRawTouchFrame(
                 OMSRawTouchFrame(
                     deviceID: deviceIDString,
                     deviceIDNumeric: deviceID,
                     deviceIndex: deviceIndex,
+                    deviceHash: captureMetadata.deviceHash,
+                    vendorId: captureMetadata.vendorId,
+                    productId: captureMetadata.productId,
+                    usagePage: captureMetadata.usagePage,
+                    usage: captureMetadata.usage,
                     timestamp: timestamp,
                     buffer: nil,
                     releaseHandler: nil
@@ -320,6 +351,11 @@ public final class OMSManager: Sendable {
             deviceID: deviceIDString,
             deviceIDNumeric: deviceID,
             deviceIndex: deviceIndex,
+            deviceHash: captureMetadata.deviceHash,
+            vendorId: captureMetadata.vendorId,
+            productId: captureMetadata.productId,
+            usagePage: captureMetadata.usagePage,
+            usage: captureMetadata.usage,
             timestamp: timestamp,
             buffer: buffer,
             releaseHandler: { [rawBufferPool] buffer in
@@ -365,6 +401,38 @@ public final class OMSManager: Sendable {
             cache[deviceID] = value
             return value
         }
+    }
+
+    private func captureMetadata(for deviceID: UInt64, fallbackDeviceID: String) -> OMSCaptureDeviceMetadata {
+        if deviceID > 0,
+           let cached = captureMetadataCache.withLockUnchecked({ $0[deviceID] }) {
+            return cached
+        }
+
+        let stableID = fallbackDeviceID.isEmpty ? String(deviceID) : fallbackDeviceID
+        let metadata = OMSCaptureDeviceMetadata(
+            deviceHash: Self.hashDeviceID(stableID),
+            vendorId: Self.defaultCaptureVendorId,
+            productId: Self.defaultCaptureProductId,
+            usagePage: Self.defaultCaptureUsagePage,
+            usage: Self.defaultCaptureUsage
+        )
+        if deviceID > 0 {
+            captureMetadataCache.withLockUnchecked { $0[deviceID] = metadata }
+        }
+        return metadata
+    }
+
+    private static func hashDeviceID(_ deviceID: String) -> UInt32 {
+        var hash: UInt32 = 2166136261
+        for codeUnit in deviceID.utf16 {
+            let value = UInt32(codeUnit)
+            hash ^= value & 0xFF
+            hash &*= 16777619
+            hash ^= (value >> 8) & 0xFF
+            hash &*= 16777619
+        }
+        return hash
     }
 
     private func takeBuffer(capacity: Int) -> RawTouchBuffer {
@@ -476,6 +544,11 @@ public final class OMSRawTouchFrame: @unchecked Sendable {
     public let deviceID: String
     public let deviceIDNumeric: UInt64
     public let deviceIndex: Int
+    public let deviceHash: UInt32
+    public let vendorId: UInt32
+    public let productId: UInt32
+    public let usagePage: UInt16
+    public let usage: UInt16
     public let timestamp: TimeInterval
     private var buffer: RawTouchBuffer?
     private let releaseHandler: ((RawTouchBuffer) -> Void)?
@@ -488,6 +561,11 @@ public final class OMSRawTouchFrame: @unchecked Sendable {
         deviceID: String,
         deviceIDNumeric: UInt64,
         deviceIndex: Int,
+        deviceHash: UInt32,
+        vendorId: UInt32,
+        productId: UInt32,
+        usagePage: UInt16,
+        usage: UInt16,
         timestamp: TimeInterval,
         buffer: RawTouchBuffer?,
         releaseHandler: ((RawTouchBuffer) -> Void)?
@@ -495,6 +573,11 @@ public final class OMSRawTouchFrame: @unchecked Sendable {
         self.deviceID = deviceID
         self.deviceIDNumeric = deviceIDNumeric
         self.deviceIndex = deviceIndex
+        self.deviceHash = deviceHash
+        self.vendorId = vendorId
+        self.productId = productId
+        self.usagePage = usagePage
+        self.usage = usage
         self.timestamp = timestamp
         self.buffer = buffer
         self.releaseHandler = releaseHandler
@@ -518,4 +601,12 @@ private final class RawTouchBuffer {
         touches = []
         touches.reserveCapacity(capacity)
     }
+}
+
+private struct OMSCaptureDeviceMetadata: Sendable {
+    let deviceHash: UInt32
+    let vendorId: UInt32
+    let productId: UInt32
+    let usagePage: UInt16
+    let usage: UInt16
 }
