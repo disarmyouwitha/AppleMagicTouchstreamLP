@@ -21,10 +21,10 @@ namespace GlassToKey;
 
 public partial class MainWindow : Window, IRuntimeFrameObserver
 {
-    private const double TrackpadWidthMm = 160.0;
-    private const double TrackpadHeightMm = 114.9;
-    private const double KeyWidthMm = 18.0;
-    private const double KeyHeightMm = 17.0;
+    private const double TrackpadWidthMm = RuntimeConfigurationFactory.TrackpadWidthMm;
+    private const double TrackpadHeightMm = RuntimeConfigurationFactory.TrackpadHeightMm;
+    private const double KeyWidthMm = RuntimeConfigurationFactory.KeyWidthMm;
+    private const double KeyHeightMm = RuntimeConfigurationFactory.KeyHeightMm;
     private const double ControlsPaneExpandedWidth = 360.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
@@ -57,6 +57,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly ObservableCollection<KeyActionOption> _keyActionOptions = new();
     private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
+    private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
@@ -222,6 +224,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FiveFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FiveFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerSwipeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerSwipeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerSwipeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         TwoFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ThreeFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FourFingerHoldGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -448,29 +460,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _keyActionOptionLookup.Add(action.Value);
         }
 
-        KeymapPrimaryCombo.ItemsSource = CreateGroupedKeyActionView();
-        KeymapHoldCombo.ItemsSource = CreateGroupedKeyActionView();
-        FiveFingerSwipeLeftGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        FiveFingerSwipeRightGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        TwoFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        ThreeFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        FourFingerHoldGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        OuterCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        InnerCornersGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        TopLeftTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        TopRightTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        BottomLeftTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        BottomRightTriangleGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        ForceClick1GestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        ForceClick2GestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        ForceClick3GestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        UpperLeftCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        UpperRightCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        LowerLeftCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
-        LowerRightCornerClickGestureCombo.ItemsSource = CreateGroupedKeyActionView();
+        foreach (ComboBox actionCombo in EnumerateActionCombos())
+        {
+            InitializeActionCombo(actionCombo);
+        }
 
         string fiveFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeLeftAction, "Typing Toggle");
         string fiveFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeRightAction, "Typing Toggle");
+        string fiveFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeUpAction, "None");
+        string fiveFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FiveFingerSwipeDownAction, "None");
+        string threeFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeLeftAction, "None");
+        string threeFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeRightAction, "None");
+        string threeFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeUpAction, "None");
+        string threeFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.ThreeFingerSwipeDownAction, "None");
+        string fourFingerSwipeLeftAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeLeftAction, "None");
+        string fourFingerSwipeRightAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeRightAction, "None");
+        string fourFingerSwipeUpAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeUpAction, "None");
+        string fourFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeDownAction, "None");
         string twoFingerHoldAction = NormalizeGestureActionForUi(_settings.TwoFingerHoldAction, "None");
         string threeFingerHoldAction = NormalizeGestureActionForUi(_settings.ThreeFingerHoldAction, "None");
         string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Chordal Shift");
@@ -489,6 +495,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string lowerRightCornerClickAction = NormalizeGestureActionForUi(_settings.LowerRightCornerClickAction, "None");
         _settings.FiveFingerSwipeLeftAction = fiveFingerSwipeLeftAction;
         _settings.FiveFingerSwipeRightAction = fiveFingerSwipeRightAction;
+        _settings.FiveFingerSwipeUpAction = fiveFingerSwipeUpAction;
+        _settings.FiveFingerSwipeDownAction = fiveFingerSwipeDownAction;
+        _settings.ThreeFingerSwipeLeftAction = threeFingerSwipeLeftAction;
+        _settings.ThreeFingerSwipeRightAction = threeFingerSwipeRightAction;
+        _settings.ThreeFingerSwipeUpAction = threeFingerSwipeUpAction;
+        _settings.ThreeFingerSwipeDownAction = threeFingerSwipeDownAction;
+        _settings.FourFingerSwipeLeftAction = fourFingerSwipeLeftAction;
+        _settings.FourFingerSwipeRightAction = fourFingerSwipeRightAction;
+        _settings.FourFingerSwipeUpAction = fourFingerSwipeUpAction;
+        _settings.FourFingerSwipeDownAction = fourFingerSwipeDownAction;
         _settings.TwoFingerHoldAction = twoFingerHoldAction;
         _settings.ThreeFingerHoldAction = threeFingerHoldAction;
         _settings.FourFingerHoldAction = fourFingerHoldAction;
@@ -507,6 +523,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LowerRightCornerClickAction = lowerRightCornerClickAction;
         FiveFingerSwipeLeftGestureCombo.SelectedValue = fiveFingerSwipeLeftAction;
         FiveFingerSwipeRightGestureCombo.SelectedValue = fiveFingerSwipeRightAction;
+        FiveFingerSwipeUpGestureCombo.SelectedValue = fiveFingerSwipeUpAction;
+        FiveFingerSwipeDownGestureCombo.SelectedValue = fiveFingerSwipeDownAction;
+        ThreeFingerSwipeLeftGestureCombo.SelectedValue = threeFingerSwipeLeftAction;
+        ThreeFingerSwipeRightGestureCombo.SelectedValue = threeFingerSwipeRightAction;
+        ThreeFingerSwipeUpGestureCombo.SelectedValue = threeFingerSwipeUpAction;
+        ThreeFingerSwipeDownGestureCombo.SelectedValue = threeFingerSwipeDownAction;
+        FourFingerSwipeLeftGestureCombo.SelectedValue = fourFingerSwipeLeftAction;
+        FourFingerSwipeRightGestureCombo.SelectedValue = fourFingerSwipeRightAction;
+        FourFingerSwipeUpGestureCombo.SelectedValue = fourFingerSwipeUpAction;
+        FourFingerSwipeDownGestureCombo.SelectedValue = fourFingerSwipeDownAction;
         TwoFingerHoldGestureCombo.SelectedValue = twoFingerHoldAction;
         ThreeFingerHoldGestureCombo.SelectedValue = threeFingerHoldAction;
         FourFingerHoldGestureCombo.SelectedValue = fourFingerHoldAction;
@@ -564,6 +590,167 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return view;
     }
 
+    private IEnumerable<ComboBox> EnumerateActionCombos()
+    {
+        yield return KeymapPrimaryCombo;
+        yield return KeymapHoldCombo;
+        yield return FiveFingerSwipeLeftGestureCombo;
+        yield return FiveFingerSwipeRightGestureCombo;
+        yield return FiveFingerSwipeUpGestureCombo;
+        yield return FiveFingerSwipeDownGestureCombo;
+        yield return ThreeFingerSwipeLeftGestureCombo;
+        yield return ThreeFingerSwipeRightGestureCombo;
+        yield return ThreeFingerSwipeUpGestureCombo;
+        yield return ThreeFingerSwipeDownGestureCombo;
+        yield return FourFingerSwipeLeftGestureCombo;
+        yield return FourFingerSwipeRightGestureCombo;
+        yield return FourFingerSwipeUpGestureCombo;
+        yield return FourFingerSwipeDownGestureCombo;
+        yield return TwoFingerHoldGestureCombo;
+        yield return ThreeFingerHoldGestureCombo;
+        yield return FourFingerHoldGestureCombo;
+        yield return OuterCornersGestureCombo;
+        yield return InnerCornersGestureCombo;
+        yield return TopLeftTriangleGestureCombo;
+        yield return TopRightTriangleGestureCombo;
+        yield return BottomLeftTriangleGestureCombo;
+        yield return BottomRightTriangleGestureCombo;
+        yield return ForceClick1GestureCombo;
+        yield return ForceClick2GestureCombo;
+        yield return ForceClick3GestureCombo;
+        yield return UpperLeftCornerClickGestureCombo;
+        yield return UpperRightCornerClickGestureCombo;
+        yield return LowerLeftCornerClickGestureCombo;
+        yield return LowerRightCornerClickGestureCombo;
+    }
+
+    private void InitializeActionCombo(ComboBox combo)
+    {
+        if (!_actionViewsByCombo.TryGetValue(combo, out ListCollectionView? view))
+        {
+            view = CreateGroupedKeyActionView();
+            _actionViewsByCombo[combo] = view;
+        }
+
+        combo.ItemsSource = view;
+        combo.IsEditable = true;
+        combo.IsTextSearchEnabled = false;
+        combo.StaysOpenOnEdit = true;
+
+        combo.RemoveHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnActionComboTextChanged));
+        combo.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnActionComboTextChanged));
+        combo.DropDownClosed -= OnActionComboDropDownClosed;
+        combo.DropDownClosed += OnActionComboDropDownClosed;
+        combo.LostKeyboardFocus -= OnActionComboLostKeyboardFocus;
+        combo.LostKeyboardFocus += OnActionComboLostKeyboardFocus;
+    }
+
+    private void OnActionComboTextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressActionComboFiltering)
+        {
+            return;
+        }
+
+        if (sender is not ComboBox combo ||
+            !_actionViewsByCombo.TryGetValue(combo, out ListCollectionView? view))
+        {
+            return;
+        }
+
+        if (!combo.IsKeyboardFocusWithin)
+        {
+            ClearActionComboFilter(view);
+            return;
+        }
+
+        string query = combo.Text?.Trim() ?? string.Empty;
+        ApplyActionComboFilter(combo, view, query);
+    }
+
+    private void OnActionComboDropDownClosed(object? sender, EventArgs e)
+    {
+        if (sender is ComboBox combo)
+        {
+            FinalizeActionComboSearch(combo);
+        }
+    }
+
+    private void OnActionComboLostKeyboardFocus(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (sender is ComboBox combo && !combo.IsKeyboardFocusWithin && !combo.IsDropDownOpen)
+        {
+            FinalizeActionComboSearch(combo);
+        }
+    }
+
+    private void ApplyActionComboFilter(ComboBox combo, ListCollectionView view, string query)
+    {
+        if (string.IsNullOrWhiteSpace(query))
+        {
+            ClearActionComboFilter(view);
+            return;
+        }
+
+        view.Filter = item => item is KeyActionOption option && MatchesActionOption(option, query);
+        view.Refresh();
+
+        if (!combo.IsDropDownOpen)
+        {
+            combo.IsDropDownOpen = true;
+        }
+    }
+
+    private void FinalizeActionComboSearch(ComboBox combo)
+    {
+        if (!_actionViewsByCombo.TryGetValue(combo, out ListCollectionView? view))
+        {
+            return;
+        }
+
+        _suppressActionComboFiltering = true;
+        try
+        {
+            ClearActionComboFilter(view);
+
+            if (TryResolveActionOption(combo.Text, out KeyActionOption? option))
+            {
+                combo.SelectedValue = option.Value;
+                return;
+            }
+
+            if (combo.SelectedValue is string selectedValue && !string.IsNullOrWhiteSpace(selectedValue))
+            {
+                combo.Text = selectedValue;
+                return;
+            }
+
+            combo.SelectedValue = "None";
+        }
+        finally
+        {
+            _suppressActionComboFiltering = false;
+        }
+    }
+
+    private static bool MatchesActionOption(KeyActionOption option, string query)
+    {
+        return option.Display.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+               option.Value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
+               option.Group.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static void ClearActionComboFilter(ListCollectionView view)
+    {
+        if (view.Filter == null)
+        {
+            return;
+        }
+
+        view.Filter = null;
+        view.Refresh();
+    }
+
     private string NormalizeGestureActionForUi(string? action, string fallback)
     {
         string normalized = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
@@ -571,10 +758,46 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return normalized;
     }
 
-    private static string ReadGestureActionSelection(ComboBox combo, string fallback)
+    private bool TryResolveActionOption(
+        string? actionText,
+        [NotNullWhen(true)] out KeyActionOption? option)
     {
-        string? selected = combo.SelectedValue as string ?? combo.Text;
-        return string.IsNullOrWhiteSpace(selected) ? fallback : selected.Trim();
+        option = null;
+        if (string.IsNullOrWhiteSpace(actionText))
+        {
+            return false;
+        }
+
+        string trimmed = actionText.Trim();
+        for (int i = 0; i < _keyActionOptions.Count; i++)
+        {
+            KeyActionOption candidate = _keyActionOptions[i];
+            if (string.Equals(candidate.Value, trimmed, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(candidate.Display, trimmed, StringComparison.OrdinalIgnoreCase))
+            {
+                option = candidate;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private string ReadGestureActionSelection(ComboBox combo, string fallback)
+    {
+        if (combo.SelectedValue is string selected &&
+            !string.IsNullOrWhiteSpace(selected))
+        {
+            return selected.Trim();
+        }
+
+        if (TryResolveActionOption(combo.Text, out KeyActionOption? option))
+        {
+            combo.SelectedValue = option.Value;
+            return option.Value;
+        }
+
+        return fallback;
     }
 
     private void SyncDerivedGestureToggleSettings()
@@ -762,6 +985,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         _settings.FiveFingerSwipeLeftAction = ReadGestureActionSelection(FiveFingerSwipeLeftGestureCombo, "Typing Toggle");
         _settings.FiveFingerSwipeRightAction = ReadGestureActionSelection(FiveFingerSwipeRightGestureCombo, "Typing Toggle");
+        _settings.FiveFingerSwipeUpAction = ReadGestureActionSelection(FiveFingerSwipeUpGestureCombo, "None");
+        _settings.FiveFingerSwipeDownAction = ReadGestureActionSelection(FiveFingerSwipeDownGestureCombo, "None");
+        _settings.ThreeFingerSwipeLeftAction = ReadGestureActionSelection(ThreeFingerSwipeLeftGestureCombo, "None");
+        _settings.ThreeFingerSwipeRightAction = ReadGestureActionSelection(ThreeFingerSwipeRightGestureCombo, "None");
+        _settings.ThreeFingerSwipeUpAction = ReadGestureActionSelection(ThreeFingerSwipeUpGestureCombo, "None");
+        _settings.ThreeFingerSwipeDownAction = ReadGestureActionSelection(ThreeFingerSwipeDownGestureCombo, "None");
+        _settings.FourFingerSwipeLeftAction = ReadGestureActionSelection(FourFingerSwipeLeftGestureCombo, "None");
+        _settings.FourFingerSwipeRightAction = ReadGestureActionSelection(FourFingerSwipeRightGestureCombo, "None");
+        _settings.FourFingerSwipeUpAction = ReadGestureActionSelection(FourFingerSwipeUpGestureCombo, "None");
+        _settings.FourFingerSwipeDownAction = ReadGestureActionSelection(FourFingerSwipeDownGestureCombo, "None");
         _settings.TwoFingerHoldAction = ReadGestureActionSelection(TwoFingerHoldGestureCombo, "None");
         _settings.ThreeFingerHoldAction = ReadGestureActionSelection(ThreeFingerHoldGestureCombo, "None");
         _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Chordal Shift");
@@ -1238,6 +1471,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (!_preset.AllowsColumnSettings)
         {
             ColumnScaleBox.Text = FormatNumber(_preset.FixedKeyScale * 100.0);
+            ColumnScaleBox.ToolTip = "Fixed layout scale.";
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
             return;
@@ -1247,13 +1481,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (col < 0 || col >= _columnSettings.Length)
         {
             ColumnScaleBox.Text = "100";
+            ColumnScaleBox.ToolTip = null;
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
             return;
         }
 
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(_preset);
         ColumnLayoutSettings settings = _columnSettings[col];
         ColumnScaleBox.Text = FormatNumber(settings.Scale * 100.0);
+        ColumnScaleBox.ToolTip =
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScale * 100.0)}% " +
+            "(based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).";
         ColumnOffsetXBox.Text = FormatNumber(settings.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(settings.OffsetYPercent);
     }
@@ -1282,8 +1521,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ColumnLayoutSettings target = _columnSettings[selectedColumn];
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(_preset);
         double nextScalePercent = ReadDouble(ColumnScaleBox, target.Scale * 100.0);
-        double nextScale = Math.Clamp(nextScalePercent / 100.0, 0.25, 3.0);
+        double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
         double nextOffsetX = ReadDouble(ColumnOffsetXBox, target.OffsetXPercent);
         double nextOffsetY = ReadDouble(ColumnOffsetYBox, target.OffsetYPercent);
 
@@ -2562,8 +2802,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplySelectedKeymapOverride()
     {
         int layer = GetSelectedLayer();
-        string selectedPrimary = KeymapPrimaryCombo.SelectedValue as string ?? "None";
-        string selectedHold = KeymapHoldCombo.SelectedValue as string ?? "None";
+        string selectedPrimary = ReadGestureActionSelection(KeymapPrimaryCombo, "None");
+        string selectedHold = ReadGestureActionSelection(KeymapHoldCombo, "None");
         string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
 
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
