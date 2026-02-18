@@ -1813,6 +1813,8 @@ struct ContentView: View {
         @State private var lastTouchRevision: UInt64 = 0
         @State private var lastDisplayUpdateTime: TimeInterval = 0
         @State private var lastDisplayedHadTouches = false
+        @State private var lastLeftTouchTime: TimeInterval = 0
+        @State private var lastRightTouchTime: TimeInterval = 0
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -1823,6 +1825,7 @@ struct ContentView: View {
             let leftButtons = customButtons(for: .left)
             let rightButtons = customButtons(for: .right)
             let showDetailedView = visualsEnabled || selectedButtonID != nil
+            let replayTouchScale: CGFloat = viewModel.replayUIState == nil ? 1.0 : 2.0
             let selectedLeftKey = selectedGridKey?.side == .left ? selectedGridKey : nil
             let selectedRightKey = selectedGridKey?.side == .right ? selectedGridKey : nil
 
@@ -1853,7 +1856,8 @@ struct ContentView: View {
                         selectedRightButton: selectedButton(for: rightButtons),
                         leftTouches: visualsEnabled ? displayLeftTouches : [],
                         rightTouches: visualsEnabled ? displayRightTouches : [],
-                        visualsEnabled: visualsEnabled
+                        visualsEnabled: visualsEnabled,
+                        touchScale: replayTouchScale
                     )
                     if visualsEnabled && !editModeEnabled {
                         if let hit = lastHitLeft {
@@ -1930,11 +1934,35 @@ struct ContentView: View {
             }
 
             let now = CACurrentMediaTime()
+            var leftDisplay = snapshot.left
+            var rightDisplay = snapshot.right
+            if !snapshot.left.isEmpty {
+                lastLeftTouchTime = now
+            }
+            if !snapshot.right.isEmpty {
+                lastRightTouchTime = now
+            }
+
+            // Replay captures can contain one-frame taps; linger briefly so they stay visible on a 60 Hz UI.
+            let replayLingerSeconds: TimeInterval = 0.07
+            if viewModel.replayUIState != nil {
+                if snapshot.left.isEmpty,
+                   !displayLeftTouchesState.isEmpty,
+                   now - lastLeftTouchTime < replayLingerSeconds {
+                    leftDisplay = displayLeftTouchesState
+                }
+                if snapshot.right.isEmpty,
+                   !displayRightTouchesState.isEmpty,
+                   now - lastRightTouchTime < replayLingerSeconds {
+                    rightDisplay = displayRightTouchesState
+                }
+            }
+
             if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
-                displayLeftTouchesState = snapshot.left
-                displayRightTouchesState = snapshot.right
+                displayLeftTouchesState = leftDisplay
+                displayRightTouchesState = rightDisplay
                 lastDisplayUpdateTime = now
-                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
+                lastDisplayedHadTouches = !(leftDisplay.isEmpty && rightDisplay.isEmpty)
             }
         }
 
@@ -2146,6 +2174,7 @@ struct ContentView: View {
         let leftTouches: [OMSTouchData]
         let rightTouches: [OMSTouchData]
         let visualsEnabled: Bool
+        let touchScale: CGFloat
 
         var body: some View {
             Canvas { context, _ in
@@ -2178,7 +2207,8 @@ struct ContentView: View {
                     selectedButton: selectedLeftButton,
                     touches: leftTouches,
                     trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled
+                    visualsEnabled: visualsEnabled,
+                    touchScale: touchScale
                 )
                 ContentView.drawTrackpadContents(
                     context: &context,
@@ -2191,7 +2221,8 @@ struct ContentView: View {
                     selectedButton: selectedRightButton,
                     touches: rightTouches,
                     trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled
+                    visualsEnabled: visualsEnabled,
+                    touchScale: touchScale
                 )
             }
             .frame(width: (trackpadSize.width * 2) + spacing, height: trackpadSize.height)
@@ -2224,15 +2255,20 @@ struct ContentView: View {
         }
     }
 
-    private static func makeEllipse(touch: OMSTouchData, size: CGSize) -> Path {
+    private static func makeEllipse(
+        touch: OMSTouchData,
+        size: CGSize,
+        touchScale: CGFloat
+    ) -> Path {
         let x = Double(touch.position.x) * size.width
         let y = Double(1.0 - touch.position.y) * size.height
         let u = size.width / 100.0
         let minAxis: Double = 2.0
+        let visualScale = Double(max(touchScale, 0.1))
         let major = max(Double(touch.axis.major), minAxis)
         let minor = max(Double(touch.axis.minor), minAxis)
-        let w = major * u
-        let h = minor * u
+        let w = major * u * visualScale
+        let h = minor * u * visualScale
         return Path(ellipseIn: CGRect(x: -0.5 * w, y: -0.5 * h, width: w, height: h))
             .rotation(.radians(Double(-touch.angle)), anchor: .topLeading)
             .offset(x: x, y: y)
@@ -3305,7 +3341,8 @@ struct ContentView: View {
         selectedButton: CustomButton?,
         touches: [OMSTouchData],
         trackpadSize: CGSize,
-        visualsEnabled: Bool
+        visualsEnabled: Bool,
+        touchScale: CGFloat
     ) {
         withTranslatedContext(context: &context, origin: origin) { innerContext in
             drawSensorGrid(
@@ -3340,7 +3377,8 @@ struct ContentView: View {
                 drawTrackpadTouches(
                     context: &innerContext,
                     touches: touches,
-                    trackpadSize: trackpadSize
+                    trackpadSize: trackpadSize,
+                    touchScale: touchScale
                 )
             }
         }
@@ -3361,12 +3399,12 @@ struct ContentView: View {
     private static func drawTrackpadTouches(
         context: inout GraphicsContext,
         touches: [OMSTouchData],
-        trackpadSize: CGSize
+        trackpadSize: CGSize,
+        touchScale: CGFloat
     ) {
         touches.forEach { touch in
-            let path = makeEllipse(touch: touch, size: trackpadSize)
-            let opacity = min(1.0, max(0.18, Double(touch.total)))
-            context.fill(path, with: .color(.primary.opacity(opacity)))
+            let path = makeEllipse(touch: touch, size: trackpadSize, touchScale: touchScale)
+            context.fill(path, with: .color(.primary.opacity(1.0)))
         }
     }
 
