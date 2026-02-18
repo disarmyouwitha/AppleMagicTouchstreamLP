@@ -2228,8 +2228,11 @@ struct ContentView: View {
         let x = Double(touch.position.x) * size.width
         let y = Double(1.0 - touch.position.y) * size.height
         let u = size.width / 100.0
-        let w = Double(touch.axis.major) * u
-        let h = Double(touch.axis.minor) * u
+        let minAxis: Double = 2.0
+        let major = max(Double(touch.axis.major), minAxis)
+        let minor = max(Double(touch.axis.minor), minAxis)
+        let w = major * u
+        let h = minor * u
         return Path(ellipseIn: CGRect(x: -0.5 * w, y: -0.5 * h, width: w, height: h))
             .rotation(.radians(Double(-touch.angle)), anchor: .topLeading)
             .offset(x: x, y: y)
