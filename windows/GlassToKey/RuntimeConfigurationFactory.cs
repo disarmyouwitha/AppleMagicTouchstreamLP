@@ -5,10 +5,12 @@ namespace GlassToKey;
 
 internal static class RuntimeConfigurationFactory
 {
+    // Apple Magic Trackpad 2 dimensions (Apple tech specs): 16.00 cm x 11.49 cm.
     public const double TrackpadWidthMm = 160.0;
     public const double TrackpadHeightMm = 114.9;
     public const double KeyWidthMm = 18.0;
     public const double KeyHeightMm = 17.0;
+    public const double MinColumnScale = 0.25;
     public const double HardcodedSnapRadiusPercent = 200.0;
     public const double HardcodedKeyBufferMs = 20.0;
     public const ushort DefaultMaxX = 7612;
@@ -147,6 +149,7 @@ internal static class RuntimeConfigurationFactory
             return BuildFixedColumnSettingsForPreset(preset);
         }
 
+        double maxColumnScale = GetMaxColumnScaleForPreset(preset);
         ColumnLayoutSettings[] defaults = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         List<ColumnLayoutSettings>? savedSettings = null;
 
@@ -175,13 +178,21 @@ internal static class RuntimeConfigurationFactory
         {
             ColumnLayoutSettings saved = savedSettings[i] ?? new ColumnLayoutSettings();
             output[i] = new ColumnLayoutSettings(
-                scale: Math.Clamp(saved.Scale, 0.25, 3.0),
+                scale: Math.Clamp(saved.Scale, MinColumnScale, maxColumnScale),
                 offsetXPercent: saved.OffsetXPercent,
                 offsetYPercent: saved.OffsetYPercent,
                 rowSpacingPercent: saved.RowSpacingPercent);
         }
 
         return output;
+    }
+
+    public static double GetMaxColumnScaleForPreset(TrackpadLayoutPreset preset)
+    {
+        int rows = Math.Max(1, preset.Rows);
+        double maxByWidth = TrackpadWidthMm / KeyWidthMm;
+        double maxByHeight = TrackpadHeightMm / (KeyHeightMm * rows);
+        return Math.Max(MinColumnScale, Math.Min(maxByWidth, maxByHeight));
     }
 
     public static void SaveColumnSettingsForPreset(

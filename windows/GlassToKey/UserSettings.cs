@@ -671,7 +671,10 @@ public sealed class UserSettings
         {
             ColumnLayoutSettings safe = item ?? new ColumnLayoutSettings();
             normalized.Add(new ColumnLayoutSettings(
-                scale: Math.Clamp(safe.Scale, 0.25, 3.0),
+                scale: Math.Clamp(
+                    safe.Scale,
+                    RuntimeConfigurationFactory.MinColumnScale,
+                    RuntimeConfigurationFactory.TrackpadHeightMm / RuntimeConfigurationFactory.KeyHeightMm),
                 offsetXPercent: safe.OffsetXPercent,
                 offsetYPercent: safe.OffsetYPercent,
                 rowSpacingPercent: safe.RowSpacingPercent));
