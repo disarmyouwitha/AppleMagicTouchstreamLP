@@ -65,6 +65,11 @@ final class GlassToKeyController: ObservableObject {
         isRunning = true
     }
 
+    func prepareForReplay() {
+        OMSManager.shared.isTimestampEnabled = false
+        configureFromDefaults()
+    }
+
     private func configureFromDefaults() {
         viewModel.loadDevices()
         let layout = resolvedLayoutPreset()

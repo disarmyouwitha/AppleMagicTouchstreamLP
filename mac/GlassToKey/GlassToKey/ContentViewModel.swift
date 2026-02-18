@@ -235,6 +235,29 @@ final class ContentViewModel: ObservableObject {
         case gesture
     }
 
+    struct DeterministicReplayPass: Sendable {
+        let fingerprint: UInt64
+        let frameCount: Int
+        let stats: ATPCaptureReplayStats
+    }
+
+    struct DeterministicReplayResult: Sendable {
+        let capturePath: String
+        let deterministic: Bool
+        let firstPass: DeterministicReplayPass
+        let secondPass: DeterministicReplayPass
+
+        var summary: String {
+            let pass1 = String(format: "0x%016llX", firstPass.fingerprint)
+            let pass2 = String(format: "0x%016llX", secondPass.fingerprint)
+            return "Replay '\(capturePath)': deterministic=\(deterministic), " +
+                "fingerprintPass1=\(pass1), fingerprintPass2=\(pass2), " +
+                "frames=\(firstPass.frameCount), parsed=\(firstPass.stats.framesParsed), " +
+                "droppedInvalid=\(firstPass.stats.droppedInvalidSize), " +
+                "droppedNonMultitouch=\(firstPass.stats.droppedNonMultitouch)"
+        }
+    }
+
     private struct DeviceSelection: Sendable {
         var leftIndex: Int?
         var rightIndex: Int?
@@ -908,6 +931,54 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    func runDeterministicReplay(capturePath: String) async throws -> DeterministicReplayResult {
+        let firstPass = try await runDeterministicReplayPass(capturePath: capturePath)
+        let secondPass = try await runDeterministicReplayPass(capturePath: capturePath)
+        let deterministic = firstPass.fingerprint == secondPass.fingerprint &&
+            firstPass.frameCount == secondPass.frameCount &&
+            firstPass.stats == secondPass.stats
+        return DeterministicReplayResult(
+            capturePath: firstPass.capturePath,
+            deterministic: deterministic,
+            firstPass: DeterministicReplayPass(
+                fingerprint: firstPass.fingerprint,
+                frameCount: firstPass.frameCount,
+                stats: firstPass.stats
+            ),
+            secondPass: DeterministicReplayPass(
+                fingerprint: secondPass.fingerprint,
+                frameCount: secondPass.frameCount,
+                stats: secondPass.stats
+            )
+        )
+    }
+
+    private func runDeterministicReplayPass(
+        capturePath: String
+    ) async throws -> (
+        capturePath: String,
+        fingerprint: UInt64,
+        frameCount: Int,
+        stats: ATPCaptureReplayStats
+    ) {
+        let replayData = try ATPCaptureReplayLoader.load(capturePath)
+        await processor.beginDeterministicReplay()
+        for frame in replayData.frames {
+            await processor.processReplayFrame(
+                deviceIndex: frame.deviceIndex,
+                touches: frame.touches,
+                now: frame.offsetSeconds
+            )
+        }
+        await processor.endDeterministicReplay()
+        return (
+            capturePath: replayData.sourcePath,
+            fingerprint: replayData.fingerprint,
+            frameCount: replayData.frames.count,
+            stats: replayData.stats
+        )
+    }
+
     func clearTouchState() {
         Task { [processor] in
             await processor.resetState(stopVoiceDictation: false)
@@ -1551,8 +1622,6 @@ final class ContentViewModel: ObservableObject {
             var startX: CGFloat = 0
             var startY: CGFloat = 0
             var lowContactStartTime: TimeInterval = 0
-            var requiresFullLiftToRearm: Bool = false
-            var liftStartTime: TimeInterval = 0
         }
         private struct MultiFingerHoldGestureState {
             var active: Bool = false
@@ -1615,6 +1684,10 @@ final class ContentViewModel: ObservableObject {
         private let typingToggleMinInterval: TimeInterval = 0.2
         private var voiceDictationGestureState = VoiceDictationGestureState()
         private var voiceGestureActive = false
+        private var replayModeEnabled = false
+        private var suppressOutputDispatch = false
+        private var replaySavedDeviceSelection: (left: Int?, right: Int?)?
+        private var currentFrameTime: TimeInterval = 0
 
         struct StatusSnapshot: Sendable {
             let contactCounts: SidePair<Int>
@@ -1824,8 +1897,58 @@ final class ContentViewModel: ObservableObject {
             return action
         }
 
+        func beginDeterministicReplay() {
+            suppressOutputDispatch = true
+            replayModeEnabled = true
+            replaySavedDeviceSelection = (left: leftDeviceIndex, right: rightDeviceIndex)
+            leftDeviceIndex = 0
+            rightDeviceIndex = 1
+            releaseHeldKeys(stopVoiceDictation: true)
+            contactFingerCountsBySide[.left] = 0
+            contactFingerCountsBySide[.right] = 0
+            notifyContactCounts()
+        }
+
+        func endDeterministicReplay() {
+            releaseHeldKeys(stopVoiceDictation: true)
+            contactFingerCountsBySide[.left] = 0
+            contactFingerCountsBySide[.right] = 0
+            notifyContactCounts()
+            if let replaySavedDeviceSelection {
+                leftDeviceIndex = replaySavedDeviceSelection.left
+                rightDeviceIndex = replaySavedDeviceSelection.right
+            }
+            self.replaySavedDeviceSelection = nil
+            replayModeEnabled = false
+            suppressOutputDispatch = false
+        }
+
         func processRawFrame(_ frame: OMSRawTouchFrame) {
-            guard isListening,
+            processInputFrame(
+                deviceIndex: frame.deviceIndex,
+                touches: frame.touches,
+                now: Self.now()
+            )
+        }
+
+        func processReplayFrame(
+            deviceIndex: Int,
+            touches: [OMSRawTouch],
+            now: TimeInterval
+        ) {
+            processInputFrame(
+                deviceIndex: deviceIndex,
+                touches: touches,
+                now: now
+            )
+        }
+
+        private func processInputFrame(
+            deviceIndex: Int,
+            touches: [OMSRawTouch],
+            now: TimeInterval
+        ) {
+            guard (isListening || replayModeEnabled),
                   let leftLayout,
                   let rightLayout else {
                 return
@@ -1833,11 +1956,10 @@ final class ContentViewModel: ObservableObject {
             if leftDeviceIndex == nil && rightDeviceIndex == nil {
                 return
             }
-            let now = Self.now()
+            currentFrameTime = now
 #if DEBUG
             tapTraceFrameIndex &+= 1
 #endif
-            let touches = frame.touches
             let hasTouchData = !touches.isEmpty
             if !hasTouchData {
                 chordShiftState[.left] = ChordShiftState()
@@ -1846,7 +1968,6 @@ final class ContentViewModel: ObservableObject {
                 chordShiftLastContactTime[.right] = 0
                 updateChordShiftKeyState()
             }
-            let deviceIndex = frame.deviceIndex
             let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
             let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
             let leftTouches = isLeftDevice ? touches : []
@@ -2888,7 +3009,7 @@ final class ContentViewModel: ObservableObject {
             #if DEBUG
             onDebugBindingDetected(binding)
             #endif
-            extendTypingGrace(for: binding.side, now: Self.now())
+            extendTypingGrace(for: binding.side, now: currentFrameTime)
             playHapticIfNeeded(on: binding.side, touchKey: touchKey)
             #if DEBUG
             recordTapTrace(
@@ -3043,6 +3164,15 @@ final class ContentViewModel: ObservableObject {
             }
         }
 
+        private static func isFiveFingerSwipeContactState(_ state: OpenMTState) -> Bool {
+            switch state {
+            case .starting, .making, .touching:
+                return true
+            default:
+                return false
+            }
+        }
+
         private func contactCount(in touches: [OMSRawTouch]) -> Int {
             var count = 0
             for touch in touches where Self.isChordShiftContactState(touch.state) {
@@ -3161,6 +3291,7 @@ final class ContentViewModel: ObservableObject {
 
             func process(_ touch: OMSRawTouch, deviceIndex: Int, side: TrackpadSide, bindings: BindingIndex) {
                 let isChordState = Self.isChordShiftContactState(touch.state)
+                let isFiveFingerSwipeState = Self.isFiveFingerSwipeContactState(touch.state)
                 let isIntentState = Self.isIntentContactState(touch.state)
                 guard isChordState || isIntentState else { return }
                 let touchKey = Self.makeTouchKey(deviceIndex: deviceIndex, id: touch.id)
@@ -3169,7 +3300,7 @@ final class ContentViewModel: ObservableObject {
                     y: CGFloat(1.0 - touch.posY) * trackpadSize.height
                 )
                 framePointCache.set(touchKey, point)
-                if isChordState {
+                if isFiveFingerSwipeState {
                     gestureContactCounts[side] += 1
                     gestureSumX[side] += point.x
                     gestureSumY[side] += point.y
@@ -3839,19 +3970,6 @@ final class ContentViewModel: ObservableObject {
             unitsPerMm: CGFloat
         ) {
             var state = fiveFingerSwipeStateBySide[side]
-            if state.requiresFullLiftToRearm {
-                if contactCount == 0 {
-                    if state.liftStartTime == 0 {
-                        state.liftStartTime = now
-                    } else if now - state.liftStartTime >= contactCountHoldDuration {
-                        state = FiveFingerSwipeState()
-                    }
-                } else {
-                    state.liftStartTime = 0
-                }
-                fiveFingerSwipeStateBySide[side] = state
-                return
-            }
             if !state.active {
                 if contactCount >= fiveFingerSwipeArmContacts, let centroid {
                     state.active = true
@@ -3876,7 +3994,7 @@ final class ContentViewModel: ObservableObject {
                 return
             }
             state.lowContactStartTime = 0
-            guard contactCount >= fiveFingerSwipeSustainContacts, let centroid else {
+            guard let centroid else {
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
@@ -3889,9 +4007,6 @@ final class ContentViewModel: ObservableObject {
             let threshold = fiveFingerSwipeThresholdMm * unitsPerMm
             if abs(dx) >= threshold, abs(dx) >= abs(dy) {
                 state.triggered = true
-                state.active = false
-                state.requiresFullLiftToRearm = true
-                state.liftStartTime = 0
                 fiveFingerSwipeStateBySide[side] = state
                 let action = dx >= 0
                     ? fiveFingerSwipeRightGestureAction
@@ -3925,10 +4040,14 @@ final class ContentViewModel: ObservableObject {
         private func toggleVoiceDictationGesture(on side: TrackpadSide) {
             var state = voiceDictationGestureState
             if state.isDictating {
-                VoiceDictationManager.shared.endSession()
+                if !suppressOutputDispatch {
+                    VoiceDictationManager.shared.endSession()
+                }
                 state.isDictating = false
             } else {
-                VoiceDictationManager.shared.beginSession()
+                if !suppressOutputDispatch {
+                    VoiceDictationManager.shared.beginSession()
+                }
                 state.isDictating = true
             }
             voiceDictationGestureState = state
@@ -3941,7 +4060,7 @@ final class ContentViewModel: ObservableObject {
         }
 
         private func stopVoiceDictationGesture() {
-            if voiceDictationGestureState.isDictating {
+            if voiceDictationGestureState.isDictating, !suppressOutputDispatch {
                 VoiceDictationManager.shared.endSession()
             }
             voiceDictationGestureState = VoiceDictationGestureState()
@@ -4204,7 +4323,7 @@ final class ContentViewModel: ObservableObject {
 #if DEBUG
                 onDebugBindingDetected(binding)
 #endif
-                extendTypingGrace(for: binding.side, now: Self.now())
+                extendTypingGrace(for: binding.side, now: currentFrameTime)
                 playHapticIfNeeded(on: binding.side, touchKey: touchKey)
                 #if DEBUG
                 if let touchKey {
@@ -4227,6 +4346,7 @@ final class ContentViewModel: ObservableObject {
             combinedFlags: CGEventFlags? = nil,
             altAscii: UInt8 = 0
         ) {
+            guard !suppressOutputDispatch else { return }
             let resolvedFlags = combinedFlags ?? flags.union(currentModifierFlags())
             keyDispatcher.postKeyStroke(code: code, flags: resolvedFlags, altAscii: altAscii)
         }
@@ -4253,7 +4373,7 @@ final class ContentViewModel: ObservableObject {
             #if DEBUG
             onDebugBindingDetected(binding)
 #endif
-            extendTypingGrace(for: binding.side, now: Self.now())
+            extendTypingGrace(for: binding.side, now: currentFrameTime)
             #if DEBUG
             if let touchKey {
                 recordTapTrace(
@@ -4268,6 +4388,7 @@ final class ContentViewModel: ObservableObject {
         }
 
         private func playHapticIfNeeded(on side: TrackpadSide?, touchKey: TouchKey? = nil) {
+            guard !suppressOutputDispatch else { return }
             guard hapticStrength > 0 else { return }
             guard let side else { return }
             if let touchKey, disqualifiedTouches.value(for: touchKey) != nil { return }
@@ -4363,7 +4484,9 @@ final class ContentViewModel: ObservableObject {
                     continue
                 }
                 if entry.nextFire <= now {
-                    keyDispatcher.postKeyStroke(code: entry.code, flags: entry.flags, token: entry.token)
+                    if !suppressOutputDispatch {
+                        keyDispatcher.postKeyStroke(code: entry.code, flags: entry.flags, token: entry.token)
+                    }
                     var next = entry.nextFire
                     while next <= now {
                         next &+= entry.interval
@@ -4447,6 +4570,7 @@ final class ContentViewModel: ObservableObject {
 
         private func postKey(binding: KeyBinding, keyDown: Bool) {
             guard case let .key(code, flags) = binding.action else { return }
+            guard !suppressOutputDispatch else { return }
 #if DEBUG
             onDebugBindingDetected(binding)
 #endif
