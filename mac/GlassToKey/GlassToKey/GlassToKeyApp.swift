@@ -1,6 +1,8 @@
 import AppKit
 import Combine
+import Darwin
 import SwiftUI
+import UniformTypeIdentifiers
 import os
 
 @main
@@ -16,14 +18,28 @@ struct GlassToKeyApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private enum LaunchMode {
+        case normal
+        case replay(path: String)
+    }
+
     private let controller = GlassToKeyController()
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
+    private var replayTask: Task<Void, Never>?
     private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        switch Self.launchMode(from: CommandLine.arguments) {
+        case let .replay(path):
+            NSApp.setActivationPolicy(.prohibited)
+            runHeadlessReplay(capturePath: path)
+            return
+        case .normal:
+            break
+        }
         NSApp.setActivationPolicy(.accessory)
         controller.start()
         configureStatusItem()
@@ -69,6 +85,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         syncItem.target = self
         menu.addItem(syncItem)
+        let replayItem = NSMenuItem(
+            title: "Replay...",
+            action: #selector(replayCaptureFile),
+            keyEquivalent: "r"
+        )
+        replayItem.target = self
+        menu.addItem(replayItem)
         menu.addItem(.separator())
 
         let restartItem = NSMenuItem(
@@ -196,6 +219,47 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.refreshDevicesAndListeners()
     }
 
+    @objc private func replayCaptureFile() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap")].compactMap { $0 }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.title = "Replay Capture"
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return
+        }
+        let wasListening = controller.viewModel.isListening
+        if wasListening {
+            controller.viewModel.stop()
+        }
+        controller.prepareForReplay()
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else { return }
+            defer {
+                if wasListening {
+                    self.controller.viewModel.start()
+                }
+            }
+            do {
+                let result = try await self.controller.viewModel.runDeterministicReplay(
+                    capturePath: url.path
+                )
+                self.presentReplayAlert(
+                    title: result.deterministic ? "Replay Succeeded" : "Replay Mismatch",
+                    message: result.summary
+                )
+            } catch {
+                self.presentReplayAlert(
+                    title: "Replay Failed",
+                    message: error.localizedDescription
+                )
+            }
+        }
+    }
+
     @objc private func restartApp() {
         let bundlePath = Bundle.main.bundlePath
         let task = Process()
@@ -271,6 +335,51 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         mouseEventBlocker.setAllowedRect(window.frame)
+    }
+
+    private func runHeadlessReplay(capturePath: String) {
+        controller.prepareForReplay()
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else {
+                Darwin.exit(1)
+            }
+            do {
+                let result = try await self.controller.viewModel.runDeterministicReplay(
+                    capturePath: capturePath
+                )
+                print(result.summary)
+                Darwin.exit(result.deterministic ? 0 : 1)
+            } catch {
+                let text = "Replay failed: \(error.localizedDescription)\n"
+                _ = text.withCString { pointer in
+                    fputs(pointer, stderr)
+                }
+                Darwin.exit(1)
+            }
+        }
+    }
+
+    private func presentReplayAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private static func launchMode(from args: [String]) -> LaunchMode {
+        guard args.count > 1 else { return .normal }
+        var index = 1
+        while index < args.count {
+            let arg = args[index]
+            if arg == "--replay", index + 1 < args.count {
+                return .replay(path: args[index + 1])
+            }
+            index += 1
+        }
+        return .normal
     }
 }
 
