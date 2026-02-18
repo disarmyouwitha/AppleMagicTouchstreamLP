@@ -476,8 +476,21 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
+            replayUIState: viewModel.replayUIState,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap,
+            onToggleReplayPlayback: {
+                viewModel.toggleReplayPlayback()
+            },
+            onStepReplayBackward: {
+                viewModel.stepReplayBackward()
+            },
+            onStepReplayForward: {
+                viewModel.stepReplayForward()
+            },
+            onSeekReplay: { progress in
+                viewModel.seekReplay(progress: progress)
+            },
             tapTraceDumpInProgress: tapTraceDumpInProgress,
             tapTraceDumpStatus: tapTraceDumpStatus,
             onDumpTapTrace: dumpTapTrace
@@ -492,8 +505,21 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
+            replayUIState: viewModel.replayUIState,
             onImportKeymap: importKeymap,
-            onExportKeymap: exportKeymap
+            onExportKeymap: exportKeymap,
+            onToggleReplayPlayback: {
+                viewModel.toggleReplayPlayback()
+            },
+            onStepReplayBackward: {
+                viewModel.stepReplayBackward()
+            },
+            onStepReplayForward: {
+                viewModel.stepReplayForward()
+            },
+            onSeekReplay: { progress in
+                viewModel.seekReplay(progress: progress)
+            }
         )
 #endif
     }
@@ -592,8 +618,13 @@ struct ContentView: View {
         let intentDisplay: ContentViewModel.IntentDisplay
         let voiceGestureActive: Bool
         let voiceDebugStatus: String?
+        let replayUIState: ContentViewModel.ReplayUIState?
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
+        let onToggleReplayPlayback: () -> Void
+        let onStepReplayBackward: () -> Void
+        let onStepReplayForward: () -> Void
+        let onSeekReplay: (Double) -> Void
 #if DEBUG
         let tapTraceDumpInProgress: Bool
         let tapTraceDumpStatus: String?
@@ -617,6 +648,9 @@ struct ContentView: View {
                                 voiceStatusBadge(voiceDebugStatus)
                             }
                         }
+                    }
+                    if let replayUIState {
+                        replayControls(replayUIState)
                     }
                 }
                 Spacer()
@@ -652,6 +686,56 @@ struct ContentView: View {
                     Text("Layer1")
                 }
             }
+        }
+
+        private func replayControls(_ state: ContentViewModel.ReplayUIState) -> some View {
+            VStack(alignment: .leading, spacing: 4) {
+                HStack(spacing: 8) {
+                    Text("Replay")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Text((state.capturePath as NSString).lastPathComponent)
+                        .font(.caption)
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                        .frame(maxWidth: 220, alignment: .leading)
+                }
+                HStack(spacing: 8) {
+                    Button(state.isPlaying ? "Pause" : "Play") {
+                        onToggleReplayPlayback()
+                    }
+                    .buttonStyle(.bordered)
+                    Button("◀") {
+                        onStepReplayBackward()
+                    }
+                    .buttonStyle(.bordered)
+                    Button("▶") {
+                        onStepReplayForward()
+                    }
+                    .buttonStyle(.bordered)
+                    Slider(
+                        value: Binding(
+                            get: { state.progress },
+                            set: { onSeekReplay($0) }
+                        ),
+                        in: 0...1
+                    )
+                    .frame(width: 220)
+                    Text(replayTimeLabel(current: state.currentTime, duration: state.duration))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                    Text("f \(state.frameIndex + 1)/\(max(state.totalFrames, 1))")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                        .monospacedDigit()
+                }
+            }
+            .padding(.top, 2)
+        }
+
+        private func replayTimeLabel(current: TimeInterval, duration: TimeInterval) -> String {
+            String(format: "%.2fs / %.2fs", current, duration)
         }
 
         private var contactCountPills: some View {

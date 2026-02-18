@@ -28,6 +28,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
     private var replayTask: Task<Void, Never>?
+    private var shouldResumeLiveAfterReplay = false
     private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
 
@@ -61,6 +62,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else { return }
+            await self.controller.viewModel.closeReplayCapture()
+            if self.shouldResumeLiveAfterReplay {
+                self.shouldResumeLiveAfterReplay = false
+                self.controller.viewModel.start()
+            }
+        }
     }
 
     private func configureStatusItem() {
@@ -231,31 +241,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         let wasListening = controller.viewModel.isListening
+        shouldResumeLiveAfterReplay = wasListening
         if wasListening {
             controller.viewModel.stop()
         }
         controller.prepareForReplay()
+        openConfigWindow()
         replayTask?.cancel()
         replayTask = Task { [weak self] in
             guard let self else { return }
-            defer {
-                if wasListening {
-                    self.controller.viewModel.start()
-                }
-            }
             do {
-                let result = try await self.controller.viewModel.runDeterministicReplay(
+                try await self.controller.viewModel.loadReplayCapture(
                     capturePath: url.path
-                )
-                self.presentReplayAlert(
-                    title: result.deterministic ? "Replay Succeeded" : "Replay Mismatch",
-                    message: result.summary
                 )
             } catch {
                 self.presentReplayAlert(
                     title: "Replay Failed",
                     message: error.localizedDescription
                 )
+                if self.shouldResumeLiveAfterReplay {
+                    self.shouldResumeLiveAfterReplay = false
+                    self.controller.viewModel.start()
+                }
             }
         }
     }

@@ -258,6 +258,21 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    struct ReplayUIState: Sendable, Equatable {
+        let capturePath: String
+        let currentTime: TimeInterval
+        let duration: TimeInterval
+        let frameIndex: Int
+        let totalFrames: Int
+        let isPlaying: Bool
+        let speed: Double
+
+        var progress: Double {
+            guard duration > 0 else { return 0 }
+            return min(max(currentTime / duration, 0), 1)
+        }
+    }
+
     private struct DeviceSelection: Sendable {
         var leftIndex: Int?
         var rightIndex: Int?
@@ -311,6 +326,7 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
     @Published private(set) var voiceGestureActive = false
     @Published private(set) var voiceDebugStatus: String?
+    @Published private(set) var replayUIState: ReplayUIState?
     private let isDragDetectionEnabled = true
     @Published var availableDevices = [OMSDeviceInfo]()
     @Published var leftDevice: OMSDeviceInfo?
@@ -343,6 +359,14 @@ final class ContentViewModel: ObservableObject {
     private let manager = OMSManager.shared
     private var task: Task<Void, Never>?
     private let processor: TouchProcessor
+    private var replayFrames: [ATPCaptureReplayFrame] = []
+    private var replayCapturePath = ""
+    private var replayCurrentIndex = 0
+    private var replayDuration: TimeInterval = 0
+    private var replaySpeed: Double = 1.0
+    private var replayIsPlaying = false
+    private var replayTask: Task<Void, Never>?
+    private var replayProcessorPrepared = false
 
     init() {
         let holder = ContinuationHolder()
@@ -976,6 +1000,300 @@ final class ContentViewModel: ObservableObject {
             fingerprint: replayData.fingerprint,
             frameCount: replayData.frames.count,
             stats: replayData.stats
+        )
+    }
+
+    func loadReplayCapture(capturePath: String) async throws {
+        pauseReplayPlayback()
+        if replayProcessorPrepared {
+            await processor.endDeterministicReplay()
+            replayProcessorPrepared = false
+        }
+
+        let replayData = try ATPCaptureReplayLoader.load(capturePath)
+        replayFrames = replayData.frames
+        replayCapturePath = replayData.sourcePath
+        replayCurrentIndex = 0
+        replayDuration = replayFrames.last?.offsetSeconds ?? 0
+        replaySpeed = 1.0
+        replayIsPlaying = false
+
+        await processor.beginDeterministicReplay()
+        replayProcessorPrepared = true
+
+        if replayFrames.isEmpty {
+            resetReplaySnapshot()
+            replayUIState = ReplayUIState(
+                capturePath: replayCapturePath,
+                currentTime: 0,
+                duration: 0,
+                frameIndex: 0,
+                totalFrames: 0,
+                isPlaying: false,
+                speed: replaySpeed
+            )
+            return
+        }
+
+        await replayFromStart(to: 0)
+    }
+
+    func closeReplayCapture() async {
+        pauseReplayPlayback()
+        if replayProcessorPrepared {
+            await processor.endDeterministicReplay()
+            replayProcessorPrepared = false
+        }
+        replayFrames = []
+        replayCapturePath = ""
+        replayCurrentIndex = 0
+        replayDuration = 0
+        replayIsPlaying = false
+        replayUIState = nil
+    }
+
+    func toggleReplayPlayback() {
+        if replayIsPlaying {
+            pauseReplayPlayback()
+        } else {
+            Task { [weak self] in
+                await self?.startReplayPlayback()
+            }
+        }
+    }
+
+    func stepReplayForward() {
+        guard !replayFrames.isEmpty else { return }
+        pauseReplayPlayback()
+        let next = min(replayFrames.count - 1, replayCurrentIndex + 1)
+        Task { [weak self] in
+            await self?.seekReplayFrame(index: next)
+        }
+    }
+
+    func stepReplayBackward() {
+        guard !replayFrames.isEmpty else { return }
+        pauseReplayPlayback()
+        let next = max(0, replayCurrentIndex - 1)
+        Task { [weak self] in
+            await self?.seekReplayFrame(index: next)
+        }
+    }
+
+    func seekReplay(progress: Double) {
+        guard !replayFrames.isEmpty else { return }
+        pauseReplayPlayback()
+        let clamped = min(max(progress, 0), 1)
+        let target = Int((Double(replayFrames.count - 1) * clamped).rounded())
+        Task { [weak self] in
+            await self?.seekReplayFrame(index: target)
+        }
+    }
+
+    private func startReplayPlayback() async {
+        guard !replayFrames.isEmpty else { return }
+        guard !replayIsPlaying else { return }
+        if replayCurrentIndex >= replayFrames.count - 1 {
+            await replayFromStart(to: 0)
+        }
+        replayIsPlaying = true
+        updateReplayUIState()
+        replayTask = Task { [weak self] in
+            await self?.replayLoop()
+        }
+    }
+
+    private func pauseReplayPlayback() {
+        replayIsPlaying = false
+        replayTask?.cancel()
+        replayTask = nil
+        updateReplayUIState()
+    }
+
+    private func replayLoop() async {
+        guard replayFrames.count >= 2 else {
+            replayIsPlaying = false
+            updateReplayUIState()
+            return
+        }
+
+        while replayIsPlaying, !Task.isCancelled {
+            let index = replayCurrentIndex
+            if index >= replayFrames.count - 1 {
+                replayIsPlaying = false
+                break
+            }
+            let currentOffset = replayFrames[index].offsetSeconds
+            let nextOffset = replayFrames[index + 1].offsetSeconds
+            let delta = max(0, nextOffset - currentOffset)
+            let adjusted = delta / max(replaySpeed, 0.0001)
+            if adjusted > 0 {
+                let nanosDouble = adjusted * 1_000_000_000
+                let nanos = UInt64(min(nanosDouble, Double(UInt64.max)))
+                do {
+                    try await Task.sleep(nanoseconds: nanos)
+                } catch {
+                    break
+                }
+                if Task.isCancelled || !replayIsPlaying {
+                    break
+                }
+            }
+            await seekReplayFrame(index: index + 1)
+        }
+
+        replayIsPlaying = false
+        replayTask = nil
+        updateReplayUIState()
+    }
+
+    private func seekReplayFrame(index: Int) async {
+        guard !replayFrames.isEmpty else { return }
+        let clamped = min(max(index, 0), replayFrames.count - 1)
+        if clamped > replayCurrentIndex {
+            for frameIndex in (replayCurrentIndex + 1)...clamped {
+                await applyReplayFrame(at: frameIndex)
+            }
+        } else if clamped == replayCurrentIndex {
+            await applyReplayFrame(at: clamped)
+        } else {
+            await replayFromStart(to: clamped)
+        }
+    }
+
+    private func replayFromStart(to targetIndex: Int) async {
+        guard !replayFrames.isEmpty else { return }
+        if replayProcessorPrepared {
+            await processor.beginDeterministicReplay()
+        }
+        replayCurrentIndex = 0
+        resetReplaySnapshot()
+        for frameIndex in 0...targetIndex {
+            await applyReplayFrame(at: frameIndex)
+        }
+    }
+
+    private func applyReplayFrame(at index: Int) async {
+        guard replayFrames.indices.contains(index) else { return }
+        let frame = replayFrames[index]
+        await processor.processReplayFrame(
+            deviceIndex: frame.deviceIndex,
+            touches: frame.touches,
+            now: frame.offsetSeconds
+        )
+
+        publishReplaySnapshot(
+            side: frame.deviceIndex == 0 ? .left : .right,
+            touches: frame.touches,
+            timestamp: frame.offsetSeconds
+        )
+        replayCurrentIndex = index
+        updateReplayUIState()
+    }
+
+    private func publishReplaySnapshot(
+        side: TrackpadSide,
+        touches: [OMSRawTouch],
+        timestamp: TimeInterval
+    ) {
+        let converted = touches.compactMap { replayTouchData(from: $0, side: side, timestamp: timestamp) }
+        var updatedRevision: UInt64?
+        touchSnapshotLock.withLockUnchecked { snapshot in
+            switch side {
+            case .left:
+                snapshot.left = converted
+            case .right:
+                snapshot.right = converted
+            }
+            snapshot.hasTransitionState = Self.hasTransitionState(
+                left: snapshot.left,
+                right: snapshot.right
+            )
+            snapshot.revision &+= 1
+            updatedRevision = snapshot.revision
+        }
+        if let revision = updatedRevision {
+            touchRevisionContinuationHolder.continuation?.yield(revision)
+        }
+    }
+
+    private func resetReplaySnapshot() {
+        var updatedRevision: UInt64?
+        touchSnapshotLock.withLockUnchecked { snapshot in
+            snapshot.left = []
+            snapshot.right = []
+            snapshot.hasTransitionState = false
+            snapshot.revision &+= 1
+            updatedRevision = snapshot.revision
+        }
+        if let revision = updatedRevision {
+            touchRevisionContinuationHolder.continuation?.yield(revision)
+        }
+    }
+
+    private func replayTouchData(
+        from touch: OMSRawTouch,
+        side: TrackpadSide,
+        timestamp: TimeInterval
+    ) -> OMSTouchData? {
+        guard let state = replayState(from: touch.state) else {
+            return nil
+        }
+        let deviceID = side == .left ? "replay://left" : "replay://right"
+        let deviceIndex = side == .left ? 0 : 1
+        return OMSTouchData(
+            deviceID: deviceID,
+            deviceIndex: deviceIndex,
+            id: touch.id,
+            position: OMSPosition(x: touch.posX, y: touch.posY),
+            total: touch.total,
+            pressure: touch.pressure,
+            axis: OMSAxis(major: touch.majorAxis, minor: touch.minorAxis),
+            angle: touch.angle,
+            density: touch.density,
+            state: state,
+            timestamp: timestamp,
+            formattedTimestamp: String(format: "%.5f", timestamp)
+        )
+    }
+
+    private func replayState(from state: OpenMTState) -> OMSState? {
+        switch state {
+        case .notTouching:
+            return .notTouching
+        case .starting:
+            return .starting
+        case .hovering:
+            return .hovering
+        case .making:
+            return .making
+        case .touching:
+            return .touching
+        case .breaking:
+            return .breaking
+        case .lingering:
+            return .lingering
+        case .leaving:
+            return .leaving
+        @unknown default:
+            return nil
+        }
+    }
+
+    private func updateReplayUIState() {
+        guard !replayFrames.isEmpty else {
+            replayUIState = nil
+            return
+        }
+        let currentTime = replayFrames[min(max(replayCurrentIndex, 0), replayFrames.count - 1)].offsetSeconds
+        replayUIState = ReplayUIState(
+            capturePath: replayCapturePath,
+            currentTime: currentTime,
+            duration: replayDuration,
+            frameIndex: replayCurrentIndex,
+            totalFrames: replayFrames.count,
+            isPlaying: replayIsPlaying,
+            speed: replaySpeed
         )
     }
 
