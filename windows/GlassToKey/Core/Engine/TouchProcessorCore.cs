@@ -42,6 +42,8 @@ internal sealed class TouchProcessorCore
     private const double CornerClickMaxDurationMs = 2000.0;
     private const int ChordShiftContactThreshold = 4;
     private const double ChordSourceStaleTimeoutMs = 200.0;
+    private const double MultiFingerClickHoldGuardMs = 90.0;
+    private const double MultiFingerClickForceVelocityThresholdPerSec = 1400.0;
     private const ushort ShiftVirtualKey = 0x10;
 
     private TouchProcessorConfig _config;
@@ -158,6 +160,16 @@ internal sealed class TouchProcessorCore
     private CornerClickTapGesture _cornerClickTapGestureRight;
     private bool _leftButtonPressed;
     private bool _rightButtonPressed;
+    private int _leftMaxTipContactsBeforeButtonDown;
+    private int _rightMaxTipContactsBeforeButtonDown;
+    private int _leftLastTipMaxForceNorm;
+    private int _rightLastTipMaxForceNorm;
+    private long _leftLastTipForceSampleTicks = -1;
+    private long _rightLastTipForceSampleTicks = -1;
+    private double _leftPositiveForceVelocityPerSec;
+    private double _rightPositiveForceVelocityPerSec;
+    private bool _leftHoldBlockedUntilAllUpFromClick;
+    private bool _rightHoldBlockedUntilAllUpFromClick;
     private bool _fourFingerHoldUsesChordShift;
     private bool _diagnosticsEnabled;
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
@@ -359,6 +371,16 @@ internal sealed class TouchProcessorCore
         _cornerClickTapGestureRight = default;
         _leftButtonPressed = false;
         _rightButtonPressed = false;
+        _leftMaxTipContactsBeforeButtonDown = 0;
+        _rightMaxTipContactsBeforeButtonDown = 0;
+        _leftLastTipMaxForceNorm = 0;
+        _rightLastTipMaxForceNorm = 0;
+        _leftLastTipForceSampleTicks = -1;
+        _rightLastTipForceSampleTicks = -1;
+        _leftPositiveForceVelocityPerSec = 0;
+        _rightPositiveForceVelocityPerSec = 0;
+        _leftHoldBlockedUntilAllUpFromClick = false;
+        _rightHoldBlockedUntilAllUpFromClick = false;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
         _clockAnchorTimestampTicks = 0;
@@ -379,11 +401,17 @@ internal sealed class TouchProcessorCore
         RefreshStaleRawContactCounts(timestampTicks);
         int contactCountInFrame = frame.GetClampedContactCount();
         int tipContactsInFrame = 0;
+        int frameTipMaxForceNorm = 0;
         for (int i = 0; i < contactCountInFrame; i++)
         {
-            if (frame.GetContact(i).TipSwitch)
+            ContactFrame contact = frame.GetContact(i);
+            if (contact.TipSwitch)
             {
                 tipContactsInFrame++;
+                if (contact.ForceNorm > frameTipMaxForceNorm)
+                {
+                    frameTipMaxForceNorm = contact.ForceNorm;
+                }
             }
         }
 
@@ -413,6 +441,7 @@ internal sealed class TouchProcessorCore
                 _lastFivePlusRightTicks = timestampTicks;
             }
         }
+        UpdateSideForceVelocity(side, frameTipMaxForceNorm, timestampTicks);
         UpdateMultiFingerClickGestures(
             side,
             tipContactsInFrame,
@@ -2292,11 +2321,34 @@ internal sealed class TouchProcessorCore
         bool buttonPressed,
         long nowTicks)
     {
+        if (sideTipContacts <= 0 && !buttonPressed)
+        {
+            ClearClickDerivedHoldBlock(side);
+        }
+
+        ref int maxContactsBeforeButtonDown = ref side == TrackpadSide.Left
+            ? ref _leftMaxTipContactsBeforeButtonDown
+            : ref _rightMaxTipContactsBeforeButtonDown;
         ref bool wasPressed = ref side == TrackpadSide.Left
             ? ref _leftButtonPressed
             : ref _rightButtonPressed;
         bool justPressed = !wasPressed && buttonPressed;
+        bool justReleased = wasPressed && !buttonPressed;
+        if (!buttonPressed && sideTipContacts <= 1)
+        {
+            // Prevent stale 3/4-finger state from leaking into later single-finger clicks.
+            maxContactsBeforeButtonDown = sideTipContacts;
+        }
+        else if (!buttonPressed && sideTipContacts > maxContactsBeforeButtonDown)
+        {
+            maxContactsBeforeButtonDown = sideTipContacts;
+        }
         wasPressed = buttonPressed;
+        if (justReleased)
+        {
+            maxContactsBeforeButtonDown = sideTipContacts <= 0 ? 0 : sideTipContacts;
+        }
+
         if (!justPressed)
         {
             return;
@@ -2307,19 +2359,121 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        EngineKeyAction action = EngineKeyAction.None;
-        if (sideTipContacts == 3 &&
-            _threeFingerClickGestureAction.Kind != EngineActionKind.None)
+        int effectiveTipContacts = sideTipContacts >= 2
+            ? Math.Max(sideTipContacts, maxContactsBeforeButtonDown)
+            : sideTipContacts;
+        EngineKeyAction action = GetMultiFingerClickAction(effectiveTipContacts);
+        if (action.Kind == EngineActionKind.None)
         {
-            action = _threeFingerClickGestureAction;
-        }
-        else if (sideTipContacts == 4 &&
-                 _fourFingerClickGestureAction.Kind != EngineActionKind.None)
-        {
-            action = _fourFingerClickGestureAction;
+            return;
         }
 
         EmitGestureAction(action, side, touchKey: 0, nowTicks);
+        SetClickDerivedHoldBlock(side, enabled: true);
+    }
+
+    private EngineKeyAction GetMultiFingerClickAction(int sideTipContacts)
+    {
+        if (sideTipContacts == 3)
+        {
+            return _threeFingerClickGestureAction;
+        }
+
+        if (sideTipContacts == 4)
+        {
+            return _fourFingerClickGestureAction;
+        }
+
+        return EngineKeyAction.None;
+    }
+
+    private void UpdateSideForceVelocity(TrackpadSide side, int frameTipMaxForceNorm, long nowTicks)
+    {
+        ref int lastForce = ref side == TrackpadSide.Left
+            ? ref _leftLastTipMaxForceNorm
+            : ref _rightLastTipMaxForceNorm;
+        ref long lastTicks = ref side == TrackpadSide.Left
+            ? ref _leftLastTipForceSampleTicks
+            : ref _rightLastTipForceSampleTicks;
+        ref double positiveVelocityPerSec = ref side == TrackpadSide.Left
+            ? ref _leftPositiveForceVelocityPerSec
+            : ref _rightPositiveForceVelocityPerSec;
+
+        if (lastTicks >= 0 && nowTicks > lastTicks)
+        {
+            long deltaTicks = nowTicks - lastTicks;
+            int deltaForce = frameTipMaxForceNorm - lastForce;
+            if (deltaForce > 0)
+            {
+                double dtSeconds = deltaTicks / (double)Stopwatch.Frequency;
+                positiveVelocityPerSec = dtSeconds <= 0 ? 0 : deltaForce / dtSeconds;
+            }
+            else
+            {
+                positiveVelocityPerSec = 0;
+            }
+        }
+        else
+        {
+            positiveVelocityPerSec = 0;
+        }
+
+        lastForce = frameTipMaxForceNorm;
+        lastTicks = nowTicks;
+    }
+
+    private void SetClickDerivedHoldBlock(TrackpadSide side, bool enabled)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _leftHoldBlockedUntilAllUpFromClick = enabled;
+            return;
+        }
+
+        _rightHoldBlockedUntilAllUpFromClick = enabled;
+    }
+
+    private void ClearClickDerivedHoldBlock(TrackpadSide side)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _leftHoldBlockedUntilAllUpFromClick = false;
+            return;
+        }
+
+        _rightHoldBlockedUntilAllUpFromClick = false;
+    }
+
+    private bool IsClickDerivedHoldBlocked(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left
+            ? _leftHoldBlockedUntilAllUpFromClick
+            : _rightHoldBlockedUntilAllUpFromClick;
+    }
+
+    private bool IsLikelyMultiFingerClickIntent(TrackpadSide side, int requiredContactCount, long nowTicks)
+    {
+        EngineKeyAction clickAction = GetMultiFingerClickAction(requiredContactCount);
+        if (clickAction.Kind == EngineActionKind.None)
+        {
+            return false;
+        }
+
+        if (IsClickDerivedHoldBlocked(side))
+        {
+            return true;
+        }
+
+        bool buttonPressed = side == TrackpadSide.Left ? _leftButtonPressed : _rightButtonPressed;
+        if (buttonPressed)
+        {
+            return true;
+        }
+
+        double positiveForceVelocity = side == TrackpadSide.Left
+            ? _leftPositiveForceVelocityPerSec
+            : _rightPositiveForceVelocityPerSec;
+        return positiveForceVelocity >= MultiFingerClickForceVelocityThresholdPerSec;
     }
 
     private void UpdateMultiFingerHoldGesture(
@@ -2353,7 +2507,17 @@ internal sealed class TouchProcessorCore
         }
 
         long holdTicks = MsToTicks(_config.HoldDurationMs);
+        if (GetMultiFingerClickAction(requiredContactCount).Kind != EngineActionKind.None)
+        {
+            holdTicks += MsToTicks(MultiFingerClickHoldGuardMs);
+        }
+
         if (nowTicks - gesture.StartedTicks < holdTicks)
+        {
+            return;
+        }
+
+        if (IsLikelyMultiFingerClickIntent(side, requiredContactCount, nowTicks))
         {
             return;
         }
