@@ -11,11 +11,16 @@ enum GlassToKeySettings {
     static let intentVelocityThresholdMmPerSec: Double = 50.0
     static let autocorrectEnabled: Bool = true
     static let autocorrectMinWordLength: Int = 2
-    static let tapClickEnabled: Bool = true
-    static let tapClickCadenceMs: Double = 280.0
     static let snapRadiusPercent: Double = 35.0
     static let chordalShiftEnabled: Bool = true
     static let keyboardModeEnabled: Bool = false
+    static let fiveFingerSwipeLeftAction = "Typing Toggle"
+    static let fiveFingerSwipeRightAction = "Typing Toggle"
+    static let twoFingerHoldAction = "None"
+    static let threeFingerHoldAction = "None"
+    static let fourFingerHoldAction = "Chordal Shift"
+    static let outerCornersAction = "None"
+    static let innerCornersAction = "None"
 
     static func persistedDouble(
         forKey key: String,
@@ -26,6 +31,19 @@ enum GlassToKeySettings {
             return value
         }
         return fallback
+    }
+
+    static func persistedString(
+        forKey key: String,
+        defaults: UserDefaults = .standard,
+        fallback: String
+    ) -> String {
+        guard let value = defaults.string(forKey: key)?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty else {
+            return fallback
+        }
+        return value
     }
 }
 
@@ -45,6 +63,11 @@ final class GlassToKeyController: ObservableObject {
         viewModel.start()
         viewModel.onAppear()
         isRunning = true
+    }
+
+    func prepareForReplay() {
+        OMSManager.shared.isTimestampEnabled = false
+        configureFromDefaults()
     }
 
     private func configureFromDefaults() {
@@ -209,25 +232,54 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.intentVelocityThresholdMmPerSec
         )
-        let tapClickEnabled = defaults.object(
-            forKey: GlassToKeyDefaultsKeys.tapClickEnabled
-        ) as? Bool ?? GlassToKeySettings.tapClickEnabled
-        let tapClickCadenceMs = GlassToKeySettings.persistedDouble(
-            forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs,
-            defaults: defaults,
-            fallback: GlassToKeySettings.tapClickCadenceMs
-        )
         let snapRadiusPercent = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.snapRadiusPercent,
             defaults: defaults,
             fallback: GlassToKeySettings.snapRadiusPercent
         )
-        let chordalShiftEnabled = defaults.object(
+        let legacyChordalShiftEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.chordalShiftEnabled
         ) as? Bool ?? GlassToKeySettings.chordalShiftEnabled
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
+        let fiveFingerSwipeLeftAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.fiveFingerSwipeLeftAction
+        )
+        let fiveFingerSwipeRightAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.fiveFingerSwipeRightAction
+        )
+        let twoFingerHoldAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.twoFingerHoldAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.twoFingerHoldAction
+        )
+        let threeFingerHoldAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.threeFingerHoldAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.threeFingerHoldAction
+        )
+        let fourFingerHoldAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.fourFingerHoldAction,
+            defaults: defaults,
+            fallback: legacyChordalShiftEnabled
+                ? GlassToKeySettings.fourFingerHoldAction
+                : KeyActionCatalog.noneLabel
+        )
+        let outerCornersAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.outerCornersAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.outerCornersAction
+        )
+        let innerCornersAction = GlassToKeySettings.persistedString(
+            forKey: GlassToKeyDefaultsKeys.innerCornersAction,
+            defaults: defaults,
+            fallback: GlassToKeySettings.innerCornersAction
+        )
 
         viewModel.updateHoldThreshold(tapHoldMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
@@ -237,10 +289,18 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)
-        viewModel.updateTapClickEnabled(tapClickEnabled)
-        viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
-        viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
+        viewModel.updateGestureTuning(
+            GestureTuningSettings(
+                fiveFingerSwipeLeftAction: fiveFingerSwipeLeftAction,
+                fiveFingerSwipeRightAction: fiveFingerSwipeRightAction,
+                twoFingerHoldAction: twoFingerHoldAction,
+                threeFingerHoldAction: threeFingerHoldAction,
+                fourFingerHoldAction: fourFingerHoldAction,
+                outerCornersAction: outerCornersAction,
+                innerCornersAction: innerCornersAction
+            )
+        )
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
     }
 

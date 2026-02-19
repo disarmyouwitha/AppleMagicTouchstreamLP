@@ -51,6 +51,26 @@
 - Always write the most performant and efficient code to turn an Apple Magic Trackpad into a keyboard with an emphasis on running in the background as a status app and instant key detection.
 - Always consider re-writes to the Private or Public APIs if there are efficiency gains to be had at a higher level.
 - Do not add allocations, logging, or file I/O to any hot path. If unsure whether a path is hot, assume it is hot.
+
+## Replay verification
+- Build first:
+  - `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
+- CLI deterministic replay check (from `.../DerivedData/.../Build/Products/Debug`):
+  - `./GlassToKey.app/Contents/MacOS/GlassToKey --replay /Users/nap/Documents/AppleMagicTouchstreamLP/mac/2finger_hold.atpcap`
+  - Expected: `deterministic=true`, matching `fingerprintPass1` and `fingerprintPass2`, and exit code `0`.
+- GUI replay check:
+  - Launch app normally.
+  - Menu bar -> `Replay...` -> choose `.atpcap`.
+  - Confirm touches are rendered in the main GUI and header controls work (play/pause/step/seek).
+  - Close config window and confirm live listening resumes if it was active before replay.
+- Capture compatibility check:
+  - Headless capture:
+    - `./GlassToKey.app/Contents/MacOS/GlassToKey --capture /tmp/capture.atpcap`
+    - stop the process after generating touch activity.
+  - Replay the generated file:
+    - `./GlassToKey.app/Contents/MacOS/GlassToKey --replay /tmp/capture.atpcap`
+  - Confirm deterministic replay summary (`deterministic=true`, matching pass fingerprints).
+  - Optional parity check: replay the same `/tmp/capture.atpcap` in `../windows/GlassToKey`.
   
 ## Important notes for next instance of Codex
 - None given.

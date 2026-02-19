@@ -1,6 +1,8 @@
 import AppKit
 import Combine
+import Darwin
 import SwiftUI
+import UniformTypeIdentifiers
 import os
 
 @main
@@ -16,14 +18,36 @@ struct GlassToKeyApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private enum LaunchMode {
+        case normal
+        case replay(path: String)
+        case capture(path: String)
+    }
+
     private let controller = GlassToKeyController()
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
+    private var captureStatusCancellable: AnyCancellable?
+    private var captureMenuItem: NSMenuItem?
+    private var replayTask: Task<Void, Never>?
+    private var shouldResumeLiveAfterReplay = false
     private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        switch Self.launchMode(from: CommandLine.arguments) {
+        case let .replay(path):
+            NSApp.setActivationPolicy(.prohibited)
+            runHeadlessReplay(capturePath: path)
+            return
+        case let .capture(path):
+            NSApp.setActivationPolicy(.prohibited)
+            runHeadlessCapture(capturePath: path)
+            return
+        case .normal:
+            break
+        }
         NSApp.setActivationPolicy(.accessory)
         controller.start()
         configureStatusItem()
@@ -31,6 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        controller.viewModel.stopCapture()
+    }
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
@@ -45,6 +73,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else { return }
+            await self.controller.viewModel.closeReplayCapture()
+            if self.shouldResumeLiveAfterReplay {
+                self.shouldResumeLiveAfterReplay = false
+                self.controller.viewModel.start()
+            }
+        }
     }
 
     private func configureStatusItem() {
@@ -69,6 +106,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         syncItem.target = self
         menu.addItem(syncItem)
+        let replayItem = NSMenuItem(
+            title: "Replay...",
+            action: #selector(replayCaptureFile),
+            keyEquivalent: "r"
+        )
+        replayItem.target = self
+        menu.addItem(replayItem)
+        let captureItem = NSMenuItem(
+            title: "Capture...",
+            action: #selector(toggleCaptureFile),
+            keyEquivalent: "c"
+        )
+        captureItem.target = self
+        menu.addItem(captureItem)
+        captureMenuItem = captureItem
         menu.addItem(.separator())
 
         let restartItem = NSMenuItem(
@@ -95,6 +147,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads,
             keyboardModeEnabled: controller.viewModel.keyboardModeEnabled
         )
+        updateCaptureMenuItem(capturePath: controller.viewModel.captureOutputPath)
         mouseEventBlocker.setBlockingEnabled(
             controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled
         )
@@ -116,6 +169,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
             self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
+        captureStatusCancellable = controller.viewModel.$captureOutputPath
+            .removeDuplicates()
+            .sink { [weak self] capturePath in
+                self?.updateCaptureMenuItem(capturePath: capturePath)
+            }
     }
 
     private func updateStatusIndicator(
@@ -196,6 +254,75 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.refreshDevicesAndListeners()
     }
 
+    @objc private func toggleCaptureFile() {
+        if controller.viewModel.captureOutputPath != nil {
+            controller.viewModel.stopCapture()
+            return
+        }
+
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap")].compactMap { $0 }
+        panel.canCreateDirectories = true
+        panel.title = "Capture Output"
+        panel.nameFieldStringValue = Self.defaultCaptureFilename()
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return
+        }
+        do {
+            if !controller.viewModel.isListening {
+                controller.viewModel.start()
+            }
+            try controller.viewModel.startCapture(outputPath: url.path)
+        } catch {
+            presentReplayAlert(
+                title: "Capture Failed",
+                message: error.localizedDescription
+            )
+        }
+    }
+
+    @objc private func replayCaptureFile() {
+        if controller.viewModel.captureOutputPath != nil {
+            controller.viewModel.stopCapture()
+        }
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap")].compactMap { $0 }
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.canChooseFiles = true
+        panel.title = "Replay Capture"
+        guard panel.runModal() == .OK,
+              let url = panel.url else {
+            return
+        }
+        let wasListening = controller.viewModel.isListening
+        shouldResumeLiveAfterReplay = wasListening
+        if wasListening {
+            controller.viewModel.stop()
+        }
+        controller.prepareForReplay()
+        openConfigWindow()
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else { return }
+            do {
+                try await self.controller.viewModel.loadReplayCapture(
+                    capturePath: url.path
+                )
+            } catch {
+                self.presentReplayAlert(
+                    title: "Replay Failed",
+                    message: error.localizedDescription
+                )
+                if self.shouldResumeLiveAfterReplay {
+                    self.shouldResumeLiveAfterReplay = false
+                    self.controller.viewModel.start()
+                }
+            }
+        }
+    }
+
     @objc private func restartApp() {
         let bundlePath = Bundle.main.bundlePath
         let task = Process()
@@ -271,6 +398,86 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         mouseEventBlocker.setAllowedRect(window.frame)
+    }
+
+    private func runHeadlessReplay(capturePath: String) {
+        controller.prepareForReplay()
+        replayTask?.cancel()
+        replayTask = Task { [weak self] in
+            guard let self else {
+                Darwin.exit(1)
+            }
+            do {
+                let result = try await self.controller.viewModel.runDeterministicReplay(
+                    capturePath: capturePath
+                )
+                print(result.summary)
+                Darwin.exit(result.deterministic ? 0 : 1)
+            } catch {
+                let text = "Replay failed: \(error.localizedDescription)\n"
+                _ = text.withCString { pointer in
+                    fputs(pointer, stderr)
+                }
+                Darwin.exit(1)
+            }
+        }
+    }
+
+    private func runHeadlessCapture(capturePath: String) {
+        controller.start()
+        do {
+            try controller.viewModel.startCapture(outputPath: capturePath)
+        } catch {
+            let text = "Capture failed: \(error.localizedDescription)\n"
+            _ = text.withCString { pointer in
+                fputs(pointer, stderr)
+            }
+            Darwin.exit(1)
+        }
+        print("Capture started: '\(URL(fileURLWithPath: capturePath).standardizedFileURL.path)'")
+    }
+
+    private func updateCaptureMenuItem(capturePath: String?) {
+        guard let item = captureMenuItem else { return }
+        if capturePath == nil {
+            item.title = "Capture..."
+            item.keyEquivalent = "c"
+        } else {
+            item.title = "Stop Capture"
+            item.keyEquivalent = ""
+        }
+    }
+
+    private static func defaultCaptureFilename() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.dateFormat = "yyyyMMdd-HHmmss"
+        return "capture-\(formatter.string(from: Date())).atpcap"
+    }
+
+    private func presentReplayAlert(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+    }
+
+    private static func launchMode(from args: [String]) -> LaunchMode {
+        guard args.count > 1 else { return .normal }
+        var index = 1
+        while index < args.count {
+            let arg = args[index]
+            if arg == "--replay", index + 1 < args.count {
+                return .replay(path: args[index + 1])
+            }
+            if arg == "--capture", index + 1 < args.count {
+                return .capture(path: args[index + 1])
+            }
+            index += 1
+        }
+        return .normal
     }
 }
 
