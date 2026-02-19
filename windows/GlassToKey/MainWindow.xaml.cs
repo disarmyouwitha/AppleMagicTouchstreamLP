@@ -1919,6 +1919,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         List<KeyActionOption> options = new(120);
         AddKeyActionOption(options, "None", "General");
         AddKeyActionOption(options, "Left Click", "Mouse Actions");
+        AddKeyActionOption(options, "Double Click", "Mouse Actions");
         AddKeyActionOption(options, "Right Click", "Mouse Actions");
         AddKeyActionOption(options, "Middle Click", "Mouse Actions");
 
