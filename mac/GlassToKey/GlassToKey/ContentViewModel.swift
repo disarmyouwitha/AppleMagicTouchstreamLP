@@ -2045,10 +2045,8 @@ final class ContentViewModel: ObservableObject {
         private struct FiveFingerSwipeState {
             var active: Bool = false
             var triggered: Bool = false
-            var startTime: TimeInterval = 0
             var startX: CGFloat = 0
             var startY: CGFloat = 0
-            var lowContactStartTime: TimeInterval = 0
         }
         private struct MultiFingerHoldGestureState {
             var active: Bool = false
@@ -3819,14 +3817,12 @@ final class ContentViewModel: ObservableObject {
                 for: .left,
                 contactCount: gestureContactCounts[.left],
                 centroid: gestureCentroidLeft,
-                now: now,
                 unitsPerMm: unitsPerMm
             )
             updateFiveFingerSwipe(
                 for: .right,
                 contactCount: gestureContactCounts[.right],
                 centroid: gestureCentroidRight,
-                now: now,
                 unitsPerMm: unitsPerMm
             )
             updateTwoFingerHoldGesture(state: state.touches, now: now, unitsPerMm: unitsPerMm)
@@ -4393,7 +4389,6 @@ final class ContentViewModel: ObservableObject {
             for side: TrackpadSide,
             contactCount: Int,
             centroid: CGPoint?,
-            now: TimeInterval,
             unitsPerMm: CGFloat
         ) {
             var state = fiveFingerSwipeStateBySide[side]
@@ -4401,26 +4396,20 @@ final class ContentViewModel: ObservableObject {
                 if contactCount >= fiveFingerSwipeArmContacts, let centroid {
                     state.active = true
                     state.triggered = false
-                    state.startTime = now
                     state.startX = centroid.x
                     state.startY = centroid.y
-                    state.lowContactStartTime = 0
                 }
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
-            if contactCount == 0 {
-                if state.lowContactStartTime == 0 {
-                    state.lowContactStartTime = now
-                }
-                if now - state.lowContactStartTime >= contactCountHoldDuration {
-                    fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
-                } else {
-                    fiveFingerSwipeStateBySide[side] = state
-                }
+            if contactCount <= fiveFingerSwipeReleaseContacts {
+                fiveFingerSwipeStateBySide[side] = FiveFingerSwipeState()
                 return
             }
-            state.lowContactStartTime = 0
+            if contactCount < fiveFingerSwipeSustainContacts {
+                fiveFingerSwipeStateBySide[side] = state
+                return
+            }
             guard let centroid else {
                 fiveFingerSwipeStateBySide[side] = state
                 return
@@ -4429,13 +4418,18 @@ final class ContentViewModel: ObservableObject {
                 fiveFingerSwipeStateBySide[side] = state
                 return
             }
-            let dx = centroid.x - state.startX
-            let dy = centroid.y - state.startY
-            let threshold = fiveFingerSwipeThresholdMm * unitsPerMm
-            if abs(dx) >= threshold, abs(dx) >= abs(dy) {
+            guard unitsPerMm > 0 else {
+                fiveFingerSwipeStateBySide[side] = state
+                return
+            }
+            let dxMm = (centroid.x - state.startX) / unitsPerMm
+            let dyMm = (centroid.y - state.startY) / unitsPerMm
+            let absDxMm = abs(dxMm)
+            let absDyMm = abs(dyMm)
+            if absDxMm >= fiveFingerSwipeThresholdMm, absDxMm >= absDyMm {
                 state.triggered = true
                 fiveFingerSwipeStateBySide[side] = state
-                let action = dx >= 0
+                let action = dxMm >= 0
                     ? fiveFingerSwipeRightGestureAction
                     : fiveFingerSwipeLeftGestureAction
                 if let action {

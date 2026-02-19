@@ -1,9 +1,7 @@
 ## TODO
+- left, middle right click actions!
 Great! You fixed everything except 5F Swipe Left /Right! 5-finger swipe used to be PERFECT when triggering Typing toggle but now it's busted. =x It appears to understand we are using a gesture 'gest' and it sees 5 contacts so I'm not sure why it is not triggering correctly. 
 ---
-Great! Now I need you to look at how "../windows/glasstokey" implemented a deterministic capture and replay system using capture and analysis tools —— we need to accept the same files and replay in the same deterministic way!
----
-- left, middle right click actions!
 - export /import keymaps, load global.json default
 - capture / replay .atpcap
 - autocorrect bugging.
