@@ -633,16 +633,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         combo.ItemsSource = view;
-        combo.IsEditable = true;
-        combo.IsTextSearchEnabled = false;
-        combo.StaysOpenOnEdit = true;
-
         combo.RemoveHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnActionComboTextChanged));
-        combo.AddHandler(TextBox.TextChangedEvent, new TextChangedEventHandler(OnActionComboTextChanged));
         combo.DropDownClosed -= OnActionComboDropDownClosed;
-        combo.DropDownClosed += OnActionComboDropDownClosed;
         combo.LostKeyboardFocus -= OnActionComboLostKeyboardFocus;
-        combo.LostKeyboardFocus += OnActionComboLostKeyboardFocus;
+        combo.IsEditable = false;
+        combo.IsTextSearchEnabled = true;
+        combo.StaysOpenOnEdit = false;
+        ClearActionComboFilter(view);
     }
 
     private void OnActionComboTextChanged(object sender, TextChangedEventArgs e)
