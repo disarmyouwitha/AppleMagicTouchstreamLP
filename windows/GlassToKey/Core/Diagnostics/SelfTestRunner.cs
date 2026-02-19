@@ -2034,6 +2034,102 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Single-finger physical clicks must not be interpreted as stale 3/4-finger click gestures.
+        now += MsToTicks(40);
+        InputFrame fourTouchNoClick = MakeFrame(contactCount: 4, id0: 241, x0: key0X, y0: key0Y, id1: 242, x1: key1X, y1: key1Y, id2: 243, x2: key2X, y2: key2Y, id3: 244, x3: key3X, y3: key3Y);
+        InputFrame oneTouchNoClick = MakeFrame(contactCount: 1, id0: 241, x0: key0X, y0: key0Y);
+        InputFrame oneTouchClick = oneTouchNoClick;
+        oneTouchClick.IsButtonClicked = 1;
+        actor.Post(TrackpadSide.Left, in fourTouchNoClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in oneTouchNoClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in oneTouchClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in oneTouchNoClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int singleFingerUnexpectedMouseClicks = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                singleFingerUnexpectedMouseClicks++;
+            }
+        }
+
+        if (singleFingerUnexpectedMouseClicks != 0)
+        {
+            failure = $"single-finger click regression (unexpectedMouseClicks={singleFingerUnexpectedMouseClicks}, expected=0)";
+            return false;
+        }
+
+        // When both 3-finger hold and 3-finger click are mapped, click path should not emit hold.
+        TouchProcessorCore clickVsHoldCore = TouchProcessorFactory.CreateDefault(keymap);
+        clickVsHoldCore.Configure(clickVsHoldCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            ThreeFingerHoldAction = "A",
+            ThreeFingerClickAction = "Left Click"
+        });
+        using DispatchEventQueue clickVsHoldQueue = new(capacity: 2048);
+        using TouchProcessorActor clickVsHoldActor = new(clickVsHoldCore, dispatchQueue: clickVsHoldQueue);
+
+        now = 0;
+        InputFrame threeHoldCandidateDown = MakeFrame(contactCount: 3, id0: 221, x0: key0X, y0: key0Y, id1: 222, x1: key1X, y1: key1Y, id2: 223, x2: key2X, y2: key2Y);
+        InputFrame threeHoldCandidateClick = threeHoldCandidateDown;
+        threeHoldCandidateClick.IsButtonClicked = 1;
+        clickVsHoldActor.Post(TrackpadSide.Left, in threeHoldCandidateDown, maxX, maxY, now);
+        now += MsToTicks(150); // past base hold duration, but still within click-vs-hold guard window.
+        clickVsHoldActor.Post(TrackpadSide.Left, in threeHoldCandidateClick, maxX, maxY, now);
+        now += MsToTicks(10);
+        clickVsHoldActor.Post(TrackpadSide.Left, in threeHoldCandidateDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        clickVsHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+
+        // Hold-only path should still fire hold action when no click occurs.
+        now += MsToTicks(40);
+        InputFrame threeHoldOnlyDown = MakeFrame(contactCount: 3, id0: 231, x0: key0X, y0: key0Y, id1: 232, x1: key1X, y1: key1Y, id2: 233, x2: key2X, y2: key2Y);
+        clickVsHoldActor.Post(TrackpadSide.Left, in threeHoldOnlyDown, maxX, maxY, now);
+        now += MsToTicks(260);
+        clickVsHoldActor.Post(TrackpadSide.Left, in threeHoldOnlyDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        clickVsHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        clickVsHoldActor.WaitForIdle();
+
+        int clickVsHoldLeftClicks = 0;
+        int clickVsHoldKeyTapA = 0;
+        int clickVsHoldOtherKeyTaps = 0;
+        while (clickVsHoldQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick &&
+                dispatchEvent.MouseButton == DispatchMouseButton.Left)
+            {
+                clickVsHoldLeftClicks++;
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                if (dispatchEvent.VirtualKey == 0x41)
+                {
+                    clickVsHoldKeyTapA++;
+                }
+                else
+                {
+                    clickVsHoldOtherKeyTaps++;
+                }
+            }
+        }
+
+        if (clickVsHoldLeftClicks != 1 || clickVsHoldKeyTapA != 1 || clickVsHoldOtherKeyTaps != 0)
+        {
+            failure = $"click-vs-hold mismatch (leftClicks={clickVsHoldLeftClicks}, holdATaps={clickVsHoldKeyTapA}, otherKeyTaps={clickVsHoldOtherKeyTaps}, expected=1/1/0)";
+            return false;
+        }
+
         failure = string.Empty;
         return true;
     }

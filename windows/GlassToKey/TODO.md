@@ -1,11 +1,13 @@
 ## TODO:
-- Can we add "double-click" action that fires 2 clicks quickly? 
+- Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Is there any way to add a "click  and drag gesture that would start on Hold and Release when you release your fingers?
 - What other actions could we add??
-- Can we add a small checkbox next to each action which when clicked would make that gesture "continuous" so it will repeatif the gesture is held?
+---
 - *SINGLE FINGER MOUSE DRAG TO 2 FINGER HOLD CLICK WOULD GO SO HARD WE MUST MAKE THIS HAPPEN!!*
 - ** Mention Auto-Splay for Windows in readme!
 - Tune velocity / drag cancel on windows /w codex
+---
+- Can we add a small checkbox next to each action which when clicked would make that gesture "continuous" so it will repeatif the gesture is held?
 ---
 - Can we make the max scaling of the Trackpad devices in the GUI match the physical diminsions of the apple magic trackpad2? (Look it up) I think that will give us more room to add to the GUI!
 ------- 
