@@ -1774,6 +1774,48 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Two-finger hold double-click action should emit exactly two click events.
+        TouchProcessorCore twoFingerDoubleClickCore = TouchProcessorFactory.CreateDefault(keymap);
+        twoFingerDoubleClickCore.Configure(twoFingerDoubleClickCore.CurrentConfig with
+        {
+            TwoFingerHoldAction = "Double Click",
+            HoldDurationMs = 120.0
+        });
+        using DispatchEventQueue twoFingerDoubleClickQueue = new(capacity: 4096);
+        using TouchProcessorActor twoFingerDoubleClickActor = new(twoFingerDoubleClickCore, dispatchQueue: twoFingerDoubleClickQueue);
+
+        now = 0;
+        InputFrame twoDoubleDown = MakeFrame(contactCount: 2, id0: 151, x0: key0X, y0: key0Y, id1: 152, x1: key1X, y1: key1Y);
+        InputFrame oneDoubleStillDown = MakeFrame(contactCount: 1, id0: 151, x0: key0X, y0: key0Y);
+        twoFingerDoubleClickActor.Post(TrackpadSide.Left, in twoDoubleDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        twoFingerDoubleClickActor.Post(TrackpadSide.Left, in twoDoubleDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerDoubleClickActor.Post(TrackpadSide.Left, in oneDoubleStillDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerDoubleClickActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        twoFingerDoubleClickActor.WaitForIdle();
+
+        int twoFingerDoubleClicks = 0;
+        int twoFingerDoubleKeyTaps = 0;
+        while (twoFingerDoubleClickQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                twoFingerDoubleClicks++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                twoFingerDoubleKeyTaps++;
+            }
+        }
+
+        if (twoFingerDoubleClicks != 2 || twoFingerDoubleKeyTaps != 0)
+        {
+            failure = $"two-finger hold double-click mismatch (clicks={twoFingerDoubleClicks}, keyTaps={twoFingerDoubleKeyTaps}, expected=2/0)";
+            return false;
+        }
+
         // Two-finger hold should cancel when fingers move, even if drag-cancel is very high.
         TouchProcessorCore twoFingerHoldMoveCore = TouchProcessorFactory.CreateDefault(keymap);
         twoFingerHoldMoveCore.Configure(twoFingerHoldMoveCore.CurrentConfig with

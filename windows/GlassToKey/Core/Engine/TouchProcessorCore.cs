@@ -1514,16 +1514,20 @@ internal sealed class TouchProcessorCore
                         hapticOnDispatch && _hapticsOnKeyDispatch
                             ? DispatchEventFlags.Haptic
                             : DispatchEventFlags.None;
-                    EnqueueDispatchEvent(
-                        DispatchEventKind.MouseButtonClick,
-                        0,
-                        action.MouseButton,
-                        repeatToken: 0,
-                        mouseFlags,
-                        side,
-                        timestampTicks,
-                        dispatchLabel: action.Label,
-                        forceNorm: forceNorm);
+                    int clickCount = IsDoubleClickActionLabel(action.Label) ? 2 : 1;
+                    for (int clickIndex = 0; clickIndex < clickCount; clickIndex++)
+                    {
+                        EnqueueDispatchEvent(
+                            DispatchEventKind.MouseButtonClick,
+                            0,
+                            action.MouseButton,
+                            repeatToken: 0,
+                            clickIndex == 0 ? mouseFlags : DispatchEventFlags.None,
+                            side,
+                            timestampTicks,
+                            dispatchLabel: action.Label,
+                            forceNorm: forceNorm);
+                    }
                 }
                 break;
             case EngineActionKind.KeyChord:
@@ -1574,6 +1578,17 @@ internal sealed class TouchProcessorCore
     private static bool IsCustomBinding(EngineKeyBinding binding)
     {
         return binding.Row < 0;
+    }
+
+    private static bool IsDoubleClickActionLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return false;
+        }
+
+        return label.Equals("Double Click", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("DoubleClick", StringComparison.OrdinalIgnoreCase);
     }
 
     private void ApplyActionState(EngineKeyAction action, long timestampTicks)
