@@ -135,6 +135,8 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _twoFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _threeFingerHoldGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _topLeftTriangleGestureAction = EngineKeyAction.None;
@@ -154,6 +156,8 @@ internal sealed class TouchProcessorCore
     private ForceClickGesture _forceClickGestureRight;
     private CornerClickTapGesture _cornerClickTapGestureLeft;
     private CornerClickTapGesture _cornerClickTapGestureRight;
+    private bool _leftButtonPressed;
+    private bool _rightButtonPressed;
     private bool _fourFingerHoldUsesChordShift;
     private bool _diagnosticsEnabled;
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
@@ -353,6 +357,8 @@ internal sealed class TouchProcessorCore
         _forceClickGestureRight = default;
         _cornerClickTapGestureLeft = default;
         _cornerClickTapGestureRight = default;
+        _leftButtonPressed = false;
+        _rightButtonPressed = false;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
         _clockAnchorTimestampTicks = 0;
@@ -407,6 +413,11 @@ internal sealed class TouchProcessorCore
                 _lastFivePlusRightTicks = timestampTicks;
             }
         }
+        UpdateMultiFingerClickGestures(
+            side,
+            tipContactsInFrame,
+            frame.IsButtonPressed,
+            timestampTicks);
         if (tipContactsInFrame >= 3)
         {
             SetThreePlusGestureSuppress(side, enabled: true);
@@ -2275,6 +2286,42 @@ internal sealed class TouchProcessorCore
             nowTicks);
     }
 
+    private void UpdateMultiFingerClickGestures(
+        TrackpadSide side,
+        int sideTipContacts,
+        bool buttonPressed,
+        long nowTicks)
+    {
+        ref bool wasPressed = ref side == TrackpadSide.Left
+            ? ref _leftButtonPressed
+            : ref _rightButtonPressed;
+        bool justPressed = !wasPressed && buttonPressed;
+        wasPressed = buttonPressed;
+        if (!justPressed)
+        {
+            return;
+        }
+
+        if ((side == TrackpadSide.Left ? _lastRawRightContacts : _lastRawLeftContacts) != 0)
+        {
+            return;
+        }
+
+        EngineKeyAction action = EngineKeyAction.None;
+        if (sideTipContacts == 3 &&
+            _threeFingerClickGestureAction.Kind != EngineActionKind.None)
+        {
+            action = _threeFingerClickGestureAction;
+        }
+        else if (sideTipContacts == 4 &&
+                 _fourFingerClickGestureAction.Kind != EngineActionKind.None)
+        {
+            action = _fourFingerClickGestureAction;
+        }
+
+        EmitGestureAction(action, side, touchKey: 0, nowTicks);
+    }
+
     private void UpdateMultiFingerHoldGesture(
         ref MultiFingerHoldGesture gesture,
         in IntentAggregate aggregate,
@@ -3734,6 +3781,8 @@ internal sealed class TouchProcessorCore
         _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
             ? EngineKeyAction.None
             : EngineActionResolver.ResolveActionLabel(_config.FourFingerHoldAction);
+        _threeFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerClickAction);
+        _fourFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerClickAction);
         _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
         _innerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.InnerCornersAction);
         _topLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftTriangleAction);
@@ -3788,6 +3837,8 @@ internal sealed class TouchProcessorCore
             TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
             ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
             FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
+            ThreeFingerClickAction = NormalizeGestureAction(config.ThreeFingerClickAction, "None"),
+            FourFingerClickAction = NormalizeGestureAction(config.FourFingerClickAction, "None"),
             OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
             InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
             TopLeftTriangleAction = NormalizeGestureAction(config.TopLeftTriangleAction, "None"),

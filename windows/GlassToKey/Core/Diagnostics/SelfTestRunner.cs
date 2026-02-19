@@ -58,6 +58,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Three-plus gesture priority tests failed: {threePlusFailure}");
         }
 
+        if (!RunMultiFingerClickGestureTests(out string multiFingerClickFailure))
+        {
+            return new SelfTestResult(false, $"Multi-finger click tests failed: {multiFingerClickFailure}");
+        }
+
         if (!RunCornerHoldGestureTests(out string cornerFailure))
         {
             return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
@@ -1927,6 +1932,105 @@ internal static class SelfTestRunner
         if (fourFingerSnapshot.TypingEnabled || fourFingerKeyTaps != 0)
         {
             failure = $"four-finger hold priority mismatch (typingEnabled={fourFingerSnapshot.TypingEnabled}, keyTaps={fourFingerKeyTaps}, expected=false/0)";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunMultiFingerClickGestureTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+
+        NormalizedRect key0 = leftLayout.Rects[0][2];
+        NormalizedRect key1 = leftLayout.Rects[0][3];
+        NormalizedRect key2 = leftLayout.Rects[1][2];
+        NormalizedRect key3 = leftLayout.Rects[1][3];
+        ushort key0X = (ushort)Math.Clamp((int)Math.Round((key0.X + (key0.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key0Y = (ushort)Math.Clamp((int)Math.Round((key0.Y + (key0.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key1X = (ushort)Math.Clamp((int)Math.Round((key1.X + (key1.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key1Y = (ushort)Math.Clamp((int)Math.Round((key1.Y + (key1.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key2X = (ushort)Math.Clamp((int)Math.Round((key2.X + (key2.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key2Y = (ushort)Math.Clamp((int)Math.Round((key2.Y + (key2.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key3X = (ushort)Math.Clamp((int)Math.Round((key3.X + (key3.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key3Y = (ushort)Math.Clamp((int)Math.Round((key3.Y + (key3.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            ThreeFingerClickAction = "Left Click",
+            FourFingerClickAction = "Right Click"
+        });
+        using DispatchEventQueue queue = new(capacity: 2048);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame allUp = MakeFrame(contactCount: 0);
+        InputFrame threeDown = MakeFrame(contactCount: 3, id0: 201, x0: key0X, y0: key0Y, id1: 202, x1: key1X, y1: key1Y, id2: 203, x2: key2X, y2: key2Y);
+        InputFrame threeClick = threeDown;
+        threeClick.IsButtonClicked = 1;
+        InputFrame fourDown = MakeFrame(contactCount: 4, id0: 211, x0: key0X, y0: key0Y, id1: 212, x1: key1X, y1: key1Y, id2: 213, x2: key2X, y2: key2Y, id3: 214, x3: key3X, y3: key3Y);
+        InputFrame fourClick = fourDown;
+        fourClick.IsButtonClicked = 1;
+
+        actor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in threeClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in threeClick, maxX, maxY, now); // hold button; should not retrigger.
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in threeDown, maxX, maxY, now); // release button.
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in fourClick, maxX, maxY, now);
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in fourClick, maxX, maxY, now); // hold button; should not retrigger.
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in fourDown, maxX, maxY, now); // release button.
+        now += MsToTicks(5);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int leftClicks = 0;
+        int rightClicks = 0;
+        int middleClicks = 0;
+        int keyTaps = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick)
+            {
+                switch (dispatchEvent.MouseButton)
+                {
+                    case DispatchMouseButton.Left:
+                        leftClicks++;
+                        break;
+                    case DispatchMouseButton.Right:
+                        rightClicks++;
+                        break;
+                    case DispatchMouseButton.Middle:
+                        middleClicks++;
+                        break;
+                }
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                keyTaps++;
+            }
+        }
+
+        if (leftClicks != 1 || rightClicks != 1 || middleClicks != 0 || keyTaps != 0)
+        {
+            failure = $"multi-finger click mismatch (left={leftClicks}, right={rightClicks}, middle={middleClicks}, keyTaps={keyTaps}, expected=1/1/0/0)";
             return false;
         }
 

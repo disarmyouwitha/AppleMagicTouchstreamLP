@@ -246,6 +246,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceClick1GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ForceClick2GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ForceClick3GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         UpperLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         UpperRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -489,6 +491,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string forceClick1Action = NormalizeGestureActionForUi(_settings.ForceClick1Action, "None");
         string forceClick2Action = NormalizeGestureActionForUi(_settings.ForceClick2Action, "None");
         string forceClick3Action = NormalizeGestureActionForUi(_settings.ForceClick3Action, "None");
+        string threeFingerClickAction = NormalizeGestureActionForUi(_settings.ThreeFingerClickAction, "None");
+        string fourFingerClickAction = NormalizeGestureActionForUi(_settings.FourFingerClickAction, "None");
         string upperLeftCornerClickAction = NormalizeGestureActionForUi(_settings.UpperLeftCornerClickAction, "None");
         string upperRightCornerClickAction = NormalizeGestureActionForUi(_settings.UpperRightCornerClickAction, "None");
         string lowerLeftCornerClickAction = NormalizeGestureActionForUi(_settings.LowerLeftCornerClickAction, "None");
@@ -517,6 +521,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ForceClick1Action = forceClick1Action;
         _settings.ForceClick2Action = forceClick2Action;
         _settings.ForceClick3Action = forceClick3Action;
+        _settings.ThreeFingerClickAction = threeFingerClickAction;
+        _settings.FourFingerClickAction = fourFingerClickAction;
         _settings.UpperLeftCornerClickAction = upperLeftCornerClickAction;
         _settings.UpperRightCornerClickAction = upperRightCornerClickAction;
         _settings.LowerLeftCornerClickAction = lowerLeftCornerClickAction;
@@ -545,6 +551,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceClick1GestureCombo.SelectedValue = forceClick1Action;
         ForceClick2GestureCombo.SelectedValue = forceClick2Action;
         ForceClick3GestureCombo.SelectedValue = forceClick3Action;
+        ThreeFingerClickGestureCombo.SelectedValue = threeFingerClickAction;
+        FourFingerClickGestureCombo.SelectedValue = fourFingerClickAction;
         UpperLeftCornerClickGestureCombo.SelectedValue = upperLeftCornerClickAction;
         UpperRightCornerClickGestureCombo.SelectedValue = upperRightCornerClickAction;
         LowerLeftCornerClickGestureCombo.SelectedValue = lowerLeftCornerClickAction;
@@ -618,6 +626,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return ForceClick1GestureCombo;
         yield return ForceClick2GestureCombo;
         yield return ForceClick3GestureCombo;
+        yield return ThreeFingerClickGestureCombo;
+        yield return FourFingerClickGestureCombo;
         yield return UpperLeftCornerClickGestureCombo;
         yield return UpperRightCornerClickGestureCombo;
         yield return LowerLeftCornerClickGestureCombo;
@@ -1004,6 +1014,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ForceClick1Action = ReadGestureActionSelection(ForceClick1GestureCombo, "None");
         _settings.ForceClick2Action = ReadGestureActionSelection(ForceClick2GestureCombo, "None");
         _settings.ForceClick3Action = ReadGestureActionSelection(ForceClick3GestureCombo, "None");
+        _settings.ThreeFingerClickAction = ReadGestureActionSelection(ThreeFingerClickGestureCombo, "None");
+        _settings.FourFingerClickAction = ReadGestureActionSelection(FourFingerClickGestureCombo, "None");
         _settings.UpperLeftCornerClickAction = ReadGestureActionSelection(UpperLeftCornerClickGestureCombo, "None");
         _settings.UpperRightCornerClickAction = ReadGestureActionSelection(UpperRightCornerClickGestureCombo, "None");
         _settings.LowerLeftCornerClickAction = ReadGestureActionSelection(LowerLeftCornerClickGestureCombo, "None");
