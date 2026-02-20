@@ -773,9 +773,26 @@
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
                 <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />
+                <Border Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
+                  <StackPanel>
+                    <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
+                    <TextBlock Foreground="#8b949e" FontSize="11">
+                      <Run Text="Last corrected: " />
+                      <Run x:Name="AutocorrectLastCorrectedValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Current buffer: " />
+                      <Run x:Name="AutocorrectCurrentBufferValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Skip reason: " />
+                      <Run x:Name="AutocorrectSkipReasonValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                  </StackPanel>
+                </Border>
               </StackPanel>
             </Expander>
 

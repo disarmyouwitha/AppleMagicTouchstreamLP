@@ -113,6 +113,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private Brush _lastIntentPillBrush = IntentUnknownBrush;
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
+    private string _lastAutocorrectUiLastCorrected = string.Empty;
+    private string _lastAutocorrectUiCurrentBuffer = string.Empty;
+    private string _lastAutocorrectUiSkipReason = string.Empty;
     private int _lastEngineVisualLayer = -1;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
@@ -137,6 +140,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
@@ -311,6 +315,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
         Closed += (_, _) =>
         {
+            _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
@@ -335,6 +340,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _left.Reset();
             _right.Reset();
         };
+    }
+
+    private void OnGlobalClickObserved()
+    {
+        _sendInputDispatcher?.NotifyPointerActivity();
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -437,6 +447,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (_touchActor == null && _runtimeService == null)
         {
+            UpdateAutocorrectStatusDetails();
             return;
         }
 
@@ -592,6 +603,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Content = "Hide Controls";
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
+        UpdateAutocorrectStatusDetails();
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
@@ -4218,6 +4230,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         UpdateGlobalClickSuppressionState(suppressGlobalClicks);
         UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
+        UpdateAutocorrectStatusDetails();
 
         if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
         {
@@ -4267,6 +4280,41 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
     }
 
+    private void UpdateAutocorrectStatusDetails()
+    {
+        string lastCorrected = "n/a";
+        string currentBuffer = "n/a";
+        string skipReason = "n/a";
+        if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
+        {
+            lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
+            currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
+            skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
+            if (!snapshot.Enabled)
+            {
+                skipReason = "disabled";
+            }
+        }
+
+        if (!string.Equals(lastCorrected, _lastAutocorrectUiLastCorrected, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiLastCorrected = lastCorrected;
+            AutocorrectLastCorrectedValueText.Text = lastCorrected;
+        }
+
+        if (!string.Equals(currentBuffer, _lastAutocorrectUiCurrentBuffer, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiCurrentBuffer = currentBuffer;
+            AutocorrectCurrentBufferValueText.Text = currentBuffer;
+        }
+
+        if (!string.Equals(skipReason, _lastAutocorrectUiSkipReason, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiSkipReason = skipReason;
+            AutocorrectSkipReasonValueText.Text = skipReason;
+        }
+    }
+
     private static int SnapshotContactCount(TouchState state)
     {
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
@@ -4307,6 +4355,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (_runtimeService != null)
         {
             return _runtimeService.TryGetSnapshot(out snapshot);
+        }
+
+        snapshot = default;
+        return false;
+    }
+
+    private bool TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot)
+    {
+        if (_sendInputDispatcher != null)
+        {
+            snapshot = _sendInputDispatcher.GetAutocorrectStatus();
+            return true;
+        }
+
+        if (_runtimeService != null)
+        {
+            return _runtimeService.TryGetAutocorrectStatus(out snapshot);
         }
 
         snapshot = default;

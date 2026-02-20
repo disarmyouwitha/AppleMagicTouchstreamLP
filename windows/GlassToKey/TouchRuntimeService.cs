@@ -44,6 +44,7 @@ internal sealed class TouchRuntimeService : IDisposable
     public TouchRuntimeService(ReaderOptions options)
     {
         _options = options;
+        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
         _settings = UserSettings.Load();
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
@@ -183,6 +184,19 @@ internal sealed class TouchRuntimeService : IDisposable
         return true;
     }
 
+    public bool TryGetAutocorrectStatus(out AutocorrectStatusSnapshot snapshot)
+    {
+        SendInputDispatcher? dispatcher = _sendInputDispatcher;
+        if (dispatcher == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = dispatcher.GetAutocorrectStatus();
+        return true;
+    }
+
     public void Dispose()
     {
         _snapshotTimer?.Dispose();
@@ -190,6 +204,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _frameObserver = null;
 
         _globalClickSuppressor.SetEnabled(false);
+        _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
         _globalClickSuppressor.Dispose();
 
         _inputSink?.Dispose();
@@ -208,6 +223,11 @@ internal sealed class TouchRuntimeService : IDisposable
         _touchCore = null;
         _started = false;
         ModeIndicatorChanged = null;
+    }
+
+    private void OnGlobalClickObserved()
+    {
+        _sendInputDispatcher?.NotifyPointerActivity();
     }
 
     private void OnSnapshotTimerTick(object? _)
