@@ -17,6 +17,7 @@
 -------
 - `Resting Fingers` Mode: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE?!)
+- ^ In this mode can we ignore touches under X Force as if they were not contacts on the keyboard? That would allow what they want I think!
 ---
 - REFACTOR
 
