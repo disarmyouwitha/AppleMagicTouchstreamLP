@@ -34,6 +34,8 @@ public sealed class UserSettings
     public string TwoFingerHoldAction { get; set; } = "None";
     public string ThreeFingerHoldAction { get; set; } = "None";
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string ThreeFingerClickAction { get; set; } = "None";
+    public string FourFingerClickAction { get; set; } = "None";
     public string OuterCornersAction { get; set; } = "None";
     public string InnerCornersAction { get; set; } = "None";
     public string TopLeftTriangleAction { get; set; } = "None";
@@ -115,6 +117,8 @@ public sealed class UserSettings
         TwoFingerHoldAction = source.TwoFingerHoldAction;
         ThreeFingerHoldAction = source.ThreeFingerHoldAction;
         FourFingerHoldAction = source.FourFingerHoldAction;
+        ThreeFingerClickAction = source.ThreeFingerClickAction;
+        FourFingerClickAction = source.FourFingerClickAction;
         OuterCornersAction = source.OuterCornersAction;
         InnerCornersAction = source.InnerCornersAction;
         TopLeftTriangleAction = source.TopLeftTriangleAction;
@@ -290,6 +294,10 @@ public sealed class UserSettings
         ThreeFingerHoldAction = threeFingerHoldAction;
         changed |= NormalizeGestureAction(FourFingerHoldAction, "Chordal Shift", out string fourFingerHoldAction);
         FourFingerHoldAction = fourFingerHoldAction;
+        changed |= NormalizeGestureAction(ThreeFingerClickAction, "None", out string threeFingerClickAction);
+        ThreeFingerClickAction = threeFingerClickAction;
+        changed |= NormalizeGestureAction(FourFingerClickAction, "None", out string fourFingerClickAction);
+        FourFingerClickAction = fourFingerClickAction;
         changed |= NormalizeGestureAction(OuterCornersAction, "None", out string outerCornersAction);
         OuterCornersAction = outerCornersAction;
         changed |= NormalizeGestureAction(InnerCornersAction, "None", out string innerCornersAction);

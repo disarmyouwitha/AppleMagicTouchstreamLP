@@ -29,6 +29,8 @@
     "TwoFingerHoldAction": "Left Click",
     "ThreeFingerHoldAction": "Right Click",
     "FourFingerHoldAction": "Chordal Shift",
+    "ThreeFingerClickAction": "None",
+    "FourFingerClickAction": "None",
     "OuterCornersAction": "VOICE",
     "InnerCornersAction": "None",
     "TopLeftTriangleAction": "F",
