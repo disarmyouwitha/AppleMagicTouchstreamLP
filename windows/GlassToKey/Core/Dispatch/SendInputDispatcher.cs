@@ -52,6 +52,10 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
     private bool _autocorrectEnabled;
+    private uint _autocorrectForegroundProcessId;
+    private string _autocorrectLastCorrected = "none";
+    private string _autocorrectBufferSnapshot = string.Empty;
+    private string _autocorrectSkipReason = "idle";
     private bool _disposed;
     private static readonly Lazy<SymSpell?> SymSpellInstance = new(CreateSymSpell);
 
@@ -67,11 +71,22 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         if (enabled)
         {
             _ = SymSpellInstance.Value;
+            _autocorrectSkipReason = "enabled";
         }
         else
         {
-            ResetAutocorrectState();
+            ResetAutocorrectState("disabled");
+            _autocorrectForegroundProcessId = 0;
         }
+    }
+
+    public AutocorrectStatusSnapshot GetAutocorrectStatus()
+    {
+        return new AutocorrectStatusSnapshot(
+            Enabled: _autocorrectEnabled,
+            LastCorrected: _autocorrectLastCorrected,
+            CurrentBuffer: _autocorrectBufferSnapshot,
+            SkipReason: _autocorrectSkipReason);
     }
 
     public void Dispatch(in DispatchEvent dispatchEvent)
@@ -108,9 +123,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 HandleModifierUp(dispatchEvent.VirtualKey);
                 break;
             case DispatchEventKind.MouseButtonClick:
+                ResetAutocorrectState("pointer_click");
                 SendMouseButtonClick(dispatchEvent.MouseButton);
                 break;
             case DispatchEventKind.MouseButtonDown:
+                ResetAutocorrectState("pointer_click");
                 SendMouseButtonDown(dispatchEvent.MouseButton);
                 break;
             case DispatchEventKind.MouseButtonUp:
@@ -131,14 +148,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     {
         if (!_autocorrectEnabled)
         {
-            ResetAutocorrectState();
+            ResetAutocorrectState("disabled");
             SendKeyTap(virtualKey);
             return;
         }
 
+        RefreshAutocorrectForegroundProcess();
+
         if (HasShortcutModifierDown())
         {
-            ResetAutocorrectState();
+            ResetAutocorrectState("shortcut_active");
             SendKeyTap(virtualKey);
             return;
         }
@@ -148,7 +167,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             if (_autocorrectWordBuffer.Length > 0)
             {
                 _autocorrectWordBuffer.Length--;
+                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
             }
+            _autocorrectSkipReason = "manual_backspace";
 
             SendKeyTap(virtualKey);
             return;
@@ -159,7 +180,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             if (_autocorrectWordBuffer.Length < AutocorrectMaximumWordLength)
             {
                 _autocorrectWordBuffer.Append(letter);
+                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
             }
+            _autocorrectSkipReason = "tracking";
 
             SendKeyTap(virtualKey);
             return;
@@ -172,7 +195,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
-        ResetAutocorrectState();
+        ResetAutocorrectState("non_word_key");
         SendKeyTap(virtualKey);
     }
 
@@ -183,9 +206,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
+        RefreshAutocorrectForegroundProcess();
+
         if (HasShortcutModifierDown())
         {
-            ResetAutocorrectState();
+            ResetAutocorrectState("shortcut_active");
             return;
         }
 
@@ -194,7 +219,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             if (_autocorrectWordBuffer.Length > 0)
             {
                 _autocorrectWordBuffer.Length--;
+                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
             }
+            _autocorrectSkipReason = "manual_backspace";
 
             return;
         }
@@ -205,10 +232,18 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
-        if (!TryVirtualKeyToLetter(virtualKey, out _))
+        if (TryVirtualKeyToLetter(virtualKey, out char letter))
         {
-            ResetAutocorrectState();
+            if (_autocorrectWordBuffer.Length < AutocorrectMaximumWordLength)
+            {
+                _autocorrectWordBuffer.Append(letter);
+                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
+            }
+            _autocorrectSkipReason = "tracking";
+            return;
         }
+
+        ResetAutocorrectState("non_word_key");
     }
 
     public void Tick(long nowTicks)
@@ -311,7 +346,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             VirtualKeyMenu or VirtualKeyLeftMenu or VirtualKeyRightMenu or
             VirtualKeyLeftWindows or VirtualKeyRightWindows)
         {
-            ResetAutocorrectState();
+            ResetAutocorrectState("shortcut_active");
         }
     }
 
@@ -569,6 +604,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         if (_autocorrectWordBuffer.Length < AutocorrectMinimumWordLength ||
             _autocorrectWordBuffer.Length > AutocorrectMaximumWordLength)
         {
+            _autocorrectSkipReason = "word_length";
             ResetAutocorrectState();
             return;
         }
@@ -576,6 +612,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         SymSpell? symSpell = SymSpellInstance.Value;
         if (symSpell == null)
         {
+            _autocorrectSkipReason = "dictionary_unavailable";
             ResetAutocorrectState();
             return;
         }
@@ -585,6 +622,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         string? correctedLower = ResolveCorrection(symSpell, typedLower);
         if (string.IsNullOrEmpty(correctedLower))
         {
+            _autocorrectSkipReason = "no_suggestion";
             ResetAutocorrectState();
             return;
         }
@@ -592,6 +630,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         string corrected = ApplyWordCasePattern(correctedLower, typedWord);
         if (string.Equals(corrected, typedWord, StringComparison.Ordinal))
         {
+            _autocorrectSkipReason = "already_correct";
             ResetAutocorrectState();
             return;
         }
@@ -622,6 +661,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             }
         }
 
+        _autocorrectLastCorrected = $"{typedWord} -> {corrected}";
+        _autocorrectSkipReason = "corrected";
         ResetAutocorrectState();
     }
 
@@ -801,9 +842,42 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         return false;
     }
 
-    private void ResetAutocorrectState()
+    private void RefreshAutocorrectForegroundProcess()
+    {
+        if (!TryGetForegroundProcessId(out uint processId))
+        {
+            return;
+        }
+
+        if (_autocorrectForegroundProcessId != 0 && _autocorrectForegroundProcessId != processId)
+        {
+            ResetAutocorrectState("app_changed");
+        }
+
+        _autocorrectForegroundProcessId = processId;
+    }
+
+    private static bool TryGetForegroundProcessId(out uint processId)
+    {
+        processId = 0;
+        IntPtr hwnd = GetForegroundWindow();
+        if (hwnd == IntPtr.Zero)
+        {
+            return false;
+        }
+
+        _ = GetWindowThreadProcessId(hwnd, out processId);
+        return processId != 0;
+    }
+
+    private void ResetAutocorrectState(string? reason = null)
     {
         _autocorrectWordBuffer.Clear();
+        _autocorrectBufferSnapshot = string.Empty;
+        if (!string.IsNullOrWhiteSpace(reason))
+        {
+            _autocorrectSkipReason = reason;
+        }
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -847,6 +921,12 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint inputCount, [In] Input[] inputs, int size);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr GetForegroundWindow();
+
+    [DllImport("user32.dll")]
+    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
+
     private struct RepeatEntry
     {
         public bool Active;
@@ -855,6 +935,12 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         public long NextTick;
     }
 }
+
+internal readonly record struct AutocorrectStatusSnapshot(
+    bool Enabled,
+    string LastCorrected,
+    string CurrentBuffer,
+    string SkipReason);
 
 internal sealed class NullInputDispatcher : IInputDispatcher
 {
