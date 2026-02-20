@@ -183,6 +183,19 @@ internal sealed class TouchRuntimeService : IDisposable
         return true;
     }
 
+    public bool TryGetAutocorrectStatus(out AutocorrectStatusSnapshot snapshot)
+    {
+        SendInputDispatcher? dispatcher = _sendInputDispatcher;
+        if (dispatcher == null)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        snapshot = dispatcher.GetAutocorrectStatus();
+        return true;
+    }
+
     public void Dispose()
     {
         _snapshotTimer?.Dispose();
