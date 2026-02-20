@@ -18,6 +18,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private TouchProcessorActor? _touchActor;
     private DispatchEventQueue? _dispatchQueue;
     private DispatchEventPump? _dispatchPump;
+    private SendInputDispatcher? _sendInputDispatcher;
     private InputSinkWindow? _inputSink;
     private Timer? _snapshotTimer;
     private IRuntimeFrameObserver? _frameObserver;
@@ -66,7 +67,9 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, RuntimeConfigurationFactory.BuildTouchConfig(_settings));
             _dispatchQueue = new DispatchEventQueue();
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
-            _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+            _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+            _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
 
             int layer = 0;
@@ -122,6 +125,7 @@ internal sealed class TouchRuntimeService : IDisposable
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
+        _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
         _keymap = keymap;
         _preset = preset;
         _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columnSettings);
@@ -196,6 +200,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _dispatchPump?.Dispose();
         _dispatchPump = null;
+        _sendInputDispatcher = null;
 
         _dispatchQueue?.Dispose();
         _dispatchQueue = null;

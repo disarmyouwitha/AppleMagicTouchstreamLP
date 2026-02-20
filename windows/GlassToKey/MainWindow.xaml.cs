@@ -72,6 +72,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly TouchProcessorActor? _touchActor;
     private readonly DispatchEventQueue? _dispatchQueue;
     private readonly DispatchEventPump? _dispatchPump;
+    private readonly SendInputDispatcher? _sendInputDispatcher;
     private KeyLayout _leftLayout;
     private KeyLayout _rightLayout;
     private int _activeLayer;
@@ -213,6 +214,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapImportButton.Click += OnKeymapImportClicked;
         KeyboardModeCheck.Checked += OnModeSettingChanged;
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
+        AutocorrectModeCheck.Checked += OnModeSettingChanged;
+        AutocorrectModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
@@ -276,7 +279,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
             _dispatchQueue = new DispatchEventQueue();
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
-            _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+            _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+            _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
@@ -567,6 +572,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectedItem = _preset;
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
+        AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
@@ -1022,6 +1028,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LowerRightCornerClickAction = ReadGestureActionSelection(LowerRightCornerClickGestureCombo, "None");
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
+        _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
@@ -1317,6 +1324,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);
         }
+        _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
 
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);

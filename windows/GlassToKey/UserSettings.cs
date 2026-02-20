@@ -15,6 +15,7 @@ public sealed class UserSettings
     public Dictionary<string, string>? DecoderProfilesByDevicePath { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool VisualizerEnabled { get; set; } = true;
     public bool KeyboardModeEnabled { get; set; }
+    public bool AutocorrectEnabled { get; set; }
     public bool AllowMouseTakeover { get; set; } = true;
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
@@ -98,6 +99,7 @@ public sealed class UserSettings
         DecoderProfilesByDevicePath = CloneDecoderProfiles(source.DecoderProfilesByDevicePath);
         VisualizerEnabled = source.VisualizerEnabled;
         KeyboardModeEnabled = source.KeyboardModeEnabled;
+        AutocorrectEnabled = source.AutocorrectEnabled;
         AllowMouseTakeover = source.AllowMouseTakeover;
         ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;

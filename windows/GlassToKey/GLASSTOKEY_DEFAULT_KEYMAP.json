@@ -65,8 +65,8 @@
       "mobile-ortho-12x4": 10,
       "mobile": 10
     },
-    "ForceMin": 0,
-    "ForceCap": 255,
+    "ForceMin": 15,
+    "ForceCap": 125,
     "ColumnSettingsByLayout": {
       "6x3": [
         {
