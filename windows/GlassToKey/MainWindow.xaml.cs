@@ -140,6 +140,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
@@ -314,6 +315,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
         Closed += (_, _) =>
         {
+            _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
@@ -338,6 +340,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _left.Reset();
             _right.Reset();
         };
+    }
+
+    private void OnGlobalClickObserved()
+    {
+        _sendInputDispatcher?.NotifyPointerActivity();
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)

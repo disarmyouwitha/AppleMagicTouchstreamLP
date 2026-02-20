@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
+using System.Threading;
 
 namespace GlassToKey;
 
@@ -56,6 +57,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private string _autocorrectLastCorrected = "none";
     private string _autocorrectBufferSnapshot = string.Empty;
     private string _autocorrectSkipReason = "idle";
+    private int _autocorrectPointerActivityPending;
     private bool _disposed;
     private static readonly Lazy<SymSpell?> SymSpellInstance = new(CreateSymSpell);
 
@@ -89,12 +91,19 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             SkipReason: _autocorrectSkipReason);
     }
 
+    public void NotifyPointerActivity()
+    {
+        Interlocked.Exchange(ref _autocorrectPointerActivityPending, 1);
+    }
+
     public void Dispatch(in DispatchEvent dispatchEvent)
     {
         if (_disposed)
         {
             return;
         }
+
+        ConsumePendingPointerActivity();
 
         switch (dispatchEvent.Kind)
         {
@@ -252,6 +261,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         {
             return;
         }
+
+        ConsumePendingPointerActivity();
 
         for (int i = 0; i < _repeatEntries.Length; i++)
         {
@@ -840,6 +851,14 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
         virtualKey = 0;
         return false;
+    }
+
+    private void ConsumePendingPointerActivity()
+    {
+        if (Interlocked.Exchange(ref _autocorrectPointerActivityPending, 0) != 0)
+        {
+            ResetAutocorrectState("pointer_click");
+        }
     }
 
     private void RefreshAutocorrectForegroundProcess()
