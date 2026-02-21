@@ -110,9 +110,19 @@ Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md`
 
 ## Execution Plan
 
+Phase status summary (synced with `REWRITE.md`, as of 2026-02-21):
+- Phase 0: In Progress
+- Phase 1: In Progress
+- Phase 2: In Progress
+- Phase 3: In Progress
+- Phase 4: In Progress
+- Phase 5: Not Started
+- Phase 6: Not Started
+
 ## Phase 0 - Behavior Freeze + Replay Baseline
-- [ ] Capture canonical behavior traces from current macOS and Windows.
-- [x] Define parity fixture format (`RawFrame` JSONL or binary).
+- [x] Capture canonical behavior traces from current macOS.
+- [ ] Capture canonical behavior traces from Windows reference runtime.
+- [x] Define parity fixture format (`ATPCAP01` v3 binary fixture).
 - [x] Add deterministic replay harness entrypoint for macOS engine.
 
 Exit criteria:
@@ -132,12 +142,12 @@ Exit criteria:
 ## Phase 2 - Runtime Service + Engine Boundary (Swift)
 - [ ] Split current `ContentViewModel` responsibilities into runtime services.
 - [x] Build `InputRuntimeService` and `EngineActor` interfaces.
-- [ ] Move touch processing state machine out of `ContentViewModel`.
+- [x] Move touch processing state machine out of `ContentViewModel`.
 - [ ] Keep only minimal compatibility needed for defaults/keymap persistence (no broad runtime fallback work).
 
 Exit criteria:
 - [ ] UI can be disconnected while runtime keeps processing.
-- [ ] Engine accepts replay input and emits deterministic snapshots.
+- [x] Engine accepts replay input and emits deterministic snapshots.
 
 ## Phase 3 - Dispatch/Haptics Isolation
 - [x] Introduce dispatch event queue and pump service.
@@ -149,9 +159,9 @@ Exit criteria:
 - [ ] Dispatch backpressure never blocks capture/engine loops.
 
 ## Phase 4 - Dedicated AppKit Surface Renderer
-- [ ] Implement `TrackpadSurfaceView` consuming `RenderSnapshot` only.
+- [x] Implement `TrackpadSurfaceView` behind feature flag (`GLASSTOKEY_REWRITE_APPKIT_SURFACE`).
 - [ ] Move drawing from SwiftUI `Canvas` to AppKit view.
-- [ ] Keep SwiftUI sidebar/editor; drive status through `StatusSnapshot` polling.
+- [x] Keep SwiftUI sidebar/editor; drive status through `StatusSnapshot` polling.
 
 Exit criteria:
 - [ ] No visible hitch while editing keymap with live touch input.
@@ -181,14 +191,14 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
-| Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` now runs raw-only callbacks on a dedicated state queue, uses numeric-ID reconciliation for active devices, pre-sizes callback registries, avoids main-thread control-plane hops, and is exported in rebuilt local XCFramework |
-| Runtime service split (Swift) | TBD | In Progress | `ContentViewModel` runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; control/update calls route through the boundary (not direct view-model -> processor calls) |
+| Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` runs raw-only callbacks on a dedicated state queue with numeric-ID reconciliation and pre-sized registries; callback allocation profiling + sustained soak signoff remain |
+| Runtime service split (Swift) | TBD | In Progress | Runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; remaining split work is moving residual touch snapshot/session responsibilities out of `ContentViewModel` |
 | Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActor`; app runtime executes touch dispatch/status through `EngineActor` with processor internals lifted into standalone `TouchProcessorEngine` (bridge removed) |
 | Dispatch queue/pump | TBD | In Progress | `DispatchService` ring queue + pump now owns key/mouse/haptic posting; `TouchProcessorEngine` emits dispatch commands and `RuntimeStatusSnapshot` diagnostics now publish queue depth/drop counters |
-| AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
-| UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
+| AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path is wired behind feature flag, but render parity vs `CombinedTrackpadCanvas` is incomplete |
+| UI/editor shell refactor | TBD | In Progress | Status polling exists; remaining work is decoupled snapshot transport + command-only editor contract |
 | Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
-| Perf/diagnostics dashboard | TBD | Not Started | Frame pacing + drops + latency |
+| Perf/diagnostics dashboard | TBD | In Progress | Queue depth/drop counters are exposed in runtime status; frame pacing and latency dashboards still pending |
 
 ## Performance Budgets (Gate to Ship)
 - Input callback to engine enqueue p95: <= 1.5 ms.
@@ -213,6 +223,10 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
   - [x] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
   - [ ] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/glasstokey-derived build` (currently fails in this environment: missing package product `OpenMultitouchSupport`)
 
+Current-sync reruns (2026-02-21):
+- `swift test --disable-sandbox`
+- `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.atpcap --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+
 ## Migration Rules
 - Rewrite-first cutover is preferred over no-big-bang migration for the remaining slices.
 - Keep compatibility only where required for persisted defaults/keymap storage.
@@ -220,33 +234,18 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - Treat generated artifacts (`OpenMultitouchSupportXCF.xcframework`) as build outputs only.
 
 ## Immediate Next Slice (Execution Ready)
-- [x] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
-- [x] Implement capture bridge V2 skeleton with raw-only callback registration.
-- [x] Wire `OMSManager` capture path behind feature flag (`OMS_CAPTURE_BRIDGE_V2=1`) using direct typed `OpenMTManagerV2` binding (runtime ObjC lookup removed after XCFramework export update).
-- [x] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
-- [x] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
-- [x] Add replay fixture format draft and first fixture from current macOS run.
-- [x] Add replay harness executable + deterministic transcript output.
-- [x] Add fixture/schema validation tests (canonical state labels + deterministic transcript check).
-- [x] Rebuild/export `OpenMultitouchSupportXCF.xcframework` with `OpenMTManagerV2` public symbols and switch OMS to direct type binding.
-- [x] Feed replay harness into a concrete `EngineActor` boundary and start transcript parity comparisons.
-- [x] Wire `InputRuntimeService` -> `EngineActor` in app runtime and begin replacing `ContentViewModel` direct processing path.
-- [x] Remove legacy `OMSManager.rawTouchStream -> TouchProcessor.processRawFrame` loop from `ContentViewModel` runtime ingest path and make rewrite ingest default.
-- [x] Replace `ContentViewModel.TouchProcessor` dispatch/render behavior behind `EngineActor` boundary and retire remaining direct processor responsibilities from `ContentViewModel`.
-- [x] Remove the temporary `EngineProcessorBridge` adapter by lifting processor internals into standalone engine modules owned directly by `EngineActor`.
-- [x] Rename provisional engine actor type to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
-- [x] Remove now-dead transcript naming leftovers and regenerate baseline transcript labels.
-- [x] Introduce `DispatchService` bounded queue + pump, move engine key/mouse/haptic posting onto that service, and wire dispatch depth/drop diagnostics into runtime status snapshots.
-- [x] Add versioned `.atpcap` codec (`ATPCAP01` v3) in `ReplayFixtureKit` as the only capture fixture format.
-- [x] Switch `ReplayFixtureCapture` default output to `.atpcap` and write via shared codec.
-- [x] Make `ReplayHarness` ingest `.atpcap` directly via fixture auto-detection.
-- [x] Add `.atpcap` round-trip validation test coverage.
-- [x] Remove JSONL capture fixture compatibility code and delete committed JSONL capture fixtures.
-- [x] Add `RawCaptureAnalyze` tool (`--raw-analyze`, `--raw-analyze-out`, `--raw-analyze-contacts-out`) to mirror Windows raw analysis workflow on macOS captures.
+- [ ] Complete `TrackpadSurfaceView` rendering parity with `CombinedTrackpadCanvas` (labels, key/button highlights, debug overlays) so the AppKit path can become default.
+- [ ] Shift surface inputs to engine-owned `RenderSnapshot` cadence and retire UI-managed touch snapshot transport from hot rendering path.
+- [ ] Finish runtime split by moving remaining runtime/session responsibilities out of `ContentViewModel` into dedicated runtime/snapshot services.
+- [ ] Run sustained dual-trackpad soak + callback-path allocation profiling for `OpenMTManagerV2`; close remaining Phase 1 exit criteria.
+- [ ] Capture Windows reference traces in `.atpcap` and stand up macOS-vs-Windows replay parity checks.
+- [ ] Decide cutover order and default-enable plan for `OMS_CAPTURE_BRIDGE_V2` and `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
+- [ ] Begin Phase 6 cleanup plan: identify concrete legacy paths to delete immediately after Phase 1-4 exit criteria pass.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.atpcap` (canonical baseline fixture; 52 captured frames).
 - `ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl` (current committed baseline transcript from `EngineActor` boundary for parity checks).
+- `ReplayFixtures/macos_dispatch_soak_2026-02-21.atpcap` (longer capture used for dispatch-path stress evaluation).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.

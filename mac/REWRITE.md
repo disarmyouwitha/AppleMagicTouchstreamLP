@@ -109,63 +109,47 @@ Current framework hotspots and rewrite needs:
   - Windows: Rust -> C ABI or C# interop layer.
 - Keep platform-specific device IO, event posting, and haptics native.
 
-## Phase Plan
+## Phase Plan (Consolidated with `REWRITE_TRACKING.md`)
+Use the same phase numbering/status in both documents.
 
-### Phase 1: Runtime/UI decoupling
-- Add fixed-interval status polling (50 ms) in `ContentViewModel`.
-- Stop high-frequency status push callbacks from touch processor.
-- Keep touch snapshot stream independent of status stream.
-- Gate typing/gesture processing while `Edit Keymap` is active.
+### Phase 0: Behavior Freeze + Replay Baseline — In Progress
+- `.atpcap` fixture schema + replay harness are in place.
+- Canonical macOS baseline fixture/transcript is committed.
+- Remaining: capture canonical Windows traces for parity comparisons.
 
-Acceptance:
-- No visible hitch when selecting a key in `Edit Keymap`.
-- Contact/intent badges still update smoothly (~20 Hz).
+### Phase 1: New Objective-C Capture Bridge — In Progress
+- `OpenMTManagerV2` raw-first bridge is integrated behind backend selection.
+- Numeric-ID registry + dedicated state queue landed.
+- Remaining: callback-path allocation verification and sustained dual-trackpad soak signoff.
 
-### Phase 2: Dedicated surface renderer
-- Replace composite SwiftUI canvas path with a dedicated `NSView`-backed renderer for macOS trackpad surfaces.
-- Move key grid, custom button, highlight, and touch ellipse drawing into direct AppKit drawing.
-- Keep sidebar/settings in SwiftUI; renderer receives immutable snapshots.
+### Phase 2: Runtime Service + Engine Boundary (Swift) — In Progress
+- `InputRuntimeService` and `EngineActor` boundary are live in runtime and replay harness.
+- Touch processing state machine has moved into `TouchProcessorEngine`.
+- Remaining: finish splitting residual runtime/UI responsibilities still concentrated in `ContentViewModel`.
 
-Acceptance:
-- Surface render remains smooth with key editor open and controls changing.
-- Minimal SwiftUI invalidation from touch motion.
+### Phase 3: Dispatch/Haptics Isolation — In Progress
+- `DispatchService` ring queue + pump landed and is wired to engine output.
+- Dispatch queue depth/drop diagnostics are published in status snapshots.
+- Remaining: sustained stress verification proving dispatch bursts do not perturb capture/engine timing.
 
-### Phase 3: Editor virtualization + data-path hardening
-- Virtualize key action lists and avoid rebuilding picker content on unrelated state changes.
-- Introduce explicit editor-state model (`selected key`, `selected button`, `editing layer`) disconnected from touch revisions.
-- Precompute display label matrices per layer and update only on mapping/layout mutations.
+### Phase 4: Dedicated AppKit Surface Renderer — In Progress
+- `TrackpadSurfaceView` exists and is wired behind `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
+- Remaining: feature parity vs `CombinedTrackpadCanvas` (labels/buttons/highlights) and snapshot-only render path completion.
 
-Acceptance:
-- Selecting key/action has constant-time UI update behavior.
-- No additional render cost from action menu size.
+### Phase 5: Rust Shared Core (Optional but Target) — Not Started
+- ABI and parity contract remain pending after Swift runtime split completes.
 
-### Phase 4: Shared core extraction (Rust preferred)
-- Define a stable engine interface from current macOS/Windows behavior.
-- Port processor logic into Rust with parity tests against existing traces.
-- Integrate into macOS and Windows behind runtime feature flags.
-- Validate parity for key dispatch, hold/repeat, layers, and intent transitions.
-
-Acceptance:
-- Core behavior parity across macOS and Windows for identical touch traces.
-- No regression in latency or CPU in hot paths.
-
-### Phase 5: Framework/runtime alignment
-- Audit `OMSManager`/listener dispatch threading and coalescing to mirror Windows scheduling assumptions.
-- Rewrite OpenMultitouchSupportXCF callback/data-path according to framework scope above (raw-first, lock ownership, numeric registries, zero-allocation fast path).
-- Add optional fixed render tick for visuals independent from device frame cadence.
-- Add lightweight in-app frame timing diagnostics for regression detection.
-
-Acceptance:
-- Consistent frame pacing with one or two trackpads active.
-- Measurable reduction in render jitter and main-thread spikes.
+### Phase 6: Cutover + Cleanup — Not Started
+- Rewrite stack is not default yet.
+- Legacy runtime paths are still present and have not been fully removed.
 
 ## Immediate next implementation slice
-1. Introduce `TrackpadSurfaceView` (AppKit) and wire it beside existing SwiftUI canvas behind a feature flag.
-2. Feed `TrackpadSurfaceView` from current `TouchSnapshot` and key/button selection state only.
-3. Remove direct touch-driven redraw pressure from `RightSidebarView`.
-4. Wire `OpenMTManagerV2` into `OMSManager` behind a feature flag so capture can run on the raw-only bridge.
-5. Add replay harness tooling to ingest canonical `ReplayFixtures/*.atpcap` captures, feed `RuntimeRawFrame`, and emit deterministic transcripts.
-6. Add fixture/schema validation tests (including canonical touch-state labels) and baseline fixtures.
+1. Complete `TrackpadSurfaceView` parity with `CombinedTrackpadCanvas` (grid labels, key/button highlight states, debug hit overlays).
+2. Move surface drawing inputs to engine-owned render snapshots (avoid mixed UI-owned touch snapshot state).
+3. Finish runtime split by removing remaining hot runtime responsibilities from `ContentViewModel` into dedicated runtime/snapshot services.
+4. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
+5. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts.
+6. Prepare cutover toggles (`OMS_CAPTURE_BRIDGE_V2`, `GLASSTOKEY_REWRITE_APPKIT_SURFACE`) for default-on once Phase 1-4 exit criteria are met.
 
 Current execution directive:
 1. Replace legacy runtime paths directly as rewrite equivalents land.
