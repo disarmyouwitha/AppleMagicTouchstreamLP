@@ -401,7 +401,7 @@ public protocol EngineActorBoundary: Sendable {
     func statusSnapshot() async -> RuntimeStatusSnapshot
 }
 
-public actor EngineActorPhase2: EngineActorBoundary {
+public actor EngineActor: EngineActorBoundary {
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
 
@@ -482,7 +482,7 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
 public enum ReplayHarnessRunner {
     public static func run(
         fixture: ReplayFixture,
-        engine: any EngineActorBoundary = EngineActorPhase2()
+        engine: any EngineActorBoundary = EngineActor()
     ) async -> [ReplayTranscriptRecord] {
         var transcript: [ReplayTranscriptRecord] = []
         transcript.reserveCapacity(fixture.frames.count)

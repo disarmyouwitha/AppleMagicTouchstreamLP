@@ -27,6 +27,7 @@
 		C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */; };
 		C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */; };
 		C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */; };
+		C0A1B2C3D4E5F60718293A46 /* TouchProcessorEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B46 /* TouchProcessorEngine.swift */; };
 		C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */; };
 /* End PBXBuildFile section */
 
@@ -52,6 +53,7 @@
 		C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeContracts.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRuntimeService.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineActorBoundary.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B46 /* TouchProcessorEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TouchProcessorEngine.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadSurfaceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -124,6 +126,7 @@
 			isa = PBXGroup;
 			children = (
 				C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */,
+				C0A1B2C3D4E5F60718293B46 /* TouchProcessorEngine.swift */,
 			);
 			path = Engine;
 			sourceTree = "<group>";
@@ -233,6 +236,7 @@
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,
+				C0A1B2C3D4E5F60718293A46 /* TouchProcessorEngine.swift in Sources */,
 				C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

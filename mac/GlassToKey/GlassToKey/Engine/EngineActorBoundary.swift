@@ -41,73 +41,34 @@ protocol EngineActorBoundary: Sendable {
     func reset(stopVoiceDictation: Bool) async
 }
 
-protocol EngineActorPhase2Delegate: Sendable {
-    func ingest(_ frame: RuntimeRawFrame) async
-    func statusSnapshot() async -> RuntimeStatusSnapshot
-    func setListening(_ isListening: Bool) async
-    func updateActiveDevices(
-        leftIndex: Int?,
-        rightIndex: Int?,
-        leftDeviceID: String?,
-        rightDeviceID: String?
-    ) async
-    func updateLayouts(
-        leftLayout: ContentViewModel.Layout,
-        rightLayout: ContentViewModel.Layout,
-        leftLabels: [[String]],
-        rightLabels: [[String]],
-        trackpadSize: CGSize,
-        trackpadWidthMm: CGFloat
-    ) async
-    func updateCustomButtons(_ buttons: [CustomButton]) async
-    func updateKeyMappings(_ actions: LayeredKeyMappings) async
-    func setPersistentLayer(_ layer: Int) async
-    func updateHoldThreshold(_ seconds: TimeInterval) async
-    func updateDragCancelDistance(_ distance: CGFloat) async
-    func updateTypingGrace(_ milliseconds: Double) async
-    func updateIntentMoveThreshold(_ millimeters: Double) async
-    func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async
-    func updateAllowMouseTakeover(_ enabled: Bool) async
-    func updateForceClickCap(_ grams: Double) async
-    func updateHapticStrength(_ normalized: Double) async
-    func updateSnapRadiusPercent(_ percent: Double) async
-    func updateChordalShiftEnabled(_ enabled: Bool) async
-    func updateKeyboardModeEnabled(_ enabled: Bool) async
-    func setKeymapEditingEnabled(_ enabled: Bool) async
-    func updateTapClickEnabled(_ enabled: Bool) async
-    func updateTapClickCadence(_ milliseconds: Double) async
-    func clearVisualCaches() async
-    func reset(stopVoiceDictation: Bool) async
-}
-
-actor EngineActorPhase2: EngineActorBoundary {
+actor EngineActor: EngineActorBoundary {
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
-    private var leftDeviceIndex: Int?
-    private var rightDeviceIndex: Int?
-    private let delegate: (any EngineActorPhase2Delegate)?
+    private let processor: TouchProcessorEngine
 
-    init(delegate: (any EngineActorPhase2Delegate)? = nil) {
-        self.delegate = delegate
+    init(
+        keyDispatcher: KeyEventDispatcher = .shared,
+        onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void = { _ in },
+        onActiveLayerChanged: @Sendable @escaping (Int) -> Void = { _ in },
+        onDebugBindingDetected: @Sendable @escaping (ContentViewModel.KeyBinding) -> Void = { _ in },
+        onContactCountChanged: @Sendable @escaping (SidePair<Int>) -> Void = { _ in },
+        onIntentStateChanged: @Sendable @escaping (SidePair<ContentViewModel.IntentDisplay>) -> Void = { _ in },
+        onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void = { _ in }
+    ) {
+        processor = TouchProcessorEngine(
+            keyDispatcher: keyDispatcher,
+            onTypingEnabledChanged: onTypingEnabledChanged,
+            onActiveLayerChanged: onActiveLayerChanged,
+            onDebugBindingDetected: onDebugBindingDetected,
+            onContactCountChanged: onContactCountChanged,
+            onIntentStateChanged: onIntentStateChanged,
+            onVoiceGestureChanged: onVoiceGestureChanged
+        )
     }
 
     func ingest(_ frame: RuntimeRawFrame) async {
-        if let delegate {
-            await delegate.ingest(frame)
-            latestStatus = await mergeStatusSnapshot(from: delegate)
-            latestStatus.diagnostics.captureFrames &+= 1
-            latestRender.revision &+= 1
-            return
-        }
-        guard let side = side(for: frame.deviceIndex) else { return }
-        let contactCount = frame.contacts.count
-        if side == .left {
-            latestStatus.contactCountBySide.left = contactCount
-            latestStatus.intentBySide.left = Self.intent(for: contactCount)
-        } else {
-            latestStatus.contactCountBySide.right = contactCount
-            latestStatus.intentBySide.right = Self.intent(for: contactCount)
-        }
+        await processor.processRuntimeRawFrame(frame)
+        await refreshStatusFromProcessor()
         latestStatus.diagnostics.captureFrames &+= 1
         latestRender.revision &+= 1
     }
@@ -117,14 +78,12 @@ actor EngineActorPhase2: EngineActorBoundary {
     }
 
     func statusSnapshot() async -> RuntimeStatusSnapshot {
-        if let delegate {
-            latestStatus = await mergeStatusSnapshot(from: delegate)
-        }
+        await refreshStatusFromProcessor()
         return latestStatus
     }
 
     func setListening(_ isListening: Bool) async {
-        await delegate?.setListening(isListening)
+        await processor.setListening(isListening)
     }
 
     func updateActiveDevices(
@@ -133,9 +92,7 @@ actor EngineActorPhase2: EngineActorBoundary {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) async {
-        leftDeviceIndex = leftIndex
-        rightDeviceIndex = rightIndex
-        await delegate?.updateActiveDevices(
+        await processor.updateActiveDevices(
             leftIndex: leftIndex,
             rightIndex: rightIndex,
             leftDeviceID: leftDeviceID,
@@ -151,7 +108,7 @@ actor EngineActorPhase2: EngineActorBoundary {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) async {
-        await delegate?.updateLayouts(
+        await processor.updateLayouts(
             leftLayout: leftLayout,
             rightLayout: rightLayout,
             leftLabels: leftLabels,
@@ -162,125 +119,112 @@ actor EngineActorPhase2: EngineActorBoundary {
     }
 
     func updateCustomButtons(_ buttons: [CustomButton]) async {
-        await delegate?.updateCustomButtons(buttons)
+        await processor.updateCustomButtons(buttons)
     }
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) async {
-        await delegate?.updateKeyMappings(actions)
+        await processor.updateKeyMappings(actions)
     }
 
     func setPersistentLayer(_ layer: Int) async {
-        await delegate?.setPersistentLayer(layer)
+        await processor.setPersistentLayer(layer)
     }
 
     func updateHoldThreshold(_ seconds: TimeInterval) async {
-        await delegate?.updateHoldThreshold(seconds)
+        await processor.updateHoldThreshold(seconds)
     }
 
     func updateDragCancelDistance(_ distance: CGFloat) async {
-        await delegate?.updateDragCancelDistance(distance)
+        await processor.updateDragCancelDistance(distance)
     }
 
     func updateTypingGrace(_ milliseconds: Double) async {
-        await delegate?.updateTypingGrace(milliseconds)
+        await processor.updateTypingGrace(milliseconds)
     }
 
     func updateIntentMoveThreshold(_ millimeters: Double) async {
-        await delegate?.updateIntentMoveThreshold(millimeters)
+        await processor.updateIntentMoveThreshold(millimeters)
     }
 
     func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async {
-        await delegate?.updateIntentVelocityThreshold(millimetersPerSecond)
+        await processor.updateIntentVelocityThreshold(millimetersPerSecond)
     }
 
     func updateAllowMouseTakeover(_ enabled: Bool) async {
-        await delegate?.updateAllowMouseTakeover(enabled)
+        await processor.updateAllowMouseTakeover(enabled)
     }
 
     func updateForceClickCap(_ grams: Double) async {
-        await delegate?.updateForceClickCap(grams)
+        await processor.updateForceClickCap(grams)
     }
 
     func updateHapticStrength(_ normalized: Double) async {
-        await delegate?.updateHapticStrength(normalized)
+        await processor.updateHapticStrength(normalized)
     }
 
     func updateSnapRadiusPercent(_ percent: Double) async {
-        await delegate?.updateSnapRadiusPercent(percent)
+        await processor.updateSnapRadiusPercent(percent)
     }
 
     func updateChordalShiftEnabled(_ enabled: Bool) async {
-        await delegate?.updateChordalShiftEnabled(enabled)
+        await processor.updateChordalShiftEnabled(enabled)
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
-        await delegate?.updateKeyboardModeEnabled(enabled)
+        await processor.updateKeyboardModeEnabled(enabled)
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {
-        await delegate?.setKeymapEditingEnabled(enabled)
+        await processor.setKeymapEditingEnabled(enabled)
     }
 
     func updateTapClickEnabled(_ enabled: Bool) async {
-        await delegate?.updateTapClickEnabled(enabled)
+        await processor.updateTapClickEnabled(enabled)
     }
 
     func updateTapClickCadence(_ milliseconds: Double) async {
-        await delegate?.updateTapClickCadence(milliseconds)
+        await processor.updateTapClickCadence(milliseconds)
     }
 
     func clearVisualCaches() async {
-        await delegate?.clearVisualCaches()
+        await processor.clearVisualCaches()
     }
 
     func reset(stopVoiceDictation: Bool) async {
-        await delegate?.reset(stopVoiceDictation: stopVoiceDictation)
+        await processor.resetState(stopVoiceDictation: stopVoiceDictation)
         latestRender = RuntimeRenderSnapshot()
         latestStatus = RuntimeStatusSnapshot()
     }
 
-    private static func intent(for contactCount: Int) -> RuntimeIntentMode {
-        switch contactCount {
-        case ...0:
-            return .idle
-        case 1:
-            return .keyCandidate
-        default:
-            return .typing
-        }
-    }
-
-    private func side(for deviceIndex: Int) -> TrackpadSide? {
-        if let leftDeviceIndex, deviceIndex == leftDeviceIndex {
-            return .left
-        }
-        if let rightDeviceIndex, deviceIndex == rightDeviceIndex {
-            return .right
-        }
-        if leftDeviceIndex == nil, rightDeviceIndex == nil {
-            return deviceIndex == 0 ? .left : .right
-        }
-        return nil
-    }
-
-    private func mergeStatusSnapshot(from delegate: any EngineActorPhase2Delegate) async -> RuntimeStatusSnapshot {
-        let delegateStatus = await delegate.statusSnapshot()
-        return RuntimeStatusSnapshot(
-            intentBySide: delegateStatus.intentBySide,
-            contactCountBySide: delegateStatus.contactCountBySide,
-            typingEnabled: delegateStatus.typingEnabled,
-            keyboardModeEnabled: delegateStatus.keyboardModeEnabled,
-            diagnostics: RuntimeDiagnosticsCounters(
-                captureFrames: latestStatus.diagnostics.captureFrames,
-                dispatchQueueDepth: delegateStatus.diagnostics.dispatchQueueDepth,
-                dispatchDrops: delegateStatus.diagnostics.dispatchDrops
-            )
+    private func refreshStatusFromProcessor() async {
+        let snapshot = await processor.statusSnapshot()
+        latestStatus.intentBySide = SidePair(
+            left: Self.mapRuntimeIntent(snapshot.intentDisplays.left),
+            right: Self.mapRuntimeIntent(snapshot.intentDisplays.right)
         )
+        latestStatus.contactCountBySide = snapshot.contactCounts
+        latestStatus.typingEnabled = snapshot.typingEnabled
+        latestStatus.keyboardModeEnabled = snapshot.keyboardModeEnabled
+    }
+
+    private static func mapRuntimeIntent(_ intent: ContentViewModel.IntentDisplay) -> RuntimeIntentMode {
+        switch intent {
+        case .idle:
+            return .idle
+        case .keyCandidate:
+            return .keyCandidate
+        case .typing:
+            return .typing
+        case .mouse:
+            return .mouse
+        case .gesture:
+            return .gesture
+        }
     }
 }
 
 actor EngineActorStub: EngineActorBoundary {
-    private let impl = EngineActorPhase2()
+    private let impl = EngineActor()
 
     func ingest(_ frame: RuntimeRawFrame) async {
         await impl.ingest(frame)

@@ -39,12 +39,30 @@ final class ReplayFixtureKitTests: XCTestCase {
         XCTAssertEqual(first.last?.captureFrames, UInt64(fixture.frames.count))
     }
 
-    func testTranscriptMatchesCommittedPhase2Baseline() async throws {
+    func testOnlyEngineTranscriptBaselinesAreCommitted() throws {
+        let fixturesDirectory = URL(
+            fileURLWithPath: "ReplayFixtures",
+            relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
+        ).standardizedFileURL
+        let fileManager = FileManager.default
+        let items = try fileManager.contentsOfDirectory(atPath: fixturesDirectory.path)
+
+        let transcriptFiles = items.filter { $0.hasSuffix(".transcript.jsonl") }
+        XCTAssertFalse(transcriptFiles.isEmpty, "Expected at least one committed transcript baseline.")
+
+        let nonCanonical = transcriptFiles.filter { !$0.hasSuffix(".engine.transcript.jsonl") }
+        XCTAssertTrue(
+            nonCanonical.isEmpty,
+            "Non-canonical transcript baseline names detected: \(nonCanonical.joined(separator: ", "))"
+        )
+    }
+
+    func testTranscriptMatchesCommittedEngineBaseline() async throws {
         let fixture = try ReplayFixtureParser.load(from: fixtureURL())
         let transcript = await ReplayHarnessRunner.run(fixture: fixture)
         let lines = ReplayHarnessRunner.transcriptJSONLines(fixture: fixture, transcript: transcript)
         let payload = lines.joined(separator: "\n") + "\n"
-        let expected = try String(contentsOf: phase2TranscriptURL(), encoding: .utf8)
+        let expected = try String(contentsOf: engineTranscriptURL(), encoding: .utf8)
         XCTAssertEqual(payload, expected)
     }
 
@@ -53,8 +71,8 @@ final class ReplayFixtureKitTests: XCTestCase {
             .standardizedFileURL
     }
 
-    private func phase2TranscriptURL() -> URL {
-        URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.phase2.transcript.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+    private func engineTranscriptURL() -> URL {
+        URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
     }
 }

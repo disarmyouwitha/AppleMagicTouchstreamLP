@@ -182,8 +182,8 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
 | Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` now runs raw-only callbacks on a dedicated state queue, uses numeric-ID reconciliation for active devices, pre-sizes callback registries, avoids main-thread control-plane hops, and is exported in rebuilt local XCFramework |
-| Runtime service split (Swift) | TBD | In Progress | `ContentViewModel` runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActorPhase2`; control/update calls now route through engine boundary (not direct view-model -> processor calls) |
-| Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActorPhase2` (not stub); app runtime now executes touch dispatch/status behavior through `EngineActorPhase2` via a processor bridge and polls boundary snapshots |
+| Runtime service split (Swift) | TBD | In Progress | `ContentViewModel` runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; control/update calls route through the boundary (not direct view-model -> processor calls) |
+| Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActor`; app runtime executes touch dispatch/status through `EngineActor` with processor internals lifted into standalone `TouchProcessorEngine` (bridge removed) |
 | Dispatch queue/pump | TBD | Not Started | Decouple key posting |
 | AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
@@ -205,9 +205,9 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [ ] Sleep/wake and reconnect scenario tests.
 - [ ] Build verification:
   - [x] `swift test --disable-sandbox`
-  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --output ReplayFixtures/macos_first_capture_2026-02-20.transcript.jsonl`
-  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --output ReplayFixtures/macos_first_capture_2026-02-20.phase2.transcript.jsonl`
-  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.phase2.transcript.jsonl`
+  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --output ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+  - [x] `Tools/ReplayHarness/verify_replay_baselines.sh`
   - [x] `xcodebuild -project Framework/OpenMultitouchSupportXCF.xcodeproj -scheme OpenMultitouchSupportXCF -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/omtxcf-derived build`
   - [x] `xcodebuild build -project Framework/OpenMultitouchSupportXCF.xcodeproj -scheme OpenMultitouchSupportXCF -destination 'generic/platform=macOS' -configuration Release -derivedDataPath Framework/build`
   - [x] `xcodebuild -create-xcframework -framework Framework/build/Build/Products/Release/OpenMultitouchSupportXCF.framework -output OpenMultitouchSupportXCF.xcframework`
@@ -230,17 +230,17 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Add replay harness executable + deterministic transcript output.
 - [x] Add fixture/schema validation tests (canonical state labels + deterministic transcript check).
 - [x] Rebuild/export `OpenMultitouchSupportXCF.xcframework` with `OpenMTManagerV2` public symbols and switch OMS to direct type binding.
-- [x] Feed replay harness into a concrete `EngineActorPhase2` boundary and start transcript parity comparisons.
-- [x] Wire `InputRuntimeService` -> `EngineActorPhase2` in app runtime and begin replacing `ContentViewModel` direct processing path.
+- [x] Feed replay harness into a concrete `EngineActor` boundary and start transcript parity comparisons.
+- [x] Wire `InputRuntimeService` -> `EngineActor` in app runtime and begin replacing `ContentViewModel` direct processing path.
 - [x] Remove legacy `OMSManager.rawTouchStream -> TouchProcessor.processRawFrame` loop from `ContentViewModel` runtime ingest path and make rewrite ingest default.
-- [x] Replace `ContentViewModel.TouchProcessor` dispatch/render behavior behind `EngineActorPhase2` boundary and retire remaining direct processor responsibilities from `ContentViewModel`.
-- [ ] Remove the temporary `EngineProcessorBridge` adapter by lifting processor internals into standalone engine modules owned directly by `EngineActorPhase2`.
-- [ ] Rename `EngineActorPhase2` to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
+- [x] Replace `ContentViewModel.TouchProcessor` dispatch/render behavior behind `EngineActor` boundary and retire remaining direct processor responsibilities from `ContentViewModel`.
+- [x] Remove the temporary `EngineProcessorBridge` adapter by lifting processor internals into standalone engine modules owned directly by `EngineActor`.
+- [x] Rename provisional engine actor type to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
+- [x] Remove now-dead transcript naming leftovers and regenerate baseline transcript labels.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).
-- `ReplayFixtures/macos_first_capture_2026-02-20.transcript.jsonl` (deterministic transcript generated from baseline fixture via `ReplayHarness`).
-- `ReplayFixtures/macos_first_capture_2026-02-20.phase2.transcript.jsonl` (Phase 2 boundary transcript baseline used for parity checks).
+- `ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl` (current committed baseline transcript from `EngineActor` boundary for parity checks).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.
