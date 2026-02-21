@@ -731,7 +731,7 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             if hasTouches != lastDisplayedHadTouches {
                 return true
             }
-            let maxRefreshRate = editModeEnabled ? 30.0 : 60.0
+            let maxRefreshRate = 45.0
             let minimumInterval = 1.0 / maxRefreshRate
             return now - lastDisplayUpdateTime >= minimumInterval
         }

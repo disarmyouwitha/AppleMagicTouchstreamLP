@@ -208,6 +208,8 @@ final class ContentViewModel: ObservableObject {
 
     private var keymapEditingEnabled = false
     private var debugHitPublishingEnabled = true
+    private let debugHitMinimumPublishInterval: TimeInterval = 1.0 / 20.0
+    private var lastDebugHitPublishTimeBySide = SidePair(left: 0.0, right: 0.0)
 
     private var uiStatusVisualsEnabled = true
 
@@ -302,11 +304,15 @@ final class ContentViewModel: ObservableObject {
 
     private func recordDebugHit(_ binding: KeyBinding) {
         guard debugHitPublishingEnabled else { return }
+        let now = CACurrentMediaTime()
+        let lastPublishTime = lastDebugHitPublishTimeBySide[binding.side]
+        guard now - lastPublishTime >= debugHitMinimumPublishInterval else { return }
+        lastDebugHitPublishTimeBySide[binding.side] = now
         let hit = DebugHit(
             rect: binding.rect,
             label: binding.label,
             side: binding.side,
-            timestamp: CACurrentMediaTime()
+            timestamp: now
         )
         switch binding.side {
         case .left:

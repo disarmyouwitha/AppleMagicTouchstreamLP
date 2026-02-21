@@ -1724,7 +1724,7 @@ struct ContentView: View {
         let lastHit: ContentViewModel.DebugHit
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { _ in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
                 let age = CACurrentMediaTime() - lastHit.timestamp
                 let fadeDuration: TimeInterval = 0.6
                 let normalized = max(0, fadeDuration - age) / fadeDuration
