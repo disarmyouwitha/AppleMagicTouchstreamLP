@@ -6,20 +6,7 @@
 
 @preconcurrency import OpenMultitouchSupportXCF
 import Foundation
-import ObjectiveC.runtime
 import os
-
-@objc private protocol OpenMTManagerV2InstanceObjC {
-    @objc func availableDevices() -> [OpenMTDeviceInfo]
-    @objc func activeDevices() -> [OpenMTDeviceInfo]
-    @objc func refreshAvailableDevices()
-    @objc(setActiveDevices:)
-    func setActiveDevices(_ deviceInfos: [OpenMTDeviceInfo]) -> Bool
-    @objc(addRawListenerWithCallback:)
-    func addRawListener(with callback: @escaping OpenMTRawFrameCallback) -> OpenMTListener
-    @objc(removeRawListener:)
-    func removeRawListener(_ listener: OpenMTListener)
-}
 
 public struct OMSDeviceInfo: Sendable, Hashable {
     public let deviceName: String
@@ -59,7 +46,7 @@ public final class OMSManager: Sendable {
 
     private enum CaptureManager {
         case v1(OpenMTManager)
-        case v2(any OpenMTManagerV2InstanceObjC)
+        case v2(OpenMTManagerV2)
 
         func refreshAvailableDevices() {
             switch self {
@@ -105,7 +92,7 @@ public final class OMSManager: Sendable {
             case let .v1(manager):
                 return manager.addRawListener(callback: callback)
             case let .v2(manager):
-                return manager.addRawListener(with: callback)
+                return manager.addRawListener(callback: callback)
             }
         }
 
@@ -258,33 +245,11 @@ public final class OMSManager: Sendable {
         }
     }
 
-    private static func loadManagerV2() -> (any OpenMTManagerV2InstanceObjC)? {
-        guard let classObject = NSClassFromString("OpenMTManagerV2") else {
+    private static func loadManagerV2() -> OpenMTManagerV2? {
+        guard OpenMTManagerV2.systemSupportsMultitouch() else {
             return nil
         }
-        guard let metaClass = object_getClass(classObject) else {
-            return nil
-        }
-
-        let supportsSelector = NSSelectorFromString("systemSupportsMultitouch")
-        guard class_respondsToSelector(metaClass, supportsSelector) else {
-            return nil
-        }
-        typealias SupportsFn = @convention(c) (AnyClass, Selector) -> Bool
-        let supportsImp = class_getMethodImplementation(metaClass, supportsSelector)
-        let supportsFn = unsafeBitCast(supportsImp, to: SupportsFn.self)
-        guard supportsFn(classObject, supportsSelector) else {
-            return nil
-        }
-
-        let sharedSelector = NSSelectorFromString("sharedManager")
-        guard class_respondsToSelector(metaClass, sharedSelector) else {
-            return nil
-        }
-        typealias SharedFn = @convention(c) (AnyClass, Selector) -> AnyObject
-        let sharedImp = class_getMethodImplementation(metaClass, sharedSelector)
-        let sharedFn = unsafeBitCast(sharedImp, to: SharedFn.self)
-        return sharedFn(classObject, sharedSelector) as? any OpenMTManagerV2InstanceObjC
+        return OpenMTManagerV2.sharedManager()
     }
 
     @discardableResult

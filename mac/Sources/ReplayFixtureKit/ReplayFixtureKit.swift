@@ -379,6 +379,10 @@ public struct RuntimeDiagnosticsCounters: Sendable {
 
 public struct RuntimeRenderSnapshot: Sendable {
     public var revision: UInt64 = 0
+    public var leftContactCount: Int = 0
+    public var rightContactCount: Int = 0
+    public var leftIntent: RuntimeIntentMode = .idle
+    public var rightIntent: RuntimeIntentMode = .idle
 
     public init() {}
 }
@@ -397,20 +401,28 @@ public protocol EngineActorBoundary: Sendable {
     func statusSnapshot() async -> RuntimeStatusSnapshot
 }
 
-public actor EngineActorStub: EngineActorBoundary {
+public actor EngineActorPhase2: EngineActorBoundary {
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
 
     public init() {}
 
     public func ingest(_ frame: RuntimeRawFrame) async {
-        latestRender.revision &+= 1
+        let contactCount = frame.contacts.count
         if frame.deviceIndex == 0 {
-            latestStatus.contactCountBySide.left = frame.contacts.count
+            latestStatus.contactCountBySide.left = contactCount
+            latestStatus.intentBySide.left = Self.intent(for: contactCount)
         } else {
-            latestStatus.contactCountBySide.right = frame.contacts.count
+            latestStatus.contactCountBySide.right = contactCount
+            latestStatus.intentBySide.right = Self.intent(for: contactCount)
         }
         latestStatus.diagnostics.captureFrames &+= 1
+
+        latestRender.revision &+= 1
+        latestRender.leftContactCount = latestStatus.contactCountBySide.left
+        latestRender.rightContactCount = latestStatus.contactCountBySide.right
+        latestRender.leftIntent = latestStatus.intentBySide.left
+        latestRender.rightIntent = latestStatus.intentBySide.right
     }
 
     public func renderSnapshot() async -> RuntimeRenderSnapshot {
@@ -420,6 +432,17 @@ public actor EngineActorStub: EngineActorBoundary {
     public func statusSnapshot() async -> RuntimeStatusSnapshot {
         latestStatus
     }
+
+    private static func intent(for contactCount: Int) -> RuntimeIntentMode {
+        switch contactCount {
+        case ...0:
+            return .idle
+        case 1:
+            return .keyCandidate
+        default:
+            return .typing
+        }
+    }
 }
 
 public struct ReplayTranscriptRecord: Sendable, Equatable {
@@ -427,6 +450,8 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
     public let deviceIndex: Int
     public let contactCount: Int
     public let renderRevision: UInt64
+    public let leftIntent: String
+    public let rightIntent: String
     public let leftContacts: Int
     public let rightContacts: Int
     public let captureFrames: UInt64
@@ -436,6 +461,8 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
         deviceIndex: Int,
         contactCount: Int,
         renderRevision: UInt64,
+        leftIntent: String,
+        rightIntent: String,
         leftContacts: Int,
         rightContacts: Int,
         captureFrames: UInt64
@@ -444,6 +471,8 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
         self.deviceIndex = deviceIndex
         self.contactCount = contactCount
         self.renderRevision = renderRevision
+        self.leftIntent = leftIntent
+        self.rightIntent = rightIntent
         self.leftContacts = leftContacts
         self.rightContacts = rightContacts
         self.captureFrames = captureFrames
@@ -453,7 +482,7 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
 public enum ReplayHarnessRunner {
     public static func run(
         fixture: ReplayFixture,
-        engine: any EngineActorBoundary = EngineActorStub()
+        engine: any EngineActorBoundary = EngineActorPhase2()
     ) async -> [ReplayTranscriptRecord] {
         var transcript: [ReplayTranscriptRecord] = []
         transcript.reserveCapacity(fixture.frames.count)
@@ -489,6 +518,8 @@ public enum ReplayHarnessRunner {
                     deviceIndex: runtimeFrame.deviceIndex,
                     contactCount: runtimeFrame.contacts.count,
                     renderRevision: render.revision,
+                    leftIntent: render.leftIntent.rawValue,
+                    rightIntent: render.rightIntent.rawValue,
                     leftContacts: status.contactCountBySide.left,
                     rightContacts: status.contactCountBySide.right,
                     captureFrames: status.diagnostics.captureFrames
@@ -503,32 +534,31 @@ public enum ReplayHarnessRunner {
         fixture: ReplayFixture,
         transcript: [ReplayTranscriptRecord]
     ) -> [String] {
-        let meta: [String: Any] = [
-            "type": "transcriptMeta",
-            "schema": ReplayFixtureParser.schema,
-            "source": fixture.meta.source,
-            "platform": fixture.meta.platform,
-            "capturedAt": fixture.meta.capturedAt,
-            "frames": transcript.count
-        ]
-
+        let meta = TranscriptMetaLine(
+            schema: ReplayFixtureParser.schema,
+            source: fixture.meta.source,
+            platform: fixture.meta.platform,
+            capturedAt: fixture.meta.capturedAt,
+            frames: transcript.count
+        )
         var lines: [String] = []
         if let metaLine = jsonLine(meta) {
             lines.append(metaLine)
         }
 
         for record in transcript {
-            let payload: [String: Any] = [
-                "type": "transcriptFrame",
-                "schema": ReplayFixtureParser.schema,
-                "seq": Int(record.seq),
-                "deviceIndex": record.deviceIndex,
-                "contactCount": record.contactCount,
-                "renderRevision": Int(record.renderRevision),
-                "leftContacts": record.leftContacts,
-                "rightContacts": record.rightContacts,
-                "captureFrames": Int(record.captureFrames)
-            ]
+            let payload = TranscriptFrameLine(
+                schema: ReplayFixtureParser.schema,
+                seq: Int(record.seq),
+                deviceIndex: record.deviceIndex,
+                contactCount: record.contactCount,
+                renderRevision: Int(record.renderRevision),
+                leftIntent: record.leftIntent,
+                rightIntent: record.rightIntent,
+                leftContacts: record.leftContacts,
+                rightContacts: record.rightContacts,
+                captureFrames: Int(record.captureFrames)
+            )
             if let line = jsonLine(payload) {
                 lines.append(line)
             }
@@ -537,9 +567,35 @@ public enum ReplayHarnessRunner {
         return lines
     }
 
-    private static func jsonLine(_ object: [String: Any]) -> String? {
-        guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(withJSONObject: object, options: []),
+    private struct TranscriptMetaLine: Encodable {
+        let type = "transcriptMeta"
+        let schema: String
+        let source: String
+        let platform: String
+        let capturedAt: String
+        let frames: Int
+    }
+
+    private struct TranscriptFrameLine: Encodable {
+        let type = "transcriptFrame"
+        let schema: String
+        let seq: Int
+        let deviceIndex: Int
+        let contactCount: Int
+        let renderRevision: Int
+        let leftIntent: String
+        let rightIntent: String
+        let leftContacts: Int
+        let rightContacts: Int
+        let captureFrames: Int
+    }
+
+    private static func jsonLine<T: Encodable>(_ object: T) -> String? {
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        guard let data = try? encoder.encode(object),
               let text = String(data: data, encoding: .utf8) else {
             return nil
         }

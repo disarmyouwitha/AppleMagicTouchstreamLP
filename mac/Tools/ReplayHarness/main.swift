@@ -4,6 +4,7 @@ import ReplayFixtureKit
 private struct Options {
     var fixturePath: String = "ReplayFixtures/macos_first_capture_2026-02-20.jsonl"
     var outputPath: String? = nil
+    var expectedTranscriptPath: String? = nil
 }
 
 @main
@@ -25,6 +26,27 @@ struct ReplayHarnessMain {
         let lines = ReplayHarnessRunner.transcriptJSONLines(fixture: fixture, transcript: transcript)
         let payload = lines.joined(separator: "\n") + "\n"
 
+        if let expectedPath = options.expectedTranscriptPath {
+            let expectedURL = URL(fileURLWithPath: expectedPath, relativeTo: cwd).standardizedFileURL
+            do {
+                let expected = try String(contentsOf: expectedURL, encoding: .utf8)
+                if expected != payload {
+                    let expectedLines = expected.split(whereSeparator: \.isNewline)
+                    let actualLines = payload.split(whereSeparator: \.isNewline)
+                    let firstMismatch = zip(expectedLines, actualLines)
+                        .enumerated()
+                        .first(where: { $0.element.0 != $0.element.1 })?
+                        .offset ?? min(expectedLines.count, actualLines.count)
+                    fputs("Transcript parity mismatch at line \(firstMismatch + 1).\n", stderr)
+                    Foundation.exit(2)
+                }
+                print("Transcript parity OK: \(expectedURL.path)")
+            } catch {
+                fputs("Failed to load expected transcript: \(error)\n", stderr)
+                Foundation.exit(1)
+            }
+        }
+
         if let outputPath = options.outputPath {
             let outputURL = URL(fileURLWithPath: outputPath, relativeTo: cwd).standardizedFileURL
             do {
@@ -35,7 +57,7 @@ struct ReplayHarnessMain {
                 fputs("Failed to write transcript: \(error)\n", stderr)
                 Foundation.exit(1)
             }
-        } else {
+        } else if options.expectedTranscriptPath == nil {
             print(payload, terminator: "")
         }
 
@@ -55,6 +77,11 @@ struct ReplayHarnessMain {
             case "--output":
                 if index + 1 < arguments.count {
                     options.outputPath = arguments[index + 1]
+                    index += 1
+                }
+            case "--expected-transcript":
+                if index + 1 < arguments.count {
+                    options.expectedTranscriptPath = arguments[index + 1]
                     index += 1
                 }
             default:
