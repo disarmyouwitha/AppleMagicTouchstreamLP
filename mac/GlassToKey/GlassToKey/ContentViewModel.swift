@@ -177,33 +177,8 @@ final class ContentViewModel: ObservableObject {
         case gesture
     }
 
-    private struct DeviceSelection: Sendable {
-        var leftIndex: Int?
-        var rightIndex: Int?
-    }
-
     nonisolated private let touchSnapshotLock = OSAllocatedUnfairLock<TouchSnapshot>(
         uncheckedState: TouchSnapshot()
-    )
-    private struct PendingTouchState {
-        var left: [OMSTouchData] = []
-        var right: [OMSTouchData] = []
-        var leftDirty = false
-        var rightDirty = false
-        var lastLeftUpdateTime: TimeInterval = 0
-        var lastRightUpdateTime: TimeInterval = 0
-    }
-    private struct PendingTouchSnapshot {
-        let left: [OMSTouchData]
-        let right: [OMSTouchData]
-    }
-    nonisolated private let pendingTouchLock = OSAllocatedUnfairLock<PendingTouchState>(
-        uncheckedState: PendingTouchState()
-    )
-    private let touchCoalesceInterval: TimeInterval = 0.02
-    private let snapshotQueue = DispatchQueue(
-        label: "com.kyome.GlassToKey.TouchSnapshots",
-        qos: .utility
     )
 #if DEBUG
     private let pipelineSignposter = OSSignposter(
@@ -211,11 +186,8 @@ final class ContentViewModel: ObservableObject {
         category: "InputPipeline"
     )
 #endif
-    nonisolated private let deviceSelectionLock = OSAllocatedUnfairLock<DeviceSelection>(
-        uncheckedState: DeviceSelection()
-    )
     nonisolated private let snapshotRecordingLock = OSAllocatedUnfairLock<Bool>(
-        uncheckedState: true
+        uncheckedState: false
     )
     final class ContinuationHolder: @unchecked Sendable {
         var continuation: AsyncStream<UInt64>.Continuation?
@@ -360,64 +332,50 @@ final class ContentViewModel: ObservableObject {
     func onAppear() {
         guard task == nil else { return }
         let snapshotLock = touchSnapshotLock
-        let selectionLock = deviceSelectionLock
         let recordingLock = snapshotRecordingLock
-        let snapshotQueue = snapshotQueue
-        task = Task.detached(priority: .userInitiated) { [inputRuntimeService, runtimeEngine, snapshotLock, selectionLock, recordingLock, snapshotQueue, self] in
+        let continuationHolder = touchRevisionContinuationHolder
+#if DEBUG
+        let pipelineSignposter = self.pipelineSignposter
+#endif
+        task = Task.detached(priority: .userInitiated) { [inputRuntimeService, runtimeEngine, snapshotLock, recordingLock, continuationHolder] in
+            var renderSnapshotsEnabled = false
             for await rawFrame in inputRuntimeService.rawFrameStream {
 #if DEBUG
                 let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
                 defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
 #endif
-                let selection = selectionLock.withLockUnchecked { $0 }
-                let deviceIndex = rawFrame.deviceIndex
-                let isLeft = deviceIndex == selection.leftIndex
-                let isRight = deviceIndex == selection.rightIndex
-                let hasTouchData = !rawFrame.contacts.isEmpty
                 let shouldRecord = recordingLock.withLockUnchecked(\.self)
-                var leftTouches: [OMSTouchData] = []
-                var rightTouches: [OMSTouchData] = []
-                if shouldRecord, hasTouchData, (isLeft || isRight) {
-                    let touchData = Self.buildTouchData(from: rawFrame)
-                    if isLeft {
-                        leftTouches = touchData
-                    } else if isRight {
-                        rightTouches = touchData
-                    }
+                if shouldRecord != renderSnapshotsEnabled {
+                    await runtimeEngine.setRenderSnapshotsEnabled(shouldRecord)
+                    renderSnapshotsEnabled = shouldRecord
                 }
-                let now = CACurrentMediaTime()
-                if shouldRecord {
-                    let leftSnapshot = leftTouches
-                    let rightSnapshot = rightTouches
-                    snapshotQueue.async { [snapshotLock, self] in
-                        let snapshotCandidate = self.updatePendingTouches(
-                            hasTouchData: hasTouchData,
-                            left: leftSnapshot,
-                            right: rightSnapshot,
-                            at: now
-                        )
-                        var updatedRevision: UInt64?
-                        if let candidate = snapshotCandidate {
-                            snapshotLock.withLockUnchecked { snapshot in
-                                snapshot.left = candidate.left
-                                snapshot.right = candidate.right
-                                snapshot.hasTransitionState = Self.hasTransitionState(
-                                    left: candidate.left,
-                                    right: candidate.right
-                                )
-                                snapshot.revision &+= 1
-                                updatedRevision = snapshot.revision
-                            }
 #if DEBUG
-                            self.pipelineSignposter.emitEvent("SnapshotUpdateV2")
+                let ingestSignpostState = pipelineSignposter.beginInterval("EngineIngestV2")
+                defer { pipelineSignposter.endInterval("EngineIngestV2", ingestSignpostState) }
 #endif
-                        }
-                        if let revision = updatedRevision {
-                            self.touchRevisionContinuationHolder.continuation?.yield(revision)
-                        }
-                    }
-                }
                 await runtimeEngine.ingest(rawFrame)
+
+                guard shouldRecord else { continue }
+
+                let renderSnapshot = await runtimeEngine.renderSnapshot()
+                var updatedRevision: UInt64?
+                snapshotLock.withLockUnchecked { snapshot in
+                    guard snapshot.revision != renderSnapshot.revision else { return }
+                    snapshot.left = renderSnapshot.leftTouches
+                    snapshot.right = renderSnapshot.rightTouches
+                    snapshot.hasTransitionState = renderSnapshot.hasTransitionState
+                    snapshot.revision = renderSnapshot.revision
+                    updatedRevision = snapshot.revision
+                }
+                if let revision = updatedRevision {
+#if DEBUG
+                    pipelineSignposter.emitEvent("SnapshotUpdateV2")
+#endif
+                    continuationHolder.continuation?.yield(revision)
+                }
+            }
+            if renderSnapshotsEnabled {
+                await runtimeEngine.setRenderSnapshotsEnabled(false)
             }
         }
     }
@@ -680,48 +638,6 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
-    nonisolated private static func hasTransitionState(
-        left: [OMSTouchData],
-        right: [OMSTouchData]
-    ) -> Bool {
-        for touch in left {
-            switch touch.state {
-            case .starting, .breaking, .leaving:
-                return true
-            default:
-                break
-            }
-        }
-        for touch in right {
-            switch touch.state {
-            case .starting, .breaking, .leaving:
-                return true
-            default:
-                break
-            }
-        }
-        return false
-    }
-
-    nonisolated private static func buildTouchData(from frame: RuntimeRawFrame) -> [OMSTouchData] {
-        let deviceID = String(frame.deviceNumericID)
-        return frame.contacts.map { contact in
-            OMSTouchData(
-                deviceID: deviceID,
-                deviceIndex: frame.deviceIndex,
-                id: contact.id,
-                position: OMSPosition(x: contact.posX, y: contact.posY),
-                total: 0,
-                pressure: contact.pressure,
-                axis: OMSAxis(major: contact.majorAxis, minor: contact.minorAxis),
-                angle: contact.angle,
-                density: contact.density,
-                state: contact.state,
-                timestamp: frame.timestamp
-            )
-        }
-    }
-
     nonisolated private static func mapIntentDisplay(_ intent: RuntimeIntentMode) -> IntentDisplay {
         switch intent {
         case .idle:
@@ -744,74 +660,6 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
-    nonisolated private func updatePendingTouches(
-        hasTouchData: Bool,
-        left: [OMSTouchData],
-        right: [OMSTouchData],
-        at now: TimeInterval
-    ) -> PendingTouchSnapshot? {
-        pendingTouchLock.withLockUnchecked { state in
-            if !hasTouchData {
-                let hadPendingTouches = !state.left.isEmpty || !state.right.isEmpty
-                if hadPendingTouches {
-                    state.left.removeAll()
-                    state.right.removeAll()
-                    state.leftDirty = true
-                    state.rightDirty = true
-                    state.lastLeftUpdateTime = now
-                    state.lastRightUpdateTime = now
-                }
-                if shouldEmitSnapshot(state: &state, at: now) {
-                    return PendingTouchSnapshot(left: state.left, right: state.right)
-                }
-                return nil
-            }
-
-            var hasUpdates = false
-            if !left.isEmpty {
-                state.left = left
-                state.leftDirty = true
-                state.lastLeftUpdateTime = now
-                hasUpdates = true
-            }
-            if !right.isEmpty {
-                state.right = right
-                state.rightDirty = true
-                state.lastRightUpdateTime = now
-                hasUpdates = true
-            }
-
-            if hasUpdates && shouldEmitSnapshot(state: &state, at: now) {
-                return PendingTouchSnapshot(left: state.left, right: state.right)
-            }
-            return nil
-        }
-    }
-
-    nonisolated private func shouldEmitSnapshot(
-        state: inout PendingTouchState,
-        at now: TimeInterval
-    ) -> Bool {
-        let leftStale = now - state.lastLeftUpdateTime >= touchCoalesceInterval
-        let rightStale = now - state.lastRightUpdateTime >= touchCoalesceInterval
-        if state.leftDirty && state.rightDirty {
-            state.leftDirty = false
-            state.rightDirty = false
-            return true
-        }
-        if state.leftDirty && rightStale {
-            state.leftDirty = false
-            state.rightDirty = false
-            return true
-        }
-        if state.rightDirty && leftStale {
-            state.rightDirty = false
-            state.leftDirty = false
-            return true
-        }
-        return false
-    }
-
     private func updateActiveDevices() {
         let devices = [leftDevice, rightDevice].compactMap { $0 }
         if !devices.isEmpty, manager.setActiveDevices(devices) {
@@ -822,10 +670,6 @@ final class ContentViewModel: ObservableObject {
         }
         let leftIndex = leftDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
         let rightIndex = rightDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
-        deviceSelectionLock.withLockUnchecked { selection in
-            selection.leftIndex = leftIndex
-            selection.rightIndex = rightIndex
-        }
         let leftDeviceID = leftDevice?.deviceID
         let rightDeviceID = rightDevice?.deviceID
         let runtimeEngine = runtimeEngine
@@ -969,7 +813,6 @@ final class ContentViewModel: ObservableObject {
         snapshotRecordingLock.withLockUnchecked { $0 = enabled }
         if !enabled {
             touchSnapshotLock.withLockUnchecked { $0 = TouchSnapshot() }
-            pendingTouchLock.withLockUnchecked { $0 = PendingTouchState() }
         }
     }
 

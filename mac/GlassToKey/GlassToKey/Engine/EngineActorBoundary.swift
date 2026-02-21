@@ -1,10 +1,12 @@
 import Foundation
 import CoreGraphics
+import OpenMultitouchSupport
 
 protocol EngineActorBoundary: Sendable {
     func ingest(_ frame: RuntimeRawFrame) async
     func renderSnapshot() async -> RuntimeRenderSnapshot
     func statusSnapshot() async -> RuntimeStatusSnapshot
+    func setRenderSnapshotsEnabled(_ enabled: Bool) async
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
         leftIndex: Int?,
@@ -44,6 +46,9 @@ protocol EngineActorBoundary: Sendable {
 actor EngineActor: EngineActorBoundary {
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
+    private var leftDeviceIndex: Int?
+    private var rightDeviceIndex: Int?
+    private var renderSnapshotsEnabled = false
     private let processor: TouchProcessorEngine
 
     init(
@@ -68,9 +73,11 @@ actor EngineActor: EngineActorBoundary {
 
     func ingest(_ frame: RuntimeRawFrame) async {
         await processor.processRuntimeRawFrame(frame)
+        if renderSnapshotsEnabled {
+            updateRenderSnapshot(from: frame)
+        }
         await refreshStatusFromProcessor()
         latestStatus.diagnostics.captureFrames &+= 1
-        latestRender.revision &+= 1
     }
 
     func renderSnapshot() async -> RuntimeRenderSnapshot {
@@ -80,6 +87,14 @@ actor EngineActor: EngineActorBoundary {
     func statusSnapshot() async -> RuntimeStatusSnapshot {
         await refreshStatusFromProcessor()
         return latestStatus
+    }
+
+    func setRenderSnapshotsEnabled(_ enabled: Bool) async {
+        guard renderSnapshotsEnabled != enabled else { return }
+        renderSnapshotsEnabled = enabled
+        if !enabled {
+            latestRender = RuntimeRenderSnapshot()
+        }
     }
 
     func setListening(_ isListening: Bool) async {
@@ -92,6 +107,8 @@ actor EngineActor: EngineActorBoundary {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) async {
+        leftDeviceIndex = leftIndex
+        rightDeviceIndex = rightIndex
         await processor.updateActiveDevices(
             leftIndex: leftIndex,
             rightIndex: rightIndex,
@@ -196,6 +213,26 @@ actor EngineActor: EngineActorBoundary {
         latestStatus = RuntimeStatusSnapshot()
     }
 
+    private func updateRenderSnapshot(from frame: RuntimeRawFrame) {
+        let deviceIndex = frame.deviceIndex
+        let matchedLeft = leftDeviceIndex.map { $0 == deviceIndex } ?? false
+        let matchedRight = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        guard matchedLeft || matchedRight else { return }
+
+        let touches = Self.renderTouches(from: frame)
+        if matchedLeft {
+            latestRender.leftTouches = touches
+        }
+        if matchedRight {
+            latestRender.rightTouches = touches
+        }
+        latestRender.hasTransitionState = Self.hasTransitionState(
+            left: latestRender.leftTouches,
+            right: latestRender.rightTouches
+        )
+        latestRender.revision &+= 1
+    }
+
     private func refreshStatusFromProcessor() async {
         let snapshot = await processor.statusSnapshot()
         latestStatus.intentBySide = SidePair(
@@ -207,6 +244,43 @@ actor EngineActor: EngineActorBoundary {
         latestStatus.keyboardModeEnabled = snapshot.keyboardModeEnabled
         latestStatus.diagnostics.dispatchQueueDepth = snapshot.dispatchQueueDepth
         latestStatus.diagnostics.dispatchDrops = snapshot.dispatchDrops
+    }
+
+    private static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {
+        let deviceID = String(frame.deviceNumericID)
+        return frame.contacts.map { contact in
+            OMSTouchData(
+                deviceID: deviceID,
+                deviceIndex: frame.deviceIndex,
+                id: contact.id,
+                position: OMSPosition(x: contact.posX, y: contact.posY),
+                total: 0,
+                pressure: contact.pressure,
+                axis: OMSAxis(major: contact.majorAxis, minor: contact.minorAxis),
+                angle: contact.angle,
+                density: contact.density,
+                state: contact.state,
+                timestamp: frame.timestamp
+            )
+        }
+    }
+
+    private static func hasTransitionState(
+        left: [OMSTouchData],
+        right: [OMSTouchData]
+    ) -> Bool {
+        func containsTransition(_ touches: [OMSTouchData]) -> Bool {
+            for touch in touches {
+                switch touch.state {
+                case .starting, .breaking, .leaving:
+                    return true
+                default:
+                    break
+                }
+            }
+            return false
+        }
+        return containsTransition(left) || containsTransition(right)
     }
 
     private static func mapRuntimeIntent(_ intent: ContentViewModel.IntentDisplay) -> RuntimeIntentMode {
@@ -238,6 +312,10 @@ actor EngineActorStub: EngineActorBoundary {
 
     func statusSnapshot() async -> RuntimeStatusSnapshot {
         await impl.statusSnapshot()
+    }
+
+    func setRenderSnapshotsEnabled(_ enabled: Bool) async {
+        await impl.setRenderSnapshotsEnabled(enabled)
     }
 
     func setListening(_ isListening: Bool) async {

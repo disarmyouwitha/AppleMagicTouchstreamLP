@@ -134,7 +134,8 @@ Use the same phase numbering/status in both documents.
 
 ### Phase 4: Dedicated AppKit Surface Renderer — In Progress
 - `TrackpadSurfaceView` exists and is wired behind `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
-- Remaining: feature parity vs `CombinedTrackpadCanvas` (labels/buttons/highlights) and snapshot-only render path completion.
+- Surface input cadence now comes from engine-owned `RuntimeRenderSnapshot`.
+- Remaining: default-on cutover and frame pacing/stability verification in config/edit mode.
 
 ### Phase 5: Rust Shared Core (Optional but Target) — Not Started
 - ABI and parity contract remain pending after Swift runtime split completes.
@@ -144,12 +145,11 @@ Use the same phase numbering/status in both documents.
 - Legacy runtime paths are still present and have not been fully removed.
 
 ## Immediate next implementation slice
-1. Complete `TrackpadSurfaceView` parity with `CombinedTrackpadCanvas` (grid labels, key/button highlight states, debug hit overlays).
-2. Move surface drawing inputs to engine-owned render snapshots (avoid mixed UI-owned touch snapshot state).
-3. Finish runtime split by removing remaining hot runtime responsibilities from `ContentViewModel` into dedicated runtime/snapshot services.
-4. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
-5. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts.
-6. Prepare cutover toggles (`OMS_CAPTURE_BRIDGE_V2`, `GLASSTOKEY_REWRITE_APPKIT_SURFACE`) for default-on once Phase 1-4 exit criteria are met.
+1. Finish runtime split by removing remaining hot runtime/session responsibilities from `ContentViewModel` into dedicated runtime/snapshot services.
+2. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
+3. Execute config/edit-mode frame pacing stress verification for AppKit surface path (hitch checks with live touches + sidebar interaction).
+4. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts.
+5. Prepare cutover toggles (`OMS_CAPTURE_BRIDGE_V2`, `GLASSTOKEY_REWRITE_APPKIT_SURFACE`) for default-on once Phase 1-4 exit criteria are met.
 
 Current execution directive:
 1. Replace legacy runtime paths directly as rewrite equivalents land.

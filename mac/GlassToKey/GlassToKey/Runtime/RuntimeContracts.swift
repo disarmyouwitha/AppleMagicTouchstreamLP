@@ -52,6 +52,7 @@ struct RuntimeDiagnosticsCounters: Sendable {
 struct RuntimeRenderSnapshot: Sendable {
     var leftTouches: [OMSTouchData] = []
     var rightTouches: [OMSTouchData] = []
+    var hasTransitionState: Bool = false
     var highlightedColumn: Int?
     var highlightedKeyStorageID: String?
     var highlightedButtonID: UUID?

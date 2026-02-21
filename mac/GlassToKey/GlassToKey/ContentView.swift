@@ -1703,10 +1703,18 @@ struct ContentView: View {
                                 showDetailed: showDetailedView,
                                 leftLayout: leftLayout,
                                 rightLayout: rightLayout,
+                                leftLabels: surfaceLabels(from: leftGridLabelInfo),
+                                rightLabels: surfaceLabels(from: rightGridLabelInfo),
+                                leftCustomButtons: leftButtons,
+                                rightCustomButtons: rightButtons,
                                 leftTouches: visualsEnabled ? displayLeftTouches : [],
                                 rightTouches: visualsEnabled ? displayRightTouches : [],
                                 visualsEnabled: visualsEnabled,
-                                selectedColumn: editModeEnabled ? selectedColumn : nil
+                                selectedColumn: editModeEnabled ? selectedColumn : nil,
+                                selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
+                                selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
+                                selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
+                                selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
                             )
                         )
                         .frame(width: combinedWidth, height: trackpadSize.height)
@@ -1899,6 +1907,19 @@ struct ContentView: View {
         private func selectedButton(for buttons: [CustomButton]) -> CustomButton? {
             guard let selectedButtonID else { return nil }
             return buttons.first { $0.id == selectedButtonID }
+        }
+
+        private func surfaceLabels(from labels: [[GridLabel]]) -> [[TrackpadSurfaceLabel]] {
+            labels.map { row in
+                row.map { label in
+                    TrackpadSurfaceLabel(primary: label.primary, hold: label.hold)
+                }
+            }
+        }
+
+        private func surfaceKeySelection(from key: SelectedGridKey?) -> TrackpadSurfaceKeySelection? {
+            guard let key else { return nil }
+            return TrackpadSurfaceKeySelection(row: key.row, column: key.column)
         }
 
         private func columnRects(
