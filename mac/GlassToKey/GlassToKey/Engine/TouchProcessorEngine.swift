@@ -537,7 +537,6 @@ actor TouchProcessorEngine {
 #endif
     private var contactFingerCountsBySide = SidePair(left: 0, right: 0)
     private var lastReportedContactCounts = SidePair(left: -1, right: -1)
-    private var tapTraceFrameIndex: UInt64 = 0
     private struct ContactCountCache {
         var actual: Int
         var displayed: Int
@@ -811,9 +810,6 @@ actor TouchProcessorEngine {
             return
         }
         let now = Self.now()
-#if DEBUG
-        tapTraceFrameIndex &+= 1
-#endif
         let touches = frame.touches
         let hasTouchData = !touches.isEmpty
         if !hasTouchData {
@@ -900,9 +896,6 @@ actor TouchProcessorEngine {
             return
         }
         let now = Self.now()
-#if DEBUG
-        tapTraceFrameIndex &+= 1
-#endif
         let touches = frame.rawTouches
         let hasTouchData = !touches.isEmpty
         if !hasTouchData {
@@ -1138,15 +1131,6 @@ actor TouchProcessorEngine {
                         stopRepeat(for: touchKey)
                    }
                 }
-                #if DEBUG
-                let traceBinding = removedActive?.binding ?? removedPending?.binding
-                recordTapTrace(
-                    .disqualified,
-                    touchKey: touchKey,
-                    binding: traceBinding,
-                    reason: .typingDisabled
-                )
-                #endif
                 disqualifiedTouches.remove(touchKey)
                 touchInitialContactPoint.remove(touchKey)
                 continue
@@ -1352,19 +1336,6 @@ actor TouchProcessorEngine {
                             now: now
                         )
                     }
-                    #if DEBUG
-                    let elapsed = now - pending.startTime
-                    if !didDispatch && elapsed > tapMaxDuration {
-                        recordTapTrace(
-                            .expired,
-                            touchKey: touchKey,
-                            binding: pending.binding,
-                            reason: .timeout
-                        )
-                    } else {
-                        recordTapTrace(.finalized, touchKey: touchKey, binding: pending.binding)
-                    }
-                    #endif
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
                     continue
@@ -1408,19 +1379,6 @@ actor TouchProcessorEngine {
                     if guardTriggered {
                         continue
                     }
-                    #if DEBUG
-                    let elapsed = now - active.startTime
-                    if !didDispatch && elapsed > tapMaxDuration {
-                        recordTapTrace(
-                            .expired,
-                            touchKey: touchKey,
-                            binding: active.binding,
-                            reason: .timeout
-                        )
-                    } else {
-                        recordTapTrace(.finalized, touchKey: touchKey, binding: active.binding)
-                    }
-                    #endif
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
@@ -1465,19 +1423,6 @@ actor TouchProcessorEngine {
                             now: now
                         )
                     }
-                    #if DEBUG
-                    let elapsed = now - pending.startTime
-                    if !didDispatch && elapsed > tapMaxDuration {
-                        recordTapTrace(
-                            .expired,
-                            touchKey: touchKey,
-                            binding: pending.binding,
-                            reason: .timeout
-                        )
-                    } else {
-                        recordTapTrace(.finalized, touchKey: touchKey, binding: pending.binding)
-                    }
-                    #endif
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
                     continue
@@ -1493,19 +1438,6 @@ actor TouchProcessorEngine {
                         stopRepeat(for: touchKey)
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
-                    #if DEBUG
-                    let elapsed = now - active.startTime
-                    if elapsed > tapMaxDuration {
-                        recordTapTrace(
-                            .expired,
-                            touchKey: touchKey,
-                            binding: active.binding,
-                            reason: .timeout
-                        )
-                    } else {
-                        recordTapTrace(.finalized, touchKey: touchKey, binding: active.binding)
-                    }
-                    #endif
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
@@ -1591,18 +1523,10 @@ actor TouchProcessorEngine {
     }
 
     private func setActiveTouch(_ touchKey: TouchKey, _ active: ActiveTouch) {
-        #if DEBUG
-        let event: TapTraceEventType = touchStates.value(for: touchKey) == nil ? .created : .updated
-        recordTapTrace(event, touchKey: touchKey, binding: active.binding)
-        #endif
         touchStates.set(touchKey, .active(active))
     }
 
     private func setPendingTouch(_ touchKey: TouchKey, _ pending: PendingTouch) {
-        #if DEBUG
-        let event: TapTraceEventType = touchStates.value(for: touchKey) == nil ? .created : .updated
-        recordTapTrace(event, touchKey: touchKey, binding: pending.binding)
-        #endif
         touchStates.set(touchKey, .pending(pending))
     }
 
@@ -1957,15 +1881,6 @@ actor TouchProcessorEngine {
         #endif
         extendTypingGrace(for: binding.side, now: Self.now())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-        #if DEBUG
-        recordTapTrace(
-            .dispatched,
-            touchKey: touchKey,
-            binding: binding,
-            char: traceCharScalar(from: binding.label),
-            reason: .snapAccepted
-        )
-        #endif
         let modifierFlags = currentModifierFlags()
         let combinedFlags = flags.union(modifierFlags)
         var altAscii: UInt8 = 0
@@ -2014,26 +1929,6 @@ actor TouchProcessorEngine {
                     point: point,
                     rect: bindings.snapBindings[secondIndex].rect
                 )
-                #if DEBUG
-                let bestBinding = bindings.snapBindings[bestIndex]
-                let secondBinding = bindings.snapBindings[secondIndex]
-                let keyCell = traceKeyCell(for: bestBinding)
-                TapTrace.record(
-                    .snapAmbiguity,
-                    frame: tapTraceFrameIndex,
-                    touchKey: touchKey,
-                    keyRow: keyCell.row,
-                    keyCol: keyCell.col,
-                    keyCode: traceKeyCode(for: bestBinding),
-                    char: traceCharScalar(from: bestBinding.label),
-                    auxChar: traceCharScalar(from: secondBinding.label),
-                    aux0: bestDistanceSq,
-                    aux1: secondDistanceSq,
-                    aux2: bestEdgeDistance,
-                    aux3: secondEdgeDistance,
-                    reason: .snapAmbiguity
-                )
-                #endif
                 if secondEdgeDistance < bestEdgeDistance {
                     selectedIndex = secondIndex
                     alternateIndex = bestIndex
@@ -3056,16 +2951,6 @@ actor TouchProcessorEngine {
 #endif
             extendTypingGrace(for: binding.side, now: Self.now())
             playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-            #if DEBUG
-            if let touchKey {
-                recordTapTrace(
-                    .dispatched,
-                    touchKey: touchKey,
-                    binding: binding,
-                    char: traceCharScalar(from: binding.label)
-                )
-            }
-            #endif
             sendKey(code: code, flags: flags, side: binding.side)
         }
     }
@@ -3104,16 +2989,6 @@ actor TouchProcessorEngine {
         onDebugBindingDetected(binding)
 #endif
         extendTypingGrace(for: binding.side, now: Self.now())
-        #if DEBUG
-        if let touchKey {
-            recordTapTrace(
-                .dispatched,
-                touchKey: touchKey,
-                binding: binding,
-                char: traceCharScalar(from: binding.label)
-            )
-        }
-        #endif
         sendKey(code: code, flags: flags, side: binding.side)
     }
 
@@ -3409,23 +3284,6 @@ actor TouchProcessorEngine {
         if reason == .dragCancelled || reason == .pendingDragCancelled || reason == .forceCapExceeded {
             enterMouseIntentFromDragCancel()
         }
-        #if DEBUG
-        let binding: KeyBinding?
-        switch state {
-        case let .active(active):
-            binding = active.binding
-        case let .pending(pending):
-            binding = pending.binding
-        case .none:
-            binding = nil
-        }
-        recordTapTrace(
-            .disqualified,
-            touchKey: touchKey,
-            binding: binding,
-            reason: traceReason(for: reason)
-        )
-        #endif
     }
 
     private func enterMouseIntentFromDragCancel() {
@@ -3555,81 +3413,6 @@ actor TouchProcessorEngine {
     private static func now() -> TimeInterval {
         CACurrentMediaTime()
     }
-
-    #if DEBUG
-    @inline(__always)
-    private func recordTapTrace(
-        _ type: TapTraceEventType,
-        touchKey: TouchKey,
-        binding: KeyBinding?,
-        char: UInt32 = 0,
-        reason: TapTraceReasonCode = .none
-    ) {
-        let keyCell = traceKeyCell(for: binding)
-        let keyCode = traceKeyCode(for: binding)
-        TapTrace.record(
-            type,
-            frame: tapTraceFrameIndex,
-            touchKey: touchKey,
-            keyRow: keyCell.row,
-            keyCol: keyCell.col,
-            keyCode: keyCode,
-            char: char,
-            reason: reason
-        )
-    }
-
-    @inline(__always)
-    private func traceKeyCell(for binding: KeyBinding?) -> (row: Int16, col: Int16) {
-        guard let position = binding?.position else { return (-1, -1) }
-        let row = Int16(clamping: position.row)
-        let col = Int16(clamping: position.column)
-        return (row, col)
-    }
-
-    @inline(__always)
-    private func traceCharScalar(from label: String) -> UInt32 {
-        guard label.unicodeScalars.count == 1, let scalar = label.unicodeScalars.first else {
-            return 0
-        }
-        return scalar.value
-    }
-
-    @inline(__always)
-    private func traceKeyCode(for binding: KeyBinding?) -> Int16 {
-        guard let binding else { return -1 }
-        switch binding.action {
-        case let .key(code, _):
-            return Int16(truncatingIfNeeded: code)
-        default:
-            return -1
-        }
-    }
-
-    @inline(__always)
-    private func traceReason(for reason: DisqualifyReason) -> TapTraceReasonCode {
-        switch reason {
-        case .dragCancelled:
-            return .dragCancelled
-        case .pendingDragCancelled:
-            return .pendingDragCancelled
-        case .leftContinuousRect:
-            return .leftContinuousRect
-        case .leftKeyRect, .pendingLeftRect:
-            return .disqualifiedMove
-        case .typingDisabled:
-            return .typingDisabled
-        case .forceCapExceeded:
-            return .forceCapExceeded
-        case .intentMouse:
-            return .intentMouse
-        case .offKeyNoSnap:
-            return .offKeyNoSnap
-        case .momentaryLayerCancelled:
-            return .momentaryLayerCancelled
-        }
-    }
-    #endif
 
     private func notifyContactCounts() {
         guard contactFingerCountsBySide != lastReportedContactCounts else { return }

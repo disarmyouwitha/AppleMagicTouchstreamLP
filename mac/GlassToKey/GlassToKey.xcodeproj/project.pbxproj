@@ -22,7 +22,6 @@
 		D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C6D7E8F9012345 /* TrackpadLayoutPreset.swift */; };
 		3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D5BB43B585451E9D83C8ED /* MobileLayout.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */; };
-		B5E3C9A51F3B7D2200A1B2C3 /* TapTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E3C9A41F3B7D2200A1B2C3 /* TapTrace.swift */; };
 		C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */; };
 		C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */; };
 		C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */; };
@@ -48,7 +47,6 @@
 		77292A972B931D60001CA3F6 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyDefaultsKeys.swift; sourceTree = "<group>"; };
-		B5E3C9A41F3B7D2200A1B2C3 /* TapTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapTrace.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewriteFeatureFlags.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeContracts.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRuntimeService.swift; sourceTree = "<group>"; };
@@ -103,7 +101,6 @@
 				D1E2F3A4B5C6D7E8F9012345 /* TrackpadLayoutPreset.swift */,
 				21D5BB43B585451E9D83C8ED /* MobileLayout.swift */,
 				77292A972B931D60001CA3F6 /* ContentViewModel.swift */,
-				B5E3C9A41F3B7D2200A1B2C3 /* TapTrace.swift */,
 				E0B1C2D3E4F5678901234567 /* KeyEventDispatcher.swift */,
 				F1A2B3C4D5E6F708192A3B4D /* VoiceDictationManager.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */,
@@ -231,7 +228,6 @@
 				3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */,
 				31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */,
-				B5E3C9A51F3B7D2200A1B2C3 /* TapTrace.swift in Sources */,
 				C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,

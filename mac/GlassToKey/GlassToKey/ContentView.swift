@@ -74,11 +74,6 @@ struct ContentView: View {
     @StateObject private var viewModel: ContentViewModel
     @State private var testText = ""
     @State private var editModeEnabled = false
-#if DEBUG
-    @State private var tapTraceDumpInProgress = false
-    @State private var tapTraceDumpStatus: String?
-    @State private var tapTraceDumpStatusToken = UUID()
-#endif
     @State private var columnSettings: [ColumnLayoutSettings]
     @State private var leftLayout: ContentViewModel.Layout
     @State private var rightLayout: ContentViewModel.Layout
@@ -439,22 +434,6 @@ struct ContentView: View {
 
     @ViewBuilder
     private var headerView: some View {
-#if DEBUG
-        HeaderControlsView(
-            editModeEnabled: $editModeEnabled,
-            layerToggleBinding: layerToggleBinding,
-            leftContactCount: viewModel.contactFingerCountsBySide.left,
-            rightContactCount: viewModel.contactFingerCountsBySide.right,
-            intentDisplay: viewModel.intentDisplayBySide.left,
-            voiceGestureActive: viewModel.voiceGestureActive,
-            voiceDebugStatus: viewModel.voiceDebugStatus,
-            onImportKeymap: importKeymap,
-            onExportKeymap: exportKeymap,
-            tapTraceDumpInProgress: tapTraceDumpInProgress,
-            tapTraceDumpStatus: tapTraceDumpStatus,
-            onDumpTapTrace: dumpTapTrace
-        )
-#else
         HeaderControlsView(
             editModeEnabled: $editModeEnabled,
             layerToggleBinding: layerToggleBinding,
@@ -466,7 +445,6 @@ struct ContentView: View {
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
         )
-#endif
     }
 
     private var contentRow: some View {
@@ -560,11 +538,6 @@ struct ContentView: View {
         let voiceDebugStatus: String?
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
-#if DEBUG
-        let tapTraceDumpInProgress: Bool
-        let tapTraceDumpStatus: String?
-        let onDumpTapTrace: () -> Void
-#endif
 
         var body: some View {
             HStack(spacing: 12) {
@@ -584,18 +557,6 @@ struct ContentView: View {
                     }
                 }
                 Spacer()
-#if DEBUG
-                if let tapTraceDumpStatus {
-                    Text(tapTraceDumpStatus)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Button(tapTraceDumpInProgress ? "Dumping..." : "Dump Tap Trace") {
-                    onDumpTapTrace()
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapTraceDumpInProgress)
-#endif
                 Button("Import keymap") {
                     onImportKeymap()
                 }
@@ -873,45 +834,6 @@ struct ContentView: View {
             .frame(width: 420)
         }
     }
-
-#if DEBUG
-    private func dumpTapTrace() {
-        tapTraceDumpInProgress = true
-        tapTraceDumpStatus = nil
-        let queue = DispatchQueue.global(qos: .utility)
-        queue.async {
-            do {
-                let url = TapTrace.defaultDumpURL()
-                try TapTrace.dumpJSONL(to: url)
-                let path = url.path
-                DispatchQueue.main.async {
-                    tapTraceDumpInProgress = false
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(path, forType: .string)
-                    showTapTraceStatus("Path copied to clipboard")
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    tapTraceDumpInProgress = false
-                    showTapTraceStatus("Dump failed")
-                    NSLog("Tap trace dump failed: %@", error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    private func showTapTraceStatus(_ message: String) {
-        tapTraceDumpStatus = message
-        let token = UUID()
-        tapTraceDumpStatusToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            if tapTraceDumpStatusToken == token {
-                tapTraceDumpStatus = nil
-            }
-        }
-    }
-#endif
 
     private struct DevicesSectionView: View {
         let availableDevices: [OMSDeviceInfo]
