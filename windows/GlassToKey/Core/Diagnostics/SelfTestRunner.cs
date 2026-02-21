@@ -23,6 +23,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Replay tests failed: {replayFailure}");
         }
 
+        if (!RunAtpCapV3ReplayTests(out string replayV3Failure))
+        {
+            return new SelfTestResult(false, $"Replay v3 tests failed: {replayV3Failure}");
+        }
+
         if (!RunEngineIntentTests(out string intentFailure))
         {
             return new SelfTestResult(false, $"Engine intent tests failed: {intentFailure}");
@@ -765,7 +770,7 @@ internal static class SelfTestRunner
                 Info: new RawInputDeviceInfo(VendorId: 0x8910, ProductId: 0x0265, UsagePage: RawInputInterop.UsagePageDigitizer, Usage: RawInputInterop.UsageTouchpad),
                 Tag: new RawInputDeviceTag(Index: 0, Hash: 0x00ABCDEF));
 
-            using (InputCaptureWriter writer = new(capturePath))
+            using (InputCaptureWriter writer = new(capturePath, writeVersion: InputCaptureFile.LegacyVersion))
             {
                 Span<byte> valid = stackalloc byte[PtpReport.ExpectedSize];
                 valid[0] = RawInputInterop.ReportIdMultitouch;
@@ -866,6 +871,72 @@ internal static class SelfTestRunner
             if (!validated.Success)
             {
                 failure = "fixture replay validation failed";
+                return false;
+            }
+        }
+        finally
+        {
+            if (Directory.Exists(tempRoot))
+            {
+                Directory.Delete(tempRoot, recursive: true);
+            }
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunAtpCapV3ReplayTests(out string failure)
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), "GlassToKeySelfTestV3", Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(tempRoot);
+        string capturePath = Path.Combine(tempRoot, "fixture-v3.atpcap");
+        try
+        {
+            RawInputDeviceSnapshot snapshot = new(
+                DeviceName: "selftest-device-v3",
+                Info: new RawInputDeviceInfo(VendorId: 0x8910, ProductId: 0x0265, UsagePage: RawInputInterop.UsagePageDigitizer, Usage: RawInputInterop.UsageTouchpad),
+                Tag: new RawInputDeviceTag(Index: 0, Hash: 0x00A1B2C3));
+
+            using (InputCaptureWriter writer = new(capturePath))
+            {
+                InputFrame first = MakeFrame(contactCount: 1, id0: 7, x0: 1200, y0: 2000);
+                first.ArrivalQpcTicks = 100;
+                writer.WriteFrameV3(snapshot, in first, arrivalQpcTicks: 100, sideHint: CaptureSideHint.Left);
+
+                InputFrame second = MakeFrame(contactCount: 1, id0: 7, x0: 1500, y0: 2300);
+                second.ArrivalQpcTicks = 200;
+                second.SetContact(0, new ContactFrame(7, 1500, 2300, 0x01));
+                writer.WriteFrameV3(snapshot, in second, arrivalQpcTicks: 200, sideHint: CaptureSideHint.Left);
+            }
+
+            using (InputCaptureReader reader = new(capturePath))
+            {
+                if (reader.HeaderVersion != InputCaptureFile.CurrentWriteVersion)
+                {
+                    failure = $"expected ATPCAP v3 header, got v{reader.HeaderVersion}";
+                    return false;
+                }
+            }
+
+            ReplayRunner replay = new();
+            ReplayRunResult replayResult = replay.Run(capturePath, fixturePath: null);
+            if (!replayResult.Success)
+            {
+                failure = "v3 replay determinism failed";
+                return false;
+            }
+
+            if (replayResult.FirstPass.Metrics.FramesParsed <= 0 || replayResult.FirstPass.Metrics.FramesDispatched <= 0)
+            {
+                failure = "v3 replay did not parse/dispatch frames";
+                return false;
+            }
+
+            RawCaptureAnalysisResult analysis = RawCaptureAnalyzer.Analyze(capturePath);
+            if (analysis.RecordsDecoded <= 0 || analysis.Signatures.Length == 0)
+            {
+                failure = "v3 raw analysis did not decode any RFV3 frames";
                 return false;
             }
         }

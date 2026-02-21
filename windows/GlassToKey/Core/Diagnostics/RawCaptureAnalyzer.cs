@@ -243,6 +243,8 @@ internal static class RawCaptureAnalyzer
         int recordsRead = 0;
         int recordsDecoded = 0;
         int frameIndex = 0;
+        bool hasLastV3Arrival = false;
+        long lastV3ArrivalTicks = 0;
 
         StreamWriter? contactsWriter = null;
         if (!string.IsNullOrWhiteSpace(contactsCsvPath))
@@ -265,6 +267,18 @@ internal static class RawCaptureAnalyzer
             {
                 recordsRead++;
                 ReadOnlySpan<byte> payload = record.Payload.Span;
+                if (reader.HeaderVersion == InputCaptureFile.CurrentWriteVersion &&
+                    record.DeviceIndex == AtpCapV3Payload.MetaDeviceIndex)
+                {
+                    if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                    {
+                        throw new InvalidDataException("Invalid ATPCAP v3 meta payload.");
+                    }
+
+                    frameIndex++;
+                    continue;
+                }
+
                 if (payload.Length == 0)
                 {
                     frameIndex++;
@@ -285,20 +299,63 @@ internal static class RawCaptureAnalyzer
                     signatures[signature] = stats;
                 }
 
-                RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-                TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                    ? TrackpadDecoderProfile.Legacy
-                    : TrackpadDecoderProfile.Official;
-                bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decodeResult);
-                if (decoded)
+                if (reader.HeaderVersion == InputCaptureFile.LegacyVersion)
                 {
-                    recordsDecoded++;
-                }
+                    RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+                    TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                        ? TrackpadDecoderProfile.Legacy
+                        : TrackpadDecoderProfile.Official;
+                    bool decoded = TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decodeResult);
+                    if (decoded)
+                    {
+                        recordsDecoded++;
+                    }
 
-                stats.Add(payload, decoded, decodeResult);
-                if (contactsWriter != null && decoded)
+                    stats.Add(payload, decoded, decodeResult);
+                    if (contactsWriter != null && decoded)
+                    {
+                        WriteContactTraceRows(contactsWriter, frameIndex, record, payload, decodeResult);
+                    }
+                }
+                else if (reader.HeaderVersion == InputCaptureFile.CurrentWriteVersion)
                 {
-                    WriteContactTraceRows(contactsWriter, frameIndex, record, payload, decodeResult);
+                    if (hasLastV3Arrival && record.ArrivalQpcTicks < lastV3ArrivalTicks)
+                    {
+                        throw new InvalidDataException("ATPCAP v3 frame arrivalTicks must be monotonic non-decreasing.");
+                    }
+
+                    hasLastV3Arrival = true;
+                    lastV3ArrivalTicks = record.ArrivalQpcTicks;
+
+                    bool decoded = AtpCapV3Payload.TryParseFrame(payload, out AtpCapV3Frame parsedFrame);
+                    if (decoded)
+                    {
+                        recordsDecoded++;
+                        InputFrame frame = AtpCapV3Payload.ToInputFrame(
+                            parsedFrame,
+                            record.ArrivalQpcTicks,
+                            RuntimeConfigurationFactory.DefaultMaxX,
+                            RuntimeConfigurationFactory.DefaultMaxY);
+                        TrackpadDecodeResult decodeResult = new(
+                            TrackpadReportKind.Unknown,
+                            PayloadOffset: 0,
+                            SourceReportId: AtpCapV3Payload.ReportIdMarker,
+                            Profile: TrackpadDecoderProfile.Official,
+                            Frame: frame);
+                        stats.Add(payload, decoded: true, decodeResult);
+                        if (contactsWriter != null)
+                        {
+                            WriteV3ContactTraceRows(contactsWriter, frameIndex, record, payload, in frame);
+                        }
+                    }
+                    else
+                    {
+                        stats.Add(payload, decoded: false, decodeResult: default);
+                    }
+                }
+                else
+                {
+                    throw new InvalidDataException($"Capture version {reader.HeaderVersion} is unsupported.");
                 }
 
                 frameIndex++;
@@ -434,6 +491,77 @@ internal static class RawCaptureAnalyzer
             writer.Write(hasSlotBytes ? slotOffset.ToString(CultureInfo.InvariantCulture) : string.Empty);
             writer.Write(',');
             writer.Write(slotHex);
+            writer.WriteLine();
+        }
+    }
+
+    private static void WriteV3ContactTraceRows(
+        TextWriter writer,
+        int frameIndex,
+        in CaptureRecord record,
+        ReadOnlySpan<byte> payload,
+        in InputFrame frame)
+    {
+        int decodedCount = frame.GetClampedContactCount();
+        if (decodedCount <= 0)
+        {
+            return;
+        }
+
+        for (int i = 0; i < decodedCount; i++)
+        {
+            ContactFrame decodedContact = frame.GetContact(i);
+            writer.Write(frameIndex.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("Rfv3");
+            writer.Write(',');
+            writer.Write(TrackpadDecoderProfile.Official.ToString());
+            writer.Write(',');
+            writer.Write("0");
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(((ushort)record.VendorId).ToString("X4", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(((ushort)record.ProductId).ToString("X4", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(record.UsagePage.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(record.Usage.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(AtpCapV3Payload.ReportIdMarker.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(payload.Length.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(frame.ScanTime.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodedCount.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(frame.IsButtonClicked.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write(i.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(decodedContact.Id.ToString("X8", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write("0x");
+            writer.Write(decodedContact.Flags.ToString("X2", CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write(',');
+            writer.Write(decodedContact.X.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(decodedContact.Y.ToString(CultureInfo.InvariantCulture));
+            writer.Write(',');
+            writer.Write(',');
             writer.WriteLine();
         }
     }

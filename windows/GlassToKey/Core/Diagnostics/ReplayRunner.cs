@@ -73,30 +73,75 @@ internal sealed class ReplayRunner
 
         bool hasBaseQpc = false;
         long baseQpcTicks = 0;
+        bool hasLastArrival = false;
+        long lastArrivalTicks = 0;
         while (reader.TryReadNext(out CaptureRecord record))
         {
             long started = Stopwatch.GetTimestamp();
             metrics.RecordSeen();
 
             ReadOnlySpan<byte> payload = record.Payload.Span;
-            if (payload.Length == 0)
+            InputFrame frame;
+            switch (reader.HeaderVersion)
             {
-                metrics.RecordDropped(FrameDropReason.InvalidReportSize);
-                continue;
-            }
+                case InputCaptureFile.LegacyVersion:
+                {
+                    if (payload.Length == 0)
+                    {
+                        metrics.RecordDropped(FrameDropReason.InvalidReportSize);
+                        continue;
+                    }
 
-            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
-            {
-                metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
-                continue;
+                    RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+                    TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                        ? TrackpadDecoderProfile.Legacy
+                        : TrackpadDecoderProfile.Official;
+                    if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+                    {
+                        metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
+                        continue;
+                    }
+
+                    frame = decoded.Frame;
+                    break;
+                }
+                case InputCaptureFile.CurrentWriteVersion:
+                {
+                    if (record.DeviceIndex == AtpCapV3Payload.MetaDeviceIndex)
+                    {
+                        if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                        {
+                            throw new InvalidDataException("Invalid ATPCAP v3 meta payload.");
+                        }
+
+                        continue;
+                    }
+
+                    if (record.DeviceIndex < 0)
+                    {
+                        throw new InvalidDataException($"Invalid ATPCAP v3 device index {record.DeviceIndex}.");
+                    }
+
+                    if (!AtpCapV3Payload.TryParseFrame(payload, out AtpCapV3Frame parsedFrame))
+                    {
+                        throw new InvalidDataException("Invalid ATPCAP v3 frame payload.");
+                    }
+
+                    if (hasLastArrival && record.ArrivalQpcTicks < lastArrivalTicks)
+                    {
+                        throw new InvalidDataException("ATPCAP v3 frame arrivalTicks must be monotonic non-decreasing.");
+                    }
+
+                    hasLastArrival = true;
+                    lastArrivalTicks = record.ArrivalQpcTicks;
+                    frame = AtpCapV3Payload.ToInputFrame(parsedFrame, record.ArrivalQpcTicks, DefaultMaxX, DefaultMaxY);
+                    break;
+                }
+                default:
+                    throw new InvalidDataException($"Capture version {reader.HeaderVersion} is unsupported.");
             }
 
             metrics.RecordParsed();
-            InputFrame frame = decoded.Frame;
             TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint);
 
             if (!hasBaseQpc)

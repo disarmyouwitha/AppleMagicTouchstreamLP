@@ -60,7 +60,7 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--maxx <value>` / `--maxy <value>`: Force coordinate scaling.
 - `--config`: Open config visualizer on startup (live runtime remains tray-hosted).
 - `--list`: Print available trackpad interfaces.
-- `--capture <path>`: Write captured reports to binary `.atpcap` format.
+- `--capture <path>`: Write captured reports to binary `.atpcap` format (ATPCAP v3 / RFV3 payloads).
 - `--replay <capturePath>`: Replay a capture without opening the UI.
 - `--replay-ui`: When used with `--replay`, opens UI playback mode (instead of headless replay).
   - Capture/replay UI sessions launch maximized for full-screen inspection.
@@ -71,16 +71,20 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--replay-trace-out <path>`: Write detailed replay trace JSON (intent transitions, dispatch events, diagnostics).
   - Dispatch events/diagnostics include `dispatchLabel` (for example `A`, `TypingToggle`, `Ctrl+C`, `ChordShift`) for direct intent debugging.
   - Diagnostics include `ReleaseDropped` reasons (`drag_cancel`, `off_key_no_snap`, `hold_consumed`) when a touch release does not emit a key dispatch.
-- `--raw-analyze <capturePath>`: Analyze captured raw HID packets and print report signatures + decode classification, including slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`, up/down and edge-frame snapshots) for official decoded PTP contacts.
+- `--raw-analyze <capturePath>`: Analyze capture records and print report signatures + decode classification.
+  - v2 captures include deep HID/PTP slot-byte lifecycle stats (`+1/+6/+7/+8`) and button-correlated slot summaries (`+6/+7/+8`).
+  - v3 captures analyze RFV3 frame payloads (normalized contacts) and omit raw HID-only slot semantics.
 - `--raw-analyze-out <path>`: Write raw analysis JSON output.
-- `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames (raw PTP ID/flags/XY alongside assigned decoded ID/flags/XY + slot hex + decoded/raw button/scan/contact-tail fields).
+- `--raw-analyze-contacts-out <path>`: Write per-contact CSV rows for decoded frames.
+  - v2 rows include raw PTP ID/flags/XY and slot-byte hex fields.
+  - v3 rows include decoded RFV3 contacts with raw HID-only columns left empty.
 - `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, five-finger swipe) and exit.
 
 ### Self-Tests
 - Entry point: `Core/Diagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --selftest`).
 - Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, and five-finger swipe toggle behavior.
 - Data source is primarily synthetic and deterministic: tests build `InputFrame` sequences in memory and assert emitted snapshots/events.
-- Replay self-tests also generate a temporary synthetic `.atpcap` capture on disk, then replay and validate expected fingerprints/counters.
+- Replay self-tests generate temporary synthetic `.atpcap` captures (v2 + v3), then replay and validate deterministic fingerprints/counters.
 - Recorded captures are still supported for manual or fixture-based replay via `--capture`, `--replay`, and `--fixture`, but they are not required for the built-in self-test pass.
 
 ### Generate Replay Fixture From Capture
@@ -100,6 +104,6 @@ Notes:
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
 - `.atpcap` records embed side hints (`left`/`right`/`unknown`) and decoder profile (`official`/`opensource`) metadata for deterministic replay routing.
-- Current capture format version is `2` (`ATPCAP01` + v2 record headers); replay expects v2 captures.
+- Current capture write format version is `3` (`ATPCAP01` + RFV3 frame payload records + meta record); replay supports both v2 and v3 captures.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
 

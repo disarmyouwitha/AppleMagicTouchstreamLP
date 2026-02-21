@@ -4009,11 +4009,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             try
             {
                 TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
-                _captureWriter?.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     _liveMetrics.RecordDropped(FrameDropReason.NonMultitouchReport);
                     continue;
+                }
+
+                if (_captureWriter != null)
+                {
+                    if (_captureWriter.WriteVersion == InputCaptureFile.CurrentWriteVersion)
+                    {
+                        InputFrame captureFrame = decoded.Frame;
+                        _captureWriter.WriteFrameV3(snapshot, in captureFrame, started, sideHint);
+                    }
+                    else
+                    {
+                        _captureWriter.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
+                    }
                 }
 
                 TraceDecoderSelection(snapshot, reportSpan, decoderProfile, decoded, leftMatch, rightMatch);

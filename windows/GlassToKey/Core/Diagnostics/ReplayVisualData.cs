@@ -48,26 +48,78 @@ internal static class ReplayVisualLoader
         int droppedNonMultitouch = 0;
         int droppedParseError = 0;
         long firstArrivalTicks = -1;
+        bool hasLastArrival = false;
+        long lastArrivalTicks = 0;
 
         using InputCaptureReader reader = new(fullPath);
         while (reader.TryReadNext(out CaptureRecord record))
         {
             recordsRead++;
             ReadOnlySpan<byte> payload = record.Payload.Span;
-            if (payload.Length == 0)
+            InputFrame frame;
+            switch (reader.HeaderVersion)
             {
-                droppedInvalidSize++;
-                continue;
-            }
+                case InputCaptureFile.LegacyVersion:
+                {
+                    if (payload.Length == 0)
+                    {
+                        droppedInvalidSize++;
+                        continue;
+                    }
 
-            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
-            {
-                droppedNonMultitouch++;
-                continue;
+                    RawInputDeviceInfo v2Info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+                    TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                        ? TrackpadDecoderProfile.Legacy
+                        : TrackpadDecoderProfile.Official;
+                    if (!TrackpadReportDecoder.TryDecode(payload, v2Info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+                    {
+                        droppedNonMultitouch++;
+                        continue;
+                    }
+
+                    frame = decoded.Frame;
+                    break;
+                }
+                case InputCaptureFile.CurrentWriteVersion:
+                {
+                    if (record.DeviceIndex == AtpCapV3Payload.MetaDeviceIndex)
+                    {
+                        if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                        {
+                            droppedParseError++;
+                        }
+
+                        continue;
+                    }
+
+                    if (payload.Length == 0)
+                    {
+                        droppedInvalidSize++;
+                        continue;
+                    }
+
+                    if (!AtpCapV3Payload.TryParseFrame(payload, out AtpCapV3Frame parsedFrame))
+                    {
+                        droppedParseError++;
+                        continue;
+                    }
+
+                    if (hasLastArrival && record.ArrivalQpcTicks < lastArrivalTicks)
+                    {
+                        throw new InvalidDataException("ATPCAP v3 frame arrivalTicks must be monotonic non-decreasing.");
+                    }
+
+                    hasLastArrival = true;
+                    lastArrivalTicks = record.ArrivalQpcTicks;
+                    frame = AtpCapV3Payload.ToInputFrame(
+                        parsedFrame,
+                        record.ArrivalQpcTicks,
+                        RuntimeConfigurationFactory.DefaultMaxX,
+                        RuntimeConfigurationFactory.DefaultMaxY);
+                    break;
+                }
+                default:
+                    throw new InvalidDataException($"Capture version {reader.HeaderVersion} is unsupported.");
             }
 
             framesParsed++;
@@ -84,9 +136,9 @@ internal static class ReplayVisualLoader
 
             long offsetStopwatchTicks = (long)Math.Round(captureOffsetTicks * (double)Stopwatch.Frequency / reader.HeaderQpcFrequency);
             RawInputDeviceTag tag = new(record.DeviceIndex, record.DeviceHash);
+            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
             string replayDeviceName = $"replay://dev/{tag.Index}/{tag.Hash:X8}";
             RawInputDeviceSnapshot snapshot = new(replayDeviceName, info, tag);
-            InputFrame frame = decoded.Frame;
             frames.Add(new ReplayVisualFrame(offsetStopwatchTicks, snapshot, frame));
 
             (int, uint) key = (tag.Index, tag.Hash);

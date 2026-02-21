@@ -9,16 +9,17 @@ internal static class InputCaptureFile
 {
     public const int HeaderSize = 20;
     public const int RecordHeaderSize = 34;
-    public const int CurrentVersion = 2;
+    public const int LegacyVersion = 2;
+    public const int CurrentWriteVersion = 3;
 
     private static readonly byte[] s_magic = Encoding.ASCII.GetBytes("ATPCAP01");
 
-    public static void WriteHeader(Stream stream)
+    public static void WriteHeader(Stream stream, int version = CurrentWriteVersion, long? tickFrequency = null)
     {
         Span<byte> header = stackalloc byte[HeaderSize];
         s_magic.CopyTo(header);
-        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), CurrentVersion);
-        BinaryPrimitives.WriteInt64LittleEndian(header.Slice(12, 8), System.Diagnostics.Stopwatch.Frequency);
+        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), version);
+        BinaryPrimitives.WriteInt64LittleEndian(header.Slice(12, 8), tickFrequency.GetValueOrDefault(System.Diagnostics.Stopwatch.Frequency));
         stream.Write(header);
     }
 
@@ -42,6 +43,11 @@ internal static class InputCaptureFile
         version = BinaryPrimitives.ReadInt32LittleEndian(header.Slice(8, 4));
         qpcFrequency = BinaryPrimitives.ReadInt64LittleEndian(header.Slice(12, 8));
         return true;
+    }
+
+    public static bool IsSupportedReadVersion(int version)
+    {
+        return version == LegacyVersion || version == CurrentWriteVersion;
     }
 
     private static bool TryReadExact(Stream stream, Span<byte> destination)
@@ -84,19 +90,34 @@ internal enum CaptureSideHint : byte
 internal sealed class InputCaptureWriter : IDisposable
 {
     private readonly FileStream _stream;
+    private readonly int _writeVersion;
+    private ulong _v3Sequence = 1;
     private bool _disposed;
 
-    public InputCaptureWriter(string path)
+    public InputCaptureWriter(string path, int writeVersion = InputCaptureFile.CurrentWriteVersion)
     {
+        if (writeVersion != InputCaptureFile.LegacyVersion &&
+            writeVersion != InputCaptureFile.CurrentWriteVersion)
+        {
+            throw new ArgumentOutOfRangeException(nameof(writeVersion), $"Unsupported capture write version {writeVersion}.");
+        }
+
         string? directory = Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
         }
 
+        _writeVersion = writeVersion;
         _stream = new FileStream(path, FileMode.Create, FileAccess.Write, FileShare.Read, 64 * 1024, FileOptions.SequentialScan);
-        InputCaptureFile.WriteHeader(_stream);
+        InputCaptureFile.WriteHeader(_stream, _writeVersion);
+        if (_writeVersion == InputCaptureFile.CurrentWriteVersion)
+        {
+            WriteV3MetaRecord();
+        }
     }
+
+    public int WriteVersion => _writeVersion;
 
     public void WriteFrame(
         in RawInputDeviceSnapshot snapshot,
@@ -110,19 +131,107 @@ internal sealed class InputCaptureWriter : IDisposable
             throw new ObjectDisposedException(nameof(InputCaptureWriter));
         }
 
+        if (_writeVersion != InputCaptureFile.LegacyVersion)
+        {
+            throw new InvalidOperationException("Raw HID payload writes are only valid for ATPCAP v2.");
+        }
+
+        byte decoderProfileByte = decoderProfile == TrackpadDecoderProfile.Legacy
+            ? (byte)TrackpadDecoderProfile.Legacy
+            : (byte)TrackpadDecoderProfile.Official;
+        WriteRecord(
+            payload,
+            arrivalQpcTicks,
+            snapshot.Tag.Index,
+            snapshot.Tag.Hash,
+            snapshot.Info.VendorId,
+            snapshot.Info.ProductId,
+            snapshot.Info.UsagePage,
+            snapshot.Info.Usage,
+            sideHint,
+            decoderProfileByte);
+    }
+
+    public void WriteFrameV3(
+        in RawInputDeviceSnapshot snapshot,
+        in InputFrame frame,
+        long arrivalQpcTicks,
+        CaptureSideHint sideHint = CaptureSideHint.Unknown)
+    {
+        if (_disposed)
+        {
+            throw new ObjectDisposedException(nameof(InputCaptureWriter));
+        }
+
+        if (_writeVersion != InputCaptureFile.CurrentWriteVersion)
+        {
+            throw new InvalidOperationException("RFV3 frame writes are only valid for ATPCAP v3.");
+        }
+
+        ulong deviceNumericId = ((ulong)(uint)snapshot.Tag.Index << 32) | snapshot.Tag.Hash;
+        byte[] payload = AtpCapV3Payload.EncodeFramePayload(
+            in frame,
+            _v3Sequence,
+            deviceNumericId,
+            RuntimeConfigurationFactory.DefaultMaxX,
+            RuntimeConfigurationFactory.DefaultMaxY);
+        _v3Sequence++;
+
+        WriteRecord(
+            payload,
+            arrivalQpcTicks,
+            snapshot.Tag.Index,
+            snapshot.Tag.Hash,
+            snapshot.Info.VendorId,
+            snapshot.Info.ProductId,
+            snapshot.Info.UsagePage,
+            snapshot.Info.Usage,
+            sideHint,
+            decoderProfile: 0);
+    }
+
+    private void WriteV3MetaRecord()
+    {
+        byte[] payload = AtpCapV3Payload.CreateMetaPayload(
+            platform: "windows",
+            source: "GlassToKeyCapture",
+            framesCaptured: 0);
+        WriteRecord(
+            payload,
+            arrivalQpcTicks: 0,
+            deviceIndex: AtpCapV3Payload.MetaDeviceIndex,
+            deviceHash: 0,
+            vendorId: 0,
+            productId: 0,
+            usagePage: 0,
+            usage: 0,
+            sideHint: CaptureSideHint.Unknown,
+            decoderProfile: 0);
+    }
+
+    private void WriteRecord(
+        ReadOnlySpan<byte> payload,
+        long arrivalQpcTicks,
+        int deviceIndex,
+        uint deviceHash,
+        uint vendorId,
+        uint productId,
+        ushort usagePage,
+        ushort usage,
+        CaptureSideHint sideHint,
+        byte decoderProfile)
+    {
         Span<byte> header = stackalloc byte[InputCaptureFile.RecordHeaderSize];
         BinaryPrimitives.WriteInt32LittleEndian(header.Slice(0, 4), payload.Length);
         BinaryPrimitives.WriteInt64LittleEndian(header.Slice(4, 8), arrivalQpcTicks);
-        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(12, 4), snapshot.Tag.Index);
-        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(16, 4), snapshot.Tag.Hash);
-        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(20, 4), snapshot.Info.VendorId);
-        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(24, 4), snapshot.Info.ProductId);
-        BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(28, 2), snapshot.Info.UsagePage);
-        BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(30, 2), snapshot.Info.Usage);
+        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(12, 4), deviceIndex);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(16, 4), deviceHash);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(20, 4), vendorId);
+        BinaryPrimitives.WriteUInt32LittleEndian(header.Slice(24, 4), productId);
+        BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(28, 2), usagePage);
+        BinaryPrimitives.WriteUInt16LittleEndian(header.Slice(30, 2), usage);
         header[32] = (byte)sideHint;
-        header[33] = decoderProfile == TrackpadDecoderProfile.Legacy
-            ? (byte)TrackpadDecoderProfile.Legacy
-            : (byte)TrackpadDecoderProfile.Official;
+        header[33] = decoderProfile;
         _stream.Write(header);
         _stream.Write(payload);
     }
@@ -153,14 +262,21 @@ internal sealed class InputCaptureReader : IDisposable
             throw new InvalidDataException("Capture header is invalid.");
         }
 
-        if (version != InputCaptureFile.CurrentVersion)
+        if (!InputCaptureFile.IsSupportedReadVersion(version))
         {
             throw new InvalidDataException($"Capture version {version} is unsupported.");
         }
 
+        if (qpcFrequency <= 0)
+        {
+            throw new InvalidDataException($"Capture tick frequency {qpcFrequency} is invalid.");
+        }
+
+        HeaderVersion = version;
         HeaderQpcFrequency = qpcFrequency;
     }
 
+    public int HeaderVersion { get; }
     public long HeaderQpcFrequency { get; }
 
     public bool TryReadNext(out CaptureRecord record)
