@@ -1,6 +1,6 @@
 import Foundation
 
-public struct ReplayFixtureMeta: Sendable {
+public struct ReplayFixtureMeta: Sendable, Equatable {
     public let schema: String
     public let capturedAt: String
     public let platform: String
@@ -16,7 +16,7 @@ public struct ReplayFixtureMeta: Sendable {
     }
 }
 
-public struct ReplayContactRecord: Sendable {
+public struct ReplayContactRecord: Sendable, Equatable {
     public let id: Int
     public let x: Double
     public let y: Double
@@ -53,7 +53,7 @@ public struct ReplayContactRecord: Sendable {
     }
 }
 
-public struct ReplayFrameRecord: Sendable {
+public struct ReplayFrameRecord: Sendable, Equatable {
     public let seq: Int
     public let timestampSec: Double
     public let deviceID: String
@@ -78,7 +78,7 @@ public struct ReplayFrameRecord: Sendable {
     }
 }
 
-public struct ReplayFixture: Sendable {
+public struct ReplayFixture: Sendable, Equatable {
     public let meta: ReplayFixtureMeta
     public let frames: [ReplayFrameRecord]
 
@@ -99,6 +99,9 @@ public enum ReplayFixtureError: Error, Equatable, CustomStringConvertible {
     case invalidTouchCount(line: Int, expected: Int, actual: Int)
     case invalidState(line: Int, state: String)
     case metaFrameCountMismatch(expected: Int, actual: Int)
+    case invalidATPCapture(reason: String)
+    case unsupportedATPCaptureVersion(actual: Int32)
+    case invalidStateEncoding(state: String)
 
     public var description: String {
         switch self {
@@ -122,6 +125,12 @@ public enum ReplayFixtureError: Error, Equatable, CustomStringConvertible {
             return "invalid canonical state '\(state)' at line \(line)"
         case let .metaFrameCountMismatch(expected, actual):
             return "meta framesCaptured mismatch: expected \(expected), got \(actual)"
+        case let .invalidATPCapture(reason):
+            return "invalid atpcap: \(reason)"
+        case let .unsupportedATPCaptureVersion(actual):
+            return "unsupported atpcap version \(actual)"
+        case let .invalidStateEncoding(state):
+            return "cannot encode non-canonical state '\(state)'"
         }
     }
 }
@@ -129,7 +138,7 @@ public enum ReplayFixtureError: Error, Equatable, CustomStringConvertible {
 public enum ReplayFixtureParser {
     public static let schema = "g2k-replay-v1"
 
-    public static let canonicalStates: Set<String> = [
+    public static let canonicalStateOrder: [String] = [
         "notTouching",
         "starting",
         "hovering",
@@ -139,10 +148,43 @@ public enum ReplayFixtureParser {
         "lingering",
         "leaving"
     ]
+    public static let canonicalStates: Set<String> = Set(canonicalStateOrder)
+    private static let canonicalStateCodeByName: [String: UInt8] = {
+        var map: [String: UInt8] = [:]
+        map.reserveCapacity(canonicalStateOrder.count)
+        for (index, label) in canonicalStateOrder.enumerated() {
+            map[label] = UInt8(index)
+        }
+        return map
+    }()
 
     public static func load(from url: URL) throws -> ReplayFixture {
-        let payload = try String(contentsOf: url, encoding: .utf8)
-        return try parse(jsonl: payload)
+        let payload = try Data(contentsOf: url)
+        if ATPCaptureCodec.isATPCapture(payload) {
+            return try ATPCaptureCodec.parse(data: payload)
+        }
+        guard let text = String(data: payload, encoding: .utf8) else {
+            throw ReplayFixtureError.invalidJSON(line: 1)
+        }
+        return try parse(jsonl: text)
+    }
+
+    public static func canonicalState(rawValue: UInt) -> String {
+        guard rawValue < canonicalStateOrder.count else {
+            return "notTouching"
+        }
+        return canonicalStateOrder[Int(rawValue)]
+    }
+
+    public static func canonicalState(code: UInt8) -> String? {
+        guard Int(code) < canonicalStateOrder.count else {
+            return nil
+        }
+        return canonicalStateOrder[Int(code)]
+    }
+
+    public static func canonicalStateCode(state: String) -> UInt8? {
+        canonicalStateCodeByName[state]
     }
 
     public static func parse(jsonl: String) throws -> ReplayFixture {
@@ -232,7 +274,7 @@ public enum ReplayFixtureParser {
             seq: try requiredInt("seq", in: object, line: line),
             timestampSec: try requiredDouble("timestampSec", in: object, line: line),
             deviceID: try requiredString("deviceID", in: object, line: line),
-            deviceNumericID: UInt64(try requiredInt64("deviceNumericID", in: object, line: line)),
+            deviceNumericID: try requiredUInt64("deviceNumericID", in: object, line: line),
             deviceIndex: try requiredInt("deviceIndex", in: object, line: line),
             contacts: contacts
         )
@@ -266,12 +308,19 @@ public enum ReplayFixtureParser {
         throw ReplayFixtureError.invalidFieldType(line: line, field: field)
     }
 
-    private static func requiredInt64(_ field: String, in object: [String: Any], line: Int) throws -> Int64 {
+    private static func requiredUInt64(_ field: String, in object: [String: Any], line: Int) throws -> UInt64 {
         guard let value = object[field] else {
             throw ReplayFixtureError.missingField(line: line, field: field)
         }
         if let number = value as? NSNumber {
-            return number.int64Value
+            let signed = number.int64Value
+            guard signed >= 0 else {
+                throw ReplayFixtureError.invalidFieldType(line: line, field: field)
+            }
+            return UInt64(signed)
+        }
+        if let text = value as? String, let parsed = UInt64(text) {
+            return parsed
         }
         throw ReplayFixtureError.invalidFieldType(line: line, field: field)
     }

@@ -238,12 +238,17 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Rename provisional engine actor type to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
 - [x] Remove now-dead transcript naming leftovers and regenerate baseline transcript labels.
 - [x] Introduce `DispatchService` bounded queue + pump, move engine key/mouse/haptic posting onto that service, and wire dispatch depth/drop diagnostics into runtime status snapshots.
+- [x] Add versioned `.atpcap` codec (`ATPCAP01` v3) in `ReplayFixtureKit` and keep `.jsonl` as migration compatibility input/output.
+- [x] Switch `ReplayFixtureCapture` default output to `.atpcap` and write via shared codec.
+- [x] Make `ReplayHarness` ingest `.atpcap` directly via fixture auto-detection.
+- [x] Add `.atpcap` round-trip validation test coverage.
 
 Latest replay artifact:
-- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).
+- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (legacy baseline fixture retained during migration; state serialization normalized to canonical labels).
 - `ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl` (current committed baseline transcript from `EngineActor` boundary for parity checks).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.
 - [ ] Snapshot transport: lock-protected structs vs. lock-free ring.
 - [ ] Diagnostics persistence format and retention policy outside hot path.
+- [ ] Windows adoption of `.atpcap` v3 payload path for true mac<->windows capture/replay interoperability.

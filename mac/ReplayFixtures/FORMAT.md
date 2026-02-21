@@ -1,67 +1,57 @@
-# GlassToKey Replay Fixture Format (`g2k-replay-v1`)
+# GlassToKey Capture Format (`.atpcap`)
 
-Replay fixtures are newline-delimited JSON (`.jsonl`):
+Canonical replay captures use `.atpcap` (`ATPCAP01`) with a versioned binary layout.
 
-1. First line: `meta` record.
-2. Remaining lines: `frame` records in capture order.
+## File Header (20 bytes)
 
-## Meta Record
+1. `magic` (8 bytes ASCII): `ATPCAP01`
+2. `version` (Int32 LE): current macOS writer version is `3`
+3. `tickFrequency` (Int64 LE): ticks per second (macOS currently writes `1_000_000_000`)
 
-```json
-{
-  "type": "meta",
-  "schema": "g2k-replay-v1",
-  "capturedAt": "2026-02-21T00:00:00Z",
-  "platform": "macOS",
-  "source": "ReplayFixtureCapture",
-  "durationSeconds": 3.0,
-  "maxFrames": 1200,
-  "framesCaptured": 42,
-  "selectedDevices": [
-    {
-      "deviceID": "123456789",
-      "deviceNumericID": 123456789,
-      "deviceIndex": 0,
-      "deviceName": "Magic Trackpad",
-      "isBuiltIn": false
-    }
-  ]
-}
-```
+## Record Header (34 bytes, repeated)
 
-## Frame Record
+1. `payloadLength` (Int32 LE)
+2. `arrivalTicks` (Int64 LE)
+3. `deviceIndex` (Int32 LE)
+4. `deviceHash` (UInt32 LE)
+5. `vendorID` (UInt32 LE)
+6. `productID` (UInt32 LE)
+7. `usagePage` (UInt16 LE)
+8. `usage` (UInt16 LE)
+9. `sideHint` (UInt8): `0 unknown`, `1 left`, `2 right`
+10. `decoderProfile` (UInt8): reserved on macOS writer (`0`)
 
-```json
-{
-  "type": "frame",
-  "schema": "g2k-replay-v1",
-  "seq": 1,
-  "timestampSec": 12345.6789,
-  "deviceID": "123456789",
-  "deviceNumericID": 123456789,
-  "deviceIndex": 0,
-  "touchCount": 2,
-  "contacts": [
-    {
-      "id": 17,
-      "x": 0.42,
-      "y": 0.77,
-      "total": 0.91,
-      "pressure": 0.38,
-      "majorAxis": 9.4,
-      "minorAxis": 4.1,
-      "angle": 0.12,
-      "density": 0.56,
-      "state": "touching"
-    }
-  ]
-}
-```
+## Record Payloads (v3)
 
-## Notes
+- Meta record: `deviceIndex == -1`, payload is UTF-8 JSON:
+  - `type: "meta"`
+  - `schema: "g2k-replay-v1"`
+  - `capturedAt`, `platform`, `source`, `framesCaptured`
+- Frame record: binary payload:
+  1. `frameMagic` (UInt32 LE): `RFV3`
+  2. `seq` (UInt64 LE, 1-based)
+  3. `timestampSec` (Float64 LE)
+  4. `deviceNumericID` (UInt64 LE)
+  5. `contactCount` (UInt16 LE)
+  6. `reserved` (UInt16 LE)
+  7. `contacts` (`contactCount` entries, 40 bytes each):
+     - `id` (Int32 LE)
+     - `x` (Float32 LE)
+     - `y` (Float32 LE)
+     - `total` (Float32 LE)
+     - `pressure` (Float32 LE)
+     - `majorAxis` (Float32 LE)
+     - `minorAxis` (Float32 LE)
+     - `angle` (Float32 LE)
+     - `density` (Float32 LE)
+     - `state` (UInt8 canonical code: `0...7`)
+     - `reserved` (3 bytes)
 
-- `schema` is included on every line to simplify streaming validation.
-- `seq` is strictly increasing and starts at `1`.
-- `timestampSec` is copied directly from the capture callback timestamp.
-- Contacts preserve raw callback ordering and values.
-- `state` values are: `notTouching`, `starting`, `hovering`, `making`, `touching`, `breaking`, `lingering`, `leaving`.
+## Canonical States
+
+`0 notTouching`, `1 starting`, `2 hovering`, `3 making`, `4 touching`, `5 breaking`, `6 lingering`, `7 leaving`.
+
+## Compatibility
+
+- `.jsonl` replay fixtures remain supported as a temporary migration format.
+- `ReplayFixtureParser.load(...)` auto-detects `.atpcap` by magic and falls back to `.jsonl` parsing.

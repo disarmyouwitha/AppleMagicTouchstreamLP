@@ -28,10 +28,14 @@ if [[ "${#non_engine_files[@]}" -gt 0 ]]; then
 fi
 
 for transcript in "${transcript_files[@]}"; do
-  fixture="${transcript%.engine.transcript.jsonl}.jsonl"
+  base="${transcript%.engine.transcript.jsonl}"
+  fixture="${base}.atpcap"
+  if [[ ! -f "$fixture" ]]; then
+    fixture="${base}.jsonl"
+  fi
   if [[ ! -f "$fixture" ]]; then
     echo "Missing fixture for transcript baseline: $transcript"
-    echo "Expected fixture path: $fixture"
+    echo "Expected fixture path: ${base}.atpcap or ${base}.jsonl"
     exit 1
   fi
 

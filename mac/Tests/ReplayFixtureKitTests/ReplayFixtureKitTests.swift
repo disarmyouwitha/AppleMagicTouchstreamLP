@@ -66,6 +66,45 @@ final class ReplayFixtureKitTests: XCTestCase {
         XCTAssertEqual(payload, expected)
     }
 
+    func testATPCaptureRoundTripFromBaselineFixture() throws {
+        let baseline = try ReplayFixtureParser.load(from: fixtureURL())
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("replay-fixture-kit-tests-\(UUID().uuidString)", isDirectory: true)
+        let atpcapURL = tempDir.appendingPathComponent("baseline.atpcap", isDirectory: false)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        try ReplayFixtureCodec.write(baseline, to: atpcapURL)
+        let loaded = try ReplayFixtureParser.load(from: atpcapURL)
+
+        XCTAssertEqual(loaded.meta.schema, baseline.meta.schema)
+        XCTAssertEqual(loaded.meta.platform, baseline.meta.platform)
+        XCTAssertEqual(loaded.meta.source, baseline.meta.source)
+        XCTAssertEqual(loaded.frames.count, baseline.frames.count)
+
+        for (lhs, rhs) in zip(loaded.frames, baseline.frames) {
+            XCTAssertEqual(lhs.seq, rhs.seq)
+            XCTAssertEqual(lhs.deviceIndex, rhs.deviceIndex)
+            XCTAssertEqual(lhs.deviceNumericID, rhs.deviceNumericID)
+            XCTAssertEqual(lhs.contacts.count, rhs.contacts.count)
+            XCTAssertEqual(lhs.deviceID, String(lhs.deviceNumericID))
+            for (leftContact, rightContact) in zip(lhs.contacts, rhs.contacts) {
+                XCTAssertEqual(leftContact.id, rightContact.id)
+                XCTAssertEqual(leftContact.state, rightContact.state)
+                XCTAssertEqual(leftContact.x, rightContact.x, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.y, rightContact.y, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.total, rightContact.total, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.pressure, rightContact.pressure, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.majorAxis, rightContact.majorAxis, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.minorAxis, rightContact.minorAxis, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.angle, rightContact.angle, accuracy: 0.0001)
+                XCTAssertEqual(leftContact.density, rightContact.density, accuracy: 0.0001)
+            }
+        }
+    }
+
     private func fixtureURL() -> URL {
         URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL

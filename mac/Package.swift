@@ -41,7 +41,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "ReplayFixtureCapture",
-            dependencies: ["OpenMultitouchSupport"],
+            dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit"],
             path: "Tools/ReplayFixtureCapture"
         ),
         .executableTarget(

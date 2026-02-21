@@ -1,75 +1,52 @@
 import Foundation
 import OpenMultitouchSupport
+import ReplayFixtureKit
 
 private struct Options {
     var durationSeconds: Double = 3.0
     var maxFrames: Int = 1200
-    var outputPath: String = "ReplayFixtures/macos_first_capture.jsonl"
+    var outputPath: String = "ReplayFixtures/macos_first_capture.atpcap"
 }
 
 private actor CaptureBuffer {
     private var nextSequence: UInt64 = 0
-    private var frameLines: [String] = []
+    private var frames: [ReplayFrameRecord] = []
 
     func append(frame: OMSRawTouchFrame) {
         nextSequence &+= 1
-        let contacts: [[String: Any]] = frame.touches.map { touch in
-            [
-                "id": Int(touch.id),
-                "x": Double(touch.posX),
-                "y": Double(touch.posY),
-                "total": Double(touch.total),
-                "pressure": Double(touch.pressure),
-                "majorAxis": Double(touch.majorAxis),
-                "minorAxis": Double(touch.minorAxis),
-                "angle": Double(touch.angle),
-                "density": Double(touch.density),
-                "state": stateLabel(rawValue: UInt(touch.state.rawValue))
-            ]
+        let contacts = frame.touches.map { touch in
+            ReplayContactRecord(
+                id: Int(touch.id),
+                x: Double(touch.posX),
+                y: Double(touch.posY),
+                total: Double(touch.total),
+                pressure: Double(touch.pressure),
+                majorAxis: Double(touch.majorAxis),
+                minorAxis: Double(touch.minorAxis),
+                angle: Double(touch.angle),
+                density: Double(touch.density),
+                state: ReplayFixtureParser.canonicalState(rawValue: UInt(touch.state.rawValue))
+            )
         }
 
-        let frameRecord: [String: Any] = [
-            "type": "frame",
-            "schema": "g2k-replay-v1",
-            "seq": Int(nextSequence),
-            "timestampSec": frame.timestamp,
-            "deviceID": frame.deviceID,
-            "deviceNumericID": Int64(frame.deviceIDNumeric),
-            "deviceIndex": frame.deviceIndex,
-            "touchCount": contacts.count,
-            "contacts": contacts
-        ]
-
-        if let line = jsonLine(frameRecord) {
-            frameLines.append(line)
-        }
+        frames.append(
+            ReplayFrameRecord(
+                seq: Int(nextSequence),
+                timestampSec: frame.timestamp,
+                deviceID: frame.deviceID,
+                deviceNumericID: frame.deviceIDNumeric,
+                deviceIndex: frame.deviceIndex,
+                contacts: contacts
+            )
+        )
     }
 
-    func snapshot() -> [String] {
-        frameLines
+    func count() -> Int {
+        frames.count
     }
 
-    nonisolated private func stateLabel(rawValue: UInt) -> String {
-        switch rawValue {
-        case 0: return "notTouching"
-        case 1: return "starting"
-        case 2: return "hovering"
-        case 3: return "making"
-        case 4: return "touching"
-        case 5: return "breaking"
-        case 6: return "lingering"
-        case 7: return "leaving"
-        default: return "unknown"
-        }
-    }
-
-    nonisolated private func jsonLine(_ object: [String: Any]) -> String? {
-        guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(withJSONObject: object, options: []),
-              let text = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        return text
+    func snapshot() -> [ReplayFrameRecord] {
+        frames
     }
 }
 
@@ -100,7 +77,7 @@ struct ReplayFixtureCaptureMain {
                 }
                 await captureBuffer.append(frame: frame)
                 frame.release()
-                let captured = await captureBuffer.snapshot().count
+                let captured = await captureBuffer.count()
                 if captured >= options.maxFrames {
                     return
                 }
@@ -113,55 +90,34 @@ struct ReplayFixtureCaptureMain {
         captureTask.cancel()
         _ = manager.stopListening()
 
-        let frameLines = await captureBuffer.snapshot()
-        let selectedDeviceRecords: [[String: Any]] = selectedDevices.enumerated().map { index, device in
-            [
-                "deviceID": device.deviceID,
-                "deviceNumericID": Int64(device.deviceIDNumeric),
-                "deviceIndex": index,
-                "deviceName": device.deviceName,
-                "isBuiltIn": device.isBuiltIn
-            ]
-        }
-
-        var meta: [String: Any] = [
-            "type": "meta",
-            "schema": "g2k-replay-v1",
-            "capturedAt": iso8601Timestamp(Date()),
-            "platform": "macOS",
-            "source": "ReplayFixtureCapture",
-            "durationSeconds": options.durationSeconds,
-            "maxFrames": options.maxFrames,
-            "framesCaptured": frameLines.count,
-            "selectedDevices": selectedDeviceRecords,
-            "startListeningSucceeded": started
-        ]
-
-        if frameLines.isEmpty {
-            meta["notes"] = "No touch frames captured during sampling window."
-        }
-
-        guard let metaLine = jsonLine(meta) else {
-            fputs("Failed to serialize meta record.\n", stderr)
-            Foundation.exit(1)
-        }
-
-        let allLines = [metaLine] + frameLines
+        let frames = await captureBuffer.snapshot()
+        let fixture = ReplayFixture(
+            meta: ReplayFixtureMeta(
+                schema: ReplayFixtureParser.schema,
+                capturedAt: iso8601Timestamp(Date()),
+                platform: "macOS",
+                source: "ReplayFixtureCapture",
+                framesCaptured: frames.count
+            ),
+            frames: frames
+        )
 
         do {
-            try FileManager.default.createDirectory(
-                at: outputURL.deletingLastPathComponent(),
-                withIntermediateDirectories: true
-            )
-            let payload = (allLines.joined(separator: "\n") + "\n")
-            try payload.write(to: outputURL, atomically: true, encoding: .utf8)
+            try ReplayFixtureCodec.write(fixture, to: outputURL)
         } catch {
             fputs("Failed to write fixture: \(error.localizedDescription)\n", stderr)
             Foundation.exit(1)
         }
 
         print("Wrote replay fixture: \(outputURL.path)")
-        print("Frames captured: \(frameLines.count)")
+        print("Frames captured: \(frames.count)")
+        print("Start listening succeeded: \(started ? "yes" : "no")")
+        if !selectedDevices.isEmpty {
+            let labels = selectedDevices.enumerated().map { index, device in
+                "\(index):\(device.deviceName)(\(device.deviceID))"
+            }
+            print("Selected devices: \(labels.joined(separator: ", "))")
+        }
     }
 
     private static func parseOptions(from args: [String]) -> Options {
@@ -197,14 +153,5 @@ struct ReplayFixtureCaptureMain {
         let formatter = ISO8601DateFormatter()
         formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
         return formatter.string(from: date)
-    }
-
-    private static func jsonLine(_ object: [String: Any]) -> String? {
-        guard JSONSerialization.isValidJSONObject(object),
-              let data = try? JSONSerialization.data(withJSONObject: object, options: []),
-              let text = String(data: data, encoding: .utf8) else {
-            return nil
-        }
-        return text
     }
 }
