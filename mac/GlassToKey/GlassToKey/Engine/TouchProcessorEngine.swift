@@ -489,7 +489,7 @@ actor TouchProcessorEngine {
         let snapRadiusSq: [Float]
     }
 
-    private let keyDispatcher: KeyEventDispatcher
+    private let dispatchService: DispatchService
     private let onTypingEnabledChanged: @Sendable (Bool) -> Void
     private let onActiveLayerChanged: @Sendable (Int) -> Void
     private let onDebugBindingDetected: @Sendable (KeyBinding) -> Void
@@ -565,10 +565,6 @@ actor TouchProcessorEngine {
     private var framePointCache = TouchTable<CGPoint>(minimumCapacity: 16)
     private var hapticStrength: Double = 0
     private static let hapticMinIntervalNanos: UInt64 = 20_000_000
-    private static let hapticsQueue = DispatchQueue(
-        label: "com.kyome.glasstokey.haptics",
-        qos: .userInteractive
-    )
     private var lastHapticTimeBySide = SidePair<UInt64>(repeating: 0)
     private struct IntentState {
         var mode: IntentMode = .idle
@@ -633,6 +629,8 @@ actor TouchProcessorEngine {
         let typingEnabled: Bool
         let keyboardModeEnabled: Bool
         let voiceGestureActive: Bool
+        let dispatchQueueDepth: Int
+        let dispatchDrops: UInt64
     }
 
 #if DEBUG
@@ -643,7 +641,7 @@ actor TouchProcessorEngine {
 #endif
 
     init(
-        keyDispatcher: KeyEventDispatcher,
+        dispatchService: DispatchService,
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void,
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void,
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,
@@ -651,7 +649,7 @@ actor TouchProcessorEngine {
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
     ) {
-        self.keyDispatcher = keyDispatcher
+        self.dispatchService = dispatchService
         self.onTypingEnabledChanged = onTypingEnabledChanged
         self.onActiveLayerChanged = onActiveLayerChanged
         self.onDebugBindingDetected = onDebugBindingDetected
@@ -665,12 +663,15 @@ actor TouchProcessorEngine {
     }
 
     func statusSnapshot() -> StatusSnapshot {
-        StatusSnapshot(
+        let dispatchMetrics = dispatchService.snapshotMetrics()
+        return StatusSnapshot(
             contactCounts: contactFingerCountsBySide,
             intentDisplays: intentDisplayBySide,
             typingEnabled: isTypingEnabled,
             keyboardModeEnabled: keyboardModeEnabled,
-            voiceGestureActive: voiceGestureActive
+            voiceGestureActive: voiceGestureActive,
+            dispatchQueueDepth: dispatchMetrics.queueDepth,
+            dispatchDrops: dispatchMetrics.drops
         )
     }
 
@@ -976,6 +977,7 @@ actor TouchProcessorEngine {
     }
 
     func resetState(stopVoiceDictation: Bool = false) {
+        dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
         contactFingerCountsBySide[.left] = 0
         contactFingerCountsBySide[.right] = 0
@@ -2449,14 +2451,14 @@ actor TouchProcessorEngine {
                 awaitingSecondTap = false
                 doubleTapDeadline = nil
             } else if threeFingerTapDetected {
-                keyDispatcher.postRightClick()
+                dispatchService.postRightClick()
             } else if wasTwoFingerTapDetected {
                 if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
-                    keyDispatcher.postLeftClick(clickCount: 2)
+                    dispatchService.postLeftClick(clickCount: 2)
                     awaitingSecondTap = false
                     doubleTapDeadline = nil
                 } else {
-                    keyDispatcher.postLeftClick()
+                    dispatchService.postLeftClick()
                     awaitingSecondTap = true
                     doubleTapDeadline = now + tapClickCadenceSeconds
                 }
@@ -3076,7 +3078,7 @@ actor TouchProcessorEngine {
         altAscii: UInt8 = 0
     ) {
         let resolvedFlags = combinedFlags ?? flags.union(currentModifierFlags())
-        keyDispatcher.postKeyStroke(code: code, flags: resolvedFlags, altAscii: altAscii)
+        dispatchService.postKeyStroke(code: code, flags: resolvedFlags, altAscii: altAscii)
     }
 
     private func currentModifierFlags() -> CGEventFlags {
@@ -3130,10 +3132,7 @@ actor TouchProcessorEngine {
         case .right:
             deviceID = rightDeviceID
         }
-        let strength = hapticStrength
-        Self.hapticsQueue.async {
-            _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
-        }
+        dispatchService.postHaptic(strength: hapticStrength, deviceID: deviceID)
     }
 
     private func initialContactPointIsInsideBinding(_ touchKey: TouchKey, binding: KeyBinding) -> Bool {
@@ -3211,7 +3210,7 @@ actor TouchProcessorEngine {
                 continue
             }
             if entry.nextFire <= now {
-                keyDispatcher.postKeyStroke(code: entry.code, flags: entry.flags, token: entry.token)
+                dispatchService.postKeyStroke(code: entry.code, flags: entry.flags, token: entry.token)
                 var next = entry.nextFire
                 while next <= now {
                     next &+= entry.interval
@@ -3298,7 +3297,7 @@ actor TouchProcessorEngine {
 #if DEBUG
         onDebugBindingDetected(binding)
 #endif
-        keyDispatcher.postKey(code: code, flags: flags, keyDown: keyDown)
+        dispatchService.postKey(code: code, flags: flags, keyDown: keyDown)
     }
 
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {

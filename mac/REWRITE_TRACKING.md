@@ -140,9 +140,9 @@ Exit criteria:
 - [ ] Engine accepts replay input and emits deterministic snapshots.
 
 ## Phase 3 - Dispatch/Haptics Isolation
-- [ ] Introduce dispatch event queue and pump service.
-- [ ] Move key/mouse/haptic posting off engine path.
-- [ ] Add queue pressure/drop counters and diagnostics snapshot fields.
+- [x] Introduce dispatch event queue and pump service.
+- [x] Move key/mouse/haptic posting off engine path.
+- [x] Add queue pressure/drop counters and diagnostics snapshot fields.
 
 Exit criteria:
 - [ ] Engine frame processing remains stable under dispatch bursts.
@@ -184,7 +184,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` now runs raw-only callbacks on a dedicated state queue, uses numeric-ID reconciliation for active devices, pre-sizes callback registries, avoids main-thread control-plane hops, and is exported in rebuilt local XCFramework |
 | Runtime service split (Swift) | TBD | In Progress | `ContentViewModel` runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; control/update calls route through the boundary (not direct view-model -> processor calls) |
 | Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActor`; app runtime executes touch dispatch/status through `EngineActor` with processor internals lifted into standalone `TouchProcessorEngine` (bridge removed) |
-| Dispatch queue/pump | TBD | Not Started | Decouple key posting |
+| Dispatch queue/pump | TBD | In Progress | `DispatchService` ring queue + pump now owns key/mouse/haptic posting; `TouchProcessorEngine` emits dispatch commands and `RuntimeStatusSnapshot` diagnostics now publish queue depth/drop counters |
 | AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
 | Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
@@ -237,6 +237,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Remove the temporary `EngineProcessorBridge` adapter by lifting processor internals into standalone engine modules owned directly by `EngineActor`.
 - [x] Rename provisional engine actor type to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
 - [x] Remove now-dead transcript naming leftovers and regenerate baseline transcript labels.
+- [x] Introduce `DispatchService` bounded queue + pump, move engine key/mouse/haptic posting onto that service, and wire dispatch depth/drop diagnostics into runtime status snapshots.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).

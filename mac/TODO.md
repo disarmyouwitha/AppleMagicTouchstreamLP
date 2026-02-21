@@ -1,4 +1,5 @@
 ## TODO
+- Hey I've been thinking about "mac/Tools/ReplayHarness/verify_replay_baselines.sh" and I think I want you to remove it / remove it from our swift package. We can delete any files from the folder that do not match the scheme.
 - Please explain to me how haptics works in the framework. Is this portable to windows in any way?
 - fix edit keymap lag
 - fix start typing lag 

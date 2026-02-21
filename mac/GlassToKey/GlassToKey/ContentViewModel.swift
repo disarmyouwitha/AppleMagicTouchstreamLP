@@ -292,7 +292,7 @@ final class ContentViewModel: ObservableObject {
         }
         VoiceDictationManager.shared.setStatusHandler(voiceStatusHandler)
         runtimeEngine = EngineActor(
-            keyDispatcher: KeyEventDispatcher.shared,
+            dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
                 Task { @MainActor in
                     weakSelf?.isTypingEnabled = isEnabled

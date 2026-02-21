@@ -47,7 +47,7 @@ actor EngineActor: EngineActorBoundary {
     private let processor: TouchProcessorEngine
 
     init(
-        keyDispatcher: KeyEventDispatcher = .shared,
+        dispatchService: DispatchService = .shared,
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void = { _ in },
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void = { _ in },
         onDebugBindingDetected: @Sendable @escaping (ContentViewModel.KeyBinding) -> Void = { _ in },
@@ -56,7 +56,7 @@ actor EngineActor: EngineActorBoundary {
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void = { _ in }
     ) {
         processor = TouchProcessorEngine(
-            keyDispatcher: keyDispatcher,
+            dispatchService: dispatchService,
             onTypingEnabledChanged: onTypingEnabledChanged,
             onActiveLayerChanged: onActiveLayerChanged,
             onDebugBindingDetected: onDebugBindingDetected,
@@ -205,6 +205,8 @@ actor EngineActor: EngineActorBoundary {
         latestStatus.contactCountBySide = snapshot.contactCounts
         latestStatus.typingEnabled = snapshot.typingEnabled
         latestStatus.keyboardModeEnabled = snapshot.keyboardModeEnabled
+        latestStatus.diagnostics.dispatchQueueDepth = snapshot.dispatchQueueDepth
+        latestStatus.diagnostics.dispatchDrops = snapshot.dispatchDrops
     }
 
     private static func mapRuntimeIntent(_ intent: ContentViewModel.IntentDisplay) -> RuntimeIntentMode {
