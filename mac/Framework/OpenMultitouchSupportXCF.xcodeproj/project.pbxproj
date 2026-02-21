@@ -24,6 +24,8 @@
 		1CF415032B924E0000A4DB17 /* OpenMTManager.m in Sources */ = {isa = PBXBuildFile; fileRef = 1CF414F62B924E0000A4DB17 /* OpenMTManager.m */; };
 		1CF415042B924E0000A4DB17 /* OpenMTEventInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 1CF414F72B924E0000A4DB17 /* OpenMTEventInternal.h */; };
 		1CF415052B924E0000A4DB17 /* OpenMTInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = 1CF414F82B924E0000A4DB17 /* OpenMTInternal.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A0B100010000000000000001 /* OpenMTManagerV2.h in Headers */ = {isa = PBXBuildFile; fileRef = A0B100010000000000000011 /* OpenMTManagerV2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		A0B100010000000000000002 /* OpenMTManagerV2.m in Sources */ = {isa = PBXBuildFile; fileRef = A0B100010000000000000012 /* OpenMTManagerV2.m */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -45,6 +47,8 @@
 		1CF414F62B924E0000A4DB17 /* OpenMTManager.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OpenMTManager.m; sourceTree = "<group>"; };
 		1CF414F72B924E0000A4DB17 /* OpenMTEventInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenMTEventInternal.h; sourceTree = "<group>"; };
 		1CF414F82B924E0000A4DB17 /* OpenMTInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenMTInternal.h; sourceTree = "<group>"; };
+		A0B100010000000000000011 /* OpenMTManagerV2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = OpenMTManagerV2.h; sourceTree = "<group>"; };
+		A0B100010000000000000012 /* OpenMTManagerV2.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = OpenMTManagerV2.m; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,8 +119,10 @@
 			isa = PBXGroup;
 			children = (
 				1CF414F22B924E0000A4DB17 /* OpenMTManager.h */,
+				A0B100010000000000000011 /* OpenMTManagerV2.h */,
 				1CF414F02B924E0000A4DB17 /* OpenMTManagerInternal.h */,
 				1CF414F62B924E0000A4DB17 /* OpenMTManager.m */,
+				A0B100010000000000000012 /* OpenMTManagerV2.m */,
 			);
 			name = OpenMTManager;
 			sourceTree = "<group>";
@@ -153,6 +159,7 @@
 				1CF414FB2B924E0000A4DB17 /* OpenMTEvent.h in Headers */,
 				1CF414FC2B924E0000A4DB17 /* OpenMTListener.h in Headers */,
 				1CF415012B924E0000A4DB17 /* OpenMTTouch.h in Headers */,
+				A0B100010000000000000001 /* OpenMTManagerV2.h in Headers */,
 				1CF414FD2B924E0000A4DB17 /* OpenMTManagerInternal.h in Headers */,
 				1CF415002B924E0000A4DB17 /* OpenMTListenerInternal.h in Headers */,
 				1CF414DD2B924D4B00A4DB17 /* OpenMultitouchSupportXCF.h in Headers */,
@@ -230,6 +237,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1CF415032B924E0000A4DB17 /* OpenMTManager.m in Sources */,
+				A0B100010000000000000002 /* OpenMTManagerV2.m in Sources */,
 				1CF414FE2B924E0000A4DB17 /* OpenMTListener.m in Sources */,
 				1CF414FA2B924E0000A4DB17 /* OpenMTTouch.m in Sources */,
 				1CF414F92B924E0000A4DB17 /* OpenMTEvent.m in Sources */,

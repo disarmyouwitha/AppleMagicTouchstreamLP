@@ -30,6 +30,11 @@ let package = Package(
             name: "OpenMultitouchSupport",
             dependencies: ["OpenMultitouchSupportXCF"],
             swiftSettings: swiftSettings
+        ),
+        .executableTarget(
+            name: "ReplayFixtureCapture",
+            dependencies: ["OpenMultitouchSupport"],
+            path: "Tools/ReplayFixtureCapture"
         )
     ]
 ) 

@@ -176,9 +176,9 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
-| Capture bridge V2 (ObjC) | TBD | Not Started | Raw-first + numeric registry |
+| Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` raw-only callback skeleton added and wired into framework target |
 | Runtime service split (Swift) | TBD | In Progress | `InputRuntimeService` scaffold + runtime DTOs added; not yet wired into `ContentViewModel` |
-| Engine boundary + replay harness | TBD | In Progress | `EngineActorBoundary` + `EngineActorStub` added; replay harness pending |
+| Engine boundary + replay harness | TBD | In Progress | `EngineActorBoundary` + `EngineActorStub` added; replay fixture format + capture tool + first capture artifact committed |
 | Dispatch queue/pump | TBD | Not Started | Decouple key posting |
 | AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
@@ -209,10 +209,13 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 
 ## Immediate Next Slice (Execution Ready)
 - [x] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
-- [ ] Implement capture bridge V2 skeleton with raw-only callback registration.
+- [x] Implement capture bridge V2 skeleton with raw-only callback registration.
 - [x] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
 - [x] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
-- [ ] Add replay fixture format draft and first fixture from current macOS run.
+- [x] Add replay fixture format draft and first fixture from current macOS run.
+
+Latest replay artifact:
+- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (captured run metadata; no touch frames sampled in this automated capture window).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.
