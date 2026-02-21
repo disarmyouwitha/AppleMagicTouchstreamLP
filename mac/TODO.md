@@ -1,5 +1,7 @@
 ## TODO
-- Remove your jsonl capture compatibility code (and files). Do you see the .atpcap analyzer from .../windows/glasstokey? (raw-analyze-out) copy that too! 
+- Can you write a file "../windows/ATPCAP_V3.md" with EXACTLY what needs to be changed in the Windows spec to accept ATPCAP_V3 and can you also explain to me what you changed and why it was nessisary?
+- Back to plan
+---
 - Can we wire up "Capture" and "Replay" into the menu?
 - Please explain to me how haptics works in the framework. Is this portable to windows in any way?
 - fix edit keymap lag

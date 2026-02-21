@@ -164,7 +164,7 @@ Acceptance:
 2. Feed `TrackpadSurfaceView` from current `TouchSnapshot` and key/button selection state only.
 3. Remove direct touch-driven redraw pressure from `RightSidebarView`.
 4. Wire `OpenMTManagerV2` into `OMSManager` behind a feature flag so capture can run on the raw-only bridge.
-5. Add replay harness tooling to ingest canonical `ReplayFixtures/*.atpcap` captures (keep `*.jsonl` as temporary migration input), feed `RuntimeRawFrame`, and emit deterministic transcripts.
+5. Add replay harness tooling to ingest canonical `ReplayFixtures/*.atpcap` captures, feed `RuntimeRawFrame`, and emit deterministic transcripts.
 6. Add fixture/schema validation tests (including canonical touch-state labels) and baseline fixtures.
 
 Current execution directive:

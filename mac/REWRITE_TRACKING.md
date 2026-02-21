@@ -205,8 +205,8 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [ ] Sleep/wake and reconnect scenario tests.
 - [ ] Build verification:
   - [x] `swift test --disable-sandbox`
-  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --output ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
-  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.atpcap --output ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.atpcap --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
   - [x] `xcodebuild -project Framework/OpenMultitouchSupportXCF.xcodeproj -scheme OpenMultitouchSupportXCF -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/omtxcf-derived build`
   - [x] `xcodebuild build -project Framework/OpenMultitouchSupportXCF.xcodeproj -scheme OpenMultitouchSupportXCF -destination 'generic/platform=macOS' -configuration Release -derivedDataPath Framework/build`
   - [x] `xcodebuild -create-xcframework -framework Framework/build/Build/Products/Release/OpenMultitouchSupportXCF.framework -output OpenMultitouchSupportXCF.xcframework`
@@ -237,13 +237,15 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Rename provisional engine actor type to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
 - [x] Remove now-dead transcript naming leftovers and regenerate baseline transcript labels.
 - [x] Introduce `DispatchService` bounded queue + pump, move engine key/mouse/haptic posting onto that service, and wire dispatch depth/drop diagnostics into runtime status snapshots.
-- [x] Add versioned `.atpcap` codec (`ATPCAP01` v3) in `ReplayFixtureKit` and keep `.jsonl` as migration compatibility input/output.
+- [x] Add versioned `.atpcap` codec (`ATPCAP01` v3) in `ReplayFixtureKit` as the only capture fixture format.
 - [x] Switch `ReplayFixtureCapture` default output to `.atpcap` and write via shared codec.
 - [x] Make `ReplayHarness` ingest `.atpcap` directly via fixture auto-detection.
 - [x] Add `.atpcap` round-trip validation test coverage.
+- [x] Remove JSONL capture fixture compatibility code and delete committed JSONL capture fixtures.
+- [x] Add `RawCaptureAnalyze` tool (`--raw-analyze`, `--raw-analyze-out`, `--raw-analyze-contacts-out`) to mirror Windows raw analysis workflow on macOS captures.
 
 Latest replay artifact:
-- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (legacy baseline fixture retained during migration; state serialization normalized to canonical labels).
+- `ReplayFixtures/macos_first_capture_2026-02-20.atpcap` (canonical baseline fixture; 52 captured frames).
 - `ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl` (current committed baseline transcript from `EngineActor` boundary for parity checks).
 
 ## Open Decisions

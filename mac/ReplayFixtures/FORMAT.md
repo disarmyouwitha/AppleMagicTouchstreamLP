@@ -53,5 +53,5 @@ Canonical replay captures use `.atpcap` (`ATPCAP01`) with a versioned binary lay
 
 ## Compatibility
 
-- `.jsonl` replay fixtures remain supported as a temporary migration format.
-- `ReplayFixtureParser.load(...)` auto-detects `.atpcap` by magic and falls back to `.jsonl` parsing.
+- Capture fixtures are `.atpcap` only.
+- Transcript artifacts may remain `.jsonl` for parity/debug output.

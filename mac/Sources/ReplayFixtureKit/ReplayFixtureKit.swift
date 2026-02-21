@@ -89,15 +89,8 @@ public struct ReplayFixture: Sendable, Equatable {
 }
 
 public enum ReplayFixtureError: Error, Equatable, CustomStringConvertible {
-    case emptyFixture
-    case invalidJSON(line: Int)
-    case missingField(line: Int, field: String)
-    case invalidFieldType(line: Int, field: String)
     case invalidSchema(line: Int, value: String)
-    case invalidRecordType(line: Int, value: String)
     case invalidSequence(expected: Int, actual: Int)
-    case invalidTouchCount(line: Int, expected: Int, actual: Int)
-    case invalidState(line: Int, state: String)
     case metaFrameCountMismatch(expected: Int, actual: Int)
     case invalidATPCapture(reason: String)
     case unsupportedATPCaptureVersion(actual: Int32)
@@ -105,24 +98,10 @@ public enum ReplayFixtureError: Error, Equatable, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .emptyFixture:
-            return "fixture is empty"
-        case let .invalidJSON(line):
-            return "invalid JSON at line \(line)"
-        case let .missingField(line, field):
-            return "missing field '\(field)' at line \(line)"
-        case let .invalidFieldType(line, field):
-            return "invalid type for field '\(field)' at line \(line)"
         case let .invalidSchema(line, value):
             return "unsupported schema '\(value)' at line \(line)"
-        case let .invalidRecordType(line, value):
-            return "unexpected record type '\(value)' at line \(line)"
         case let .invalidSequence(expected, actual):
             return "invalid sequence: expected \(expected), got \(actual)"
-        case let .invalidTouchCount(line, expected, actual):
-            return "touchCount mismatch at line \(line): expected \(expected), got \(actual)"
-        case let .invalidState(line, state):
-            return "invalid canonical state '\(state)' at line \(line)"
         case let .metaFrameCountMismatch(expected, actual):
             return "meta framesCaptured mismatch: expected \(expected), got \(actual)"
         case let .invalidATPCapture(reason):
@@ -160,13 +139,10 @@ public enum ReplayFixtureParser {
 
     public static func load(from url: URL) throws -> ReplayFixture {
         let payload = try Data(contentsOf: url)
-        if ATPCaptureCodec.isATPCapture(payload) {
-            return try ATPCaptureCodec.parse(data: payload)
+        guard ATPCaptureCodec.isATPCapture(payload) else {
+            throw ReplayFixtureError.invalidATPCapture(reason: "capture magic mismatch (expected ATPCAP01)")
         }
-        guard let text = String(data: payload, encoding: .utf8) else {
-            throw ReplayFixtureError.invalidJSON(line: 1)
-        }
-        return try parse(jsonl: text)
+        return try ATPCaptureCodec.parse(data: payload)
     }
 
     public static func canonicalState(rawValue: UInt) -> String {
@@ -185,164 +161,6 @@ public enum ReplayFixtureParser {
 
     public static func canonicalStateCode(state: String) -> UInt8? {
         canonicalStateCodeByName[state]
-    }
-
-    public static func parse(jsonl: String) throws -> ReplayFixture {
-        let lines = jsonl.split(whereSeparator: \.isNewline)
-        guard !lines.isEmpty else {
-            throw ReplayFixtureError.emptyFixture
-        }
-
-        let firstObject = try parseJSONObject(line: String(lines[0]), lineNumber: 1)
-        let meta = try parseMetaRecord(from: firstObject, line: 1)
-
-        var frames: [ReplayFrameRecord] = []
-        var expectedSeq = 1
-        for (offset, lineSlice) in lines.dropFirst().enumerated() {
-            let lineNumber = offset + 2
-            let object = try parseJSONObject(line: String(lineSlice), lineNumber: lineNumber)
-            let frame = try parseFrameRecord(from: object, line: lineNumber)
-            if frame.seq != expectedSeq {
-                throw ReplayFixtureError.invalidSequence(expected: expectedSeq, actual: frame.seq)
-            }
-            frames.append(frame)
-            expectedSeq += 1
-        }
-
-        if meta.framesCaptured != frames.count {
-            throw ReplayFixtureError.metaFrameCountMismatch(expected: meta.framesCaptured, actual: frames.count)
-        }
-
-        return ReplayFixture(meta: meta, frames: frames)
-    }
-
-    private static func parseMetaRecord(from object: [String: Any], line: Int) throws -> ReplayFixtureMeta {
-        let recordType = try requiredString("type", in: object, line: line)
-        guard recordType == "meta" else {
-            throw ReplayFixtureError.invalidRecordType(line: line, value: recordType)
-        }
-        let schemaValue = try requiredString("schema", in: object, line: line)
-        guard schemaValue == schema else {
-            throw ReplayFixtureError.invalidSchema(line: line, value: schemaValue)
-        }
-
-        return ReplayFixtureMeta(
-            schema: schemaValue,
-            capturedAt: try requiredString("capturedAt", in: object, line: line),
-            platform: try requiredString("platform", in: object, line: line),
-            source: try requiredString("source", in: object, line: line),
-            framesCaptured: try requiredInt("framesCaptured", in: object, line: line)
-        )
-    }
-
-    private static func parseFrameRecord(from object: [String: Any], line: Int) throws -> ReplayFrameRecord {
-        let recordType = try requiredString("type", in: object, line: line)
-        guard recordType == "frame" else {
-            throw ReplayFixtureError.invalidRecordType(line: line, value: recordType)
-        }
-        let schemaValue = try requiredString("schema", in: object, line: line)
-        guard schemaValue == schema else {
-            throw ReplayFixtureError.invalidSchema(line: line, value: schemaValue)
-        }
-
-        let contactObjects = try requiredArrayOfDictionaries("contacts", in: object, line: line)
-        let contacts = try contactObjects.map { contactObject in
-            let state = try requiredString("state", in: contactObject, line: line)
-            guard canonicalStates.contains(state) else {
-                throw ReplayFixtureError.invalidState(line: line, state: state)
-            }
-            return ReplayContactRecord(
-                id: try requiredInt("id", in: contactObject, line: line),
-                x: try requiredDouble("x", in: contactObject, line: line),
-                y: try requiredDouble("y", in: contactObject, line: line),
-                total: try requiredDouble("total", in: contactObject, line: line),
-                pressure: try requiredDouble("pressure", in: contactObject, line: line),
-                majorAxis: try requiredDouble("majorAxis", in: contactObject, line: line),
-                minorAxis: try requiredDouble("minorAxis", in: contactObject, line: line),
-                angle: try requiredDouble("angle", in: contactObject, line: line),
-                density: try requiredDouble("density", in: contactObject, line: line),
-                state: state
-            )
-        }
-
-        let touchCount = try requiredInt("touchCount", in: object, line: line)
-        if touchCount != contacts.count {
-            throw ReplayFixtureError.invalidTouchCount(line: line, expected: contacts.count, actual: touchCount)
-        }
-
-        return ReplayFrameRecord(
-            seq: try requiredInt("seq", in: object, line: line),
-            timestampSec: try requiredDouble("timestampSec", in: object, line: line),
-            deviceID: try requiredString("deviceID", in: object, line: line),
-            deviceNumericID: try requiredUInt64("deviceNumericID", in: object, line: line),
-            deviceIndex: try requiredInt("deviceIndex", in: object, line: line),
-            contacts: contacts
-        )
-    }
-
-    private static func parseJSONObject(line: String, lineNumber: Int) throws -> [String: Any] {
-        guard let data = line.data(using: .utf8),
-              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw ReplayFixtureError.invalidJSON(line: lineNumber)
-        }
-        return object
-    }
-
-    private static func requiredString(_ field: String, in object: [String: Any], line: Int) throws -> String {
-        guard let value = object[field] else {
-            throw ReplayFixtureError.missingField(line: line, field: field)
-        }
-        guard let value = value as? String else {
-            throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-        }
-        return value
-    }
-
-    private static func requiredInt(_ field: String, in object: [String: Any], line: Int) throws -> Int {
-        guard let value = object[field] else {
-            throw ReplayFixtureError.missingField(line: line, field: field)
-        }
-        if let number = value as? NSNumber {
-            return number.intValue
-        }
-        throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-    }
-
-    private static func requiredUInt64(_ field: String, in object: [String: Any], line: Int) throws -> UInt64 {
-        guard let value = object[field] else {
-            throw ReplayFixtureError.missingField(line: line, field: field)
-        }
-        if let number = value as? NSNumber {
-            let signed = number.int64Value
-            guard signed >= 0 else {
-                throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-            }
-            return UInt64(signed)
-        }
-        if let text = value as? String, let parsed = UInt64(text) {
-            return parsed
-        }
-        throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-    }
-
-    private static func requiredDouble(_ field: String, in object: [String: Any], line: Int) throws -> Double {
-        guard let value = object[field] else {
-            throw ReplayFixtureError.missingField(line: line, field: field)
-        }
-        if let number = value as? NSNumber {
-            return number.doubleValue
-        }
-        throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-    }
-
-    private static func requiredArrayOfDictionaries(_ field: String, in object: [String: Any], line: Int) throws -> [[String: Any]] {
-        guard let value = object[field] else {
-            throw ReplayFixtureError.missingField(line: line, field: field)
-        }
-        guard let value = value as? [[String: Any]] else {
-            throw ReplayFixtureError.invalidFieldType(line: line, field: field)
-        }
-        return value
     }
 }
 

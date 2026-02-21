@@ -2,7 +2,7 @@ import Foundation
 import ReplayFixtureKit
 
 private struct Options {
-    var fixturePath: String = "ReplayFixtures/macos_first_capture_2026-02-20.jsonl"
+    var fixturePath: String = "ReplayFixtures/macos_first_capture_2026-02-20.atpcap"
     var outputPath: String? = nil
     var expectedTranscriptPath: String? = nil
 }

@@ -2,109 +2,67 @@ import Foundation
 
 public enum ReplayFixtureCodec {
     public static func write(_ fixture: ReplayFixture, to url: URL) throws {
-        let ext = url.pathExtension.lowercased()
-        if ext == "jsonl" {
-            try writeJSONL(fixture, to: url)
-        } else {
-            try ATPCaptureCodec.write(fixture: fixture, to: url)
-        }
+        try ATPCaptureCodec.write(fixture: fixture, to: url)
     }
+}
 
-    public static func writeJSONL(_ fixture: ReplayFixture, to url: URL) throws {
-        var lines: [String] = []
-        lines.reserveCapacity(fixture.frames.count + 1)
+public struct ATPCaptureHeader: Sendable {
+    public let version: Int32
+    public let tickFrequency: Int64
 
-        let meta = JSONLMetaLine(
-            type: "meta",
-            schema: fixture.meta.schema,
-            capturedAt: fixture.meta.capturedAt,
-            platform: fixture.meta.platform,
-            source: fixture.meta.source,
-            framesCaptured: fixture.frames.count
-        )
-        lines.append(try encodeJSONLine(meta))
-
-        for frame in fixture.frames {
-            let contacts = frame.contacts.map { contact in
-                JSONLContactLine(
-                    id: contact.id,
-                    x: contact.x,
-                    y: contact.y,
-                    total: contact.total,
-                    pressure: contact.pressure,
-                    majorAxis: contact.majorAxis,
-                    minorAxis: contact.minorAxis,
-                    angle: contact.angle,
-                    density: contact.density,
-                    state: contact.state
-                )
-            }
-            let frameLine = JSONLFrameLine(
-                type: "frame",
-                schema: fixture.meta.schema,
-                seq: frame.seq,
-                timestampSec: frame.timestampSec,
-                deviceID: frame.deviceID,
-                deviceNumericID: String(frame.deviceNumericID),
-                deviceIndex: frame.deviceIndex,
-                touchCount: contacts.count,
-                contacts: contacts
-            )
-            lines.append(try encodeJSONLine(frameLine))
-        }
-
-        let payload = lines.joined(separator: "\n") + "\n"
-        try FileManager.default.createDirectory(
-            at: url.deletingLastPathComponent(),
-            withIntermediateDirectories: true
-        )
-        try payload.write(to: url, atomically: true, encoding: .utf8)
+    public init(version: Int32, tickFrequency: Int64) {
+        self.version = version
+        self.tickFrequency = tickFrequency
     }
+}
 
-    private static func encodeJSONLine<T: Encodable>(_ value: T) throws -> String {
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        let data = try encoder.encode(value)
-        guard let line = String(data: data, encoding: .utf8) else {
-            throw ReplayFixtureError.invalidJSON(line: 1)
-        }
-        return line
+public struct ATPCaptureRecord: Sendable {
+    public let payloadLength: Int
+    public let arrivalTicks: Int64
+    public let deviceIndex: Int32
+    public let deviceHash: UInt32
+    public let vendorID: UInt32
+    public let productID: UInt32
+    public let usagePage: UInt16
+    public let usage: UInt16
+    public let sideHint: UInt8
+    public let decoderProfile: UInt8
+    public let payload: Data
+
+    public init(
+        payloadLength: Int,
+        arrivalTicks: Int64,
+        deviceIndex: Int32,
+        deviceHash: UInt32,
+        vendorID: UInt32,
+        productID: UInt32,
+        usagePage: UInt16,
+        usage: UInt16,
+        sideHint: UInt8,
+        decoderProfile: UInt8,
+        payload: Data
+    ) {
+        self.payloadLength = payloadLength
+        self.arrivalTicks = arrivalTicks
+        self.deviceIndex = deviceIndex
+        self.deviceHash = deviceHash
+        self.vendorID = vendorID
+        self.productID = productID
+        self.usagePage = usagePage
+        self.usage = usage
+        self.sideHint = sideHint
+        self.decoderProfile = decoderProfile
+        self.payload = payload
     }
+}
 
-    private struct JSONLMetaLine: Encodable {
-        let type: String
-        let schema: String
-        let capturedAt: String
-        let platform: String
-        let source: String
-        let framesCaptured: Int
-    }
+public struct ATPCaptureContainer: Sendable {
+    public let header: ATPCaptureHeader
+    public let records: [ATPCaptureRecord]
 
-    private struct JSONLFrameLine: Encodable {
-        let type: String
-        let schema: String
-        let seq: Int
-        let timestampSec: Double
-        let deviceID: String
-        let deviceNumericID: String
-        let deviceIndex: Int
-        let touchCount: Int
-        let contacts: [JSONLContactLine]
-    }
-
-    private struct JSONLContactLine: Encodable {
-        let id: Int
-        let x: Double
-        let y: Double
-        let total: Double
-        let pressure: Double
-        let majorAxis: Double
-        let minorAxis: Double
-        let angle: Double
-        let density: Double
-        let state: String
+    public init(header: ATPCaptureHeader, records: [ATPCaptureRecord]) {
+        self.header = header
+        self.records = records
     }
 }
 
@@ -127,6 +85,71 @@ public enum ATPCaptureCodec {
             return false
         }
         return magic == fileMagic
+    }
+
+    public static func loadContainer(from url: URL) throws -> ATPCaptureContainer {
+        try readContainer(data: Data(contentsOf: url))
+    }
+
+    public static func readContainer(data: Data) throws -> ATPCaptureContainer {
+        guard isATPCapture(data) else {
+            throw ReplayFixtureError.invalidATPCapture(reason: "missing ATPCAP01 header")
+        }
+        guard data.count >= headerSize else {
+            throw ReplayFixtureError.invalidATPCapture(reason: "header truncated")
+        }
+
+        let header = ATPCaptureHeader(
+            version: readInt32LE(from: data, at: 8),
+            tickFrequency: readInt64LE(from: data, at: 12)
+        )
+        var offset = headerSize
+        var records: [ATPCaptureRecord] = []
+        records.reserveCapacity(1024)
+        while offset < data.count {
+            guard offset + recordHeaderSize <= data.count else {
+                throw ReplayFixtureError.invalidATPCapture(reason: "record header truncated at byte \(offset)")
+            }
+
+            let payloadLength = readInt32LE(from: data, at: offset)
+            if payloadLength < 0 {
+                throw ReplayFixtureError.invalidATPCapture(reason: "negative payload length at byte \(offset)")
+            }
+            let payloadLengthInt = Int(payloadLength)
+            let arrivalTicks = readInt64LE(from: data, at: offset + 4)
+            let deviceIndex = readInt32LE(from: data, at: offset + 12)
+            let deviceHash = readUInt32LE(from: data, at: offset + 16)
+            let vendorID = readUInt32LE(from: data, at: offset + 20)
+            let productID = readUInt32LE(from: data, at: offset + 24)
+            let usagePage = readUInt16LE(from: data, at: offset + 28)
+            let usage = readUInt16LE(from: data, at: offset + 30)
+            let sideHint = data[offset + 32]
+            let decoderProfile = data[offset + 33]
+            offset += recordHeaderSize
+
+            guard offset + payloadLengthInt <= data.count else {
+                throw ReplayFixtureError.invalidATPCapture(reason: "payload truncated at byte \(offset)")
+            }
+            let payload = data.subdata(in: offset..<(offset + payloadLengthInt))
+            offset += payloadLengthInt
+            records.append(
+                ATPCaptureRecord(
+                    payloadLength: payloadLengthInt,
+                    arrivalTicks: arrivalTicks,
+                    deviceIndex: deviceIndex,
+                    deviceHash: deviceHash,
+                    vendorID: vendorID,
+                    productID: productID,
+                    usagePage: usagePage,
+                    usage: usage,
+                    sideHint: sideHint,
+                    decoderProfile: decoderProfile,
+                    payload: payload
+                )
+            )
+        }
+
+        return ATPCaptureContainer(header: header, records: records)
     }
 
     public static func write(
@@ -209,54 +232,23 @@ public enum ATPCaptureCodec {
     }
 
     public static func parse(data: Data) throws -> ReplayFixture {
-        guard isATPCapture(data) else {
-            throw ReplayFixtureError.invalidATPCapture(reason: "missing ATPCAP01 header")
-        }
-        guard data.count >= headerSize else {
-            throw ReplayFixtureError.invalidATPCapture(reason: "header truncated")
-        }
-
-        let version = readInt32LE(from: data, at: 8)
+        let container = try readContainer(data: data)
+        let version = container.header.version
         guard version == currentVersion else {
             throw ReplayFixtureError.unsupportedATPCaptureVersion(actual: version)
         }
-
-        _ = readInt64LE(from: data, at: 12)
-
-        var offset = headerSize
         var meta: ReplayFixtureMeta?
         var frames: [ReplayFrameRecord] = []
         frames.reserveCapacity(1024)
         var expectedSeq = 1
 
-        while offset < data.count {
-            guard offset + recordHeaderSize <= data.count else {
-                throw ReplayFixtureError.invalidATPCapture(reason: "record header truncated at byte \(offset)")
-            }
-
-            let payloadLength = readInt32LE(from: data, at: offset)
-            if payloadLength < 0 {
-                throw ReplayFixtureError.invalidATPCapture(reason: "negative payload length at byte \(offset)")
-            }
-            let payloadLengthInt = Int(payloadLength)
-            let arrivalTicks = readInt64LE(from: data, at: offset + 4)
-            let deviceIndex = readInt32LE(from: data, at: offset + 12)
-            offset += recordHeaderSize
-
-            guard offset + payloadLengthInt <= data.count else {
-                throw ReplayFixtureError.invalidATPCapture(reason: "payload truncated at byte \(offset)")
-            }
-
-            let payload = data.subdata(in: offset..<(offset + payloadLengthInt))
-            offset += payloadLengthInt
-            _ = arrivalTicks
-
-            if deviceIndex == metaRecordDeviceIndex {
-                meta = try decodeMetaPayload(payload)
+        for record in container.records {
+            if record.deviceIndex == metaRecordDeviceIndex {
+                meta = try decodeMetaPayload(record.payload)
                 continue
             }
 
-            let frame = try decodeFramePayload(payload, headerDeviceIndex: Int(deviceIndex))
+            let frame = try decodeFramePayload(record.payload, headerDeviceIndex: Int(record.deviceIndex))
             if frame.seq != expectedSeq {
                 throw ReplayFixtureError.invalidSequence(expected: expectedSeq, actual: frame.seq)
             }

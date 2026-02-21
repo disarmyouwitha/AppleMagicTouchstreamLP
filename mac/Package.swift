@@ -49,6 +49,11 @@ let package = Package(
             dependencies: ["ReplayFixtureKit"],
             path: "Tools/ReplayHarness"
         ),
+        .executableTarget(
+            name: "RawCaptureAnalyze",
+            dependencies: ["ReplayFixtureKit"],
+            path: "Tools/RawCaptureAnalyze"
+        ),
         .testTarget(
             name: "ReplayFixtureKitTests",
             dependencies: ["ReplayFixtureKit"],

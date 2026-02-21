@@ -17,14 +17,50 @@ final class ReplayFixtureKitTests: XCTestCase {
         }
     }
 
-    func testInvalidStateFailsValidation() throws {
-        let invalid = """
-        {"type":"meta","schema":"g2k-replay-v1","capturedAt":"2026-02-21T00:00:00Z","platform":"macOS","source":"unit","framesCaptured":1}
-        {"type":"frame","schema":"g2k-replay-v1","seq":1,"timestampSec":1.0,"deviceID":"123","deviceNumericID":123,"deviceIndex":0,"touchCount":1,"contacts":[{"id":1,"x":0.1,"y":0.2,"total":0.3,"pressure":0.4,"majorAxis":1.0,"minorAxis":1.0,"angle":0.0,"density":0.5,"state":"invalidState"}]}
-        """
+    func testInvalidStateFailsATPCaptureEncoding() throws {
+        let fixture = ReplayFixture(
+            meta: ReplayFixtureMeta(
+                schema: ReplayFixtureParser.schema,
+                capturedAt: "2026-02-21T00:00:00Z",
+                platform: "macOS",
+                source: "unit",
+                framesCaptured: 1
+            ),
+            frames: [
+                ReplayFrameRecord(
+                    seq: 1,
+                    timestampSec: 1.0,
+                    deviceID: "123",
+                    deviceNumericID: 123,
+                    deviceIndex: 0,
+                    contacts: [
+                        ReplayContactRecord(
+                            id: 1,
+                            x: 0.1,
+                            y: 0.2,
+                            total: 0.3,
+                            pressure: 0.4,
+                            majorAxis: 1.0,
+                            minorAxis: 1.0,
+                            angle: 0.0,
+                            density: 0.5,
+                            state: "invalidState"
+                        )
+                    ]
+                )
+            ]
+        )
 
-        XCTAssertThrowsError(try ReplayFixtureParser.parse(jsonl: invalid)) { error in
-            XCTAssertEqual(error as? ReplayFixtureError, .invalidState(line: 2, state: "invalidState"))
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("replay-fixture-kit-tests-invalid-\(UUID().uuidString)", isDirectory: true)
+        let atpcapURL = tempDir.appendingPathComponent("invalid.atpcap", isDirectory: false)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        defer {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+
+        XCTAssertThrowsError(try ReplayFixtureCodec.write(fixture, to: atpcapURL)) { error in
+            XCTAssertEqual(error as? ReplayFixtureError, .invalidStateEncoding(state: "invalidState"))
         }
     }
 
@@ -106,7 +142,7 @@ final class ReplayFixtureKitTests: XCTestCase {
     }
 
     private func fixtureURL() -> URL {
-        URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
+        URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.atpcap", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
     }
 
