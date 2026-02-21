@@ -265,10 +265,13 @@ final class ContentViewModel: ObservableObject {
     private static let statusPollIntervalNanoseconds: UInt64 = 50_000_000
 
     private let manager = OMSManager.shared
+    private let inputRuntimeService: InputRuntimeService
+    private let runtimeEngine: EngineActorBoundary
     private var task: Task<Void, Never>?
     private let processor: TouchProcessor
 
     init() {
+        inputRuntimeService = InputRuntimeService(manager: manager)
         let holder = ContinuationHolder()
         touchRevisionContinuationHolder = holder
         touchRevisionUpdates = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
@@ -306,6 +309,7 @@ final class ContentViewModel: ObservableObject {
             onIntentStateChanged: intentStateHandler,
             onVoiceGestureChanged: voiceGestureHandler
         )
+        runtimeEngine = EngineActorPhase2(delegate: EngineProcessorBridge(processor: processor))
         weakSelf = self
         startStatusPollingLoop()
         loadDevices()
@@ -324,11 +328,11 @@ final class ContentViewModel: ObservableObject {
 
     private func pollStatusSnapshotIfNeeded() async {
         guard uiStatusVisualsEnabled else { return }
-        let snapshot = await processor.statusSnapshot()
+        let snapshot = await runtimeEngine.statusSnapshot()
         guard uiStatusVisualsEnabled else { return }
-        publishContactCountsIfNeeded(snapshot.contactCounts)
-        publishIntentDisplayIfNeeded(snapshot.intentDisplays)
-        publishVoiceGestureIfNeeded(snapshot.voiceGestureActive)
+        publishContactCountsIfNeeded(snapshot.contactCountBySide)
+        publishIntentDisplayIfNeeded(Self.mapIntentDisplay(snapshot.intentBySide))
+        publishVoiceGestureIfNeeded(false)
     }
 
     var leftTouches: [OMSTouchData] {
@@ -356,26 +360,27 @@ final class ContentViewModel: ObservableObject {
     }
 
     func onAppear() {
+        guard task == nil else { return }
         let snapshotLock = touchSnapshotLock
         let selectionLock = deviceSelectionLock
         let recordingLock = snapshotRecordingLock
         let snapshotQueue = snapshotQueue
-        task = Task.detached(priority: .userInitiated) { [manager, processor, snapshotLock, selectionLock, recordingLock, snapshotQueue, self] in
-            for await rawFrame in manager.rawTouchStream {
+        task = Task.detached(priority: .userInitiated) { [inputRuntimeService, runtimeEngine, snapshotLock, selectionLock, recordingLock, snapshotQueue, self] in
+            for await rawFrame in inputRuntimeService.rawFrameStream {
 #if DEBUG
-                let signpostState = pipelineSignposter.beginInterval("InputFrame")
-                defer { pipelineSignposter.endInterval("InputFrame", signpostState) }
+                let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
+                defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
 #endif
                 let selection = selectionLock.withLockUnchecked { $0 }
                 let deviceIndex = rawFrame.deviceIndex
                 let isLeft = deviceIndex == selection.leftIndex
                 let isRight = deviceIndex == selection.rightIndex
-                let hasTouchData = !rawFrame.touches.isEmpty
+                let hasTouchData = !rawFrame.contacts.isEmpty
                 let shouldRecord = recordingLock.withLockUnchecked(\.self)
                 var leftTouches: [OMSTouchData] = []
                 var rightTouches: [OMSTouchData] = []
                 if shouldRecord, hasTouchData, (isLeft || isRight) {
-                    let touchData = OMSManager.buildTouchData(from: rawFrame)
+                    let touchData = Self.buildTouchData(from: rawFrame)
                     if isLeft {
                         leftTouches = touchData
                     } else if isRight {
@@ -393,53 +398,57 @@ final class ContentViewModel: ObservableObject {
                             right: rightSnapshot,
                             at: now
                         )
-                    var updatedRevision: UInt64?
-                    if let candidate = snapshotCandidate {
-                        snapshotLock.withLockUnchecked { snapshot in
-                            snapshot.left = candidate.left
-                            snapshot.right = candidate.right
-                            snapshot.hasTransitionState = Self.hasTransitionState(
-                                left: candidate.left,
-                                right: candidate.right
-                            )
-                            snapshot.revision &+= 1
-                            updatedRevision = snapshot.revision
-                        }
+                        var updatedRevision: UInt64?
+                        if let candidate = snapshotCandidate {
+                            snapshotLock.withLockUnchecked { snapshot in
+                                snapshot.left = candidate.left
+                                snapshot.right = candidate.right
+                                snapshot.hasTransitionState = Self.hasTransitionState(
+                                    left: candidate.left,
+                                    right: candidate.right
+                                )
+                                snapshot.revision &+= 1
+                                updatedRevision = snapshot.revision
+                            }
 #if DEBUG
-                        self.pipelineSignposter.emitEvent("SnapshotUpdate")
+                            self.pipelineSignposter.emitEvent("SnapshotUpdateV2")
 #endif
-                    }
-                    if let revision = updatedRevision {
-                        self.touchRevisionContinuationHolder.continuation?.yield(revision)
-                    }
+                        }
+                        if let revision = updatedRevision {
+                            self.touchRevisionContinuationHolder.continuation?.yield(revision)
+                        }
                     }
                 }
-                await processor.processRawFrame(rawFrame)
-                rawFrame.release()
+                await runtimeEngine.ingest(rawFrame)
             }
         }
     }
 
     func onDisappear() {
         task?.cancel()
+        task = nil
         stop()
     }
 
     func start() {
-        if manager.startListening() {
+        let started = inputRuntimeService.start()
+        if started {
             isListening = true
-            Task { [processor] in
-                await processor.setListening(true)
+            let runtimeEngine = runtimeEngine
+            Task {
+                await runtimeEngine.setListening(true)
             }
         }
     }
 
     func stop() {
-        if manager.stopListening() {
+        let stopped = inputRuntimeService.stop()
+        if stopped {
             isListening = false
-            Task { [processor] in
-                await processor.setListening(false)
-                await processor.resetState(stopVoiceDictation: true)
+            let runtimeEngine = runtimeEngine
+            Task {
+                await runtimeEngine.setListening(false)
+                await runtimeEngine.reset(stopVoiceDictation: true)
             }
         }
     }
@@ -633,8 +642,9 @@ final class ContentViewModel: ObservableObject {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) {
-        Task { [processor] in
-            await processor.updateLayouts(
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateLayouts(
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
                 leftLabels: leftLabels,
@@ -646,14 +656,16 @@ final class ContentViewModel: ObservableObject {
     }
 
     func updateCustomButtons(_ buttons: [CustomButton]) {
-        Task { [processor] in
-            await processor.updateCustomButtons(buttons)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateCustomButtons(buttons)
         }
     }
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) {
-        Task { [processor] in
-            await processor.updateKeyMappings(actions)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateKeyMappings(actions)
         }
     }
 
@@ -691,6 +703,199 @@ final class ContentViewModel: ObservableObject {
             }
         }
         return false
+    }
+
+    nonisolated private static func buildTouchData(from frame: RuntimeRawFrame) -> [OMSTouchData] {
+        let deviceID = String(frame.deviceNumericID)
+        return frame.contacts.map { contact in
+            OMSTouchData(
+                deviceID: deviceID,
+                deviceIndex: frame.deviceIndex,
+                id: contact.id,
+                position: OMSPosition(x: contact.posX, y: contact.posY),
+                total: 0,
+                pressure: contact.pressure,
+                axis: OMSAxis(major: contact.majorAxis, minor: contact.minorAxis),
+                angle: contact.angle,
+                density: contact.density,
+                state: contact.state,
+                timestamp: frame.timestamp
+            )
+        }
+    }
+
+    nonisolated private static func mapIntentDisplay(_ intent: RuntimeIntentMode) -> IntentDisplay {
+        switch intent {
+        case .idle:
+            return .idle
+        case .keyCandidate:
+            return .keyCandidate
+        case .typing:
+            return .typing
+        case .mouse:
+            return .mouse
+        case .gesture:
+            return .gesture
+        }
+    }
+
+    nonisolated private static func mapIntentDisplay(_ intent: SidePair<RuntimeIntentMode>) -> SidePair<IntentDisplay> {
+        SidePair(
+            left: mapIntentDisplay(intent.left),
+            right: mapIntentDisplay(intent.right)
+        )
+    }
+
+    nonisolated private static func mapRuntimeIntent(_ intent: IntentDisplay) -> RuntimeIntentMode {
+        switch intent {
+        case .idle:
+            return .idle
+        case .keyCandidate:
+            return .keyCandidate
+        case .typing:
+            return .typing
+        case .mouse:
+            return .mouse
+        case .gesture:
+            return .gesture
+        }
+    }
+
+    private actor EngineProcessorBridge: EngineActorPhase2Delegate {
+        private let processor: TouchProcessor
+
+        init(processor: TouchProcessor) {
+            self.processor = processor
+        }
+
+        func ingest(_ frame: RuntimeRawFrame) async {
+            await processor.processRuntimeRawFrame(frame)
+        }
+
+        func statusSnapshot() async -> RuntimeStatusSnapshot {
+            let snapshot = await processor.statusSnapshot()
+            return RuntimeStatusSnapshot(
+                intentBySide: SidePair(
+                    left: ContentViewModel.mapRuntimeIntent(snapshot.intentDisplays.left),
+                    right: ContentViewModel.mapRuntimeIntent(snapshot.intentDisplays.right)
+                ),
+                contactCountBySide: snapshot.contactCounts,
+                typingEnabled: true,
+                keyboardModeEnabled: false
+            )
+        }
+
+        func setListening(_ isListening: Bool) async {
+            await processor.setListening(isListening)
+        }
+
+        func updateActiveDevices(
+            leftIndex: Int?,
+            rightIndex: Int?,
+            leftDeviceID: String?,
+            rightDeviceID: String?
+        ) async {
+            await processor.updateActiveDevices(
+                leftIndex: leftIndex,
+                rightIndex: rightIndex,
+                leftDeviceID: leftDeviceID,
+                rightDeviceID: rightDeviceID
+            )
+        }
+
+        func updateLayouts(
+            leftLayout: ContentViewModel.Layout,
+            rightLayout: ContentViewModel.Layout,
+            leftLabels: [[String]],
+            rightLabels: [[String]],
+            trackpadSize: CGSize,
+            trackpadWidthMm: CGFloat
+        ) async {
+            await processor.updateLayouts(
+                leftLayout: leftLayout,
+                rightLayout: rightLayout,
+                leftLabels: leftLabels,
+                rightLabels: rightLabels,
+                trackpadSize: trackpadSize,
+                trackpadWidthMm: trackpadWidthMm
+            )
+        }
+
+        func updateCustomButtons(_ buttons: [CustomButton]) async {
+            await processor.updateCustomButtons(buttons)
+        }
+
+        func updateKeyMappings(_ actions: LayeredKeyMappings) async {
+            await processor.updateKeyMappings(actions)
+        }
+
+        func setPersistentLayer(_ layer: Int) async {
+            await processor.setPersistentLayer(layer)
+        }
+
+        func updateHoldThreshold(_ seconds: TimeInterval) async {
+            await processor.updateHoldThreshold(seconds)
+        }
+
+        func updateDragCancelDistance(_ distance: CGFloat) async {
+            await processor.updateDragCancelDistance(distance)
+        }
+
+        func updateTypingGrace(_ milliseconds: Double) async {
+            await processor.updateTypingGrace(milliseconds)
+        }
+
+        func updateIntentMoveThreshold(_ millimeters: Double) async {
+            await processor.updateIntentMoveThreshold(millimeters)
+        }
+
+        func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async {
+            await processor.updateIntentVelocityThreshold(millimetersPerSecond)
+        }
+
+        func updateAllowMouseTakeover(_ enabled: Bool) async {
+            await processor.updateAllowMouseTakeover(enabled)
+        }
+
+        func updateForceClickCap(_ grams: Double) async {
+            await processor.updateForceClickCap(grams)
+        }
+
+        func updateHapticStrength(_ normalized: Double) async {
+            await processor.updateHapticStrength(normalized)
+        }
+
+        func updateSnapRadiusPercent(_ percent: Double) async {
+            await processor.updateSnapRadiusPercent(percent)
+        }
+
+        func updateChordalShiftEnabled(_ enabled: Bool) async {
+            await processor.updateChordalShiftEnabled(enabled)
+        }
+
+        func updateKeyboardModeEnabled(_ enabled: Bool) async {
+            await processor.updateKeyboardModeEnabled(enabled)
+        }
+
+        func setKeymapEditingEnabled(_ enabled: Bool) async {
+            await processor.setKeymapEditingEnabled(enabled)
+        }
+
+        func updateTapClickEnabled(_ enabled: Bool) async {
+            await processor.updateTapClickEnabled(enabled)
+        }
+
+        func updateTapClickCadence(_ milliseconds: Double) async {
+            await processor.updateTapClickCadence(milliseconds)
+        }
+
+        func clearVisualCaches() async {
+            await processor.clearVisualCaches()
+        }
+
+        func reset(stopVoiceDictation: Bool) async {
+            await processor.resetState(stopVoiceDictation: stopVoiceDictation)
+        }
     }
 
     nonisolated private func updatePendingTouches(
@@ -763,10 +968,10 @@ final class ContentViewModel: ObservableObject {
 
     private func updateActiveDevices() {
         let devices = [leftDevice, rightDevice].compactMap { $0 }
-        guard !devices.isEmpty else { return }
-        if manager.setActiveDevices(devices) {
-            Task { [processor] in
-                await processor.resetState(stopVoiceDictation: false)
+        if !devices.isEmpty, manager.setActiveDevices(devices) {
+            let runtimeEngine = runtimeEngine
+            Task {
+                await runtimeEngine.reset(stopVoiceDictation: false)
             }
         }
         let leftIndex = leftDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
@@ -777,8 +982,9 @@ final class ContentViewModel: ObservableObject {
         }
         let leftDeviceID = leftDevice?.deviceID
         let rightDeviceID = rightDevice?.deviceID
-        Task { [processor] in
-            await processor.updateActiveDevices(
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateActiveDevices(
                 leftIndex: leftIndex,
                 rightIndex: rightIndex,
                 leftDeviceID: leftDeviceID,
@@ -787,75 +993,87 @@ final class ContentViewModel: ObservableObject {
         }
     }
     func setPersistentLayer(_ layer: Int) {
-        Task { [processor] in
-            await processor.setPersistentLayer(layer)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.setPersistentLayer(layer)
         }
     }
 
     func updateHoldThreshold(_ seconds: TimeInterval) {
-        Task { [processor] in
-            await processor.updateHoldThreshold(seconds)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateHoldThreshold(seconds)
         }
     }
 
     func updateDragCancelDistance(_ distance: CGFloat) {
-        Task { [processor] in
-            await processor.updateDragCancelDistance(distance)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateDragCancelDistance(distance)
         }
     }
 
     func updateTypingGraceMs(_ milliseconds: Double) {
-        Task { [processor] in
-            await processor.updateTypingGrace(milliseconds)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateTypingGrace(milliseconds)
         }
     }
 
     func updateIntentMoveThresholdMm(_ millimeters: Double) {
-        Task { [processor] in
-            await processor.updateIntentMoveThreshold(millimeters)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateIntentMoveThreshold(millimeters)
         }
     }
 
     func updateIntentVelocityThresholdMmPerSec(_ millimetersPerSecond: Double) {
-        Task { [processor] in
-            await processor.updateIntentVelocityThreshold(millimetersPerSecond)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateIntentVelocityThreshold(millimetersPerSecond)
         }
     }
 
     func updateAllowMouseTakeover(_ enabled: Bool) {
-        Task { [processor] in
-            await processor.updateAllowMouseTakeover(enabled)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateAllowMouseTakeover(enabled)
         }
     }
 
     func updateForceClickCap(_ grams: Double) {
-        Task { [processor] in
-            await processor.updateForceClickCap(grams)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateForceClickCap(grams)
         }
     }
 
     func updateHapticStrength(_ normalized: Double) {
-        Task { [processor] in
-            await processor.updateHapticStrength(normalized)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateHapticStrength(normalized)
         }
     }
 
     func updateSnapRadiusPercent(_ percent: Double) {
-        Task { [processor] in
-            await processor.updateSnapRadiusPercent(percent)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateSnapRadiusPercent(percent)
         }
     }
 
     func updateChordalShiftEnabled(_ enabled: Bool) {
-        Task { [processor] in
-            await processor.updateChordalShiftEnabled(enabled)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateChordalShiftEnabled(enabled)
         }
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
-        Task { [processor] in
-            await processor.updateKeyboardModeEnabled(enabled)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateKeyboardModeEnabled(enabled)
         }
     }
 
@@ -867,32 +1085,37 @@ final class ContentViewModel: ObservableObject {
             debugLastHitLeft = nil
             debugLastHitRight = nil
         }
-        Task { [processor] in
-            await processor.setKeymapEditingEnabled(enabled)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.setKeymapEditingEnabled(enabled)
         }
     }
 
     func updateTapClickEnabled(_ enabled: Bool) {
-        Task { [processor] in
-            await processor.updateTapClickEnabled(enabled)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateTapClickEnabled(enabled)
         }
     }
 
     func updateTapClickCadenceMs(_ milliseconds: Double) {
-        Task { [processor] in
-            await processor.updateTapClickCadence(milliseconds)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateTapClickCadence(milliseconds)
         }
     }
 
     func clearTouchState() {
-        Task { [processor] in
-            await processor.resetState(stopVoiceDictation: false)
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.reset(stopVoiceDictation: false)
         }
     }
 
     func clearVisualCaches() {
-        Task { [processor] in
-            await processor.clearVisualCaches()
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.clearVisualCaches()
         }
     }
 
@@ -907,12 +1130,13 @@ final class ContentViewModel: ObservableObject {
     func setStatusVisualsEnabled(_ enabled: Bool) {
         uiStatusVisualsEnabled = enabled
         if enabled {
-            Task { [processor] in
-                let snapshot = await processor.statusSnapshot()
+            let runtimeEngine = runtimeEngine
+            Task {
+                let snapshot = await runtimeEngine.statusSnapshot()
                 Task { @MainActor in
-                    self.contactFingerCountsBySide = snapshot.contactCounts
-                    self.intentDisplayBySide = snapshot.intentDisplays
-                    self.voiceGestureActive = snapshot.voiceGestureActive
+                    self.contactFingerCountsBySide = snapshot.contactCountBySide
+                    self.intentDisplayBySide = Self.mapIntentDisplay(snapshot.intentBySide)
+                    self.voiceGestureActive = false
                 }
             }
         }
@@ -1744,6 +1968,95 @@ final class ContentViewModel: ObservableObject {
             tapTraceFrameIndex &+= 1
 #endif
             let touches = frame.touches
+            let hasTouchData = !touches.isEmpty
+            if !hasTouchData {
+                chordShiftState[.left] = ChordShiftState()
+                chordShiftState[.right] = ChordShiftState()
+                chordShiftLastContactTime[.left] = 0
+                chordShiftLastContactTime[.right] = 0
+                updateChordShiftKeyState()
+            }
+            let deviceIndex = frame.deviceIndex
+            let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
+            let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+            let leftTouches = isLeftDevice ? touches : []
+            let rightTouches = isRightDevice ? touches : []
+            if chordShiftEnabled {
+                let leftContactCount = contactCount(in: leftTouches)
+                let rightContactCount = contactCount(in: rightTouches)
+                updateChordShift(for: .left, contactCount: leftContactCount, now: now)
+                updateChordShift(for: .right, contactCount: rightContactCount, now: now)
+                updateChordShiftKeyState()
+            } else if chordShiftKeyDown {
+                updateChordShiftKeyState()
+            }
+            let leftBindings = bindings(
+                for: .left,
+                layout: leftLayout,
+                labels: leftLabels,
+                canvasSize: trackpadSize
+            )
+            let rightBindings = bindings(
+                for: .right,
+                layout: rightLayout,
+                labels: rightLabels,
+                canvasSize: trackpadSize
+            )
+            let allowTypingGlobal = updateIntent(
+                leftTouches: leftTouches,
+                rightTouches: rightTouches,
+                leftDeviceIndex: leftDeviceIndex,
+                rightDeviceIndex: rightDeviceIndex,
+                now: now,
+                leftBindings: leftBindings,
+                rightBindings: rightBindings
+            )
+            let allowTypingLeft = allowTypingGlobal || isChordShiftActive(on: .right)
+            let allowTypingRight = allowTypingGlobal || isChordShiftActive(on: .left)
+            if isLeftDevice {
+                processTouches(
+                    leftTouches,
+                    deviceIndex: deviceIndex,
+                    bindings: leftBindings,
+                    layout: leftLayout,
+                    canvasSize: trackpadSize,
+                    isLeftSide: true,
+                    now: now,
+                    intentAllowsTyping: allowTypingLeft
+                )
+            }
+            if isRightDevice {
+                processTouches(
+                    rightTouches,
+                    deviceIndex: deviceIndex,
+                    bindings: rightBindings,
+                    layout: rightLayout,
+                    canvasSize: trackpadSize,
+                    isLeftSide: false,
+                    now: now,
+                    intentAllowsTyping: allowTypingRight
+                )
+            }
+            notifyContactCounts()
+        }
+
+        func processRuntimeRawFrame(_ frame: RuntimeRawFrame) {
+            guard isListening,
+                  let leftLayout,
+                  let rightLayout else {
+                return
+            }
+            if leftDeviceIndex == nil && rightDeviceIndex == nil {
+                return
+            }
+            if keymapEditingEnabled {
+                return
+            }
+            let now = Self.now()
+#if DEBUG
+            tapTraceFrameIndex &+= 1
+#endif
+            let touches = frame.rawTouches
             let hasTouchData = !touches.isEmpty
             if !hasTouchData {
                 chordShiftState[.left] = ChordShiftState()

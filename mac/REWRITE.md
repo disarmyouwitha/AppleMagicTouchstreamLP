@@ -12,6 +12,11 @@ Make macOS behavior and feel match the Windows app under heavy touch load, espec
 ## Execution Tracking
 Use `REWRITE_TRACKING.md` as the execution source of truth for phase checklists, workstream status, and current implementation slice.
 
+## Cutover Directive (2026-02-21)
+- Prioritize full rewrite cutover tonight.
+- Do not spend additional time preserving legacy runtime behavior unless needed to keep the app building while a rewrite replacement lands.
+- Prefer deleting/replacing legacy paths once rewrite equivalents are validated by build + replay checks.
+
 ## Decisions from this review
 1. Keep native app stacks:
 - macOS app/UI in Swift, private framework bridge in Objective-C.
@@ -19,6 +24,7 @@ Use `REWRITE_TRACKING.md` as the execution source of truth for phase checklists,
 2. Do not keep current macOS UI invalidation architecture.
 3. Build a strict runtime pipeline and make UI a consumer of snapshots, not the source of hot-path backpressure.
 4. Proceed with optional shared core library and prioritize Rust over C++.
+5. Execute rewrite-first cutover (not compatibility-first hardening) for the remaining implementation slice.
 
 ## Why a rewrite is needed
 Windows uses explicit visual invalidation and timed status polling, while macOS currently relies on broader SwiftUI `ObservableObject` invalidation. When edit controls are active, that causes larger view tree re-evaluations than the Windows model.
@@ -160,6 +166,10 @@ Acceptance:
 4. Wire `OpenMTManagerV2` into `OMSManager` behind a feature flag so capture can run on the raw-only bridge.
 5. Add replay harness tooling to ingest `ReplayFixtures/*.jsonl`, feed `RuntimeRawFrame`, and emit deterministic transcripts.
 6. Add fixture/schema validation tests (including canonical touch-state labels) and baseline fixtures.
+
+Current execution directive:
+1. Replace legacy runtime paths directly as rewrite equivalents land.
+2. Keep temporary feature flags only as short-lived safety toggles during tonight's cutover.
 
 ## Non-goals
 - Changing key mapping semantics.

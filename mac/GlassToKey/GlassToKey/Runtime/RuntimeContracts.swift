@@ -40,6 +40,7 @@ struct RuntimeRawFrame: Sendable {
     var deviceNumericID: UInt64
     var deviceIndex: Int
     var contacts: [RuntimeRawContact]
+    var rawTouches: [OMSRawTouch]
 }
 
 struct RuntimeDiagnosticsCounters: Sendable {
@@ -72,6 +73,7 @@ extension RuntimeRawFrame {
         self.timestamp = frame.timestamp
         self.deviceNumericID = frame.deviceIDNumeric
         self.deviceIndex = frame.deviceIndex
+        self.rawTouches = frame.touches
         self.contacts = frame.touches.compactMap { touch in
             guard let state = Self.mapState(touch.state) else { return nil }
             return RuntimeRawContact(

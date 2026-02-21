@@ -4,14 +4,18 @@ enum RewriteFeatureFlags {
     private static let appKitSurfaceEnvironmentKey = "GLASSTOKEY_REWRITE_APPKIT_SURFACE"
 
     static var useAppKitSurfaceRendererByDefault: Bool {
-        if let value = ProcessInfo.processInfo.environment[appKitSurfaceEnvironmentKey] {
-            switch value {
-            case "1", "true", "TRUE", "yes", "YES":
-                return true
-            default:
-                return false
-            }
+        boolEnvironmentValue(for: appKitSurfaceEnvironmentKey)
+    }
+
+    private static func boolEnvironmentValue(for key: String) -> Bool {
+        guard let value = ProcessInfo.processInfo.environment[key] else {
+            return false
         }
-        return false
+        switch value {
+        case "1", "true", "TRUE", "yes", "YES":
+            return true
+        default:
+            return false
+        }
     }
 }

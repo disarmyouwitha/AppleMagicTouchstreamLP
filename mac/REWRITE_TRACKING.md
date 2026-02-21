@@ -11,6 +11,11 @@ Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md`
 - In scope: Objective-C capture bridge (`Framework/OpenMultitouchSupportXCF`), Swift wrapper (`Sources/OpenMultitouchSupport`), app runtime/UI (`GlassToKey/GlassToKey`), parity test infrastructure.
 - Out of scope: changing key semantics, adding logging/file I/O on hot paths, hand-editing generated XCFramework artifacts.
 
+## Cutover Directive (2026-02-21)
+- Rewrite-first cutover is approved for tonight.
+- Minimize effort spent preserving legacy runtime behavior.
+- Remove/replace legacy runtime code as soon as rewrite path compiles and passes replay/build verification.
+
 ## Baseline Audit (Current macOS)
 
 ### 1) Objective-C capture bridge (`OpenMTManager`)
@@ -126,9 +131,9 @@ Exit criteria:
 
 ## Phase 2 - Runtime Service + Engine Boundary (Swift)
 - [ ] Split current `ContentViewModel` responsibilities into runtime services.
-- [ ] Build `InputRuntimeService` and `EngineActor` interfaces.
+- [x] Build `InputRuntimeService` and `EngineActor` interfaces.
 - [ ] Move touch processing state machine out of `ContentViewModel`.
-- [ ] Maintain compatibility adapter to existing keymap/settings format.
+- [ ] Keep only minimal compatibility needed for defaults/keymap persistence (no broad runtime fallback work).
 
 Exit criteria:
 - [ ] UI can be disconnected while runtime keeps processing.
@@ -163,11 +168,11 @@ Exit criteria:
 
 ## Phase 6 - Cutover + Cleanup
 - [ ] Make rewrite stack default.
-- [ ] Remove legacy code paths after parity burn-in.
+- [ ] Remove legacy code paths during rewrite cutover.
 - [ ] Rebuild and ship updated XCFramework + app.
 
 Exit criteria:
-- [ ] Legacy runtime disabled by default and removable.
+- [ ] Legacy runtime removed from hot path and no longer required for normal app operation.
 - [ ] Release checklist and regression suite pass.
 
 ## Workstream Tracker
@@ -177,8 +182,8 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
 | Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` now runs raw-only callbacks on a dedicated state queue, uses numeric-ID reconciliation for active devices, pre-sizes callback registries, avoids main-thread control-plane hops, and is exported in rebuilt local XCFramework |
-| Runtime service split (Swift) | TBD | In Progress | `InputRuntimeService` scaffold + runtime DTOs added; not yet wired into `ContentViewModel` |
-| Engine boundary + replay harness | TBD | In Progress | Replay now runs against `EngineActorPhase2` (not stub), emits intent/contact transcript fields, and supports explicit parity compare against committed baseline transcript |
+| Runtime service split (Swift) | TBD | In Progress | `ContentViewModel` runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActorPhase2`; control/update calls now route through engine boundary (not direct view-model -> processor calls) |
+| Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActorPhase2` (not stub); app runtime now executes touch dispatch/status behavior through `EngineActorPhase2` via a processor bridge and polls boundary snapshots |
 | Dispatch queue/pump | TBD | Not Started | Decouple key posting |
 | AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
@@ -210,8 +215,8 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
   - [ ] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/glasstokey-derived build` (currently fails in this environment: missing package product `OpenMultitouchSupport`)
 
 ## Migration Rules
-- Introduce feature flags for each new layer; no big-bang switch.
-- Keep current defaults/keymap storage keys compatible through adapter layer.
+- Rewrite-first cutover is preferred over no-big-bang migration for the remaining slices.
+- Keep compatibility only where required for persisted defaults/keymap storage.
 - Do not add logging or file I/O in callback/engine hot paths.
 - Treat generated artifacts (`OpenMultitouchSupportXCF.xcframework`) as build outputs only.
 
@@ -226,7 +231,11 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Add fixture/schema validation tests (canonical state labels + deterministic transcript check).
 - [x] Rebuild/export `OpenMultitouchSupportXCF.xcframework` with `OpenMTManagerV2` public symbols and switch OMS to direct type binding.
 - [x] Feed replay harness into a concrete `EngineActorPhase2` boundary and start transcript parity comparisons.
-- [ ] Wire `InputRuntimeService` -> `EngineActorPhase2` in app runtime and begin replacing `ContentViewModel` direct processing path.
+- [x] Wire `InputRuntimeService` -> `EngineActorPhase2` in app runtime and begin replacing `ContentViewModel` direct processing path.
+- [x] Remove legacy `OMSManager.rawTouchStream -> TouchProcessor.processRawFrame` loop from `ContentViewModel` runtime ingest path and make rewrite ingest default.
+- [x] Replace `ContentViewModel.TouchProcessor` dispatch/render behavior behind `EngineActorPhase2` boundary and retire remaining direct processor responsibilities from `ContentViewModel`.
+- [ ] Remove the temporary `EngineProcessorBridge` adapter by lifting processor internals into standalone engine modules owned directly by `EngineActorPhase2`.
+- [ ] Rename `EngineActorPhase2` to `EngineActor` across app/runtime/replay modules once bridge retirement is complete.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).
