@@ -39,6 +39,7 @@ internal static class AtpCapV3Payload
     public const byte ReportIdMarker = 0x52;
     public const int FrameHeaderBytes = 32;
     public const int FrameContactBytes = 40;
+    private const bool CanonicalYAxisBottomOrigin = true;
 
     public static byte[] CreateMetaPayload(string platform, string source, int framesCaptured)
     {
@@ -168,7 +169,7 @@ internal static class AtpCapV3Payload
             ContactFrame contact = frame.GetContact(i);
             BinaryPrimitives.WriteInt32LittleEndian(span.Slice(offset, 4), unchecked((int)contact.Id));
             WriteFloatLE(span.Slice(offset + 4, 4), NormalizeCoordinate(contact.X, maxX));
-            WriteFloatLE(span.Slice(offset + 8, 4), NormalizeCoordinate(contact.Y, maxY));
+            WriteFloatLE(span.Slice(offset + 8, 4), NormalizeCoordinate(contact.Y, maxY, flipAxis: CanonicalYAxisBottomOrigin));
             WriteFloatLE(span.Slice(offset + 12, 4), 0);
             WriteFloatLE(span.Slice(offset + 16, 4), 0);
             WriteFloatLE(span.Slice(offset + 20, 4), 0);
@@ -200,7 +201,7 @@ internal static class AtpCapV3Payload
             converted.SetContact(i, new ContactFrame(
                 unchecked((uint)contact.Id),
                 ScaleCoordinate(contact.X, maxX),
-                ScaleCoordinate(contact.Y, maxY),
+                ScaleCoordinate(contact.Y, maxY, flipAxis: CanonicalYAxisBottomOrigin),
                 FlagsFromCanonicalState(contact.State),
                 Pressure: 0,
                 Phase: 0));
@@ -240,7 +241,7 @@ internal static class AtpCapV3Payload
         };
     }
 
-    private static float NormalizeCoordinate(ushort coordinate, ushort maxValue)
+    private static float NormalizeCoordinate(ushort coordinate, ushort maxValue, bool flipAxis = false)
     {
         if (maxValue == 0)
         {
@@ -248,10 +249,15 @@ internal static class AtpCapV3Payload
         }
 
         float normalized = coordinate / (float)maxValue;
+        if (flipAxis)
+        {
+            normalized = 1f - normalized;
+        }
+
         return Math.Clamp(normalized, 0f, 1f);
     }
 
-    private static ushort ScaleCoordinate(float normalized, ushort maxValue)
+    private static ushort ScaleCoordinate(float normalized, ushort maxValue, bool flipAxis = false)
     {
         if (maxValue == 0 || !float.IsFinite(normalized))
         {
@@ -259,6 +265,11 @@ internal static class AtpCapV3Payload
         }
 
         double clamped = Math.Clamp((double)normalized, 0, 1);
+        if (flipAxis)
+        {
+            clamped = 1.0 - clamped;
+        }
+
         double scaled = Math.Round(clamped * maxValue, MidpointRounding.AwayFromZero);
         return (ushort)Math.Clamp((int)scaled, 0, maxValue);
     }

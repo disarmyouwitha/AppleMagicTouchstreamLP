@@ -148,7 +148,10 @@ internal static class ReplayVisualLoader
                 device = new ReplayDeviceAccumulator(displayName, replayDeviceName, tag.Index, tag.Hash);
                 devicesByTag[key] = device;
             }
-            device.ObserveSideHint(record.SideHint);
+            CaptureSideHint sideHint = reader.HeaderVersion == InputCaptureFile.CurrentWriteVersion
+                ? DecodeV3SideHint(record.SideHint)
+                : record.SideHint;
+            device.ObserveSideHint(sideHint);
 
             int contactCount = frame.GetClampedContactCount();
             for (int i = 0; i < contactCount; i++)
@@ -239,5 +242,16 @@ internal static class ReplayVisualLoader
                 RightHintCount++;
             }
         }
+    }
+
+    private static CaptureSideHint DecodeV3SideHint(CaptureSideHint sideHint)
+    {
+        // ATPCAP v3 interoperability currently uses swapped side-hint semantics.
+        return sideHint switch
+        {
+            CaptureSideHint.Left => CaptureSideHint.Right,
+            CaptureSideHint.Right => CaptureSideHint.Left,
+            _ => CaptureSideHint.Unknown
+        };
     }
 }

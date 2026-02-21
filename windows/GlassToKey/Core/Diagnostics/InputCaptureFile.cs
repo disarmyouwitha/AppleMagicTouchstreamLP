@@ -186,8 +186,19 @@ internal sealed class InputCaptureWriter : IDisposable
             snapshot.Info.ProductId,
             snapshot.Info.UsagePage,
             snapshot.Info.Usage,
-            sideHint,
+            EncodeV3SideHint(sideHint),
             decoderProfile: 0);
+    }
+
+    private static CaptureSideHint EncodeV3SideHint(CaptureSideHint sideHint)
+    {
+        // ATPCAP v3 interoperability currently uses swapped side-hint semantics.
+        return sideHint switch
+        {
+            CaptureSideHint.Left => CaptureSideHint.Right,
+            CaptureSideHint.Right => CaptureSideHint.Left,
+            _ => CaptureSideHint.Unknown
+        };
     }
 
     private void WriteV3MetaRecord()

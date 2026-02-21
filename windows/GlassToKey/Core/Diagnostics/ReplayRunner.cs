@@ -142,7 +142,10 @@ internal sealed class ReplayRunner
             }
 
             metrics.RecordParsed();
-            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint);
+            CaptureSideHint sideHint = reader.HeaderVersion == InputCaptureFile.CurrentWriteVersion
+                ? DecodeV3SideHint(record.SideHint)
+                : record.SideHint;
+            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, sideHint);
 
             if (!hasBaseQpc)
             {
@@ -310,6 +313,17 @@ internal sealed class ReplayRunner
         }
 
         return hash;
+    }
+
+    private static CaptureSideHint DecodeV3SideHint(CaptureSideHint sideHint)
+    {
+        // ATPCAP v3 interoperability currently uses swapped side-hint semantics.
+        return sideHint switch
+        {
+            CaptureSideHint.Left => CaptureSideHint.Right,
+            CaptureSideHint.Right => CaptureSideHint.Left,
+            _ => CaptureSideHint.Unknown
+        };
     }
 
     private sealed class ReplaySideMapper
