@@ -145,6 +145,7 @@ enum ATPCaptureV3Codec {
         frames.reserveCapacity(1024)
         var rawArrivalTicks: [Int64] = []
         rawArrivalTicks.reserveCapacity(1024)
+        var sideMapper = ReplaySideMapper()
 
         for record in container.records {
             if record.deviceIndex == metaRecordDeviceIndex {
@@ -152,9 +153,14 @@ enum ATPCaptureV3Codec {
                 continue
             }
 
+            let replayDeviceIndex = sideMapper.resolve(
+                deviceIndex: record.deviceIndex,
+                deviceHash: record.deviceHash,
+                sideHint: record.sideHint
+            )
             let frame = try decodeFramePayload(
                 record.payload,
-                headerDeviceIndex: Int(record.deviceIndex)
+                headerDeviceIndex: replayDeviceIndex
             )
             guard frame.sequence == expectedSequence else {
                 throw RuntimeCaptureReplayError.invalidATPCapture(
@@ -505,11 +511,12 @@ enum ATPCaptureV3Codec {
     }
 
     private static func sideHintForDeviceIndex(_ deviceIndex: Int) -> UInt8 {
+        // ATPCAP v3 interoperability currently uses swapped side-hint semantics.
         switch deviceIndex {
         case 0:
-            return 1
-        case 1:
             return 2
+        case 1:
+            return 1
         default:
             return 0
         }
@@ -674,6 +681,45 @@ enum ATPCaptureV3Codec {
     private struct ATPCaptureContainer: Sendable {
         let header: ATPCaptureHeader
         let records: [ATPCaptureRecord]
+    }
+
+    private struct ReplayDeviceKey: Hashable {
+        let deviceIndex: Int32
+        let deviceHash: UInt32
+    }
+
+    private struct ReplaySideMapper {
+        private var sidesByDevice: [ReplayDeviceKey: Int] = [:]
+        private var nextSide = 0
+
+        mutating func resolve(deviceIndex: Int32, deviceHash: UInt32, sideHint: UInt8) -> Int {
+            let key = ReplayDeviceKey(deviceIndex: deviceIndex, deviceHash: deviceHash)
+            if let mapped = Self.decodeV3SideHint(sideHint) {
+                sidesByDevice[key] = mapped
+                return mapped
+            }
+
+            if let known = sidesByDevice[key] {
+                return known
+            }
+
+            let assigned = nextSide
+            nextSide = (nextSide + 1) % 2
+            sidesByDevice[key] = assigned
+            return assigned
+        }
+
+        private static func decodeV3SideHint(_ sideHint: UInt8) -> Int? {
+            // ATPCAP v3 interoperability currently uses swapped side-hint semantics.
+            switch sideHint {
+            case 1:
+                return 1 // right
+            case 2:
+                return 0 // left
+            default:
+                return nil
+            }
+        }
     }
 }
 
@@ -915,6 +961,12 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         _ = inputRuntimeService.stop()
         await runtimeEngine.setListening(true)
         await runtimeEngine.reset(stopVoiceDictation: false)
+        await runtimeEngine.updateActiveDevices(
+            leftIndex: 0,
+            rightIndex: 1,
+            leftDeviceID: nil,
+            rightDeviceID: nil
+        )
 
         var currentIndex = -1
         var currentTime = 0.0
