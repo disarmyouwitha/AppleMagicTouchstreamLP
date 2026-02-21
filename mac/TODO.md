@@ -1,4 +1,9 @@
 ## TODO
+- Please explain to me how haptics works in the framework. Is this portable to windows in any way?
+- fix edit keymap lag
+- fix start typing lag 
+- REWRITE FRAMEWORK up: Framework handles all frame logic, not handled in app. Deterministic capture and replay
+---
 - export /import keymaps, load global.json default
 - capture / replay .atpcap
 - autocorrect bugging.

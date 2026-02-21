@@ -343,12 +343,14 @@ struct ContentView: View {
             .onAppear {
                 applySavedSettings()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+                viewModel.setKeymapEditingEnabled(editModeEnabled)
             }
             .onDisappear {
                 persistConfig()
             }
             .onChange(of: visualsEnabled) { enabled in
                 viewModel.setTouchSnapshotRecordingEnabled(enabled)
+                viewModel.setStatusVisualsEnabled(enabled && !editModeEnabled)
                 if !enabled {
                     viewModel.clearVisualCaches()
                     editModeEnabled = false
@@ -365,6 +367,8 @@ struct ContentView: View {
                     selectedColumn = nil
                     selectedGridKey = nil
                 }
+                viewModel.setStatusVisualsEnabled(visualsEnabled && !enabled)
+                viewModel.setKeymapEditingEnabled(enabled)
             }
             .onChange(of: columnSettings) { newValue in
                 applyColumnSettings(newValue)
@@ -1752,7 +1756,6 @@ struct ContentView: View {
                         displayRightTouchesState = []
                         lastDisplayedHadTouches = false
                     }
-                    viewModel.setStatusVisualsEnabled(enabled)
                 }
                 .task(id: visualsEnabled) {
                     guard visualsEnabled else { return }
@@ -1814,7 +1817,7 @@ struct ContentView: View {
                 return true
             }
 
-            let clampedHz = 20.0
+            let clampedHz = 50.0
             let minInterval = 1.0 / clampedHz
             return now - lastDisplayUpdateTime >= minInterval
         }
@@ -2391,7 +2394,7 @@ struct ContentView: View {
 
     private func applySavedSettings() {
         visualsEnabled = storedVisualsEnabled
-        viewModel.setStatusVisualsEnabled(visualsEnabled)
+        viewModel.setStatusVisualsEnabled(visualsEnabled && !editModeEnabled)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
         let resolvedLayout = TrackpadLayoutPreset(rawValue: storedLayoutPreset) ?? .sixByThree

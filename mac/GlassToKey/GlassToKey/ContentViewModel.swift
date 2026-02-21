@@ -245,6 +245,9 @@ final class ContentViewModel: ObservableObject {
     @Published private(set) var debugLastHitLeft: DebugHit?
     @Published private(set) var debugLastHitRight: DebugHit?
 
+    private var keymapEditingEnabled = false
+    private var debugHitPublishingEnabled = true
+
     private var requestedLeftDeviceID: String?
     private var requestedRightDeviceID: String?
     private var requestedLeftDeviceName: String?
@@ -326,6 +329,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     private func recordDebugHit(_ binding: KeyBinding) {
+        guard debugHitPublishingEnabled else { return }
         let hit = DebugHit(
             rect: binding.rect,
             label: binding.label,
@@ -841,6 +845,19 @@ final class ContentViewModel: ObservableObject {
         keyboardModeEnabled = enabled
         Task { [processor] in
             await processor.updateKeyboardModeEnabled(enabled)
+        }
+    }
+
+    func setKeymapEditingEnabled(_ enabled: Bool) {
+        guard keymapEditingEnabled != enabled else { return }
+        keymapEditingEnabled = enabled
+        debugHitPublishingEnabled = !enabled
+        if enabled {
+            debugLastHitLeft = nil
+            debugLastHitRight = nil
+        }
+        Task { [processor] in
+            await processor.setKeymapEditingEnabled(enabled)
         }
     }
 
@@ -1403,6 +1420,7 @@ final class ContentViewModel: ObservableObject {
         private let onVoiceGestureChanged: @Sendable (Bool) -> Void
         private let isDragDetectionEnabled = true
         private var isListening = false
+        private var keymapEditingEnabled = false
         private var isTypingEnabled = true
         private var keyboardModeEnabled = false
         private var activeLayer: Int = 0
@@ -1615,6 +1633,12 @@ final class ContentViewModel: ObservableObject {
             invalidateBindingsCache()
         }
 
+        func setKeymapEditingEnabled(_ enabled: Bool) {
+            guard keymapEditingEnabled != enabled else { return }
+            keymapEditingEnabled = enabled
+            resetState(stopVoiceDictation: enabled)
+        }
+
         func setPersistentLayer(_ layer: Int) {
             let clamped = max(0, min(layer, 1))
             persistentLayer = clamped
@@ -1698,6 +1722,9 @@ final class ContentViewModel: ObservableObject {
                 return
             }
             if leftDeviceIndex == nil && rightDeviceIndex == nil {
+                return
+            }
+            if keymapEditingEnabled {
                 return
             }
             let now = Self.now()
