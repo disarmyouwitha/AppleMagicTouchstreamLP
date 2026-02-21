@@ -11,6 +11,7 @@ FOUNDATION_EXPORT double OpenMultitouchSupportXCFVersionNumber;
 FOUNDATION_EXPORT const unsigned char OpenMultitouchSupportXCFVersionString[];
 
 #import <OpenMultitouchSupportXCF/OpenMTManager.h>
+#import <OpenMultitouchSupportXCF/OpenMTManagerV2.h>
 #import <OpenMultitouchSupportXCF/OpenMTListener.h>
 #import <OpenMultitouchSupportXCF/OpenMTEvent.h>
 #import <OpenMultitouchSupportXCF/OpenMTTouch.h>

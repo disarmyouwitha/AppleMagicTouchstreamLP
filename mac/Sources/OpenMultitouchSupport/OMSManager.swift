@@ -5,6 +5,7 @@
 */
 
 @preconcurrency import OpenMultitouchSupportXCF
+import Foundation
 import os
 
 public struct OMSDeviceInfo: Sendable, Hashable {
@@ -35,10 +36,87 @@ public enum OMSHapticPattern: Int32, CaseIterable, Sendable {
     case level = 5  // Changed from 17 to 5 (valid ID)
 }
 
+public enum OMSCaptureBridgeBackend: String, Sendable {
+    case legacyV1
+    case rawV2
+}
+
 public final class OMSManager: Sendable {
     public static let shared = OMSManager()
 
-    private let protectedManager: OSAllocatedUnfairLock<OpenMTManager?>
+    private enum CaptureManager {
+        case v1(OpenMTManager)
+        case v2(OpenMTManagerV2)
+
+        func refreshAvailableDevices() {
+            switch self {
+            case let .v1(manager):
+                manager.refreshAvailableDevices()
+            case let .v2(manager):
+                manager.refreshAvailableDevices()
+            }
+        }
+
+        func availableDevices() -> [OpenMTDeviceInfo] {
+            switch self {
+            case let .v1(manager):
+                return manager.availableDevices()
+            case let .v2(manager):
+                return manager.availableDevices()
+            }
+        }
+
+        func activeDevices() -> [OpenMTDeviceInfo] {
+            switch self {
+            case let .v1(manager):
+                return manager.activeDevices()
+            case let .v2(manager):
+                return manager.activeDevices()
+            }
+        }
+
+        @discardableResult
+        func setActiveDevices(_ devices: [OpenMTDeviceInfo]) -> Bool {
+            switch self {
+            case let .v1(manager):
+                return manager.setActiveDevices(devices)
+            case let .v2(manager):
+                return manager.setActiveDevices(devices)
+            }
+        }
+
+        func addRawListener(
+            callback: @escaping OpenMTRawFrameCallback
+        ) -> OpenMTListener {
+            switch self {
+            case let .v1(manager):
+                return manager.addRawListener(callback: callback)
+            case let .v2(manager):
+                return manager.addRawListener(callback: callback)
+            }
+        }
+
+        func removeRawListener(_ listener: OpenMTListener) {
+            switch self {
+            case let .v1(manager):
+                manager.removeRawListener(listener)
+            case let .v2(manager):
+                manager.removeRawListener(listener)
+            }
+        }
+
+        var backend: OMSCaptureBridgeBackend {
+            switch self {
+            case .v1:
+                return .legacyV1
+            case .v2:
+                return .rawV2
+            }
+        }
+    }
+
+    private let protectedCaptureManager: OSAllocatedUnfairLock<CaptureManager?>
+    private let protectedHapticManager: OSAllocatedUnfairLock<OpenMTManager?>
     private let protectedRawListener = OSAllocatedUnfairLock<OpenMTListener?>(uncheckedState: nil)
     private let protectedTimestampEnabled = OSAllocatedUnfairLock<Bool>(uncheckedState: true)
     private let protectedDeviceIndexStore = OSAllocatedUnfairLock<DeviceIndexStore>(
@@ -64,6 +142,24 @@ public final class OMSManager: Sendable {
         category: "OpenMT"
     )
 #endif
+
+    public static func defaultCaptureBackendFromEnvironment() -> OMSCaptureBridgeBackend {
+        if let value = ProcessInfo.processInfo.environment["OMS_CAPTURE_BRIDGE_V2"]?.lowercased() {
+            if value == "1" || value == "true" || value == "yes" {
+                return .rawV2
+            }
+        }
+        return .legacyV1
+    }
+
+    public nonisolated(unsafe) static var preferredCaptureBackend = defaultCaptureBackendFromEnvironment()
+
+    public var captureBackend: OMSCaptureBridgeBackend {
+        protectedCaptureManager.withLockUnchecked { manager in
+            manager?.backend ?? .legacyV1
+        }
+    }
+
     public var touchDataStream: AsyncStream<[OMSTouchData]> {
         AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
             let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
@@ -124,27 +220,45 @@ public final class OMSManager: Sendable {
     }
     
     public var availableDevices: [OMSDeviceInfo] {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return [] }
-        xcfManager.refreshAvailableDevices()
-        return xcfManager.availableDevices().map { OMSDeviceInfo($0) }
+        guard let manager = protectedCaptureManager.withLockUnchecked(\.self) else { return [] }
+        manager.refreshAvailableDevices()
+        return manager.availableDevices().map { OMSDeviceInfo($0) }
     }
     
     public var activeDevices: [OMSDeviceInfo] {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return [] }
-        return xcfManager.activeDevices().map { OMSDeviceInfo($0) }
+        guard let manager = protectedCaptureManager.withLockUnchecked(\.self) else { return [] }
+        return manager.activeDevices().map { OMSDeviceInfo($0) }
     }
 
     private init() {
-        protectedManager = .init(uncheckedState: OpenMTManager.shared())
+        let hapticManager = OpenMTManager.shared()
+        protectedHapticManager = .init(uncheckedState: hapticManager)
+        switch Self.preferredCaptureBackend {
+        case .legacyV1:
+            protectedCaptureManager = .init(uncheckedState: hapticManager.map(CaptureManager.v1))
+        case .rawV2:
+            if let managerV2 = Self.loadManagerV2() {
+                protectedCaptureManager = .init(uncheckedState: .v2(managerV2))
+            } else {
+                protectedCaptureManager = .init(uncheckedState: hapticManager.map(CaptureManager.v1))
+            }
+        }
+    }
+
+    private static func loadManagerV2() -> OpenMTManagerV2? {
+        guard OpenMTManagerV2.systemSupportsMultitouch() else {
+            return nil
+        }
+        return OpenMTManagerV2.sharedManager()
     }
 
     @discardableResult
     public func startListening() -> Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self),
+        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
               protectedRawListener.withLockUnchecked({ $0 == nil }) else {
             return false
         }
-        let listener = xcfManager.addRawListener(callback: { [weak self] touches, count, timestamp, frame, deviceID in
+        let listener = captureManager.addRawListener(callback: { [weak self] touches, count, timestamp, frame, deviceID in
             self?.handleRawFrame(
                 touches: touches,
                 count: Int(count),
@@ -159,36 +273,44 @@ public final class OMSManager: Sendable {
 
     @discardableResult
     public func stopListening() -> Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self),
+        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
               let listener = protectedRawListener.withLockUnchecked(\.self) else {
             return false
         }
-        xcfManager.removeRawListener(listener)
+        captureManager.removeRawListener(listener)
         protectedRawListener.withLockUnchecked { $0 = nil }
         return true
     }
     
     @discardableResult
     public func setActiveDevices(_ devices: [OMSDeviceInfo]) -> Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return false }
+        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self) else { return false }
         let deviceInfos = devices.map { $0.deviceInfo }
-        return xcfManager.setActiveDevices(deviceInfos)
+        guard captureManager.setActiveDevices(deviceInfos) else {
+            return false
+        }
+        if captureManager.backend == .rawV2 {
+            _ = protectedHapticManager.withLockUnchecked { manager in
+                manager?.setActiveDevices(deviceInfos) ?? false
+            }
+        }
+        return true
     }
     
     public var isHapticEnabled: Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return false }
+        guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.isHapticEnabled()
     }
     
     @discardableResult
     public func setHapticEnabled(_ enabled: Bool) -> Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return false }
+        guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.setHapticEnabled(enabled)
     }
     
     @discardableResult
     public func triggerRawHaptic(actuationID: Int32, unknown1: UInt32, unknown2: Float, unknown3: Float, deviceID: String? = nil) -> Bool {
-        guard let xcfManager = protectedManager.withLockUnchecked(\.self) else { return false }
+        guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.triggerRawHaptic(actuationID, unknown1: unknown1, unknown2: unknown2, unknown3: unknown3, deviceID: deviceID)
     }
 

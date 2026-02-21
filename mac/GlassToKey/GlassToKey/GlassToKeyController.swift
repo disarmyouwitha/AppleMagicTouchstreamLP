@@ -43,8 +43,43 @@ final class GlassToKeyController: ObservableObject {
         OMSManager.shared.isTimestampEnabled = false
         configureFromDefaults()
         viewModel.start()
-        viewModel.onAppear()
         isRunning = true
+    }
+
+    func startATPCapture(to outputURL: URL) throws {
+        try viewModel.startATPCapture(to: outputURL)
+    }
+
+    func stopATPCapture() async throws -> Int {
+        try await viewModel.stopATPCapture()
+    }
+
+    func replayATPCapture(from inputURL: URL) async throws -> Int {
+        try await viewModel.replayATPCapture(from: inputURL)
+    }
+
+    func beginReplaySession(from inputURL: URL) async throws {
+        try await viewModel.beginReplaySession(from: inputURL)
+    }
+
+    func endReplaySession() async {
+        await viewModel.endReplaySession()
+    }
+
+    func scrubReplay(to timeSeconds: Double) async throws {
+        try await viewModel.scrubReplay(to: timeSeconds)
+    }
+
+    func toggleReplayPlayback() {
+        viewModel.toggleReplayPlayback()
+    }
+
+    var isATPCaptureActive: Bool {
+        viewModel.isATPCaptureActive
+    }
+
+    var isATPReplayActive: Bool {
+        viewModel.isATPReplayActive
     }
 
     private func configureFromDefaults() {

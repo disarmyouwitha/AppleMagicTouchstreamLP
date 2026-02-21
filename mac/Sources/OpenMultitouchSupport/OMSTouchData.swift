@@ -10,11 +10,21 @@ import OpenMultitouchSupportXCF
 public struct OMSPosition: Sendable {
     public var x: Float
     public var y: Float
+
+    public init(x: Float, y: Float) {
+        self.x = x
+        self.y = y
+    }
 }
 
 public struct OMSAxis: Sendable {
     public var major: Float
     public var minor: Float
+
+    public init(major: Float, minor: Float) {
+        self.major = major
+        self.minor = minor
+    }
 }
 
 public enum OMSState: String, Sendable {
@@ -55,6 +65,34 @@ public struct OMSTouchData: CustomStringConvertible, Sendable {
     public var state: OMSState
     public var timestamp: TimeInterval
     public var formattedTimestamp: String?
+
+    public init(
+        deviceID: String,
+        deviceIndex: Int,
+        id: Int32,
+        position: OMSPosition,
+        total: Float,
+        pressure: Float,
+        axis: OMSAxis,
+        angle: Float,
+        density: Float,
+        state: OMSState,
+        timestamp: TimeInterval,
+        formattedTimestamp: String? = nil
+    ) {
+        self.deviceID = deviceID
+        self.deviceIndex = deviceIndex
+        self.id = id
+        self.position = position
+        self.total = total
+        self.pressure = pressure
+        self.axis = axis
+        self.angle = angle
+        self.density = density
+        self.state = state
+        self.timestamp = timestamp
+        self.formattedTimestamp = formattedTimestamp
+    }
 
     public var description: String {
         var text = "deviceID:\(deviceID), "

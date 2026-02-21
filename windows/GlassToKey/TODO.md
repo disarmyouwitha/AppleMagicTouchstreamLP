@@ -1,11 +1,6 @@
 ## TODO:
-- Okay,  I want to see if when I backspace into a previous word if we can back up through the previous word buffer, pull that word into the current buffer as we pass through it, and keep track of where the edit is happening? I should be able to track arrow keys to move the cursor to the right place, backspace, and type, etc.
-- How far can we push symspell -- can we have it use more context? -- can we have it ressurect words from the buffer if I go back to correct them through backspaces? Lets tune it in windows and port it to mac!
-- symspell works great! I want to add "word ressurection" 
-- I want to move some of the autocorrect stuff into Typing Test
----
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
-- Is there any way to add a "click and drag gesture that would start on Hold and Release when you release your fingers? [3 finger "grasp" to 1 finger] [Can we try 5-finger hold to activate - gesture stays active until 0 fingers so I can drag around until I release??]
+- Is there any way to add a "click  and drag gesture that would start on Hold and Release when you release your fingers?
 - What other actions could we add??
 ---
 - *SINGLE FINGER MOUSE DRAG TO 2 FINGER HOLD CLICK WOULD GO SO HARD WE MUST MAKE THIS HAPPEN!!*
@@ -13,6 +8,11 @@
 - Tune velocity / drag cancel on windows /w codex
 ---
 - Can we add a small checkbox next to each action which when clicked would make that gesture "continuous" so it will repeatif the gesture is held?
+---
+- Can we make the max scaling of the Trackpad devices in the GUI match the physical diminsions of the apple magic trackpad2? (Look it up) I think that will give us more room to add to the GUI!
+------- 
+- Autocorrect: spelljam? symjam? **ISpellCheckerFactory → ISpellChecker**
+- Is typing... bad? lol. Try Keyboard mode and see if it's any better.. Snap radius on first hit?
 - 2/3 finger tap gestures~
 -------
 - `Resting Fingers` Mode: allow ppl to put their fingers on the keyboard and tap 1 at a time to emit the key.

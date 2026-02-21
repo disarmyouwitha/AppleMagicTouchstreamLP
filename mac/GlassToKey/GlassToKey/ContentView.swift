@@ -51,7 +51,6 @@ struct ContentView: View {
         let schemaVersion: Int
         let leftDeviceID: String
         let rightDeviceID: String
-        let visualsEnabled: Bool
         let layoutPreset: String
         let autoResyncMissingTrackpads: Bool
         let tapHoldDurationMs: Double
@@ -74,13 +73,7 @@ struct ContentView: View {
 
     @StateObject private var viewModel: ContentViewModel
     @State private var testText = ""
-    @State private var visualsEnabled = true
     @State private var editModeEnabled = false
-#if DEBUG
-    @State private var tapTraceDumpInProgress = false
-    @State private var tapTraceDumpStatus: String?
-    @State private var tapTraceDumpStatusToken = UUID()
-#endif
     @State private var columnSettings: [ColumnLayoutSettings]
     @State private var leftLayout: ContentViewModel.Layout
     @State private var rightLayout: ContentViewModel.Layout
@@ -95,9 +88,10 @@ struct ContentView: View {
     @State private var layoutOption: TrackpadLayoutPreset = .sixByThree
     @State private var leftGridLabelInfo: [[GridLabel]] = []
     @State private var rightGridLabelInfo: [[GridLabel]] = []
+    @State private var replayScrubValue: Double = 0
+    @State private var replayScrubInProgress = false
     @AppStorage(GlassToKeyDefaultsKeys.leftDeviceID) private var storedLeftDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.rightDeviceID) private var storedRightDeviceID = ""
-    @AppStorage(GlassToKeyDefaultsKeys.visualsEnabled) private var storedVisualsEnabled = true
     @AppStorage(GlassToKeyDefaultsKeys.columnSettings) private var storedColumnSettingsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.layoutPreset) private var storedLayoutPreset = TrackpadLayoutPreset.sixByThree.rawValue
     @AppStorage(GlassToKeyDefaultsKeys.customButtons) private var storedCustomButtonsData = Data()
@@ -343,28 +337,19 @@ struct ContentView: View {
             .onAppear {
                 applySavedSettings()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+                viewModel.setKeymapEditingEnabled(editModeEnabled)
             }
             .onDisappear {
                 persistConfig()
             }
-            .onChange(of: visualsEnabled) { enabled in
-                viewModel.setTouchSnapshotRecordingEnabled(enabled)
-                if !enabled {
-                    viewModel.clearVisualCaches()
-                    editModeEnabled = false
-                    selectedButtonID = nil
-                    selectedColumn = nil
-                    selectedGridKey = nil
-                }
-            }
             .onChange(of: editModeEnabled) { enabled in
-                if enabled {
-                    visualsEnabled = true
-                } else {
+                if !enabled {
                     selectedButtonID = nil
                     selectedColumn = nil
                     selectedGridKey = nil
                 }
+                viewModel.setStatusVisualsEnabled(!enabled)
+                viewModel.setKeymapEditingEnabled(enabled)
             }
             .onChange(of: columnSettings) { newValue in
                 applyColumnSettings(newValue)
@@ -437,48 +422,109 @@ struct ContentView: View {
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
             }
+            .onReceive(viewModel.$replayTimelineState) { state in
+                if state != nil, editModeEnabled {
+                    editModeEnabled = false
+                }
+                if let state, !replayScrubInProgress {
+                    replayScrubValue = max(state.currentTimeSeconds, 0)
+                }
+                if state == nil {
+                    replayScrubInProgress = false
+                    replayScrubValue = 0
+                }
+            }
     }
 
     @ViewBuilder
     private var mainLayout: some View {
         VStack(spacing: 16) {
             headerView
+            if let replayTimelineState = viewModel.replayTimelineState {
+                replayTimelineView(replayTimelineState)
+            }
             contentRow
         }
     }
 
     @ViewBuilder
     private var headerView: some View {
-#if DEBUG
         HeaderControlsView(
             editModeEnabled: $editModeEnabled,
-            visualsEnabled: $visualsEnabled,
+            statusViewModel: viewModel.statusViewModel,
+            replayModeEnabled: viewModel.replayTimelineState != nil,
             layerToggleBinding: layerToggleBinding,
-            leftContactCount: viewModel.contactFingerCountsBySide.left,
-            rightContactCount: viewModel.contactFingerCountsBySide.right,
-            intentDisplay: viewModel.intentDisplayBySide.left,
-            voiceGestureActive: viewModel.voiceGestureActive,
-            voiceDebugStatus: viewModel.voiceDebugStatus,
-            onImportKeymap: importKeymap,
-            onExportKeymap: exportKeymap,
-            tapTraceDumpInProgress: tapTraceDumpInProgress,
-            tapTraceDumpStatus: tapTraceDumpStatus,
-            onDumpTapTrace: dumpTapTrace
-        )
-#else
-        HeaderControlsView(
-            editModeEnabled: $editModeEnabled,
-            visualsEnabled: $visualsEnabled,
-            layerToggleBinding: layerToggleBinding,
-            leftContactCount: viewModel.contactFingerCountsBySide.left,
-            rightContactCount: viewModel.contactFingerCountsBySide.right,
-            intentDisplay: viewModel.intentDisplayBySide.left,
-            voiceGestureActive: viewModel.voiceGestureActive,
-            voiceDebugStatus: viewModel.voiceDebugStatus,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
         )
-#endif
+    }
+
+    private func replayTimelineView(
+        _ state: ContentViewModel.ReplayTimelineState
+    ) -> some View {
+        let maxTime = max(state.durationSeconds, 0)
+        let maxFrameIndex = max(state.frameCount - 1, 0)
+        return HStack(spacing: 12) {
+            Text("Replay")
+                .font(.subheadline)
+                .bold()
+            Text(state.sourceName)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Button(state.isPlaying ? "Pause" : "Play") {
+                viewModel.toggleReplayPlayback()
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(state.frameCount == 0)
+            Slider(
+                value: Binding(
+                    get: { replayScrubValue },
+                    set: { replayScrubValue = $0 }
+                ),
+                in: 0...max(maxTime, 0.001),
+                step: 0.01
+            ) { editing in
+                replayScrubInProgress = editing
+                guard !editing else { return }
+                Task {
+                    try? await viewModel.scrubReplay(to: replayScrubValue)
+                }
+            }
+            .disabled(state.frameCount == 0 || state.isPlaying)
+            Text("\(formatReplayTime(state.currentTimeSeconds))/\(formatReplayTime(state.durationSeconds))")
+                .font(.caption.monospacedDigit())
+                .frame(width: 150, alignment: .trailing)
+            Text("\(max(state.currentFrameIndex, 0))/\(maxFrameIndex)")
+                .font(.caption.monospacedDigit())
+                .frame(width: 80, alignment: .trailing)
+            Button("Exit Replay") {
+                Task {
+                    await viewModel.endReplaySession()
+                }
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(10)
+        .background(
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.blue.opacity(0.08))
+        )
+    }
+
+    private func formatReplayTime(_ seconds: Double) -> String {
+        let clamped = max(0, seconds)
+        let totalMilliseconds = Int((clamped * 1_000).rounded())
+        let minutes = totalMilliseconds / 60_000
+        let secondsComponent = (totalMilliseconds / 1_000) % 60
+        let millisecondsComponent = totalMilliseconds % 1_000
+        return String(
+            format: "%02d:%02d.%03d",
+            minutes,
+            secondsComponent,
+            millisecondsComponent
+        )
     }
 
     private var contentRow: some View {
@@ -496,11 +542,8 @@ struct ContentView: View {
             rightLayout: rightLayout,
             leftGridLabelInfo: leftGridLabelInfo,
             rightGridLabelInfo: rightGridLabelInfo,
-            leftGridLabels: leftGridLabels,
-            rightGridLabels: rightGridLabels,
             customButtons: customButtons,
             editModeEnabled: $editModeEnabled,
-            visualsEnabled: $visualsEnabled,
             lastHitLeft: viewModel.debugLastHitLeft,
             lastHitRight: viewModel.debugLastHitRight,
             selectedButtonID: $selectedButtonID,
@@ -564,20 +607,11 @@ struct ContentView: View {
 
     private struct HeaderControlsView: View {
         @Binding var editModeEnabled: Bool
-        @Binding var visualsEnabled: Bool
+        @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
+        let replayModeEnabled: Bool
         let layerToggleBinding: Binding<Bool>
-        let leftContactCount: Int
-        let rightContactCount: Int
-        let intentDisplay: ContentViewModel.IntentDisplay
-        let voiceGestureActive: Bool
-        let voiceDebugStatus: String?
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
-#if DEBUG
-        let tapTraceDumpInProgress: Bool
-        let tapTraceDumpStatus: String?
-        let onDumpTapTrace: () -> Void
-#endif
 
         var body: some View {
             HStack(spacing: 12) {
@@ -585,32 +619,18 @@ struct ContentView: View {
                     Text("GlassToKey Studio")
                         .font(.title2)
                         .bold()
-                    if visualsEnabled {
-                        HStack(spacing: 10) {
-                            contactCountPills
-                            intentBadge(intent: intentDisplay)
-                            if voiceGestureActive {
-                                voiceBadge(isActive: true)
-                            }
-                            if let voiceDebugStatus {
-                                voiceStatusBadge(voiceDebugStatus)
-                            }
+                    HStack(spacing: 10) {
+                        contactCountPills
+                        intentBadge(intent: statusViewModel.intentDisplayBySide.left)
+                        if statusViewModel.voiceGestureActive {
+                            voiceBadge(isActive: true)
+                        }
+                        if let voiceDebugStatus = statusViewModel.voiceDebugStatus {
+                            voiceStatusBadge(voiceDebugStatus)
                         }
                     }
                 }
                 Spacer()
-#if DEBUG
-                if let tapTraceDumpStatus {
-                    Text(tapTraceDumpStatus)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Button(tapTraceDumpInProgress ? "Dumping..." : "Dump Tap Trace") {
-                    onDumpTapTrace()
-                }
-                .buttonStyle(.bordered)
-                .disabled(tapTraceDumpInProgress)
-#endif
                 Button("Import keymap") {
                     onImportKeymap()
                 }
@@ -621,8 +641,7 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
                 Toggle("Edit Keymap", isOn: $editModeEnabled)
                     .toggleStyle(SwitchToggleStyle())
-                Toggle("Visuals", isOn: $visualsEnabled)
-                    .toggleStyle(SwitchToggleStyle())
+                    .disabled(replayModeEnabled)
                 HStack(spacing: 6) {
                     Text("Layer0")
                     Toggle("", isOn: layerToggleBinding)
@@ -635,8 +654,8 @@ struct ContentView: View {
 
         private var contactCountPills: some View {
             HStack(spacing: 8) {
-                labelPill(prefix: "L", value: leftContactCount)
-                labelPill(prefix: "R", value: rightContactCount)
+                labelPill(prefix: "L", value: statusViewModel.contactFingerCountsBySide.left)
+                labelPill(prefix: "R", value: statusViewModel.contactFingerCountsBySide.right)
             }
         }
 
@@ -736,11 +755,8 @@ struct ContentView: View {
         let rightLayout: ContentViewModel.Layout
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
-        let leftGridLabels: [[String]]
-        let rightGridLabels: [[String]]
         let customButtons: [CustomButton]
         @Binding var editModeEnabled: Bool
-        @Binding var visualsEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
@@ -757,11 +773,8 @@ struct ContentView: View {
                     rightLayout: rightLayout,
                     leftGridLabelInfo: leftGridLabelInfo,
                     rightGridLabelInfo: rightGridLabelInfo,
-                    leftGridLabels: leftGridLabels,
-                    rightGridLabels: rightGridLabels,
                     customButtons: customButtons,
                     editModeEnabled: $editModeEnabled,
-                    visualsEnabled: $visualsEnabled,
                     lastHitLeft: lastHitLeft,
                     lastHitRight: lastHitRight,
                     selectedButtonID: $selectedButtonID,
@@ -890,45 +903,6 @@ struct ContentView: View {
             .frame(width: 420)
         }
     }
-
-#if DEBUG
-    private func dumpTapTrace() {
-        tapTraceDumpInProgress = true
-        tapTraceDumpStatus = nil
-        let queue = DispatchQueue.global(qos: .utility)
-        queue.async {
-            do {
-                let url = TapTrace.defaultDumpURL()
-                try TapTrace.dumpJSONL(to: url)
-                let path = url.path
-                DispatchQueue.main.async {
-                    tapTraceDumpInProgress = false
-                    let pasteboard = NSPasteboard.general
-                    pasteboard.clearContents()
-                    pasteboard.setString(path, forType: .string)
-                    showTapTraceStatus("Path copied to clipboard")
-                }
-            } catch {
-                DispatchQueue.main.async {
-                    tapTraceDumpInProgress = false
-                    showTapTraceStatus("Dump failed")
-                    NSLog("Tap trace dump failed: %@", error.localizedDescription)
-                }
-            }
-        }
-    }
-
-    private func showTapTraceStatus(_ message: String) {
-        tapTraceDumpStatus = message
-        let token = UUID()
-        tapTraceDumpStatusToken = token
-        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-            if tapTraceDumpStatusToken == token {
-                tapTraceDumpStatus = nil
-            }
-        }
-    }
-#endif
 
     private struct DevicesSectionView: View {
         let availableDevices: [OMSDeviceInfo]
@@ -1647,21 +1621,13 @@ struct ContentView: View {
         let rightLayout: ContentViewModel.Layout
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
-        let leftGridLabels: [[String]]
-        let rightGridLabels: [[String]]
         let customButtons: [CustomButton]
         @Binding var editModeEnabled: Bool
-        @Binding var visualsEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
         @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
-        @State private var displayLeftTouchesState = [OMSTouchData]()
-        @State private var displayRightTouchesState = [OMSTouchData]()
-        @State private var lastTouchRevision: UInt64 = 0
-        @State private var lastDisplayUpdateTime: TimeInterval = 0
-        @State private var lastDisplayedHadTouches = false
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -1671,7 +1637,7 @@ struct ContentView: View {
         var body: some View {
             let leftButtons = customButtons(for: .left)
             let rightButtons = customButtons(for: .right)
-            let showDetailedView = visualsEnabled || selectedButtonID != nil
+            let showDetailedView = true
             let selectedLeftKey = selectedGridKey?.side == .left ? selectedGridKey : nil
             let selectedRightKey = selectedGridKey?.side == .right ? selectedGridKey : nil
 
@@ -1685,26 +1651,29 @@ struct ContentView: View {
                         .frame(width: trackpadSize.width, alignment: .leading)
                 }
                 ZStack(alignment: .topLeading) {
-                    CombinedTrackpadCanvas(
-                        trackpadSize: trackpadSize,
-                        spacing: trackpadSpacing,
-                        showDetailed: showDetailedView,
-                        leftLayout: leftLayout,
-                        rightLayout: rightLayout,
-                        leftLabelInfo: leftGridLabelInfo,
-                        rightLabelInfo: rightGridLabelInfo,
-                        leftCustomButtons: leftButtons,
-                        rightCustomButtons: rightButtons,
-                        selectedColumn: editModeEnabled ? selectedColumn : nil,
-                        selectedLeftKey: editModeEnabled ? selectedLeftKey : nil,
-                        selectedRightKey: editModeEnabled ? selectedRightKey : nil,
-                        selectedLeftButton: selectedButton(for: leftButtons),
-                        selectedRightButton: selectedButton(for: rightButtons),
-                        leftTouches: visualsEnabled ? displayLeftTouches : [],
-                        rightTouches: visualsEnabled ? displayRightTouches : [],
-                        visualsEnabled: visualsEnabled
+                    TrackpadSurfaceRepresentable(
+                        snapshot: TrackpadSurfaceSnapshot(
+                            trackpadSize: trackpadSize,
+                            spacing: trackpadSpacing,
+                            showDetailed: showDetailedView,
+                            leftLayout: leftLayout,
+                            rightLayout: rightLayout,
+                            leftLabels: surfaceLabels(from: leftGridLabelInfo),
+                            rightLabels: surfaceLabels(from: rightGridLabelInfo),
+                            leftCustomButtons: leftButtons,
+                            rightCustomButtons: rightButtons,
+                            selectedColumn: editModeEnabled ? selectedColumn : nil,
+                            selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
+                            selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
+                            selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
+                            selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
+                        ),
+                        viewModel: viewModel,
+                        editModeEnabled: editModeEnabled,
+                        selectionHandler: surfaceSelectionChanged
                     )
-                    if visualsEnabled && !editModeEnabled {
+                    .frame(width: combinedWidth, height: trackpadSize.height)
+                    if !editModeEnabled {
                         if let hit = lastHitLeft {
                             LastHitHighlightLayer(lastHit: hit)
                                 .frame(width: trackpadSize.width, height: trackpadSize.height)
@@ -1716,158 +1685,13 @@ struct ContentView: View {
                                 .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
                         }
                     }
-                    if editModeEnabled {
-                        customButtonsOverlay(
-                            side: .left,
-                            layout: leftLayout,
-                            buttons: leftButtons,
-                            selectedButtonID: $selectedButtonID,
-                            selectedColumn: $selectedColumn,
-                            selectedGridKey: $selectedGridKey,
-                            gridLabels: leftGridLabels
-                        )
-                        .offset(x: 0, y: 0)
-
-                        customButtonsOverlay(
-                            side: .right,
-                            layout: rightLayout,
-                            buttons: rightButtons,
-                            selectedButtonID: $selectedButtonID,
-                            selectedColumn: $selectedColumn,
-                            selectedGridKey: $selectedGridKey,
-                            gridLabels: rightGridLabels
-                        )
-                        .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
-                    }
                 }
                 .frame(width: combinedWidth, height: trackpadSize.height)
-                .onAppear {
-                    refreshTouchSnapshot(resetRevision: true)
-                }
-                .onChange(of: visualsEnabled) { enabled in
-                    if enabled {
-                        refreshTouchSnapshot(resetRevision: true)
-                    } else {
-                        displayLeftTouchesState = []
-                        displayRightTouchesState = []
-                        lastDisplayedHadTouches = false
-                    }
-                    viewModel.setStatusVisualsEnabled(enabled)
-                }
-                .task(id: visualsEnabled) {
-                    guard visualsEnabled else { return }
-                    var iterator = viewModel.touchRevisionUpdates.makeAsyncIterator()
-                    while !Task.isCancelled {
-                        guard let _ = await iterator.next() else { break }
-                        if Task.isCancelled { break }
-                        refreshTouchSnapshot(resetRevision: false)
-                    }
-                }
             }
-        }
-
-        private func refreshTouchSnapshot(resetRevision: Bool) {
-            let snapshot: ContentViewModel.TouchSnapshot
-            if resetRevision {
-                snapshot = viewModel.snapshotTouchData()
-                lastTouchRevision = snapshot.revision
-            } else if let updated = viewModel.snapshotTouchDataIfUpdated(since: lastTouchRevision) {
-                snapshot = updated
-                lastTouchRevision = updated.revision
-            } else {
-                return
-            }
-
-            let now = CACurrentMediaTime()
-            if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
-                displayLeftTouchesState = snapshot.left
-                displayRightTouchesState = snapshot.right
-                lastDisplayUpdateTime = now
-                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
-            }
-        }
-
-        private var displayLeftTouches: [OMSTouchData] {
-            displayLeftTouchesState
-        }
-
-        private var displayRightTouches: [OMSTouchData] {
-            displayRightTouchesState
         }
 
         private func customButtons(for side: TrackpadSide) -> [CustomButton] {
             customButtons.filter { $0.side == side && $0.layer == viewModel.activeLayer }
-        }
-
-        private func shouldUpdateDisplay(
-            snapshot: ContentViewModel.TouchSnapshot,
-            now: TimeInterval
-        ) -> Bool {
-            guard editModeEnabled else { return true }
-
-            let hasTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
-            if hasTouches != lastDisplayedHadTouches {
-                return true
-            }
-
-            if snapshot.hasTransitionState {
-                return true
-            }
-
-            let clampedHz = 20.0
-            let minInterval = 1.0 / clampedHz
-            return now - lastDisplayUpdateTime >= minInterval
-        }
-
-        private func customButtonsOverlay(
-            side: TrackpadSide,
-            layout: ContentViewModel.Layout,
-            buttons: [CustomButton],
-            selectedButtonID: Binding<UUID?>,
-            selectedColumn: Binding<Int?>,
-            selectedGridKey: Binding<SelectedGridKey?>,
-            gridLabels: [[String]]
-        ) -> some View {
-            ZStack(alignment: .topLeading) {
-                let columnRects = columnRects(for: layout.keyRects, trackpadSize: trackpadSize)
-                let selectGesture = DragGesture(minimumDistance: 0, coordinateSpace: .local)
-                    .onEnded { value in
-                        viewModel.clearTouchState()
-                        let point = value.location
-                        if let matched = buttons.last(where: { button in
-                            button.rect.rect(in: trackpadSize).contains(point)
-                        }) {
-                            selectedButtonID.wrappedValue = matched.id
-                            selectedColumn.wrappedValue = nil
-                            selectedGridKey.wrappedValue = nil
-                            return
-                        }
-                        selectedButtonID.wrappedValue = nil
-                        if let key = gridKey(at: point, keyRects: layout.keyRects, labels: gridLabels, side: side) {
-                            selectedGridKey.wrappedValue = key
-                            selectedColumn.wrappedValue = key.column
-                            return
-                        }
-                        selectedGridKey.wrappedValue = nil
-                        let resolvedColumnIndex = columnIndex(for: point, columnRects: columnRects)
-                        #if DEBUG
-                        logColumnSelection(
-                            point: point,
-                            columnRects: columnRects,
-                            resolvedIndex: resolvedColumnIndex
-                        )
-                        #endif
-                        if let columnIndex = resolvedColumnIndex {
-                            selectedColumn.wrappedValue = columnIndex
-                        } else {
-                            selectedColumn.wrappedValue = nil
-                        }
-                    }
-                Color.clear
-                    .frame(width: trackpadSize.width, height: trackpadSize.height)
-                    .contentShape(Rectangle())
-                    .simultaneousGesture(selectGesture)
-            }
         }
 
         private func selectedButton(for buttons: [CustomButton]) -> CustomButton? {
@@ -1875,105 +1699,45 @@ struct ContentView: View {
             return buttons.first { $0.id == selectedButtonID }
         }
 
-        private func columnRects(
-            for keyRects: [[CGRect]],
-            trackpadSize: CGSize
-        ) -> [CGRect] {
-            let columnCount = keyRects.map { $0.count }.max() ?? 0
-            guard columnCount > 0 else { return [] }
-            var rects = Array(repeating: CGRect.null, count: columnCount)
-            for row in keyRects {
-                for col in 0..<row.count {
-                    rects[col] = rects[col].union(row[col])
+        private func surfaceLabels(from labels: [[GridLabel]]) -> [[TrackpadSurfaceLabel]] {
+            labels.map { row in
+                row.map { label in
+                    TrackpadSurfaceLabel(primary: label.primary, hold: label.hold)
                 }
             }
+        }
 
-            let width = trackpadSize.width
-            let height = trackpadSize.height
-            let sortedIndices = rects.enumerated()
-                .sorted { lhs, rhs in
-                    let lhsMid = lhs.element.isNull ? 0 : lhs.element.midX
-                    let rhsMid = rhs.element.isNull ? 0 : rhs.element.midX
-                    return lhsMid < rhsMid
-                }
-                .map(\.offset)
+        private func surfaceKeySelection(from key: SelectedGridKey?) -> TrackpadSurfaceKeySelection? {
+            guard let key else { return nil }
+            return TrackpadSurfaceKeySelection(row: key.row, column: key.column)
+        }
 
-            var boundaries = Array(repeating: CGFloat.zero, count: columnCount + 1)
-            boundaries[0] = 0
-
-            for physicalIndex in 0..<max(0, sortedIndices.count - 1) {
-                let current = rects[sortedIndices[physicalIndex]]
-                let next = rects[sortedIndices[physicalIndex + 1]]
-                let currentMid = current.isNull ? 0 : current.midX
-                let nextMid = next.isNull ? width : next.midX
-                boundaries[physicalIndex + 1] = (currentMid + nextMid) / 2.0
-            }
-
-            boundaries[columnCount] = width
-
-            let columnHeight = height
-            var expandedRects = rects
-            for physicalIndex in 0..<sortedIndices.count {
-                let colIndex = sortedIndices[physicalIndex]
-                let left = boundaries[physicalIndex]
-                let right = boundaries[physicalIndex + 1]
-                expandedRects[colIndex] = CGRect(
-                    x: left,
-                    y: 0,
-                    width: max(0, right - left),
-                    height: columnHeight
+        private func surfaceSelectionChanged(_ selection: TrackpadSurfaceSelectionEvent) {
+            guard editModeEnabled else { return }
+            viewModel.clearTouchState()
+            switch selection.target {
+            case .button(let id):
+                selectedButtonID = id
+                selectedColumn = nil
+                selectedGridKey = nil
+            case .key(let row, let column, let label):
+                selectedButtonID = nil
+                selectedGridKey = SelectedGridKey(
+                    row: row,
+                    column: column,
+                    label: label,
+                    side: selection.side
                 )
+                selectedColumn = column
+            case .column(let index):
+                selectedButtonID = nil
+                selectedGridKey = nil
+                selectedColumn = index
+            case .none:
+                selectedButtonID = nil
+                selectedGridKey = nil
+                selectedColumn = nil
             }
-
-            return expandedRects
-        }
-
-        private func gridKey(
-            at point: CGPoint,
-            keyRects: [[CGRect]],
-            labels: [[String]],
-            side: TrackpadSide
-        ) -> SelectedGridKey? {
-            for rowIndex in 0..<keyRects.count {
-                guard rowIndex < labels.count else { continue }
-                for colIndex in 0..<keyRects[rowIndex].count {
-                    guard colIndex < labels[rowIndex].count else { continue }
-                    let rect = keyRects[rowIndex][colIndex]
-                    if rect.contains(point) {
-                        return SelectedGridKey(
-                            row: rowIndex,
-                            column: colIndex,
-                            label: labels[rowIndex][colIndex],
-                            side: side
-                        )
-                    }
-                }
-            }
-            return nil
-        }
-
-        private func columnIndex(
-            for point: CGPoint,
-            columnRects: [CGRect]
-        ) -> Int? {
-            if let index = columnRects.firstIndex(where: { $0.contains(point) }) {
-                return index
-            }
-            let columnCount = columnRects.count
-            guard trackpadSize.width > 0, columnCount > 0 else { return nil }
-            let normalizedX = min(max(point.x / trackpadSize.width, 0), 1)
-            var index = Int(normalizedX * CGFloat(columnCount))
-            if index == columnCount {
-                index = columnCount - 1
-            }
-            return index
-        }
-
-        private func logColumnSelection(
-            point: CGPoint,
-            columnRects: [CGRect],
-            resolvedIndex: Int?
-        ) {
         }
     }
 
@@ -1994,7 +1758,6 @@ struct ContentView: View {
         let selectedRightButton: CustomButton?
         let leftTouches: [OMSTouchData]
         let rightTouches: [OMSTouchData]
-        let visualsEnabled: Bool
 
         var body: some View {
             Canvas { context, _ in
@@ -2026,8 +1789,7 @@ struct ContentView: View {
                     selectedKey: selectedLeftKey,
                     selectedButton: selectedLeftButton,
                     touches: leftTouches,
-                    trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled
+                    trackpadSize: trackpadSize
                 )
                 ContentView.drawTrackpadContents(
                     context: &context,
@@ -2039,8 +1801,7 @@ struct ContentView: View {
                     selectedKey: selectedRightKey,
                     selectedButton: selectedRightButton,
                     touches: rightTouches,
-                    trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled
+                    trackpadSize: trackpadSize
                 )
             }
             .frame(width: (trackpadSize.width * 2) + spacing, height: trackpadSize.height)
@@ -2051,7 +1812,7 @@ struct ContentView: View {
         let lastHit: ContentViewModel.DebugHit
 
         var body: some View {
-            TimelineView(.animation(minimumInterval: 1.0 / 60.0)) { _ in
+            TimelineView(.animation(minimumInterval: 1.0 / 30.0)) { _ in
                 let age = CACurrentMediaTime() - lastHit.timestamp
                 let fadeDuration: TimeInterval = 0.6
                 let normalized = max(0, fadeDuration - age) / fadeDuration
@@ -2390,8 +2151,7 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
-        visualsEnabled = storedVisualsEnabled
-        viewModel.setStatusVisualsEnabled(visualsEnabled)
+        viewModel.setStatusVisualsEnabled(!editModeEnabled)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
         let resolvedLayout = TrackpadLayoutPreset(rawValue: storedLayoutPreset) ?? .sixByThree
@@ -2423,11 +2183,10 @@ struct ContentView: View {
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
-        viewModel.setTouchSnapshotRecordingEnabled(visualsEnabled)
+        viewModel.setTouchSnapshotRecordingEnabled(true)
     }
 
     private func restoreTypingTuningDefaults() {
-        visualsEnabled = true
         tapHoldDurationMs = GlassToKeySettings.tapHoldDurationMs
         dragCancelDistanceSetting = GlassToKeySettings.dragCancelDistanceMm
         forceClickCapSetting = GlassToKeySettings.forceClickCap
@@ -2502,7 +2261,6 @@ struct ContentView: View {
             schemaVersion: 1,
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
-            visualsEnabled: storedVisualsEnabled,
             layoutPreset: storedLayoutPreset,
             autoResyncMissingTrackpads: storedAutoResyncMissingTrackpads,
             tapHoldDurationMs: tapHoldDurationMs,
@@ -2527,7 +2285,6 @@ struct ContentView: View {
     private func applyKeymapProfile(_ profile: KeymapProfile) {
         storedLeftDeviceID = profile.leftDeviceID
         storedRightDeviceID = profile.rightDeviceID
-        storedVisualsEnabled = profile.visualsEnabled
         storedLayoutPreset = profile.layoutPreset
         storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
         tapHoldDurationMs = profile.tapHoldDurationMs
@@ -2566,7 +2323,6 @@ struct ContentView: View {
     private func saveSettings() {
         storedLeftDeviceID = viewModel.leftDevice?.deviceID ?? ""
         storedRightDeviceID = viewModel.rightDevice?.deviceID ?? ""
-        storedVisualsEnabled = visualsEnabled
         storedLayoutPreset = layoutOption.rawValue
         saveCurrentColumnSettings()
     }
@@ -2648,9 +2404,6 @@ struct ContentView: View {
     }
 
     private func addCustomButton(side: TrackpadSide) {
-        if !visualsEnabled {
-            visualsEnabled = true
-        }
         if !editModeEnabled {
             editModeEnabled = true
         }
@@ -3048,8 +2801,7 @@ struct ContentView: View {
         selectedKey: SelectedGridKey?,
         selectedButton: CustomButton?,
         touches: [OMSTouchData],
-        trackpadSize: CGSize,
-        visualsEnabled: Bool
+        trackpadSize: CGSize
     ) {
         withTranslatedContext(context: &context, origin: origin) { innerContext in
             drawSensorGrid(
@@ -3080,13 +2832,11 @@ struct ContentView: View {
                 button: selectedButton,
                 trackpadSize: trackpadSize
             )
-            if visualsEnabled {
-                drawTrackpadTouches(
-                    context: &innerContext,
-                    touches: touches,
-                    trackpadSize: trackpadSize
-                )
-            }
+            drawTrackpadTouches(
+                context: &innerContext,
+                touches: touches,
+                trackpadSize: trackpadSize
+            )
         }
     }
 
@@ -3109,7 +2859,7 @@ struct ContentView: View {
     ) {
         touches.forEach { touch in
             let path = makeEllipse(touch: touch, size: trackpadSize)
-            context.fill(path, with: .color(.primary.opacity(Double(touch.total))))
+            context.fill(path, with: .color(.primary.opacity(0.95)))
         }
     }
 

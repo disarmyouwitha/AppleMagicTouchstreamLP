@@ -16,10 +16,6 @@ public sealed class UserSettings
     public bool VisualizerEnabled { get; set; } = true;
     public bool KeyboardModeEnabled { get; set; }
     public bool AutocorrectEnabled { get; set; }
-    public int AutocorrectMaxEditDistance { get; set; } = 2;
-    public bool AutocorrectDryRunEnabled { get; set; }
-    public string AutocorrectBlacklistCsv { get; set; } = string.Empty;
-    public string AutocorrectOverridesCsv { get; set; } = string.Empty;
     public bool AllowMouseTakeover { get; set; } = true;
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
@@ -104,10 +100,6 @@ public sealed class UserSettings
         VisualizerEnabled = source.VisualizerEnabled;
         KeyboardModeEnabled = source.KeyboardModeEnabled;
         AutocorrectEnabled = source.AutocorrectEnabled;
-        AutocorrectMaxEditDistance = source.AutocorrectMaxEditDistance;
-        AutocorrectDryRunEnabled = source.AutocorrectDryRunEnabled;
-        AutocorrectBlacklistCsv = source.AutocorrectBlacklistCsv;
-        AutocorrectOverridesCsv = source.AutocorrectOverridesCsv;
         AllowMouseTakeover = source.AllowMouseTakeover;
         ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;
@@ -251,27 +243,6 @@ public sealed class UserSettings
         if (normalizedLayer != ActiveLayer)
         {
             ActiveLayer = normalizedLayer;
-            changed = true;
-        }
-
-        int normalizedAutocorrectDistance = Math.Clamp(AutocorrectMaxEditDistance, 1, 2);
-        if (normalizedAutocorrectDistance != AutocorrectMaxEditDistance)
-        {
-            AutocorrectMaxEditDistance = normalizedAutocorrectDistance;
-            changed = true;
-        }
-
-        string normalizedBlacklist = NormalizeMultilineCsv(AutocorrectBlacklistCsv);
-        if (!string.Equals(AutocorrectBlacklistCsv, normalizedBlacklist, StringComparison.Ordinal))
-        {
-            AutocorrectBlacklistCsv = normalizedBlacklist;
-            changed = true;
-        }
-
-        string normalizedOverrides = NormalizeMultilineCsv(AutocorrectOverridesCsv);
-        if (!string.Equals(AutocorrectOverridesCsv, normalizedOverrides, StringComparison.Ordinal))
-        {
-            AutocorrectOverridesCsv = normalizedOverrides;
             changed = true;
         }
 
@@ -907,29 +878,5 @@ public sealed class UserSettings
     private static bool IsChordShiftGestureAction(string? action)
     {
         return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
-    }
-
-    private static string NormalizeMultilineCsv(string? value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        string normalized = value.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        string[] lines = normalized.Split('\n');
-        List<string> cleaned = new(lines.Length);
-        for (int i = 0; i < lines.Length; i++)
-        {
-            string line = lines[i].Trim();
-            if (line.Length == 0)
-            {
-                continue;
-            }
-
-            cleaned.Add(line);
-        }
-
-        return string.Join('\n', cleaned);
     }
 }

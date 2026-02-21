@@ -35,7 +35,6 @@
 - `GlassToKey/AccessibilityTextReplacer.swift`: Accessibility-based helper that rewrites the most recently typed word when the autocorrect engine cannot patch via AX.
 - `GlassToKey/AutocorrectEngine.swift`: queues dispatched keystrokes, feeds them to `NSSpellChecker`, and either rewrites text via AX or backspace-retypes to implement autocorrect.
 - `GlassToKey/KeySemanticMapper.swift`: converts CGKeyCodes into semantic events (text, boundary, backspace, non-text) and maps ASCII characters back to key strokes for autocorrect fallbacks.
-- `GlassToKey/TapTrace.swift`: debug-only tap lifecycle tracing and dump utilities to inspect how touches progress from pending to dispatched events.
 - `GlassToKey/Notifications.swift`: centralizes the custom `Notification.Name` used when the user switches edit focus inside the UI.
 - `Framework/OpenMultitouchSupportXCF/OpenMTListener.h` / `OpenMTListener.m`: lightweight listener wrapper that delivers `OpenMTEvent` callbacks either via target-selector or block to the Objective-C API.
 - `Framework/OpenMultitouchSupportXCF/OpenMTTouch.h` / `OpenMTTouch.m`: models the raw touch identifiers, positions, velocities, pressure, and state that `OpenMTEvent` exposes to Swift.

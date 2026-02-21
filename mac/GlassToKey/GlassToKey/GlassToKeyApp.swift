@@ -1,6 +1,7 @@
 import AppKit
 import Combine
 import SwiftUI
+import UniformTypeIdentifiers
 import os
 
 @main
@@ -20,8 +21,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
+    private var replayStateCancellable: AnyCancellable?
     private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
+    private var captureMenuItem: NSMenuItem?
+    private var replayMenuItem: NSMenuItem?
+    private var captureInProgress = false
+    private var replayInProgress = false
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
@@ -45,6 +51,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        Task { @MainActor in
+            await controller.endReplaySession()
+            replayInProgress = controller.isATPReplayActive
+            refreshCaptureReplayMenuState()
+        }
     }
 
     private func configureStatusItem() {
@@ -69,6 +80,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         syncItem.target = self
         menu.addItem(syncItem)
+        let captureItem = NSMenuItem(
+            title: "Capture...",
+            action: #selector(toggleCapture),
+            keyEquivalent: ""
+        )
+        captureItem.target = self
+        menu.addItem(captureItem)
+        captureMenuItem = captureItem
+        let replayItem = NSMenuItem(
+            title: "Replay...",
+            action: #selector(startReplay),
+            keyEquivalent: ""
+        )
+        replayItem.target = self
+        menu.addItem(replayItem)
+        replayMenuItem = replayItem
         menu.addItem(.separator())
 
         let restartItem = NSMenuItem(
@@ -98,6 +125,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mouseEventBlocker.setBlockingEnabled(
             controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled
         )
+        captureInProgress = controller.isATPCaptureActive
+        replayInProgress = controller.isATPReplayActive
+        refreshCaptureReplayMenuState()
     }
 
     private func observeStatus() {
@@ -116,6 +146,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             )
             self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
+        replayStateCancellable = controller.viewModel.$replayTimelineState
+            .map { $0 != nil }
+            .removeDuplicates()
+            .sink { [weak self] isReplayActive in
+                self?.replayInProgress = isReplayActive
+                self?.refreshCaptureReplayMenuState()
+            }
     }
 
     private func updateStatusIndicator(
@@ -196,6 +233,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.refreshDevicesAndListeners()
     }
 
+    @objc private func toggleCapture() {
+        Task { @MainActor in
+            if captureInProgress {
+                await stopCaptureFlow()
+            } else {
+                startCaptureFlow()
+            }
+        }
+    }
+
+    @objc private func startReplay() {
+        Task { @MainActor in
+            await replayFlow()
+        }
+    }
+
     @objc private func restartApp() {
         let bundlePath = Bundle.main.bundlePath
         let task = Process()
@@ -207,6 +260,108 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     @objc private func quitApp() {
         NSApp.terminate(nil)
+    }
+
+    private func startCaptureFlow() {
+        guard !replayInProgress else { return }
+        let panel = NSSavePanel()
+        panel.title = "Capture .atpcap"
+        panel.nameFieldStringValue = "capture_\(captureTimestamp()).atpcap"
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap") ?? .data]
+        panel.canCreateDirectories = true
+        panel.isExtensionHidden = false
+
+        guard panel.runModal() == .OK, let outputURL = panel.url else {
+            return
+        }
+
+        do {
+            try controller.startATPCapture(to: outputURL)
+            captureInProgress = true
+            refreshCaptureReplayMenuState()
+        } catch {
+            presentError(
+                title: "Failed to Start Capture",
+                error: error
+            )
+        }
+    }
+
+    private func stopCaptureFlow() async {
+        do {
+            let frameCount = try await controller.stopATPCapture()
+            captureInProgress = false
+            refreshCaptureReplayMenuState()
+            presentInfo(
+                title: "Capture Saved",
+                message: "Captured \(frameCount) frame(s)."
+            )
+        } catch {
+            captureInProgress = controller.isATPCaptureActive
+            refreshCaptureReplayMenuState()
+            presentError(
+                title: "Failed to Stop Capture",
+                error: error
+            )
+        }
+    }
+
+    private func replayFlow() async {
+        guard !captureInProgress, !replayInProgress else { return }
+        let panel = NSOpenPanel()
+        panel.title = "Replay .atpcap"
+        panel.allowedContentTypes = [UTType(filenameExtension: "atpcap") ?? .data]
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let inputURL = panel.url else {
+            return
+        }
+
+        openConfigWindow()
+        do {
+            try await controller.beginReplaySession(from: inputURL)
+            replayInProgress = controller.isATPReplayActive
+            refreshCaptureReplayMenuState()
+        } catch {
+            replayInProgress = controller.isATPReplayActive
+            refreshCaptureReplayMenuState()
+            presentError(
+                title: "Replay Failed",
+                error: error
+            )
+        }
+    }
+
+    private func refreshCaptureReplayMenuState() {
+        captureMenuItem?.title = captureInProgress ? "Stop Capture" : "Capture..."
+        captureMenuItem?.isEnabled = !replayInProgress
+        replayMenuItem?.isEnabled = !captureInProgress && !replayInProgress
+    }
+
+    private func captureTimestamp() -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "en_US_POSIX")
+        formatter.timeZone = TimeZone(secondsFromGMT: 0)
+        formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss"
+        return formatter.string(from: Date())
+    }
+
+    private func presentError(title: String, error: Error) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = title
+        alert.informativeText = error.localizedDescription
+        alert.runModal()
+    }
+
+    private func presentInfo(title: String, message: String) {
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = title
+        alert.informativeText = message
+        alert.runModal()
     }
 
     private func makeConfigWindow() -> NSWindow {

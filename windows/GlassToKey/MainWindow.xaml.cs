@@ -116,8 +116,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _lastAutocorrectUiLastCorrected = string.Empty;
     private string _lastAutocorrectUiCurrentBuffer = string.Empty;
     private string _lastAutocorrectUiSkipReason = string.Empty;
-    private string _lastAutocorrectUiResetSource = string.Empty;
-    private string _lastAutocorrectUiWordHistory = string.Empty;
     private int _lastEngineVisualLayer = -1;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
@@ -287,7 +285,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _sendInputDispatcher = new SendInputDispatcher();
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
-            _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
@@ -587,10 +584,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
-        _settings.AutocorrectDryRunEnabled = false;
-        _settings.AutocorrectMaxEditDistance = 2;
-        AutocorrectBlacklistBox.Text = _settings.AutocorrectBlacklistCsv ?? string.Empty;
-        AutocorrectOverridesBox.Text = _settings.AutocorrectOverridesCsv ?? string.Empty;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
@@ -852,8 +845,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             IntentMoveBox,
             IntentVelocityBox,
             KeyPaddingBox,
-            AutocorrectBlacklistBox,
-            AutocorrectOverridesBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
             ColumnOffsetYBox
@@ -862,10 +853,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         foreach (TextBox box in boxes)
         {
             box.LostKeyboardFocus += OnTuningFieldCommitted;
-            if (!box.AcceptsReturn)
-            {
-                box.KeyDown += OnTuningFieldKeyDown;
-            }
+            box.KeyDown += OnTuningFieldKeyDown;
         }
     }
 
@@ -1053,10 +1041,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
-        _settings.AutocorrectDryRunEnabled = false;
-        _settings.AutocorrectMaxEditDistance = 2;
-        _settings.AutocorrectBlacklistCsv = NormalizeMultilineText(AutocorrectBlacklistBox.Text);
-        _settings.AutocorrectOverridesCsv = NormalizeMultilineText(AutocorrectOverridesBox.Text);
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
@@ -1353,7 +1337,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.SetPersistentLayer(_activeLayer);
         }
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
-        _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
 
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
@@ -1452,39 +1435,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private TouchProcessorConfig BuildConfigFromSettings()
     {
         return RuntimeConfigurationFactory.BuildTouchConfig(_settings);
-    }
-
-    private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
-    {
-        return new AutocorrectOptions(
-            MaxEditDistance: 2,
-            DryRunEnabled: settings.AutocorrectDryRunEnabled,
-            BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
-            OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
-    }
-
-    private static string NormalizeMultilineText(string? text)
-    {
-        if (string.IsNullOrWhiteSpace(text))
-        {
-            return string.Empty;
-        }
-
-        string normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
-        string[] lines = normalized.Split('\n');
-        List<string> cleaned = new(lines.Length);
-        for (int i = 0; i < lines.Length; i++)
-        {
-            string line = lines[i].Trim();
-            if (line.Length == 0)
-            {
-                continue;
-            }
-
-            cleaned.Add(line);
-        }
-
-        return string.Join('\n', cleaned);
     }
 
     private static string FormatNumber(double value)
@@ -4335,15 +4285,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string lastCorrected = "n/a";
         string currentBuffer = "n/a";
         string skipReason = "n/a";
-        string resetSource = "n/a";
-        string wordHistory = "n/a";
         if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
         {
             lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
             currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
             skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
-            resetSource = string.IsNullOrWhiteSpace(snapshot.LastResetSource) ? "none" : snapshot.LastResetSource;
-            wordHistory = string.IsNullOrWhiteSpace(snapshot.WordHistory) ? "<empty>" : snapshot.WordHistory;
             if (!snapshot.Enabled)
             {
                 skipReason = "disabled";
@@ -4366,18 +4312,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _lastAutocorrectUiSkipReason = skipReason;
             AutocorrectSkipReasonValueText.Text = skipReason;
-        }
-
-        if (!string.Equals(resetSource, _lastAutocorrectUiResetSource, StringComparison.Ordinal))
-        {
-            _lastAutocorrectUiResetSource = resetSource;
-            AutocorrectResetSourceValueText.Text = resetSource;
-        }
-
-        if (!string.Equals(wordHistory, _lastAutocorrectUiWordHistory, StringComparison.Ordinal))
-        {
-            _lastAutocorrectUiWordHistory = wordHistory;
-            AutocorrectWordHistoryValueText.Text = wordHistory;
         }
     }
 
