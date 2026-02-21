@@ -138,7 +138,7 @@ Use the same phase numbering/status in both documents.
 - Remaining: sustained stress verification proving dispatch bursts do not perturb capture/engine timing.
 
 ### Phase 4: Dedicated AppKit Surface Renderer — Completed
-- `TrackpadSurfaceView` exists and is wired behind `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
+- `TrackpadSurfaceView` is now the default/always-on surface renderer path.
 - Surface input cadence now comes from engine-owned `RuntimeRenderSnapshot`.
 - Exit criteria verified in config/edit mode (live touches + sidebar interaction) on 2026-02-21.
 
@@ -153,7 +153,7 @@ Use the same phase numbering/status in both documents.
 1. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
 2. Run dispatch burst stress verification and close remaining Phase 3 exit checks.
 3. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts (Phase 0 closeout).
-4. Execute Phase 6 cutover: default-on rewrite toggles, remove legacy hot paths, and rebuild/re-verify.
+4. Execute Phase 6 cutover: remove legacy hot paths and rebuild/re-verify.
 
 Current execution directive:
 1. Replace legacy runtime paths directly as rewrite equivalents land.

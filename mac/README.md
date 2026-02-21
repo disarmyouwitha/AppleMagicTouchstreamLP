@@ -11,7 +11,7 @@ Clicking the indicator light will allow you to view the Config or Quit the progr
 
 <img src="GTK_config.png" alt="GlassToKey" />
 
-**Clicking Visualize will draw the touches - it is toggleable for performance reasons.**
+**Touch visualization is shown automatically while the Config window is open.**
 
 Clicking Edit will allow you to click any Column/Button and set the Action/Hold Action and set the positioning and size. (It's really laggy idk what to do, so it's in a toggle)
 
@@ -47,6 +47,23 @@ Transitions and notes:
 ## Diagnostics (Debug Builds)
 - Performance profiling uses `OSSignposter` intervals around touch processing.
 - The debug build also emits `InputFrame` / `SnapshotUpdate` events and per-side `ProcessTouches` intervals so you can trace how a raw frame becomes a dispatched keystroke.
+
+## Developer Run Command
+Use this when you want a reproducible local run outside Xcode’s UI launcher (for rewrite/parity checks):
+
+```bash
+pkill -x GlassToKey || true
+DERIVED=/tmp/glasstokey-phase4
+xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' -derivedDataPath "$DERIVED" build || exit 1
+"$DERIVED/Build/Products/Debug/GlassToKey.app/Contents/MacOS/GlassToKey"
+```
+
+What this is useful for:
+- Forces a clean app launch path from a known build output directory.
+- Runs the always-on AppKit surface renderer path.
+
+What this does not do:
+- It does not produce a capture fixture or performance report by itself; it is a deterministic launch harness for manual verification.
 
 ---
 

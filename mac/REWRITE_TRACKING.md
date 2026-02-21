@@ -159,7 +159,7 @@ Exit criteria:
 - [ ] Dispatch backpressure never blocks capture/engine loops.
 
 ## Phase 4 - Dedicated AppKit Surface Renderer
-- [x] Implement `TrackpadSurfaceView` behind feature flag (`GLASSTOKEY_REWRITE_APPKIT_SURFACE`).
+- [x] Implement `TrackpadSurfaceView` as the production renderer path.
 - [x] Move drawing from SwiftUI `Canvas` to AppKit view.
 - [x] Keep SwiftUI sidebar/editor; drive status through `StatusSnapshot` polling.
 
@@ -195,7 +195,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Runtime service split (Swift) | TBD | Done | Runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; surface touch snapshots now mirror engine-owned `RuntimeRenderSnapshot`; device/session lifecycle selection+resync moved into `RuntimeDeviceSessionService`; status polling/visuals gating moved into `RuntimeStatusVisualsService`; touch snapshot recording/revision streaming moved into `RuntimeRenderSnapshotService`; runtime command/config forwarding moved into `RuntimeCommandService`; lifecycle orchestration (ingest loop + start/stop coupling) moved into `RuntimeLifecycleCoordinatorService`; UI disconnect/runtime-continue behavior validated by controller-owned runtime start plus config-window close path that only disables visual sampling |
 | Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActor`; app runtime executes touch dispatch/status through `EngineActor` with processor internals lifted into standalone `TouchProcessorEngine` (bridge removed) |
 | Dispatch queue/pump | TBD | In Progress | `DispatchService` ring queue + pump now owns key/mouse/haptic posting; `TouchProcessorEngine` emits dispatch commands and `RuntimeStatusSnapshot` diagnostics now publish queue depth/drop counters |
-| AppKit surface renderer | TBD | Done | `TrackpadSurfaceView` now renders sensor grid, labels, custom buttons, key/button selection highlights, and touches behind feature flag, with engine-owned render snapshot cadence; Phase 4 exit criteria verified in config/edit mode |
+| AppKit surface renderer | TBD | Done | `TrackpadSurfaceView` now renders sensor grid, labels, custom buttons, key/button selection highlights, and touches as the always-on renderer path, with engine-owned render snapshot cadence; Phase 4 exit criteria verified in config/edit mode |
 | UI/editor shell refactor | TBD | In Progress | Status polling exists; remaining work is decoupled snapshot transport + command-only editor contract |
 | Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
 | Perf/diagnostics dashboard | TBD | In Progress | Queue depth/drop counters are exposed in runtime status; frame pacing and latency dashboards still pending |

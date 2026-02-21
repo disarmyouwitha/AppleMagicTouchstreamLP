@@ -22,7 +22,6 @@
 		D1E2F3A4B5C6D7E8F9012346 /* TrackpadLayoutPreset.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1E2F3A4B5C6D7E8F9012345 /* TrackpadLayoutPreset.swift */; };
 		3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D5BB43B585451E9D83C8ED /* MobileLayout.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */; };
-		C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */; };
 		C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */; };
 		C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */; };
 		C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */; };
@@ -47,7 +46,6 @@
 		77292A972B931D60001CA3F6 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyDefaultsKeys.swift; sourceTree = "<group>"; };
-		C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewriteFeatureFlags.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeContracts.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRuntimeService.swift; sourceTree = "<group>"; };
 		C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineActorBoundary.swift; sourceTree = "<group>"; };
@@ -112,7 +110,6 @@
 		C0A1B2C3D4E5F60718293C41 /* Runtime */ = {
 			isa = PBXGroup;
 			children = (
-				C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */,
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 			);
@@ -228,7 +225,6 @@
 				3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */,
 				31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */,
-				C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,

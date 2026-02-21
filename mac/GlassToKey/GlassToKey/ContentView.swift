@@ -116,8 +116,6 @@ struct ContentView: View {
     private var chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
-    @AppStorage(GlassToKeyDefaultsKeys.rewriteUseAppKitSurface)
-    private var rewriteUseAppKitSurface = RewriteFeatureFlags.useAppKitSurfaceRendererByDefault
     static let trackpadWidthMM: CGFloat = 160.0
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
@@ -471,8 +469,7 @@ struct ContentView: View {
             selectedButtonID: $selectedButtonID,
             selectedColumn: $selectedColumn,
             selectedGridKey: $selectedGridKey,
-            testText: $testText,
-            useAppKitSurfaceRenderer: rewriteUseAppKitSurface
+            testText: $testText
         )
     }
 
@@ -690,7 +687,6 @@ struct ContentView: View {
         @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
         @Binding var testText: String
-        let useAppKitSurfaceRenderer: Bool
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
@@ -709,8 +705,7 @@ struct ContentView: View {
                     lastHitRight: lastHitRight,
                     selectedButtonID: $selectedButtonID,
                     selectedColumn: $selectedColumn,
-                    selectedGridKey: $selectedGridKey,
-                    useAppKitSurfaceRenderer: useAppKitSurfaceRenderer
+                    selectedGridKey: $selectedGridKey
                 )
                 TextEditor(text: $testText)
                     .font(.system(.body, design: .monospaced))
@@ -1561,7 +1556,6 @@ struct ContentView: View {
         @Binding var selectedButtonID: UUID?
         @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
-        let useAppKitSurfaceRenderer: Bool
         @State private var displayLeftTouchesState = [OMSTouchData]()
         @State private var displayRightTouchesState = [OMSTouchData]()
         @State private var lastTouchRevision: UInt64 = 0
@@ -1590,48 +1584,27 @@ struct ContentView: View {
                         .frame(width: trackpadSize.width, alignment: .leading)
                 }
                 ZStack(alignment: .topLeading) {
-                    if useAppKitSurfaceRenderer {
-                        TrackpadSurfaceRepresentable(
-                            snapshot: TrackpadSurfaceSnapshot(
-                                trackpadSize: trackpadSize,
-                                spacing: trackpadSpacing,
-                                showDetailed: showDetailedView,
-                                leftLayout: leftLayout,
-                                rightLayout: rightLayout,
-                                leftLabels: surfaceLabels(from: leftGridLabelInfo),
-                                rightLabels: surfaceLabels(from: rightGridLabelInfo),
-                                leftCustomButtons: leftButtons,
-                                rightCustomButtons: rightButtons,
-                                leftTouches: displayLeftTouches,
-                                rightTouches: displayRightTouches,
-                                selectedColumn: editModeEnabled ? selectedColumn : nil,
-                                selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
-                                selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
-                                selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
-                                selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
-                            )
-                        )
-                        .frame(width: combinedWidth, height: trackpadSize.height)
-                    } else {
-                        CombinedTrackpadCanvas(
+                    TrackpadSurfaceRepresentable(
+                        snapshot: TrackpadSurfaceSnapshot(
                             trackpadSize: trackpadSize,
                             spacing: trackpadSpacing,
                             showDetailed: showDetailedView,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
-                            leftLabelInfo: leftGridLabelInfo,
-                            rightLabelInfo: rightGridLabelInfo,
+                            leftLabels: surfaceLabels(from: leftGridLabelInfo),
+                            rightLabels: surfaceLabels(from: rightGridLabelInfo),
                             leftCustomButtons: leftButtons,
                             rightCustomButtons: rightButtons,
-                            selectedColumn: editModeEnabled ? selectedColumn : nil,
-                            selectedLeftKey: editModeEnabled ? selectedLeftKey : nil,
-                            selectedRightKey: editModeEnabled ? selectedRightKey : nil,
-                            selectedLeftButton: selectedButton(for: leftButtons),
-                            selectedRightButton: selectedButton(for: rightButtons),
                             leftTouches: displayLeftTouches,
-                            rightTouches: displayRightTouches
+                            rightTouches: displayRightTouches,
+                            selectedColumn: editModeEnabled ? selectedColumn : nil,
+                            selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
+                            selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
+                            selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
+                            selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
                         )
-                    }
+                    )
+                    .frame(width: combinedWidth, height: trackpadSize.height)
                     if !editModeEnabled {
                         if let hit = lastHitLeft {
                             LastHitHighlightLayer(lastHit: hit)

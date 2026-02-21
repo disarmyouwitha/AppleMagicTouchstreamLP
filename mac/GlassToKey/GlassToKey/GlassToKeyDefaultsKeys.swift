@@ -21,5 +21,4 @@ enum GlassToKeyDefaultsKeys {
     static let snapRadiusPercent = "GlassToKey.snapRadiusPercent"
     static let chordalShiftEnabled = "GlassToKey.chordalShiftEnabled"
     static let keyboardModeEnabled = "GlassToKey.keyboardModeEnabled"
-    static let rewriteUseAppKitSurface = "GlassToKey.rewriteUseAppKitSurface"
 }
