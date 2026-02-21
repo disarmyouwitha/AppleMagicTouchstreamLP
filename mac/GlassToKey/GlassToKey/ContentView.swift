@@ -62,16 +62,11 @@ struct ContentView: View {
         let intentMoveThresholdMm: Double
         let intentVelocityThresholdMmPerSec: Double
         let autocorrectEnabled: Bool
+        let tapClickEnabled: Bool
+        let tapClickCadenceMs: Double
         let snapRadiusPercent: Double
         let chordalShiftEnabled: Bool
         let keyboardModeEnabled: Bool
-        let fiveFingerSwipeLeftAction: String?
-        let fiveFingerSwipeRightAction: String?
-        let twoFingerHoldAction: String?
-        let threeFingerHoldAction: String?
-        let fourFingerHoldAction: String?
-        let outerCornersAction: String?
-        let innerCornersAction: String?
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappings: LayeredKeyMappings
@@ -119,26 +114,16 @@ struct ContentView: View {
     private var intentVelocityThresholdMmPerSecSetting: Double = GlassToKeySettings.intentVelocityThresholdMmPerSec
     @AppStorage(GlassToKeyDefaultsKeys.autocorrectEnabled)
     private var autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.tapClickEnabled)
+    private var tapClickEnabled = GlassToKeySettings.tapClickEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.tapClickCadenceMs)
+    private var tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
     @AppStorage(GlassToKeyDefaultsKeys.snapRadiusPercent)
     private var snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
     @AppStorage(GlassToKeyDefaultsKeys.chordalShiftEnabled)
     private var chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
-    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeLeftAction)
-    private var fiveFingerSwipeLeftActionSetting = GlassToKeySettings.fiveFingerSwipeLeftAction
-    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeRightAction)
-    private var fiveFingerSwipeRightActionSetting = GlassToKeySettings.fiveFingerSwipeRightAction
-    @AppStorage(GlassToKeyDefaultsKeys.twoFingerHoldAction)
-    private var twoFingerHoldActionSetting = GlassToKeySettings.twoFingerHoldAction
-    @AppStorage(GlassToKeyDefaultsKeys.threeFingerHoldAction)
-    private var threeFingerHoldActionSetting = GlassToKeySettings.threeFingerHoldAction
-    @AppStorage(GlassToKeyDefaultsKeys.fourFingerHoldAction)
-    private var fourFingerHoldActionSetting = ""
-    @AppStorage(GlassToKeyDefaultsKeys.outerCornersAction)
-    private var outerCornersActionSetting = GlassToKeySettings.outerCornersAction
-    @AppStorage(GlassToKeyDefaultsKeys.innerCornersAction)
-    private var innerCornersActionSetting = GlassToKeySettings.innerCornersAction
     static let trackpadWidthMM: CGFloat = 160.0
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
@@ -158,6 +143,7 @@ struct ContentView: View {
     fileprivate static let forceClickCapRange: ClosedRange<Double> = 0.0...150.0
     fileprivate static let hapticStrengthRange: ClosedRange<Double> = 0.0...100.0
     fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
+    fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
     fileprivate static let intentMoveThresholdRange: ClosedRange<Double> = 0.5...10.0
     fileprivate static let intentVelocityThresholdRange: ClosedRange<Double> = 10.0...200.0
     fileprivate static let snapRadiusPercentRange: ClosedRange<Double> = 0.0...100.0
@@ -241,6 +227,15 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 0
         formatter.minimum = NSNumber(value: ContentView.typingGraceRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.typingGraceRange.upperBound)
+        return formatter
+    }()
+    fileprivate static let twoFingerClickCadenceFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 0
+        formatter.minimum = NSNumber(value: ContentView.twoFingerClickCadenceRange.lowerBound)
+        formatter.maximum = NSNumber(value: ContentView.twoFingerClickCadenceRange.upperBound)
         return formatter
     }()
     fileprivate static let intentMoveThresholdFormatter: NumberFormatter = {
@@ -424,29 +419,17 @@ struct ContentView: View {
             .onChange(of: autocorrectEnabled) { newValue in
                 AutocorrectEngine.shared.setEnabled(newValue)
             }
+            .onChange(of: tapClickEnabled) { newValue in
+                viewModel.updateTapClickEnabled(newValue)
+            }
+            .onChange(of: tapClickCadenceMsSetting) { newValue in
+                viewModel.updateTapClickCadenceMs(newValue)
+            }
             .onChange(of: snapRadiusPercentSetting) { newValue in
                 viewModel.updateSnapRadiusPercent(newValue)
             }
-            .onChange(of: fiveFingerSwipeLeftActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: fiveFingerSwipeRightActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: twoFingerHoldActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: threeFingerHoldActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: fourFingerHoldActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: outerCornersActionSetting) { _ in
-                applyGestureTuningSettings()
-            }
-            .onChange(of: innerCornersActionSetting) { _ in
-                applyGestureTuningSettings()
+            .onChange(of: chordalShiftEnabled) { newValue in
+                viewModel.updateChordalShiftEnabled(newValue)
             }
             .onChange(of: keyboardModeEnabled) { newValue in
                 viewModel.updateKeyboardModeEnabled(newValue)
@@ -476,21 +459,8 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
-            replayUIState: viewModel.replayUIState,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap,
-            onToggleReplayPlayback: {
-                viewModel.toggleReplayPlayback()
-            },
-            onStepReplayBackward: {
-                viewModel.stepReplayBackward()
-            },
-            onStepReplayForward: {
-                viewModel.stepReplayForward()
-            },
-            onSeekReplay: { progress in
-                viewModel.seekReplay(progress: progress)
-            },
             tapTraceDumpInProgress: tapTraceDumpInProgress,
             tapTraceDumpStatus: tapTraceDumpStatus,
             onDumpTapTrace: dumpTapTrace
@@ -505,21 +475,8 @@ struct ContentView: View {
             intentDisplay: viewModel.intentDisplayBySide.left,
             voiceGestureActive: viewModel.voiceGestureActive,
             voiceDebugStatus: viewModel.voiceDebugStatus,
-            replayUIState: viewModel.replayUIState,
             onImportKeymap: importKeymap,
-            onExportKeymap: exportKeymap,
-            onToggleReplayPlayback: {
-                viewModel.toggleReplayPlayback()
-            },
-            onStepReplayBackward: {
-                viewModel.stepReplayBackward()
-            },
-            onStepReplayForward: {
-                viewModel.stepReplayForward()
-            },
-            onSeekReplay: { progress in
-                viewModel.seekReplay(progress: progress)
-            }
+            onExportKeymap: exportKeymap
         )
 #endif
     }
@@ -571,14 +528,10 @@ struct ContentView: View {
             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: $autocorrectEnabled,
+            tapClickEnabled: $tapClickEnabled,
+            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
-            fiveFingerSwipeLeftActionSetting: $fiveFingerSwipeLeftActionSetting,
-            fiveFingerSwipeRightActionSetting: $fiveFingerSwipeRightActionSetting,
-            twoFingerHoldActionSetting: $twoFingerHoldActionSetting,
-            threeFingerHoldActionSetting: $threeFingerHoldActionSetting,
-            fourFingerHoldActionSetting: $fourFingerHoldActionSetting,
-            outerCornersActionSetting: $outerCornersActionSetting,
-            innerCornersActionSetting: $innerCornersActionSetting,
+            chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
             onRefreshDevices: {
                 viewModel.refreshDevicesAndListeners()
@@ -618,13 +571,8 @@ struct ContentView: View {
         let intentDisplay: ContentViewModel.IntentDisplay
         let voiceGestureActive: Bool
         let voiceDebugStatus: String?
-        let replayUIState: ContentViewModel.ReplayUIState?
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
-        let onToggleReplayPlayback: () -> Void
-        let onStepReplayBackward: () -> Void
-        let onStepReplayForward: () -> Void
-        let onSeekReplay: (Double) -> Void
 #if DEBUG
         let tapTraceDumpInProgress: Bool
         let tapTraceDumpStatus: String?
@@ -648,9 +596,6 @@ struct ContentView: View {
                                 voiceStatusBadge(voiceDebugStatus)
                             }
                         }
-                    }
-                    if let replayUIState {
-                        replayControls(replayUIState)
                     }
                 }
                 Spacer()
@@ -686,56 +631,6 @@ struct ContentView: View {
                     Text("Layer1")
                 }
             }
-        }
-
-        private func replayControls(_ state: ContentViewModel.ReplayUIState) -> some View {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 8) {
-                    Text("Replay")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    Text((state.capturePath as NSString).lastPathComponent)
-                        .font(.caption)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .frame(maxWidth: 220, alignment: .leading)
-                }
-                HStack(spacing: 8) {
-                    Button(state.isPlaying ? "Pause" : "Play") {
-                        onToggleReplayPlayback()
-                    }
-                    .buttonStyle(.bordered)
-                    Button("◀") {
-                        onStepReplayBackward()
-                    }
-                    .buttonStyle(.bordered)
-                    Button("▶") {
-                        onStepReplayForward()
-                    }
-                    .buttonStyle(.bordered)
-                    Slider(
-                        value: Binding(
-                            get: { state.progress },
-                            set: { onSeekReplay($0) }
-                        ),
-                        in: 0...1
-                    )
-                    .frame(width: 220)
-                    Text(replayTimeLabel(current: state.currentTime, duration: state.duration))
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                    Text("f \(state.frameIndex + 1)/\(max(state.totalFrames, 1))")
-                        .font(.caption2)
-                        .foregroundStyle(.secondary)
-                        .monospacedDigit()
-                }
-            }
-            .padding(.top, 2)
-        }
-
-        private func replayTimeLabel(current: TimeInterval, duration: TimeInterval) -> String {
-            String(format: "%.2fs / %.2fs", current, duration)
         }
 
         private var contactCountPills: some View {
@@ -906,17 +801,12 @@ struct ContentView: View {
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var autocorrectEnabled: Bool
+        @Binding var tapClickEnabled: Bool
+        @Binding var tapClickCadenceMsSetting: Double
         @Binding var snapRadiusPercentSetting: Double
-        @Binding var fiveFingerSwipeLeftActionSetting: String
-        @Binding var fiveFingerSwipeRightActionSetting: String
-        @Binding var twoFingerHoldActionSetting: String
-        @Binding var threeFingerHoldActionSetting: String
-        @Binding var fourFingerHoldActionSetting: String
-        @Binding var outerCornersActionSetting: String
-        @Binding var innerCornersActionSetting: String
+        @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
         @State private var typingTuningExpanded = true
-        @State private var gestureTuningExpanded = true
         let onRefreshDevices: () -> Void
         let onAutoResyncChange: (Bool) -> Void
         let onAddCustomButton: (TrackpadSide) -> Void
@@ -957,37 +847,16 @@ struct ContentView: View {
                             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
                             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
                             autocorrectEnabled: $autocorrectEnabled,
+                            tapClickEnabled: $tapClickEnabled,
+                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
                             snapRadiusPercentSetting: $snapRadiusPercentSetting,
+                            chordalShiftEnabled: $chordalShiftEnabled,
                             keyboardModeEnabled: $keyboardModeEnabled,
                             onRestoreDefaults: onRestoreDefaults
                         )
                         .padding(.top, 8)
                     } label: {
                         Text("Typing Tuning")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
-
-                    DisclosureGroup(
-                        isExpanded: $gestureTuningExpanded
-                    ) {
-                        GestureTuningSectionView(
-                            fiveFingerSwipeLeftActionSetting: $fiveFingerSwipeLeftActionSetting,
-                            fiveFingerSwipeRightActionSetting: $fiveFingerSwipeRightActionSetting,
-                            twoFingerHoldActionSetting: $twoFingerHoldActionSetting,
-                            threeFingerHoldActionSetting: $threeFingerHoldActionSetting,
-                            fourFingerHoldActionSetting: $fourFingerHoldActionSetting,
-                            outerCornersActionSetting: $outerCornersActionSetting,
-                            innerCornersActionSetting: $innerCornersActionSetting
-                        )
-                        .padding(.top, 8)
-                    } label: {
-                        Text("Gesture Tuning")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -1526,7 +1395,10 @@ struct ContentView: View {
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var autocorrectEnabled: Bool
+        @Binding var tapClickEnabled: Bool
+        @Binding var tapClickCadenceMsSetting: Double
         @Binding var snapRadiusPercentSetting: Double
+        @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
         let onRestoreDefaults: () -> Void
 
@@ -1640,6 +1512,23 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
+                        Text("Tap Cadence (ms)")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "280",
+                            value: $tapClickCadenceMsSetting,
+                            formatter: ContentView.twoFingerClickCadenceFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $tapClickCadenceMsSetting,
+                            in: ContentView.twoFingerClickCadenceRange,
+                            step: 10
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
                         Text("Intent Move (mm)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
@@ -1709,8 +1598,11 @@ struct ContentView: View {
                         Toggle("", isOn: $autocorrectEnabled)
                             .toggleStyle(SwitchToggleStyle())
                             .labelsHidden()
-                        Spacer()
-                            .gridCellColumns(2)
+                        Text("Tap Click")
+                            .frame(width: labelWidth, alignment: .leading)
+                        Toggle("", isOn: $tapClickEnabled)
+                            .toggleStyle(SwitchToggleStyle())
+                            .labelsHidden()
                     }
                     GridRow {
                         Text("Snap Radius")
@@ -1718,11 +1610,20 @@ struct ContentView: View {
                         Toggle("", isOn: snapRadiusEnabledBinding)
                             .toggleStyle(SwitchToggleStyle())
                             .labelsHidden()
+                        Text("Chordal Shift")
+                            .frame(width: labelWidth, alignment: .leading)
+                        Toggle("", isOn: $chordalShiftEnabled)
+                            .toggleStyle(SwitchToggleStyle())
+                            .labelsHidden()
+                    }
+                    GridRow {
                         Text("Keyboard Mode")
                             .frame(width: labelWidth, alignment: .leading)
                         Toggle("", isOn: $keyboardModeEnabled)
                             .toggleStyle(SwitchToggleStyle())
                             .labelsHidden()
+                        Spacer()
+                            .gridCellColumns(2)
                     }
                     GridRow {
                         Button("Restore Defaults") {
@@ -1737,58 +1638,6 @@ struct ContentView: View {
             }
         }
 
-    }
-
-    private struct GestureTuningSectionView: View {
-        @Binding var fiveFingerSwipeLeftActionSetting: String
-        @Binding var fiveFingerSwipeRightActionSetting: String
-        @Binding var twoFingerHoldActionSetting: String
-        @Binding var threeFingerHoldActionSetting: String
-        @Binding var fourFingerHoldActionSetting: String
-        @Binding var outerCornersActionSetting: String
-        @Binding var innerCornersActionSetting: String
-
-        private let labelWidth: CGFloat = 140
-
-        private func gestureActionOptions(for selected: String) -> [String] {
-            var options = KeyActionCatalog.gestureActionLabels
-            let trimmed = selected.trimmingCharacters(in: .whitespacesAndNewlines)
-            if !trimmed.isEmpty, !options.contains(trimmed) {
-                options.append(trimmed)
-            }
-            return options.sorted()
-        }
-
-        @ViewBuilder
-        private func gestureActionRow(_ title: String, selection: Binding<String>) -> some View {
-            GridRow {
-                Text(title)
-                    .frame(width: labelWidth, alignment: .leading)
-                Picker("", selection: selection) {
-                    ForEach(gestureActionOptions(for: selection.wrappedValue), id: \.self) { label in
-                        Text(label).tag(label)
-                    }
-                }
-                .labelsHidden()
-                .frame(minWidth: 200)
-                .pickerStyle(.menu)
-                .gridCellColumns(3)
-            }
-        }
-
-        var body: some View {
-            VStack(spacing: 8) {
-                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                    gestureActionRow("5F Swipe Left", selection: $fiveFingerSwipeLeftActionSetting)
-                    gestureActionRow("5F Swipe Right", selection: $fiveFingerSwipeRightActionSetting)
-                    gestureActionRow("2F Hold", selection: $twoFingerHoldActionSetting)
-                    gestureActionRow("3F Hold", selection: $threeFingerHoldActionSetting)
-                    gestureActionRow("4F Hold", selection: $fourFingerHoldActionSetting)
-                    gestureActionRow("Outer Corners", selection: $outerCornersActionSetting)
-                    gestureActionRow("Inner Corners", selection: $innerCornersActionSetting)
-                }
-            }
-        }
     }
 
     private struct TrackpadDeckView: View {
@@ -1813,8 +1662,6 @@ struct ContentView: View {
         @State private var lastTouchRevision: UInt64 = 0
         @State private var lastDisplayUpdateTime: TimeInterval = 0
         @State private var lastDisplayedHadTouches = false
-        @State private var lastLeftTouchTime: TimeInterval = 0
-        @State private var lastRightTouchTime: TimeInterval = 0
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -1825,7 +1672,6 @@ struct ContentView: View {
             let leftButtons = customButtons(for: .left)
             let rightButtons = customButtons(for: .right)
             let showDetailedView = visualsEnabled || selectedButtonID != nil
-            let replayTouchScale: CGFloat = viewModel.replayUIState == nil ? 1.0 : 2.0
             let selectedLeftKey = selectedGridKey?.side == .left ? selectedGridKey : nil
             let selectedRightKey = selectedGridKey?.side == .right ? selectedGridKey : nil
 
@@ -1856,8 +1702,7 @@ struct ContentView: View {
                         selectedRightButton: selectedButton(for: rightButtons),
                         leftTouches: visualsEnabled ? displayLeftTouches : [],
                         rightTouches: visualsEnabled ? displayRightTouches : [],
-                        visualsEnabled: visualsEnabled,
-                        touchScale: replayTouchScale
+                        visualsEnabled: visualsEnabled
                     )
                     if visualsEnabled && !editModeEnabled {
                         if let hit = lastHitLeft {
@@ -1934,35 +1779,11 @@ struct ContentView: View {
             }
 
             let now = CACurrentMediaTime()
-            var leftDisplay = snapshot.left
-            var rightDisplay = snapshot.right
-            if !snapshot.left.isEmpty {
-                lastLeftTouchTime = now
-            }
-            if !snapshot.right.isEmpty {
-                lastRightTouchTime = now
-            }
-
-            // Replay captures can contain one-frame taps; linger briefly so they stay visible on a 60 Hz UI.
-            let replayLingerSeconds: TimeInterval = 0.07
-            if viewModel.replayUIState != nil {
-                if snapshot.left.isEmpty,
-                   !displayLeftTouchesState.isEmpty,
-                   now - lastLeftTouchTime < replayLingerSeconds {
-                    leftDisplay = displayLeftTouchesState
-                }
-                if snapshot.right.isEmpty,
-                   !displayRightTouchesState.isEmpty,
-                   now - lastRightTouchTime < replayLingerSeconds {
-                    rightDisplay = displayRightTouchesState
-                }
-            }
-
             if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
-                displayLeftTouchesState = leftDisplay
-                displayRightTouchesState = rightDisplay
+                displayLeftTouchesState = snapshot.left
+                displayRightTouchesState = snapshot.right
                 lastDisplayUpdateTime = now
-                lastDisplayedHadTouches = !(leftDisplay.isEmpty && rightDisplay.isEmpty)
+                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
             }
         }
 
@@ -2174,7 +1995,6 @@ struct ContentView: View {
         let leftTouches: [OMSTouchData]
         let rightTouches: [OMSTouchData]
         let visualsEnabled: Bool
-        let touchScale: CGFloat
 
         var body: some View {
             Canvas { context, _ in
@@ -2207,8 +2027,7 @@ struct ContentView: View {
                     selectedButton: selectedLeftButton,
                     touches: leftTouches,
                     trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled,
-                    touchScale: touchScale
+                    visualsEnabled: visualsEnabled
                 )
                 ContentView.drawTrackpadContents(
                     context: &context,
@@ -2221,8 +2040,7 @@ struct ContentView: View {
                     selectedButton: selectedRightButton,
                     touches: rightTouches,
                     trackpadSize: trackpadSize,
-                    visualsEnabled: visualsEnabled,
-                    touchScale: touchScale
+                    visualsEnabled: visualsEnabled
                 )
             }
             .frame(width: (trackpadSize.width * 2) + spacing, height: trackpadSize.height)
@@ -2255,20 +2073,12 @@ struct ContentView: View {
         }
     }
 
-    private static func makeEllipse(
-        touch: OMSTouchData,
-        size: CGSize,
-        touchScale: CGFloat
-    ) -> Path {
+    private static func makeEllipse(touch: OMSTouchData, size: CGSize) -> Path {
         let x = Double(touch.position.x) * size.width
         let y = Double(1.0 - touch.position.y) * size.height
         let u = size.width / 100.0
-        let minAxis: Double = 2.0
-        let visualScale = Double(max(touchScale, 0.1))
-        let major = max(Double(touch.axis.major), minAxis)
-        let minor = max(Double(touch.axis.minor), minAxis)
-        let w = major * u * visualScale
-        let h = minor * u * visualScale
+        let w = Double(touch.axis.major) * u
+        let h = Double(touch.axis.minor) * u
         return Path(ellipseIn: CGRect(x: -0.5 * w, y: -0.5 * h, width: w, height: h))
             .rotation(.radians(Double(-touch.angle)), anchor: .topLeading)
             .offset(x: x, y: y)
@@ -2579,79 +2389,6 @@ struct ContentView: View {
         )
     }
 
-    private func normalizedGestureActionLabel(_ label: String, fallback: String) -> String {
-        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? fallback : trimmed
-    }
-
-    private func resolvedGestureTuningSettings() -> GestureTuningSettings {
-        let fallbackFourFinger = chordalShiftEnabled
-            ? GlassToKeySettings.fourFingerHoldAction
-            : KeyActionCatalog.noneLabel
-        return GestureTuningSettings(
-            fiveFingerSwipeLeftAction: normalizedGestureActionLabel(
-                fiveFingerSwipeLeftActionSetting,
-                fallback: GlassToKeySettings.fiveFingerSwipeLeftAction
-            ),
-            fiveFingerSwipeRightAction: normalizedGestureActionLabel(
-                fiveFingerSwipeRightActionSetting,
-                fallback: GlassToKeySettings.fiveFingerSwipeRightAction
-            ),
-            twoFingerHoldAction: normalizedGestureActionLabel(
-                twoFingerHoldActionSetting,
-                fallback: GlassToKeySettings.twoFingerHoldAction
-            ),
-            threeFingerHoldAction: normalizedGestureActionLabel(
-                threeFingerHoldActionSetting,
-                fallback: GlassToKeySettings.threeFingerHoldAction
-            ),
-            fourFingerHoldAction: normalizedGestureActionLabel(
-                fourFingerHoldActionSetting,
-                fallback: fallbackFourFinger
-            ),
-            outerCornersAction: normalizedGestureActionLabel(
-                outerCornersActionSetting,
-                fallback: GlassToKeySettings.outerCornersAction
-            ),
-            innerCornersAction: normalizedGestureActionLabel(
-                innerCornersActionSetting,
-                fallback: GlassToKeySettings.innerCornersAction
-            )
-        ).normalized()
-    }
-
-    private func applyGestureTuningSettings() {
-        let settings = resolvedGestureTuningSettings()
-        if fiveFingerSwipeLeftActionSetting != settings.fiveFingerSwipeLeftAction {
-            fiveFingerSwipeLeftActionSetting = settings.fiveFingerSwipeLeftAction
-        }
-        if fiveFingerSwipeRightActionSetting != settings.fiveFingerSwipeRightAction {
-            fiveFingerSwipeRightActionSetting = settings.fiveFingerSwipeRightAction
-        }
-        if twoFingerHoldActionSetting != settings.twoFingerHoldAction {
-            twoFingerHoldActionSetting = settings.twoFingerHoldAction
-        }
-        if threeFingerHoldActionSetting != settings.threeFingerHoldAction {
-            threeFingerHoldActionSetting = settings.threeFingerHoldAction
-        }
-        if fourFingerHoldActionSetting != settings.fourFingerHoldAction {
-            fourFingerHoldActionSetting = settings.fourFingerHoldAction
-        }
-        if outerCornersActionSetting != settings.outerCornersAction {
-            outerCornersActionSetting = settings.outerCornersAction
-        }
-        if innerCornersActionSetting != settings.innerCornersAction {
-            innerCornersActionSetting = settings.innerCornersAction
-        }
-        let chordShiftEnabled = KeyActionCatalog.isChordalShiftGestureLabel(
-            settings.fourFingerHoldAction
-        )
-        if chordalShiftEnabled != chordShiftEnabled {
-            chordalShiftEnabled = chordShiftEnabled
-        }
-        viewModel.updateGestureTuning(settings)
-    }
-
     private func applySavedSettings() {
         visualsEnabled = storedVisualsEnabled
         viewModel.setStatusVisualsEnabled(visualsEnabled)
@@ -2683,8 +2420,9 @@ struct ContentView: View {
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSecSetting)
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateSnapRadiusPercent(snapRadiusPercentSetting)
-        applyGestureTuningSettings()
+        viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.setTouchSnapshotRecordingEnabled(visualsEnabled)
     }
 
@@ -2698,17 +2436,10 @@ struct ContentView: View {
         intentMoveThresholdMmSetting = GlassToKeySettings.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = GlassToKeySettings.intentVelocityThresholdMmPerSec
         autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
+        tapClickEnabled = GlassToKeySettings.tapClickEnabled
+        tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
         snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
-        fiveFingerSwipeLeftActionSetting = GlassToKeySettings.fiveFingerSwipeLeftAction
-        fiveFingerSwipeRightActionSetting = GlassToKeySettings.fiveFingerSwipeRightAction
-        twoFingerHoldActionSetting = GlassToKeySettings.twoFingerHoldAction
-        threeFingerHoldActionSetting = GlassToKeySettings.threeFingerHoldAction
-        fourFingerHoldActionSetting = GlassToKeySettings.fourFingerHoldAction
-        outerCornersActionSetting = GlassToKeySettings.outerCornersAction
-        innerCornersActionSetting = GlassToKeySettings.innerCornersAction
-        chordalShiftEnabled = KeyActionCatalog.isChordalShiftGestureLabel(
-            GlassToKeySettings.fourFingerHoldAction
-        )
+        chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
     }
@@ -2782,18 +2513,11 @@ struct ContentView: View {
             intentMoveThresholdMm: intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSec: intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: autocorrectEnabled,
+            tapClickEnabled: tapClickEnabled,
+            tapClickCadenceMs: tapClickCadenceMsSetting,
             snapRadiusPercent: snapRadiusPercentSetting,
-            chordalShiftEnabled: KeyActionCatalog.isChordalShiftGestureLabel(
-                fourFingerHoldActionSetting
-            ),
+            chordalShiftEnabled: chordalShiftEnabled,
             keyboardModeEnabled: keyboardModeEnabled,
-            fiveFingerSwipeLeftAction: fiveFingerSwipeLeftActionSetting,
-            fiveFingerSwipeRightAction: fiveFingerSwipeRightActionSetting,
-            twoFingerHoldAction: twoFingerHoldActionSetting,
-            threeFingerHoldAction: threeFingerHoldActionSetting,
-            fourFingerHoldAction: fourFingerHoldActionSetting,
-            outerCornersAction: outerCornersActionSetting,
-            innerCornersAction: innerCornersActionSetting,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
             keyMappings: mappings
@@ -2814,26 +2538,10 @@ struct ContentView: View {
         intentMoveThresholdMmSetting = profile.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = profile.intentVelocityThresholdMmPerSec
         autocorrectEnabled = profile.autocorrectEnabled
+        tapClickEnabled = profile.tapClickEnabled
+        tapClickCadenceMsSetting = profile.tapClickCadenceMs
         snapRadiusPercentSetting = profile.snapRadiusPercent
-        fiveFingerSwipeLeftActionSetting = profile.fiveFingerSwipeLeftAction
-            ?? GlassToKeySettings.fiveFingerSwipeLeftAction
-        fiveFingerSwipeRightActionSetting = profile.fiveFingerSwipeRightAction
-            ?? GlassToKeySettings.fiveFingerSwipeRightAction
-        twoFingerHoldActionSetting = profile.twoFingerHoldAction
-            ?? GlassToKeySettings.twoFingerHoldAction
-        threeFingerHoldActionSetting = profile.threeFingerHoldAction
-            ?? GlassToKeySettings.threeFingerHoldAction
-        fourFingerHoldActionSetting = profile.fourFingerHoldAction
-            ?? (profile.chordalShiftEnabled
-                ? GlassToKeySettings.fourFingerHoldAction
-                : KeyActionCatalog.noneLabel)
-        outerCornersActionSetting = profile.outerCornersAction
-            ?? GlassToKeySettings.outerCornersAction
-        innerCornersActionSetting = profile.innerCornersAction
-            ?? GlassToKeySettings.innerCornersAction
-        chordalShiftEnabled = KeyActionCatalog.isChordalShiftGestureLabel(
-            fourFingerHoldActionSetting
-        )
+        chordalShiftEnabled = profile.chordalShiftEnabled
         keyboardModeEnabled = profile.keyboardModeEnabled
         storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
         storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
@@ -3341,8 +3049,7 @@ struct ContentView: View {
         selectedButton: CustomButton?,
         touches: [OMSTouchData],
         trackpadSize: CGSize,
-        visualsEnabled: Bool,
-        touchScale: CGFloat
+        visualsEnabled: Bool
     ) {
         withTranslatedContext(context: &context, origin: origin) { innerContext in
             drawSensorGrid(
@@ -3377,8 +3084,7 @@ struct ContentView: View {
                 drawTrackpadTouches(
                     context: &innerContext,
                     touches: touches,
-                    trackpadSize: trackpadSize,
-                    touchScale: touchScale
+                    trackpadSize: trackpadSize
                 )
             }
         }
@@ -3399,12 +3105,11 @@ struct ContentView: View {
     private static func drawTrackpadTouches(
         context: inout GraphicsContext,
         touches: [OMSTouchData],
-        trackpadSize: CGSize,
-        touchScale: CGFloat
+        trackpadSize: CGSize
     ) {
         touches.forEach { touch in
-            let path = makeEllipse(touch: touch, size: trackpadSize, touchScale: touchScale)
-            context.fill(path, with: .color(.primary.opacity(1.0)))
+            let path = makeEllipse(touch: touch, size: trackpadSize)
+            context.fill(path, with: .color(.primary.opacity(Double(touch.total))))
         }
     }
 
