@@ -122,20 +122,25 @@ Use the same phase numbering/status in both documents.
 - Numeric-ID registry + dedicated state queue landed.
 - Remaining: callback-path allocation verification and sustained dual-trackpad soak signoff.
 
-### Phase 2: Runtime Service + Engine Boundary (Swift) — In Progress
+### Phase 2: Runtime Service + Engine Boundary (Swift) — Completed
 - `InputRuntimeService` and `EngineActor` boundary are live in runtime and replay harness.
 - Touch processing state machine has moved into `TouchProcessorEngine`.
-- Remaining: finish splitting residual runtime/UI responsibilities still concentrated in `ContentViewModel`.
+- Device/session lifecycle management is now extracted into `RuntimeDeviceSessionService`.
+- Status polling + visuals gating now run via `RuntimeStatusVisualsService`.
+- Touch snapshot recording/revision streaming now run via `RuntimeRenderSnapshotService`.
+- Runtime command/config forwarding now runs via `RuntimeCommandService`.
+- Runtime lifecycle orchestration (ingest loop + start/stop coupling) now runs via `RuntimeLifecycleCoordinatorService`.
+- Exit criteria verified on 2026-02-21, including UI disconnect while runtime remains active.
 
 ### Phase 3: Dispatch/Haptics Isolation — In Progress
 - `DispatchService` ring queue + pump landed and is wired to engine output.
 - Dispatch queue depth/drop diagnostics are published in status snapshots.
 - Remaining: sustained stress verification proving dispatch bursts do not perturb capture/engine timing.
 
-### Phase 4: Dedicated AppKit Surface Renderer — In Progress
+### Phase 4: Dedicated AppKit Surface Renderer — Completed
 - `TrackpadSurfaceView` exists and is wired behind `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
 - Surface input cadence now comes from engine-owned `RuntimeRenderSnapshot`.
-- Remaining: default-on cutover and frame pacing/stability verification in config/edit mode.
+- Exit criteria verified in config/edit mode (live touches + sidebar interaction) on 2026-02-21.
 
 ### Phase 5: Rust Shared Core (Optional but Target) — Not Started
 - ABI and parity contract remain pending after Swift runtime split completes.
@@ -145,11 +150,10 @@ Use the same phase numbering/status in both documents.
 - Legacy runtime paths are still present and have not been fully removed.
 
 ## Immediate next implementation slice
-1. Finish runtime split by removing remaining hot runtime/session responsibilities from `ContentViewModel` into dedicated runtime/snapshot services.
-2. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
-3. Execute config/edit-mode frame pacing stress verification for AppKit surface path (hitch checks with live touches + sidebar interaction).
-4. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts.
-5. Prepare cutover toggles (`OMS_CAPTURE_BRIDGE_V2`, `GLASSTOKEY_REWRITE_APPKIT_SURFACE`) for default-on once Phase 1-4 exit criteria are met.
+1. Run callback allocation profiling + dual-trackpad sustained soak on `OpenMTManagerV2` and close remaining Phase 1 exit checks.
+2. Run dispatch burst stress verification and close remaining Phase 3 exit checks.
+3. Capture canonical Windows reference traces and start direct replay parity comparison against macOS transcripts (Phase 0 closeout).
+4. Execute Phase 6 cutover: default-on rewrite toggles, remove legacy hot paths, and rebuild/re-verify.
 
 Current execution directive:
 1. Replace legacy runtime paths directly as rewrite equivalents land.

@@ -43,7 +43,6 @@ final class GlassToKeyController: ObservableObject {
         OMSManager.shared.isTimestampEnabled = false
         configureFromDefaults()
         viewModel.start()
-        viewModel.onAppear()
         isRunning = true
     }
 

@@ -60,6 +60,13 @@ struct RuntimeRenderSnapshot: Sendable {
     var revision: UInt64 = 0
 }
 
+struct RuntimeTouchSnapshot: Sendable {
+    var left: [OMSTouchData] = []
+    var right: [OMSTouchData] = []
+    var revision: UInt64 = 0
+    var hasTransitionState: Bool = false
+}
+
 struct RuntimeStatusSnapshot: Sendable {
     var intentBySide: SidePair<RuntimeIntentMode> = SidePair(left: .idle, right: .idle)
     var contactCountBySide: SidePair<Int> = SidePair(left: 0, right: 0)

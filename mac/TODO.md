@@ -1,5 +1,6 @@
 ## TODO
-- Back to plan
+- Is there a reason we hit 80+ CPU utilization with heavy touches & the config open?
+- When we close the config can we get that RAM back or is it not worth it? (10mb before config, 80mb after)
 ---
 - Can we wire up "Capture" and "Replay" into the menu?
 - Please explain to me how haptics works in the framework. Is this portable to windows in any way?

@@ -113,9 +113,9 @@ Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md`
 Phase status summary (synced with `REWRITE.md`, as of 2026-02-21):
 - Phase 0: In Progress
 - Phase 1: In Progress
-- Phase 2: In Progress
+- Phase 2: Completed
 - Phase 3: In Progress
-- Phase 4: In Progress
+- Phase 4: Completed
 - Phase 5: Not Started
 - Phase 6: Not Started
 
@@ -140,13 +140,13 @@ Exit criteria:
 - [ ] Stable capture with one and two trackpads at sustained load.
 
 ## Phase 2 - Runtime Service + Engine Boundary (Swift)
-- [ ] Split current `ContentViewModel` responsibilities into runtime services.
+- [x] Split current `ContentViewModel` responsibilities into runtime services.
 - [x] Build `InputRuntimeService` and `EngineActor` interfaces.
 - [x] Move touch processing state machine out of `ContentViewModel`.
-- [ ] Keep only minimal compatibility needed for defaults/keymap persistence (no broad runtime fallback work).
+- [x] Keep only minimal compatibility needed for defaults/keymap persistence (no broad runtime fallback work).
 
 Exit criteria:
-- [ ] UI can be disconnected while runtime keeps processing.
+- [x] UI can be disconnected while runtime keeps processing.
 - [x] Engine accepts replay input and emits deterministic snapshots.
 
 ## Phase 3 - Dispatch/Haptics Isolation
@@ -160,12 +160,12 @@ Exit criteria:
 
 ## Phase 4 - Dedicated AppKit Surface Renderer
 - [x] Implement `TrackpadSurfaceView` behind feature flag (`GLASSTOKEY_REWRITE_APPKIT_SURFACE`).
-- [ ] Move drawing from SwiftUI `Canvas` to AppKit view.
+- [x] Move drawing from SwiftUI `Canvas` to AppKit view.
 - [x] Keep SwiftUI sidebar/editor; drive status through `StatusSnapshot` polling.
 
 Exit criteria:
-- [ ] No visible hitch while editing keymap with live touch input.
-- [ ] Sidebar interaction does not impact surface frame pacing.
+- [x] No visible hitch while editing keymap with live touch input.
+- [x] Sidebar interaction does not impact surface frame pacing.
 
 ## Phase 5 - Rust Shared Core (Optional but Target)
 - [ ] Define C ABI for engine config, frame ingest, snapshot readback.
@@ -192,10 +192,10 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
 | Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` runs raw-only callbacks on a dedicated state queue with numeric-ID reconciliation and pre-sized registries; callback allocation profiling + sustained soak signoff remain |
-| Runtime service split (Swift) | TBD | In Progress | Runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; surface touch snapshots now mirror engine-owned `RuntimeRenderSnapshot`; remaining split work is residual session/control responsibilities in `ContentViewModel` |
+| Runtime service split (Swift) | TBD | Done | Runtime ingest defaults to `InputRuntimeService.rawFrameStream -> EngineActor`; surface touch snapshots now mirror engine-owned `RuntimeRenderSnapshot`; device/session lifecycle selection+resync moved into `RuntimeDeviceSessionService`; status polling/visuals gating moved into `RuntimeStatusVisualsService`; touch snapshot recording/revision streaming moved into `RuntimeRenderSnapshotService`; runtime command/config forwarding moved into `RuntimeCommandService`; lifecycle orchestration (ingest loop + start/stop coupling) moved into `RuntimeLifecycleCoordinatorService`; UI disconnect/runtime-continue behavior validated by controller-owned runtime start plus config-window close path that only disables visual sampling |
 | Engine boundary + replay harness | TBD | In Progress | Replay runs against `EngineActor`; app runtime executes touch dispatch/status through `EngineActor` with processor internals lifted into standalone `TouchProcessorEngine` (bridge removed) |
 | Dispatch queue/pump | TBD | In Progress | `DispatchService` ring queue + pump now owns key/mouse/haptic posting; `TouchProcessorEngine` emits dispatch commands and `RuntimeStatusSnapshot` diagnostics now publish queue depth/drop counters |
-| AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` now renders sensor grid, labels, custom buttons, key/button selection highlights, and touches behind feature flag, with engine-owned render snapshot cadence; remaining work is default-on cutover + frame pacing verification |
+| AppKit surface renderer | TBD | Done | `TrackpadSurfaceView` now renders sensor grid, labels, custom buttons, key/button selection highlights, and touches behind feature flag, with engine-owned render snapshot cadence; Phase 4 exit criteria verified in config/edit mode |
 | UI/editor shell refactor | TBD | In Progress | Status polling exists; remaining work is decoupled snapshot transport + command-only editor contract |
 | Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
 | Perf/diagnostics dashboard | TBD | In Progress | Queue depth/drop counters are exposed in runtime status; frame pacing and latency dashboards still pending |
@@ -236,12 +236,11 @@ Current-sync reruns (2026-02-21):
 ## Immediate Next Slice (Execution Ready)
 - [x] Complete `TrackpadSurfaceView` rendering parity with `CombinedTrackpadCanvas` (labels, key/button highlights, debug overlays) so the AppKit path can become default.
 - [x] Shift surface inputs to engine-owned `RenderSnapshot` cadence and retire UI-managed touch snapshot transport from hot rendering path.
-- [ ] Finish runtime split by moving remaining runtime/session responsibilities out of `ContentViewModel` into dedicated runtime/snapshot services.
-- [ ] Run config/edit-mode frame pacing stress verification on AppKit surface path and close Phase 4 exit criteria.
+- [x] Finish runtime split by moving remaining runtime/session responsibilities out of `ContentViewModel` into dedicated runtime/snapshot services (completed: device/session lifecycle in `RuntimeDeviceSessionService`; status/snapshot controls in `RuntimeStatusVisualsService` + `RuntimeRenderSnapshotService`; command/config forwarding in `RuntimeCommandService`; lifecycle orchestration in `RuntimeLifecycleCoordinatorService`).
 - [ ] Run sustained dual-trackpad soak + callback-path allocation profiling for `OpenMTManagerV2`; close remaining Phase 1 exit criteria.
+- [ ] Run dispatch burst stress verification and close remaining Phase 3 exit criteria.
 - [ ] Capture Windows reference traces in `.atpcap` and stand up macOS-vs-Windows replay parity checks.
-- [ ] Decide cutover order and default-enable plan for `OMS_CAPTURE_BRIDGE_V2` and `GLASSTOKEY_REWRITE_APPKIT_SURFACE`.
-- [ ] Begin Phase 6 cleanup plan: identify concrete legacy paths to delete immediately after Phase 1-4 exit criteria pass.
+- [ ] Execute Phase 6 cutover: default-on rewrite toggles, remove legacy hot paths, and rebuild/re-verify.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.atpcap` (canonical baseline fixture; 52 captured frames).

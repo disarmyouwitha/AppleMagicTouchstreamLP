@@ -177,23 +177,7 @@ final class ContentViewModel: ObservableObject {
         case gesture
     }
 
-    nonisolated private let touchSnapshotLock = OSAllocatedUnfairLock<TouchSnapshot>(
-        uncheckedState: TouchSnapshot()
-    )
-#if DEBUG
-    private let pipelineSignposter = OSSignposter(
-        subsystem: "com.kyome.GlassToKey",
-        category: "InputPipeline"
-    )
-#endif
-    nonisolated private let snapshotRecordingLock = OSAllocatedUnfairLock<Bool>(
-        uncheckedState: false
-    )
-    final class ContinuationHolder: @unchecked Sendable {
-        var continuation: AsyncStream<UInt64>.Continuation?
-    }
     nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
-    nonisolated private let touchRevisionContinuationHolder: ContinuationHolder
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
@@ -220,34 +204,19 @@ final class ContentViewModel: ObservableObject {
     private var keymapEditingEnabled = false
     private var debugHitPublishingEnabled = true
 
-    private var requestedLeftDeviceID: String?
-    private var requestedRightDeviceID: String?
-    private var requestedLeftDeviceName: String?
-    private var requestedRightDeviceName: String?
-    private var requestedLeftIsBuiltIn: Bool?
-    private var requestedRightIsBuiltIn: Bool?
-    private var autoResyncTask: Task<Void, Never>?
-    private var statusPollingTask: Task<Void, Never>?
-    private var autoResyncEnabled = false
     private var uiStatusVisualsEnabled = true
-    private static let connectedResyncIntervalSeconds: TimeInterval = 10.0
-    private static let disconnectedResyncIntervalSeconds: TimeInterval = 1.0
-    private static let connectedResyncIntervalNanoseconds = UInt64(connectedResyncIntervalSeconds * 1_000_000_000)
-    private static let disconnectedResyncIntervalNanoseconds = UInt64(disconnectedResyncIntervalSeconds * 1_000_000_000)
-    private static let statusPollIntervalNanoseconds: UInt64 = 50_000_000
 
     private let manager = OMSManager.shared
-    private let inputRuntimeService: InputRuntimeService
-    private let runtimeEngine: EngineActorBoundary
-    private var task: Task<Void, Never>?
+    private let renderSnapshotService: RuntimeRenderSnapshotService
+    private let runtimeCommandService: RuntimeCommandService
+    private let runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService
+    private let statusVisualsService: RuntimeStatusVisualsService
+    private let deviceSessionService: RuntimeDeviceSessionService
 
     init() {
-        inputRuntimeService = InputRuntimeService(manager: manager)
-        let holder = ContinuationHolder()
-        touchRevisionContinuationHolder = holder
-        touchRevisionUpdates = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            holder.continuation = continuation
-        }
+        let inputRuntimeService = InputRuntimeService(manager: manager)
+        renderSnapshotService = RuntimeRenderSnapshotService()
+        touchRevisionUpdates = renderSnapshotService.revisionUpdates
         weak var weakSelf: ContentViewModel?
         let debugBindingHandler: @Sendable (KeyBinding) -> Void = { binding in
             Task { @MainActor in
@@ -263,7 +232,7 @@ final class ContentViewModel: ObservableObject {
             }
         }
         VoiceDictationManager.shared.setStatusHandler(voiceStatusHandler)
-        runtimeEngine = EngineActor(
+        let runtimeEngine = EngineActor(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
                 Task { @MainActor in
@@ -280,25 +249,38 @@ final class ContentViewModel: ObservableObject {
             onIntentStateChanged: intentStateHandler,
             onVoiceGestureChanged: voiceGestureHandler
         )
+        runtimeCommandService = RuntimeCommandService(runtimeEngine: runtimeEngine)
+        runtimeLifecycleCoordinator = RuntimeLifecycleCoordinatorService(
+            inputRuntimeService: inputRuntimeService,
+            renderSnapshotService: renderSnapshotService,
+            runtimeEngine: runtimeEngine,
+            runtimeCommandService: runtimeCommandService
+        )
+        statusVisualsService = RuntimeStatusVisualsService(
+            runtimeEngine: runtimeEngine
+        ) { snapshot in
+            weakSelf?.applyRuntimeStatusSnapshot(snapshot)
+        }
+        deviceSessionService = RuntimeDeviceSessionService(
+            manager: manager,
+            runtimeEngine: runtimeEngine
+        ) { state in
+            weakSelf?.applyDeviceSessionState(state)
+        }
         weakSelf = self
-        startStatusPollingLoop()
+        applyDeviceSessionState(deviceSessionService.snapshot)
+        statusVisualsService.startPolling()
         loadDevices()
     }
 
-    private func startStatusPollingLoop() {
-        guard statusPollingTask == nil else { return }
-        statusPollingTask = Task { [weak self] in
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: Self.statusPollIntervalNanoseconds)
-                guard let self else { return }
-                await self.pollStatusSnapshotIfNeeded()
-            }
-        }
+    private func applyDeviceSessionState(_ state: RuntimeDeviceSessionService.State) {
+        availableDevices = state.availableDevices
+        leftDevice = state.leftDevice
+        rightDevice = state.rightDevice
+        hasDisconnectedTrackpads = state.hasDisconnectedTrackpads
     }
 
-    private func pollStatusSnapshotIfNeeded() async {
-        guard uiStatusVisualsEnabled else { return }
-        let snapshot = await runtimeEngine.statusSnapshot()
+    private func applyRuntimeStatusSnapshot(_ snapshot: RuntimeStatusSnapshot) {
         guard uiStatusVisualsEnabled else { return }
         publishContactCountsIfNeeded(snapshot.contactCountBySide)
         publishIntentDisplayIfNeeded(Self.mapIntentDisplay(snapshot.intentBySide))
@@ -306,11 +288,11 @@ final class ContentViewModel: ObservableObject {
     }
 
     var leftTouches: [OMSTouchData] {
-        touchSnapshotLock.withLockUnchecked { $0.left }
+        renderSnapshotService.snapshot().left
     }
 
     var rightTouches: [OMSTouchData] {
-        touchSnapshotLock.withLockUnchecked { $0.right }
+        renderSnapshotService.snapshot().right
     }
 
     private func recordDebugHit(_ binding: KeyBinding) {
@@ -329,83 +311,17 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
-    func onAppear() {
-        guard task == nil else { return }
-        let snapshotLock = touchSnapshotLock
-        let recordingLock = snapshotRecordingLock
-        let continuationHolder = touchRevisionContinuationHolder
-#if DEBUG
-        let pipelineSignposter = self.pipelineSignposter
-#endif
-        task = Task.detached(priority: .userInitiated) { [inputRuntimeService, runtimeEngine, snapshotLock, recordingLock, continuationHolder] in
-            var renderSnapshotsEnabled = false
-            for await rawFrame in inputRuntimeService.rawFrameStream {
-#if DEBUG
-                let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
-                defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
-#endif
-                let shouldRecord = recordingLock.withLockUnchecked(\.self)
-                if shouldRecord != renderSnapshotsEnabled {
-                    await runtimeEngine.setRenderSnapshotsEnabled(shouldRecord)
-                    renderSnapshotsEnabled = shouldRecord
-                }
-#if DEBUG
-                let ingestSignpostState = pipelineSignposter.beginInterval("EngineIngestV2")
-                defer { pipelineSignposter.endInterval("EngineIngestV2", ingestSignpostState) }
-#endif
-                await runtimeEngine.ingest(rawFrame)
-
-                guard shouldRecord else { continue }
-
-                let renderSnapshot = await runtimeEngine.renderSnapshot()
-                var updatedRevision: UInt64?
-                snapshotLock.withLockUnchecked { snapshot in
-                    guard snapshot.revision != renderSnapshot.revision else { return }
-                    snapshot.left = renderSnapshot.leftTouches
-                    snapshot.right = renderSnapshot.rightTouches
-                    snapshot.hasTransitionState = renderSnapshot.hasTransitionState
-                    snapshot.revision = renderSnapshot.revision
-                    updatedRevision = snapshot.revision
-                }
-                if let revision = updatedRevision {
-#if DEBUG
-                    pipelineSignposter.emitEvent("SnapshotUpdateV2")
-#endif
-                    continuationHolder.continuation?.yield(revision)
-                }
-            }
-            if renderSnapshotsEnabled {
-                await runtimeEngine.setRenderSnapshotsEnabled(false)
-            }
-        }
-    }
-
-    func onDisappear() {
-        task?.cancel()
-        task = nil
-        stop()
-    }
-
     func start() {
-        let started = inputRuntimeService.start()
+        let started = runtimeLifecycleCoordinator.start()
         if started {
             isListening = true
-            let runtimeEngine = runtimeEngine
-            Task {
-                await runtimeEngine.setListening(true)
-            }
         }
     }
 
     func stop() {
-        let stopped = inputRuntimeService.stop()
+        let stopped = runtimeLifecycleCoordinator.stop(stopVoiceDictation: true)
         if stopped {
             isListening = false
-            let runtimeEngine = runtimeEngine
-            Task {
-                await runtimeEngine.setListening(false)
-                await runtimeEngine.reset(stopVoiceDictation: true)
-            }
         }
     }
 
@@ -419,175 +335,24 @@ final class ContentViewModel: ObservableObject {
             start()
         }
     }
-    
+
     func loadDevices(preserveSelection: Bool = false) {
-        let previousLeftDeviceID = preserveSelection ? requestedLeftDeviceID : nil
-        let previousRightDeviceID = preserveSelection ? requestedRightDeviceID : nil
-        let previousLeftDeviceName = preserveSelection ? requestedLeftDeviceName : nil
-        let previousRightDeviceName = preserveSelection ? requestedRightDeviceName : nil
-        let previousLeftIsBuiltIn = preserveSelection ? requestedLeftIsBuiltIn : nil
-        let previousRightIsBuiltIn = preserveSelection ? requestedRightIsBuiltIn : nil
-        availableDevices = manager.availableDevices
-
-        func matchByID(_ id: String?) -> OMSDeviceInfo? {
-            guard let id else { return nil }
-            return availableDevices.first { $0.deviceID == id }
-        }
-
-        func matchByName(
-            _ name: String?,
-            isBuiltIn: Bool?,
-            excluding excludedIDs: Set<String>
-        ) -> OMSDeviceInfo? {
-            guard let name, !name.isEmpty else { return nil }
-            let candidates = availableDevices.filter { candidate in
-                guard !excludedIDs.contains(candidate.deviceID) else { return false }
-                guard candidate.deviceName == name else { return false }
-                if let isBuiltIn {
-                    return candidate.isBuiltIn == isBuiltIn
-                }
-                return true
-            }
-            return candidates.count == 1 ? candidates[0] : nil
-        }
-
-        func matchSingleRemaining(excluding excludedIDs: Set<String>) -> OMSDeviceInfo? {
-            let candidates = availableDevices.filter { !excludedIDs.contains($0.deviceID) }
-            return candidates.count == 1 ? candidates[0] : nil
-        }
-
-        var usedIDs = Set<String>()
-        let leftRequested = preserveSelection && previousLeftDeviceID != nil
-        let rightRequested = preserveSelection && previousRightDeviceID != nil
-
-        if leftRequested {
-            leftDevice = matchByID(previousLeftDeviceID)
-                ?? matchByName(previousLeftDeviceName, isBuiltIn: previousLeftIsBuiltIn, excluding: usedIDs)
-        } else if !preserveSelection {
-            leftDevice = availableDevices.first
-        } else {
-            leftDevice = nil
-        }
-        if let leftDevice {
-            usedIDs.insert(leftDevice.deviceID)
-        }
-
-        let shouldFallbackRight = !preserveSelection || (preserveSelection && previousRightDeviceID != nil)
-        if rightRequested {
-            rightDevice = matchByID(previousRightDeviceID)
-                ?? matchByName(previousRightDeviceName, isBuiltIn: previousRightIsBuiltIn, excluding: usedIDs)
-        } else if shouldFallbackRight {
-            rightDevice = availableDevices.first(where: { candidate in
-                guard let leftID = leftDevice?.deviceID else { return true }
-                return candidate.deviceID != leftID
-            })
-        } else {
-            rightDevice = nil
-        }
-        if let rightDevice {
-            usedIDs.insert(rightDevice.deviceID)
-        }
-
-        if leftDevice == nil, leftRequested {
-            leftDevice = matchSingleRemaining(excluding: usedIDs)
-            if let leftDevice {
-                usedIDs.insert(leftDevice.deviceID)
-            }
-        }
-        if rightDevice == nil, rightRequested {
-            rightDevice = matchSingleRemaining(excluding: usedIDs)
-            if let rightDevice {
-                usedIDs.insert(rightDevice.deviceID)
-            }
-        }
-
-        if !preserveSelection {
-            requestedLeftDeviceID = leftDevice?.deviceID
-            requestedRightDeviceID = rightDevice?.deviceID
-            requestedLeftDeviceName = leftDevice?.deviceName
-            requestedRightDeviceName = rightDevice?.deviceName
-            requestedLeftIsBuiltIn = leftDevice?.isBuiltIn
-            requestedRightIsBuiltIn = rightDevice?.isBuiltIn
-        } else {
-            if let leftDevice {
-                requestedLeftDeviceID = leftDevice.deviceID
-                requestedLeftDeviceName = leftDevice.deviceName
-                requestedLeftIsBuiltIn = leftDevice.isBuiltIn
-            }
-            if let rightDevice {
-                requestedRightDeviceID = rightDevice.deviceID
-                requestedRightDeviceName = rightDevice.deviceName
-                requestedRightIsBuiltIn = rightDevice.isBuiltIn
-            }
-        }
-
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
+        deviceSessionService.loadDevices(preserveSelection: preserveSelection)
+        applyDeviceSessionState(deviceSessionService.snapshot)
     }
-    
+
     func selectLeftDevice(_ device: OMSDeviceInfo?) {
-        requestedLeftDeviceID = device?.deviceID
-        requestedLeftDeviceName = device?.deviceName
-        requestedLeftIsBuiltIn = device?.isBuiltIn
-        leftDevice = device
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
+        deviceSessionService.selectLeftDevice(device)
+        applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
     func selectRightDevice(_ device: OMSDeviceInfo?) {
-        requestedRightDeviceID = device?.deviceID
-        requestedRightDeviceName = device?.deviceName
-        requestedRightIsBuiltIn = device?.isBuiltIn
-        rightDevice = device
-        updateDisconnectedTrackpadState()
-        updateActiveDevices()
-    }
-
-    private func updateDisconnectedTrackpadState() {
-        let availableIDs = Set(availableDevices.map(\.deviceID))
-        var hasMissing = false
-        if let leftID = requestedLeftDeviceID,
-           !leftID.isEmpty,
-           !availableIDs.contains(leftID) {
-            hasMissing = true
-        }
-        if let rightID = requestedRightDeviceID,
-           !rightID.isEmpty,
-           !availableIDs.contains(rightID) {
-            hasMissing = true
-        }
-        if hasDisconnectedTrackpads != hasMissing {
-            hasDisconnectedTrackpads = hasMissing
-        }
+        deviceSessionService.selectRightDevice(device)
+        applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
     func setAutoResyncEnabled(_ enabled: Bool) {
-        guard autoResyncEnabled != enabled else { return }
-        autoResyncEnabled = enabled
-        autoResyncTask?.cancel()
-        autoResyncTask = nil
-        if enabled {
-            loadDevices(preserveSelection: true)
-            autoResyncTask = Task { [weak self] in
-                guard let self = self else { return }
-                await self.autoResyncLoop()
-            }
-        }
-    }
-
-    private func autoResyncLoop() async {
-        while autoResyncEnabled {
-            let interval = hasDisconnectedTrackpads
-                ? Self.disconnectedResyncIntervalNanoseconds
-                : Self.connectedResyncIntervalNanoseconds
-            do {
-                try await Task.sleep(nanoseconds: interval)
-            } catch {
-                break
-            }
-            guard autoResyncEnabled else { break }
-            loadDevices(preserveSelection: true)
-        }
+        deviceSessionService.setAutoResyncEnabled(enabled)
     }
 
     func configureLayouts(
@@ -598,44 +363,41 @@ final class ContentViewModel: ObservableObject {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateLayouts(
-                leftLayout: leftLayout,
-                rightLayout: rightLayout,
-                leftLabels: leftLabels,
-                rightLabels: rightLabels,
-                trackpadSize: trackpadSize,
-                trackpadWidthMm: trackpadWidthMm
-            )
-        }
+        runtimeCommandService.updateLayouts(
+            leftLayout: leftLayout,
+            rightLayout: rightLayout,
+            leftLabels: leftLabels,
+            rightLabels: rightLabels,
+            trackpadSize: trackpadSize,
+            trackpadWidthMm: trackpadWidthMm
+        )
     }
 
     func updateCustomButtons(_ buttons: [CustomButton]) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateCustomButtons(buttons)
-        }
+        runtimeCommandService.updateCustomButtons(buttons)
     }
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateKeyMappings(actions)
-        }
+        runtimeCommandService.updateKeyMappings(actions)
     }
 
     func snapshotTouchData() -> TouchSnapshot {
-        touchSnapshotLock.withLockUnchecked { $0 }
+        Self.mapTouchSnapshot(renderSnapshotService.snapshot())
     }
 
     func snapshotTouchDataIfUpdated(
         since revision: UInt64
     ) -> TouchSnapshot? {
-        touchSnapshotLock.withLockUnchecked { snapshot in
-            guard snapshot.revision != revision else { return nil }
-            return snapshot
-        }
+        renderSnapshotService.snapshotIfUpdated(since: revision).map(Self.mapTouchSnapshot)
+    }
+
+    private nonisolated static func mapTouchSnapshot(_ snapshot: RuntimeTouchSnapshot) -> TouchSnapshot {
+        TouchSnapshot(
+            left: snapshot.left,
+            right: snapshot.right,
+            revision: snapshot.revision,
+            hasTransitionState: snapshot.hasTransitionState
+        )
     }
 
     nonisolated private static func mapIntentDisplay(_ intent: RuntimeIntentMode) -> IntentDisplay {
@@ -660,111 +422,53 @@ final class ContentViewModel: ObservableObject {
         )
     }
 
-    private func updateActiveDevices() {
-        let devices = [leftDevice, rightDevice].compactMap { $0 }
-        if !devices.isEmpty, manager.setActiveDevices(devices) {
-            let runtimeEngine = runtimeEngine
-            Task {
-                await runtimeEngine.reset(stopVoiceDictation: false)
-            }
-        }
-        let leftIndex = leftDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
-        let rightIndex = rightDevice.flatMap { manager.deviceIndex(for: $0.deviceID) }
-        let leftDeviceID = leftDevice?.deviceID
-        let rightDeviceID = rightDevice?.deviceID
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateActiveDevices(
-                leftIndex: leftIndex,
-                rightIndex: rightIndex,
-                leftDeviceID: leftDeviceID,
-                rightDeviceID: rightDeviceID
-            )
-        }
-    }
     func setPersistentLayer(_ layer: Int) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.setPersistentLayer(layer)
-        }
+        runtimeCommandService.setPersistentLayer(layer)
     }
 
     func updateHoldThreshold(_ seconds: TimeInterval) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateHoldThreshold(seconds)
-        }
+        runtimeCommandService.updateHoldThreshold(seconds)
     }
 
     func updateDragCancelDistance(_ distance: CGFloat) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateDragCancelDistance(distance)
-        }
+        runtimeCommandService.updateDragCancelDistance(distance)
     }
 
     func updateTypingGraceMs(_ milliseconds: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTypingGrace(milliseconds)
-        }
+        runtimeCommandService.updateTypingGrace(milliseconds)
     }
 
     func updateIntentMoveThresholdMm(_ millimeters: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateIntentMoveThreshold(millimeters)
-        }
+        runtimeCommandService.updateIntentMoveThreshold(millimeters)
     }
 
     func updateIntentVelocityThresholdMmPerSec(_ millimetersPerSecond: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateIntentVelocityThreshold(millimetersPerSecond)
-        }
+        runtimeCommandService.updateIntentVelocityThreshold(millimetersPerSecond)
     }
 
     func updateAllowMouseTakeover(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateAllowMouseTakeover(enabled)
-        }
+        runtimeCommandService.updateAllowMouseTakeover(enabled)
     }
 
     func updateForceClickCap(_ grams: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateForceClickCap(grams)
-        }
+        runtimeCommandService.updateForceClickCap(grams)
     }
 
     func updateHapticStrength(_ normalized: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateHapticStrength(normalized)
-        }
+        runtimeCommandService.updateHapticStrength(normalized)
     }
 
     func updateSnapRadiusPercent(_ percent: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateSnapRadiusPercent(percent)
-        }
+        runtimeCommandService.updateSnapRadiusPercent(percent)
     }
 
     func updateChordalShiftEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateChordalShiftEnabled(enabled)
-        }
+        runtimeCommandService.updateChordalShiftEnabled(enabled)
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateKeyboardModeEnabled(enabled)
-        }
+        runtimeCommandService.updateKeyboardModeEnabled(enabled)
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) {
@@ -775,65 +479,32 @@ final class ContentViewModel: ObservableObject {
             debugLastHitLeft = nil
             debugLastHitRight = nil
         }
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.setKeymapEditingEnabled(enabled)
-        }
+        runtimeCommandService.setKeymapEditingEnabled(enabled)
     }
 
     func updateTapClickEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTapClickEnabled(enabled)
-        }
+        runtimeCommandService.updateTapClickEnabled(enabled)
     }
 
     func updateTapClickCadenceMs(_ milliseconds: Double) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTapClickCadence(milliseconds)
-        }
+        runtimeCommandService.updateTapClickCadence(milliseconds)
     }
 
     func clearTouchState() {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.reset(stopVoiceDictation: false)
-        }
+        runtimeCommandService.reset(stopVoiceDictation: false)
     }
 
     func clearVisualCaches() {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.clearVisualCaches()
-        }
+        runtimeCommandService.clearVisualCaches()
     }
 
     func setTouchSnapshotRecordingEnabled(_ enabled: Bool) {
-        snapshotRecordingLock.withLockUnchecked { $0 = enabled }
-        if !enabled {
-            touchSnapshotLock.withLockUnchecked { $0 = TouchSnapshot() }
-        }
+        renderSnapshotService.setRecordingEnabled(enabled)
     }
 
     func setStatusVisualsEnabled(_ enabled: Bool) {
         uiStatusVisualsEnabled = enabled
-        if enabled {
-            let runtimeEngine = runtimeEngine
-            Task {
-                let snapshot = await runtimeEngine.statusSnapshot()
-                Task { @MainActor in
-                    self.contactFingerCountsBySide = snapshot.contactCountBySide
-                    self.intentDisplayBySide = Self.mapIntentDisplay(snapshot.intentBySide)
-                    self.voiceGestureActive = false
-                }
-            }
-        }
-    }
-
-    deinit {
-        autoResyncTask?.cancel()
-        statusPollingTask?.cancel()
+        statusVisualsService.setVisualsEnabled(enabled)
     }
 
     private func publishContactCountsIfNeeded(_ counts: SidePair<Int>) {
