@@ -1,0 +1,216 @@
+# GlassToKey macOS Rewrite Tracking
+
+## Purpose
+Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md` as strategy and `../windows/glasstokey` as runtime parity reference.
+
+## Scope
+- In scope: Objective-C capture bridge (`Framework/OpenMultitouchSupportXCF`), Swift wrapper (`Sources/OpenMultitouchSupport`), app runtime/UI (`GlassToKey/GlassToKey`), parity test infrastructure.
+- Out of scope: changing key semantics, adding logging/file I/O on hot paths, hand-editing generated XCFramework artifacts.
+
+## Baseline Audit (Current macOS)
+
+### 1) Objective-C capture bridge (`OpenMTManager`)
+- Raw and object callbacks share callback handlers; object path still allocates per frame (`OpenMTTouch` + `OpenMTEvent`).
+- Object listener dispatch hops through a serial response queue (`dispatchResponseAsync`) and can backlog under load.
+- Device routing relies on mutable maps keyed by string IDs and pointer dictionaries; read/write ownership is not explicit.
+- Device ref lifecycle mixes cached refs, list scans, and string conversion; active-device refresh restarts all devices.
+- Callback mode supports both refcon and legacy fallback paths in hot callback code.
+
+### 2) Swift wrapper (`OMSManager`)
+- Raw path is improved (buffer pooling), but stream fan-out still duplicates work per consumer (`rawTouchStream(forDeviceIDs:)` detached relays).
+- Touch conversion is still performed in multiple layers depending on consumer.
+- Device index mapping and continuation fan-out are embedded in one class with capture concerns.
+
+### 3) App runtime (`ContentViewModel` + `ContentView`)
+- `ContentViewModel` mixes runtime engine, device/session control, UI publishing, and editor integration in one large actor/object.
+- `ContentView` and sidebar both observe the same view model; this couples editor controls with runtime updates.
+- Surface rendering currently uses SwiftUI `Canvas`; keymap editor and visualization state still share invalidation pressure.
+- Status polling (50 ms) exists, but status state and touch rendering state still share the same top-level observable model.
+
+### 4) Input dispatch and text services
+- Key dispatch is centralized (`KeyEventDispatcher`) but tied directly to app runtime internals.
+- Autocorrect and AX replacement are functional but coupled to live dispatch events and app-level service wiring.
+
+## Current-to-Target Migration Map
+| Current Component | Current Location | Target Component |
+| --- | --- | --- |
+| Multitouch capture manager | `Framework/OpenMultitouchSupportXCF/OpenMTManager.m` | `MTCaptureBridge` raw-first manager (`OpenMTManagerV2`) |
+| Listener/event object bridge | `Framework/OpenMultitouchSupportXCF/OpenMTListener.m`, `OpenMTEvent.m`, `OpenMTTouch.m` | Debug/compat adapter off fast path |
+| Swift multitouch wrapper | `Sources/OpenMultitouchSupport/OMSManager.swift` | `InputRuntimeService` + frame fan-out boundary |
+| Runtime state machine + UI publishing | `GlassToKey/GlassToKey/ContentViewModel.swift` | `EngineActor` + `SnapshotService` + UI adapter |
+| Surface rendering | `GlassToKey/GlassToKey/ContentView.swift` (`CombinedTrackpadCanvas`) | `TrackpadSurfaceView` (AppKit) |
+| App status lifecycle | `GlassToKey/GlassToKey/GlassToKeyApp.swift` | thin app shell + mode indicator consumer |
+| Dispatch posting | `GlassToKey/GlassToKey/KeyEventDispatcher.swift` | `DispatchService` pump backend |
+| Autocorrect and AX text replacement | `GlassToKey/GlassToKey/AutocorrectEngine.swift`, `AccessibilityTextReplacer.swift` | separate text-correction service behind dispatch boundary |
+
+## Windows Reference Patterns To Mirror
+- Explicit pipeline separation:
+  - input capture service (`TouchRuntimeService`)
+  - engine actor (`TouchProcessorActor`)
+  - dispatch queue + pump (`DispatchEventQueue`, `DispatchEventPump`)
+  - dedicated renderer (`TouchView` + explicit `InvalidateVisual`)
+  - fixed status timer for UI state.
+- Snapshot-based UI updates and selective invalidation, not broad observable-tree invalidation.
+- Strong diagnostics/replay model around engine behavior parity.
+
+## Target Architecture (macOS Rewrite)
+
+### Runtime layers
+1. `MTCaptureBridge` (Objective-C)
+- Single high-performance raw callback path.
+- Numeric device registry and stable callback contexts.
+- Zero allocations in callback fast path.
+
+2. `InputRuntimeService` (Swift)
+- Owns lifecycle of capture bridge, device routing, and frame ingest.
+- Pushes `RawFrame` into engine queue only.
+- No UI publishing and no editor logic.
+
+3. `EngineActor` (Swift first, Rust-ready contract)
+- Single-threaded state machine execution.
+- Produces dispatch events + immutable snapshots.
+- No AppKit/SwiftUI dependencies.
+
+4. `DispatchService`
+- Ring/queue for key/mouse/haptic events.
+- Separate pump thread/queue to avoid engine stalls.
+
+5. `SnapshotService`
+- `RenderSnapshot` cadence (touch/geometry/highlights).
+- `StatusSnapshot` cadence (contact counts, mode, intent, diagnostics).
+
+6. `TrackpadSurfaceView` (AppKit)
+- Dedicated renderer consuming render snapshots.
+- Explicit redraw policy independent from sidebar/editor updates.
+
+7. `EditorShell` (SwiftUI)
+- Settings/keymap/editor controls only.
+- Communicates with runtime through command APIs.
+
+### Thread ownership contract
+- Capture callback thread: frame ingest only, no allocations, no UI.
+- Engine thread/actor: state transitions, binding, dispatch decisions.
+- Dispatch thread: CGEvent/haptics posting.
+- Main thread: AppKit/SwiftUI presentation and user commands.
+
+## Data Contracts (Rewrite)
+- `RawFrame`: timestamp, deviceNumericID, contact array, frame sequence.
+- `DispatchEvent`: key/mouse/haptic intent with metadata.
+- `RenderSnapshot`: left/right touches, highlighted key/button, layer, revision.
+- `StatusSnapshot`: intent mode, typing/mouse mode, contact counts, diagnostics counters.
+
+## Execution Plan
+
+## Phase 0 - Behavior Freeze + Replay Baseline
+- [ ] Capture canonical behavior traces from current macOS and Windows.
+- [ ] Define parity fixture format (`RawFrame` JSONL or binary).
+- [ ] Add deterministic replay harness entrypoint for macOS engine.
+
+Exit criteria:
+- [ ] Replays run headless and produce stable snapshot/dispatch transcripts.
+
+## Phase 1 - New Objective-C Capture Bridge
+- [ ] Introduce `OpenMTManagerV2` (or equivalent) behind feature flag.
+- [ ] Raw-first callback API with preallocated frame adapters.
+- [ ] Replace string-based hot-path mapping with numeric registry.
+- [ ] Remove response queue hops from fast path.
+- [ ] Define explicit lock/queue ownership for registry mutations.
+
+Exit criteria:
+- [ ] No callback-path heap allocations in normal operation.
+- [ ] Stable capture with one and two trackpads at sustained load.
+
+## Phase 2 - Runtime Service + Engine Boundary (Swift)
+- [ ] Split current `ContentViewModel` responsibilities into runtime services.
+- [ ] Build `InputRuntimeService` and `EngineActor` interfaces.
+- [ ] Move touch processing state machine out of `ContentViewModel`.
+- [ ] Maintain compatibility adapter to existing keymap/settings format.
+
+Exit criteria:
+- [ ] UI can be disconnected while runtime keeps processing.
+- [ ] Engine accepts replay input and emits deterministic snapshots.
+
+## Phase 3 - Dispatch/Haptics Isolation
+- [ ] Introduce dispatch event queue and pump service.
+- [ ] Move key/mouse/haptic posting off engine path.
+- [ ] Add queue pressure/drop counters and diagnostics snapshot fields.
+
+Exit criteria:
+- [ ] Engine frame processing remains stable under dispatch bursts.
+- [ ] Dispatch backpressure never blocks capture/engine loops.
+
+## Phase 4 - Dedicated AppKit Surface Renderer
+- [ ] Implement `TrackpadSurfaceView` consuming `RenderSnapshot` only.
+- [ ] Move drawing from SwiftUI `Canvas` to AppKit view.
+- [ ] Keep SwiftUI sidebar/editor; drive status through `StatusSnapshot` polling.
+
+Exit criteria:
+- [ ] No visible hitch while editing keymap with live touch input.
+- [ ] Sidebar interaction does not impact surface frame pacing.
+
+## Phase 5 - Rust Shared Core (Optional but Target)
+- [ ] Define C ABI for engine config, frame ingest, snapshot readback.
+- [ ] Port engine state machine to `g2k-core` with parity tests.
+- [ ] Add macOS integration path behind runtime flag.
+
+Exit criteria:
+- [ ] Replay parity against Swift engine and Windows reference traces.
+- [ ] No latency/CPU regression versus Phase 4 baseline.
+
+## Phase 6 - Cutover + Cleanup
+- [ ] Make rewrite stack default.
+- [ ] Remove legacy code paths after parity burn-in.
+- [ ] Rebuild and ship updated XCFramework + app.
+
+Exit criteria:
+- [ ] Legacy runtime disabled by default and removable.
+- [ ] Release checklist and regression suite pass.
+
+## Workstream Tracker
+
+Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
+
+| Workstream | Owner | Status | Notes |
+| --- | --- | --- | --- |
+| Capture bridge V2 (ObjC) | TBD | Not Started | Raw-first + numeric registry |
+| Runtime service split (Swift) | TBD | Not Started | Extract from `ContentViewModel` |
+| Engine boundary + replay harness | TBD | Not Started | Deterministic trace testing |
+| Dispatch queue/pump | TBD | Not Started | Decouple key posting |
+| AppKit surface renderer | TBD | Not Started | Replace SwiftUI canvas hot path |
+| UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
+| Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
+| Perf/diagnostics dashboard | TBD | Not Started | Frame pacing + drops + latency |
+
+## Performance Budgets (Gate to Ship)
+- Input callback to engine enqueue p95: <= 1.5 ms.
+- Engine frame process p95: <= 3.0 ms (single trackpad), <= 5.0 ms (dual).
+- Render snapshot publish jitter (edit mode): <= 5 ms p95.
+- Surface redraw cadence in config window: stable at target 60 FPS when touches active.
+- Queue drops: 0 in normal operation; explicit counters for overload cases.
+
+## Verification Matrix
+- [ ] Unit tests for mapping, layout normalization, action resolution.
+- [ ] Replay parity tests for typing, holds, repeats, layer toggles, intent transitions.
+- [ ] Long-run soak test (>=30 min, dual trackpad).
+- [ ] Config-window stress test (edit mode open + rapid selection changes).
+- [ ] Sleep/wake and reconnect scenario tests.
+- [ ] Build verification:
+  - [ ] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
+
+## Migration Rules
+- Introduce feature flags for each new layer; no big-bang switch.
+- Keep current defaults/keymap storage keys compatible through adapter layer.
+- Do not add logging or file I/O in callback/engine hot paths.
+- Treat generated artifacts (`OpenMultitouchSupportXCF.xcframework`) as build outputs only.
+
+## Immediate Next Slice (Execution Ready)
+- [ ] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
+- [ ] Implement capture bridge V2 skeleton with raw-only callback registration.
+- [ ] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
+- [ ] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
+- [ ] Add replay fixture format draft and first fixture from current macOS run.
+
+## Open Decisions
+- [ ] Rust core timing: after Swift split (recommended) or in parallel.
+- [ ] Snapshot transport: lock-protected structs vs. lock-free ring.
+- [ ] Diagnostics persistence format and retention policy outside hot path.
