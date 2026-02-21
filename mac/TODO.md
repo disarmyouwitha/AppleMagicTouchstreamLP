@@ -1,5 +1,5 @@
 ## TODO
-- Is there a reason we hit 80+ CPU utilization with heavy touches & the config open?
+- Windows CPU maxes at like 10% doing this.. why is it so terrible? Is it the overlay for column selection? For Key selection? Would adding an apply button help the attribute graph churn? Do I need less options? Is there any other way because I want to add more options...
 - When we close the config can we get that RAM back or is it not worth it? (10mb before config, 80mb after)
 ---
 - Can we wire up "Capture" and "Replay" into the menu?

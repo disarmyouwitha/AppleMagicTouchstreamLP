@@ -120,12 +120,17 @@ final class TrackpadSurfaceView: NSView {
             width: (snapshot.trackpadSize.width * 2) + snapshot.spacing,
             height: snapshot.trackpadSize.height
         )
-        cachedStaticImage?.draw(
-            in: canvasRect,
-            from: .zero,
-            operation: .sourceOver,
-            fraction: 1
-        )
+        if let cachedStaticImage {
+            let sourceRect = CGRect(origin: .zero, size: cachedStaticImage.size)
+            cachedStaticImage.draw(
+                in: canvasRect,
+                from: sourceRect,
+                operation: .sourceOver,
+                fraction: 1,
+                respectFlipped: true,
+                hints: nil
+            )
+        }
 
         guard snapshot.showDetailed else { return }
 
