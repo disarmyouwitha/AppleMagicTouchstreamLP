@@ -67,6 +67,34 @@ What this does not do:
 
 ---
 
+## Time Profile Trace Analysis
+For repeatable CPU hotspot analysis from an Instruments Time Profiler capture:
+
+```bash
+TRACE="ReplayFixtures/time_profile.trace"
+XML_OUT="/tmp/time_profile_table.xml"
+
+xcrun xctrace export \
+  --input "$TRACE" \
+  --xpath '/trace-toc/run[@number="1"]/data/table[@schema="time-profile"]' \
+  --output "$XML_OUT"
+
+# Whole-trace pattern prevalence
+perl Tools/profile/trace_pattern_counts_resolved.pl "$XML_OUT"
+
+# Windowed analysis (example: 39s onward)
+perl Tools/profile/trace_window_counts.pl "$XML_OUT" 39000000000
+
+# Main-thread-only windowed analysis
+perl Tools/profile/trace_main_window_counts.pl "$XML_OUT" 39000000000
+```
+
+Notes:
+- `trace_window_counts` and `trace_main_window_counts` expect nanoseconds (`sample-time`) for `START_NS` and optional `END_NS`.
+- Use this workflow to isolate edit-window CPU behavior without startup dilution.
+
+---
+
 ## References
 
 **This is a fork of [Kyome22/OpenMultitouchSupport](https://github.com/Kyome22/OpenMultitouchSupport) with some added features.**

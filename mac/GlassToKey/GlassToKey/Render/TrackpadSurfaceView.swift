@@ -54,9 +54,45 @@ extension TrackpadSurfaceSnapshot {
     }
 }
 
+private struct TrackpadSurfaceStaticRenderInput: Equatable {
+    var trackpadSize: CGSize
+    var spacing: CGFloat
+    var showDetailed: Bool
+    var leftKeyRects: [[CGRect]]
+    var rightKeyRects: [[CGRect]]
+    var leftAllowHoldBindings: Bool
+    var rightAllowHoldBindings: Bool
+    var leftLabels: [[TrackpadSurfaceLabel]]
+    var rightLabels: [[TrackpadSurfaceLabel]]
+    var leftCustomButtons: [CustomButton]
+    var rightCustomButtons: [CustomButton]
+
+    init(snapshot: TrackpadSurfaceSnapshot) {
+        trackpadSize = snapshot.trackpadSize
+        spacing = snapshot.spacing
+        showDetailed = snapshot.showDetailed
+        leftKeyRects = snapshot.leftLayout.keyRects
+        rightKeyRects = snapshot.rightLayout.keyRects
+        leftAllowHoldBindings = snapshot.leftLayout.allowHoldBindings
+        rightAllowHoldBindings = snapshot.rightLayout.allowHoldBindings
+        leftLabels = snapshot.leftLabels
+        rightLabels = snapshot.rightLabels
+        leftCustomButtons = snapshot.leftCustomButtons
+        rightCustomButtons = snapshot.rightCustomButtons
+    }
+}
+
 final class TrackpadSurfaceView: NSView {
+    private var cachedStaticRenderInput: TrackpadSurfaceStaticRenderInput?
+    private var cachedStaticImage: NSImage?
+
     var snapshot: TrackpadSurfaceSnapshot = .empty {
         didSet {
+            let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
+            if cachedStaticRenderInput != staticRenderInput {
+                cachedStaticRenderInput = staticRenderInput
+                cachedStaticImage = nil
+            }
             needsDisplay = true
         }
     }
@@ -70,78 +106,147 @@ final class TrackpadSurfaceView: NSView {
 
         guard snapshot.trackpadSize.width > 0, snapshot.trackpadSize.height > 0 else { return }
 
+        let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
+        if cachedStaticRenderInput != staticRenderInput {
+            cachedStaticRenderInput = staticRenderInput
+            cachedStaticImage = nil
+        }
+        if cachedStaticImage == nil {
+            cachedStaticImage = renderStaticImage(using: staticRenderInput)
+        }
+        let canvasRect = CGRect(
+            x: 0,
+            y: 0,
+            width: (snapshot.trackpadSize.width * 2) + snapshot.spacing,
+            height: snapshot.trackpadSize.height
+        )
+        cachedStaticImage?.draw(
+            in: canvasRect,
+            from: .zero,
+            operation: .sourceOver,
+            fraction: 1
+        )
+
+        guard snapshot.showDetailed else { return }
+
         let leftOrigin = CGPoint.zero
         let rightOrigin = CGPoint(x: snapshot.trackpadSize.width + snapshot.spacing, y: 0)
 
-        drawTrackpadSide(
+        drawTrackpadDynamicSide(
             origin: leftOrigin,
             layout: snapshot.leftLayout,
-            labels: snapshot.leftLabels,
             customButtons: snapshot.leftCustomButtons,
             touches: snapshot.leftTouches,
+            trackpadSize: snapshot.trackpadSize,
             selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedLeftKey,
             selectedButtonID: snapshot.selectedLeftButtonID
         )
-        drawTrackpadSide(
+        drawTrackpadDynamicSide(
             origin: rightOrigin,
             layout: snapshot.rightLayout,
-            labels: snapshot.rightLabels,
             customButtons: snapshot.rightCustomButtons,
             touches: snapshot.rightTouches,
+            trackpadSize: snapshot.trackpadSize,
             selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedRightKey,
             selectedButtonID: snapshot.selectedRightButtonID
         )
     }
 
-    private func drawTrackpadSide(
+    private func renderStaticImage(using input: TrackpadSurfaceStaticRenderInput) -> NSImage {
+        let canvasSize = CGSize(
+            width: (input.trackpadSize.width * 2) + input.spacing,
+            height: input.trackpadSize.height
+        )
+        let image = NSImage(size: canvasSize)
+        image.lockFocusFlipped(true)
+        defer { image.unlockFocus() }
+
+        let leftOrigin = CGPoint.zero
+        let rightOrigin = CGPoint(x: input.trackpadSize.width + input.spacing, y: 0)
+
+        drawTrackpadStaticSide(
+            origin: leftOrigin,
+            keyRects: input.leftKeyRects,
+            labels: input.leftLabels,
+            customButtons: input.leftCustomButtons,
+            showDetailed: input.showDetailed,
+            trackpadSize: input.trackpadSize
+        )
+        drawTrackpadStaticSide(
+            origin: rightOrigin,
+            keyRects: input.rightKeyRects,
+            labels: input.rightLabels,
+            customButtons: input.rightCustomButtons,
+            showDetailed: input.showDetailed,
+            trackpadSize: input.trackpadSize
+        )
+        return image
+    }
+
+    private func drawTrackpadStaticSide(
         origin: CGPoint,
-        layout: ContentViewModel.Layout,
+        keyRects: [[CGRect]],
         labels: [[TrackpadSurfaceLabel]],
         customButtons: [CustomButton],
-        touches: [OMSTouchData],
-        selectedColumn: Int?,
-        selectedKey: TrackpadSurfaceKeySelection?,
-        selectedButtonID: UUID?
+        showDetailed: Bool,
+        trackpadSize: CGSize
     ) {
-        let trackpadRect = CGRect(origin: origin, size: snapshot.trackpadSize)
+        let trackpadRect = CGRect(origin: origin, size: trackpadSize)
         let borderPath = NSBezierPath(roundedRect: trackpadRect, xRadius: 6, yRadius: 6)
         NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
         borderPath.lineWidth = 1
         borderPath.stroke()
 
-        guard snapshot.showDetailed else { return }
+        guard showDetailed else { return }
 
-        drawSensorGrid(origin: origin)
-        drawKeyGrid(layout.keyRects, origin: origin)
-        drawCustomButtons(customButtons, origin: origin)
-        drawGridLabels(labels, keyRects: layout.keyRects, origin: origin)
+        drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
+        drawKeyGrid(keyRects, origin: origin)
+        drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
+        drawGridLabels(labels, keyRects: keyRects, origin: origin)
+    }
+
+    private func drawTrackpadDynamicSide(
+        origin: CGPoint,
+        layout: ContentViewModel.Layout,
+        customButtons: [CustomButton],
+        touches: [OMSTouchData],
+        trackpadSize: CGSize,
+        selectedColumn: Int?,
+        selectedKey: TrackpadSurfaceKeySelection?,
+        selectedButtonID: UUID?
+    ) {
         drawKeySelection(
             keyRects: layout.keyRects,
             selectedColumn: selectedColumn,
             selectedKey: selectedKey,
             origin: origin
         )
-        drawButtonSelection(customButtons, selectedButtonID: selectedButtonID, origin: origin)
-        drawTouches(touches, origin: origin)
+        drawButtonSelection(
+            customButtons,
+            selectedButtonID: selectedButtonID,
+            origin: origin,
+            trackpadSize: trackpadSize
+        )
+        drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
     }
 
-    private func drawSensorGrid(origin: CGPoint) {
+    private func drawSensorGrid(origin: CGPoint, trackpadSize: CGSize) {
         let columns = 30
         let rows = 22
         let strokeColor = NSColor.secondaryLabelColor.withAlphaComponent(0.2)
         strokeColor.setStroke()
         let lineWidth: CGFloat = 0.5
 
-        let columnWidth = snapshot.trackpadSize.width / CGFloat(columns)
-        let rowHeight = snapshot.trackpadSize.height / CGFloat(rows)
+        let columnWidth = trackpadSize.width / CGFloat(columns)
+        let rowHeight = trackpadSize.height / CGFloat(rows)
         for col in 0...columns {
             let x = origin.x + (CGFloat(col) * columnWidth)
             let path = NSBezierPath()
             path.lineWidth = lineWidth
             path.move(to: CGPoint(x: x, y: origin.y))
-            path.line(to: CGPoint(x: x, y: origin.y + snapshot.trackpadSize.height))
+            path.line(to: CGPoint(x: x, y: origin.y + trackpadSize.height))
             path.stroke()
         }
 
@@ -150,7 +255,7 @@ final class TrackpadSurfaceView: NSView {
             let path = NSBezierPath()
             path.lineWidth = lineWidth
             path.move(to: CGPoint(x: origin.x, y: y))
-            path.line(to: CGPoint(x: origin.x + snapshot.trackpadSize.width, y: y))
+            path.line(to: CGPoint(x: origin.x + trackpadSize.width, y: y))
             path.stroke()
         }
     }
@@ -167,9 +272,13 @@ final class TrackpadSurfaceView: NSView {
         }
     }
 
-    private func drawCustomButtons(_ buttons: [CustomButton], origin: CGPoint) {
+    private func drawCustomButtons(
+        _ buttons: [CustomButton],
+        origin: CGPoint,
+        trackpadSize: CGSize
+    ) {
         for button in buttons {
-            let rect = button.rect.rect(in: snapshot.trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
+            let rect = button.rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
             let buttonPath = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
             NSColor.systemBlue.withAlphaComponent(0.12).setFill()
             buttonPath.fill()
@@ -257,11 +366,12 @@ final class TrackpadSurfaceView: NSView {
     private func drawButtonSelection(
         _ buttons: [CustomButton],
         selectedButtonID: UUID?,
-        origin: CGPoint
+        origin: CGPoint,
+        trackpadSize: CGSize
     ) {
         guard let selectedButtonID,
               let button = buttons.first(where: { $0.id == selectedButtonID }) else { return }
-        let rect = button.rect.rect(in: snapshot.trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
+        let rect = button.rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
         let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
         NSColor.controlAccentColor.withAlphaComponent(0.08).setFill()
         path.fill()
@@ -270,11 +380,11 @@ final class TrackpadSurfaceView: NSView {
         path.stroke()
     }
 
-    private func drawTouches(_ touches: [OMSTouchData], origin: CGPoint) {
+    private func drawTouches(_ touches: [OMSTouchData], origin: CGPoint, trackpadSize: CGSize) {
         for touch in touches {
-            let centerX = origin.x + CGFloat(touch.position.x) * snapshot.trackpadSize.width
-            let centerY = origin.y + (1.0 - CGFloat(touch.position.y)) * snapshot.trackpadSize.height
-            let unit = snapshot.trackpadSize.width / 100.0
+            let centerX = origin.x + CGFloat(touch.position.x) * trackpadSize.width
+            let centerY = origin.y + (1.0 - CGFloat(touch.position.y)) * trackpadSize.height
+            let unit = trackpadSize.width / 100.0
             let width = max(2, CGFloat(touch.axis.major) * unit)
             let height = max(2, CGFloat(touch.axis.minor) * unit)
             let touchRect = CGRect(

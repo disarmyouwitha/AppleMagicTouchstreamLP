@@ -1704,7 +1704,7 @@ struct ContentView: View {
                 return true
             }
 
-            let clampedHz = 50.0
+            let clampedHz = 30.0
             let minInterval = 1.0 / clampedHz
             return now - lastDisplayUpdateTime >= minInterval
         }
