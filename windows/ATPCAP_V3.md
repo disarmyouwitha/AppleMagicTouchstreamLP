@@ -64,6 +64,31 @@ Without these changes, Windows rejects v3 files at header parse time and cannot 
       - `state` (UInt8, canonical 0..7)
       - `reserved` (3 bytes)
 
+### Cross-platform interoperability contract (MUST)
+
+For **mac capture <-> windows replay** and **windows capture <-> mac replay**, Windows implementation MUST satisfy all of these:
+
+1. Writer/reader support:
+- Reader MUST accept v2 and v3.
+- Writer used for cross-platform captures MUST emit v3.
+
+2. Frame payload shape:
+- Every v3 frame payload MUST be exactly `32 + contactCount * 40` bytes.
+- Windows MUST NOT omit fields it does not naturally produce.
+- If Windows lacks values (`total`, `pressure`, `majorAxis`, `minorAxis`, `angle`, `density`), it MUST write `0` for those fields, not shorten payload.
+
+3. Canonical state semantics:
+- Windows MUST write canonical `state` code `0..7`.
+- Windows replay MUST map canonical states into engine flags consistently (mapping in section B.4).
+
+4. Record header invariants:
+- `deviceIndex`, `deviceHash`, `sideHint`, and timing fields MUST be written and preserved in replay path.
+- Meta record MUST be written as `deviceIndex == -1` with JSON payload (`type=meta`, `schema=g2k-replay-v1`).
+
+5. Compatibility guarantee:
+- Mac parser is v3 frame-structure strict; malformed/short v3 payloads will be rejected.
+- Therefore, zero-fill is required for unavailable fields to maintain compatibility.
+
 ---
 
 ## 3) Required code changes (file-by-file)
@@ -75,11 +100,11 @@ Without these changes, Windows rejects v3 files at header parse time and cannot 
   - current: `if (version != InputCaptureFile.CurrentVersion) throw ...`
   - required: accept both versions `2` and `3`.
 
-2. Preserve writer behavior for now:
-- Keep Windows writer default at v2 unless Windows capture pipeline is also migrated.
+2. Writer/read constants for cross-compat:
 - Add explicit constants:
-  - `CurrentWriteVersion = 2`
+  - `CurrentWriteVersion = 3` (for cross-platform capture/replay parity)
   - `SupportedReadVersions = { 2, 3 }`
+- Optional legacy path may keep v2 writer behind an explicit opt-in flag, but default should be v3.
 
 3. Expose header version on `InputCaptureReader`:
 - Add `public int HeaderVersion { get; }`.
@@ -219,14 +244,30 @@ Suggested location:
 
 ---
 
+## H. Capture-only performance note (required guidance)
+
+RFV3 conversion overhead is relevant **only when capture recording is enabled**.  
+It is acceptable to prioritize correctness over micro-optimization here, but do not move conversion/file I/O into the live input callback thread.
+
+Minimum recommended approach:
+- keep non-capture runtime path unchanged (no extra work when capture is off),
+- enqueue capture frames into a bounded queue from callback thread,
+- perform RFV3 packing + disk writes on a dedicated writer thread,
+- use reusable/preallocated buffers to avoid callback-path allocation spikes.
+
+This keeps capture mode from perturbing live input timing while still enabling cross-platform captures.
+
+---
+
 ## 4) Backward compatibility rules
 
 Required behavior:
 - v2 replay must remain unchanged.
 - v3 replay must be accepted.
 - unknown versions must still fail with explicit error.
+- v3 capture write must be the default for cross-platform interoperability.
 
-This means **read support broadens**, while **write format can remain v2** until Windows capture writer is intentionally migrated.
+This means **read support broadens**, and **write default moves to v3** (with optional legacy v2 writer only as an explicit non-default fallback).
 
 ---
 
@@ -239,4 +280,3 @@ Windows is ATPCAP_V3-ready when all are true:
 3. `dotnet run ... --raw-analyze <mac_v3_capture.atpcap> --raw-analyze-out <out.json>` writes JSON successfully.
 4. Existing v2 replay fixtures still pass unchanged.
 5. README and spec text no longer claim "v2 only" replay.
-
