@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -38,7 +39,10 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private const int AutocorrectMinimumWordLength = 3;
     private const int AutocorrectMaximumWordLength = 48;
     private const int AutocorrectCacheCapacity = 2048;
-    private const int SymSpellMaxEditDistance = 2;
+    private const int AutocorrectWordHistoryCapacity = 24;
+    private const int AutocorrectMaxEditDistanceMin = 1;
+    private const int AutocorrectMaxEditDistanceMax = 2;
+    private const int SymSpellDictionaryMaxEditDistance = 2;
     private const int SymSpellPrefixLength = 7;
     private const int SymSpellDictionaryWordCount = 82765;
     private const string SymSpellDictionaryFileName = "frequency_dictionary_en_82_765.txt";
@@ -50,14 +54,31 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private readonly Input[] _dualInput = new Input[2];
     private readonly StringBuilder _autocorrectWordBuffer = new(24);
     private readonly Dictionary<string, string?> _autocorrectCache = new(StringComparer.Ordinal);
+    private readonly Dictionary<uint, string> _processNameCache = new();
+    private readonly HashSet<string> _autocorrectBlacklist = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string> _autocorrectOverrides = new(StringComparer.Ordinal);
+    private readonly string[] _autocorrectWordHistory = new string[AutocorrectWordHistoryCapacity];
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
     private bool _autocorrectEnabled;
     private uint _autocorrectForegroundProcessId;
+    private string _autocorrectForegroundApp = "unknown";
     private string _autocorrectLastCorrected = "none";
     private string _autocorrectBufferSnapshot = string.Empty;
     private string _autocorrectSkipReason = "idle";
+    private string _autocorrectLastResetSource = "none";
+    private string _autocorrectWordHistorySnapshot = "<empty>";
+    private int _autocorrectWordHistoryWriteIndex;
+    private int _autocorrectWordHistoryCount;
+    private int _autocorrectMaxEditDistance = AutocorrectMaxEditDistanceMax;
+    private bool _autocorrectDryRunEnabled;
+    private long _autocorrectCounterCorrected;
+    private long _autocorrectCounterSkipped;
+    private long _autocorrectCounterResetByClick;
+    private long _autocorrectCounterResetByAppChange;
+    private long _autocorrectCounterShortcutBypass;
     private int _autocorrectPointerActivityPending;
+    private bool _suppressPhysicalOutput;
     private bool _disposed;
     private static readonly Lazy<SymSpell?> SymSpellInstance = new(CreateSymSpell);
 
@@ -79,16 +100,77 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         {
             ResetAutocorrectState("disabled");
             _autocorrectForegroundProcessId = 0;
+            _autocorrectForegroundApp = "unknown";
         }
+    }
+
+    public void ConfigureAutocorrectOptions(AutocorrectOptions options)
+    {
+        int normalizedMaxDistance = Math.Clamp(
+            options.MaxEditDistance,
+            AutocorrectMaxEditDistanceMin,
+            AutocorrectMaxEditDistanceMax);
+        bool cacheInvalidated = normalizedMaxDistance != _autocorrectMaxEditDistance;
+        _autocorrectMaxEditDistance = normalizedMaxDistance;
+        _autocorrectDryRunEnabled = options.DryRunEnabled;
+
+        HashSet<string> parsedBlacklist = ParseAutocorrectWordSet(options.BlacklistCsv);
+        Dictionary<string, string> parsedOverrides = ParseAutocorrectOverrides(options.OverridesCsv);
+        if (!SetEquals(_autocorrectBlacklist, parsedBlacklist))
+        {
+            _autocorrectBlacklist.Clear();
+            foreach (string word in parsedBlacklist)
+            {
+                _autocorrectBlacklist.Add(word);
+            }
+
+            cacheInvalidated = true;
+        }
+
+        if (!MapEquals(_autocorrectOverrides, parsedOverrides))
+        {
+            _autocorrectOverrides.Clear();
+            foreach ((string key, string value) in parsedOverrides)
+            {
+                _autocorrectOverrides[key] = value;
+            }
+
+            cacheInvalidated = true;
+        }
+
+        if (cacheInvalidated)
+        {
+            _autocorrectCache.Clear();
+        }
+    }
+
+    internal void SetPhysicalOutputSuppressed(bool suppressed)
+    {
+        _suppressPhysicalOutput = suppressed;
+    }
+
+    internal void ForceAutocorrectReset(string reason)
+    {
+        ResetAutocorrectState(reason);
     }
 
     public AutocorrectStatusSnapshot GetAutocorrectStatus()
     {
         return new AutocorrectStatusSnapshot(
             Enabled: _autocorrectEnabled,
+            DryRunEnabled: _autocorrectDryRunEnabled,
+            MaxEditDistance: _autocorrectMaxEditDistance,
+            CurrentApp: _autocorrectForegroundApp,
             LastCorrected: _autocorrectLastCorrected,
             CurrentBuffer: _autocorrectBufferSnapshot,
-            SkipReason: _autocorrectSkipReason);
+            SkipReason: _autocorrectSkipReason,
+            LastResetSource: _autocorrectLastResetSource,
+            CorrectedCount: _autocorrectCounterCorrected,
+            SkippedCount: _autocorrectCounterSkipped,
+            ResetByClickCount: _autocorrectCounterResetByClick,
+            ResetByAppChangeCount: _autocorrectCounterResetByAppChange,
+            ShortcutBypassCount: _autocorrectCounterShortcutBypass,
+            WordHistory: _autocorrectWordHistorySnapshot);
     }
 
     public void NotifyPointerActivity()
@@ -108,7 +190,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         switch (dispatchEvent.Kind)
         {
             case DispatchEventKind.KeyTap:
-                if (TryDispatchSystemAction(dispatchEvent.VirtualKey))
+                if (!_suppressPhysicalOutput && TryDispatchSystemAction(dispatchEvent.VirtualKey))
                 {
                     break;
                 }
@@ -157,54 +239,14 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     {
         if (!_autocorrectEnabled)
         {
-            ResetAutocorrectState("disabled");
+            ResetAutocorrectState();
+            _autocorrectSkipReason = "disabled";
+            _autocorrectLastResetSource = "disabled";
             SendKeyTap(virtualKey);
             return;
         }
 
-        RefreshAutocorrectForegroundProcess();
-
-        if (HasShortcutModifierDown())
-        {
-            ResetAutocorrectState("shortcut_active");
-            SendKeyTap(virtualKey);
-            return;
-        }
-
-        if (virtualKey == VirtualKeyBackspace)
-        {
-            if (_autocorrectWordBuffer.Length > 0)
-            {
-                _autocorrectWordBuffer.Length--;
-                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
-            }
-            _autocorrectSkipReason = "manual_backspace";
-
-            SendKeyTap(virtualKey);
-            return;
-        }
-
-        if (TryVirtualKeyToLetter(virtualKey, out char letter))
-        {
-            if (_autocorrectWordBuffer.Length < AutocorrectMaximumWordLength)
-            {
-                _autocorrectWordBuffer.Append(letter);
-                _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
-            }
-            _autocorrectSkipReason = "tracking";
-
-            SendKeyTap(virtualKey);
-            return;
-        }
-
-        if (IsWordBoundaryVirtualKey(virtualKey))
-        {
-            ApplyAutocorrectForWordBoundary();
-            SendKeyTap(virtualKey);
-            return;
-        }
-
-        ResetAutocorrectState("non_word_key");
+        ProcessAutocorrectKeyInput(virtualKey);
         SendKeyTap(virtualKey);
     }
 
@@ -215,10 +257,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
+        ProcessAutocorrectKeyInput(virtualKey);
+    }
+
+    private void ProcessAutocorrectKeyInput(ushort virtualKey)
+    {
         RefreshAutocorrectForegroundProcess();
 
         if (HasShortcutModifierDown())
         {
+            _autocorrectCounterShortcutBypass++;
             ResetAutocorrectState("shortcut_active");
             return;
         }
@@ -231,13 +279,6 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
             }
             _autocorrectSkipReason = "manual_backspace";
-
-            return;
-        }
-
-        if (IsWordBoundaryVirtualKey(virtualKey))
-        {
-            ApplyAutocorrectForWordBoundary();
             return;
         }
 
@@ -249,6 +290,12 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 _autocorrectBufferSnapshot = _autocorrectWordBuffer.ToString();
             }
             _autocorrectSkipReason = "tracking";
+            return;
+        }
+
+        if (IsWordBoundaryVirtualKey(virtualKey))
+        {
+            ApplyAutocorrectForWordBoundary();
             return;
         }
 
@@ -357,7 +404,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             VirtualKeyMenu or VirtualKeyLeftMenu or VirtualKeyRightMenu or
             VirtualKeyLeftWindows or VirtualKeyRightWindows)
         {
-            ResetAutocorrectState("shortcut_active");
+            ResetAutocorrectState("shortcut_modifier_down");
         }
     }
 
@@ -452,7 +499,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void SendKeyTap(ushort virtualKey)
     {
-        if (virtualKey == 0)
+        if (virtualKey == 0 || _suppressPhysicalOutput)
         {
             return;
         }
@@ -464,6 +511,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void SendKeyboard(ushort virtualKey, bool keyUp)
     {
+        if (_suppressPhysicalOutput)
+        {
+            return;
+        }
+
         _singleInput[0] = CreateKeyboardInput(virtualKey, keyUp);
         SendInput(1, _singleInput, Marshal.SizeOf<Input>());
     }
@@ -489,6 +541,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void SendMouseButtonClick(DispatchMouseButton button)
     {
+        if (_suppressPhysicalOutput)
+        {
+            return;
+        }
+
         (uint down, uint up) = ResolveMouseFlags(button);
         if (down == 0 || up == 0)
         {
@@ -502,6 +559,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void SendMouseButtonDown(DispatchMouseButton button)
     {
+        if (_suppressPhysicalOutput)
+        {
+            return;
+        }
+
         (uint down, _) = ResolveMouseFlags(button);
         if (down == 0)
         {
@@ -514,6 +576,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void SendMouseButtonUp(DispatchMouseButton button)
     {
+        if (_suppressPhysicalOutput)
+        {
+            return;
+        }
+
         (_, uint up) = ResolveMouseFlags(button);
         if (up == 0)
         {
@@ -588,7 +655,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         {
             SymSpell symSpell = new(
                 initialCapacity: SymSpellDictionaryWordCount,
-                maxDictionaryEditDistance: SymSpellMaxEditDistance,
+                maxDictionaryEditDistance: SymSpellDictionaryMaxEditDistance,
                 prefixLength: SymSpellPrefixLength);
 
             string baseDir = AppContext.BaseDirectory;
@@ -612,10 +679,20 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private void ApplyAutocorrectForWordBoundary()
     {
+        string typedWord = _autocorrectWordBuffer.ToString();
+        if (typedWord.Length == 0)
+        {
+            _autocorrectSkipReason = "word_empty";
+            ResetAutocorrectState();
+            return;
+        }
+
+        RecordWordHistory(typedWord);
+
         if (_autocorrectWordBuffer.Length < AutocorrectMinimumWordLength ||
             _autocorrectWordBuffer.Length > AutocorrectMaximumWordLength)
         {
-            _autocorrectSkipReason = "word_length";
+            RegisterAutocorrectSkip("word_length");
             ResetAutocorrectState();
             return;
         }
@@ -623,17 +700,35 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         SymSpell? symSpell = SymSpellInstance.Value;
         if (symSpell == null)
         {
-            _autocorrectSkipReason = "dictionary_unavailable";
+            RegisterAutocorrectSkip("dictionary_unavailable");
             ResetAutocorrectState();
             return;
         }
 
-        string typedWord = _autocorrectWordBuffer.ToString();
         string typedLower = typedWord.ToLowerInvariant();
-        string? correctedLower = ResolveCorrection(symSpell, typedLower);
+        if (_autocorrectBlacklist.Contains(typedLower))
+        {
+            RegisterAutocorrectSkip("blacklisted");
+            ResetAutocorrectState();
+            return;
+        }
+
+        string resolutionSource;
+        string? correctedLower;
+        if (_autocorrectOverrides.TryGetValue(typedLower, out string? overrideCorrection))
+        {
+            correctedLower = overrideCorrection;
+            resolutionSource = "override";
+        }
+        else
+        {
+            correctedLower = ResolveCorrection(symSpell, typedLower);
+            resolutionSource = "symspell";
+        }
+
         if (string.IsNullOrEmpty(correctedLower))
         {
-            _autocorrectSkipReason = "no_suggestion";
+            RegisterAutocorrectSkip("no_suggestion");
             ResetAutocorrectState();
             return;
         }
@@ -641,50 +736,71 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         string corrected = ApplyWordCasePattern(correctedLower, typedWord);
         if (string.Equals(corrected, typedWord, StringComparison.Ordinal))
         {
-            _autocorrectSkipReason = "already_correct";
+            RegisterAutocorrectSkip("already_correct");
             ResetAutocorrectState();
             return;
         }
 
-        for (int i = 0; i < typedWord.Length; i++)
+        bool applyReplacement = !_autocorrectDryRunEnabled;
+        if (applyReplacement)
         {
-            SendKeyTap(VirtualKeyBackspace);
+            for (int i = 0; i < typedWord.Length; i++)
+            {
+                SendKeyTap(VirtualKeyBackspace);
+            }
+
+            for (int i = 0; i < corrected.Length; i++)
+            {
+                if (!TryResolveCharacterVirtualKey(corrected[i], out ushort virtualKey, out bool requiresShift))
+                {
+                    continue;
+                }
+
+                bool shiftAlreadyDown = IsShiftModifierDown();
+                if (requiresShift && !shiftAlreadyDown)
+                {
+                    SendKeyboard(VirtualKeyShift, keyUp: false);
+                }
+
+                SendKeyTap(virtualKey);
+
+                if (requiresShift && !shiftAlreadyDown)
+                {
+                    SendKeyboard(VirtualKeyShift, keyUp: true);
+                }
+            }
         }
 
-        for (int i = 0; i < corrected.Length; i++)
+        if (applyReplacement)
         {
-            if (!TryResolveCharacterVirtualKey(corrected[i], out ushort virtualKey, out bool requiresShift))
-            {
-                continue;
-            }
-
-            bool shiftAlreadyDown = IsShiftModifierDown();
-            if (requiresShift && !shiftAlreadyDown)
-            {
-                SendKeyboard(VirtualKeyShift, keyUp: false);
-            }
-
-            SendKeyTap(virtualKey);
-
-            if (requiresShift && !shiftAlreadyDown)
-            {
-                SendKeyboard(VirtualKeyShift, keyUp: true);
-            }
+            _autocorrectCounterCorrected++;
+            _autocorrectLastCorrected = resolutionSource == "override"
+                ? $"{typedWord} -> {corrected} (override)"
+                : $"{typedWord} -> {corrected}";
+            _autocorrectSkipReason = "corrected";
+        }
+        else
+        {
+            _autocorrectCounterSkipped++;
+            _autocorrectLastCorrected = $"{typedWord} -> {corrected} (dry-run)";
+            _autocorrectSkipReason = "dry_run_preview";
         }
 
-        _autocorrectLastCorrected = $"{typedWord} -> {corrected}";
-        _autocorrectSkipReason = "corrected";
         ResetAutocorrectState();
     }
 
     private string? ResolveCorrection(SymSpell symSpell, string typedLower)
     {
-        if (_autocorrectCache.TryGetValue(typedLower, out string? cached))
+        string cacheKey = $"{_autocorrectMaxEditDistance}:{typedLower}";
+        if (_autocorrectCache.TryGetValue(cacheKey, out string? cached))
         {
             return cached;
         }
 
-        List<SymSpell.SuggestItem> suggestions = symSpell.Lookup(typedLower, SymSpell.Verbosity.Top, SymSpellMaxEditDistance);
+        List<SymSpell.SuggestItem> suggestions = symSpell.Lookup(
+            typedLower,
+            SymSpell.Verbosity.Top,
+            _autocorrectMaxEditDistance);
         string? correction = null;
         if (suggestions.Count > 0)
         {
@@ -703,7 +819,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             _autocorrectCache.Clear();
         }
 
-        _autocorrectCache[typedLower] = correction;
+        _autocorrectCache[cacheKey] = correction;
         return correction;
     }
 
@@ -868,9 +984,15 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
+        bool changed = _autocorrectForegroundProcessId != processId;
         if (_autocorrectForegroundProcessId != 0 && _autocorrectForegroundProcessId != processId)
         {
             ResetAutocorrectState("app_changed");
+        }
+
+        if (changed)
+        {
+            _autocorrectForegroundApp = ResolveProcessLabel(processId);
         }
 
         _autocorrectForegroundProcessId = processId;
@@ -896,7 +1018,231 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         if (!string.IsNullOrWhiteSpace(reason))
         {
             _autocorrectSkipReason = reason;
+            _autocorrectLastResetSource = reason;
+            if (string.Equals(reason, "pointer_click", StringComparison.Ordinal))
+            {
+                _autocorrectCounterResetByClick++;
+            }
+            else if (string.Equals(reason, "app_changed", StringComparison.Ordinal))
+            {
+                _autocorrectCounterResetByAppChange++;
+            }
         }
+    }
+
+    private void RegisterAutocorrectSkip(string reason)
+    {
+        _autocorrectCounterSkipped++;
+        _autocorrectSkipReason = reason;
+    }
+
+    private void RecordWordHistory(string word)
+    {
+        if (string.IsNullOrWhiteSpace(word))
+        {
+            return;
+        }
+
+        _autocorrectWordHistory[_autocorrectWordHistoryWriteIndex] = word;
+        _autocorrectWordHistoryWriteIndex = (_autocorrectWordHistoryWriteIndex + 1) % _autocorrectWordHistory.Length;
+        if (_autocorrectWordHistoryCount < _autocorrectWordHistory.Length)
+        {
+            _autocorrectWordHistoryCount++;
+        }
+
+        _autocorrectWordHistorySnapshot = BuildWordHistorySnapshot();
+    }
+
+    private string BuildWordHistorySnapshot()
+    {
+        if (_autocorrectWordHistoryCount == 0)
+        {
+            return "<empty>";
+        }
+
+        StringBuilder builder = new(capacity: 128);
+        for (int i = 0; i < _autocorrectWordHistoryCount; i++)
+        {
+            int index = (_autocorrectWordHistoryWriteIndex - _autocorrectWordHistoryCount + i + _autocorrectWordHistory.Length) %
+                _autocorrectWordHistory.Length;
+            if (i > 0)
+            {
+                builder.Append(' ');
+            }
+
+            builder.Append(_autocorrectWordHistory[index]);
+        }
+
+        return builder.ToString();
+    }
+
+    private string ResolveProcessLabel(uint processId)
+    {
+        if (processId == 0)
+        {
+            return "unknown";
+        }
+
+        if (_processNameCache.TryGetValue(processId, out string? cachedName))
+        {
+            return $"{cachedName} ({processId.ToString(CultureInfo.InvariantCulture)})";
+        }
+
+        string processName = $"pid-{processId.ToString(CultureInfo.InvariantCulture)}";
+        try
+        {
+            Process process = Process.GetProcessById(unchecked((int)processId));
+            if (!string.IsNullOrWhiteSpace(process.ProcessName))
+            {
+                processName = process.ProcessName;
+            }
+        }
+        catch
+        {
+            // Process labels are best-effort diagnostics only.
+        }
+
+        _processNameCache[processId] = processName;
+        return $"{processName} ({processId.ToString(CultureInfo.InvariantCulture)})";
+    }
+
+    private static HashSet<string> ParseAutocorrectWordSet(string? source)
+    {
+        HashSet<string> values = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return values;
+        }
+
+        ReadOnlySpan<char> span = source.AsSpan();
+        int start = 0;
+        for (int i = 0; i <= span.Length; i++)
+        {
+            bool boundary = i == span.Length ||
+                span[i] == ',' ||
+                span[i] == ';' ||
+                span[i] == ' ' ||
+                span[i] == '\n' ||
+                span[i] == '\r' ||
+                span[i] == '\t';
+            if (!boundary)
+            {
+                continue;
+            }
+
+            ReadOnlySpan<char> token = span[start..i].Trim();
+            start = i + 1;
+            if (token.IsEmpty)
+            {
+                continue;
+            }
+
+            string word = token.ToString().ToLowerInvariant();
+            if (IsAsciiLetterWord(word))
+            {
+                values.Add(word);
+            }
+        }
+
+        return values;
+    }
+
+    private static Dictionary<string, string> ParseAutocorrectOverrides(string? source)
+    {
+        Dictionary<string, string> map = new(StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(source))
+        {
+            return map;
+        }
+
+        string normalized = source.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        string[] lines = normalized.Split('\n');
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            string[] segments = line.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            for (int segmentIndex = 0; segmentIndex < segments.Length; segmentIndex++)
+            {
+                if (!TryParseAutocorrectOverride(segments[segmentIndex], out string from, out string to))
+                {
+                    continue;
+                }
+
+                map[from] = to;
+            }
+        }
+
+        return map;
+    }
+
+    private static bool TryParseAutocorrectOverride(string text, out string from, out string to)
+    {
+        from = string.Empty;
+        to = string.Empty;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return false;
+        }
+
+        string line = text.Trim();
+        int separatorIndex = line.IndexOf("->", StringComparison.Ordinal);
+        int separatorLength = 2;
+        if (separatorIndex < 0)
+        {
+            separatorIndex = line.IndexOf('=', StringComparison.Ordinal);
+            separatorLength = 1;
+        }
+
+        if (separatorIndex < 0)
+        {
+            separatorIndex = line.IndexOf(':', StringComparison.Ordinal);
+            separatorLength = 1;
+        }
+
+        if (separatorIndex <= 0 || separatorIndex >= line.Length - separatorLength)
+        {
+            return false;
+        }
+
+        string left = line.Substring(0, separatorIndex).Trim().ToLowerInvariant();
+        string right = line.Substring(separatorIndex + separatorLength).Trim().ToLowerInvariant();
+        if (!IsAsciiLetterWord(left) || !IsAsciiLetterWord(right))
+        {
+            return false;
+        }
+
+        from = left;
+        to = right;
+        return true;
+    }
+
+    private static bool SetEquals(HashSet<string> existing, HashSet<string> next)
+    {
+        return existing.Count == next.Count && existing.SetEquals(next);
+    }
+
+    private static bool MapEquals(Dictionary<string, string> existing, Dictionary<string, string> next)
+    {
+        if (existing.Count != next.Count)
+        {
+            return false;
+        }
+
+        foreach ((string key, string value) in next)
+        {
+            if (!existing.TryGetValue(key, out string? existingValue) ||
+                !string.Equals(existingValue, value, StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
     }
 
     [StructLayout(LayoutKind.Sequential)]
@@ -957,9 +1303,25 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
 internal readonly record struct AutocorrectStatusSnapshot(
     bool Enabled,
+    bool DryRunEnabled,
+    int MaxEditDistance,
+    string CurrentApp,
     string LastCorrected,
     string CurrentBuffer,
-    string SkipReason);
+    string SkipReason,
+    string LastResetSource,
+    long CorrectedCount,
+    long SkippedCount,
+    long ResetByClickCount,
+    long ResetByAppChangeCount,
+    long ShortcutBypassCount,
+    string WordHistory);
+
+internal readonly record struct AutocorrectOptions(
+    int MaxEditDistance,
+    bool DryRunEnabled,
+    string BlacklistCsv,
+    string OverridesCsv);
 
 internal sealed class NullInputDispatcher : IInputDispatcher
 {

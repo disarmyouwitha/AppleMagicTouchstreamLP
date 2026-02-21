@@ -791,8 +791,20 @@
                       <Run Text="Skip reason: " />
                       <Run x:Name="AutocorrectSkipReasonValueText" Text="n/a" Foreground="#e7e9ea" />
                     </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Reset source: " />
+                      <Run x:Name="AutocorrectResetSourceValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap">
+                      <Run Text="Recent words: " />
+                      <Run x:Name="AutocorrectWordHistoryValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
                   </StackPanel>
                 </Border>
+                <TextBlock Text="Blacklist words (comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectBlacklistBox" Height="42" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <TextBlock Text="Always-correct map (wrong=right, comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectOverridesBox" Height="48" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
               </StackPanel>
             </Expander>
 
@@ -804,10 +816,10 @@
         <StackPanel Orientation="Vertical">
           <TextBlock Text="Typing Test" Foreground="#8b949e" FontSize="12" Margin="0,0,0,4" />
           <TextBox x:Name="TypingTestBox"
-                   Height="48"
-                   AcceptsReturn="True"
-                   TextWrapping="Wrap"
-                   VerticalScrollBarVisibility="Auto" />
+                    Height="48"
+                    AcceptsReturn="True"
+                    TextWrapping="Wrap"
+                    VerticalScrollBarVisibility="Auto" />
         </StackPanel>
       </Border>
     </Grid>
