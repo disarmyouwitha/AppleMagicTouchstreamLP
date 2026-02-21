@@ -70,6 +70,7 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _sendInputDispatcher = new SendInputDispatcher();
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+            _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
 
@@ -127,6 +128,7 @@ internal sealed class TouchRuntimeService : IDisposable
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+        _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
         _keymap = keymap;
         _preset = preset;
         _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columnSettings);
@@ -502,6 +504,15 @@ internal sealed class TouchRuntimeService : IDisposable
         return keyboardModeEnabled
             ? RuntimeModeIndicator.Keyboard
             : RuntimeModeIndicator.Mixed;
+    }
+
+    private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
+    {
+        return new AutocorrectOptions(
+            MaxEditDistance: settings.AutocorrectMaxEditDistance,
+            DryRunEnabled: settings.AutocorrectDryRunEnabled,
+            BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
+            OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
     }
 
     private readonly record struct RuntimeRoute(string? DevicePath)

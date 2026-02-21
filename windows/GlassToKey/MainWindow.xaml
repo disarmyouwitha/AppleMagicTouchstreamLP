@@ -776,9 +776,33 @@
                 <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Autocorrect A/B" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="AutocorrectEditDistanceCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" SelectedIndex="1">
+                    <ComboBoxItem Tag="1" Content="A: maxEdit 1" />
+                    <ComboBoxItem Tag="2" Content="B: maxEdit 2" />
+                  </ComboBox>
+                </Grid>
+                <CheckBox x:Name="AutocorrectDryRunCheck" Content="Autocorrect dry-run (preview only)" Foreground="#8b949e" Margin="0,4,0,0" />
+                <TextBlock Text="Blacklist words (comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectBlacklistBox" Height="42" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
+                <TextBlock Text="Always-correct map (wrong=right, comma/newline)" Foreground="#8b949e" FontSize="11" Margin="0,6,0,0" />
+                <TextBox x:Name="AutocorrectOverridesBox" Height="48" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto" />
                 <Border Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                   <StackPanel>
                     <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
+                    <TextBlock Foreground="#8b949e" FontSize="11">
+                      <Run Text="Current app: " />
+                      <Run x:Name="AutocorrectCurrentAppValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Mode: " />
+                      <Run x:Name="AutocorrectModeValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
                     <TextBlock Foreground="#8b949e" FontSize="11">
                       <Run Text="Last corrected: " />
                       <Run x:Name="AutocorrectLastCorrectedValueText" Text="n/a" Foreground="#e7e9ea" />
@@ -795,6 +819,27 @@
                       <Run Text="Reset source: " />
                       <Run x:Name="AutocorrectResetSourceValueText" Text="n/a" Foreground="#e7e9ea" />
                     </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Counters: " />
+                      <Run x:Name="AutocorrectCountersValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap">
+                      <Run Text="Recent words: " />
+                      <Run x:Name="AutocorrectWordHistoryValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
+                    <TextBlock Text="Trace ring buffer" Foreground="#8b949e" FontSize="11" Margin="0,6,0,2" />
+                    <TextBox x:Name="AutocorrectTraceValueBox"
+                             MinHeight="90"
+                             MaxHeight="140"
+                             IsReadOnly="True"
+                             TextWrapping="Wrap"
+                             VerticalScrollBarVisibility="Auto"
+                             HorizontalScrollBarVisibility="Disabled"
+                             Foreground="#e7e9ea"
+                             Background="#0d1117"
+                             BorderBrush="#2b2f33"
+                             BorderThickness="1"
+                             Text="&lt;empty&gt;" />
                   </StackPanel>
                 </Border>
               </StackPanel>

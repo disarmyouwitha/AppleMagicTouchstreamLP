@@ -114,9 +114,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
     private string _lastAutocorrectUiLastCorrected = string.Empty;
+    private string _lastAutocorrectUiCurrentApp = string.Empty;
+    private string _lastAutocorrectUiMode = string.Empty;
     private string _lastAutocorrectUiCurrentBuffer = string.Empty;
     private string _lastAutocorrectUiSkipReason = string.Empty;
     private string _lastAutocorrectUiResetSource = string.Empty;
+    private string _lastAutocorrectUiCounters = string.Empty;
+    private string _lastAutocorrectUiWordHistory = string.Empty;
+    private string _lastAutocorrectUiTrace = string.Empty;
     private int _lastEngineVisualLayer = -1;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
@@ -221,10 +226,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         AutocorrectModeCheck.Checked += OnModeSettingChanged;
         AutocorrectModeCheck.Unchecked += OnModeSettingChanged;
+        AutocorrectDryRunCheck.Checked += OnModeSettingChanged;
+        AutocorrectDryRunCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
+        AutocorrectEditDistanceCombo.SelectionChanged += OnAutocorrectOptionSelectionChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
@@ -286,6 +294,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _sendInputDispatcher = new SendInputDispatcher();
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+            _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
@@ -585,6 +594,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
+        AutocorrectDryRunCheck.IsChecked = _settings.AutocorrectDryRunEnabled;
+        SetAutocorrectEditDistanceSelection(_settings.AutocorrectMaxEditDistance);
+        AutocorrectBlacklistBox.Text = _settings.AutocorrectBlacklistCsv ?? string.Empty;
+        AutocorrectOverridesBox.Text = _settings.AutocorrectOverridesCsv ?? string.Empty;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
@@ -846,6 +859,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             IntentMoveBox,
             IntentVelocityBox,
             KeyPaddingBox,
+            AutocorrectBlacklistBox,
+            AutocorrectOverridesBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
             ColumnOffsetYBox
@@ -854,7 +869,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         foreach (TextBox box in boxes)
         {
             box.LostKeyboardFocus += OnTuningFieldCommitted;
-            box.KeyDown += OnTuningFieldKeyDown;
+            if (!box.AcceptsReturn)
+            {
+                box.KeyDown += OnTuningFieldKeyDown;
+            }
         }
     }
 
@@ -885,6 +903,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     }
 
     private void OnModeSettingChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressSettingsEvents)
+        {
+            return;
+        }
+
+        ApplySettingsFromUi();
+    }
+
+    private void OnAutocorrectOptionSelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         if (_suppressSettingsEvents)
         {
@@ -1042,6 +1070,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
+        _settings.AutocorrectDryRunEnabled = AutocorrectDryRunCheck.IsChecked == true;
+        _settings.AutocorrectMaxEditDistance = ReadAutocorrectMaxEditDistanceFromUi();
+        _settings.AutocorrectBlacklistCsv = NormalizeMultilineText(AutocorrectBlacklistBox.Text);
+        _settings.AutocorrectOverridesCsv = NormalizeMultilineText(AutocorrectOverridesBox.Text);
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
@@ -1338,6 +1370,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.SetPersistentLayer(_activeLayer);
         }
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+        _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
 
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
@@ -1436,6 +1469,70 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private TouchProcessorConfig BuildConfigFromSettings()
     {
         return RuntimeConfigurationFactory.BuildTouchConfig(_settings);
+    }
+
+    private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
+    {
+        return new AutocorrectOptions(
+            MaxEditDistance: Math.Clamp(settings.AutocorrectMaxEditDistance, 1, 2),
+            DryRunEnabled: settings.AutocorrectDryRunEnabled,
+            BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
+            OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
+    }
+
+    private int ReadAutocorrectMaxEditDistanceFromUi()
+    {
+        if (AutocorrectEditDistanceCombo.SelectedItem is ComboBoxItem comboItem &&
+            int.TryParse(comboItem.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+        {
+            return Math.Clamp(value, 1, 2);
+        }
+
+        return 2;
+    }
+
+    private void SetAutocorrectEditDistanceSelection(int value)
+    {
+        int target = Math.Clamp(value, 1, 2);
+        for (int i = 0; i < AutocorrectEditDistanceCombo.Items.Count; i++)
+        {
+            if (AutocorrectEditDistanceCombo.Items[i] is ComboBoxItem comboItem &&
+                int.TryParse(comboItem.Tag?.ToString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int candidate) &&
+                candidate == target)
+            {
+                AutocorrectEditDistanceCombo.SelectedIndex = i;
+                return;
+            }
+        }
+
+        if (AutocorrectEditDistanceCombo.Items.Count > 0)
+        {
+            AutocorrectEditDistanceCombo.SelectedIndex = AutocorrectEditDistanceCombo.Items.Count - 1;
+        }
+    }
+
+    private static string NormalizeMultilineText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        string normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        string[] lines = normalized.Split('\n');
+        List<string> cleaned = new(lines.Length);
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            cleaned.Add(line);
+        }
+
+        return string.Join('\n', cleaned);
     }
 
     private static string FormatNumber(double value)
@@ -4283,20 +4380,42 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateAutocorrectStatusDetails()
     {
+        string currentApp = "n/a";
+        string mode = "n/a";
         string lastCorrected = "n/a";
         string currentBuffer = "n/a";
         string skipReason = "n/a";
         string resetSource = "n/a";
+        string counters = "n/a";
+        string wordHistory = "n/a";
+        string trace = "<empty>";
         if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
         {
+            currentApp = string.IsNullOrWhiteSpace(snapshot.CurrentApp) ? "unknown" : snapshot.CurrentApp;
+            mode = $"maxEdit={snapshot.MaxEditDistance}, {(snapshot.DryRunEnabled ? "dry-run" : "live")}";
             lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
             currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
             skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
             resetSource = string.IsNullOrWhiteSpace(snapshot.LastResetSource) ? "none" : snapshot.LastResetSource;
+            counters = $"corrected={snapshot.CorrectedCount}, skipped={snapshot.SkippedCount}, click={snapshot.ResetByClickCount}, app={snapshot.ResetByAppChangeCount}, shortcut={snapshot.ShortcutBypassCount}";
+            wordHistory = string.IsNullOrWhiteSpace(snapshot.WordHistory) ? "<empty>" : snapshot.WordHistory;
+            trace = string.IsNullOrWhiteSpace(snapshot.Trace) ? "<empty>" : snapshot.Trace;
             if (!snapshot.Enabled)
             {
                 skipReason = "disabled";
             }
+        }
+
+        if (!string.Equals(currentApp, _lastAutocorrectUiCurrentApp, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiCurrentApp = currentApp;
+            AutocorrectCurrentAppValueText.Text = currentApp;
+        }
+
+        if (!string.Equals(mode, _lastAutocorrectUiMode, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiMode = mode;
+            AutocorrectModeValueText.Text = mode;
         }
 
         if (!string.Equals(lastCorrected, _lastAutocorrectUiLastCorrected, StringComparison.Ordinal))
@@ -4321,6 +4440,24 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _lastAutocorrectUiResetSource = resetSource;
             AutocorrectResetSourceValueText.Text = resetSource;
+        }
+
+        if (!string.Equals(counters, _lastAutocorrectUiCounters, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiCounters = counters;
+            AutocorrectCountersValueText.Text = counters;
+        }
+
+        if (!string.Equals(wordHistory, _lastAutocorrectUiWordHistory, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiWordHistory = wordHistory;
+            AutocorrectWordHistoryValueText.Text = wordHistory;
+        }
+
+        if (!string.Equals(trace, _lastAutocorrectUiTrace, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiTrace = trace;
+            AutocorrectTraceValueBox.Text = trace;
         }
     }
 
