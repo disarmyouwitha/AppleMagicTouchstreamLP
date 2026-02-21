@@ -18,6 +18,8 @@ internal static class DispatchKeyResolver
         if (label.Equals("LClick", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("LeftClick", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("Left Click", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("DoubleClick", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Double Click", StringComparison.OrdinalIgnoreCase) ||
             label.Equals("MouseLeft", StringComparison.OrdinalIgnoreCase))
         {
             button = DispatchMouseButton.Left;
