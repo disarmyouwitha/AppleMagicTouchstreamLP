@@ -177,15 +177,20 @@ final class ContentViewModel: ObservableObject {
         case gesture
     }
 
+    @MainActor
+    final class StatusViewModel: ObservableObject {
+        @Published var contactFingerCountsBySide = SidePair(left: 0, right: 0)
+        @Published var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
+        @Published var voiceGestureActive = false
+        @Published var voiceDebugStatus: String?
+    }
+
     nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
+    let statusViewModel = StatusViewModel()
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
     @Published private(set) var activeLayer: Int = 0
-    @Published private(set) var contactFingerCountsBySide = SidePair(left: 0, right: 0)
-    @Published private(set) var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
-    @Published private(set) var voiceGestureActive = false
-    @Published private(set) var voiceDebugStatus: String?
     private let isDragDetectionEnabled = true
     @Published var availableDevices = [OMSDeviceInfo]()
     @Published var leftDevice: OMSDeviceInfo?
@@ -509,24 +514,24 @@ final class ContentViewModel: ObservableObject {
 
     private func publishContactCountsIfNeeded(_ counts: SidePair<Int>) {
         guard uiStatusVisualsEnabled else { return }
-        guard counts != contactFingerCountsBySide else { return }
-        contactFingerCountsBySide = counts
+        guard counts != statusViewModel.contactFingerCountsBySide else { return }
+        statusViewModel.contactFingerCountsBySide = counts
     }
 
     private func publishIntentDisplayIfNeeded(_ display: SidePair<IntentDisplay>) {
         guard uiStatusVisualsEnabled else { return }
-        guard display != intentDisplayBySide else { return }
-        intentDisplayBySide = display
+        guard display != statusViewModel.intentDisplayBySide else { return }
+        statusViewModel.intentDisplayBySide = display
     }
 
     private func publishVoiceGestureIfNeeded(_ isActive: Bool) {
         guard uiStatusVisualsEnabled else { return }
-        guard isActive != voiceGestureActive else { return }
-        voiceGestureActive = isActive
+        guard isActive != statusViewModel.voiceGestureActive else { return }
+        statusViewModel.voiceGestureActive = isActive
     }
 
     private func publishVoiceDebugStatus(_ status: String?) {
-        voiceDebugStatus = status
+        statusViewModel.voiceDebugStatus = status
     }
 }
 

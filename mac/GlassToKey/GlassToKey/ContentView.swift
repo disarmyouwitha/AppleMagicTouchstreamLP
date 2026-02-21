@@ -434,12 +434,8 @@ struct ContentView: View {
     private var headerView: some View {
         HeaderControlsView(
             editModeEnabled: $editModeEnabled,
+            statusViewModel: viewModel.statusViewModel,
             layerToggleBinding: layerToggleBinding,
-            leftContactCount: viewModel.contactFingerCountsBySide.left,
-            rightContactCount: viewModel.contactFingerCountsBySide.right,
-            intentDisplay: viewModel.intentDisplayBySide.left,
-            voiceGestureActive: viewModel.voiceGestureActive,
-            voiceDebugStatus: viewModel.voiceDebugStatus,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
         )
@@ -525,12 +521,8 @@ struct ContentView: View {
 
     private struct HeaderControlsView: View {
         @Binding var editModeEnabled: Bool
+        @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
         let layerToggleBinding: Binding<Bool>
-        let leftContactCount: Int
-        let rightContactCount: Int
-        let intentDisplay: ContentViewModel.IntentDisplay
-        let voiceGestureActive: Bool
-        let voiceDebugStatus: String?
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
 
@@ -542,11 +534,11 @@ struct ContentView: View {
                         .bold()
                     HStack(spacing: 10) {
                         contactCountPills
-                        intentBadge(intent: intentDisplay)
-                        if voiceGestureActive {
+                        intentBadge(intent: statusViewModel.intentDisplayBySide.left)
+                        if statusViewModel.voiceGestureActive {
                             voiceBadge(isActive: true)
                         }
-                        if let voiceDebugStatus {
+                        if let voiceDebugStatus = statusViewModel.voiceDebugStatus {
                             voiceStatusBadge(voiceDebugStatus)
                         }
                     }
@@ -574,8 +566,8 @@ struct ContentView: View {
 
         private var contactCountPills: some View {
             HStack(spacing: 8) {
-                labelPill(prefix: "L", value: leftContactCount)
-                labelPill(prefix: "R", value: rightContactCount)
+                labelPill(prefix: "L", value: statusViewModel.contactFingerCountsBySide.left)
+                labelPill(prefix: "R", value: statusViewModel.contactFingerCountsBySide.right)
             }
         }
 
