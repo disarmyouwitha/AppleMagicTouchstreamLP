@@ -20,6 +20,55 @@ Make macOS behavior and feel match the Windows app under heavy touch load, espec
 ## Why a rewrite is needed
 Windows uses explicit visual invalidation and timed status polling, while macOS currently relies on broader SwiftUI `ObservableObject` invalidation. When edit controls are active, that causes larger view tree re-evaluations than the Windows model.
 
+## Framework audit findings (OpenMultitouchSupportXCF)
+Current framework hotspots and rewrite needs:
+
+1. Object-event path allocates per frame.
+- `OpenMTManager` still builds `OpenMTTouch` objects + `OpenMTEvent` for non-raw listeners.
+- This is allocation-heavy and should not be on any hot path.
+
+2. Event dispatch uses an extra serial response queue.
+- Non-raw listener dispatch currently hops through `dispatch_async` on a serial queue.
+- This can create backlog and latency under bursty touch frames.
+
+3. Mixed thread access to mutable device lookup structures.
+- Device ID caches/maps are mutated during device reconfiguration and read from callback paths.
+- Needs a strict lock/queue ownership model to avoid races and unpredictable stalls.
+
+4. Device enumeration and ID handling are string-heavy.
+- Device references are repeatedly rebuilt from ID strings and list scans.
+- Internal runtime should use numeric IDs and pointer-stable registries.
+
+5. Dual callback mode complexity (legacy + refcon fallback).
+- Supporting both callback paths in hot runtime code increases branching and lifecycle complexity.
+- Rewrite should make one primary callback path explicit and testable.
+
+## Framework rewrite scope
+1. Raw-first API contract
+- Make raw frame callback the only performance path.
+- Keep object-event API as debug/compat mode (off by default).
+
+2. Deterministic callback threading
+- Define one callback execution model (direct callback thread or dedicated high-priority queue).
+- Remove unnecessary queue hops for latency-sensitive consumers.
+
+3. Locking and ownership model
+- Replace ad hoc mutable map access with explicit synchronization boundaries.
+- Separate control-plane state (device changes) from data-plane reads (callbacks).
+
+4. Device/actuator registry rewrite
+- Maintain stable numeric-ID keyed registries for active devices and actuators.
+- Avoid string parsing/lookups on hot paths.
+- Minimize full device list rebuilds unless hardware topology changes.
+
+5. Memory and allocation policy
+- Zero dynamic allocations in callback fast path.
+- Preallocate/reuse callback context and frame adaptation buffers.
+
+6. Integration boundary for shared Rust core
+- Framework remains platform IO bridge.
+- Feed raw frames into shared `g2k-core` interface with deterministic, allocation-controlled handoff.
+
 ## Strict pipeline (target)
 1. Input Capture Layer
 - Platform-native capture only, zero UI work, no blocking calls.
@@ -93,6 +142,7 @@ Acceptance:
 
 ### Phase 5: Framework/runtime alignment
 - Audit `OMSManager`/listener dispatch threading and coalescing to mirror Windows scheduling assumptions.
+- Rewrite OpenMultitouchSupportXCF callback/data-path according to framework scope above (raw-first, lock ownership, numeric registries, zero-allocation fast path).
 - Add optional fixed render tick for visuals independent from device frame cadence.
 - Add lightweight in-app frame timing diagnostics for regression detection.
 
