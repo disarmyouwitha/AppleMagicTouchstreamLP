@@ -1,5 +1,4 @@
 ## TODO
-- Can you write a file "../windows/ATPCAP_V3.md" with EXACTLY what needs to be changed in the Windows spec to accept ATPCAP_V3 and can you also explain to me what you changed and why it was nessisary?
 - Back to plan
 ---
 - Can we wire up "Capture" and "Replay" into the menu?

@@ -111,7 +111,7 @@ Current framework hotspots and rewrite needs:
 
 ## Phase Plan
 
-### Phase 1: Runtime/UI decoupling (in progress)
+### Phase 1: Runtime/UI decoupling
 - Add fixed-interval status polling (50 ms) in `ContentViewModel`.
 - Stop high-frequency status push callbacks from touch processor.
 - Keep touch snapshot stream independent of status stream.
