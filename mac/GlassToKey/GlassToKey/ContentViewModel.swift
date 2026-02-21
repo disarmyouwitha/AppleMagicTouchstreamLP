@@ -255,12 +255,14 @@ final class ContentViewModel: ObservableObject {
     private var requestedLeftIsBuiltIn: Bool?
     private var requestedRightIsBuiltIn: Bool?
     private var autoResyncTask: Task<Void, Never>?
+    private var statusPollingTask: Task<Void, Never>?
     private var autoResyncEnabled = false
     private var uiStatusVisualsEnabled = true
     private static let connectedResyncIntervalSeconds: TimeInterval = 10.0
     private static let disconnectedResyncIntervalSeconds: TimeInterval = 1.0
     private static let connectedResyncIntervalNanoseconds = UInt64(connectedResyncIntervalSeconds * 1_000_000_000)
     private static let disconnectedResyncIntervalNanoseconds = UInt64(disconnectedResyncIntervalSeconds * 1_000_000_000)
+    private static let statusPollIntervalNanoseconds: UInt64 = 50_000_000
 
     private let manager = OMSManager.shared
     private var task: Task<Void, Never>?
@@ -278,21 +280,9 @@ final class ContentViewModel: ObservableObject {
                 weakSelf?.recordDebugHit(binding)
             }
         }
-        let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { counts in
-            Task { @MainActor in
-                weakSelf?.publishContactCountsIfNeeded(counts)
-            }
-        }
-        let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { states in
-            Task { @MainActor in
-                weakSelf?.publishIntentDisplayIfNeeded(states)
-            }
-        }
-        let voiceGestureHandler: @Sendable (Bool) -> Void = { isActive in
-            Task { @MainActor in
-                weakSelf?.publishVoiceGestureIfNeeded(isActive)
-            }
-        }
+        let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { _ in }
+        let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { _ in }
+        let voiceGestureHandler: @Sendable (Bool) -> Void = { _ in }
         let voiceStatusHandler: @Sendable (String?) -> Void = { status in
             Task { @MainActor in
                 weakSelf?.publishVoiceDebugStatus(status)
@@ -317,7 +307,28 @@ final class ContentViewModel: ObservableObject {
             onVoiceGestureChanged: voiceGestureHandler
         )
         weakSelf = self
+        startStatusPollingLoop()
         loadDevices()
+    }
+
+    private func startStatusPollingLoop() {
+        guard statusPollingTask == nil else { return }
+        statusPollingTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: Self.statusPollIntervalNanoseconds)
+                guard let self else { return }
+                await self.pollStatusSnapshotIfNeeded()
+            }
+        }
+    }
+
+    private func pollStatusSnapshotIfNeeded() async {
+        guard uiStatusVisualsEnabled else { return }
+        let snapshot = await processor.statusSnapshot()
+        guard uiStatusVisualsEnabled else { return }
+        publishContactCountsIfNeeded(snapshot.contactCounts)
+        publishIntentDisplayIfNeeded(snapshot.intentDisplays)
+        publishVoiceGestureIfNeeded(snapshot.voiceGestureActive)
     }
 
     var leftTouches: [OMSTouchData] {
@@ -909,6 +920,7 @@ final class ContentViewModel: ObservableObject {
 
     deinit {
         autoResyncTask?.cancel()
+        statusPollingTask?.cancel()
     }
 
     private func publishContactCountsIfNeeded(_ counts: SidePair<Int>) {
