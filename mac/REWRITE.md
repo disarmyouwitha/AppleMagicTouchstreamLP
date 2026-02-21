@@ -157,7 +157,9 @@ Acceptance:
 1. Introduce `TrackpadSurfaceView` (AppKit) and wire it beside existing SwiftUI canvas behind a feature flag.
 2. Feed `TrackpadSurfaceView` from current `TouchSnapshot` and key/button selection state only.
 3. Remove direct touch-driven redraw pressure from `RightSidebarView`.
-4. Draft `g2k-core` Rust crate API contract and parity test fixture format.
+4. Wire `OpenMTManagerV2` into `OMSManager` behind a feature flag so capture can run on the raw-only bridge.
+5. Add replay harness tooling to ingest `ReplayFixtures/*.jsonl`, feed `RuntimeRawFrame`, and emit deterministic transcripts.
+6. Add fixture/schema validation tests (including canonical touch-state labels) and baseline fixtures.
 
 ## Non-goals
 - Changing key mapping semantics.

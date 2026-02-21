@@ -107,18 +107,18 @@ Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md`
 
 ## Phase 0 - Behavior Freeze + Replay Baseline
 - [ ] Capture canonical behavior traces from current macOS and Windows.
-- [ ] Define parity fixture format (`RawFrame` JSONL or binary).
-- [ ] Add deterministic replay harness entrypoint for macOS engine.
+- [x] Define parity fixture format (`RawFrame` JSONL or binary).
+- [x] Add deterministic replay harness entrypoint for macOS engine.
 
 Exit criteria:
-- [ ] Replays run headless and produce stable snapshot/dispatch transcripts.
+- [x] Replays run headless and produce stable snapshot/dispatch transcripts.
 
 ## Phase 1 - New Objective-C Capture Bridge
-- [ ] Introduce `OpenMTManagerV2` (or equivalent) behind feature flag.
-- [ ] Raw-first callback API with preallocated frame adapters.
-- [ ] Replace string-based hot-path mapping with numeric registry.
-- [ ] Remove response queue hops from fast path.
-- [ ] Define explicit lock/queue ownership for registry mutations.
+- [x] Introduce `OpenMTManagerV2` (or equivalent) behind feature flag.
+- [x] Raw-first callback API with preallocated frame adapters.
+- [x] Replace string-based hot-path mapping with numeric registry.
+- [x] Remove response queue hops from fast path.
+- [x] Define explicit lock/queue ownership for registry mutations.
 
 Exit criteria:
 - [ ] No callback-path heap allocations in normal operation.
@@ -176,9 +176,9 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
-| Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` raw-only callback skeleton added and wired into framework target |
+| Capture bridge V2 (ObjC) | TBD | In Progress | `OpenMTManagerV2` now runs raw-only callbacks on a dedicated state queue, uses numeric-ID reconciliation for active devices, pre-sizes callback registries, and avoids main-thread control-plane hops |
 | Runtime service split (Swift) | TBD | In Progress | `InputRuntimeService` scaffold + runtime DTOs added; not yet wired into `ContentViewModel` |
-| Engine boundary + replay harness | TBD | In Progress | `EngineActorBoundary` + `EngineActorStub` added; replay fixture format + capture tool + first capture artifact committed |
+| Engine boundary + replay harness | TBD | In Progress | Added `ReplayFixtureKit` parser/validator + `ReplayHarness` executable + deterministic transcript generation; baseline fixture tests are passing |
 | Dispatch queue/pump | TBD | Not Started | Decouple key posting |
 | AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
@@ -199,7 +199,11 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [ ] Config-window stress test (edit mode open + rapid selection changes).
 - [ ] Sleep/wake and reconnect scenario tests.
 - [ ] Build verification:
+  - [x] `swift test --disable-sandbox`
+  - [x] `swift run --disable-sandbox ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.jsonl --output ReplayFixtures/macos_first_capture_2026-02-20.transcript.jsonl`
+  - [x] `xcodebuild -project Framework/OpenMultitouchSupportXCF.xcodeproj -scheme OpenMultitouchSupportXCF -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/omtxcf-derived build`
   - [x] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
+  - [ ] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' -derivedDataPath /tmp/glasstokey-derived build` (currently fails in this environment: missing package product `OpenMultitouchSupport`)
 
 ## Migration Rules
 - Introduce feature flags for each new layer; no big-bang switch.
@@ -210,12 +214,18 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 ## Immediate Next Slice (Execution Ready)
 - [x] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
 - [x] Implement capture bridge V2 skeleton with raw-only callback registration.
+- [x] Wire `OMSManager` capture path behind feature flag (`OMS_CAPTURE_BRIDGE_V2=1`) with fallback to V1 if V2 symbols are unavailable.
 - [x] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
 - [x] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
 - [x] Add replay fixture format draft and first fixture from current macOS run.
+- [x] Add replay harness executable + deterministic transcript output.
+- [x] Add fixture/schema validation tests (canonical state labels + deterministic transcript check).
+- [ ] Rebuild/export `OpenMultitouchSupportXCF.xcframework` with `OpenMTManagerV2` public symbols so OMS can move from runtime class lookup to direct type binding.
+- [ ] Feed replay harness into the real `EngineActorBoundary` implementation once Phase 2 engine extraction lands.
 
 Latest replay artifact:
 - `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).
+- `ReplayFixtures/macos_first_capture_2026-02-20.transcript.jsonl` (deterministic transcript generated from baseline fixture via `ReplayHarness`).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.

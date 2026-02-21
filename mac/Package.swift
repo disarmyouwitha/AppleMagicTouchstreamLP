@@ -15,6 +15,10 @@ let package = Package(
         .library(
             name: "OpenMultitouchSupport",
             targets: ["OpenMultitouchSupport"]
+        ),
+        .library(
+            name: "ReplayFixtureKit",
+            targets: ["ReplayFixtureKit"]
         )
     ],
     targets: [
@@ -31,10 +35,24 @@ let package = Package(
             dependencies: ["OpenMultitouchSupportXCF"],
             swiftSettings: swiftSettings
         ),
+        .target(
+            name: "ReplayFixtureKit",
+            dependencies: []
+        ),
         .executableTarget(
             name: "ReplayFixtureCapture",
             dependencies: ["OpenMultitouchSupport"],
             path: "Tools/ReplayFixtureCapture"
+        ),
+        .executableTarget(
+            name: "ReplayHarness",
+            dependencies: ["ReplayFixtureKit"],
+            path: "Tools/ReplayHarness"
+        ),
+        .testTarget(
+            name: "ReplayFixtureKitTests",
+            dependencies: ["ReplayFixtureKit"],
+            path: "Tests/ReplayFixtureKitTests"
         )
     ]
 ) 

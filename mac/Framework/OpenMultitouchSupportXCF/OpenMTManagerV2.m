@@ -25,6 +25,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 @interface OpenMTManagerV2 ()
 
+@property (strong, nonatomic) dispatch_queue_t stateQueue;
 @property (strong, nonatomic) NSMutableArray<OpenMTListener *> *rawListeners;
 @property (atomic, copy) NSArray<OpenMTListener *> *rawListenersSnapshot;
 @property (strong, nonatomic) NSArray<OpenMTDeviceInfo *> *availableDeviceInfos;
@@ -33,6 +34,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 @property (strong, nonatomic) NSMutableDictionary<NSValue *, NSValue *> *callbackContextsByRef;
 @property (assign, nonatomic) BOOL callbacksRunning;
 
+- (void)withStateSync:(dispatch_block_t)block;
+- (void)withStateAsync:(dispatch_block_t)block;
 - (NSArray<OpenMTDeviceInfo *> *)collectAvailableDevices;
 - (MTDeviceRef)createDeviceRefForNumericID:(uint64_t)numericID;
 - (BOOL)refreshActiveDeviceRefs;
@@ -40,6 +43,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (void)rebuildRawSnapshotPruningDead;
 - (BOOL)startHandlingRawCallbacks;
 - (void)stopHandlingRawCallbacks;
+- (NSArray<OpenMTDeviceInfo *> *)resolveActiveDevicesFromAvailable:(NSArray<OpenMTDeviceInfo *> *)available
+                                                    previousActive:(NSArray<OpenMTDeviceInfo *> *)previous;
 - (void)handleRawFrameWithTouches:(const MTTouch *)touches
                             count:(int)numTouches
                         timestamp:(double)timestamp
@@ -65,6 +70,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 - (instancetype)init {
     if (self = [super init]) {
+        _stateQueue = dispatch_queue_create("com.kyome.openmt.v2.state", DISPATCH_QUEUE_SERIAL);
         _rawListeners = NSMutableArray.new;
         _rawListenersSnapshot = @[];
         _deviceRefsByNumericID = NSMutableDictionary.new;
@@ -90,7 +96,19 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 - (void)dealloc {
     [NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self];
-    [self stopHandlingRawCallbacks];
+    [self withStateSync:^{
+        [self stopHandlingRawCallbacks];
+        [self.rawListeners removeAllObjects];
+        self.rawListenersSnapshot = @[];
+    }];
+}
+
+- (void)withStateSync:(dispatch_block_t)block {
+    dispatchSync(self.stateQueue, block);
+}
+
+- (void)withStateAsync:(dispatch_block_t)block {
+    dispatch_async(self.stateQueue, block);
 }
 
 - (NSArray<OpenMTDeviceInfo *> *)collectAvailableDevices {
@@ -185,6 +203,11 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (BOOL)refreshActiveDeviceRefs {
     [self clearActiveDeviceRefs];
 
+    // Pre-size registries so topology updates do not repeatedly grow hash tables.
+    NSUInteger capacity = self.activeDeviceInfos.count;
+    self.deviceRefsByNumericID = [NSMutableDictionary dictionaryWithCapacity:capacity];
+    self.callbackContextsByRef = [NSMutableDictionary dictionaryWithCapacity:capacity];
+
     BOOL didAddAny = NO;
     for (OpenMTDeviceInfo *deviceInfo in self.activeDeviceInfos) {
         uint64_t numericID = deviceInfo.deviceNumericID;
@@ -277,6 +300,32 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     [self clearActiveDeviceRefs];
 }
 
+- (NSArray<OpenMTDeviceInfo *> *)resolveActiveDevicesFromAvailable:(NSArray<OpenMTDeviceInfo *> *)available
+                                                    previousActive:(NSArray<OpenMTDeviceInfo *> *)previous {
+    NSMutableDictionary<NSNumber *, OpenMTDeviceInfo *> *availableByNumericID =
+        [NSMutableDictionary dictionaryWithCapacity:available.count];
+    for (OpenMTDeviceInfo *device in available) {
+        uint64_t numericID = device.deviceNumericID;
+        if (numericID > 0) {
+            availableByNumericID[@(numericID)] = device;
+        }
+    }
+
+    NSMutableArray<OpenMTDeviceInfo *> *resolved = [NSMutableArray array];
+    for (OpenMTDeviceInfo *active in previous) {
+        OpenMTDeviceInfo *match = availableByNumericID[@(active.deviceNumericID)];
+        if (match) {
+            [resolved addObject:match];
+        }
+    }
+
+    if (resolved.count == 0 && available.count > 0) {
+        [resolved addObject:available.firstObject];
+    }
+
+    return [resolved copy];
+}
+
 - (void)handleRawFrameWithTouches:(const MTTouch *)touches
                             count:(int)numTouches
                         timestamp:(double)timestamp
@@ -300,78 +349,90 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 }
 
 - (void)refreshAvailableDevices {
-    NSArray<OpenMTDeviceInfo *> *devices = [self collectAvailableDevices];
-    self.availableDeviceInfos = devices;
+    [self withStateSync:^{
+        NSArray<OpenMTDeviceInfo *> *devices = [self collectAvailableDevices];
+        self.availableDeviceInfos = devices;
 
-    NSMutableArray<OpenMTDeviceInfo *> *resolvedActive = [NSMutableArray array];
-    NSSet<NSString *> *availableIDs = [NSSet setWithArray:[devices valueForKey:@"deviceID"]];
-    for (OpenMTDeviceInfo *active in self.activeDeviceInfos) {
-        if ([availableIDs containsObject:active.deviceID]) {
-            OpenMTDeviceInfo *match = [devices filteredArrayUsingPredicate:[NSPredicate predicateWithFormat:@"deviceID == %@", active.deviceID]].firstObject;
-            if (match) {
-                [resolvedActive addObject:match];
-            }
+        NSArray<OpenMTDeviceInfo *> *resolved = [self resolveActiveDevicesFromAvailable:devices
+                                                                          previousActive:self.activeDeviceInfos];
+
+        BOOL hadListeners = self.rawListenersSnapshot.count > 0;
+        BOOL wasRunning = self.callbacksRunning;
+        if (wasRunning) {
+            [self stopHandlingRawCallbacks];
         }
-    }
-    if (resolvedActive.count == 0 && devices.count > 0) {
-        [resolvedActive addObject:devices.firstObject];
-    }
 
-    BOOL hadListeners = self.rawListenersSnapshot.count > 0;
-    BOOL wasRunning = self.callbacksRunning;
-    if (wasRunning) {
-        [self stopHandlingRawCallbacks];
-    }
+        self.activeDeviceInfos = resolved;
 
-    self.activeDeviceInfos = [resolvedActive copy];
-
-    if (hadListeners) {
-        [self startHandlingRawCallbacks];
-    }
+        if (hadListeners) {
+            [self startHandlingRawCallbacks];
+        }
+    }];
 }
 
 - (NSArray<OpenMTDeviceInfo *> *)availableDevices {
-    return self.availableDeviceInfos;
+    __block NSArray<OpenMTDeviceInfo *> *devices = nil;
+    [self withStateSync:^{
+        devices = self.availableDeviceInfos;
+    }];
+    return devices ?: @[];
 }
 
 - (NSArray<OpenMTDeviceInfo *> *)activeDevices {
-    return self.activeDeviceInfos;
+    __block NSArray<OpenMTDeviceInfo *> *devices = nil;
+    [self withStateSync:^{
+        devices = self.activeDeviceInfos;
+    }];
+    return devices ?: @[];
 }
 
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos {
-    if (deviceInfos.count == 0) {
-        return NO;
-    }
-
-    NSSet *availableSet = [NSSet setWithArray:self.availableDeviceInfos];
-    for (OpenMTDeviceInfo *deviceInfo in deviceInfos) {
-        if (![availableSet containsObject:deviceInfo]) {
-            return NO;
+    __block BOOL success = NO;
+    [self withStateSync:^{
+        if (deviceInfos.count == 0) {
+            success = NO;
+            return;
         }
-    }
 
-    NSArray<NSString *> *currentIDs = [self.activeDeviceInfos valueForKey:@"deviceID"];
-    NSArray<NSString *> *nextIDs = [deviceInfos valueForKey:@"deviceID"];
-    if ([currentIDs isEqualToArray:nextIDs]) {
-        return YES;
-    }
+        NSMutableSet<NSNumber *> *availableNumericIDs = [NSMutableSet setWithCapacity:self.availableDeviceInfos.count];
+        for (OpenMTDeviceInfo *device in self.availableDeviceInfos) {
+            if (device.deviceNumericID > 0) {
+                [availableNumericIDs addObject:@(device.deviceNumericID)];
+            }
+        }
 
-    BOOL hadListeners = self.rawListenersSnapshot.count > 0;
-    if (self.callbacksRunning) {
-        [self stopHandlingRawCallbacks];
-    }
+        for (OpenMTDeviceInfo *deviceInfo in deviceInfos) {
+            if (deviceInfo.deviceNumericID == 0 || ![availableNumericIDs containsObject:@(deviceInfo.deviceNumericID)]) {
+                success = NO;
+                return;
+            }
+        }
 
-    self.activeDeviceInfos = [deviceInfos copy];
+        NSArray<NSNumber *> *currentIDs = [self.activeDeviceInfos valueForKey:@"deviceNumericID"];
+        NSArray<NSNumber *> *nextIDs = [deviceInfos valueForKey:@"deviceNumericID"];
+        if ([currentIDs isEqualToArray:nextIDs]) {
+            success = YES;
+            return;
+        }
 
-    if (hadListeners) {
-        [self startHandlingRawCallbacks];
-    }
-    return YES;
+        BOOL hadListeners = self.rawListenersSnapshot.count > 0;
+        if (self.callbacksRunning) {
+            [self stopHandlingRawCallbacks];
+        }
+
+        self.activeDeviceInfos = [deviceInfos copy];
+
+        if (hadListeners) {
+            [self startHandlingRawCallbacks];
+        }
+        success = YES;
+    }];
+    return success;
 }
 
 - (OpenMTListener *)addRawListenerWithCallback:(OpenMTRawFrameCallback)callback {
     __block OpenMTListener *listener = nil;
-    dispatchSync(dispatch_get_main_queue(), ^{
+    [self withStateSync:^{
         if (!self.class.systemSupportsMultitouch) {
             return;
         }
@@ -381,38 +442,42 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
         if (!self.callbacksRunning) {
             [self startHandlingRawCallbacks];
         }
-    });
+    }];
     return listener;
 }
 
 - (void)removeRawListener:(OpenMTListener *)listener {
-    dispatchSync(dispatch_get_main_queue(), ^{
+    [self withStateSync:^{
         [self.rawListeners removeObject:listener];
         [self rebuildRawSnapshotPruningDead];
         if (self.rawListenersSnapshot.count == 0) {
             [self stopHandlingRawCallbacks];
         }
-    });
+    }];
 }
 
 - (BOOL)isListening {
-    return self.callbacksRunning;
+    __block BOOL listening = NO;
+    [self withStateSync:^{
+        listening = self.callbacksRunning;
+    }];
+    return listening;
 }
 
 - (void)willSleep:(NSNotification *)note {
     (void)note;
-    dispatch_async(dispatch_get_main_queue(), ^{
+    [self withStateAsync:^{
         [self stopHandlingRawCallbacks];
-    });
+    }];
 }
 
 - (void)didWakeUp:(NSNotification *)note {
     (void)note;
-    dispatch_async(dispatch_get_main_queue(), ^{
+    [self withStateAsync:^{
         if (self.rawListenersSnapshot.count > 0) {
             [self startHandlingRawCallbacks];
         }
-    });
+    }];
 }
 
 static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block) {
