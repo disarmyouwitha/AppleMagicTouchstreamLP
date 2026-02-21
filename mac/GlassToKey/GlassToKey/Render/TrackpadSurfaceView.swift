@@ -24,7 +24,6 @@ struct TrackpadSurfaceSnapshot {
     var rightCustomButtons: [CustomButton]
     var leftTouches: [OMSTouchData]
     var rightTouches: [OMSTouchData]
-    var visualsEnabled: Bool
     var selectedColumn: Int?
     var selectedLeftKey: TrackpadSurfaceKeySelection?
     var selectedRightKey: TrackpadSurfaceKeySelection?
@@ -46,7 +45,6 @@ extension TrackpadSurfaceSnapshot {
             rightCustomButtons: [],
             leftTouches: [],
             rightTouches: [],
-            visualsEnabled: false,
             selectedColumn: nil,
             selectedLeftKey: nil,
             selectedRightKey: nil,
@@ -126,8 +124,6 @@ final class TrackpadSurfaceView: NSView {
             origin: origin
         )
         drawButtonSelection(customButtons, selectedButtonID: selectedButtonID, origin: origin)
-
-        guard snapshot.visualsEnabled else { return }
         drawTouches(touches, origin: origin)
     }
 
@@ -293,8 +289,7 @@ final class TrackpadSurfaceView: NSView {
             transform.rotate(byRadians: CGFloat(-touch.angle))
             transform.translate(x: -centerX, y: -centerY)
             path.transform(using: transform)
-            let alpha = min(max(CGFloat(touch.total), 0.05), 1.0)
-            NSColor.labelColor.withAlphaComponent(alpha).setFill()
+            NSColor.labelColor.withAlphaComponent(0.95).setFill()
             path.fill()
         }
     }
