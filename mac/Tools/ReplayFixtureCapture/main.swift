@@ -24,7 +24,7 @@ private actor CaptureBuffer {
                 "minorAxis": Double(touch.minorAxis),
                 "angle": Double(touch.angle),
                 "density": Double(touch.density),
-                "state": String(describing: touch.state)
+                "state": stateLabel(rawValue: UInt(touch.state.rawValue))
             ]
         }
 
@@ -47,6 +47,20 @@ private actor CaptureBuffer {
 
     func snapshot() -> [String] {
         frameLines
+    }
+
+    nonisolated private func stateLabel(rawValue: UInt) -> String {
+        switch rawValue {
+        case 0: return "notTouching"
+        case 1: return "starting"
+        case 2: return "hovering"
+        case 3: return "making"
+        case 4: return "touching"
+        case 5: return "breaking"
+        case 6: return "lingering"
+        case 7: return "leaving"
+        default: return "unknown"
+        }
     }
 
     nonisolated private func jsonLine(_ object: [String: Any]) -> String? {

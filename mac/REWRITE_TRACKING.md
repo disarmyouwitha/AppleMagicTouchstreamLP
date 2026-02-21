@@ -215,7 +215,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [x] Add replay fixture format draft and first fixture from current macOS run.
 
 Latest replay artifact:
-- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (captured run metadata; no touch frames sampled in this automated capture window).
+- `ReplayFixtures/macos_first_capture_2026-02-20.jsonl` (meta + 52 touch frames from live trackpad run; state serialization normalized to canonical labels).
 
 ## Open Decisions
 - [ ] Rust core timing: after Swift split (recommended) or in parallel.
