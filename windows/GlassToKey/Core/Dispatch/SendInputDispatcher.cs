@@ -57,6 +57,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private string _autocorrectLastCorrected = "none";
     private string _autocorrectBufferSnapshot = string.Empty;
     private string _autocorrectSkipReason = "idle";
+    private string _autocorrectLastResetSource = "none";
     private int _autocorrectPointerActivityPending;
     private bool _disposed;
     private static readonly Lazy<SymSpell?> SymSpellInstance = new(CreateSymSpell);
@@ -88,7 +89,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             Enabled: _autocorrectEnabled,
             LastCorrected: _autocorrectLastCorrected,
             CurrentBuffer: _autocorrectBufferSnapshot,
-            SkipReason: _autocorrectSkipReason);
+            SkipReason: _autocorrectSkipReason,
+            LastResetSource: _autocorrectLastResetSource);
     }
 
     public void NotifyPointerActivity()
@@ -896,6 +898,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         if (!string.IsNullOrWhiteSpace(reason))
         {
             _autocorrectSkipReason = reason;
+            _autocorrectLastResetSource = reason;
         }
     }
 
@@ -959,7 +962,8 @@ internal readonly record struct AutocorrectStatusSnapshot(
     bool Enabled,
     string LastCorrected,
     string CurrentBuffer,
-    string SkipReason);
+    string SkipReason,
+    string LastResetSource);
 
 internal sealed class NullInputDispatcher : IInputDispatcher
 {

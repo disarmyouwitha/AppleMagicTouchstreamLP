@@ -116,6 +116,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private string _lastAutocorrectUiLastCorrected = string.Empty;
     private string _lastAutocorrectUiCurrentBuffer = string.Empty;
     private string _lastAutocorrectUiSkipReason = string.Empty;
+    private string _lastAutocorrectUiResetSource = string.Empty;
     private int _lastEngineVisualLayer = -1;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
@@ -4285,11 +4286,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string lastCorrected = "n/a";
         string currentBuffer = "n/a";
         string skipReason = "n/a";
+        string resetSource = "n/a";
         if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
         {
             lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
             currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
             skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
+            resetSource = string.IsNullOrWhiteSpace(snapshot.LastResetSource) ? "none" : snapshot.LastResetSource;
             if (!snapshot.Enabled)
             {
                 skipReason = "disabled";
@@ -4312,6 +4315,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _lastAutocorrectUiSkipReason = skipReason;
             AutocorrectSkipReasonValueText.Text = skipReason;
+        }
+
+        if (!string.Equals(resetSource, _lastAutocorrectUiResetSource, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiResetSource = resetSource;
+            AutocorrectResetSourceValueText.Text = resetSource;
         }
     }
 

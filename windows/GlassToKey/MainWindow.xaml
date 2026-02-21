@@ -791,6 +791,10 @@
                       <Run Text="Skip reason: " />
                       <Run x:Name="AutocorrectSkipReasonValueText" Text="n/a" Foreground="#e7e9ea" />
                     </TextBlock>
+                    <TextBlock Foreground="#8b949e" FontSize="11" Margin="0,2,0,0">
+                      <Run Text="Reset source: " />
+                      <Run x:Name="AutocorrectResetSourceValueText" Text="n/a" Foreground="#e7e9ea" />
+                    </TextBlock>
                   </StackPanel>
                 </Border>
               </StackPanel>
