@@ -47,8 +47,7 @@ let package = Package(
         .executableTarget(
             name: "ReplayHarness",
             dependencies: ["ReplayFixtureKit"],
-            path: "Tools/ReplayHarness",
-            exclude: ["verify_replay_baselines.sh"]
+            path: "Tools/ReplayHarness"
         ),
         .testTarget(
             name: "ReplayFixtureKitTests",
