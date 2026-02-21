@@ -3,6 +3,10 @@
 ## Purpose
 Track a ground-up rewrite of the macOS app and capture stack, using `REWRITE.md` as strategy and `../windows/glasstokey` as runtime parity reference.
 
+## Next Instance Start Here
+1. Read `REWRITE.md` for intent, constraints, and parity goals.
+2. Read `REWRITE_TRACKING.md` for execution status, phase checklists, and current next slice.
+
 ## Scope
 - In scope: Objective-C capture bridge (`Framework/OpenMultitouchSupportXCF`), Swift wrapper (`Sources/OpenMultitouchSupport`), app runtime/UI (`GlassToKey/GlassToKey`), parity test infrastructure.
 - Out of scope: changing key semantics, adding logging/file I/O on hot paths, hand-editing generated XCFramework artifacts.
@@ -173,10 +177,10 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 | Workstream | Owner | Status | Notes |
 | --- | --- | --- | --- |
 | Capture bridge V2 (ObjC) | TBD | Not Started | Raw-first + numeric registry |
-| Runtime service split (Swift) | TBD | Not Started | Extract from `ContentViewModel` |
-| Engine boundary + replay harness | TBD | Not Started | Deterministic trace testing |
+| Runtime service split (Swift) | TBD | In Progress | `InputRuntimeService` scaffold + runtime DTOs added; not yet wired into `ContentViewModel` |
+| Engine boundary + replay harness | TBD | In Progress | `EngineActorBoundary` + `EngineActorStub` added; replay harness pending |
 | Dispatch queue/pump | TBD | Not Started | Decouple key posting |
-| AppKit surface renderer | TBD | Not Started | Replace SwiftUI canvas hot path |
+| AppKit surface renderer | TBD | In Progress | `TrackpadSurfaceView` + `NSViewRepresentable` path added behind feature flag |
 | UI/editor shell refactor | TBD | Not Started | Snapshot polling + command API |
 | Rust `g2k-core` spike | TBD | Not Started | ABI + parity contract |
 | Perf/diagnostics dashboard | TBD | Not Started | Frame pacing + drops + latency |
@@ -195,7 +199,7 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - [ ] Config-window stress test (edit mode open + rapid selection changes).
 - [ ] Sleep/wake and reconnect scenario tests.
 - [ ] Build verification:
-  - [ ] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
+  - [x] `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
 
 ## Migration Rules
 - Introduce feature flags for each new layer; no big-bang switch.
@@ -204,10 +208,10 @@ Status legend: `Not Started` | `In Progress` | `Blocked` | `Done`
 - Treat generated artifacts (`OpenMultitouchSupportXCF.xcframework`) as build outputs only.
 
 ## Immediate Next Slice (Execution Ready)
-- [ ] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
+- [x] Finalize rewrite module boundaries and create new target folders (`Runtime`, `Engine`, `Render`).
 - [ ] Implement capture bridge V2 skeleton with raw-only callback registration.
-- [ ] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
-- [ ] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
+- [x] Stand up `InputRuntimeService` + queue stub + snapshot DTOs.
+- [x] Add minimal `TrackpadSurfaceView` drawing static layout from snapshots.
 - [ ] Add replay fixture format draft and first fixture from current macOS run.
 
 ## Open Decisions

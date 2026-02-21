@@ -23,6 +23,11 @@
 		3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D5BB43B585451E9D83C8ED /* MobileLayout.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */; };
 		B5E3C9A51F3B7D2200A1B2C3 /* TapTrace.swift in Sources */ = {isa = PBXBuildFile; fileRef = B5E3C9A41F3B7D2200A1B2C3 /* TapTrace.swift */; };
+		C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */; };
+		C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */; };
+		C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */; };
+		C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */; };
+		C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -43,6 +48,11 @@
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyDefaultsKeys.swift; sourceTree = "<group>"; };
 		B5E3C9A41F3B7D2200A1B2C3 /* TapTrace.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapTrace.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RewriteFeatureFlags.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RuntimeContracts.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = InputRuntimeService.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EngineActorBoundary.swift; sourceTree = "<group>"; };
+		C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadSurfaceView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -82,6 +92,9 @@
 				77292A872B931953001CA3F6 /* GlassToKeyApp.swift */,
 				A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */,
 				77292A892B931953001CA3F6 /* ContentView.swift */,
+				C0A1B2C3D4E5F60718293C41 /* Runtime */,
+				C0A1B2C3D4E5F60718293C42 /* Engine */,
+				C0A1B2C3D4E5F60718293C43 /* Render */,
 				5A1C2D3E4F5061728394A5B5 /* AutocorrectEngine.swift */,
 				5A1C2D3E4F5061728394A5B7 /* AccessibilityTextReplacer.swift */,
 				5A1C2D3E4F5061728394A5B9 /* KeySemanticMapper.swift */,
@@ -95,6 +108,32 @@
 				31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */,
 			);
 			path = GlassToKey;
+			sourceTree = "<group>";
+		};
+		C0A1B2C3D4E5F60718293C41 /* Runtime */ = {
+			isa = PBXGroup;
+			children = (
+				C0A1B2C3D4E5F60718293B41 /* RewriteFeatureFlags.swift */,
+				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
+				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
+			);
+			path = Runtime;
+			sourceTree = "<group>";
+		};
+		C0A1B2C3D4E5F60718293C42 /* Engine */ = {
+			isa = PBXGroup;
+			children = (
+				C0A1B2C3D4E5F60718293B44 /* EngineActorBoundary.swift */,
+			);
+			path = Engine;
+			sourceTree = "<group>";
+		};
+		C0A1B2C3D4E5F60718293C43 /* Render */ = {
+			isa = PBXGroup;
+			children = (
+				C0A1B2C3D4E5F60718293B45 /* TrackpadSurfaceView.swift */,
+			);
+			path = Render;
 			sourceTree = "<group>";
 		};
 		77292A992B931D7A001CA3F6 /* Frameworks */ = {
@@ -190,6 +229,11 @@
 				31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */,
 				B5E3C9A51F3B7D2200A1B2C3 /* TapTrace.swift in Sources */,
+				C0A1B2C3D4E5F60718293A41 /* RewriteFeatureFlags.swift in Sources */,
+				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
+				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
+				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,
+				C0A1B2C3D4E5F60718293A45 /* TrackpadSurfaceView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

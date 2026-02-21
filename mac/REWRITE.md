@@ -9,6 +9,9 @@ Make macOS behavior and feel match the Windows app under heavy touch load, espec
 - Minimal main-thread invalidation churn
 - Cross-platform behavior parity via a shared engine path (Rust preferred)
 
+## Execution Tracking
+Use `REWRITE_TRACKING.md` as the execution source of truth for phase checklists, workstream status, and current implementation slice.
+
 ## Decisions from this review
 1. Keep native app stacks:
 - macOS app/UI in Swift, private framework bridge in Objective-C.
