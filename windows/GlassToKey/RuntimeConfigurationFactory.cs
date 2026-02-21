@@ -47,6 +47,8 @@ internal static class RuntimeConfigurationFactory
             TwoFingerHoldAction = settings.TwoFingerHoldAction,
             ThreeFingerHoldAction = settings.ThreeFingerHoldAction,
             FourFingerHoldAction = settings.FourFingerHoldAction,
+            ThreeFingerClickAction = settings.ThreeFingerClickAction,
+            FourFingerClickAction = settings.FourFingerClickAction,
             OuterCornersAction = settings.OuterCornersAction,
             InnerCornersAction = settings.InnerCornersAction,
             TopLeftTriangleAction = settings.TopLeftTriangleAction,

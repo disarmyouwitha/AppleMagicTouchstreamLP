@@ -72,6 +72,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly TouchProcessorActor? _touchActor;
     private readonly DispatchEventQueue? _dispatchQueue;
     private readonly DispatchEventPump? _dispatchPump;
+    private readonly SendInputDispatcher? _sendInputDispatcher;
     private KeyLayout _leftLayout;
     private KeyLayout _rightLayout;
     private int _activeLayer;
@@ -112,6 +113,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private Brush _lastIntentPillBrush = IntentUnknownBrush;
     private string _lastModePillLabel = string.Empty;
     private Brush _lastModePillBrush = ModeUnknownBrush;
+    private string _lastAutocorrectUiLastCorrected = string.Empty;
+    private string _lastAutocorrectUiCurrentBuffer = string.Empty;
+    private string _lastAutocorrectUiSkipReason = string.Empty;
     private int _lastEngineVisualLayer = -1;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
@@ -136,6 +140,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
@@ -213,6 +218,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapImportButton.Click += OnKeymapImportClicked;
         KeyboardModeCheck.Checked += OnModeSettingChanged;
         KeyboardModeCheck.Unchecked += OnModeSettingChanged;
+        AutocorrectModeCheck.Checked += OnModeSettingChanged;
+        AutocorrectModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
@@ -246,6 +253,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceClick1GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ForceClick2GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ForceClick3GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ThreeFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        FourFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         UpperLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         UpperRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -274,7 +283,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
             _dispatchQueue = new DispatchEventQueue();
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
-            _dispatchPump = new DispatchEventPump(_dispatchQueue, new SendInputDispatcher());
+            _sendInputDispatcher = new SendInputDispatcher();
+            _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
+            _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
@@ -304,6 +315,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
         Closed += (_, _) =>
         {
+            _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
@@ -328,6 +340,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _left.Reset();
             _right.Reset();
         };
+    }
+
+    private void OnGlobalClickObserved()
+    {
+        _sendInputDispatcher?.NotifyPointerActivity();
     }
 
     private void OnSourceInitialized(object? sender, EventArgs e)
@@ -430,6 +447,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         if (_touchActor == null && _runtimeService == null)
         {
+            UpdateAutocorrectStatusDetails();
             return;
         }
 
@@ -489,6 +507,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string forceClick1Action = NormalizeGestureActionForUi(_settings.ForceClick1Action, "None");
         string forceClick2Action = NormalizeGestureActionForUi(_settings.ForceClick2Action, "None");
         string forceClick3Action = NormalizeGestureActionForUi(_settings.ForceClick3Action, "None");
+        string threeFingerClickAction = NormalizeGestureActionForUi(_settings.ThreeFingerClickAction, "None");
+        string fourFingerClickAction = NormalizeGestureActionForUi(_settings.FourFingerClickAction, "None");
         string upperLeftCornerClickAction = NormalizeGestureActionForUi(_settings.UpperLeftCornerClickAction, "None");
         string upperRightCornerClickAction = NormalizeGestureActionForUi(_settings.UpperRightCornerClickAction, "None");
         string lowerLeftCornerClickAction = NormalizeGestureActionForUi(_settings.LowerLeftCornerClickAction, "None");
@@ -517,6 +537,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ForceClick1Action = forceClick1Action;
         _settings.ForceClick2Action = forceClick2Action;
         _settings.ForceClick3Action = forceClick3Action;
+        _settings.ThreeFingerClickAction = threeFingerClickAction;
+        _settings.FourFingerClickAction = fourFingerClickAction;
         _settings.UpperLeftCornerClickAction = upperLeftCornerClickAction;
         _settings.UpperRightCornerClickAction = upperRightCornerClickAction;
         _settings.LowerLeftCornerClickAction = lowerLeftCornerClickAction;
@@ -545,6 +567,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceClick1GestureCombo.SelectedValue = forceClick1Action;
         ForceClick2GestureCombo.SelectedValue = forceClick2Action;
         ForceClick3GestureCombo.SelectedValue = forceClick3Action;
+        ThreeFingerClickGestureCombo.SelectedValue = threeFingerClickAction;
+        FourFingerClickGestureCombo.SelectedValue = fourFingerClickAction;
         UpperLeftCornerClickGestureCombo.SelectedValue = upperLeftCornerClickAction;
         UpperRightCornerClickGestureCombo.SelectedValue = upperRightCornerClickAction;
         LowerLeftCornerClickGestureCombo.SelectedValue = lowerLeftCornerClickAction;
@@ -559,6 +583,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectedItem = _preset;
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
+        AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
@@ -578,6 +603,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Content = "Hide Controls";
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
+        UpdateAutocorrectStatusDetails();
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
@@ -618,6 +644,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return ForceClick1GestureCombo;
         yield return ForceClick2GestureCombo;
         yield return ForceClick3GestureCombo;
+        yield return ThreeFingerClickGestureCombo;
+        yield return FourFingerClickGestureCombo;
         yield return UpperLeftCornerClickGestureCombo;
         yield return UpperRightCornerClickGestureCombo;
         yield return LowerLeftCornerClickGestureCombo;
@@ -1004,12 +1032,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ForceClick1Action = ReadGestureActionSelection(ForceClick1GestureCombo, "None");
         _settings.ForceClick2Action = ReadGestureActionSelection(ForceClick2GestureCombo, "None");
         _settings.ForceClick3Action = ReadGestureActionSelection(ForceClick3GestureCombo, "None");
+        _settings.ThreeFingerClickAction = ReadGestureActionSelection(ThreeFingerClickGestureCombo, "None");
+        _settings.FourFingerClickAction = ReadGestureActionSelection(FourFingerClickGestureCombo, "None");
         _settings.UpperLeftCornerClickAction = ReadGestureActionSelection(UpperLeftCornerClickGestureCombo, "None");
         _settings.UpperRightCornerClickAction = ReadGestureActionSelection(UpperRightCornerClickGestureCombo, "None");
         _settings.LowerLeftCornerClickAction = ReadGestureActionSelection(LowerLeftCornerClickGestureCombo, "None");
         _settings.LowerRightCornerClickAction = ReadGestureActionSelection(LowerRightCornerClickGestureCombo, "None");
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
+        _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.SnapRadiusPercent = SnapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
@@ -1305,6 +1336,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);
         }
+        _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
 
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
@@ -1919,6 +1951,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         List<KeyActionOption> options = new(120);
         AddKeyActionOption(options, "None", "General");
         AddKeyActionOption(options, "Left Click", "Mouse Actions");
+        AddKeyActionOption(options, "Double Click", "Mouse Actions");
         AddKeyActionOption(options, "Right Click", "Mouse Actions");
         AddKeyActionOption(options, "Middle Click", "Mouse Actions");
 
@@ -4197,6 +4230,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         UpdateGlobalClickSuppressionState(suppressGlobalClicks);
         UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
+        UpdateAutocorrectStatusDetails();
 
         if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
         {
@@ -4246,6 +4280,41 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
     }
 
+    private void UpdateAutocorrectStatusDetails()
+    {
+        string lastCorrected = "n/a";
+        string currentBuffer = "n/a";
+        string skipReason = "n/a";
+        if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
+        {
+            lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
+            currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
+            skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
+            if (!snapshot.Enabled)
+            {
+                skipReason = "disabled";
+            }
+        }
+
+        if (!string.Equals(lastCorrected, _lastAutocorrectUiLastCorrected, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiLastCorrected = lastCorrected;
+            AutocorrectLastCorrectedValueText.Text = lastCorrected;
+        }
+
+        if (!string.Equals(currentBuffer, _lastAutocorrectUiCurrentBuffer, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiCurrentBuffer = currentBuffer;
+            AutocorrectCurrentBufferValueText.Text = currentBuffer;
+        }
+
+        if (!string.Equals(skipReason, _lastAutocorrectUiSkipReason, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiSkipReason = skipReason;
+            AutocorrectSkipReasonValueText.Text = skipReason;
+        }
+    }
+
     private static int SnapshotContactCount(TouchState state)
     {
         Span<TouchContact> contacts = stackalloc TouchContact[PtpReport.MaxContacts];
@@ -4286,6 +4355,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (_runtimeService != null)
         {
             return _runtimeService.TryGetSnapshot(out snapshot);
+        }
+
+        snapshot = default;
+        return false;
+    }
+
+    private bool TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot)
+    {
+        if (_sendInputDispatcher != null)
+        {
+            snapshot = _sendInputDispatcher.GetAutocorrectStatus();
+            return true;
+        }
+
+        if (_runtimeService != null)
+        {
+            return _runtimeService.TryGetAutocorrectStatus(out snapshot);
         }
 
         snapshot = default;

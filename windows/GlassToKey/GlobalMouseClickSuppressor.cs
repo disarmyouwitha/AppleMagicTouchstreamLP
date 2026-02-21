@@ -40,6 +40,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private IntPtr _hookHandle;
     private int _enabled;
     private bool _disposed;
+    public event Action? ClickObserved;
 
     public GlobalMouseClickSuppressor()
     {
@@ -103,15 +104,31 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         }
 
         _hookProc = null;
+        ClickObserved = null;
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
     {
-        if (nCode >= HcAction && Volatile.Read(ref _enabled) != 0)
+        if (nCode >= HcAction)
         {
             int message = unchecked((int)(long)wParam);
-            if (IsClickMessage(message) &&
-                !IsInjected(lParam) &&
+            bool isClick = IsClickMessage(message);
+            bool isInjected = IsInjected(lParam);
+            if (isClick && !isInjected)
+            {
+                try
+                {
+                    ClickObserved?.Invoke();
+                }
+                catch
+                {
+                    // Observer failures should never impact input hook stability.
+                }
+            }
+
+            if (Volatile.Read(ref _enabled) != 0 &&
+                isClick &&
+                !isInjected &&
                 !IsCurrentProcessWindowAtCursor(lParam))
             {
                 return (IntPtr)1;
