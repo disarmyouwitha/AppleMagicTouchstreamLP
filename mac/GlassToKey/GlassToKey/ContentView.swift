@@ -576,6 +576,7 @@ struct ContentView: View {
         RightSidebarView(
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
+            columnSettings: columnSettings,
             columnSelection: columnInspectorSelection,
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
@@ -804,6 +805,7 @@ struct ContentView: View {
     private struct RightSidebarView: View {
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let columnSettings: [ColumnLayoutSettings]
         let columnSelection: ColumnInspectorSelection?
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
@@ -825,6 +827,8 @@ struct ContentView: View {
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
+        @State private var columnTuningExpanded = true
+        @State private var keymapTuningExpanded = true
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
@@ -888,21 +892,66 @@ struct ContentView: View {
 
                 if editModeEnabled {
                     VStack(alignment: .leading, spacing: 12) {
-                        ColumnTuningSectionView(
-                            layoutSelection: layoutSelection,
-                            layoutOption: layoutOption,
-                            selection: columnSelection,
-                            onUpdateColumn: onUpdateColumn
+                        HStack {
+                            Text("Layout")
+                            Spacer()
+                            Picker("", selection: layoutSelection) {
+                                ForEach(TrackpadLayoutPreset.allCases) { preset in
+                                    Text(preset.displayName).tag(preset)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
                         )
-                        ButtonTuningSectionView(
-                            buttonSelection: buttonSelection,
-                            keySelection: keySelection,
-                            layerSelection: layerSelection,
-                            onAddCustomButton: onAddCustomButton,
-                            onRemoveCustomButton: onRemoveCustomButton,
-                            onClearTouchState: onClearTouchState,
-                            onUpdateButton: onUpdateButton,
-                            onUpdateKeyMapping: onUpdateKeyMapping
+
+                        DisclosureGroup(
+                            isExpanded: $columnTuningExpanded
+                        ) {
+                            ColumnTuningSectionView(
+                                layoutOption: layoutOption,
+                                columnSettings: columnSettings,
+                                selection: columnSelection,
+                                onUpdateColumn: onUpdateColumn
+                            )
+                            .padding(.top, 8)
+                        } label: {
+                            Text("Column Tuning")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
+                        )
+
+                        DisclosureGroup(
+                            isExpanded: $keymapTuningExpanded
+                        ) {
+                            ButtonTuningSectionView(
+                                buttonSelection: buttonSelection,
+                                keySelection: keySelection,
+                                layerSelection: layerSelection,
+                                onAddCustomButton: onAddCustomButton,
+                                onRemoveCustomButton: onRemoveCustomButton,
+                                onClearTouchState: onClearTouchState,
+                                onUpdateButton: onUpdateButton,
+                                onUpdateKeyMapping: onUpdateKeyMapping
+                            )
+                            .padding(.top, 8)
+                        } label: {
+                            Text("Keymap Tuning")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
                         )
                     }
                 }
@@ -993,38 +1042,46 @@ struct ContentView: View {
     }
 
     private struct ColumnTuningSectionView: View {
-        let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
+        let columnSettings: [ColumnLayoutSettings]
         let selection: ColumnInspectorSelection?
         let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
 
+        private var activeColumnIndex: Int? {
+            guard !columnSettings.isEmpty else { return nil }
+            if let index = selection?.index, columnSettings.indices.contains(index) {
+                return index
+            }
+            return 0
+        }
+
+        private var activeColumnSettings: ColumnLayoutSettings? {
+            guard let index = activeColumnIndex else { return nil }
+            if let selection, selection.index == index {
+                return selection.settings
+            }
+            return columnSettings[index]
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Column Tuning")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                HStack {
-                    Text("Layout")
-                    Spacer()
-                    Picker("", selection: layoutSelection) {
-                        ForEach(TrackpadLayoutPreset.allCases) { preset in
-                            Text(preset.displayName).tag(preset)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                }
                 if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
-                    if let selection {
-                        Text("Selected column \(selection.index + 1)")
+                    if let index = activeColumnIndex,
+                       let settings = activeColumnSettings {
+                        Text(
+                            selection == nil
+                                ? "Editing column \(index + 1) (select a column to target another)."
+                                : "Selected column \(index + 1)"
+                        )
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
                                 title: "Scale",
                                 value: Binding(
-                                    get: { selection.settings.scale },
+                                    get: { settings.scale },
                                     set: { newValue in
-                                        onUpdateColumn(selection.index) { setting in
+                                        onUpdateColumn(index) { setting in
                                             setting.scale = ContentView.normalizedColumnScale(newValue)
                                         }
                                     }
@@ -1037,9 +1094,9 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "X",
                                 value: Binding(
-                                    get: { selection.settings.offsetXPercent },
+                                    get: { settings.offsetXPercent },
                                     set: { newValue in
-                                        onUpdateColumn(selection.index) { setting in
+                                        onUpdateColumn(index) { setting in
                                             setting.offsetXPercent = ContentView.normalizedColumnOffsetPercent(newValue)
                                         }
                                     }
@@ -1053,9 +1110,9 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "Y",
                                 value: Binding(
-                                    get: { selection.settings.offsetYPercent },
+                                    get: { settings.offsetYPercent },
                                     set: { newValue in
-                                        onUpdateColumn(selection.index) { setting in
+                                        onUpdateColumn(index) { setting in
                                             setting.offsetYPercent = ContentView.normalizedColumnOffsetPercent(newValue)
                                         }
                                     }
@@ -1069,9 +1126,9 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "Pad",
                                 value: Binding(
-                                    get: { selection.settings.rowSpacingPercent },
+                                    get: { settings.rowSpacingPercent },
                                     set: { newValue in
-                                        onUpdateColumn(selection.index) { setting in
+                                        onUpdateColumn(index) { setting in
                                             setting.rowSpacingPercent = ContentView.normalizedRowSpacingPercent(newValue)
                                         }
                                     }
@@ -1084,7 +1141,7 @@ struct ContentView: View {
                             )
                         }
                     } else {
-                        Text("Select a column on the trackpad to edit.")
+                        Text("No columns available for this layout.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     }
@@ -1096,12 +1153,7 @@ struct ContentView: View {
                         .foregroundStyle(.secondary)
                 }
             }
-            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.primary.opacity(0.05))
-            )
         }
     }
 
@@ -1115,11 +1167,66 @@ struct ContentView: View {
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
 
+        private var hasEditableSelection: Bool {
+            buttonSelection != nil || keySelection != nil
+        }
+
+        private var primaryActionBinding: Binding<KeyAction> {
+            Binding(
+                get: {
+                    if let selection = buttonSelection {
+                        return selection.button.action
+                    }
+                    if let selection = keySelection {
+                        return selection.mapping.primary
+                    }
+                    return KeyActionCatalog.noneAction
+                },
+                set: { newValue in
+                    if let selection = buttonSelection {
+                        onUpdateButton(selection.button.id) { button in
+                            button.action = newValue
+                        }
+                        return
+                    }
+                    if let selection = keySelection {
+                        onUpdateKeyMapping(selection.key) { mapping in
+                            mapping.primary = newValue
+                        }
+                    }
+                }
+            )
+        }
+
+        private var holdActionBinding: Binding<KeyAction?> {
+            Binding(
+                get: {
+                    if let selection = buttonSelection {
+                        return selection.button.hold
+                    }
+                    if let selection = keySelection {
+                        return selection.mapping.hold
+                    }
+                    return nil
+                },
+                set: { newValue in
+                    if let selection = buttonSelection {
+                        onUpdateButton(selection.button.id) { button in
+                            button.hold = newValue
+                        }
+                        return
+                    }
+                    if let selection = keySelection {
+                        onUpdateKeyMapping(selection.key) { mapping in
+                            mapping.hold = newValue
+                        }
+                    }
+                }
+            )
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Keymap Tuning")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
                 HStack {
                     Text("Layer")
                     Spacer()
@@ -1131,38 +1238,35 @@ struct ContentView: View {
                     .pickerStyle(MenuPickerStyle())
                     .labelsHidden()
                 }
+                if let selection = keySelection {
+                    Text("Selected key: \(selection.key.label)")
+                        .font(.subheadline)
+                        .bold()
+                } else if buttonSelection == nil {
+                    Text("Select a button or key on the trackpad to edit.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Picker("Primary Action", selection: primaryActionBinding) {
+                    Text(KeyActionCatalog.noneLabel)
+                        .tag(KeyActionCatalog.noneAction)
+                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
+                        ContentView.pickerLabel(for: action).tag(action)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .disabled(!hasEditableSelection)
+                Picker("Hold Action", selection: holdActionBinding) {
+                    Text("None").tag(nil as KeyAction?)
+                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
+                        ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                    }
+                }
+                .pickerStyle(MenuPickerStyle())
+                .disabled(!hasEditableSelection)
+                addButtonsRow
                 if let selection = buttonSelection {
                     VStack(alignment: .leading, spacing: 6) {
-                        Picker("Action", selection: Binding(
-                            get: { selection.button.action },
-                            set: { newValue in
-                                onUpdateButton(selection.button.id) { button in
-                                    button.action = newValue
-                                }
-                            }
-                        )) {
-                            Text(KeyActionCatalog.noneLabel)
-                                .tag(KeyActionCatalog.noneAction)
-                            ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        Picker("Hold Action", selection: Binding(
-                            get: { selection.button.hold },
-                            set: { newValue in
-                                onUpdateButton(selection.button.id) { button in
-                                    button.hold = newValue
-                                }
-                            }
-                        )) {
-                            Text("None").tag(nil as KeyAction?)
-                            ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action as KeyAction?)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        addButtonsRow
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
                                 title: "X",
@@ -1211,55 +1315,9 @@ struct ContentView: View {
                             }
                         }
                     }
-                } else if let selection = keySelection {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Selected key: \(selection.key.label)")
-                            .font(.subheadline)
-                            .bold()
-                        Picker("Action", selection: Binding(
-                            get: { selection.mapping.primary },
-                            set: { newValue in
-                                onUpdateKeyMapping(selection.key) { mapping in
-                                    mapping.primary = newValue
-                                }
-                            }
-                        )) {
-                            Text(KeyActionCatalog.noneLabel)
-                                .tag(KeyActionCatalog.noneAction)
-                            ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        Picker("Hold Action", selection: Binding(
-                            get: { selection.mapping.hold },
-                            set: { newValue in
-                                onUpdateKeyMapping(selection.key) { mapping in
-                                    mapping.hold = newValue
-                                }
-                            }
-                        )) {
-                            Text("None").tag(nil as KeyAction?)
-                            ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action as KeyAction?)
-                            }
-                        }
-                        .pickerStyle(MenuPickerStyle())
-                        addButtonsRow
-                    }
-                } else {
-                    Text("Select a button or key on the trackpad to edit.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    addButtonsRow
                 }
             }
-            .padding(12)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.primary.opacity(0.05))
-            )
             .contentShape(Rectangle())
             .simultaneousGesture(
                 TapGesture().onEnded {
