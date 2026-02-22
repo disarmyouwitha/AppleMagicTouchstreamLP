@@ -53,6 +53,7 @@ internal static class ReplayVisualLoader
 
         using InputCaptureReader reader = new(fullPath);
         bool isV3Capture = reader.HeaderVersion == InputCaptureFile.Version3;
+        AtpCapV3Compatibility v3Compatibility = AtpCapV3Compatibility.None;
         while (reader.TryReadNext(out CaptureRecord record))
         {
             recordsRead++;
@@ -69,9 +70,13 @@ internal static class ReplayVisualLoader
             {
                 if (record.DeviceIndex == -1)
                 {
-                    if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                    if (!AtpCapV3Payload.TryParseMeta(payload, out AtpCapV3Meta meta))
                     {
                         droppedParseError++;
+                    }
+                    else
+                    {
+                        v3Compatibility = AtpCapV3Payload.ResolveCompatibility(meta);
                     }
 
                     continue;
@@ -98,7 +103,12 @@ internal static class ReplayVisualLoader
                     continue;
                 }
 
-                frame = AtpCapV3Payload.ToInputFrame(v3Frame, record.ArrivalQpcTicks, RuntimeConfigurationFactory.DefaultMaxX, RuntimeConfigurationFactory.DefaultMaxY);
+                frame = AtpCapV3Payload.ToInputFrame(
+                    v3Frame,
+                    record.ArrivalQpcTicks,
+                    RuntimeConfigurationFactory.DefaultMaxX,
+                    RuntimeConfigurationFactory.DefaultMaxY,
+                    flipY: v3Compatibility.FlipY);
             }
             else
             {
@@ -139,7 +149,10 @@ internal static class ReplayVisualLoader
                 device = new ReplayDeviceAccumulator(displayName, replayDeviceName, tag.Index, tag.Hash);
                 devicesByTag[key] = device;
             }
-            device.ObserveSideHint(record.SideHint);
+            CaptureSideHint sideHint = isV3Capture
+                ? AtpCapV3Payload.NormalizeSideHint(record.SideHint, v3Compatibility)
+                : record.SideHint;
+            device.ObserveSideHint(sideHint);
 
             int contactCount = frame.GetClampedContactCount();
             for (int i = 0; i < contactCount; i++)

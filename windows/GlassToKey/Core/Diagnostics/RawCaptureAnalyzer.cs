@@ -261,6 +261,7 @@ internal static class RawCaptureAnalyzer
         {
             using InputCaptureReader reader = new(fullPath);
             bool isV3Capture = reader.HeaderVersion == InputCaptureFile.Version3;
+            AtpCapV3Compatibility v3Compatibility = AtpCapV3Compatibility.None;
             if (contactsWriter != null)
             {
                 if (isV3Capture)
@@ -277,7 +278,14 @@ internal static class RawCaptureAnalyzer
             {
                 if (isV3Capture)
                 {
-                    AnalyzeV3Record(record, signatures, ref recordsRead, ref recordsDecoded, ref frameIndex, contactsWriter);
+                    AnalyzeV3Record(
+                        record,
+                        signatures,
+                        ref recordsRead,
+                        ref recordsDecoded,
+                        ref frameIndex,
+                        contactsWriter,
+                        ref v3Compatibility);
                 }
                 else
                 {
@@ -349,7 +357,8 @@ internal static class RawCaptureAnalyzer
         ref int recordsRead,
         ref int recordsDecoded,
         ref int frameIndex,
-        TextWriter? contactsWriter)
+        TextWriter? contactsWriter,
+        ref AtpCapV3Compatibility compatibility)
     {
         recordsRead++;
         ReadOnlySpan<byte> payload = record.Payload.Span;
@@ -361,7 +370,11 @@ internal static class RawCaptureAnalyzer
 
         if (record.DeviceIndex == -1)
         {
-            _ = AtpCapV3Payload.TryParseMeta(payload, out _);
+            if (AtpCapV3Payload.TryParseMeta(payload, out AtpCapV3Meta meta))
+            {
+                compatibility = AtpCapV3Payload.ResolveCompatibility(meta);
+            }
+
             frameIndex++;
             return;
         }
@@ -388,7 +401,12 @@ internal static class RawCaptureAnalyzer
             return;
         }
 
-        InputFrame mapped = AtpCapV3Payload.ToInputFrame(v3Frame, record.ArrivalQpcTicks, RuntimeConfigurationFactory.DefaultMaxX, RuntimeConfigurationFactory.DefaultMaxY);
+        InputFrame mapped = AtpCapV3Payload.ToInputFrame(
+            v3Frame,
+            record.ArrivalQpcTicks,
+            RuntimeConfigurationFactory.DefaultMaxX,
+            RuntimeConfigurationFactory.DefaultMaxY,
+            flipY: compatibility.FlipY);
         TrackpadDecodeResult syntheticDecode = new(
             Kind: TrackpadReportKind.Unknown,
             PayloadOffset: 0,

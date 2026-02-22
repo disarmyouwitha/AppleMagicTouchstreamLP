@@ -31,6 +31,13 @@ internal readonly record struct AtpCapV3Frame(
     ushort ContactCount,
     AtpCapV3Contact[] Contacts);
 
+internal readonly record struct AtpCapV3Compatibility(
+    bool FlipY,
+    bool SwapLeftRightSideHints)
+{
+    public static readonly AtpCapV3Compatibility None = new(false, false);
+}
+
 internal static class AtpCapV3Payload
 {
     public const uint FrameMagic = 0x33564652; // RFV3
@@ -136,7 +143,24 @@ internal static class AtpCapV3Payload
         return true;
     }
 
-    public static InputFrame ToInputFrame(in AtpCapV3Frame frame, long arrivalQpcTicks, ushort maxX, ushort maxY)
+    public static AtpCapV3Compatibility ResolveCompatibility(in AtpCapV3Meta meta)
+    {
+        if (!string.IsNullOrWhiteSpace(meta.Platform) &&
+            meta.Platform.Contains("mac", StringComparison.OrdinalIgnoreCase))
+        {
+            // macOS v3 captures carry OpenMT normalized Y (bottom-origin) and index-based side hints.
+            return new AtpCapV3Compatibility(FlipY: true, SwapLeftRightSideHints: true);
+        }
+
+        return AtpCapV3Compatibility.None;
+    }
+
+    public static InputFrame ToInputFrame(
+        in AtpCapV3Frame frame,
+        long arrivalQpcTicks,
+        ushort maxX,
+        ushort maxY,
+        bool flipY = false)
     {
         int available = frame.Contacts.Length;
         int count = Math.Min(InputFrame.MaxContacts, available);
@@ -155,7 +179,10 @@ internal static class AtpCapV3Payload
             AtpCapV3Contact source = frame.Contacts[i];
             uint id = source.Id >= 0 ? (uint)source.Id : 0;
             ushort x = ToAbsoluteCoordinate(source.X, maxX);
-            ushort y = ToAbsoluteCoordinate(source.Y, maxY);
+            float sourceY = flipY && float.IsFinite(source.Y)
+                ? (1.0f - source.Y)
+                : source.Y;
+            ushort y = ToAbsoluteCoordinate(sourceY, maxY);
             byte flags = ToContactFlags(source.State);
             result.SetContact(i, new ContactFrame(id, x, y, flags, Pressure: 0, Phase: 0));
         }
@@ -182,6 +209,21 @@ internal static class AtpCapV3Payload
             2 or 6 or 7 => 0x01, // confidence only
             1 or 3 or 4 or 5 => 0x03, // confidence + tip
             _ => 0x00
+        };
+    }
+
+    public static CaptureSideHint NormalizeSideHint(CaptureSideHint sideHint, in AtpCapV3Compatibility compatibility)
+    {
+        if (!compatibility.SwapLeftRightSideHints)
+        {
+            return sideHint;
+        }
+
+        return sideHint switch
+        {
+            CaptureSideHint.Left => CaptureSideHint.Right,
+            CaptureSideHint.Right => CaptureSideHint.Left,
+            _ => CaptureSideHint.Unknown
         };
     }
 }

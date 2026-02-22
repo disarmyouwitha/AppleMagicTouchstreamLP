@@ -71,6 +71,7 @@ internal sealed class ReplayRunner
         actor.SetDiagnosticsEnabled(collectTrace);
         ReplaySideMapper sideMapper = new(options?.SideByTag);
         bool isV3Capture = reader.HeaderVersion == InputCaptureFile.Version3;
+        AtpCapV3Compatibility v3Compatibility = AtpCapV3Compatibility.None;
 
         bool hasBaseQpc = false;
         long baseQpcTicks = 0;
@@ -93,11 +94,12 @@ internal sealed class ReplayRunner
             {
                 if (record.DeviceIndex == -1)
                 {
-                    if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                    if (!AtpCapV3Payload.TryParseMeta(payload, out AtpCapV3Meta meta))
                     {
                         throw new InvalidDataException("Capture version 3 meta payload is invalid.");
                     }
 
+                    v3Compatibility = AtpCapV3Payload.ResolveCompatibility(meta);
                     continue;
                 }
 
@@ -120,7 +122,12 @@ internal sealed class ReplayRunner
                     continue;
                 }
 
-                frame = AtpCapV3Payload.ToInputFrame(v3Frame, record.ArrivalQpcTicks, DefaultMaxX, DefaultMaxY);
+                frame = AtpCapV3Payload.ToInputFrame(
+                    v3Frame,
+                    record.ArrivalQpcTicks,
+                    DefaultMaxX,
+                    DefaultMaxY,
+                    flipY: v3Compatibility.FlipY);
                 metrics.RecordParsed();
             }
             else
@@ -139,7 +146,10 @@ internal sealed class ReplayRunner
                 frame = decoded.Frame;
             }
 
-            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint);
+            CaptureSideHint sideHint = isV3Capture
+                ? AtpCapV3Payload.NormalizeSideHint(record.SideHint, v3Compatibility)
+                : record.SideHint;
+            TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, sideHint);
 
             if (!hasBaseQpc)
             {
