@@ -1,8 +1,6 @@
 ## TODO
-- Can we move Tap Cadence right below Hold Duration
-- Can you find somewhere nice to put Peak force? in Windows we added it to the bototm 
 - Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
-- Haptic Strength (This goes 1-6 we should change scale)
+- Haptic Strength goes 1-6 in the Framework? We should change the scale in the GUI to match!
 ---
 - Double Click action in Action Dropdowns
 - What actions can we add?

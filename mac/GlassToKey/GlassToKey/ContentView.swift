@@ -1780,6 +1780,23 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
+                        Text("Tap Cadence (ms)")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "280",
+                            value: $tapClickCadenceMsSetting,
+                            formatter: ContentView.twoFingerClickCadenceFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $tapClickCadenceMsSetting,
+                            in: ContentView.twoFingerClickCadenceRange,
+                            step: 10
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
                         Text("Typing Grace (ms)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
@@ -1843,23 +1860,6 @@ struct ContentView: View {
                             value: $intentVelocityThresholdMmPerSecSetting,
                             in: ContentView.intentVelocityThresholdRange,
                             step: 5
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
-                    GridRow {
-                        Text("Tap Cadence (ms)")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "280",
-                            value: $tapClickCadenceMsSetting,
-                            formatter: ContentView.twoFingerClickCadenceFormatter
-                        )
-                        .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $tapClickCadenceMsSetting,
-                            in: ContentView.twoFingerClickCadenceRange,
-                            step: 10
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
