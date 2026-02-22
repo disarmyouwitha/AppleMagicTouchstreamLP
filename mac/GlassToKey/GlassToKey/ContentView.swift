@@ -2835,7 +2835,7 @@ struct ContentView: View {
     }
 
     fileprivate static func pickerGroupHeader(_ title: String) -> some View {
-        Text("— — \(title.uppercased()) — —")
+        Text("—— \(title.uppercased()) ——")
             .font(.caption2)
             .fontWeight(.semibold)
             .foregroundColor(.secondary)
@@ -2845,6 +2845,19 @@ struct ContentView: View {
             .background(Color.secondary.opacity(0.04))
             .cornerRadius(6)
             .allowsHitTesting(false)
+    }
+
+    private static func normalizedHoldAction(_ action: KeyAction?) -> KeyAction? {
+        guard let action else { return nil }
+        if action.kind == .none { return nil }
+        let trimmedLabel = action.label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedLabel.isEmpty, trimmedLabel != KeyActionCatalog.noneLabel else { return nil }
+        return action
+    }
+
+    private static func holdLabelText(for action: KeyAction?) -> String? {
+        guard let normalized = normalizedHoldAction(action) else { return nil }
+        return normalized.kind == .typingToggle ? KeyActionCatalog.typingToggleDisplayLabel : normalized.label
     }
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {
