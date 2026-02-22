@@ -25,6 +25,7 @@ enum GlassToKeyDefaultsKeys {
     static let twoFingerTapGestureAction = "GlassToKey.twoFingerTapGestureAction"
     static let threeFingerTapGestureAction = "GlassToKey.threeFingerTapGestureAction"
     static let fourFingerHoldGestureAction = "GlassToKey.fourFingerHoldGestureAction"
+    static let outerCornersHoldGestureAction = "GlassToKey.outerCornersHoldGestureAction"
     static let fiveFingerSwipeLeftGestureAction = "GlassToKey.fiveFingerSwipeLeftGestureAction"
     static let fiveFingerSwipeRightGestureAction = "GlassToKey.fiveFingerSwipeRightGestureAction"
 }

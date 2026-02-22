@@ -99,6 +99,7 @@ final class ContentViewModel: ObservableObject {
         case key(code: CGKeyCode, flags: CGEventFlags)
         case leftClick
         case rightClick
+        case voice
         case typingToggle
         case chordalShift
         case gestureTwoFingerTap
@@ -526,6 +527,7 @@ final class ContentViewModel: ObservableObject {
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) {
@@ -533,6 +535,7 @@ final class ContentViewModel: ObservableObject {
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
             fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
             fiveFingerSwipeLeft: fiveFingerSwipeLeft,
             fiveFingerSwipeRight: fiveFingerSwipeRight
         )
@@ -777,6 +780,7 @@ enum KeyActionKind: String, Codable {
     case key
     case leftClick
     case rightClick
+    case voice
     case typingToggle
     case chordalShift
     case gestureTwoFingerTap
@@ -1009,6 +1013,7 @@ enum LayoutCustomButtonStorage {
 }
 
 enum KeyActionCatalog {
+    static let voiceLabel = "Voice"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let noneLabel = "None"
@@ -1386,6 +1391,14 @@ enum KeyActionCatalog {
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {
             return noneAction
+        }
+        if label == voiceLabel {
+            return KeyAction(
+                label: voiceLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .voice
+            )
         }
         if label == leftClickLabel {
             return KeyAction(

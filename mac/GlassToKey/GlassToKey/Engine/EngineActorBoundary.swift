@@ -43,6 +43,7 @@ protocol EngineActorBoundary: Sendable {
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) async
@@ -214,6 +215,7 @@ actor EngineActor: EngineActorBoundary {
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) async {
@@ -221,6 +223,7 @@ actor EngineActor: EngineActorBoundary {
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
             fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
             fiveFingerSwipeLeft: fiveFingerSwipeLeft,
             fiveFingerSwipeRight: fiveFingerSwipeRight
         )
@@ -449,6 +452,7 @@ actor EngineActorStub: EngineActorBoundary {
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) async {
@@ -456,6 +460,7 @@ actor EngineActorStub: EngineActorBoundary {
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
             fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
             fiveFingerSwipeLeft: fiveFingerSwipeLeft,
             fiveFingerSwipeRight: fiveFingerSwipeRight
         )

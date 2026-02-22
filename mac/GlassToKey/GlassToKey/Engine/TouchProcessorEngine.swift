@@ -601,6 +601,9 @@ actor TouchProcessorEngine {
     private var fourFingerHoldAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.fourFingerHoldGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
+    private var outerCornersHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.outerCornersHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
     private var fiveFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
@@ -811,12 +814,14 @@ actor TouchProcessorEngine {
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) {
         twoFingerTapAction = twoFingerTap
         threeFingerTapAction = threeFingerTap
         fourFingerHoldAction = fourFingerHold
+        outerCornersHoldAction = outerCornersHold
         fiveFingerSwipeLeftAction = fiveFingerSwipeLeft
         fiveFingerSwipeRightAction = fiveFingerSwipeRight
         fourFingerHoldState[.left] = MultiFingerHoldState()
@@ -829,6 +834,9 @@ actor TouchProcessorEngine {
             chordShiftLastContactTime[.left] = 0
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
+        }
+        if outerCornersHold.kind != .voice {
+            stopVoiceDictationGesture()
         }
     }
 
@@ -1148,6 +1156,7 @@ actor TouchProcessorEngine {
                 case .none:
                     continue
                 case .key, .leftClick, .rightClick, .chordalShift,
+                     .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
                      .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
@@ -1685,6 +1694,8 @@ actor TouchProcessorEngine {
                 action = .leftClick
             case .rightClick:
                 action = .rightClick
+            case .voice:
+                action = .voice
             case .typingToggle:
                 action = .typingToggle
             case .chordalShift:
@@ -1809,6 +1820,16 @@ actor TouchProcessorEngine {
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .rightClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .voice:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .voice,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -2505,9 +2526,9 @@ actor TouchProcessorEngine {
                 state.touches.remove(key)
             }
         }
-        let dictationHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
-        let dictationGestureEngaged = updateVoiceDictationGesture(
-            holdSide: dictationHoldSide,
+        let outerCornersHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
+        let outerCornersGestureEngaged = updateOuterCornersHoldGesture(
+            holdSide: outerCornersHoldSide,
             now: now
         )
 
@@ -2547,7 +2568,7 @@ actor TouchProcessorEngine {
             isTypingCommitted = false
         }
         let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
-        if dictationGestureEngaged {
+        if outerCornersGestureEngaged {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             twoFingerTapDetected = false
@@ -2581,7 +2602,7 @@ actor TouchProcessorEngine {
             return true
         }
 
-        if dictationGestureEngaged {
+        if outerCornersGestureEngaged {
             state.lastContactCount = contactCount
             state.mode = .gestureCandidate(start: voiceDictationGestureState.holdStart > 0 ? voiceDictationGestureState.holdStart : now)
             suppressKeyProcessing(for: intentCurrentKeys)
@@ -2853,6 +2874,8 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick()
         case .rightClick:
             dispatchService.postRightClick()
+        case .voice:
+            break
         case .typingToggle:
             toggleTypingMode()
         case .chordalShift:
@@ -2952,11 +2975,12 @@ actor TouchProcessorEngine {
         return nil
     }
 
-    private func updateVoiceDictationGesture(
+    private func updateOuterCornersHoldGesture(
         holdSide: TrackpadSide?,
         now: TimeInterval
     ) -> Bool {
         var state = voiceDictationGestureState
+        let action = outerCornersHoldAction
         if let holdSide {
             if !state.holdCandidateActive || state.side != holdSide {
                 state.holdCandidateActive = true
@@ -2965,12 +2989,20 @@ actor TouchProcessorEngine {
                 state.side = holdSide
             } else if !state.holdDidToggle, now - state.holdStart >= voiceDictationHoldSeconds {
                 state.holdDidToggle = true
-                if state.isDictating {
-                    state.isDictating = false
-                    VoiceDictationManager.shared.endSession()
+                if action.kind == .voice {
+                    if state.isDictating {
+                        state.isDictating = false
+                        VoiceDictationManager.shared.endSession()
+                    } else {
+                        state.isDictating = true
+                        VoiceDictationManager.shared.beginSession()
+                    }
                 } else {
-                    state.isDictating = true
-                    VoiceDictationManager.shared.beginSession()
+                    if state.isDictating {
+                        state.isDictating = false
+                        VoiceDictationManager.shared.endSession()
+                    }
+                    performGestureAction(action, now: now, side: holdSide)
                 }
                 playHapticIfNeeded(on: holdSide)
             }
@@ -2981,7 +3013,9 @@ actor TouchProcessorEngine {
             state.side = nil
         }
         voiceDictationGestureState = state
-        let isActive = state.isDictating || state.holdCandidateActive
+        let isActive = action.kind == .voice
+            ? (state.isDictating || state.holdCandidateActive)
+            : state.holdCandidateActive
         if voiceGestureActive != isActive {
             voiceGestureActive = isActive
             onVoiceGestureChanged(isActive)
@@ -3249,6 +3283,8 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick()
         case .rightClick:
             dispatchService.postRightClick()
+        case .voice:
+            break
         case .chordalShift:
             break
         case .gestureTwoFingerTap:
