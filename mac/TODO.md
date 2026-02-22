@@ -1,5 +1,4 @@
 ## TODO
-- In the Action / Hold / Gesture dropdown (All pulled from the same list) the order should go: General, Letters A-Z, Numbers 0-9, Navigation, Modifiers, Symbols, CMD Shortcuts, and thenLayers. DO NOT CHANGE THE HEADERS AGAIN, JUST REARRANGE THEM 
 - Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
 ---
 - Double Click action in Action Dropdowns
