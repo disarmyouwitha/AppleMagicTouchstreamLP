@@ -510,6 +510,22 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateKeyboardModeEnabled(enabled)
     }
 
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) {
+        runtimeCommandService.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            fourFingerHold: fourFingerHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
+    }
+
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
@@ -755,6 +771,29 @@ enum KeyActionKind: String, Codable {
     case layerMomentary
     case layerToggle
     case none
+}
+
+enum GestureAction: String, Codable, CaseIterable {
+    case none
+    case leftClick
+    case rightClick
+    case chordalShift
+    case typingToggle
+
+    var label: String {
+        switch self {
+        case .none:
+            return "None"
+        case .leftClick:
+            return "Left Click"
+        case .rightClick:
+            return "Right Click"
+        case .chordalShift:
+            return "Chordal Shift"
+        case .typingToggle:
+            return "Typing Toggle"
+        }
+    }
 }
 
 struct KeyAction: Codable, Hashable {

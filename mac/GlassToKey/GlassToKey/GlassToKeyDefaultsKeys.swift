@@ -21,4 +21,9 @@ enum GlassToKeyDefaultsKeys {
     static let snapRadiusPercent = "GlassToKey.snapRadiusPercent"
     static let chordalShiftEnabled = "GlassToKey.chordalShiftEnabled"
     static let keyboardModeEnabled = "GlassToKey.keyboardModeEnabled"
+    static let twoFingerTapGestureAction = "GlassToKey.twoFingerTapGestureAction"
+    static let threeFingerTapGestureAction = "GlassToKey.threeFingerTapGestureAction"
+    static let fourFingerHoldGestureAction = "GlassToKey.fourFingerHoldGestureAction"
+    static let fiveFingerSwipeLeftGestureAction = "GlassToKey.fiveFingerSwipeLeftGestureAction"
+    static let fiveFingerSwipeRightGestureAction = "GlassToKey.fiveFingerSwipeRightGestureAction"
 }

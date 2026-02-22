@@ -39,6 +39,13 @@ protocol EngineActorBoundary: Sendable {
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) async
     func clearVisualCaches() async
     func reset(stopVoiceDictation: Bool) async
 }
@@ -201,6 +208,22 @@ actor EngineActor: EngineActorBoundary {
 
     func updateTapClickCadence(_ milliseconds: Double) async {
         await processor.updateTapClickCadence(milliseconds)
+    }
+
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) async {
+        await processor.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            fourFingerHold: fourFingerHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
     }
 
     func clearVisualCaches() async {
@@ -420,6 +443,22 @@ actor EngineActorStub: EngineActorBoundary {
 
     func updateTapClickCadence(_ milliseconds: Double) async {
         await impl.updateTapClickCadence(milliseconds)
+    }
+
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) async {
+        await impl.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            fourFingerHold: fourFingerHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
     }
 
     func clearVisualCaches() async {

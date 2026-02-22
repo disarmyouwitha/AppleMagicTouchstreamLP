@@ -16,6 +16,11 @@ enum GlassToKeySettings {
     static let snapRadiusPercent: Double = 35.0
     static let chordalShiftEnabled: Bool = true
     static let keyboardModeEnabled: Bool = false
+    static let twoFingerTapGestureAction: GestureAction = .leftClick
+    static let threeFingerTapGestureAction: GestureAction = .rightClick
+    static let fourFingerHoldGestureAction: GestureAction = .chordalShift
+    static let fiveFingerSwipeLeftGestureAction: GestureAction = .typingToggle
+    static let fiveFingerSwipeRightGestureAction: GestureAction = .typingToggle
 
     static func persistedDouble(
         forKey key: String,
@@ -263,6 +268,21 @@ final class GlassToKeyController: ObservableObject {
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
+        let twoFingerTapGestureAction = GestureAction(
+            rawValue: defaults.string(forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction) ?? ""
+        ) ?? GlassToKeySettings.twoFingerTapGestureAction
+        let threeFingerTapGestureAction = GestureAction(
+            rawValue: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction) ?? ""
+        ) ?? GlassToKeySettings.threeFingerTapGestureAction
+        let fourFingerHoldGestureAction = GestureAction(
+            rawValue: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction) ?? ""
+        ) ?? GlassToKeySettings.fourFingerHoldGestureAction
+        let fiveFingerSwipeLeftGestureAction = GestureAction(
+            rawValue: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction) ?? ""
+        ) ?? GlassToKeySettings.fiveFingerSwipeLeftGestureAction
+        let fiveFingerSwipeRightGestureAction = GestureAction(
+            rawValue: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction) ?? ""
+        ) ?? GlassToKeySettings.fiveFingerSwipeRightGestureAction
 
         viewModel.updateHoldThreshold(tapHoldMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
@@ -277,6 +297,13 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        viewModel.updateGestureActions(
+            twoFingerTap: twoFingerTapGestureAction,
+            threeFingerTap: threeFingerTapGestureAction,
+            fourFingerHold: fourFingerHoldGestureAction,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRight: fiveFingerSwipeRightGestureAction
+        )
     }
 
     private func stringValue(forKey key: String) -> String {

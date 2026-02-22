@@ -436,6 +436,25 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateGestureActions(
+                twoFingerTap: twoFingerTap,
+                threeFingerTap: threeFingerTap,
+                fourFingerHold: fourFingerHold,
+                fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+                fiveFingerSwipeRight: fiveFingerSwipeRight
+            )
+        }
+    }
+
     func clearVisualCaches() {
         let runtimeEngine = runtimeEngine
         Task {

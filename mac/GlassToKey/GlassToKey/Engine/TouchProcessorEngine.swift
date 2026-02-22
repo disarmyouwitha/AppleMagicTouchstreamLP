@@ -591,6 +591,11 @@ actor TouchProcessorEngine {
     }
     private var twoFingerTapCandidate: TapCandidate?
     private var threeFingerTapCandidate: TapCandidate?
+    private var twoFingerTapAction: GestureAction = GlassToKeySettings.twoFingerTapGestureAction
+    private var threeFingerTapAction: GestureAction = GlassToKeySettings.threeFingerTapGestureAction
+    private var fourFingerHoldAction: GestureAction = GlassToKeySettings.fourFingerHoldGestureAction
+    private var fiveFingerSwipeLeftAction: GestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureAction
+    private var fiveFingerSwipeRightAction: GestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureAction
     private struct FiveFingerSwipeState {
         var active: Bool = false
         var triggered: Bool = false
@@ -603,6 +608,10 @@ actor TouchProcessorEngine {
     private struct ChordShiftState {
         var active: Bool = false
     }
+    private struct MultiFingerHoldState {
+        var active: Bool = false
+        var triggered: Bool = false
+    }
     private struct VoiceDictationGestureState {
         var holdStart: TimeInterval = 0
         var holdCandidateActive = false
@@ -612,6 +621,7 @@ actor TouchProcessorEngine {
     }
     private var chordShiftEnabled = true
     private var chordShiftState = SidePair(left: ChordShiftState(), right: ChordShiftState())
+    private var fourFingerHoldState = SidePair(left: MultiFingerHoldState(), right: MultiFingerHoldState())
     private var chordShiftLastContactTime = SidePair(left: TimeInterval(0), right: TimeInterval(0))
     private var chordShiftKeyDown = false
     private var voiceDictationGestureState = VoiceDictationGestureState()
@@ -781,13 +791,38 @@ actor TouchProcessorEngine {
         doubleTapDeadline = nil
     }
 
+    func updateGestureActions(
+        twoFingerTap: GestureAction,
+        threeFingerTap: GestureAction,
+        fourFingerHold: GestureAction,
+        fiveFingerSwipeLeft: GestureAction,
+        fiveFingerSwipeRight: GestureAction
+    ) {
+        twoFingerTapAction = twoFingerTap
+        threeFingerTapAction = threeFingerTap
+        fourFingerHoldAction = fourFingerHold
+        fiveFingerSwipeLeftAction = fiveFingerSwipeLeft
+        fiveFingerSwipeRightAction = fiveFingerSwipeRight
+        fourFingerHoldState[.left] = MultiFingerHoldState()
+        fourFingerHoldState[.right] = MultiFingerHoldState()
+        awaitingSecondTap = false
+        doubleTapDeadline = nil
+        if !isChordShiftGestureActive {
+            chordShiftState[.left] = ChordShiftState()
+            chordShiftState[.right] = ChordShiftState()
+            chordShiftLastContactTime[.left] = 0
+            chordShiftLastContactTime[.right] = 0
+            updateChordShiftKeyState()
+        }
+    }
+
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
     }
 
     func updateChordalShiftEnabled(_ enabled: Bool) {
         chordShiftEnabled = enabled
-        if !enabled {
+        if !isChordShiftGestureActive {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
             chordShiftLastContactTime[.left] = 0
@@ -811,6 +846,8 @@ actor TouchProcessorEngine {
         if !hasTouchData {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
+            fourFingerHoldState[.left] = MultiFingerHoldState()
+            fourFingerHoldState[.right] = MultiFingerHoldState()
             chordShiftLastContactTime[.left] = 0
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
@@ -820,15 +857,11 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        if chordShiftEnabled {
-            let leftContactCount = contactCount(in: leftTouches)
-            let rightContactCount = contactCount(in: rightTouches)
-            updateChordShift(for: .left, contactCount: leftContactCount, now: now)
-            updateChordShift(for: .right, contactCount: rightContactCount, now: now)
-            updateChordShiftKeyState()
-        } else if chordShiftKeyDown {
-            updateChordShiftKeyState()
-        }
+        let leftContactCount = contactCount(in: leftTouches)
+        let rightContactCount = contactCount(in: rightTouches)
+        updateFourFingerHold(for: .left, contactCount: leftContactCount, now: now)
+        updateFourFingerHold(for: .right, contactCount: rightContactCount, now: now)
+        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -894,6 +927,8 @@ actor TouchProcessorEngine {
         if !hasTouchData {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
+            fourFingerHoldState[.left] = MultiFingerHoldState()
+            fourFingerHoldState[.right] = MultiFingerHoldState()
             chordShiftLastContactTime[.left] = 0
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
@@ -903,15 +938,11 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        if chordShiftEnabled {
-            let leftContactCount = contactCount(in: leftTouches)
-            let rightContactCount = contactCount(in: rightTouches)
-            updateChordShift(for: .left, contactCount: leftContactCount, now: now)
-            updateChordShift(for: .right, contactCount: rightContactCount, now: now)
-            updateChordShiftKeyState()
-        } else if chordShiftKeyDown {
-            updateChordShiftKeyState()
-        }
+        let leftContactCount = contactCount(in: leftTouches)
+        let rightContactCount = contactCount(in: rightTouches)
+        updateFourFingerHold(for: .left, contactCount: leftContactCount, now: now)
+        updateFourFingerHold(for: .right, contactCount: rightContactCount, now: now)
+        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -2032,6 +2063,52 @@ actor TouchProcessorEngine {
         chordShiftState[side] = state
     }
 
+    private var isChordShiftGestureActive: Bool {
+        chordShiftEnabled && fourFingerHoldAction == .chordalShift
+    }
+
+    private func updateFourFingerHold(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
+        if isChordShiftGestureActive {
+            fourFingerHoldState[side] = MultiFingerHoldState()
+            updateChordShift(for: side, contactCount: contactCount, now: now)
+            return
+        }
+
+        chordShiftState[side] = ChordShiftState()
+
+        let action = fourFingerHoldAction
+        guard action != .none else {
+            fourFingerHoldState[side] = MultiFingerHoldState()
+            return
+        }
+
+        var state = fourFingerHoldState[side]
+        if contactCount > 0 {
+            chordShiftLastContactTime[side] = now
+        }
+
+        if state.active {
+            if contactCount == 0 {
+                let elapsed = now - chordShiftLastContactTime[side]
+                if elapsed >= contactCountHoldDuration {
+                    state.active = false
+                    state.triggered = false
+                }
+            }
+            fourFingerHoldState[side] = state
+            return
+        }
+
+        if contactCount >= 4 {
+            state.active = true
+            if !state.triggered {
+                state.triggered = true
+                performGestureAction(action, now: now, side: side)
+            }
+        }
+        fourFingerHoldState[side] = state
+    }
+
     private func isChordShiftActive(on side: TrackpadSide) -> Bool {
         chordShiftEnabled && chordShiftState[side].active
     }
@@ -2335,17 +2412,9 @@ actor TouchProcessorEngine {
                 awaitingSecondTap = false
                 doubleTapDeadline = nil
             } else if threeFingerTapDetected {
-                dispatchService.postRightClick()
+                performGestureAction(threeFingerTapAction, now: now, side: nil)
             } else if wasTwoFingerTapDetected {
-                if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
-                    dispatchService.postLeftClick(clickCount: 2)
-                    awaitingSecondTap = false
-                    doubleTapDeadline = nil
-                } else {
-                    dispatchService.postLeftClick()
-                    awaitingSecondTap = true
-                    doubleTapDeadline = now + tapClickCadenceSeconds
-                }
+                performTwoFingerTapAction(now: now)
             }
             if graceActive {
                 state.mode = .typingCommitted(untilAllUp: true)
@@ -2588,9 +2657,48 @@ actor TouchProcessorEngine {
         if abs(dx) >= threshold, abs(dx) >= abs(dy) {
             state.triggered = true
             fiveFingerSwipeState = state
-            toggleTypingMode()
+            let action = dx < 0 ? fiveFingerSwipeLeftAction : fiveFingerSwipeRightAction
+            performGestureAction(action, now: now, side: nil)
         } else {
             fiveFingerSwipeState = state
+        }
+    }
+
+    private func performTwoFingerTapAction(now: TimeInterval) {
+        let action = twoFingerTapAction
+        if action == .leftClick {
+            if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
+                dispatchService.postLeftClick(clickCount: 2)
+                awaitingSecondTap = false
+                doubleTapDeadline = nil
+            } else {
+                dispatchService.postLeftClick()
+                awaitingSecondTap = true
+                doubleTapDeadline = now + tapClickCadenceSeconds
+            }
+            return
+        }
+        awaitingSecondTap = false
+        doubleTapDeadline = nil
+        performGestureAction(action, now: now, side: nil)
+    }
+
+    private func performGestureAction(
+        _ action: GestureAction,
+        now _: TimeInterval,
+        side _: TrackpadSide?
+    ) {
+        switch action {
+        case .none:
+            break
+        case .leftClick:
+            dispatchService.postLeftClick()
+        case .rightClick:
+            dispatchService.postRightClick()
+        case .typingToggle:
+            toggleTypingMode()
+        case .chordalShift:
+            break
         }
     }
 
@@ -3167,6 +3275,8 @@ actor TouchProcessorEngine {
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
         chordShiftState[.left] = ChordShiftState()
         chordShiftState[.right] = ChordShiftState()
+        fourFingerHoldState[.left] = MultiFingerHoldState()
+        fourFingerHoldState[.right] = MultiFingerHoldState()
         if chordShiftKeyDown {
             let shiftBinding = KeyBinding(
                 rect: .zero,

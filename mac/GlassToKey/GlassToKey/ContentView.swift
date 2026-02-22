@@ -66,6 +66,11 @@ struct ContentView: View {
         let snapRadiusPercent: Double
         let chordalShiftEnabled: Bool
         let keyboardModeEnabled: Bool
+        let twoFingerTapGestureAction: String?
+        let threeFingerTapGestureAction: String?
+        let fourFingerHoldGestureAction: String?
+        let fiveFingerSwipeLeftGestureAction: String?
+        let fiveFingerSwipeRightGestureAction: String?
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappings: LayeredKeyMappings
@@ -118,6 +123,16 @@ struct ContentView: View {
     private var chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
+    private var twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureAction.rawValue
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
+    private var threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureAction.rawValue
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerHoldGestureAction)
+    private var fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureAction.rawValue
+    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
+    private var fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureAction.rawValue
+    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
+    private var fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureAction.rawValue
     static let trackpadWidthMM: CGFloat = 160.0
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
@@ -270,6 +285,13 @@ struct ContentView: View {
         )
     }
 
+    private func resolvedGestureAction(
+        _ rawValue: String,
+        fallback: GestureAction
+    ) -> GestureAction {
+        GestureAction(rawValue: rawValue) ?? fallback
+    }
+
     init(viewModel: ContentViewModel = ContentViewModel()) {
         _viewModel = StateObject(wrappedValue: viewModel)
         let size = CGSize(
@@ -418,6 +440,51 @@ struct ContentView: View {
             }
             .onChange(of: keyboardModeEnabled) { newValue in
                 viewModel.updateKeyboardModeEnabled(newValue)
+            }
+            .onChange(of: twoFingerTapGestureAction) { newValue in
+                viewModel.updateGestureActions(
+                    twoFingerTap: resolvedGestureAction(newValue, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+                    threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+                    fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+                    fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+                    fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+                )
+            }
+            .onChange(of: threeFingerTapGestureAction) { newValue in
+                viewModel.updateGestureActions(
+                    twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+                    threeFingerTap: resolvedGestureAction(newValue, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+                    fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+                    fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+                    fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+                )
+            }
+            .onChange(of: fourFingerHoldGestureAction) { newValue in
+                viewModel.updateGestureActions(
+                    twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+                    threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+                    fourFingerHold: resolvedGestureAction(newValue, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+                    fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+                    fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+                )
+            }
+            .onChange(of: fiveFingerSwipeLeftGestureAction) { newValue in
+                viewModel.updateGestureActions(
+                    twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+                    threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+                    fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+                    fiveFingerSwipeLeft: resolvedGestureAction(newValue, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+                    fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+                )
+            }
+            .onChange(of: fiveFingerSwipeRightGestureAction) { newValue in
+                viewModel.updateGestureActions(
+                    twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+                    threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+                    fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+                    fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+                    fiveFingerSwipeRight: resolvedGestureAction(newValue, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+                )
             }
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
@@ -594,6 +661,11 @@ struct ContentView: View {
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
+            twoFingerTapGestureAction: $twoFingerTapGestureAction,
+            threeFingerTapGestureAction: $threeFingerTapGestureAction,
+            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
             autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             onAddCustomButton: { side in
                 addCustomButton(side: side)
@@ -838,6 +910,11 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
+        @Binding var twoFingerTapGestureAction: String
+        @Binding var threeFingerTapGestureAction: String
+        @Binding var fourFingerHoldGestureAction: String
+        @Binding var fiveFingerSwipeLeftGestureAction: String
+        @Binding var fiveFingerSwipeRightGestureAction: String
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
@@ -866,6 +943,11 @@ struct ContentView: View {
                             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
                             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
                             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
                             onRestoreDefaults: onRestoreDefaults
                         )
                         .padding(.top, 8)
@@ -1547,10 +1629,16 @@ struct ContentView: View {
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var tapClickCadenceMsSetting: Double
+        @Binding var twoFingerTapGestureAction: String
+        @Binding var threeFingerTapGestureAction: String
+        @Binding var fourFingerHoldGestureAction: String
+        @Binding var fiveFingerSwipeLeftGestureAction: String
+        @Binding var fiveFingerSwipeRightGestureAction: String
         let onRestoreDefaults: () -> Void
 
         private let labelWidth: CGFloat = 140
         private let valueFieldWidth: CGFloat = 50
+        @State private var gestureTuningExpanded = false
 
         private enum HapticStrengthStep: Int, CaseIterable {
             case off = 0
@@ -1594,6 +1682,16 @@ struct ContentView: View {
                     let step = HapticStrengthStep(rawValue: index) ?? .off
                     hapticStrengthSetting = step.percent
                 }
+            )
+        }
+
+        private func gestureBinding(
+            _ rawValue: Binding<String>,
+            fallback: GestureAction
+        ) -> Binding<GestureAction> {
+            Binding(
+                get: { GestureAction(rawValue: rawValue.wrappedValue) ?? fallback },
+                set: { rawValue.wrappedValue = $0.rawValue }
             )
         }
 
@@ -1731,6 +1829,105 @@ struct ContentView: View {
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
+                    }
+                    GridRow {
+                        DisclosureGroup(
+                            isExpanded: $gestureTuningExpanded
+                        ) {
+                            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                                GridRow {
+                                    Text("2-finger tap")
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker(
+                                        "2-finger tap",
+                                        selection: gestureBinding(
+                                            $twoFingerTapGestureAction,
+                                            fallback: GlassToKeySettings.twoFingerTapGestureAction
+                                        )
+                                    ) {
+                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                                            Text(action.label).tag(action)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .gridCellColumns(3)
+                                }
+                                GridRow {
+                                    Text("3-finger tap")
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker(
+                                        "3-finger tap",
+                                        selection: gestureBinding(
+                                            $threeFingerTapGestureAction,
+                                            fallback: GlassToKeySettings.threeFingerTapGestureAction
+                                        )
+                                    ) {
+                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                                            Text(action.label).tag(action)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .gridCellColumns(3)
+                                }
+                                GridRow {
+                                    Text("4-finger hold")
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker(
+                                        "4-finger hold",
+                                        selection: gestureBinding(
+                                            $fourFingerHoldGestureAction,
+                                            fallback: GlassToKeySettings.fourFingerHoldGestureAction
+                                        )
+                                    ) {
+                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                                            Text(action.label).tag(action)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .gridCellColumns(3)
+                                }
+                                GridRow {
+                                    Text("5-finger swipe left")
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker(
+                                        "5-finger swipe left",
+                                        selection: gestureBinding(
+                                            $fiveFingerSwipeLeftGestureAction,
+                                            fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction
+                                        )
+                                    ) {
+                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                                            Text(action.label).tag(action)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .gridCellColumns(3)
+                                }
+                                GridRow {
+                                    Text("5-finger swipe right")
+                                        .frame(width: labelWidth, alignment: .leading)
+                                    Picker(
+                                        "5-finger swipe right",
+                                        selection: gestureBinding(
+                                            $fiveFingerSwipeRightGestureAction,
+                                            fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction
+                                        )
+                                    ) {
+                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                                            Text(action.label).tag(action)
+                                        }
+                                    }
+                                    .pickerStyle(MenuPickerStyle())
+                                    .gridCellColumns(3)
+                                }
+                            }
+                            .padding(.top, 6)
+                        } label: {
+                            Text("Gesture Tuning")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .gridCellColumns(4)
                     }
                     GridRow {
                         Button("Restore Defaults") {
@@ -2314,6 +2511,13 @@ struct ContentView: View {
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
+        viewModel.updateGestureActions(
+            twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallback: GlassToKeySettings.twoFingerTapGestureAction),
+            threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallback: GlassToKeySettings.threeFingerTapGestureAction),
+            fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallback: GlassToKeySettings.fourFingerHoldGestureAction),
+            fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction),
+            fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction)
+        )
         viewModel.setTouchSnapshotRecordingEnabled(true)
     }
 
@@ -2331,6 +2535,11 @@ struct ContentView: View {
         snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
         chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
+        twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureAction.rawValue
+        threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureAction.rawValue
+        fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureAction.rawValue
+        fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureAction.rawValue
+        fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureAction.rawValue
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
     }
 
@@ -2407,6 +2616,11 @@ struct ContentView: View {
             snapRadiusPercent: snapRadiusPercentSetting,
             chordalShiftEnabled: chordalShiftEnabled,
             keyboardModeEnabled: keyboardModeEnabled,
+            twoFingerTapGestureAction: twoFingerTapGestureAction,
+            threeFingerTapGestureAction: threeFingerTapGestureAction,
+            fourFingerHoldGestureAction: fourFingerHoldGestureAction,
+            fiveFingerSwipeLeftGestureAction: fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
             keyMappings: mappings
@@ -2431,6 +2645,11 @@ struct ContentView: View {
         snapRadiusPercentSetting = profile.snapRadiusPercent
         chordalShiftEnabled = profile.chordalShiftEnabled
         keyboardModeEnabled = profile.keyboardModeEnabled
+        twoFingerTapGestureAction = profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureAction.rawValue
+        threeFingerTapGestureAction = profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureAction.rawValue
+        fourFingerHoldGestureAction = profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureAction.rawValue
+        fiveFingerSwipeLeftGestureAction = profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureAction.rawValue
+        fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureAction.rawValue
         storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
         storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
         storedKeyMappingsData = KeyActionMappingStore.encode(profile.keyMappings) ?? Data()
