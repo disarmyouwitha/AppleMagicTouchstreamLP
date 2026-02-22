@@ -1309,7 +1309,12 @@ enum KeyActionCatalog {
     }
 
     static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
-    static let holdActionGroups: [ActionGroup] = primaryActionGroups
+    static let holdActionGroups: [ActionGroup] = {
+        var groups = buildActionGroups(using: holdAction)
+        let generalGroup = ActionGroup(title: "General", actions: [noneAction])
+        groups.insert(generalGroup, at: 0)
+        return groups
+    }()
 
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {
