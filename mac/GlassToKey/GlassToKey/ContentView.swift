@@ -985,7 +985,7 @@ struct ContentView: View {
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
-        @State private var gestureTuningExpanded = false
+        @State private var gestureTuningExpanded = true
         @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = true
         let onAddCustomButton: (TrackpadSide) -> Void
