@@ -1347,7 +1347,6 @@ enum KeyActionCatalog {
         return groups
     }
 
-    static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
     private static let commandShortcutActions: [KeyAction] = {
         let combos: [(String, CGKeyCode)] = [
             ("Cmd+F", CGKeyCode(kVK_ANSI_F)),
@@ -1362,14 +1361,16 @@ enum KeyActionCatalog {
             KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
         }
     }()
-    static let holdActionGroups: [ActionGroup] = {
-        var groups = buildActionGroups(using: holdAction)
-        let generalGroup = ActionGroup(title: "General", actions: [noneAction])
-        groups.insert(generalGroup, at: 0)
+
+    private static let sharedActionGroups: [ActionGroup] = {
+        var groups = buildActionGroups(using: action)
         let commandGroup = ActionGroup(title: "Cmd Shortcuts", actions: commandShortcutActions)
         groups.insert(commandGroup, at: 1)
         return groups
     }()
+
+    static let primaryActionGroups: [ActionGroup] = sharedActionGroups
+    static let holdActionGroups: [ActionGroup] = sharedActionGroups
 
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {

@@ -1,8 +1,5 @@
 ## TODO
-# Gesture config:
-- Create a Gesture Tuning section under Typing Tuning that is collapsable
-- Create dropdown for each of my gestures and implement them as actions that can be selected from a drop down. (You can reference ../windows/glasstokey to see how this was done if you need!) Please add a dropdown selection for each Gesture we currently have implemented: "2-finger tap" (Left Click), "3-finger tap" (Right Click), "4-finger hold" (Chordal Shift), and "5-finger swipe left" and "5-finger swipe right" (Typing Toggle)
----
+- In the Action / Hold / Gesture dropdown (All pulled from the same list) the order should go: General, Letters A-Z, Numbers 0-9, Navigation, Modifiers, Symbols, CMD Shortcuts, Layers and then Gestures
 - Left / Right / Double Click actions in Action Dropdown
 - What actions can we add?
 -------

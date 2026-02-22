@@ -918,6 +918,7 @@ struct ContentView: View {
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
+        @State private var gestureTuningExpanded = false
         @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = true
         let onAddCustomButton: (TrackpadSide) -> Void
@@ -934,22 +935,35 @@ struct ContentView: View {
                     DisclosureGroup(
                         isExpanded: $typingTuningExpanded
                     ) {
-                        TypingTuningSectionView(
-                            tapHoldDurationMs: $tapHoldDurationMs,
-                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
-                            forceClickCapSetting: $forceClickCapSetting,
-                            hapticStrengthSetting: $hapticStrengthSetting,
-                            typingGraceMsSetting: $typingGraceMsSetting,
-                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
-                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
-                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
-                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
-                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
-                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
-                            onRestoreDefaults: onRestoreDefaults
-                        )
+                        VStack(alignment: .leading, spacing: 12) {
+                            TypingTuningSectionView(
+                                tapHoldDurationMs: $tapHoldDurationMs,
+                                dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                                forceClickCapSetting: $forceClickCapSetting,
+                                hapticStrengthSetting: $hapticStrengthSetting,
+                                typingGraceMsSetting: $typingGraceMsSetting,
+                                intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
+                                intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
+                                tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                                onRestoreDefaults: onRestoreDefaults
+                            )
+                            DisclosureGroup(
+                                isExpanded: $gestureTuningExpanded
+                            ) {
+                                GestureTuningSectionView(
+                                    twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                                    threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                                    fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                                    fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                                    fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
+                                )
+                                .padding(.top, 8)
+                            } label: {
+                                Text("Gesture Tuning")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
                         .padding(.top, 8)
                     } label: {
                         Text("Typing Tuning")
@@ -1629,16 +1643,10 @@ struct ContentView: View {
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var tapClickCadenceMsSetting: Double
-        @Binding var twoFingerTapGestureAction: String
-        @Binding var threeFingerTapGestureAction: String
-        @Binding var fourFingerHoldGestureAction: String
-        @Binding var fiveFingerSwipeLeftGestureAction: String
-        @Binding var fiveFingerSwipeRightGestureAction: String
         let onRestoreDefaults: () -> Void
 
         private let labelWidth: CGFloat = 140
         private let valueFieldWidth: CGFloat = 50
-        @State private var gestureTuningExpanded = false
 
         private enum HapticStrengthStep: Int, CaseIterable {
             case off = 0
@@ -1682,16 +1690,6 @@ struct ContentView: View {
                     let step = HapticStrengthStep(rawValue: index) ?? .off
                     hapticStrengthSetting = step.percent
                 }
-            )
-        }
-
-        private func gestureBinding(
-            _ rawValue: Binding<String>,
-            fallback: GestureAction
-        ) -> Binding<GestureAction> {
-            Binding(
-                get: { GestureAction(rawValue: rawValue.wrappedValue) ?? fallback },
-                set: { rawValue.wrappedValue = $0.rawValue }
             )
         }
 
@@ -1831,105 +1829,6 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        DisclosureGroup(
-                            isExpanded: $gestureTuningExpanded
-                        ) {
-                            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                                GridRow {
-                                    Text("2-finger tap")
-                                        .frame(width: labelWidth, alignment: .leading)
-                                    Picker(
-                                        "2-finger tap",
-                                        selection: gestureBinding(
-                                            $twoFingerTapGestureAction,
-                                            fallback: GlassToKeySettings.twoFingerTapGestureAction
-                                        )
-                                    ) {
-                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
-                                            Text(action.label).tag(action)
-                                        }
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .gridCellColumns(3)
-                                }
-                                GridRow {
-                                    Text("3-finger tap")
-                                        .frame(width: labelWidth, alignment: .leading)
-                                    Picker(
-                                        "3-finger tap",
-                                        selection: gestureBinding(
-                                            $threeFingerTapGestureAction,
-                                            fallback: GlassToKeySettings.threeFingerTapGestureAction
-                                        )
-                                    ) {
-                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
-                                            Text(action.label).tag(action)
-                                        }
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .gridCellColumns(3)
-                                }
-                                GridRow {
-                                    Text("4-finger hold")
-                                        .frame(width: labelWidth, alignment: .leading)
-                                    Picker(
-                                        "4-finger hold",
-                                        selection: gestureBinding(
-                                            $fourFingerHoldGestureAction,
-                                            fallback: GlassToKeySettings.fourFingerHoldGestureAction
-                                        )
-                                    ) {
-                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
-                                            Text(action.label).tag(action)
-                                        }
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .gridCellColumns(3)
-                                }
-                                GridRow {
-                                    Text("5-finger swipe left")
-                                        .frame(width: labelWidth, alignment: .leading)
-                                    Picker(
-                                        "5-finger swipe left",
-                                        selection: gestureBinding(
-                                            $fiveFingerSwipeLeftGestureAction,
-                                            fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction
-                                        )
-                                    ) {
-                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
-                                            Text(action.label).tag(action)
-                                        }
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .gridCellColumns(3)
-                                }
-                                GridRow {
-                                    Text("5-finger swipe right")
-                                        .frame(width: labelWidth, alignment: .leading)
-                                    Picker(
-                                        "5-finger swipe right",
-                                        selection: gestureBinding(
-                                            $fiveFingerSwipeRightGestureAction,
-                                            fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction
-                                        )
-                                    ) {
-                                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
-                                            Text(action.label).tag(action)
-                                        }
-                                    }
-                                    .pickerStyle(MenuPickerStyle())
-                                    .gridCellColumns(3)
-                                }
-                            }
-                            .padding(.top, 6)
-                        } label: {
-                            Text("Gesture Tuning")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .gridCellColumns(4)
-                    }
-                    GridRow {
                         Button("Restore Defaults") {
                             onRestoreDefaults()
                         }
@@ -1942,6 +1841,116 @@ struct ContentView: View {
             }
         }
 
+    }
+
+    private struct GestureTuningSectionView: View {
+        @Binding var twoFingerTapGestureAction: String
+        @Binding var threeFingerTapGestureAction: String
+        @Binding var fourFingerHoldGestureAction: String
+        @Binding var fiveFingerSwipeLeftGestureAction: String
+        @Binding var fiveFingerSwipeRightGestureAction: String
+
+        private let labelWidth: CGFloat = 140
+
+        private func gestureBinding(
+            _ rawValue: Binding<String>,
+            fallback: GestureAction
+        ) -> Binding<GestureAction> {
+            Binding(
+                get: { GestureAction(rawValue: rawValue.wrappedValue) ?? fallback },
+                set: { rawValue.wrappedValue = $0.rawValue }
+            )
+        }
+
+        var body: some View {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("2-finger tap")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Picker(
+                        "2-finger tap",
+                        selection: gestureBinding(
+                            $twoFingerTapGestureAction,
+                            fallback: GlassToKeySettings.twoFingerTapGestureAction
+                        )
+                    ) {
+                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .gridCellColumns(3)
+                }
+                GridRow {
+                    Text("3-finger tap")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Picker(
+                        "3-finger tap",
+                        selection: gestureBinding(
+                            $threeFingerTapGestureAction,
+                            fallback: GlassToKeySettings.threeFingerTapGestureAction
+                        )
+                    ) {
+                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .gridCellColumns(3)
+                }
+                GridRow {
+                    Text("4-finger hold")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Picker(
+                        "4-finger hold",
+                        selection: gestureBinding(
+                            $fourFingerHoldGestureAction,
+                            fallback: GlassToKeySettings.fourFingerHoldGestureAction
+                        )
+                    ) {
+                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .gridCellColumns(3)
+                }
+                GridRow {
+                    Text("5-finger swipe left")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Picker(
+                        "5-finger swipe left",
+                        selection: gestureBinding(
+                            $fiveFingerSwipeLeftGestureAction,
+                            fallback: GlassToKeySettings.fiveFingerSwipeLeftGestureAction
+                        )
+                    ) {
+                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .gridCellColumns(3)
+                }
+                GridRow {
+                    Text("5-finger swipe right")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Picker(
+                        "5-finger swipe right",
+                        selection: gestureBinding(
+                            $fiveFingerSwipeRightGestureAction,
+                            fallback: GlassToKeySettings.fiveFingerSwipeRightGestureAction
+                        )
+                    ) {
+                        ForEach(GestureAction.allCases, id: \.rawValue) { action in
+                            Text(action.label).tag(action)
+                        }
+                    }
+                    .pickerStyle(MenuPickerStyle())
+                    .gridCellColumns(3)
+                }
+            }
+        }
     }
 
     private struct TrackpadDeckView: View {
