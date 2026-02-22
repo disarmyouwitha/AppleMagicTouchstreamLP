@@ -98,6 +98,7 @@ final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags)
         case leftClick
+        case doubleClick
         case rightClick
         case voice
         case typingToggle
@@ -762,6 +763,7 @@ struct NormalizedRect: Codable, Hashable {
 enum KeyActionKind: String, Codable {
     case key
     case leftClick
+    case doubleClick
     case rightClick
     case voice
     case typingToggle
@@ -1002,6 +1004,7 @@ enum KeyActionCatalog {
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let noneLabel = "None"
     static let leftClickLabel = "Left Click"
+    static let doubleClickLabel = "Double Click"
     static let rightClickLabel = "Right Click"
     static let chordalShiftLabel = "Chordal Shift"
     static let gestureTwoFingerTapLabel = "2-finger tap"
@@ -1198,6 +1201,7 @@ enum KeyActionCatalog {
 
     private static let mouseActions: [KeyAction] = [
         KeyAction(label: leftClickLabel, keyCode: 0, flags: 0, kind: .leftClick),
+        KeyAction(label: doubleClickLabel, keyCode: 0, flags: 0, kind: .doubleClick),
         KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick)
     ]
 
@@ -1287,6 +1291,7 @@ enum KeyActionCatalog {
             ]),
             (dashedHeader("Mouse Actions"), [
                 leftClickLabel,
+                doubleClickLabel,
                 rightClickLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
@@ -1392,6 +1397,14 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .leftClick
+            )
+        }
+        if label == doubleClickLabel {
+            return KeyAction(
+                label: doubleClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .doubleClick
             )
         }
         if label == rightClickLabel {

@@ -1225,7 +1225,7 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     continue
-                case .key, .leftClick, .rightClick, .chordalShift,
+                case .key, .leftClick, .doubleClick, .rightClick, .chordalShift,
                      .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
                      .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
@@ -1762,6 +1762,8 @@ actor TouchProcessorEngine {
                 )
             case .leftClick:
                 action = .leftClick
+            case .doubleClick:
+                action = .doubleClick
             case .rightClick:
                 action = .rightClick
             case .voice:
@@ -1882,6 +1884,16 @@ actor TouchProcessorEngine {
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .leftClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .doubleClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .doubleClick,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -2956,6 +2968,8 @@ actor TouchProcessorEngine {
             break
         case .leftClick:
             dispatchService.postLeftClick()
+        case .doubleClick:
+            dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
         case .voice:
@@ -3446,6 +3460,8 @@ actor TouchProcessorEngine {
             toggleTypingMode()
         case .leftClick:
             dispatchService.postLeftClick()
+        case .doubleClick:
+            dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
         case .voice:
