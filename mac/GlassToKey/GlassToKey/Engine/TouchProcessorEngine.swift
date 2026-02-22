@@ -589,13 +589,30 @@ actor TouchProcessorEngine {
     private struct TapCandidate {
         let deadline: TimeInterval
     }
+    private enum GestureSlot: Hashable {
+        case twoFingerTap
+        case threeFingerTap
+        case fourFingerHold
+        case fiveFingerSwipeLeft
+        case fiveFingerSwipeRight
+    }
     private var twoFingerTapCandidate: TapCandidate?
     private var threeFingerTapCandidate: TapCandidate?
-    private var twoFingerTapAction: GestureAction = GlassToKeySettings.twoFingerTapGestureAction
-    private var threeFingerTapAction: GestureAction = GlassToKeySettings.threeFingerTapGestureAction
-    private var fourFingerHoldAction: GestureAction = GlassToKeySettings.fourFingerHoldGestureAction
-    private var fiveFingerSwipeLeftAction: GestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureAction
-    private var fiveFingerSwipeRightAction: GestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureAction
+    private var twoFingerTapAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.twoFingerTapGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerTapAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerTapGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fiveFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fiveFingerSwipeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
     private struct FiveFingerSwipeState {
         var active: Bool = false
         var triggered: Bool = false
@@ -792,11 +809,11 @@ actor TouchProcessorEngine {
     }
 
     func updateGestureActions(
-        twoFingerTap: GestureAction,
-        threeFingerTap: GestureAction,
-        fourFingerHold: GestureAction,
-        fiveFingerSwipeLeft: GestureAction,
-        fiveFingerSwipeRight: GestureAction
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        fourFingerHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
     ) {
         twoFingerTapAction = twoFingerTap
         threeFingerTapAction = threeFingerTap
@@ -1141,7 +1158,9 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     continue
-                case .key:
+                case .key, .leftClick, .rightClick, .chordalShift,
+                     .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
+                     .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
                 }
             }
@@ -1646,8 +1665,24 @@ actor TouchProcessorEngine {
                     code: CGKeyCode(button.action.keyCode),
                     flags: CGEventFlags(rawValue: button.action.flags)
                 )
+            case .leftClick:
+                action = .leftClick
+            case .rightClick:
+                action = .rightClick
             case .typingToggle:
                 action = .typingToggle
+            case .chordalShift:
+                action = .chordalShift
+            case .gestureTwoFingerTap:
+                action = .gestureTwoFingerTap
+            case .gestureThreeFingerTap:
+                action = .gestureThreeFingerTap
+            case .gestureFourFingerHold:
+                action = .gestureFourFingerHold
+            case .gestureFiveFingerSwipeLeft:
+                action = .gestureFiveFingerSwipeLeft
+            case .gestureFiveFingerSwipeRight:
+                action = .gestureFiveFingerSwipeRight
             case .layerMomentary:
                 action = .layerMomentary(KeyLayerConfig.clamped(button.action.layer ?? 1))
             case .layerToggle:
@@ -1742,12 +1777,92 @@ actor TouchProcessorEngine {
                 side: side,
                 holdAction: holdAction
             )
+        case .leftClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .leftClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .rightClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .rightClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
         case .typingToggle:
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .typingToggle,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .chordalShift:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .chordalShift,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureTwoFingerTap:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureTwoFingerTap,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureThreeFingerTap:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureThreeFingerTap,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFourFingerHold:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFourFingerHold,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFiveFingerSwipeLeft:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFiveFingerSwipeLeft,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFiveFingerSwipeRight:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFiveFingerSwipeRight,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -2064,7 +2179,7 @@ actor TouchProcessorEngine {
     }
 
     private var isChordShiftGestureActive: Bool {
-        chordShiftEnabled && fourFingerHoldAction == .chordalShift
+        chordShiftEnabled && fourFingerHoldAction.kind == .chordalShift
     }
 
     private func updateFourFingerHold(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
@@ -2077,7 +2192,7 @@ actor TouchProcessorEngine {
         chordShiftState[side] = ChordShiftState()
 
         let action = fourFingerHoldAction
-        guard action != .none else {
+        guard action.kind != .none else {
             fourFingerHoldState[side] = MultiFingerHoldState()
             return
         }
@@ -2666,7 +2781,7 @@ actor TouchProcessorEngine {
 
     private func performTwoFingerTapAction(now: TimeInterval) {
         let action = twoFingerTapAction
-        if action == .leftClick {
+        if action.kind == .leftClick {
             if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
                 dispatchService.postLeftClick(clickCount: 2)
                 awaitingSecondTap = false
@@ -2684,11 +2799,12 @@ actor TouchProcessorEngine {
     }
 
     private func performGestureAction(
-        _ action: GestureAction,
+        _ action: KeyAction,
         now _: TimeInterval,
-        side _: TrackpadSide?
+        side: TrackpadSide?,
+        visited: Set<GestureSlot> = []
     ) {
-        switch action {
+        switch action.kind {
         case .none:
             break
         case .leftClick:
@@ -2699,7 +2815,48 @@ actor TouchProcessorEngine {
             toggleTypingMode()
         case .chordalShift:
             break
+        case .gestureTwoFingerTap:
+            triggerGestureSlot(.twoFingerTap, side: side, visited: visited)
+        case .gestureThreeFingerTap:
+            triggerGestureSlot(.threeFingerTap, side: side, visited: visited)
+        case .gestureFourFingerHold:
+            triggerGestureSlot(.fourFingerHold, side: side, visited: visited)
+        case .gestureFiveFingerSwipeLeft:
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: side, visited: visited)
+        case .gestureFiveFingerSwipeRight:
+            triggerGestureSlot(.fiveFingerSwipeRight, side: side, visited: visited)
+        case .key, .layerMomentary, .layerToggle:
+            guard let binding = makeBinding(
+                for: action,
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                position: nil,
+                side: side ?? .left
+            ) else {
+                return
+            }
+            triggerBinding(binding, touchKey: nil)
         }
+    }
+
+    private func triggerGestureSlot(_ slot: GestureSlot, side: TrackpadSide?, visited: Set<GestureSlot>) {
+        guard !visited.contains(slot) else { return }
+        var updatedVisited = visited
+        updatedVisited.insert(slot)
+        let action: KeyAction
+        switch slot {
+        case .twoFingerTap:
+            action = twoFingerTapAction
+        case .threeFingerTap:
+            action = threeFingerTapAction
+        case .fourFingerHold:
+            action = fourFingerHoldAction
+        case .fiveFingerSwipeLeft:
+            action = fiveFingerSwipeLeftAction
+        case .fiveFingerSwipeRight:
+            action = fiveFingerSwipeRightAction
+        }
+        performGestureAction(action, now: Self.now(), side: side, visited: updatedVisited)
     }
 
     private func voiceDictationHoldSide(
@@ -3040,6 +3197,22 @@ actor TouchProcessorEngine {
             toggleLayer(to: layer)
         case .typingToggle:
             toggleTypingMode()
+        case .leftClick:
+            dispatchService.postLeftClick()
+        case .rightClick:
+            dispatchService.postRightClick()
+        case .chordalShift:
+            break
+        case .gestureTwoFingerTap:
+            triggerGestureSlot(.twoFingerTap, side: binding.side, visited: [])
+        case .gestureThreeFingerTap:
+            triggerGestureSlot(.threeFingerTap, side: binding.side, visited: [])
+        case .gestureFourFingerHold:
+            triggerGestureSlot(.fourFingerHold, side: binding.side, visited: [])
+        case .gestureFiveFingerSwipeLeft:
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: binding.side, visited: [])
+        case .gestureFiveFingerSwipeRight:
+            triggerGestureSlot(.fiveFingerSwipeRight, side: binding.side, visited: [])
         case .none:
             break
         case let .key(code, flags):

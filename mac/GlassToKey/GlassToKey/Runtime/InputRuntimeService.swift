@@ -437,11 +437,11 @@ final class RuntimeCommandService: @unchecked Sendable {
     }
 
     func updateGestureActions(
-        twoFingerTap: GestureAction,
-        threeFingerTap: GestureAction,
-        fourFingerHold: GestureAction,
-        fiveFingerSwipeLeft: GestureAction,
-        fiveFingerSwipeRight: GestureAction
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        fourFingerHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
     ) {
         let runtimeEngine = runtimeEngine
         Task {

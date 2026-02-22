@@ -97,7 +97,15 @@ struct GridKeyPosition: Codable, Hashable {
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags)
+        case leftClick
+        case rightClick
         case typingToggle
+        case chordalShift
+        case gestureTwoFingerTap
+        case gestureThreeFingerTap
+        case gestureFourFingerHold
+        case gestureFiveFingerSwipeLeft
+        case gestureFiveFingerSwipeRight
         case layerMomentary(Int)
         case layerToggle(Int)
         case none
@@ -511,11 +519,11 @@ final class ContentViewModel: ObservableObject {
     }
 
     func updateGestureActions(
-        twoFingerTap: GestureAction,
-        threeFingerTap: GestureAction,
-        fourFingerHold: GestureAction,
-        fiveFingerSwipeLeft: GestureAction,
-        fiveFingerSwipeRight: GestureAction
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        fourFingerHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
     ) {
         runtimeCommandService.updateGestureActions(
             twoFingerTap: twoFingerTap,
@@ -767,33 +775,18 @@ struct NormalizedRect: Codable, Hashable {
 
 enum KeyActionKind: String, Codable {
     case key
+    case leftClick
+    case rightClick
     case typingToggle
+    case chordalShift
+    case gestureTwoFingerTap
+    case gestureThreeFingerTap
+    case gestureFourFingerHold
+    case gestureFiveFingerSwipeLeft
+    case gestureFiveFingerSwipeRight
     case layerMomentary
     case layerToggle
     case none
-}
-
-enum GestureAction: String, Codable, CaseIterable {
-    case none
-    case leftClick
-    case rightClick
-    case chordalShift
-    case typingToggle
-
-    var label: String {
-        switch self {
-        case .none:
-            return "None"
-        case .leftClick:
-            return "Left Click"
-        case .rightClick:
-            return "Right Click"
-        case .chordalShift:
-            return "Chordal Shift"
-        case .typingToggle:
-            return "Typing Toggle"
-        }
-    }
 }
 
 struct KeyAction: Codable, Hashable {
@@ -1019,6 +1012,14 @@ enum KeyActionCatalog {
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let noneLabel = "None"
+    static let leftClickLabel = "Left Click"
+    static let rightClickLabel = "Right Click"
+    static let chordalShiftLabel = "Chordal Shift"
+    static let gestureTwoFingerTapLabel = "2-finger tap"
+    static let gestureThreeFingerTapLabel = "3-finger tap"
+    static let gestureFourFingerHoldLabel = "4-finger hold"
+    static let gestureFiveFingerSwipeLeftLabel = "5-finger swipe left"
+    static let gestureFiveFingerSwipeRightLabel = "5-finger swipe right"
     static var noneAction: KeyAction {
         KeyAction(
             label: noneLabel,
@@ -1205,14 +1206,29 @@ enum KeyActionCatalog {
         "/": "\\"
     ]
 
+    private static let mouseActions: [KeyAction] = [
+        KeyAction(label: leftClickLabel, keyCode: 0, flags: 0, kind: .leftClick),
+        KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick)
+    ]
+
+    private static let modeActions: [KeyAction] = [
+        KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle),
+        KeyAction(label: chordalShiftLabel, keyCode: 0, flags: 0, kind: .chordalShift)
+    ]
+
+    private static let gestureActions: [KeyAction] = [
+        KeyAction(label: gestureTwoFingerTapLabel, keyCode: 0, flags: 0, kind: .gestureTwoFingerTap),
+        KeyAction(label: gestureThreeFingerTapLabel, keyCode: 0, flags: 0, kind: .gestureThreeFingerTap),
+        KeyAction(label: gestureFourFingerHoldLabel, keyCode: 0, flags: 0, kind: .gestureFourFingerHold),
+        KeyAction(label: gestureFiveFingerSwipeLeftLabel, keyCode: 0, flags: 0, kind: .gestureFiveFingerSwipeLeft),
+        KeyAction(label: gestureFiveFingerSwipeRightLabel, keyCode: 0, flags: 0, kind: .gestureFiveFingerSwipeRight)
+    ]
+
     static let presets: [KeyAction] = {
         var items = uniqueActions(from: bindingsByLabel)
-        items.append(KeyAction(
-            label: typingToggleLabel,
-            keyCode: 0,
-            flags: 0,
-            kind: .typingToggle
-        ))
+        items.append(contentsOf: mouseActions)
+        items.append(contentsOf: modeActions)
+        items.append(contentsOf: gestureActions)
         items.append(contentsOf: layerActions)
         return items.sorted { $0.label < $1.label }
     }()
@@ -1234,12 +1250,9 @@ enum KeyActionCatalog {
             ))
             identifiers.insert(identifier)
         }
-        actions.append(KeyAction(
-            label: typingToggleLabel,
-            keyCode: 0,
-            flags: 0,
-            kind: .typingToggle
-        ))
+        actions.append(contentsOf: mouseActions)
+        actions.append(contentsOf: modeActions)
+        actions.append(contentsOf: gestureActions)
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
     }()
@@ -1269,6 +1282,17 @@ enum KeyActionCatalog {
             ("General", [noneLabel]),
             ("Letters A-Z", letters),
             ("Numbers 0-9", numbers),
+            ("Mouse Actions", [
+                leftClickLabel,
+                rightClickLabel
+            ]),
+            ("--Gestures--", [
+                gestureTwoFingerTapLabel,
+                gestureThreeFingerTapLabel,
+                gestureFourFingerHoldLabel,
+                gestureFiveFingerSwipeLeftLabel,
+                gestureFiveFingerSwipeRightLabel
+            ]),
             ("Navigation & Editing", [
                 "Space",
                 "Tab",
@@ -1294,6 +1318,7 @@ enum KeyActionCatalog {
                 "Option",
                 "Cmd",
                 "Emoji",
+                chordalShiftLabel,
                 typingToggleLabel
             ]),
             ("Symbols & Punctuation", [
@@ -1376,12 +1401,76 @@ enum KeyActionCatalog {
         if label == noneLabel {
             return noneAction
         }
+        if label == leftClickLabel {
+            return KeyAction(
+                label: leftClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .leftClick
+            )
+        }
+        if label == rightClickLabel {
+            return KeyAction(
+                label: rightClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .rightClick
+            )
+        }
         if label == typingToggleLabel {
             return KeyAction(
                 label: typingToggleLabel,
                 keyCode: 0,
                 flags: 0,
                 kind: .typingToggle
+            )
+        }
+        if label == chordalShiftLabel {
+            return KeyAction(
+                label: chordalShiftLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .chordalShift
+            )
+        }
+        if label == gestureTwoFingerTapLabel {
+            return KeyAction(
+                label: gestureTwoFingerTapLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureTwoFingerTap
+            )
+        }
+        if label == gestureThreeFingerTapLabel {
+            return KeyAction(
+                label: gestureThreeFingerTapLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureThreeFingerTap
+            )
+        }
+        if label == gestureFourFingerHoldLabel {
+            return KeyAction(
+                label: gestureFourFingerHoldLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureFourFingerHold
+            )
+        }
+        if label == gestureFiveFingerSwipeLeftLabel {
+            return KeyAction(
+                label: gestureFiveFingerSwipeLeftLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureFiveFingerSwipeLeft
+            )
+        }
+        if label == gestureFiveFingerSwipeRightLabel {
+            return KeyAction(
+                label: gestureFiveFingerSwipeRightLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureFiveFingerSwipeRight
             )
         }
         if let layer = layer(from: label, prefix: "MO") {
