@@ -1,9 +1,12 @@
 ## TODO
-- PRETTIFY ACTION DROP DOWN
+- Can we add a cool divider in the Primary / Hold action dropdowns? Please look at how we implemented dividers in the Primary Action dropdown in "../windows/glasstokey" Please see: "General" > "None" | "Letters A-Z" > "A", "B", "C"... etc. I want something similar, but in mac style.
 -------
 ### Gesture config:
-- Create dropdown for each of my gestures and implement them as actions that can be selected from a drop down. (You can reference ../windows/glasstokey if you need!)
+- Create a Gesture Tuning section under Typing Tuning that is collapsable
+- Create dropdown for each of my gestures and implement them as actions that can be selected from a drop down. (You can reference ../windows/glasstokey to see how this was done if you need!) Please add a dropdown selection for each Gesture we currently have implemented: "2-finger tap" (Left Click), "3-finger tap" (Right Click), "4-finger hold" (Chordal Shift), and "5-finger swipe left" and "5-finger swipe right" (Typing Toggle)
+---
 - Left / Right / Double Click actions in Action Dropdown
+- What actions can we add?
 -------
 - Implement Auto Splay
 - Implement e v e n s p a c i n g

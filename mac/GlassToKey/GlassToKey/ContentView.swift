@@ -1275,18 +1275,29 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Primary Action", selection: primaryActionBinding) {
-                    Text(KeyActionCatalog.noneLabel)
-                        .tag(KeyActionCatalog.noneAction)
-                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                        ContentView.pickerLabel(for: action).tag(action)
+                    ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                        let group = KeyActionCatalog.primaryActionGroups[index]
+                        if index > 0 {
+                            ContentView.dropdownDivider
+                        }
+                        ContentView.pickerGroupHeader(group.title)
+                        ForEach(group.actions, id: \.self) { action in
+                            ContentView.pickerLabel(for: action).tag(action)
+                        }
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
                 .disabled(!hasEditableSelection)
                 Picker("Hold Action", selection: holdActionBinding) {
+                    ContentView.pickerGroupHeader("General")
                     Text("None").tag(nil as KeyAction?)
-                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                        ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                    ForEach(KeyActionCatalog.holdActionGroups.indices, id: \.self) { index in
+                        let group = KeyActionCatalog.holdActionGroups[index]
+                        ContentView.dropdownDivider
+                        ContentView.pickerGroupHeader(group.title)
+                        ForEach(group.actions, id: \.self) { action in
+                            ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                        }
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
@@ -2827,6 +2838,26 @@ struct ContentView: View {
             : action.label
         return Text(label)
             .multilineTextAlignment(.center)
+    }
+
+    fileprivate static func pickerGroupHeader(_ title: String) -> some View {
+        Text(title.uppercased())
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.05))
+            .cornerRadius(4)
+    }
+
+    fileprivate static var dropdownDivider: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.4))
+            .frame(height: 1)
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 6)
     }
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {

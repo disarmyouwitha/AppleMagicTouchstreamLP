@@ -1196,6 +1196,112 @@ enum KeyActionCatalog {
         return actions.sorted { $0.label < $1.label }
     }()
 
+    struct ActionGroup: Identifiable {
+        let title: String
+        let actions: [KeyAction]
+        var id: String { title }
+    }
+
+    private static func makeActionGroup(
+        title: String,
+        labels: [String],
+        resolver: (String) -> KeyAction?
+    ) -> ActionGroup? {
+        let actions = labels.compactMap(resolver)
+        guard !actions.isEmpty else { return nil }
+        return ActionGroup(title: title, actions: actions)
+    }
+
+    private static let groupDefinitions: [(title: String, labels: [String])] = {
+        let letters = (65...90)
+            .compactMap { UnicodeScalar($0) }
+            .map(String.init)
+        let numbers = (0...9).map { String($0) }
+        return [
+            ("General", [noneLabel]),
+            ("Letters A-Z", letters),
+            ("Numbers 0-9", numbers),
+            ("Navigation & Editing", [
+                "Space",
+                "Tab",
+                "Enter",
+                "Ret",
+                "Backspace",
+                "Back",
+                "Esc",
+                "Delete",
+                "Insert",
+                "Home",
+                "End",
+                "PageUp",
+                "PageDown",
+                "Left",
+                "Right",
+                "Up",
+                "Down"
+            ]),
+            ("Modifiers & Modes", [
+                "Shift",
+                "Ctrl",
+                "Option",
+                "Cmd",
+                "Emoji",
+                typingToggleLabel
+            ]),
+            ("Symbols & Punctuation", [
+                "!",
+                "@",
+                "#",
+                "$",
+                "%",
+                "^",
+                "&",
+                "*",
+                "(",
+                ")",
+                "~",
+                ";",
+                ":",
+                "'",
+                "\"",
+                ",",
+                "<",
+                ".",
+                ">",
+                "/",
+                "?",
+                "\\",
+                "|",
+                "[",
+                "{",
+                "]",
+                "}",
+                "-",
+                "_",
+                "+",
+                "=",
+                "`",
+                "—"
+            ])
+        ]
+    }()
+
+    private static func buildActionGroups(
+        using resolver: (String) -> KeyAction?
+    ) -> [ActionGroup] {
+        var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
+            makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
+        }
+        let layerGroup = ActionGroup(title: "Layers", actions: layerActions)
+        if !layerGroup.actions.isEmpty {
+            groups.append(layerGroup)
+        }
+        return groups
+    }
+
+    static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
+    static let holdActionGroups: [ActionGroup] = primaryActionGroups
+
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {
             return noneAction
