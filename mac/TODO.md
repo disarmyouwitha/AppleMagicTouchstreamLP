@@ -3,6 +3,7 @@
 [1] 4-Finger hold should not trigger 2-finger hold and 3-finger hold.
 [2] 2-Finger hold should not trigger during Dragging
 [3] 3-Finger hold should not trigger during Dragging
+[4] 4-Finger hold should not trigger during Dragging
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 - What other actions can we add?
 -------

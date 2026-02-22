@@ -636,6 +636,13 @@ actor TouchProcessorEngine {
         var active: Bool = false
         var triggered: Bool = false
         var startTime: TimeInterval = 0
+        var startCentroid: CGPoint = .zero
+        var blockedUntilAllUp: Bool = false
+    }
+
+    private struct GestureContactSummary {
+        var count: Int = 0
+        var centroid: CGPoint = .zero
     }
     private enum CornerHoldGestureKind {
         case outer
@@ -912,14 +919,14 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        let leftContactCount = contactCount(in: leftTouches)
-        let rightContactCount = contactCount(in: rightTouches)
-        updateTwoFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateTwoFingerHold(for: .right, contactCount: rightContactCount, now: now)
-        updateThreeFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateThreeFingerHold(for: .right, contactCount: rightContactCount, now: now)
-        updateFourFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateFourFingerHold(for: .right, contactCount: rightContactCount, now: now)
+        let leftSummary = gestureContactSummary(in: leftTouches)
+        let rightSummary = gestureContactSummary(in: rightTouches)
+        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
+        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
+        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
+        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
+        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
+        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
         updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
@@ -1001,14 +1008,14 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        let leftContactCount = contactCount(in: leftTouches)
-        let rightContactCount = contactCount(in: rightTouches)
-        updateTwoFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateTwoFingerHold(for: .right, contactCount: rightContactCount, now: now)
-        updateThreeFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateThreeFingerHold(for: .right, contactCount: rightContactCount, now: now)
-        updateFourFingerHold(for: .left, contactCount: leftContactCount, now: now)
-        updateFourFingerHold(for: .right, contactCount: rightContactCount, now: now)
+        let leftSummary = gestureContactSummary(in: leftTouches)
+        let rightSummary = gestureContactSummary(in: rightTouches)
+        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
+        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
+        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
+        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
+        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
+        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
         updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
@@ -2320,12 +2327,22 @@ actor TouchProcessorEngine {
         }
     }
 
-    private func contactCount(in touches: [OMSRawTouch]) -> Int {
+    private func gestureContactSummary(in touches: [OMSRawTouch]) -> GestureContactSummary {
         var count = 0
+        var sumX: CGFloat = 0
+        var sumY: CGFloat = 0
         for touch in touches where Self.isChordShiftContactState(touch.state) {
             count += 1
+            sumX += CGFloat(touch.posX) * trackpadSize.width
+            sumY += CGFloat(1.0 - touch.posY) * trackpadSize.height
         }
-        return count
+        guard count > 0 else {
+            return GestureContactSummary()
+        }
+        return GestureContactSummary(
+            count: count,
+            centroid: CGPoint(x: sumX / CGFloat(count), y: sumY / CGFloat(count))
+        )
     }
 
     private func updateChordShift(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
@@ -2353,10 +2370,10 @@ actor TouchProcessorEngine {
         chordShiftEnabled && fourFingerHoldAction.kind == .chordalShift
     }
 
-    private func updateTwoFingerHold(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
+    private func updateTwoFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
         updateMultiFingerHold(
             for: side,
-            contactCount: contactCount,
+            summary: summary,
             requiredContactCount: 2,
             action: twoFingerHoldAction,
             state: &twoFingerHoldState[side],
@@ -2364,10 +2381,10 @@ actor TouchProcessorEngine {
         )
     }
 
-    private func updateThreeFingerHold(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
+    private func updateThreeFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
         updateMultiFingerHold(
             for: side,
-            contactCount: contactCount,
+            summary: summary,
             requiredContactCount: 3,
             action: threeFingerHoldAction,
             state: &threeFingerHoldState[side],
@@ -2375,7 +2392,8 @@ actor TouchProcessorEngine {
         )
     }
 
-    private func updateFourFingerHold(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
+    private func updateFourFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
+        let contactCount = summary.count
         if isChordShiftGestureActive {
             fourFingerHoldState[side] = MultiFingerHoldState()
             updateChordShift(for: side, contactCount: contactCount, now: now)
@@ -2392,7 +2410,7 @@ actor TouchProcessorEngine {
 
         updateMultiFingerHold(
             for: side,
-            contactCount: contactCount,
+            summary: summary,
             requiredContactCount: 4,
             action: action,
             state: &fourFingerHoldState[side],
@@ -2402,14 +2420,29 @@ actor TouchProcessorEngine {
 
     private func updateMultiFingerHold(
         for side: TrackpadSide,
-        contactCount: Int,
+        summary: GestureContactSummary,
         requiredContactCount: Int,
         action: KeyAction,
         state: inout MultiFingerHoldState,
         now: TimeInterval
     ) {
+        let contactCount = summary.count
         guard action.kind != .none else {
             state = MultiFingerHoldState()
+            return
+        }
+
+        if contactCount == 0 {
+            if state.blockedUntilAllUp {
+                state = MultiFingerHoldState()
+                return
+            }
+            if state.active {
+                let elapsed = now - chordShiftLastContactTime[side]
+                if elapsed >= contactCountHoldDuration {
+                    state = MultiFingerHoldState()
+                }
+            }
             return
         }
 
@@ -2417,12 +2450,24 @@ actor TouchProcessorEngine {
             chordShiftLastContactTime[side] = now
         }
 
+        if state.blockedUntilAllUp {
+            return
+        }
+
         if state.active {
-            if contactCount == 0 {
-                let elapsed = now - chordShiftLastContactTime[side]
-                if elapsed >= contactCountHoldDuration {
-                    state = MultiFingerHoldState()
-                }
+            if contactCount != requiredContactCount {
+                var blocked = MultiFingerHoldState()
+                blocked.blockedUntilAllUp = true
+                state = blocked
+                return
+            }
+
+            let dragThreshold = dragCancelDistance * unitsPerMillimeter
+            if distanceSquared(from: state.startCentroid, to: summary.centroid) > (dragThreshold * dragThreshold) {
+                var blocked = MultiFingerHoldState()
+                blocked.blockedUntilAllUp = true
+                state = blocked
+                return
             }
             let holdDelay = gestureHoldDelay(for: action)
             if !state.triggered, holdDelay > 0, now - state.startTime >= holdDelay {
@@ -2432,9 +2477,11 @@ actor TouchProcessorEngine {
             return
         }
 
-        guard contactCount >= requiredContactCount else { return }
+        guard contactCount == requiredContactCount else { return }
         state.active = true
         state.startTime = now
+        state.startCentroid = summary.centroid
+        state.blockedUntilAllUp = false
         let holdDelay = gestureHoldDelay(for: action)
         if holdDelay <= 0 {
             state.triggered = true
