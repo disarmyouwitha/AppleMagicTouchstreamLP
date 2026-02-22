@@ -1656,6 +1656,7 @@ struct ContentView: View {
                             trackpadSize: trackpadSize,
                             spacing: trackpadSpacing,
                             showDetailed: showDetailedView,
+                            replayModeEnabled: viewModel.replayTimelineState != nil,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
                             leftLabels: surfaceLabels(from: leftGridLabelInfo),

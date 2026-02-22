@@ -29,6 +29,7 @@ struct TrackpadSurfaceSnapshot {
     var trackpadSize: CGSize
     var spacing: CGFloat
     var showDetailed: Bool
+    var replayModeEnabled: Bool
     var leftLayout: ContentViewModel.Layout
     var rightLayout: ContentViewModel.Layout
     var leftLabels: [[TrackpadSurfaceLabel]]
@@ -48,6 +49,7 @@ extension TrackpadSurfaceSnapshot {
             trackpadSize: .zero,
             spacing: 0,
             showDetailed: false,
+            replayModeEnabled: false,
             leftLayout: ContentViewModel.Layout(keyRects: []),
             rightLayout: ContentViewModel.Layout(keyRects: []),
             leftLabels: [],
@@ -262,6 +264,18 @@ final class TrackpadSurfaceView: NSView {
             trackpadSize: trackpadSize
         )
         drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
+        if snapshot.replayModeEnabled && !editModeEnabled,
+           let highlightedRect = replayHitRect(
+               layout: layout,
+               customButtons: customButtons,
+               touches: touches,
+               trackpadSize: trackpadSize
+           ) {
+            drawReplayHighlight(
+                highlightedRect,
+                origin: origin
+            )
+        }
     }
 
     private func selectionEvent(at point: CGPoint) -> TrackpadSurfaceSelectionEvent? {
@@ -618,6 +632,78 @@ final class TrackpadSurfaceView: NSView {
             path.transform(using: transform)
             NSColor.labelColor.withAlphaComponent(0.95).setFill()
             path.fill()
+        }
+    }
+
+    private func drawReplayHighlight(_ rect: CGRect, origin: CGPoint) {
+        let translated = rect.offsetBy(dx: origin.x, dy: origin.y)
+        let path = NSBezierPath(roundedRect: translated, xRadius: 6, yRadius: 6)
+        NSColor.systemGreen.withAlphaComponent(0.95).setStroke()
+        path.lineWidth = 2.5
+        path.stroke()
+    }
+
+    private func replayHitRect(
+        layout: ContentViewModel.Layout,
+        customButtons: [CustomButton],
+        touches: [OMSTouchData],
+        trackpadSize: CGSize
+    ) -> CGRect? {
+        guard trackpadSize.width > 0, trackpadSize.height > 0 else { return nil }
+        guard let selectedTouch = touches.first(where: { Self.isPhysicalContactState($0.state) }) ?? touches.first else {
+            return nil
+        }
+
+        let x = CGFloat(selectedTouch.position.x) * trackpadSize.width
+        let y = (1.0 - CGFloat(selectedTouch.position.y)) * trackpadSize.height
+        let point = CGPoint(x: x, y: y)
+
+        var bestRect: CGRect?
+        var bestScore = -CGFloat.greatestFiniteMagnitude
+        var bestArea = CGFloat.greatestFiniteMagnitude
+
+        for row in layout.keyRects {
+            for rect in row {
+                guard rect.contains(point) else { continue }
+                let score = edgeDistanceScore(point: point, rect: rect)
+                let area = rect.width * rect.height
+                if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
+                    bestRect = rect
+                    bestScore = score
+                    bestArea = area
+                }
+            }
+        }
+
+        for button in customButtons {
+            let rect = button.rect.rect(in: trackpadSize)
+            guard rect.contains(point) else { continue }
+            let score = edgeDistanceScore(point: point, rect: rect)
+            let area = rect.width * rect.height
+            if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
+                bestRect = rect
+                bestScore = score
+                bestArea = area
+            }
+        }
+
+        return bestRect
+    }
+
+    private func edgeDistanceScore(point: CGPoint, rect: CGRect) -> CGFloat {
+        let dx = min(point.x - rect.minX, rect.maxX - point.x)
+        let dy = min(point.y - rect.minY, rect.maxY - point.y)
+        return min(dx, dy)
+    }
+
+    private static func isPhysicalContactState(_ state: OMSState) -> Bool {
+        switch state {
+        case .starting, .making, .touching, .breaking, .lingering, .leaving:
+            return true
+        case .notTouching, .hovering:
+            return false
+        @unknown default:
+            return false
         }
     }
 
