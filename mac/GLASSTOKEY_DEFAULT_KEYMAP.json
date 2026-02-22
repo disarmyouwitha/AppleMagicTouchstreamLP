@@ -646,6 +646,7 @@
   "forceClickMin" : 0,
   "fourFingerHoldGestureAction" : "Chordal Shift",
   "hapticStrength" : 40,
+  "innerCornersHoldGestureAction" : "None",
   "intentMoveThresholdMm" : 3,
   "intentVelocityThresholdMmPerSec" : 30,
   "keyMappings" : {
@@ -883,11 +884,25 @@
         }
       },
       "left:2:5" : {
-        "primary" : {
+        "hold" : {
           "flags" : 0,
           "keyCode" : 63,
           "kind" : "key",
           "label" : "Emoji"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 58,
+          "kind" : "key",
+          "label" : "Option"
+        }
+      },
+      "right:0:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
         }
       },
       "right:1:5" : {
@@ -1029,9 +1044,9 @@
       "left:2:2" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 3,
-          "kind" : "key",
-          "label" : "F"
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
         }
       },
       "left:2:3" : {
@@ -1045,9 +1060,9 @@
       "left:2:4" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 36,
-          "kind" : "key",
-          "label" : "Ret"
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
         }
       },
       "left:2:5" : {
@@ -1149,9 +1164,9 @@
       "right:2:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 24,
+          "kind" : "key",
+          "label" : "="
         }
       },
       "right:2:1" : {
@@ -1733,7 +1748,9 @@
   "snapRadiusPercent" : 35,
   "tapClickCadenceMs" : 230,
   "tapHoldDurationMs" : 220,
-  "threeFingerTapGestureAction" : "Right Click",
-  "twoFingerTapGestureAction" : "Left Click",
+  "threeFingerHoldGestureAction" : "Right Click",
+  "threeFingerTapGestureAction" : "None",
+  "twoFingerHoldGestureAction" : "Left Click",
+  "twoFingerTapGestureAction" : "None",
   "typingGraceMs" : 3000
 }

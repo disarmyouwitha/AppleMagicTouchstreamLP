@@ -2479,7 +2479,8 @@ actor TouchProcessorEngine {
         }
 
         guard contactCount == requiredContactCount else { return }
-        if requiredContactCount == 2, !areSideTouchStartsSynchronizedForHold(side) {
+        if (requiredContactCount == 2 || requiredContactCount == 3),
+           !areSideTouchStartsSynchronizedForHold(side, expectedCount: requiredContactCount) {
             return
         }
         state.active = true
@@ -2499,7 +2500,10 @@ actor TouchProcessorEngine {
         action.kind == .chordalShift ? 0 : holdMinDuration
     }
 
-    private func areSideTouchStartsSynchronizedForHold(_ side: TrackpadSide) -> Bool {
+    private func areSideTouchStartsSynchronizedForHold(
+        _ side: TrackpadSide,
+        expectedCount: Int
+    ) -> Bool {
         let sideDeviceIndex: Int?
         switch side {
         case .left:
@@ -2522,7 +2526,7 @@ actor TouchProcessorEngine {
                 maxTime = info.startTime
             }
         }
-        guard count == 2 else { return false }
+        guard count == expectedCount else { return false }
         return maxTime - minTime <= intentConfig.keyBufferSeconds
     }
 

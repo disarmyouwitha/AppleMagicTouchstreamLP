@@ -1,6 +1,6 @@
 ## TODO
 - The arrival time logic you applied to 2-finger holds should apply to 3-finger holds as well.
-- What other actions can we add? [VOL_UP, VOL_DOWN, BRIGHT_UP, BRIGHT_DOWN]
+- What other actions can we add? [Delete, VOL_UP, VOL_DOWN, BRIGHT_UP, BRIGHT_DOWN]
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 -------
 - Implement Auto Splay
