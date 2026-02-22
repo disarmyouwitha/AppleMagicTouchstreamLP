@@ -209,8 +209,6 @@ final class ContentViewModel: ObservableObject {
     final class StatusViewModel: ObservableObject {
         @Published var contactFingerCountsBySide = SidePair(left: 0, right: 0)
         @Published var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
-        @Published var voiceGestureActive = false
-        @Published var voiceDebugStatus: String?
     }
 
     nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
@@ -263,13 +261,6 @@ final class ContentViewModel: ObservableObject {
         }
         let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { _ in }
         let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { _ in }
-        let voiceGestureHandler: @Sendable (Bool) -> Void = { _ in }
-        let voiceStatusHandler: @Sendable (String?) -> Void = { status in
-            Task { @MainActor in
-                weakSelf?.publishVoiceDebugStatus(status)
-            }
-        }
-        VoiceDictationManager.shared.setStatusHandler(voiceStatusHandler)
         let runtimeEngine = EngineActor(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
@@ -284,8 +275,7 @@ final class ContentViewModel: ObservableObject {
             },
             onDebugBindingDetected: debugBindingHandler,
             onContactCountChanged: contactCountHandler,
-            onIntentStateChanged: intentStateHandler,
-            onVoiceGestureChanged: voiceGestureHandler
+            onIntentStateChanged: intentStateHandler
         )
         runtimeCommandService = RuntimeCommandService(runtimeEngine: runtimeEngine)
         runtimeLifecycleCoordinator = RuntimeLifecycleCoordinatorService(
@@ -328,7 +318,6 @@ final class ContentViewModel: ObservableObject {
         guard uiStatusVisualsEnabled else { return }
         publishContactCountsIfNeeded(snapshot.contactCountBySide)
         publishIntentDisplayIfNeeded(Self.mapIntentDisplay(snapshot.intentBySide))
-        publishVoiceGestureIfNeeded(false)
     }
 
     var leftTouches: [OMSTouchData] {
@@ -713,15 +702,6 @@ final class ContentViewModel: ObservableObject {
         statusViewModel.intentDisplayBySide = display
     }
 
-    private func publishVoiceGestureIfNeeded(_ isActive: Bool) {
-        guard uiStatusVisualsEnabled else { return }
-        guard isActive != statusViewModel.voiceGestureActive else { return }
-        statusViewModel.voiceGestureActive = isActive
-    }
-
-    private func publishVoiceDebugStatus(_ status: String?) {
-        statusViewModel.voiceDebugStatus = status
-    }
 }
 
 final class RepeatToken: @unchecked Sendable {

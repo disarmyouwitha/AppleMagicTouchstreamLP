@@ -796,12 +796,6 @@ struct ContentView: View {
                     HStack(spacing: 10) {
                         contactCountPills
                         intentBadge(intent: statusViewModel.intentDisplayBySide.left)
-                        if statusViewModel.voiceGestureActive {
-                            voiceBadge(isActive: true)
-                        }
-                        if let voiceDebugStatus = statusViewModel.voiceDebugStatus {
-                            voiceStatusBadge(voiceDebugStatus)
-                        }
                     }
                 }
                 Spacer()
@@ -885,34 +879,6 @@ struct ContentView: View {
             }
         }
 
-        private func voiceBadge(isActive: Bool) -> some View {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(isActive ? Color.red : Color.gray)
-                    .frame(width: 6, height: 6)
-                Text("voice")
-                    .font(.caption2)
-                    .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                Capsule()
-                    .fill(Color.primary.opacity(0.06))
-            )
-        }
-
-        private func voiceStatusBadge(_ text: String) -> some View {
-            Text(text)
-                .font(.caption2)
-                .foregroundStyle(.secondary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    Capsule()
-                        .fill(Color.primary.opacity(0.04))
-                )
-        }
     }
 
     private struct TrackpadSectionView: View {
