@@ -316,7 +316,7 @@ struct ContentView: View {
         mainLayout
             .padding()
             .background(backgroundGradient)
-            .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 240)
+            .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 340)
             .frame(maxHeight: .infinity, alignment: .top)
     }
 
@@ -533,16 +533,11 @@ struct ContentView: View {
             availableDevices: viewModel.availableDevices,
             leftDevice: viewModel.leftDevice,
             rightDevice: viewModel.rightDevice,
-            autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             onSelectLeft: { device in
                 viewModel.selectLeftDevice(device)
             },
             onSelectRight: { device in
                 viewModel.selectRightDevice(device)
-            },
-            onAutoResyncChange: { newValue in
-                storedAutoResyncMissingTrackpads = newValue
-                viewModel.setAutoResyncEnabled(newValue)
             },
             onRefresh: {
                 viewModel.refreshDevicesAndListeners()
@@ -598,6 +593,7 @@ struct ContentView: View {
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
+            autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             onAddCustomButton: { side in
                 addCustomButton(side: side)
             },
@@ -832,6 +828,7 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
+        @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         let onAddCustomButton: (TrackpadSide) -> Void
@@ -879,7 +876,8 @@ struct ContentView: View {
                             tapClickEnabled: $tapClickEnabled,
                             snapRadiusPercentSetting: $snapRadiusPercentSetting,
                             chordalShiftEnabled: $chordalShiftEnabled,
-                            keyboardModeEnabled: $keyboardModeEnabled
+                            keyboardModeEnabled: $keyboardModeEnabled,
+                            autoResyncEnabled: $autoResyncEnabled
                         )
                         .padding(.top, 8)
                     } label: {
@@ -922,72 +920,73 @@ struct ContentView: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
-        @Binding var autoResyncEnabled: Bool
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
-        let onAutoResyncChange: (Bool) -> Void
         let onRefresh: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                Text("Devices")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
                 if availableDevices.isEmpty {
                     Text("No trackpads detected.")
                         .foregroundStyle(.secondary)
                 } else {
-                    Picker("Left Trackpad", selection: Binding(
-                        get: { leftDevice },
-                        set: { device in
-                            onSelectLeft(device)
+                    HStack(spacing: 10) {
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Left Trackpad")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Picker("", selection: Binding(
+                                get: { leftDevice },
+                                set: { device in
+                                    onSelectLeft(device)
+                                }
+                            )) {
+                                Text("None")
+                                    .tag(nil as OMSDeviceInfo?)
+                                ForEach(availableDevices, id: \.self) { device in
+                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                        .tag(device as OMSDeviceInfo?)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .pickerStyle(MenuPickerStyle())
                         }
-                    )) {
-                        Text("None")
-                            .tag(nil as OMSDeviceInfo?)
-                        ForEach(availableDevices, id: \.self) { device in
-                            Text("\(device.deviceName) (ID: \(device.deviceID))")
-                                .tag(device as OMSDeviceInfo?)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Picker("Right Trackpad", selection: Binding(
-                        get: { rightDevice },
-                        set: { device in
-                            onSelectRight(device)
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("Right Trackpad")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Picker("", selection: Binding(
+                                get: { rightDevice },
+                                set: { device in
+                                    onSelectRight(device)
+                                }
+                            )) {
+                                Text("None")
+                                    .tag(nil as OMSDeviceInfo?)
+                                ForEach(availableDevices, id: \.self) { device in
+                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                        .tag(device as OMSDeviceInfo?)
+                                }
+                            }
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .pickerStyle(MenuPickerStyle())
                         }
-                    )) {
-                        Text("None")
-                            .tag(nil as OMSDeviceInfo?)
-                        ForEach(availableDevices, id: \.self) { device in
-                            Text("\(device.deviceName) (ID: \(device.deviceID))")
-                                .tag(device as OMSDeviceInfo?)
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                }
-                HStack {
-                    Toggle("Auto-resync disconnected trackpads", isOn: Binding(
-                        get: { autoResyncEnabled },
-                        set: { newValue in
-                            autoResyncEnabled = newValue
-                            onAutoResyncChange(newValue)
-                        }
-                    ))
-                    .toggleStyle(SwitchToggleStyle())
-                    .help("Polls every 8 seconds to detect disconnected trackpads.")
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    Spacer()
-
-                    Button(action: {
-                        onRefresh()
-                    }) {
-                        Image(systemName: "arrow.clockwise")
-                            .imageScale(.medium)
+                        Button(action: {
+                            onRefresh()
+                        }) {
+                            Image(systemName: "arrow.clockwise")
+                                .imageScale(.medium)
+                        }
+                        .buttonStyle(.bordered)
+                        .help("Refresh trackpad list")
+                        .padding(.top, 15)
                     }
-                    .buttonStyle(.bordered)
-                    .help("Refresh trackpad list")
                 }
             }
             .padding(12)
@@ -1380,6 +1379,7 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
+        @Binding var autoResyncEnabled: Bool
 
         private let labelWidth: CGFloat = 140
 
@@ -1422,8 +1422,12 @@ struct ContentView: View {
                     Toggle("", isOn: $keyboardModeEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
-                    Spacer()
-                        .gridCellColumns(2)
+                    Text("Auto-resync")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $autoResyncEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .help("Polls every 8 seconds to detect disconnected trackpads.")
                 }
             }
         }
