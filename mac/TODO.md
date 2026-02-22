@@ -1,9 +1,7 @@
 ## TODO
-- Add/fix double-click
-- Add 2,3,4-Finger Hold Gestures!
-- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
----
+- Add 2,3-Finger Hold Gestures!
 - 4-finger hold should only apply after Hold (ms) **UNLESS CHORDAL SHIFT IS SELECTED, WHICH SHOULD APPLY INSTANTLY**
+- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 - What other actions can we add?
 -------
 - Implement Auto Splay
