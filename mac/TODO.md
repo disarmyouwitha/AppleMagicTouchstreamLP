@@ -1,5 +1,5 @@
 ## TODO
-- Can we remove "Tap Click" toggle and remove the logic - Tap Click should fire if the gesture is set (i.e. 2-finger tap, 3-finger tap)
+- [0] In Mode Toggle can we change the label from "Keyboard mode" to "Keyboard/Mouse" [1] Can we move the Mode Toggles to these ordered pairs?: ["Keyboard/Mouse", "Autocorrect"], ["Chordal Shift", "Snap Radius"], ["Run at Startup","Auto-resync"]
 - Build out Gesture Tuning collapsable sub-menues: Taps, Holds, Swipes (and add our current gestures into them.)
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 ---

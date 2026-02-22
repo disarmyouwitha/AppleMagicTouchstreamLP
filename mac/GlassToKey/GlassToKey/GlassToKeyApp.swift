@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 import os
@@ -31,6 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        initializeRunAtStartupPreference()
         controller.start()
         configureStatusItem()
         observeStatus()
@@ -259,6 +261,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.terminate(nil)
     }
 
+    private func initializeRunAtStartupPreference() {
+        let defaults = UserDefaults.standard
+        let key = GlassToKeyDefaultsKeys.runAtStartupEnabled
+        let manager = LaunchAtLoginManager.shared
+        if defaults.object(forKey: key) == nil {
+            defaults.set(manager.isEnabled, forKey: key)
+            return
+        }
+        let desired = defaults.bool(forKey: key)
+        do {
+            try manager.setEnabled(desired)
+            defaults.set(manager.isEnabled, forKey: key)
+        } catch {
+            defaults.set(manager.isEnabled, forKey: key)
+        }
+    }
+
     private func startCaptureFlow() {
         guard !replayInProgress else { return }
         let panel = NSSavePanel()
@@ -424,6 +443,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         mouseEventBlocker.setAllowedRect(window.frame)
+    }
+}
+
+@MainActor
+final class LaunchAtLoginManager {
+    static let shared = LaunchAtLoginManager()
+
+    private init() {}
+
+    var isEnabled: Bool {
+        if #available(macOS 13.0, *) {
+            return SMAppService.mainApp.status == .enabled
+        }
+        return false
+    }
+
+    func setEnabled(_ enabled: Bool) throws {
+        if #available(macOS 13.0, *) {
+            if enabled == isEnabled {
+                return
+            }
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try SMAppService.mainApp.unregister()
+            }
+        }
     }
 }
 

@@ -122,6 +122,8 @@ struct ContentView: View {
     private var chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.runAtStartupEnabled)
+    private var runAtStartupEnabled = GlassToKeySettings.runAtStartupEnabled
     @AppStorage(GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
     private var twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
@@ -488,6 +490,17 @@ struct ContentView: View {
             .onChange(of: keyboardModeEnabled) { newValue in
                 viewModel.updateKeyboardModeEnabled(newValue)
             }
+            .onChange(of: runAtStartupEnabled) { newValue in
+                do {
+                    try LaunchAtLoginManager.shared.setEnabled(newValue)
+                    let resolved = LaunchAtLoginManager.shared.isEnabled
+                    if resolved != newValue {
+                        runAtStartupEnabled = resolved
+                    }
+                } catch {
+                    runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+                }
+            }
             .onChange(of: twoFingerTapGestureAction) { newValue in
                 let actions = currentGestureActions(twoFingerTapOverride: newValue)
                 viewModel.updateGestureActions(
@@ -713,6 +726,7 @@ struct ContentView: View {
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
+            runAtStartupEnabled: $runAtStartupEnabled,
             twoFingerTapGestureAction: $twoFingerTapGestureAction,
             threeFingerTapGestureAction: $threeFingerTapGestureAction,
             fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
@@ -962,6 +976,7 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
+        @Binding var runAtStartupEnabled: Bool
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
         @Binding var fourFingerHoldGestureAction: String
@@ -1041,6 +1056,7 @@ struct ContentView: View {
                             snapRadiusPercentSetting: $snapRadiusPercentSetting,
                             chordalShiftEnabled: $chordalShiftEnabled,
                             keyboardModeEnabled: $keyboardModeEnabled,
+                            runAtStartupEnabled: $runAtStartupEnabled,
                             autoResyncEnabled: $autoResyncEnabled
                         )
                         .padding(.top, 8)
@@ -1635,6 +1651,7 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
+        @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
 
         private let labelWidth: CGFloat = 140
@@ -1673,12 +1690,22 @@ struct ContentView: View {
                     Toggle("", isOn: $keyboardModeEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
+                    Text("Run at Startup")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $runAtStartupEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                }
+                GridRow {
                     Text("Auto-resync")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autoResyncEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
                         .help("Polls every 8 seconds to detect disconnected trackpads.")
+                    Color.clear
+                        .frame(width: labelWidth)
+                    Color.clear
                 }
             }
         }
@@ -2608,6 +2635,7 @@ struct ContentView: View {
         viewModel.updateSnapRadiusPercent(snapRadiusPercentSetting)
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.updateGestureActions(
             twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),

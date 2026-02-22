@@ -16,6 +16,7 @@ enum GlassToKeySettings {
     static let snapRadiusPercent: Double = 35.0
     static let chordalShiftEnabled: Bool = true
     static let keyboardModeEnabled: Bool = false
+    static let runAtStartupEnabled: Bool = false
     static let twoFingerTapGestureActionLabel = KeyActionCatalog.leftClickLabel
     static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
     static let fourFingerHoldGestureActionLabel = KeyActionCatalog.chordalShiftLabel
