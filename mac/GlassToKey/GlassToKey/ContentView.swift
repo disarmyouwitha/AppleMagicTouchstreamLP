@@ -768,34 +768,50 @@ struct ContentView: View {
         @Binding var testText: String
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                    TrackpadDeckView(
-                        viewModel: viewModel,
-                        trackpadSize: trackpadSize,
-                        leftLayout: leftLayout,
-                        rightLayout: rightLayout,
-                        leftGridLabelInfo: leftGridLabelInfo,
-                        rightGridLabelInfo: rightGridLabelInfo,
-                        customButtons: customButtons,
-                        editModeEnabled: $editModeEnabled,
-                        lastHitLeft: lastHitLeft,
-                        lastHitRight: lastHitRight,
-                        selectedButtonID: $selectedButtonID,
-                        selectedGridKey: $selectedGridKey
-                    )
-                TextEditor(text: $testText)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(height: 100)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
-                    )
+            ZStack {
+                VStack(alignment: .leading, spacing: 12) {
+                        TrackpadDeckView(
+                            viewModel: viewModel,
+                            trackpadSize: trackpadSize,
+                            leftLayout: leftLayout,
+                            rightLayout: rightLayout,
+                            leftGridLabelInfo: leftGridLabelInfo,
+                            rightGridLabelInfo: rightGridLabelInfo,
+                            customButtons: customButtons,
+                            editModeEnabled: $editModeEnabled,
+                            lastHitLeft: lastHitLeft,
+                            lastHitRight: lastHitRight,
+                            selectedButtonID: $selectedButtonID,
+                            selectedGridKey: $selectedGridKey
+                        )
+                    TextEditor(text: $testText)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(height: 100)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
+                        )
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.primary.opacity(0.05))
+                )
+
+                Button(action: clearSelection) {
+                    EmptyView()
+                }
+                .frame(width: 0, height: 0)
+                .keyboardShortcut(.escape, modifiers: [])
+                .buttonStyle(.borderless)
+                .disabled(!editModeEnabled)
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.primary.opacity(0.05))
-            )
+        }
+
+        private func clearSelection() {
+            guard editModeEnabled else { return }
+            selectedGridKey = nil
+            selectedButtonID = nil
         }
     }
 
@@ -1219,23 +1235,25 @@ struct ContentView: View {
             Binding(
                 get: {
                     if let selection = buttonSelection {
-                        return selection.button.hold
+                        return selection.button.hold ?? KeyActionCatalog.noneAction
                     }
                     if let selection = keySelection {
-                        return selection.mapping.hold
+                        return selection.mapping.hold ?? KeyActionCatalog.noneAction
                     }
-                    return nil
+                    return KeyActionCatalog.noneAction
                 },
                 set: { newValue in
+                    let normalized = newValue ?? KeyActionCatalog.noneAction
+                    let resolvedHold = normalized.kind == .none ? nil : normalized
                     if let selection = buttonSelection {
                         onUpdateButton(selection.button.id) { button in
-                            button.hold = newValue
+                            button.hold = resolvedHold
                         }
                         return
                     }
                     if let selection = keySelection {
                         onUpdateKeyMapping(selection.key) { mapping in
-                            mapping.hold = newValue
+                            mapping.hold = resolvedHold
                         }
                     }
                 }
@@ -1259,18 +1277,23 @@ struct ContentView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Picker("Primary Action", selection: primaryActionBinding) {
-                    Text(KeyActionCatalog.noneLabel)
-                        .tag(KeyActionCatalog.noneAction)
-                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                        ContentView.pickerLabel(for: action).tag(action)
+                    ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                        let group = KeyActionCatalog.primaryActionGroups[index]
+                        ContentView.pickerGroupHeader(group.title)
+                        ForEach(group.actions, id: \.self) { action in
+                            ContentView.pickerLabel(for: action).tag(action)
+                        }
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
                 .disabled(!hasEditableSelection)
                 Picker("Hold Action", selection: holdActionBinding) {
-                    Text("None").tag(nil as KeyAction?)
-                    ForEach(KeyActionCatalog.holdPresets, id: \.self) { action in
-                        ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                    ForEach(KeyActionCatalog.holdActionGroups.indices, id: \.self) { index in
+                        let group = KeyActionCatalog.holdActionGroups[index]
+                        ContentView.pickerGroupHeader(group.title)
+                        ForEach(group.actions, id: \.self) { action in
+                            ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                        }
                     }
                 }
                 .pickerStyle(MenuPickerStyle())
@@ -1841,6 +1864,7 @@ struct ContentView: View {
                 selectedGridKey = nil
             }
         }
+
     }
 
     private struct CombinedTrackpadCanvas: View {
@@ -2726,9 +2750,10 @@ struct ContentView: View {
             let primaryText = Text(button.action.displayText)
                 .font(primaryStyle)
                 .foregroundColor(.secondary)
-            let primaryY = center.y - (button.hold != nil ? 4 : 0)
+            let holdLabel = button.hold?.holdLabelText
+            let primaryY = center.y - (holdLabel != nil ? 4 : 0)
             context.draw(primaryText, at: CGPoint(x: center.x, y: primaryY))
-            if let holdLabel = button.hold?.label {
+            if let holdLabel = holdLabel {
                 let holdText = Text(holdLabel)
                     .font(holdStyle)
                     .foregroundColor(.secondary.opacity(0.7))
@@ -2739,7 +2764,7 @@ struct ContentView: View {
 
     private func labelInfo(for key: SelectedGridKey) -> (primary: String, hold: String?) {
         let mapping = effectiveKeyMapping(for: key)
-        return (primary: mapping.primary.displayText, hold: mapping.hold?.label)
+        return (primary: mapping.primary.displayText, hold: mapping.hold?.holdLabelText)
     }
 
     private func refreshColumnInspectorSelection() {
@@ -2811,6 +2836,20 @@ struct ContentView: View {
         return Text(label)
             .multilineTextAlignment(.center)
     }
+
+    fileprivate static func pickerGroupHeader(_ title: String) -> some View {
+        Text("—— \(title.uppercased()) ——")
+            .font(.caption2)
+            .fontWeight(.semibold)
+            .foregroundColor(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(6)
+            .allowsHitTesting(false)
+    }
+
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {
         let layerMappings = keyMappingsForActiveLayer()

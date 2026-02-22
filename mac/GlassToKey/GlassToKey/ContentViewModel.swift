@@ -757,7 +757,7 @@ enum KeyActionKind: String, Codable {
     case none
 }
 
-    struct KeyAction: Codable, Hashable {
+struct KeyAction: Codable, Hashable {
         var label: String
         var keyCode: UInt16
         var flags: UInt64
@@ -766,7 +766,7 @@ enum KeyActionKind: String, Codable {
         var displayText: String {
             switch kind {
             case .none:
-                return ""
+                return KeyActionCatalog.noneLabel
             case .typingToggle:
                 return KeyActionCatalog.typingToggleDisplayLabel
             default:
@@ -812,6 +812,15 @@ enum KeyActionKind: String, Codable {
         try container.encode(flags, forKey: .flags)
         try container.encode(kind, forKey: .kind)
         try container.encodeIfPresent(layer, forKey: .layer)
+    }
+}
+
+extension KeyAction {
+    var holdLabelText: String? {
+        guard kind != .none else { return nil }
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != KeyActionCatalog.noneLabel else { return nil }
+        return kind == .typingToggle ? KeyActionCatalog.typingToggleDisplayLabel : label
     }
 }
 
@@ -1194,6 +1203,133 @@ enum KeyActionCatalog {
         ))
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
+    }()
+
+    struct ActionGroup: Identifiable {
+        let title: String
+        let actions: [KeyAction]
+        var id: String { title }
+    }
+
+    private static func makeActionGroup(
+        title: String,
+        labels: [String],
+        resolver: (String) -> KeyAction?
+    ) -> ActionGroup? {
+        let actions = labels.compactMap(resolver)
+        guard !actions.isEmpty else { return nil }
+        return ActionGroup(title: title, actions: actions)
+    }
+
+    private static let groupDefinitions: [(title: String, labels: [String])] = {
+        let letters = (65...90)
+            .compactMap { UnicodeScalar($0) }
+            .map(String.init)
+        let numbers = (0...9).map { String($0) }
+        return [
+            ("General", [noneLabel]),
+            ("Letters A-Z", letters),
+            ("Numbers 0-9", numbers),
+            ("Navigation & Editing", [
+                "Space",
+                "Tab",
+                "Enter",
+                "Ret",
+                "Backspace",
+                "Back",
+                "Esc",
+                "Delete",
+                "Insert",
+                "Home",
+                "End",
+                "PageUp",
+                "PageDown",
+                "Left",
+                "Right",
+                "Up",
+                "Down"
+            ]),
+            ("Modifiers & Modes", [
+                "Shift",
+                "Ctrl",
+                "Option",
+                "Cmd",
+                "Emoji",
+                typingToggleLabel
+            ]),
+            ("Symbols & Punctuation", [
+                "!",
+                "@",
+                "#",
+                "$",
+                "%",
+                "^",
+                "&",
+                "*",
+                "(",
+                ")",
+                "~",
+                ";",
+                ":",
+                "'",
+                "\"",
+                ",",
+                "<",
+                ".",
+                ">",
+                "/",
+                "?",
+                "\\",
+                "|",
+                "[",
+                "{",
+                "]",
+                "}",
+                "-",
+                "_",
+                "+",
+                "=",
+                "`",
+                "—"
+            ])
+        ]
+    }()
+
+    private static func buildActionGroups(
+        using resolver: (String) -> KeyAction?
+    ) -> [ActionGroup] {
+        var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
+            makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
+        }
+        let layerGroup = ActionGroup(title: "Layers", actions: layerActions)
+        if !layerGroup.actions.isEmpty {
+            groups.append(layerGroup)
+        }
+        return groups
+    }
+
+    static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
+    private static let commandShortcutActions: [KeyAction] = {
+        let combos: [(String, CGKeyCode)] = [
+            ("Cmd+F", CGKeyCode(kVK_ANSI_F)),
+            ("Cmd+R", CGKeyCode(kVK_ANSI_R)),
+            ("Cmd+X", CGKeyCode(kVK_ANSI_X)),
+            ("Cmd+C", CGKeyCode(kVK_ANSI_C)),
+            ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
+            ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
+            ("Cmd+S", CGKeyCode(kVK_ANSI_S))
+        ]
+        return combos.map { label, code in
+            KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
+        }
+    }()
+    static let holdActionGroups: [ActionGroup] = {
+        var groups = buildActionGroups(using: holdAction)
+        let generalGroup = ActionGroup(title: "General", actions: [noneAction])
+        groups.insert(generalGroup, at: 0)
+        let commandGroup = ActionGroup(title: "Cmd Shortcuts", actions: commandShortcutActions)
+        groups.insert(commandGroup, at: 1)
+        return groups
     }()
 
     static func action(for label: String) -> KeyAction? {

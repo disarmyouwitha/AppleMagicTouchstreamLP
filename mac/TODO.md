@@ -1,17 +1,18 @@
 ## TODO
-- If you hold ESC it should clear Key selected.
-- check if column dropdown is column aware
+# Gesture config:
+- Create a Gesture Tuning section under Typing Tuning that is collapsable
+- Create dropdown for each of my gestures and implement them as actions that can be selected from a drop down. (You can reference ../windows/glasstokey to see how this was done if you need!) Please add a dropdown selection for each Gesture we currently have implemented: "2-finger tap" (Left Click), "3-finger tap" (Right Click), "4-finger hold" (Chordal Shift), and "5-finger swipe left" and "5-finger swipe right" (Typing Toggle)
 ---
-- PRETTIFY ACTION DROP DOWN
----
-- Please explain to me how haptics works in the framework. Is this portable to windows in any way? Do you think it would be possible to implement in windows by reverse engineering?
----
-### Gesture config:
-- Create dropdown for each of my gestures and implement them as actions that can be selected from a drop down. (You can reference ../windows/glasstokey if you need!)
 - Left / Right / Double Click actions in Action Dropdown
+- What actions can we add?
 -------
-- export /import keymaps, **load global.json default
+- Implement Auto Splay
+- Implement e v e n s p a c i n g
+-------
+- export /import keymaps, **load GLASSTOKEY_DEFAULT_KEYMAP.json (package with app) if no keymap is saved.
 - autocorrect bugging (lets go symspell)
+- * far future - keymap import/export on windows/osx interop?
+- Fix Planck layout
 - auto-reconnect not working?
 - Short drag sometimes fires click
 - not sure it should be able to go into gesture mode during typing intent/typing grace
