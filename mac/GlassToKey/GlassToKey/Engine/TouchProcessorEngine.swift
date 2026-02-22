@@ -3015,7 +3015,7 @@ actor TouchProcessorEngine {
         }
         voiceDictationGestureState = state
         updateVoiceGestureActivity()
-        return voiceGestureActive
+        return state.holdCandidateActive
     }
 
     private func stopVoiceDictationGesture() {
