@@ -1310,6 +1310,7 @@ enum KeyActionCatalog {
                 "Option",
                 "Cmd",
                 "Emoji",
+                voiceLabel,
                 chordalShiftLabel,
                 typingToggleLabel
             ]),

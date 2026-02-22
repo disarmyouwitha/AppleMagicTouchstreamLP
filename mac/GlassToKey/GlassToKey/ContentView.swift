@@ -1989,8 +1989,7 @@ struct ContentView: View {
         private func gesturePicker(
             _ title: String,
             selection: Binding<String>,
-            fallbackLabel: String,
-            includeVoice: Bool = false
+            fallbackLabel: String
         ) -> some View {
             Picker(
                 title,
@@ -2005,11 +2004,6 @@ struct ContentView: View {
                     ForEach(group.actions, id: \.self) { action in
                         ContentView.pickerLabel(for: action).tag(action)
                     }
-                }
-                if includeVoice {
-                    ContentView.pickerGroupHeader("\u{2014}\u{2014}Modes\u{2014}\u{2014}")
-                    ContentView.pickerLabel(for: KeyActionCatalog.action(for: KeyActionCatalog.voiceLabel) ?? KeyActionCatalog.noneAction)
-                        .tag(KeyActionCatalog.action(for: KeyActionCatalog.voiceLabel) ?? KeyActionCatalog.noneAction)
                 }
             }
             .pickerStyle(MenuPickerStyle())
@@ -2057,8 +2051,7 @@ struct ContentView: View {
                             gesturePicker(
                                 "Outer corners hold",
                                 selection: $outerCornersHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel,
-                                includeVoice: true
+                                fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
                             )
                         }
                     }

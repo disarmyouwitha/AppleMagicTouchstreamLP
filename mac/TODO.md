@@ -1,4 +1,5 @@
 ## TODO
+- Fix Voice as Key action
 - Outer Corners should be added to the Gesture Tuning > Holds menu, and it should be configurable. (Right now it is Dictation, add Dictation to the Action dropdown as 'Voice')
 - Add Inner Corners hold.
 - Add 2,3,4-Finger Hold Gestures!
