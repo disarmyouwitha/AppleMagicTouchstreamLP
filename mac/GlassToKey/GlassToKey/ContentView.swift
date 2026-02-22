@@ -1939,9 +1939,9 @@ struct ContentView: View {
         @Binding var fourFingerHoldGestureAction: String
         @Binding var fiveFingerSwipeLeftGestureAction: String
         @Binding var fiveFingerSwipeRightGestureAction: String
-        @State private var tapsExpanded = true
+        @State private var tapsExpanded = false
         @State private var holdsExpanded = true
-        @State private var swipesExpanded = true
+        @State private var swipesExpanded = false
 
         private func gestureBinding(
             _ rawValue: Binding<String>,
