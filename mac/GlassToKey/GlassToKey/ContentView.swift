@@ -3108,7 +3108,7 @@ struct ContentView: View {
 
     fileprivate static func pickerLabel(for action: KeyAction) -> some View {
         let label = action.kind == .typingToggle
-            ? KeyActionCatalog.typingToggleDisplayLabel
+            ? KeyActionCatalog.typingToggleLabel
             : action.label
         return Text(label)
             .multilineTextAlignment(.center)
