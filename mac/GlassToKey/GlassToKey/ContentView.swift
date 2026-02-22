@@ -819,7 +819,8 @@ struct ContentView: View {
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
-        @State private var typingTuningExpanded = true
+        @State private var modeTogglesExpanded = true
+        @State private var typingTuningExpanded = false
         let onRefreshDevices: () -> Void
         let onAutoResyncChange: (Bool) -> Void
         let onAddCustomButton: (TrackpadSide) -> Void
@@ -849,6 +850,28 @@ struct ContentView: View {
 
                 if !editModeEnabled {
                     DisclosureGroup(
+                        isExpanded: $modeTogglesExpanded
+                    ) {
+                        ModeTogglesSectionView(
+                            autocorrectEnabled: $autocorrectEnabled,
+                            tapClickEnabled: $tapClickEnabled,
+                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
+                            chordalShiftEnabled: $chordalShiftEnabled,
+                            keyboardModeEnabled: $keyboardModeEnabled
+                        )
+                        .padding(.top, 8)
+                    } label: {
+                        Text("Mode Toggles")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    DisclosureGroup(
                         isExpanded: $typingTuningExpanded
                     ) {
                         TypingTuningSectionView(
@@ -859,12 +882,7 @@ struct ContentView: View {
                             typingGraceMsSetting: $typingGraceMsSetting,
                             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
                             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                            autocorrectEnabled: $autocorrectEnabled,
-                            tapClickEnabled: $tapClickEnabled,
                             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                            chordalShiftEnabled: $chordalShiftEnabled,
-                            keyboardModeEnabled: $keyboardModeEnabled,
                             onRestoreDefaults: onRestoreDefaults
                         )
                         .padding(.top, 8)
@@ -1360,6 +1378,61 @@ struct ContentView: View {
         }
     }
 
+    private struct ModeTogglesSectionView: View {
+        @Binding var autocorrectEnabled: Bool
+        @Binding var tapClickEnabled: Bool
+        @Binding var snapRadiusPercentSetting: Double
+        @Binding var chordalShiftEnabled: Bool
+        @Binding var keyboardModeEnabled: Bool
+
+        private let labelWidth: CGFloat = 140
+
+        private var snapRadiusEnabledBinding: Binding<Bool> {
+            Binding(
+                get: { snapRadiusPercentSetting > 0 },
+                set: { snapRadiusPercentSetting = $0 ? 100.0 : 0.0 }
+            )
+        }
+
+        var body: some View {
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("Autocorrect")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $autocorrectEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                    Text("Tap Click")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $tapClickEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                }
+                GridRow {
+                    Text("Snap Radius")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: snapRadiusEnabledBinding)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                    Text("Chordal Shift")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $chordalShiftEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                }
+                GridRow {
+                    Text("Keyboard Mode")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $keyboardModeEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                    Spacer()
+                        .gridCellColumns(2)
+                }
+            }
+        }
+    }
+
     private struct TypingTuningSectionView: View {
         @Binding var tapHoldDurationMs: Double
         @Binding var dragCancelDistanceSetting: Double
@@ -1368,23 +1441,11 @@ struct ContentView: View {
         @Binding var typingGraceMsSetting: Double
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
-        @Binding var autocorrectEnabled: Bool
-        @Binding var tapClickEnabled: Bool
         @Binding var tapClickCadenceMsSetting: Double
-        @Binding var snapRadiusPercentSetting: Double
-        @Binding var chordalShiftEnabled: Bool
-        @Binding var keyboardModeEnabled: Bool
         let onRestoreDefaults: () -> Void
 
         private let labelWidth: CGFloat = 140
         private let valueFieldWidth: CGFloat = 50
-
-        private var snapRadiusEnabledBinding: Binding<Bool> {
-            Binding(
-                get: { snapRadiusPercentSetting > 0 },
-                set: { snapRadiusPercentSetting = $0 ? 100.0 : 0.0 }
-            )
-        }
 
         private enum HapticStrengthStep: Int, CaseIterable {
             case off = 0
@@ -1565,39 +1626,6 @@ struct ContentView: View {
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
-                    }
-                    GridRow {
-                        Text("Autocorrect")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Toggle("", isOn: $autocorrectEnabled)
-                            .toggleStyle(SwitchToggleStyle())
-                            .labelsHidden()
-                        Text("Tap Click")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Toggle("", isOn: $tapClickEnabled)
-                            .toggleStyle(SwitchToggleStyle())
-                            .labelsHidden()
-                    }
-                    GridRow {
-                        Text("Snap Radius")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Toggle("", isOn: snapRadiusEnabledBinding)
-                            .toggleStyle(SwitchToggleStyle())
-                            .labelsHidden()
-                        Text("Chordal Shift")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Toggle("", isOn: $chordalShiftEnabled)
-                            .toggleStyle(SwitchToggleStyle())
-                            .labelsHidden()
-                    }
-                    GridRow {
-                        Text("Keyboard Mode")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Toggle("", isOn: $keyboardModeEnabled)
-                            .toggleStyle(SwitchToggleStyle())
-                            .labelsHidden()
-                        Spacer()
-                            .gridCellColumns(2)
                     }
                     GridRow {
                         Button("Restore Defaults") {

@@ -76,13 +76,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         configItem.target = self
         menu.addItem(configItem)
-        let syncItem = NSMenuItem(
-            title: "Sync devices",
-            action: #selector(syncDevices),
-            keyEquivalent: "s"
-        )
-        syncItem.target = self
-        menu.addItem(syncItem)
+        menu.addItem(.separator())
         let captureItem = NSMenuItem(
             title: "Capture...",
             action: #selector(toggleCapture),
