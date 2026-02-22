@@ -1265,7 +1265,7 @@ struct ContentView: View {
                     .labelsHidden()
                 }
                 if let selection = keySelection {
-                    Text("Selected key: \(selection.key.label)")
+                    Text(selection.key.label)
                         .font(.subheadline)
                         .bold()
                 } else if buttonSelection == nil {
@@ -1290,6 +1290,9 @@ struct ContentView: View {
                 }
                 .pickerStyle(MenuPickerStyle())
                 .disabled(!hasEditableSelection)
+                Text("Custom Buttons")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 addButtonsRow
                 if let selection = buttonSelection {
                     VStack(alignment: .leading, spacing: 6) {
