@@ -1738,7 +1738,7 @@ struct ContentView: View {
             VStack(spacing: 8) {
                 Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                     GridRow {
-                        Text("Tap/Hold (ms)")
+                        Text("Hold Duration (ms)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
                             "200",
@@ -1755,24 +1755,24 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        Text("Force Cap (g)")
+                        Text("Typing Grace (ms)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
-                            "0",
-                            value: $forceClickCapSetting,
-                            formatter: ContentView.forceClickCapFormatter
+                            "120",
+                            value: $typingGraceMsSetting,
+                            formatter: ContentView.typingGraceFormatter
                         )
                         .frame(width: valueFieldWidth)
                         Slider(
-                            value: $forceClickCapSetting,
-                            in: ContentView.forceClickCapRange,
-                            step: 5
+                            value: $typingGraceMsSetting,
+                            in: ContentView.typingGraceRange,
+                            step: 100
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        Text("Tap/Drag (ms)")
+                        Text("Drag Cancel (mm)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
                             "1",
@@ -1784,23 +1784,6 @@ struct ContentView: View {
                             value: $dragCancelDistanceSetting,
                             in: ContentView.dragCancelDistanceRange,
                             step: 1
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
-                    GridRow {
-                        Text("Tap Cadence (ms)")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "280",
-                            value: $tapClickCadenceMsSetting,
-                            formatter: ContentView.twoFingerClickCadenceFormatter
-                        )
-                        .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $tapClickCadenceMsSetting,
-                            in: ContentView.twoFingerClickCadenceRange,
-                            step: 10
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
@@ -1840,24 +1823,41 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        Text("Typing Grace (ms)")
+                        Text("Tap Cadence (ms)")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
-                            "120",
-                            value: $typingGraceMsSetting,
-                            formatter: ContentView.typingGraceFormatter
+                            "280",
+                            value: $tapClickCadenceMsSetting,
+                            formatter: ContentView.twoFingerClickCadenceFormatter
                         )
                         .frame(width: valueFieldWidth)
                         Slider(
-                            value: $typingGraceMsSetting,
-                            in: ContentView.typingGraceRange,
-                            step: 100
+                            value: $tapClickCadenceMsSetting,
+                            in: ContentView.twoFingerClickCadenceRange,
+                            step: 10
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        Text("Haptic Strength")
+                        Text("Force Max")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "0",
+                            value: $forceClickCapSetting,
+                            formatter: ContentView.forceClickCapFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $forceClickCapSetting,
+                            in: ContentView.forceClickCapRange,
+                            step: 5
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
+                        Text("Haptic Strength Slider")
                             .frame(width: labelWidth, alignment: .leading)
                         Text(currentHapticStrengthStep.label)
                             .frame(width: valueFieldWidth, alignment: .leading)

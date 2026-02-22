@@ -1,5 +1,7 @@
 ## TODO
+- Can we add a Force Min above Force Max? Can we make both sliders 0-255 and wire up the logic? Keys should only dispatch if they fall BETWEEN Force Min and Force Max
 - Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
+- Haptic Strength (This goes 1-6 we should change scale)
 ---
 - Double Click action in Action Dropdowns
 - What actions can we add?
