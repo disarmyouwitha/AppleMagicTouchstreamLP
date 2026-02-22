@@ -1074,6 +1074,7 @@ actor TouchProcessorEngine {
         let dragCancelDistanceSquared = dragCancelDistance * dragCancelDistance
         let side: TrackpadSide = isLeftSide ? .left : .right
         let chordShiftSuppressed = chordShiftEnabled && isChordShiftActive(on: side)
+        let cornersHoldEngaged = voiceDictationGestureState.holdCandidateActive
         var contactCount = 0
         for touch in touches {
             if Self.isContactState(touch.state) {
@@ -1117,6 +1118,32 @@ actor TouchProcessorEngine {
                     break
                 }
                 continue
+            }
+            if cornersHoldEngaged {
+                var isCustomTouch = false
+                if let binding = resolveBinding(), binding.position == nil {
+                    isCustomTouch = true
+                } else if let active = activeTouch(for: touchKey), active.binding.position == nil {
+                    isCustomTouch = true
+                } else if let pending = pendingTouch(for: touchKey), pending.binding.position == nil {
+                    isCustomTouch = true
+                }
+                if isCustomTouch {
+                    if disqualifiedTouches.value(for: touchKey) == nil {
+                        disqualifyTouch(touchKey, reason: .typingDisabled)
+                    }
+                    switch touch.state {
+                    case .breaking, .leaving, .notTouching:
+                        disqualifiedTouches.remove(touchKey)
+                        touchInitialContactPoint.remove(touchKey)
+                        clearPeakPressure(for: touchKey)
+                    case .starting, .hovering, .making, .touching, .lingering:
+                        break
+                    @unknown default:
+                        break
+                    }
+                    continue
+                }
             }
             if touchInitialContactPoint.value(for: touchKey) == nil,
                Self.isContactState(touch.state) {
