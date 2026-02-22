@@ -26,7 +26,6 @@ actor TouchProcessorEngine {
         case leftKeyRect
         case pendingLeftRect
         case typingDisabled
-        case forceCapExceeded
         case intentMouse
         case offKeyNoSnap
         case momentaryLayerCancelled
@@ -103,9 +102,6 @@ actor TouchProcessorEngine {
         var didHold: Bool
         var holdRepeatActive: Bool = false
         var maxDistanceSquared: CGFloat
-        let initialPressure: Float
-        var forceEntryTime: TimeInterval?
-        var forceGuardTriggered: Bool
         var modifierEngaged: Bool
 
     }
@@ -115,9 +111,6 @@ actor TouchProcessorEngine {
         let startTime: TimeInterval
         let startPoint: CGPoint
         var maxDistanceSquared: CGFloat
-        let initialPressure: Float
-        var forceEntryTime: TimeInterval?
-        var forceGuardTriggered: Bool
 
     }
 
@@ -526,7 +519,8 @@ actor TouchProcessorEngine {
     private var tapMaxDuration: TimeInterval = 0.2
     private var holdMinDuration: TimeInterval = 0.2
     private var dragCancelDistance: CGFloat = 2.5
-    private var forceClickCap: Float = 0
+    private var forceClickMin: Float = 0
+    private var forceClickCap: Float = 255
     private var snapRadiusFraction: Float = 0.35
     private let snapAmbiguityRatio: Float = 1.15
 #if DEBUG
@@ -562,6 +556,7 @@ actor TouchProcessorEngine {
         right: TouchTable<KeyBinding>(minimumCapacity: 16)
     )
     private var framePointCache = TouchTable<CGPoint>(minimumCapacity: 16)
+    private var peakPressureByTouch = TouchTable<Float>(minimumCapacity: 32)
     private var hapticStrength: Double = 0
     private static let hapticMinIntervalNanos: UInt64 = 20_000_000
     private var lastHapticTimeBySide = SidePair<UInt64>(repeating: 0)
@@ -782,8 +777,17 @@ actor TouchProcessorEngine {
         allowMouseTakeoverDuringTyping = enabled
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        let clamped = Float(min(max(grams, 0), 255))
+        forceClickMin = clamped
+        if forceClickCap < clamped {
+            forceClickCap = clamped
+        }
+    }
+
     func updateForceClickCap(_ grams: Double) {
-        forceClickCap = Float(max(0, grams))
+        let clamped = Float(min(max(grams, 0), 255))
+        forceClickCap = max(clamped, forceClickMin)
     }
 
     func updateHapticStrength(_ normalized: Double) {
@@ -1013,6 +1017,7 @@ actor TouchProcessorEngine {
     func resetState(stopVoiceDictation: Bool = false) {
         dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
+        peakPressureByTouch.removeAll()
         contactFingerCountsBySide[.left] = 0
         contactFingerCountsBySide[.right] = 0
         notifyContactCounts()
@@ -1082,6 +1087,7 @@ actor TouchProcessorEngine {
                 }
                 return bindingAtPoint
             }
+            let peakPressure = updatePeakPressure(for: touchKey, pressure: touch.pressure)
             if chordShiftSuppressed {
                 if disqualifiedTouches.value(for: touchKey) == nil {
                     disqualifyTouch(touchKey, reason: .typingDisabled)
@@ -1090,6 +1096,7 @@ actor TouchProcessorEngine {
                 case .breaking, .leaving, .notTouching:
                     disqualifiedTouches.remove(touchKey)
                     touchInitialContactPoint.remove(touchKey)
+                    clearPeakPressure(for: touchKey)
                 case .starting, .hovering, .making, .touching, .lingering:
                     break
                 @unknown default:
@@ -1100,19 +1107,6 @@ actor TouchProcessorEngine {
             if touchInitialContactPoint.value(for: touchKey) == nil,
                Self.isContactState(touch.state) {
                 touchInitialContactPoint.set(touchKey, point)
-            }
-            handleForceGuard(touchKey: touchKey, pressure: touch.pressure, now: now)
-
-            if disqualifiedTouches.value(for: touchKey) != nil {
-                switch touch.state {
-                case .breaking, .leaving, .notTouching:
-                    disqualifiedTouches.remove(touchKey)
-                case .starting, .making, .touching, .hovering, .lingering:
-                    break
-                @unknown default:
-                    break
-                }
-                continue
             }
 
             if momentaryLayerTouches.value(for: touchKey) != nil {
@@ -1214,11 +1208,21 @@ actor TouchProcessorEngine {
                         )
                         var updated = active
                         if active.isContinuousKey {
-                            triggerBinding(active.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                active.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             startRepeat(for: touchKey, binding: active.binding)
                             updated.holdRepeatActive = true
                         } else if let holdBinding = active.holdBinding {
-                            triggerBinding(holdBinding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                holdBinding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             if isContinuousKey(holdBinding) {
                                 startRepeat(for: touchKey, binding: holdBinding)
                                 updated.holdRepeatActive = true
@@ -1258,7 +1262,12 @@ actor TouchProcessorEngine {
                                 maxDistanceSquared: pending.maxDistanceSquared,
                                 now: now
                             )
-                            triggerBinding(pending.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                pending.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             _ = removePendingTouch(for: touchKey)
                             touchInitialContactPoint.remove(touchKey)
                             disqualifiedTouches.set(touchKey, true)
@@ -1274,9 +1283,6 @@ actor TouchProcessorEngine {
                             holdBinding: holdBinding,
                             didHold: false,
                             maxDistanceSquared: pending.maxDistanceSquared,
-                            initialPressure: pending.initialPressure,
-                            forceEntryTime: pending.forceEntryTime,
-                            forceGuardTriggered: pending.forceGuardTriggered,
                             modifierEngaged: false
                         )
                         setActiveTouch(touchKey, active)
@@ -1307,7 +1313,12 @@ actor TouchProcessorEngine {
                             maxDistanceSquared: 0,
                             now: now
                         )
-                        triggerBinding(binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                        triggerBinding(
+                            binding,
+                            touchKey: touchKey,
+                            dispatchInfo: dispatchInfo,
+                            pressure: peakPressure
+                        )
                         touchInitialContactPoint.remove(touchKey)
                         disqualifiedTouches.set(touchKey, true)
                         continue
@@ -1320,10 +1331,7 @@ actor TouchProcessorEngine {
                                 layer: activeLayer,
                                 startTime: now,
                                 startPoint: point,
-                                maxDistanceSquared: 0,
-                                initialPressure: touch.pressure,
-                                forceEntryTime: nil,
-                                forceGuardTriggered: false
+                                maxDistanceSquared: 0
                             )
                         )
                     } else {
@@ -1337,9 +1345,6 @@ actor TouchProcessorEngine {
                                 holdBinding: holdBinding,
                                 didHold: false,
                                 maxDistanceSquared: 0,
-                                initialPressure: touch.pressure,
-                                forceEntryTime: nil,
-                                forceGuardTriggered: false,
                                 modifierEngaged: false
                             )
                         setActiveTouch(touchKey, active)
@@ -1363,7 +1368,8 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     } else if shouldCommitTypingOnRelease(
                         touchKey: touchKey,
@@ -1375,11 +1381,13 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    clearPeakPressure(for: touchKey)
                     continue
                 }
                 let removedActive = removeActiveTouch(for: touchKey)
@@ -1390,13 +1398,11 @@ actor TouchProcessorEngine {
                         to: point
                     )
                     active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
-                    let guardTriggered = active.forceGuardTriggered
                     if let modifierKey = active.modifierKey, active.modifierEngaged {
                         handleModifierUp(modifierKey, binding: active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
-                    } else if !guardTriggered,
-                              !active.didHold,
+                    } else if !active.didHold,
                               now - active.startTime <= tapMaxDuration,
                               (!isDragDetectionEnabled
                                || releaseDistanceSquared <= dragCancelDistanceSquared) {
@@ -1412,20 +1418,24 @@ actor TouchProcessorEngine {
                                 maxDistanceSquared: active.maxDistanceSquared,
                                 now: now
                             )
-                            triggerBinding(active.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                active.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                         }
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
-                    if guardTriggered {
-                        continue
-                    }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
-                        bindings: bindings
+                        bindings: bindings,
+                        pressure: peakPressure
                     ) {
+                        clearPeakPressure(for: touchKey)
                         continue
                     }
                     if shouldAttemptSnap() {
@@ -1435,6 +1445,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                clearPeakPressure(for: touchKey)
             case .notTouching:
                 touchInitialContactPoint.remove(touchKey)
                 let removedPending = removePendingTouch(for: touchKey)
@@ -1447,7 +1458,8 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     } else if shouldCommitTypingOnRelease(
                         touchKey: touchKey,
@@ -1459,11 +1471,13 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    clearPeakPressure(for: touchKey)
                     continue
                 }
                 let removedActive = removeActiveTouch(for: touchKey)
@@ -1482,8 +1496,10 @@ actor TouchProcessorEngine {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
-                        bindings: bindings
+                        bindings: bindings,
+                        pressure: peakPressure
                     ) {
+                        clearPeakPressure(for: touchKey)
                         continue
                     }
                     if shouldAttemptSnap() {
@@ -1493,6 +1509,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                clearPeakPressure(for: touchKey)
             case .hovering, .lingering:
                 break
             @unknown default:
@@ -1506,30 +1523,34 @@ actor TouchProcessorEngine {
         )
     }
 
-    private func handleForceGuard(
-        touchKey: TouchKey,
-        pressure: Float,
-        now: TimeInterval
-    ) {
-        guard forceClickCap > 0 else { return }
-        if hasActiveModifiers() { return }
+    @inline(__always)
+    private func forceRange() -> (min: Float, max: Float) {
+        let minForce = min(forceClickMin, forceClickCap)
+        let maxForce = max(forceClickMin, forceClickCap)
+        return (min: minForce, max: maxForce)
+    }
 
-        if let active = activeTouch(for: touchKey) {
-            if active.modifierKey != nil { return }
-            let delta = max(0, pressure - active.initialPressure)
-            if delta >= forceClickCap {
-                disqualifyTouch(touchKey, reason: .forceCapExceeded)
-            }
-            return
-        }
+    @inline(__always)
+    private func isPressureWithinForceRange(_ pressure: Float) -> Bool {
+        let range = forceRange()
+        return pressure >= range.min && pressure <= range.max
+    }
 
-        if let pending = pendingTouch(for: touchKey) {
-            if modifierKey(for: pending.binding) != nil { return }
-            let delta = max(0, pressure - pending.initialPressure)
-            if delta >= forceClickCap {
-                disqualifyTouch(touchKey, reason: .forceCapExceeded)
-            }
+    @inline(__always)
+    private func updatePeakPressure(for touchKey: TouchKey, pressure: Float) -> Float {
+        let pressureClamped = max(0, pressure)
+        if let existing = peakPressureByTouch.value(for: touchKey) {
+            let peak = max(existing, pressureClamped)
+            peakPressureByTouch.set(touchKey, peak)
+            return peak
         }
+        peakPressureByTouch.set(touchKey, pressureClamped)
+        return pressureClamped
+    }
+
+    @inline(__always)
+    private func clearPeakPressure(for touchKey: TouchKey) {
+        _ = peakPressureByTouch.remove(touchKey)
     }
 
     private func shouldImmediateTapWithModifiers(binding: KeyBinding) -> Bool {
@@ -2008,8 +2029,10 @@ actor TouchProcessorEngine {
     private func dispatchSnappedBinding(
         _ binding: KeyBinding,
         altBinding: KeyBinding?,
-        touchKey: TouchKey
+        touchKey: TouchKey,
+        pressure: Float
     ) {
+        guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
         #if DEBUG
         onDebugBindingDetected(binding)
@@ -2037,7 +2060,8 @@ actor TouchProcessorEngine {
     private func attemptSnapOnRelease(
         touchKey: TouchKey,
         point: CGPoint,
-        bindings: BindingIndex
+        bindings: BindingIndex,
+        pressure: Float
     ) -> Bool {
         guard shouldAttemptSnap() else { return false }
         #if DEBUG
@@ -2073,7 +2097,12 @@ actor TouchProcessorEngine {
             }
             let binding = bindings.snapBindings[selectedIndex]
             let altBinding = alternateIndex.map { bindings.snapBindings[$0] }
-            dispatchSnappedBinding(binding, altBinding: altBinding, touchKey: touchKey)
+            dispatchSnappedBinding(
+                binding,
+                altBinding: altBinding,
+                touchKey: touchKey,
+                pressure: pressure
+            )
             // Prevent duplicate snap dispatch on subsequent release states.
             disqualifiedTouches.set(touchKey, true)
             #if DEBUG
@@ -3162,15 +3191,15 @@ actor TouchProcessorEngine {
         _ pending: PendingTouch,
         touchKey: TouchKey,
         at point: CGPoint,
-        now: TimeInterval
+        now: TimeInterval,
+        pressure: Float
     ) -> Bool {
         let releaseDistanceSquared = distanceSquared(from: pending.startPoint, to: point)
         guard isContinuousKey(pending.binding),
               now - pending.startTime <= tapMaxDuration,
               pending.binding.rect.contains(point),
               (!isDragDetectionEnabled
-               || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance),
-              !pending.forceGuardTriggered else {
+               || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance) else {
             return false
         }
         let dispatchInfo = makeDispatchInfo(
@@ -3179,14 +3208,20 @@ actor TouchProcessorEngine {
             maxDistanceSquared: pending.maxDistanceSquared,
             now: now
         )
-        sendKey(binding: pending.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+        sendKey(
+            binding: pending.binding,
+            touchKey: touchKey,
+            dispatchInfo: dispatchInfo,
+            pressure: pressure
+        )
         return true
     }
 
     private func triggerBinding(
         _ binding: KeyBinding,
         touchKey: TouchKey?,
-        dispatchInfo: DispatchInfo? = nil
+        dispatchInfo: DispatchInfo? = nil,
+        pressure: Float? = nil
     ) {
         switch binding.action {
         case let .layerMomentary(layer):
@@ -3215,13 +3250,13 @@ actor TouchProcessorEngine {
             triggerGestureSlot(.fiveFingerSwipeRight, side: binding.side, visited: [])
         case .none:
             break
-        case let .key(code, flags):
-#if DEBUG
-            onDebugBindingDetected(binding)
-#endif
-            extendTypingGrace(for: binding.side, now: Self.now())
-            playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-            sendKey(code: code, flags: flags, side: binding.side)
+        case .key:
+            sendKey(
+                binding: binding,
+                touchKey: touchKey,
+                dispatchInfo: dispatchInfo,
+                pressure: pressure
+            )
         }
     }
 
@@ -3253,12 +3288,21 @@ actor TouchProcessorEngine {
         return modifierFlags
     }
 
-    private func sendKey(binding: KeyBinding, touchKey: TouchKey?, dispatchInfo: DispatchInfo? = nil) {
+    private func sendKey(
+        binding: KeyBinding,
+        touchKey: TouchKey?,
+        dispatchInfo: DispatchInfo? = nil,
+        pressure: Float? = nil
+    ) {
         guard case let .key(code, flags) = binding.action else { return }
+        if let pressure, !isPressureWithinForceRange(pressure) {
+            return
+        }
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
         extendTypingGrace(for: binding.side, now: Self.now())
+        playHapticIfNeeded(on: binding.side, touchKey: touchKey)
         sendKey(code: code, flags: flags, side: binding.side)
     }
 
@@ -3553,7 +3597,7 @@ actor TouchProcessorEngine {
             }
             endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
         }
-        if reason == .dragCancelled || reason == .pendingDragCancelled || reason == .forceCapExceeded {
+        if reason == .dragCancelled || reason == .pendingDragCancelled {
             enterMouseIntentFromDragCancel()
         }
     }

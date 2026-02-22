@@ -1,5 +1,7 @@
 ## TODO
-- Can we add a Force Min above Force Max? Can we make both sliders 0-255 and wire up the logic? Keys should only dispatch if they fall BETWEEN Force Min and Force Max
+- Force Min Force Max aren't triggering properly. They should use Peak Force, like we do in windows. Please use "../windows/glasstokey" as reference!
+- For each finger can we show the force applied as "f:" on the touch in the visualizer? 
+-Can you find somewhere nice to put Peak force? in Windows we added it to the bototm 
 - Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
 - Haptic Strength (This goes 1-6 we should change scale)
 ---

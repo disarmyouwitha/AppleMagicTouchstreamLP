@@ -501,6 +501,10 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateForceClickCap(grams)
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        runtimeCommandService.updateForceClickMin(grams)
+    }
+
     func updateHapticStrength(_ normalized: Double) {
         runtimeCommandService.updateHapticStrength(normalized)
     }

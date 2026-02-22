@@ -4,6 +4,7 @@ import SwiftUI
 enum GlassToKeySettings {
     static let tapHoldDurationMs: Double = 220.0
     static let dragCancelDistanceMm: Double = 8.0
+    static let forceClickMin: Double = 0.0
     static let forceClickCap: Double = 120.0
     static let hapticStrengthPercent: Double = 40.0
     static let typingGraceMs: Double = 1000.0
@@ -229,6 +230,11 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.forceClickCap
         )
+        let forceMin = GlassToKeySettings.persistedDouble(
+            forKey: GlassToKeyDefaultsKeys.forceClickMin,
+            defaults: defaults,
+            fallback: GlassToKeySettings.forceClickMin
+        )
         let hapticStrengthPercent = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.hapticStrength,
             defaults: defaults,
@@ -302,7 +308,10 @@ final class GlassToKeyController: ObservableObject {
 
         viewModel.updateHoldThreshold(tapHoldMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
-        viewModel.updateForceClickCap(forceCap)
+        let clampedForceMin = max(0, min(255, forceMin))
+        let clampedForceCap = max(clampedForceMin, min(255, forceCap))
+        viewModel.updateForceClickMin(clampedForceMin)
+        viewModel.updateForceClickCap(clampedForceCap)
         viewModel.updateHapticStrength(hapticStrengthPercent / 100.0)
         viewModel.updateTypingGraceMs(typingGraceMs)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)

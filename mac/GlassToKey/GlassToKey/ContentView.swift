@@ -55,6 +55,7 @@ struct ContentView: View {
         let autoResyncMissingTrackpads: Bool
         let tapHoldDurationMs: Double
         let dragCancelDistance: Double
+        let forceClickMin: Double?
         let forceClickCap: Double
         let hapticStrength: Double
         let typingGraceMs: Double
@@ -104,6 +105,7 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.autoResyncMissingTrackpads) private var storedAutoResyncMissingTrackpads = false
     @AppStorage(GlassToKeyDefaultsKeys.tapHoldDuration) private var tapHoldDurationMs: Double = GlassToKeySettings.tapHoldDurationMs
     @AppStorage(GlassToKeyDefaultsKeys.dragCancelDistance) private var dragCancelDistanceSetting: Double = GlassToKeySettings.dragCancelDistanceMm
+    @AppStorage(GlassToKeyDefaultsKeys.forceClickMin) private var forceClickMinSetting: Double = GlassToKeySettings.forceClickMin
     @AppStorage(GlassToKeyDefaultsKeys.forceClickCap) private var forceClickCapSetting: Double = GlassToKeySettings.forceClickCap
     @AppStorage(GlassToKeyDefaultsKeys.hapticStrength) private var hapticStrengthSetting: Double = GlassToKeySettings.hapticStrengthPercent
     @AppStorage(GlassToKeyDefaultsKeys.typingGraceMs) private var typingGraceMsSetting: Double = GlassToKeySettings.typingGraceMs
@@ -150,7 +152,7 @@ struct ContentView: View {
     fileprivate static let rowSpacingPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.rowSpacingPercentRange
     fileprivate static let dragCancelDistanceRange: ClosedRange<Double> = 1.0...30.0
     fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 50.0...500.0
-    fileprivate static let forceClickCapRange: ClosedRange<Double> = 0.0...150.0
+    fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
     fileprivate static let hapticStrengthRange: ClosedRange<Double> = 0.0...100.0
     fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
     fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
@@ -212,13 +214,13 @@ struct ContentView: View {
         formatter.maximum = NSNumber(value: ContentView.dragCancelDistanceRange.upperBound)
         return formatter
     }()
-    fileprivate static let forceClickCapFormatter: NumberFormatter = {
+    fileprivate static let forceClickFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
         formatter.minimumFractionDigits = 0
         formatter.maximumFractionDigits = 0
-        formatter.minimum = NSNumber(value: ContentView.forceClickCapRange.lowerBound)
-        formatter.maximum = NSNumber(value: ContentView.forceClickCapRange.upperBound)
+        formatter.minimum = NSNumber(value: ContentView.forceClickRange.lowerBound)
+        formatter.maximum = NSNumber(value: ContentView.forceClickRange.upperBound)
         return formatter
     }()
     fileprivate static let hapticStrengthFormatter: NumberFormatter = {
@@ -440,8 +442,27 @@ struct ContentView: View {
             .onChange(of: dragCancelDistanceSetting) { newValue in
                 viewModel.updateDragCancelDistance(CGFloat(newValue))
             }
+            .onChange(of: forceClickMinSetting) { newValue in
+                let clamped = min(max(newValue, Self.forceClickRange.lowerBound), Self.forceClickRange.upperBound)
+                if clamped != newValue {
+                    forceClickMinSetting = clamped
+                    return
+                }
+                if forceClickCapSetting < clamped {
+                    forceClickCapSetting = clamped
+                }
+                viewModel.updateForceClickMin(clamped)
+            }
             .onChange(of: forceClickCapSetting) { newValue in
-                viewModel.updateForceClickCap(newValue)
+                let clamped = min(max(newValue, Self.forceClickRange.lowerBound), Self.forceClickRange.upperBound)
+                if clamped != newValue {
+                    forceClickCapSetting = clamped
+                    return
+                }
+                if clamped < forceClickMinSetting {
+                    forceClickMinSetting = clamped
+                }
+                viewModel.updateForceClickCap(clamped)
             }
             .onChange(of: hapticStrengthSetting) { newValue in
                 viewModel.updateHapticStrength(newValue / 100.0)
@@ -687,6 +708,7 @@ struct ContentView: View {
             layerSelection: layerSelectionBinding,
             tapHoldDurationMs: $tapHoldDurationMs,
             dragCancelDistanceSetting: $dragCancelDistanceSetting,
+            forceClickMinSetting: $forceClickMinSetting,
             forceClickCapSetting: $forceClickCapSetting,
             hapticStrengthSetting: $hapticStrengthSetting,
             typingGraceMsSetting: $typingGraceMsSetting,
@@ -936,6 +958,7 @@ struct ContentView: View {
         let layerSelection: Binding<Int>
         @Binding var tapHoldDurationMs: Double
         @Binding var dragCancelDistanceSetting: Double
+        @Binding var forceClickMinSetting: Double
         @Binding var forceClickCapSetting: Double
         @Binding var hapticStrengthSetting: Double
         @Binding var typingGraceMsSetting: Double
@@ -975,6 +998,7 @@ struct ContentView: View {
                         TypingTuningSectionView(
                             tapHoldDurationMs: $tapHoldDurationMs,
                             dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                            forceClickMinSetting: $forceClickMinSetting,
                             forceClickCapSetting: $forceClickCapSetting,
                             hapticStrengthSetting: $hapticStrengthSetting,
                             typingGraceMsSetting: $typingGraceMsSetting,
@@ -1678,6 +1702,7 @@ struct ContentView: View {
     private struct TypingTuningSectionView: View {
         @Binding var tapHoldDurationMs: Double
         @Binding var dragCancelDistanceSetting: Double
+        @Binding var forceClickMinSetting: Double
         @Binding var forceClickCapSetting: Double
         @Binding var hapticStrengthSetting: Double
         @Binding var typingGraceMsSetting: Double
@@ -1840,18 +1865,35 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
+                        Text("Force Min")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "0",
+                            value: $forceClickMinSetting,
+                            formatter: ContentView.forceClickFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $forceClickMinSetting,
+                            in: ContentView.forceClickRange,
+                            step: 1
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
                         Text("Force Max")
                             .frame(width: labelWidth, alignment: .leading)
                         TextField(
                             "0",
                             value: $forceClickCapSetting,
-                            formatter: ContentView.forceClickCapFormatter
+                            formatter: ContentView.forceClickFormatter
                         )
                         .frame(width: valueFieldWidth)
                         Slider(
                             value: $forceClickCapSetting,
-                            in: ContentView.forceClickCapRange,
-                            step: 5
+                            in: ContentView.forceClickRange,
+                            step: 1
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)
@@ -2563,6 +2605,15 @@ struct ContentView: View {
         }
         viewModel.updateHoldThreshold(tapHoldDurationMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragCancelDistanceSetting))
+        forceClickMinSetting = min(
+            max(forceClickMinSetting, Self.forceClickRange.lowerBound),
+            Self.forceClickRange.upperBound
+        )
+        forceClickCapSetting = min(
+            max(forceClickCapSetting, forceClickMinSetting),
+            Self.forceClickRange.upperBound
+        )
+        viewModel.updateForceClickMin(forceClickMinSetting)
         viewModel.updateForceClickCap(forceClickCapSetting)
         viewModel.updateHapticStrength(hapticStrengthSetting / 100.0)
         viewModel.updateTypingGraceMs(typingGraceMsSetting)
@@ -2586,6 +2637,7 @@ struct ContentView: View {
     private func restoreTypingTuningDefaults() {
         tapHoldDurationMs = GlassToKeySettings.tapHoldDurationMs
         dragCancelDistanceSetting = GlassToKeySettings.dragCancelDistanceMm
+        forceClickMinSetting = GlassToKeySettings.forceClickMin
         forceClickCapSetting = GlassToKeySettings.forceClickCap
         hapticStrengthSetting = GlassToKeySettings.hapticStrengthPercent
         typingGraceMsSetting = GlassToKeySettings.typingGraceMs
@@ -2660,13 +2712,14 @@ struct ContentView: View {
         let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
         let mappings = KeyActionMappingStore.decode(storedKeyMappingsData) ?? keyMappingsByLayer
         return KeymapProfile(
-            schemaVersion: 1,
+            schemaVersion: 2,
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
             layoutPreset: storedLayoutPreset,
             autoResyncMissingTrackpads: storedAutoResyncMissingTrackpads,
             tapHoldDurationMs: tapHoldDurationMs,
             dragCancelDistance: dragCancelDistanceSetting,
+            forceClickMin: forceClickMinSetting,
             forceClickCap: forceClickCapSetting,
             hapticStrength: hapticStrengthSetting,
             typingGraceMs: typingGraceMsSetting,
@@ -2696,6 +2749,7 @@ struct ContentView: View {
         storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
         tapHoldDurationMs = profile.tapHoldDurationMs
         dragCancelDistanceSetting = profile.dragCancelDistance
+        forceClickMinSetting = profile.forceClickMin ?? GlassToKeySettings.forceClickMin
         forceClickCapSetting = profile.forceClickCap
         hapticStrengthSetting = profile.hapticStrength
         typingGraceMsSetting = profile.typingGraceMs

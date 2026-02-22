@@ -380,6 +380,13 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateForceClickMin(grams)
+        }
+    }
+
     func updateForceClickCap(_ grams: Double) {
         let runtimeEngine = runtimeEngine
         Task {

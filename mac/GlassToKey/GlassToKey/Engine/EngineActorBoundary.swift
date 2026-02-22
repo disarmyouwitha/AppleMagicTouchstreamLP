@@ -31,6 +31,7 @@ protocol EngineActorBoundary: Sendable {
     func updateIntentMoveThreshold(_ millimeters: Double) async
     func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async
     func updateAllowMouseTakeover(_ enabled: Bool) async
+    func updateForceClickMin(_ grams: Double) async
     func updateForceClickCap(_ grams: Double) async
     func updateHapticStrength(_ normalized: Double) async
     func updateSnapRadiusPercent(_ percent: Double) async
@@ -176,6 +177,10 @@ actor EngineActor: EngineActorBoundary {
 
     func updateAllowMouseTakeover(_ enabled: Bool) async {
         await processor.updateAllowMouseTakeover(enabled)
+    }
+
+    func updateForceClickMin(_ grams: Double) async {
+        await processor.updateForceClickMin(grams)
     }
 
     func updateForceClickCap(_ grams: Double) async {
@@ -411,6 +416,10 @@ actor EngineActorStub: EngineActorBoundary {
 
     func updateAllowMouseTakeover(_ enabled: Bool) async {
         await impl.updateAllowMouseTakeover(enabled)
+    }
+
+    func updateForceClickMin(_ grams: Double) async {
+        await impl.updateForceClickMin(grams)
     }
 
     func updateForceClickCap(_ grams: Double) async {
