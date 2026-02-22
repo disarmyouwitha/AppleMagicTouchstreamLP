@@ -272,25 +272,29 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 return
             }
             let location = CGEvent(source: nil)?.location ?? .zero
-            guard let mouseDown = CGEvent(
-                mouseEventSource: source,
-                mouseType: .leftMouseDown,
-                mouseCursorPosition: location,
-                mouseButton: .left
-            ),
-            let mouseUp = CGEvent(
-                mouseEventSource: source,
-                mouseType: .leftMouseUp,
-                mouseCursorPosition: location,
-                mouseButton: .left
-            ) else {
-                return
-            }
             let clampedCount = max(1, clickCount)
-            mouseDown.setIntegerValueField(.mouseEventClickState, value: Int64(clampedCount))
-            mouseUp.setIntegerValueField(.mouseEventClickState, value: Int64(clampedCount))
-            mouseDown.post(tap: .cghidEventTap)
-            mouseUp.post(tap: .cghidEventTap)
+            var currentCount = 1
+            while currentCount <= clampedCount {
+                guard let mouseDown = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: .leftMouseDown,
+                    mouseCursorPosition: location,
+                    mouseButton: .left
+                ),
+                let mouseUp = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: .leftMouseUp,
+                    mouseCursorPosition: location,
+                    mouseButton: .left
+                ) else {
+                    return
+                }
+                mouseDown.setIntegerValueField(.mouseEventClickState, value: Int64(currentCount))
+                mouseUp.setIntegerValueField(.mouseEventClickState, value: Int64(currentCount))
+                mouseDown.post(tap: .cghidEventTap)
+                mouseUp.post(tap: .cghidEventTap)
+                currentCount += 1
+            }
         }
     }
 

@@ -1,4 +1,5 @@
 ## TODO
+- Add/fix double-click
 - Add 2,3,4-Finger Hold Gestures!
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 ---
