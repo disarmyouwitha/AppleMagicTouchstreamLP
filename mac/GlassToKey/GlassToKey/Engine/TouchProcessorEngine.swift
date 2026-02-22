@@ -2875,7 +2875,7 @@ actor TouchProcessorEngine {
         case .rightClick:
             dispatchService.postRightClick()
         case .voice:
-            break
+            toggleVoiceDictationSession()
         case .typingToggle:
             toggleTypingMode()
         case .chordalShift:
@@ -2990,17 +2990,18 @@ actor TouchProcessorEngine {
             } else if !state.holdDidToggle, now - state.holdStart >= voiceDictationHoldSeconds {
                 state.holdDidToggle = true
                 if action.kind == .voice {
+                    voiceDictationGestureState = state
                     if state.isDictating {
-                        state.isDictating = false
-                        VoiceDictationManager.shared.endSession()
+                        endVoiceDictationSession()
                     } else {
-                        state.isDictating = true
-                        VoiceDictationManager.shared.beginSession()
+                        beginVoiceDictationSession()
                     }
+                    state = voiceDictationGestureState
                 } else {
                     if state.isDictating {
-                        state.isDictating = false
-                        VoiceDictationManager.shared.endSession()
+                        voiceDictationGestureState = state
+                        endVoiceDictationSession()
+                        state = voiceDictationGestureState
                     }
                     performGestureAction(action, now: now, side: holdSide)
                 }
@@ -3013,25 +3014,46 @@ actor TouchProcessorEngine {
             state.side = nil
         }
         voiceDictationGestureState = state
-        let isActive = action.kind == .voice
-            ? (state.isDictating || state.holdCandidateActive)
-            : state.holdCandidateActive
-        if voiceGestureActive != isActive {
-            voiceGestureActive = isActive
-            onVoiceGestureChanged(isActive)
-        }
-        return isActive
+        updateVoiceGestureActivity()
+        return voiceGestureActive
     }
 
     private func stopVoiceDictationGesture() {
         if voiceDictationGestureState.isDictating {
-            VoiceDictationManager.shared.endSession()
+            endVoiceDictationSession()
         }
         voiceDictationGestureState = VoiceDictationGestureState()
-        if voiceGestureActive {
-            voiceGestureActive = false
-            onVoiceGestureChanged(false)
+        updateVoiceGestureActivity()
+    }
+
+    private func toggleVoiceDictationSession() {
+        if voiceDictationGestureState.isDictating {
+            endVoiceDictationSession()
+        } else {
+            beginVoiceDictationSession()
         }
+    }
+
+    private func beginVoiceDictationSession() {
+        guard !voiceDictationGestureState.isDictating else { return }
+        voiceDictationGestureState.isDictating = true
+        VoiceDictationManager.shared.beginSession()
+        updateVoiceGestureActivity()
+    }
+
+    private func endVoiceDictationSession() {
+        guard voiceDictationGestureState.isDictating else { return }
+        voiceDictationGestureState.isDictating = false
+        VoiceDictationManager.shared.endSession()
+        updateVoiceGestureActivity()
+    }
+
+    private func updateVoiceGestureActivity() {
+        let state = voiceDictationGestureState
+        let isActive = state.isDictating || (outerCornersHoldAction.kind == .voice && state.holdCandidateActive)
+        guard voiceGestureActive != isActive else { return }
+        voiceGestureActive = isActive
+        onVoiceGestureChanged(isActive)
     }
 
     private func shouldCommitTypingOnRelease(
@@ -3284,7 +3306,7 @@ actor TouchProcessorEngine {
         case .rightClick:
             dispatchService.postRightClick()
         case .voice:
-            break
+            toggleVoiceDictationSession()
         case .chordalShift:
             break
         case .gestureTwoFingerTap:
