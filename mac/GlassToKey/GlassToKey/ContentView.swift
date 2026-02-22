@@ -972,38 +972,42 @@ struct ContentView: View {
                     DisclosureGroup(
                         isExpanded: $typingTuningExpanded
                     ) {
-                        VStack(alignment: .leading, spacing: 12) {
-                            TypingTuningSectionView(
-                                tapHoldDurationMs: $tapHoldDurationMs,
-                                dragCancelDistanceSetting: $dragCancelDistanceSetting,
-                                forceClickCapSetting: $forceClickCapSetting,
-                                hapticStrengthSetting: $hapticStrengthSetting,
-                                typingGraceMsSetting: $typingGraceMsSetting,
-                                intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
-                                intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                                tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                                onRestoreDefaults: onRestoreDefaults
-                            )
-                            DisclosureGroup(
-                                isExpanded: $gestureTuningExpanded
-                            ) {
-                                GestureTuningSectionView(
-                                    twoFingerTapGestureAction: $twoFingerTapGestureAction,
-                                    threeFingerTapGestureAction: $threeFingerTapGestureAction,
-                                    fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
-                                    fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
-                                    fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
-                                )
-                                .padding(.top, 8)
-                            } label: {
-                                Text("Gesture Tuning")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
+                        TypingTuningSectionView(
+                            tapHoldDurationMs: $tapHoldDurationMs,
+                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                            forceClickCapSetting: $forceClickCapSetting,
+                            hapticStrengthSetting: $hapticStrengthSetting,
+                            typingGraceMsSetting: $typingGraceMsSetting,
+                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
+                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
+                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                            onRestoreDefaults: onRestoreDefaults
+                        )
                         .padding(.top, 8)
                     } label: {
                         Text("Typing Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    DisclosureGroup(
+                        isExpanded: $gestureTuningExpanded
+                    ) {
+                        GestureTuningSectionView(
+                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
+                        )
+                        .padding(.top, 8)
+                    } label: {
+                        Text("Gesture Tuning")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
