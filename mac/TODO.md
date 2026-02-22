@@ -1,6 +1,8 @@
 ## TODO
-- Add 2,3-Finger Hold Gestures!
 - 4-finger hold should only apply after Hold (ms) **UNLESS CHORDAL SHIFT IS SELECTED, WHICH SHOULD APPLY INSTANTLY**
+- 3-Finger hold should not trigger 2-finger hold
+- *MAKE SURE 2-Finger hold feels good during Dragging
+- *MAKE SURE 3-Finger hold feels good during Dragging 
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 - What other actions can we add?
 -------

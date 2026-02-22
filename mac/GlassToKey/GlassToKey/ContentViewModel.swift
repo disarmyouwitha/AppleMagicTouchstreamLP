@@ -517,6 +517,8 @@ final class ContentViewModel: ObservableObject {
     func updateGestureActions(
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
         innerCornersHold: KeyAction,
@@ -526,6 +528,8 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateGestureActions(
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
             fourFingerHold: fourFingerHold,
             outerCornersHold: outerCornersHold,
             innerCornersHold: innerCornersHold,

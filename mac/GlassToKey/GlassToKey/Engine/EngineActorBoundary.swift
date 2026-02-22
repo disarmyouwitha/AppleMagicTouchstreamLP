@@ -42,6 +42,8 @@ protocol EngineActorBoundary: Sendable {
     func updateGestureActions(
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
         innerCornersHold: KeyAction,
@@ -215,6 +217,8 @@ actor EngineActor: EngineActorBoundary {
     func updateGestureActions(
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
         innerCornersHold: KeyAction,
@@ -224,6 +228,8 @@ actor EngineActor: EngineActorBoundary {
         await processor.updateGestureActions(
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
             fourFingerHold: fourFingerHold,
             outerCornersHold: outerCornersHold,
             innerCornersHold: innerCornersHold,
@@ -454,6 +460,8 @@ actor EngineActorStub: EngineActorBoundary {
     func updateGestureActions(
         twoFingerTap: KeyAction,
         threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
         innerCornersHold: KeyAction,
@@ -463,6 +471,8 @@ actor EngineActorStub: EngineActorBoundary {
         await impl.updateGestureActions(
             twoFingerTap: twoFingerTap,
             threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
             fourFingerHold: fourFingerHold,
             outerCornersHold: outerCornersHold,
             innerCornersHold: innerCornersHold,

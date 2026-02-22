@@ -19,6 +19,8 @@ enum GlassToKeySettings {
     static let runAtStartupEnabled: Bool = false
     static let twoFingerTapGestureActionLabel = KeyActionCatalog.leftClickLabel
     static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
+    static let twoFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
+    static let threeFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
     static let fourFingerHoldGestureActionLabel = KeyActionCatalog.chordalShiftLabel
     static let outerCornersHoldGestureActionLabel = KeyActionCatalog.voiceLabel
     static let innerCornersHoldGestureActionLabel = KeyActionCatalog.noneLabel
@@ -279,6 +281,12 @@ final class GlassToKeyController: ObservableObject {
         let threeFingerTapGestureActionLabel = defaults.string(
             forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction
         ) ?? GlassToKeySettings.threeFingerTapGestureActionLabel
+        let twoFingerHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction
+        ) ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
+        let threeFingerHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.threeFingerHoldGestureAction
+        ) ?? GlassToKeySettings.threeFingerHoldGestureActionLabel
         let fourFingerHoldGestureActionLabel = defaults.string(
             forKey: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction
         ) ?? GlassToKeySettings.fourFingerHoldGestureActionLabel
@@ -301,6 +309,12 @@ final class GlassToKeyController: ObservableObject {
         let threeFingerTapGestureAction = KeyActionCatalog.action(
             for: threeFingerTapGestureActionLabel
         ) ?? KeyActionCatalog.action(for: GlassToKeySettings.threeFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let twoFingerHoldGestureAction = KeyActionCatalog.action(
+            for: twoFingerHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.twoFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let threeFingerHoldGestureAction = KeyActionCatalog.action(
+            for: threeFingerHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.threeFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
         let fourFingerHoldGestureAction = KeyActionCatalog.action(
             for: fourFingerHoldGestureActionLabel
         ) ?? KeyActionCatalog.action(for: GlassToKeySettings.fourFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
@@ -335,6 +349,8 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateGestureActions(
             twoFingerTap: twoFingerTapGestureAction,
             threeFingerTap: threeFingerTapGestureAction,
+            twoFingerHold: twoFingerHoldGestureAction,
+            threeFingerHold: threeFingerHoldGestureAction,
             fourFingerHold: fourFingerHoldGestureAction,
             outerCornersHold: outerCornersHoldGestureAction,
             innerCornersHold: innerCornersHoldGestureAction,

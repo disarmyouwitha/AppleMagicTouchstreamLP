@@ -68,6 +68,8 @@ struct ContentView: View {
         let keyboardModeEnabled: Bool
         let twoFingerTapGestureAction: String?
         let threeFingerTapGestureAction: String?
+        let twoFingerHoldGestureAction: String?
+        let threeFingerHoldGestureAction: String?
         let fourFingerHoldGestureAction: String?
         let outerCornersHoldGestureAction: String?
         let innerCornersHoldGestureAction: String?
@@ -130,6 +132,10 @@ struct ContentView: View {
     private var twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
     private var threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.twoFingerHoldGestureAction)
+    private var twoFingerHoldGestureAction = GlassToKeySettings.twoFingerHoldGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerHoldGestureAction)
+    private var threeFingerHoldGestureAction = GlassToKeySettings.threeFingerHoldGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.fourFingerHoldGestureAction)
     private var fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.outerCornersHoldGestureAction)
@@ -304,12 +310,14 @@ struct ContentView: View {
     private func currentGestureActions(
         twoFingerTapOverride: String? = nil,
         threeFingerTapOverride: String? = nil,
+        twoFingerHoldOverride: String? = nil,
+        threeFingerHoldOverride: String? = nil,
         fourFingerHoldOverride: String? = nil,
         outerCornersHoldOverride: String? = nil,
         innerCornersHoldOverride: String? = nil,
         fiveFingerSwipeLeftOverride: String? = nil,
         fiveFingerSwipeRightOverride: String? = nil
-    ) -> (KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction) {
+    ) -> (KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction) {
         let two = resolvedGestureAction(
             twoFingerTapOverride ?? twoFingerTapGestureAction,
             fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
@@ -317,6 +325,14 @@ struct ContentView: View {
         let three = resolvedGestureAction(
             threeFingerTapOverride ?? threeFingerTapGestureAction,
             fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
+        )
+        let twoHold = resolvedGestureAction(
+            twoFingerHoldOverride ?? twoFingerHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
+        )
+        let threeHold = resolvedGestureAction(
+            threeFingerHoldOverride ?? threeFingerHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
         )
         let four = resolvedGestureAction(
             fourFingerHoldOverride ?? fourFingerHoldGestureAction,
@@ -338,7 +354,7 @@ struct ContentView: View {
             fiveFingerSwipeRightOverride ?? fiveFingerSwipeRightGestureAction,
             fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
         )
-        return (two, three, four, outer, inner, fiveLeft, fiveRight)
+        return (two, three, twoHold, threeHold, four, outer, inner, fiveLeft, fiveRight)
     }
 
     init(viewModel: ContentViewModel = ContentViewModel()) {
@@ -522,11 +538,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: threeFingerTapGestureAction) { newValue in
@@ -534,11 +552,41 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
+                )
+            }
+            .onChange(of: twoFingerHoldGestureAction) { newValue in
+                let actions = currentGestureActions(twoFingerHoldOverride: newValue)
+                viewModel.updateGestureActions(
+                    twoFingerTap: actions.0,
+                    threeFingerTap: actions.1,
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
+                )
+            }
+            .onChange(of: threeFingerHoldGestureAction) { newValue in
+                let actions = currentGestureActions(threeFingerHoldOverride: newValue)
+                viewModel.updateGestureActions(
+                    twoFingerTap: actions.0,
+                    threeFingerTap: actions.1,
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: fourFingerHoldGestureAction) { newValue in
@@ -546,11 +594,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: outerCornersHoldGestureAction) { newValue in
@@ -558,11 +608,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: innerCornersHoldGestureAction) { newValue in
@@ -570,11 +622,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: fiveFingerSwipeLeftGestureAction) { newValue in
@@ -582,11 +636,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: fiveFingerSwipeRightGestureAction) { newValue in
@@ -594,11 +650,13 @@ struct ContentView: View {
                 viewModel.updateGestureActions(
                     twoFingerTap: actions.0,
                     threeFingerTap: actions.1,
-                    fourFingerHold: actions.2,
-                    outerCornersHold: actions.3,
-                    innerCornersHold: actions.4,
-                    fiveFingerSwipeLeft: actions.5,
-                    fiveFingerSwipeRight: actions.6
+                    twoFingerHold: actions.2,
+                    threeFingerHold: actions.3,
+                    fourFingerHold: actions.4,
+                    outerCornersHold: actions.5,
+                    innerCornersHold: actions.6,
+                    fiveFingerSwipeLeft: actions.7,
+                    fiveFingerSwipeRight: actions.8
                 )
             }
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
@@ -779,6 +837,8 @@ struct ContentView: View {
             runAtStartupEnabled: $runAtStartupEnabled,
             twoFingerTapGestureAction: $twoFingerTapGestureAction,
             threeFingerTapGestureAction: $threeFingerTapGestureAction,
+            twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
             fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
@@ -997,6 +1057,8 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
+        @Binding var twoFingerHoldGestureAction: String
+        @Binding var threeFingerHoldGestureAction: String
         @Binding var fourFingerHoldGestureAction: String
         @Binding var outerCornersHoldGestureAction: String
         @Binding var innerCornersHoldGestureAction: String
@@ -1052,6 +1114,8 @@ struct ContentView: View {
                         GestureTuningSectionView(
                             twoFingerTapGestureAction: $twoFingerTapGestureAction,
                             threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                            twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
+                            threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
                             fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
                             outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
                             innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
@@ -1958,6 +2022,8 @@ struct ContentView: View {
     private struct GestureTuningSectionView: View {
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
+        @Binding var twoFingerHoldGestureAction: String
+        @Binding var threeFingerHoldGestureAction: String
         @Binding var fourFingerHoldGestureAction: String
         @Binding var outerCornersHoldGestureAction: String
         @Binding var innerCornersHoldGestureAction: String
@@ -2036,6 +2102,20 @@ struct ContentView: View {
                     isExpanded: $holdsExpanded
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        GridRow {
+                            gesturePicker(
+                                "2-finger hold",
+                                selection: $twoFingerHoldGestureAction,
+                                fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
+                            )
+                        }
+                        GridRow {
+                            gesturePicker(
+                                "3-finger hold",
+                                selection: $threeFingerHoldGestureAction,
+                                fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
+                            )
+                        }
                         GridRow {
                             gesturePicker(
                                 "4-finger hold",
@@ -2670,6 +2750,8 @@ struct ContentView: View {
         viewModel.updateGestureActions(
             twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
             threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
+            twoFingerHold: resolvedGestureAction(twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
+            threeFingerHold: resolvedGestureAction(threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel),
             fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel),
             outerCornersHold: resolvedGestureAction(outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel),
             innerCornersHold: resolvedGestureAction(innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel),
@@ -2695,6 +2777,8 @@ struct ContentView: View {
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
         twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
         threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureActionLabel
+        twoFingerHoldGestureAction = GlassToKeySettings.twoFingerHoldGestureActionLabel
+        threeFingerHoldGestureAction = GlassToKeySettings.threeFingerHoldGestureActionLabel
         fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureActionLabel
         outerCornersHoldGestureAction = GlassToKeySettings.outerCornersHoldGestureActionLabel
         innerCornersHoldGestureAction = GlassToKeySettings.innerCornersHoldGestureActionLabel
@@ -2778,6 +2862,8 @@ struct ContentView: View {
             keyboardModeEnabled: keyboardModeEnabled,
             twoFingerTapGestureAction: twoFingerTapGestureAction,
             threeFingerTapGestureAction: threeFingerTapGestureAction,
+            twoFingerHoldGestureAction: twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction: threeFingerHoldGestureAction,
             fourFingerHoldGestureAction: fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: innerCornersHoldGestureAction,
@@ -2809,6 +2895,8 @@ struct ContentView: View {
         keyboardModeEnabled = profile.keyboardModeEnabled
         twoFingerTapGestureAction = profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel
         threeFingerTapGestureAction = profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel
+        twoFingerHoldGestureAction = profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
+        threeFingerHoldGestureAction = profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel
         fourFingerHoldGestureAction = profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel
         outerCornersHoldGestureAction = profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel
         innerCornersHoldGestureAction = profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
