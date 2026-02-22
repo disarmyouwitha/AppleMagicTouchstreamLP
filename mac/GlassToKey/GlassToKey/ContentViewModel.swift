@@ -1216,19 +1216,10 @@ enum KeyActionCatalog {
         KeyAction(label: chordalShiftLabel, keyCode: 0, flags: 0, kind: .chordalShift)
     ]
 
-    private static let gestureActions: [KeyAction] = [
-        KeyAction(label: gestureTwoFingerTapLabel, keyCode: 0, flags: 0, kind: .gestureTwoFingerTap),
-        KeyAction(label: gestureThreeFingerTapLabel, keyCode: 0, flags: 0, kind: .gestureThreeFingerTap),
-        KeyAction(label: gestureFourFingerHoldLabel, keyCode: 0, flags: 0, kind: .gestureFourFingerHold),
-        KeyAction(label: gestureFiveFingerSwipeLeftLabel, keyCode: 0, flags: 0, kind: .gestureFiveFingerSwipeLeft),
-        KeyAction(label: gestureFiveFingerSwipeRightLabel, keyCode: 0, flags: 0, kind: .gestureFiveFingerSwipeRight)
-    ]
-
     static let presets: [KeyAction] = {
         var items = uniqueActions(from: bindingsByLabel)
         items.append(contentsOf: mouseActions)
         items.append(contentsOf: modeActions)
-        items.append(contentsOf: gestureActions)
         items.append(contentsOf: layerActions)
         return items.sorted { $0.label < $1.label }
     }()
@@ -1252,7 +1243,6 @@ enum KeyActionCatalog {
         }
         actions.append(contentsOf: mouseActions)
         actions.append(contentsOf: modeActions)
-        actions.append(contentsOf: gestureActions)
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
     }()
@@ -1285,13 +1275,6 @@ enum KeyActionCatalog {
             ("Mouse Actions", [
                 leftClickLabel,
                 rightClickLabel
-            ]),
-            ("--Gestures--", [
-                gestureTwoFingerTapLabel,
-                gestureThreeFingerTapLabel,
-                gestureFourFingerHoldLabel,
-                gestureFiveFingerSwipeLeftLabel,
-                gestureFiveFingerSwipeRightLabel
             ]),
             ("Navigation & Editing", [
                 "Space",
@@ -1431,46 +1414,6 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .chordalShift
-            )
-        }
-        if label == gestureTwoFingerTapLabel {
-            return KeyAction(
-                label: gestureTwoFingerTapLabel,
-                keyCode: 0,
-                flags: 0,
-                kind: .gestureTwoFingerTap
-            )
-        }
-        if label == gestureThreeFingerTapLabel {
-            return KeyAction(
-                label: gestureThreeFingerTapLabel,
-                keyCode: 0,
-                flags: 0,
-                kind: .gestureThreeFingerTap
-            )
-        }
-        if label == gestureFourFingerHoldLabel {
-            return KeyAction(
-                label: gestureFourFingerHoldLabel,
-                keyCode: 0,
-                flags: 0,
-                kind: .gestureFourFingerHold
-            )
-        }
-        if label == gestureFiveFingerSwipeLeftLabel {
-            return KeyAction(
-                label: gestureFiveFingerSwipeLeftLabel,
-                keyCode: 0,
-                flags: 0,
-                kind: .gestureFiveFingerSwipeLeft
-            )
-        }
-        if label == gestureFiveFingerSwipeRightLabel {
-            return KeyAction(
-                label: gestureFiveFingerSwipeRightLabel,
-                keyCode: 0,
-                flags: 0,
-                kind: .gestureFiveFingerSwipeRight
             )
         }
         if let layer = layer(from: label, prefix: "MO") {
