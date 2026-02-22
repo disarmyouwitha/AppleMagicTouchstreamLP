@@ -1273,13 +1273,13 @@ enum KeyActionCatalog {
             .map(String.init)
         let numbers = (0...9).map { String($0) }
         return [
-            (dashedHeader("General"), [noneLabel]),
-            (dashedHeader("Letters A-Z"), letters),
-            (dashedHeader("Numbers 0-9"), numbers),
-            (dashedHeader("Mouse Actions"), [
+            (dashedHeader("General"), [
+                noneLabel,
                 leftClickLabel,
                 rightClickLabel
             ]),
+            (dashedHeader("Letters A-Z"), letters),
+            (dashedHeader("Numbers 0-9"), numbers),
             (dashedHeader("Navigation & Editing"), [
                 "Space",
                 "Tab",
@@ -1352,6 +1352,10 @@ enum KeyActionCatalog {
         var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
             makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
         }
+        let commandGroup = ActionGroup(title: dashedHeader("Cmd Shortcuts"), actions: commandShortcutActions)
+        if !commandGroup.actions.isEmpty {
+            groups.append(commandGroup)
+        }
         let layerGroup = ActionGroup(title: dashedHeader("Layers"), actions: layerActions)
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
@@ -1374,12 +1378,7 @@ enum KeyActionCatalog {
         }
     }()
 
-    private static let sharedActionGroups: [ActionGroup] = {
-        var groups = buildActionGroups(using: action)
-        let commandGroup = ActionGroup(title: dashedHeader("Cmd Shortcuts"), actions: commandShortcutActions)
-        groups.insert(commandGroup, at: 1)
-        return groups
-    }()
+    private static let sharedActionGroups: [ActionGroup] = buildActionGroups(using: action)
 
     static let primaryActionGroups: [ActionGroup] = sharedActionGroups
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
