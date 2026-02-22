@@ -1309,10 +1309,26 @@ enum KeyActionCatalog {
     }
 
     static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
+    private static let commandShortcutActions: [KeyAction] = {
+        let combos: [(String, CGKeyCode)] = [
+            ("Cmd+F", CGKeyCode(kVK_ANSI_F)),
+            ("Cmd+R", CGKeyCode(kVK_ANSI_R)),
+            ("Cmd+X", CGKeyCode(kVK_ANSI_X)),
+            ("Cmd+C", CGKeyCode(kVK_ANSI_C)),
+            ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
+            ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
+            ("Cmd+S", CGKeyCode(kVK_ANSI_S))
+        ]
+        return combos.map { label, code in
+            KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
+        }
+    }()
     static let holdActionGroups: [ActionGroup] = {
         var groups = buildActionGroups(using: holdAction)
         let generalGroup = ActionGroup(title: "General", actions: [noneAction])
         groups.insert(generalGroup, at: 0)
+        let commandGroup = ActionGroup(title: "Cmd Shortcuts", actions: commandShortcutActions)
+        groups.insert(commandGroup, at: 1)
         return groups
     }()
 
