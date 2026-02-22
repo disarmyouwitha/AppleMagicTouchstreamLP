@@ -79,7 +79,6 @@ struct ContentView: View {
     @State private var rightLayout: ContentViewModel.Layout
     @State private var customButtons: [CustomButton] = []
     @State private var selectedButtonID: UUID?
-    @State private var selectedColumn: Int?
     @State private var editColumnIndex = 0
     @State private var selectedGridKey: SelectedGridKey?
     @State private var columnInspectorSelection: ColumnInspectorSelection?
@@ -347,7 +346,6 @@ struct ContentView: View {
             .onChange(of: editModeEnabled) { enabled in
                 if !enabled {
                     selectedButtonID = nil
-                    selectedColumn = nil
                     selectedGridKey = nil
                 }
                 viewModel.setStatusVisualsEnabled(!enabled)
@@ -365,7 +363,6 @@ struct ContentView: View {
             }
             .onChange(of: viewModel.activeLayer) { _ in
                 selectedButtonID = nil
-                selectedColumn = nil
                 selectedGridKey = nil
                 updateGridLabelInfo()
             }
@@ -377,10 +374,7 @@ struct ContentView: View {
             .onChange(of: selectedButtonID) { _ in
                 refreshButtonInspectorSelection()
             }
-            .onChange(of: selectedColumn) { _ in
-                if let selectedColumn, columnSettings.indices.contains(selectedColumn) {
-                    editColumnIndex = selectedColumn
-                }
+            .onChange(of: editColumnIndex) { _ in
                 refreshColumnInspectorSelection()
             }
             .onChange(of: selectedGridKey) { _ in
@@ -559,22 +553,21 @@ struct ContentView: View {
     }
 
     private var trackpadSectionView: some View {
-        TrackpadSectionView(
-            viewModel: viewModel,
-            trackpadSize: trackpadSize,
-            leftLayout: leftLayout,
-            rightLayout: rightLayout,
-            leftGridLabelInfo: leftGridLabelInfo,
-            rightGridLabelInfo: rightGridLabelInfo,
-            customButtons: customButtons,
-            editModeEnabled: $editModeEnabled,
-            lastHitLeft: viewModel.debugLastHitLeft,
-            lastHitRight: viewModel.debugLastHitRight,
-            selectedButtonID: $selectedButtonID,
-            selectedColumn: $selectedColumn,
-            selectedGridKey: $selectedGridKey,
-            testText: $testText
-        )
+            TrackpadSectionView(
+                viewModel: viewModel,
+                trackpadSize: trackpadSize,
+                leftLayout: leftLayout,
+                rightLayout: rightLayout,
+                leftGridLabelInfo: leftGridLabelInfo,
+                rightGridLabelInfo: rightGridLabelInfo,
+                customButtons: customButtons,
+                editModeEnabled: $editModeEnabled,
+                lastHitLeft: viewModel.debugLastHitLeft,
+                lastHitRight: viewModel.debugLastHitRight,
+                selectedButtonID: $selectedButtonID,
+                selectedGridKey: $selectedGridKey,
+                testText: $testText
+            )
     }
 
     private var rightSidebarView: some View {
@@ -771,27 +764,25 @@ struct ContentView: View {
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
-        @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
         @Binding var testText: String
 
         var body: some View {
             VStack(alignment: .leading, spacing: 12) {
-                TrackpadDeckView(
-                    viewModel: viewModel,
-                    trackpadSize: trackpadSize,
-                    leftLayout: leftLayout,
-                    rightLayout: rightLayout,
-                    leftGridLabelInfo: leftGridLabelInfo,
-                    rightGridLabelInfo: rightGridLabelInfo,
-                    customButtons: customButtons,
-                    editModeEnabled: $editModeEnabled,
-                    lastHitLeft: lastHitLeft,
-                    lastHitRight: lastHitRight,
-                    selectedButtonID: $selectedButtonID,
-                    selectedColumn: $selectedColumn,
-                    selectedGridKey: $selectedGridKey
-                )
+                    TrackpadDeckView(
+                        viewModel: viewModel,
+                        trackpadSize: trackpadSize,
+                        leftLayout: leftLayout,
+                        rightLayout: rightLayout,
+                        leftGridLabelInfo: leftGridLabelInfo,
+                        rightGridLabelInfo: rightGridLabelInfo,
+                        customButtons: customButtons,
+                        editModeEnabled: $editModeEnabled,
+                        lastHitLeft: lastHitLeft,
+                        lastHitRight: lastHitRight,
+                        selectedButtonID: $selectedButtonID,
+                        selectedGridKey: $selectedGridKey
+                    )
                 TextEditor(text: $testText)
                     .font(.system(.body, design: .monospaced))
                     .frame(height: 100)
@@ -1745,7 +1736,6 @@ struct ContentView: View {
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
-        @Binding var selectedColumn: Int?
         @Binding var selectedGridKey: SelectedGridKey?
 
         private let trackpadSpacing: CGFloat = 16
@@ -1782,7 +1772,6 @@ struct ContentView: View {
                             rightLabels: surfaceLabels(from: rightGridLabelInfo),
                             leftCustomButtons: leftButtons,
                             rightCustomButtons: rightButtons,
-                            selectedColumn: editModeEnabled ? selectedColumn : nil,
                             selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
                             selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
                             selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
@@ -1838,7 +1827,6 @@ struct ContentView: View {
             switch selection.target {
             case .button(let id):
                 selectedButtonID = id
-                selectedColumn = nil
                 selectedGridKey = nil
             case .key(let row, let column, let label):
                 selectedButtonID = nil
@@ -1848,15 +1836,9 @@ struct ContentView: View {
                     label: label,
                     side: selection.side
                 )
-                selectedColumn = nil
-            case .column(let index):
-                selectedButtonID = nil
-                selectedGridKey = nil
-                selectedColumn = index
             case .none:
                 selectedButtonID = nil
                 selectedGridKey = nil
-                selectedColumn = nil
             }
         }
     }
@@ -1871,7 +1853,6 @@ struct ContentView: View {
         let rightLabelInfo: [[GridLabel]]
         let leftCustomButtons: [CustomButton]
         let rightCustomButtons: [CustomButton]
-        let selectedColumn: Int?
         let selectedLeftKey: SelectedGridKey?
         let selectedRightKey: SelectedGridKey?
         let selectedLeftButton: CustomButton?
@@ -1905,7 +1886,6 @@ struct ContentView: View {
                     layout: leftLayout,
                     labelInfo: leftLabelInfo,
                     customButtons: leftCustomButtons,
-                    selectedColumn: selectedColumn,
                     selectedKey: selectedLeftKey,
                     selectedButton: selectedLeftButton,
                     touches: leftTouches,
@@ -1917,7 +1897,6 @@ struct ContentView: View {
                     layout: rightLayout,
                     labelInfo: rightLabelInfo,
                     customButtons: rightCustomButtons,
-                    selectedColumn: selectedColumn,
                     selectedKey: selectedRightKey,
                     selectedButton: selectedRightButton,
                     touches: rightTouches,
@@ -2182,7 +2161,6 @@ struct ContentView: View {
     private func handleLayoutOptionChange(_ newLayout: TrackpadLayoutPreset) {
         layoutOption = newLayout
         storedLayoutPreset = newLayout.rawValue
-        selectedColumn = nil
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: newLayout)
@@ -2285,7 +2263,6 @@ struct ContentView: View {
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
         let resolvedLayout = TrackpadLayoutPreset(rawValue: storedLayoutPreset) ?? .sixByThree
         layoutOption = resolvedLayout
-        selectedColumn = nil
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: resolvedLayout)
@@ -2720,27 +2697,17 @@ struct ContentView: View {
     private static func drawKeySelection(
         context: inout GraphicsContext,
         keyRects: [[CGRect]],
-        selectedColumn: Int?,
         selectedKey: SelectedGridKey?
     ) {
-        if let selectedColumn,
-           keyRects.first?.indices.contains(selectedColumn) == true {
-            for row in keyRects {
-                let rect = row[selectedColumn]
-                let keyPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
-                context.fill(keyPath, with: .color(Color.accentColor.opacity(0.12)))
-                context.stroke(keyPath, with: .color(Color.accentColor.opacity(0.8)), lineWidth: 1.5)
-            }
+        guard let key = selectedKey,
+              keyRects.indices.contains(key.row),
+              keyRects[key.row].indices.contains(key.column) else {
+            return
         }
-
-        if let key = selectedKey,
-           keyRects.indices.contains(key.row),
-           keyRects[key.row].indices.contains(key.column) {
-            let rect = keyRects[key.row][key.column]
-            let keyPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
-            context.fill(keyPath, with: .color(Color.accentColor.opacity(0.18)))
-            context.stroke(keyPath, with: .color(Color.accentColor.opacity(0.9)), lineWidth: 1.5)
-        }
+        let rect = keyRects[key.row][key.column]
+        let keyPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
+        context.fill(keyPath, with: .color(Color.accentColor.opacity(0.18)))
+        context.stroke(keyPath, with: .color(Color.accentColor.opacity(0.9)), lineWidth: 1.5)
     }
 
     private static func drawCustomButtons(
@@ -2776,14 +2743,13 @@ struct ContentView: View {
     }
 
     private func refreshColumnInspectorSelection() {
-        guard let selectedColumn,
-              columnSettings.indices.contains(selectedColumn) else {
+        guard columnSettings.indices.contains(editColumnIndex) else {
             columnInspectorSelection = nil
             return
         }
         columnInspectorSelection = ColumnInspectorSelection(
-            index: selectedColumn,
-            settings: columnSettings[selectedColumn]
+            index: editColumnIndex,
+            settings: columnSettings[editColumnIndex]
         )
     }
 
@@ -2927,7 +2893,6 @@ struct ContentView: View {
         layout: ContentViewModel.Layout,
         labelInfo: [[GridLabel]],
         customButtons: [CustomButton],
-        selectedColumn: Int?,
         selectedKey: SelectedGridKey?,
         selectedButton: CustomButton?,
         touches: [OMSTouchData],
@@ -2954,7 +2919,6 @@ struct ContentView: View {
             drawKeySelection(
                 context: &innerContext,
                 keyRects: layout.keyRects,
-                selectedColumn: selectedColumn,
                 selectedKey: selectedKey
             )
             drawButtonSelection(

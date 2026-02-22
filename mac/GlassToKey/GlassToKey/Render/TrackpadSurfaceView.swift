@@ -16,7 +16,6 @@ struct TrackpadSurfaceKeySelection: Sendable, Equatable {
 enum TrackpadSurfaceSelectionTarget: Equatable {
     case button(id: UUID)
     case key(row: Int, column: Int, label: String)
-    case column(index: Int)
     case none
 }
 
@@ -36,7 +35,6 @@ struct TrackpadSurfaceSnapshot {
     var rightLabels: [[TrackpadSurfaceLabel]]
     var leftCustomButtons: [CustomButton]
     var rightCustomButtons: [CustomButton]
-    var selectedColumn: Int?
     var selectedLeftKey: TrackpadSurfaceKeySelection?
     var selectedRightKey: TrackpadSurfaceKeySelection?
     var selectedLeftButtonID: UUID?
@@ -56,7 +54,6 @@ extension TrackpadSurfaceSnapshot {
             rightLabels: [],
             leftCustomButtons: [],
             rightCustomButtons: [],
-            selectedColumn: nil,
             selectedLeftKey: nil,
             selectedRightKey: nil,
             selectedLeftButtonID: nil,
@@ -167,7 +164,6 @@ final class TrackpadSurfaceView: NSView {
             customButtons: snapshot.leftCustomButtons,
             touches: leftTouches,
             trackpadSize: snapshot.trackpadSize,
-            selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedLeftKey,
             selectedButtonID: snapshot.selectedLeftButtonID
         )
@@ -177,7 +173,6 @@ final class TrackpadSurfaceView: NSView {
             customButtons: snapshot.rightCustomButtons,
             touches: rightTouches,
             trackpadSize: snapshot.trackpadSize,
-            selectedColumn: snapshot.selectedColumn,
             selectedKey: snapshot.selectedRightKey,
             selectedButtonID: snapshot.selectedRightButtonID
         )
@@ -249,13 +244,11 @@ final class TrackpadSurfaceView: NSView {
         customButtons: [CustomButton],
         touches: [OMSTouchData],
         trackpadSize: CGSize,
-        selectedColumn: Int?,
         selectedKey: TrackpadSurfaceKeySelection?,
         selectedButtonID: UUID?
     ) {
         drawKeySelection(
             keyRects: layout.keyRects,
-            selectedColumn: selectedColumn,
             selectedKey: selectedKey,
             origin: origin
         )
@@ -313,20 +306,6 @@ final class TrackpadSurfaceView: NSView {
             )
         }
 
-        let columnRects = columnRects(
-            for: layout.keyRects,
-            trackpadSize: trackpadSize
-        )
-        if let index = columnIndex(
-            for: localPoint,
-            columnRects: columnRects,
-            trackpadWidth: trackpadSize.width
-        ) {
-            return TrackpadSurfaceSelectionEvent(
-                side: side,
-                target: .column(index: index)
-            )
-        }
         return TrackpadSurfaceSelectionEvent(
             side: side,
             target: .none
@@ -396,73 +375,6 @@ final class TrackpadSurfaceView: NSView {
             }
         }
         return nil
-    }
-
-    private func columnRects(
-        for keyRects: [[CGRect]],
-        trackpadSize: CGSize
-    ) -> [CGRect] {
-        let columnCount = keyRects.map { $0.count }.max() ?? 0
-        guard columnCount > 0 else { return [] }
-        var rects = Array(repeating: CGRect.null, count: columnCount)
-        for row in keyRects {
-            for col in 0..<row.count {
-                rects[col] = rects[col].union(row[col])
-            }
-        }
-
-        let width = trackpadSize.width
-        let height = trackpadSize.height
-        let sortedIndices = rects.enumerated()
-            .sorted { lhs, rhs in
-                let lhsMid = lhs.element.isNull ? 0 : lhs.element.midX
-                let rhsMid = rhs.element.isNull ? 0 : rhs.element.midX
-                return lhsMid < rhsMid
-            }
-            .map(\.offset)
-
-        var boundaries = Array(repeating: CGFloat.zero, count: columnCount + 1)
-        boundaries[0] = 0
-        for physicalIndex in 0..<max(0, sortedIndices.count - 1) {
-            let current = rects[sortedIndices[physicalIndex]]
-            let next = rects[sortedIndices[physicalIndex + 1]]
-            let currentMid = current.isNull ? 0 : current.midX
-            let nextMid = next.isNull ? width : next.midX
-            boundaries[physicalIndex + 1] = (currentMid + nextMid) / 2.0
-        }
-        boundaries[columnCount] = width
-
-        var expandedRects = rects
-        for physicalIndex in 0..<sortedIndices.count {
-            let index = sortedIndices[physicalIndex]
-            let left = boundaries[physicalIndex]
-            let right = boundaries[physicalIndex + 1]
-            expandedRects[index] = CGRect(
-                x: left,
-                y: 0,
-                width: max(0, right - left),
-                height: height
-            )
-        }
-        return expandedRects
-    }
-
-    private func columnIndex(
-        for point: CGPoint,
-        columnRects: [CGRect],
-        trackpadWidth: CGFloat
-    ) -> Int? {
-        if let index = columnRects.firstIndex(where: { $0.contains(point) }) {
-            return index
-        }
-        let columnCount = columnRects.count
-        guard trackpadWidth > 0, columnCount > 0 else { return nil }
-        let normalizedX = min(max(point.x / trackpadWidth, 0), 1)
-        var index = Int(normalizedX * CGFloat(columnCount))
-        if index == columnCount {
-            index = columnCount - 1
-        }
-        return index
     }
 
     private func drawSensorGrid(origin: CGPoint, trackpadSize: CGSize) {
@@ -567,22 +479,9 @@ final class TrackpadSurfaceView: NSView {
 
     private func drawKeySelection(
         keyRects: [[CGRect]],
-        selectedColumn: Int?,
         selectedKey: TrackpadSurfaceKeySelection?,
         origin: CGPoint
     ) {
-        if let selectedColumn {
-            for row in keyRects where row.indices.contains(selectedColumn) {
-                let rect = row[selectedColumn].offsetBy(dx: origin.x, dy: origin.y)
-                let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
-                NSColor.controlAccentColor.withAlphaComponent(0.12).setFill()
-                path.fill()
-                NSColor.controlAccentColor.withAlphaComponent(0.8).setStroke()
-                path.lineWidth = 1.5
-                path.stroke()
-            }
-        }
-
         if let selectedKey,
            keyRects.indices.contains(selectedKey.row),
            keyRects[selectedKey.row].indices.contains(selectedKey.column) {
