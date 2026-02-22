@@ -184,7 +184,7 @@ final class GlassToKeyController: ObservableObject {
            let mappings = KeyActionMappingStore.decodeNormalized(data) {
             return mappings
         }
-        return [0: [:], 1: [:]]
+        return KeyActionMappingStore.emptyMappings()
     }
 
     private func resolvedLayoutPreset() -> TrackpadLayoutPreset {

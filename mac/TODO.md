@@ -1,8 +1,8 @@
 ## TODO
-[0] Can you add a Layer dropdown in “Keymap Tuning” and wire it into the Layer change code. Please also expand from Layer0/Layer1 to Layer0-Layer4!
-[1] Can we move "Add Left" and "Add Right" under "Hold Action" in Keymap Tuning?
+[0] Can we move “Layout” dropdown out of the “Column Tuning” section and put it right above it? [1] Instead of having Scale, X, Y, Pad (Column Tuning fields) hidden/visible depending on if a column is clicked - Can we have them always visible, but make Column Tyning collapsable?
+[2] Can we have "Primary Action" and "Hold Action" always visible in Keymap Tuning, but make Keymap Tuning collapsable?
 ---
-Can we make Column Tuning and Keymap tuning on top of eachother rather than side-by-side?
+Grayed out if nothing is selected.
 ---
 - Please explain to me how haptics works in the framework. Is this portable to windows in any way? Do you think it would be possible to implement in windows by reverse engineering?
 ---

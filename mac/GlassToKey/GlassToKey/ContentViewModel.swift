@@ -24,6 +24,16 @@ enum TrackpadSide: String, Codable, CaseIterable, Identifiable {
 
 typealias LayeredKeyMappings = [Int: [String: KeyMapping]]
 
+enum KeyLayerConfig {
+    static let baseLayer = 0
+    static let maxLayer = 3
+    static let editableLayers = Array(baseLayer...maxLayer)
+
+    static func clamped(_ layer: Int) -> Int {
+        max(baseLayer, min(layer, maxLayer))
+    }
+}
+
 struct SidePair<Value> {
     var left: Value
     var right: Value
@@ -960,8 +970,6 @@ enum LayoutCustomButtonStorage {
 enum KeyActionCatalog {
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
-    static let momentaryLayer1Label = "MO(1)"
-    static let toggleLayer1Label = "TO(1)"
     static let noneLabel = "None"
     static var noneAction: KeyAction {
         KeyAction(
@@ -1200,23 +1208,11 @@ enum KeyActionCatalog {
                 kind: .typingToggle
             )
         }
-        if label == momentaryLayer1Label {
-            return KeyAction(
-                label: momentaryLayer1Label,
-                keyCode: 0,
-                flags: 0,
-                kind: .layerMomentary,
-                layer: 1
-            )
+        if let layer = layer(from: label, prefix: "MO") {
+            return makeLayerAction(kind: .layerMomentary, layer: layer)
         }
-        if label == toggleLayer1Label {
-            return KeyAction(
-                label: toggleLayer1Label,
-                keyCode: 0,
-                flags: 0,
-                kind: .layerToggle,
-                layer: 1
-            )
+        if let layer = layer(from: label, prefix: "TO") {
+            return makeLayerAction(kind: .layerToggle, layer: layer)
         }
         if label == "Globe", let emojiBinding = bindingsByLabel["Emoji"] {
             return KeyAction(
@@ -1256,22 +1252,36 @@ enum KeyActionCatalog {
     }
 
     private static var layerActions: [KeyAction] {
-        [
-            KeyAction(
-                label: momentaryLayer1Label,
-                keyCode: 0,
-                flags: 0,
-                kind: .layerMomentary,
-                layer: 1
-            ),
-            KeyAction(
-                label: toggleLayer1Label,
-                keyCode: 0,
-                flags: 0,
-                kind: .layerToggle,
-                layer: 1
-            )
-        ]
+        (KeyLayerConfig.baseLayer + 1...KeyLayerConfig.maxLayer).flatMap { layer in
+            [
+                makeLayerAction(kind: .layerMomentary, layer: layer),
+                makeLayerAction(kind: .layerToggle, layer: layer)
+            ]
+        }
+    }
+
+    private static func makeLayerAction(kind: KeyActionKind, layer: Int) -> KeyAction {
+        let clampedLayer = KeyLayerConfig.clamped(layer)
+        let prefix = kind == .layerMomentary ? "MO" : "TO"
+        return KeyAction(
+            label: "\(prefix)(\(clampedLayer))",
+            keyCode: 0,
+            flags: 0,
+            kind: kind,
+            layer: clampedLayer
+        )
+    }
+
+    private static func layer(from label: String, prefix: String) -> Int? {
+        let expectedPrefix = "\(prefix)("
+        guard label.hasPrefix(expectedPrefix), label.hasSuffix(")") else { return nil }
+        let start = label.index(label.startIndex, offsetBy: expectedPrefix.count)
+        let end = label.index(before: label.endIndex)
+        let numberText = label[start..<end]
+        guard let parsed = Int(numberText) else { return nil }
+        let clamped = KeyLayerConfig.clamped(parsed)
+        guard clamped == parsed, clamped > KeyLayerConfig.baseLayer else { return nil }
+        return clamped
     }
 }
 
@@ -1296,8 +1306,19 @@ enum KeyActionMappingStore {
     }
 
     static func normalized(_ mappings: LayeredKeyMappings) -> LayeredKeyMappings {
-        let layer0 = mappings[0] ?? [:]
-        let layer1 = mappings[1] ?? layer0
-        return [0: layer0, 1: layer1]
+        let layer0 = mappings[KeyLayerConfig.baseLayer] ?? [:]
+        var normalizedMappings: LayeredKeyMappings = [:]
+        for layer in KeyLayerConfig.editableLayers {
+            normalizedMappings[layer] = mappings[layer] ?? layer0
+        }
+        return normalizedMappings
+    }
+
+    static func emptyMappings() -> LayeredKeyMappings {
+        var mappings: LayeredKeyMappings = [:]
+        for layer in KeyLayerConfig.editableLayers {
+            mappings[layer] = [:]
+        }
+        return mappings
     }
 }

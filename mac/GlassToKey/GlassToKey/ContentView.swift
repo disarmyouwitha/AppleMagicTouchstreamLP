@@ -129,6 +129,7 @@ struct ContentView: View {
     private static let mobileRowSpacingMM: CGFloat = 5.0
     private static let mobileTopInsetMM: CGFloat = 12.0
     static let minCustomButtonSize = CGSize(width: 0.05, height: 0.05)
+    private static let editableLayers = KeyLayerConfig.editableLayers
     fileprivate static let columnScaleRange: ClosedRange<Double> = ColumnLayoutDefaults.scaleRange
     fileprivate static let columnOffsetPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.offsetPercentRange
     fileprivate static let rowSpacingPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.rowSpacingPercentRange
@@ -454,7 +455,6 @@ struct ContentView: View {
             editModeEnabled: $editModeEnabled,
             statusViewModel: viewModel.statusViewModel,
             replayModeEnabled: viewModel.replayTimelineState != nil,
-            layerToggleBinding: layerToggleBinding,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
         )
@@ -580,6 +580,7 @@ struct ContentView: View {
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
             editModeEnabled: editModeEnabled,
+            layerSelection: layerSelectionBinding,
             tapHoldDurationMs: $tapHoldDurationMs,
             dragCancelDistanceSetting: $dragCancelDistanceSetting,
             forceClickCapSetting: $forceClickCapSetting,
@@ -620,7 +621,6 @@ struct ContentView: View {
         @Binding var editModeEnabled: Bool
         @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
         let replayModeEnabled: Bool
-        let layerToggleBinding: Binding<Bool>
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
 
@@ -653,13 +653,6 @@ struct ContentView: View {
                 Toggle("Edit Keymap", isOn: $editModeEnabled)
                     .toggleStyle(SwitchToggleStyle())
                     .disabled(replayModeEnabled)
-                HStack(spacing: 6) {
-                    Text("Layer0")
-                    Toggle("", isOn: layerToggleBinding)
-                        .toggleStyle(SwitchToggleStyle())
-                        .labelsHidden()
-                    Text("Layer1")
-                }
             }
         }
 
@@ -815,6 +808,7 @@ struct ContentView: View {
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let editModeEnabled: Bool
+        let layerSelection: Binding<Int>
         @Binding var tapHoldDurationMs: Double
         @Binding var dragCancelDistanceSetting: Double
         @Binding var forceClickCapSetting: Double
@@ -893,7 +887,7 @@ struct ContentView: View {
                 }
 
                 if editModeEnabled {
-                    HStack(alignment: .top, spacing: 12) {
+                    VStack(alignment: .leading, spacing: 12) {
                         ColumnTuningSectionView(
                             layoutSelection: layoutSelection,
                             layoutOption: layoutOption,
@@ -903,6 +897,7 @@ struct ContentView: View {
                         ButtonTuningSectionView(
                             buttonSelection: buttonSelection,
                             keySelection: keySelection,
+                            layerSelection: layerSelection,
                             onAddCustomButton: onAddCustomButton,
                             onRemoveCustomButton: onRemoveCustomButton,
                             onClearTouchState: onClearTouchState,
@@ -1113,6 +1108,7 @@ struct ContentView: View {
     private struct ButtonTuningSectionView: View {
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
+        let layerSelection: Binding<Int>
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
@@ -1124,14 +1120,16 @@ struct ContentView: View {
                 Text("Keymap Tuning")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                HStack(spacing: 8) {
-                    Button("Add Left") {
-                        onAddCustomButton(.left)
-                    }
+                HStack {
+                    Text("Layer")
                     Spacer()
-                    Button("Add Right") {
-                        onAddCustomButton(.right)
+                    Picker("", selection: layerSelection) {
+                        ForEach(ContentView.editableLayers, id: \.self) { layer in
+                            Text("Layer\(layer)").tag(layer)
+                        }
                     }
+                    .pickerStyle(MenuPickerStyle())
+                    .labelsHidden()
                 }
                 if let selection = buttonSelection {
                     VStack(alignment: .leading, spacing: 6) {
@@ -1164,6 +1162,7 @@ struct ContentView: View {
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
+                        addButtonsRow
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
                                 title: "X",
@@ -1246,11 +1245,13 @@ struct ContentView: View {
                             }
                         }
                         .pickerStyle(MenuPickerStyle())
+                        addButtonsRow
                     }
                 } else {
                     Text("Select a button or key on the trackpad to edit.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    addButtonsRow
                 }
             }
             .padding(12)
@@ -1265,6 +1266,18 @@ struct ContentView: View {
                     onClearTouchState()
                 }
             )
+        }
+
+        private var addButtonsRow: some View {
+            HStack(spacing: 8) {
+                Button("Add Left") {
+                    onAddCustomButton(.left)
+                }
+                Spacer()
+                Button("Add Right") {
+                    onAddCustomButton(.right)
+                }
+            }
         }
 
         private enum CustomButtonAxis {
@@ -2394,7 +2407,7 @@ struct ContentView: View {
         if let decoded = KeyActionMappingStore.decodeNormalized(storedKeyMappingsData) {
             keyMappingsByLayer = decoded
         } else {
-            keyMappingsByLayer = [0: [:], 1: [:]]
+            keyMappingsByLayer = KeyActionMappingStore.emptyMappings()
         }
         viewModel.updateKeyMappings(keyMappingsByLayer)
     }
@@ -2902,11 +2915,11 @@ struct ContentView: View {
         context.translateBy(x: -origin.x, y: -origin.y)
     }
 
-    private var layerToggleBinding: Binding<Bool> {
+    private var layerSelectionBinding: Binding<Int> {
         Binding(
-            get: { viewModel.activeLayer == 1 },
-            set: { isOn in
-                viewModel.setPersistentLayer(isOn ? 1 : 0)
+            get: { viewModel.activeLayer },
+            set: { layer in
+                viewModel.setPersistentLayer(layer)
             }
         )
     }

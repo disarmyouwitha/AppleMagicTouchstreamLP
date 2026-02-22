@@ -721,7 +721,7 @@ actor TouchProcessorEngine {
     }
 
     func setPersistentLayer(_ layer: Int) {
-        let clamped = max(0, min(layer, 1))
+        let clamped = KeyLayerConfig.clamped(layer)
         persistentLayer = clamped
         updateActiveLayer()
     }
@@ -1618,9 +1618,9 @@ actor TouchProcessorEngine {
             case .typingToggle:
                 action = .typingToggle
             case .layerMomentary:
-                action = .layerMomentary(button.action.layer ?? 1)
+                action = .layerMomentary(KeyLayerConfig.clamped(button.action.layer ?? 1))
             case .layerToggle:
-                action = .layerToggle(button.action.layer ?? 1)
+                action = .layerToggle(KeyLayerConfig.clamped(button.action.layer ?? 1))
             case .none:
                 action = .none
             }
@@ -1726,7 +1726,7 @@ actor TouchProcessorEngine {
                 rect: rect,
                 normalizedRect: normalizedRect,
                 label: action.label,
-                action: .layerMomentary(action.layer ?? 1),
+                action: .layerMomentary(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -1736,7 +1736,7 @@ actor TouchProcessorEngine {
                 rect: rect,
                 normalizedRect: normalizedRect,
                 label: action.label,
-                action: .layerToggle(action.layer ?? 1),
+                action: .layerToggle(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -3290,9 +3290,9 @@ actor TouchProcessorEngine {
     }
 
     private func toggleLayer(to layer: Int) {
-        let clamped = max(0, min(layer, 1))
+        let clamped = KeyLayerConfig.clamped(layer)
         if persistentLayer == clamped {
-            persistentLayer = 0
+            persistentLayer = KeyLayerConfig.baseLayer
         } else {
             persistentLayer = clamped
         }

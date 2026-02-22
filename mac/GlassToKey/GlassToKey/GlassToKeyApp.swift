@@ -188,7 +188,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         image.lockFocus()
         let rect = NSRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1)
         let path = NSBezierPath(ovalIn: rect)
-        let color = activeLayer == 1
+        let color = activeLayer > KeyLayerConfig.baseLayer
             ? NSColor.systemBlue
             : (isTypingEnabled
                 ? (keyboardModeEnabled ? NSColor.systemPurple : NSColor.systemGreen)
