@@ -1,3 +1,4 @@
+import AppKit
 import Carbon
 import CoreGraphics
 import Foundation
@@ -6,6 +7,26 @@ import os
 
 final class KeyEventDispatcher: @unchecked Sendable {
     static let shared = KeyEventDispatcher()
+
+    enum SystemKey: Sendable {
+        case volumeUp
+        case volumeDown
+        case brightnessUp
+        case brightnessDown
+
+        var keyType: Int32 {
+            switch self {
+            case .volumeUp:
+                return 0
+            case .volumeDown:
+                return 1
+            case .brightnessUp:
+                return 2
+            case .brightnessDown:
+                return 3
+            }
+        }
+    }
 
     private let dispatcher: KeyDispatching
 
@@ -80,6 +101,14 @@ final class KeyEventDispatcher: @unchecked Sendable {
     func postTextImmediate(_ text: String) {
         dispatcher.postTextImmediate(text)
     }
+
+    func postSystemKey(_ key: SystemKey) {
+        dispatcher.postSystemKey(key)
+    }
+
+    func postSystemKeyImmediate(_ key: SystemKey) {
+        dispatcher.postSystemKeyImmediate(key)
+    }
 }
 
 private protocol KeyDispatching: Sendable {
@@ -93,6 +122,8 @@ private protocol KeyDispatching: Sendable {
     func postRightClickImmediate()
     func postText(_ text: String)
     func postTextImmediate(_ text: String)
+    func postSystemKey(_ key: KeyEventDispatcher.SystemKey)
+    func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey)
 }
 
 private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
@@ -100,6 +131,10 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let globeModifierFlag = CGEventFlags.maskSecondaryFn
     private static let emojiTriggerCode = CGKeyCode(kVK_Space)
     private static let emojiTriggerFlags: CGEventFlags = [.maskCommand, .maskControl]
+    private static let mediaKeyDownState = Int32(0xA)
+    private static let mediaKeyUpState = Int32(0xB)
+    private static let mediaKeySubtype: Int16 = 8
+    private static let mediaModifierFlags = NSEvent.ModifierFlags(rawValue: 0xA00)
 
     private let queue = DispatchQueue(
         label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
@@ -371,6 +406,42 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         }
     }
 
+    func postSystemKey(_ key: KeyEventDispatcher.SystemKey) {
+        queue.async { [self] in
+            postSystemKeyImmediate(key)
+        }
+    }
+
+    func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey) {
+        autoreleasepool {
+            postSystemEvent(key, keyDown: true)
+            postSystemEvent(key, keyDown: false)
+        }
+    }
+
+    @inline(__always)
+    private func postSystemEvent(
+        _ key: KeyEventDispatcher.SystemKey,
+        keyDown: Bool
+    ) {
+        let keyState = keyDown ? Self.mediaKeyDownState : Self.mediaKeyUpState
+        let data1 = Int((key.keyType << 16) | (keyState << 8))
+        guard let event = NSEvent.otherEvent(
+            with: .systemDefined,
+            location: .zero,
+            modifierFlags: Self.mediaModifierFlags,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: 0,
+            context: nil,
+            subtype: Self.mediaKeySubtype,
+            data1: data1,
+            data2: -1
+        )?.cgEvent else {
+            return
+        }
+        event.post(tap: .cghidEventTap)
+    }
+
     @inline(__always)
     private func ensureEventSource() -> CGEventSource? {
         eventSourceLock.withLockUnchecked { source in
@@ -401,6 +472,7 @@ final class DispatchService: @unchecked Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case leftClick(clickCount: Int)
         case rightClick
+        case systemKey(KeyEventDispatcher.SystemKey)
         case haptic(strength: Double, deviceID: String?)
     }
 
@@ -499,6 +571,22 @@ final class DispatchService: @unchecked Sendable {
         enqueue(.rightClick)
     }
 
+    func postVolumeUp() {
+        enqueue(.systemKey(.volumeUp))
+    }
+
+    func postVolumeDown() {
+        enqueue(.systemKey(.volumeDown))
+    }
+
+    func postBrightnessUp() {
+        enqueue(.systemKey(.brightnessUp))
+    }
+
+    func postBrightnessDown() {
+        enqueue(.systemKey(.brightnessDown))
+    }
+
     func postHaptic(strength: Double, deviceID: String?) {
         enqueue(.haptic(strength: strength, deviceID: deviceID))
     }
@@ -571,6 +659,8 @@ final class DispatchService: @unchecked Sendable {
             keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
         case .rightClick:
             keyDispatcher.postRightClickImmediate()
+        case let .systemKey(key):
+            keyDispatcher.postSystemKeyImmediate(key)
         case let .haptic(strength, deviceID):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
         }

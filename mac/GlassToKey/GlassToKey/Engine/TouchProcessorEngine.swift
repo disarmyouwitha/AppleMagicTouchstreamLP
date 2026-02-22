@@ -1265,7 +1265,9 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     continue
-                case .key, .leftClick, .doubleClick, .rightClick, .chordalShift,
+                case .key, .leftClick, .doubleClick, .rightClick,
+                     .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
+                     .chordalShift,
                      .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
                      .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
@@ -1806,6 +1808,14 @@ actor TouchProcessorEngine {
                 action = .doubleClick
             case .rightClick:
                 action = .rightClick
+            case .volumeUp:
+                action = .volumeUp
+            case .volumeDown:
+                action = .volumeDown
+            case .brightnessUp:
+                action = .brightnessUp
+            case .brightnessDown:
+                action = .brightnessDown
             case .voice:
                 action = .voice
             case .typingToggle:
@@ -1944,6 +1954,46 @@ actor TouchProcessorEngine {
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .rightClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .volumeUp:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .volumeUp,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .volumeDown:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .volumeDown,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .brightnessUp:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .brightnessUp,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .brightnessDown:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .brightnessDown,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -3139,6 +3189,14 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
+        case .volumeUp:
+            dispatchService.postVolumeUp()
+        case .volumeDown:
+            dispatchService.postVolumeDown()
+        case .brightnessUp:
+            dispatchService.postBrightnessUp()
+        case .brightnessDown:
+            dispatchService.postBrightnessDown()
         case .voice:
             toggleVoiceDictationSession()
         case .typingToggle:
@@ -3631,6 +3689,14 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
+        case .volumeUp:
+            dispatchService.postVolumeUp()
+        case .volumeDown:
+            dispatchService.postVolumeDown()
+        case .brightnessUp:
+            dispatchService.postBrightnessUp()
+        case .brightnessDown:
+            dispatchService.postBrightnessDown()
         case .voice:
             toggleVoiceDictationSession()
         case .chordalShift:

@@ -100,6 +100,10 @@ final class ContentViewModel: ObservableObject {
         case leftClick
         case doubleClick
         case rightClick
+        case volumeUp
+        case volumeDown
+        case brightnessUp
+        case brightnessDown
         case voice
         case typingToggle
         case chordalShift
@@ -769,6 +773,10 @@ enum KeyActionKind: String, Codable {
     case leftClick
     case doubleClick
     case rightClick
+    case volumeUp
+    case volumeDown
+    case brightnessUp
+    case brightnessDown
     case voice
     case typingToggle
     case chordalShift
@@ -1010,6 +1018,10 @@ enum KeyActionCatalog {
     static let leftClickLabel = "Left Click"
     static let doubleClickLabel = "Double Click"
     static let rightClickLabel = "Right Click"
+    static let volumeUpLabel = "VOL_UP"
+    static let volumeDownLabel = "VOL_DOWN"
+    static let brightnessUpLabel = "BRIGHT_UP"
+    static let brightnessDownLabel = "BRIGHT_DOWN"
     static let chordalShiftLabel = "Chordal Shift"
     static let gestureTwoFingerTapLabel = "2-finger tap"
     static let gestureThreeFingerTapLabel = "3-finger tap"
@@ -1103,6 +1115,7 @@ enum KeyActionCatalog {
         "]": (CGKeyCode(kVK_ANSI_RightBracket), []),
         "\\": (CGKeyCode(kVK_ANSI_Backslash), []),
         "Back": (CGKeyCode(kVK_Delete), []),
+        "Delete": (CGKeyCode(kVK_ForwardDelete), []),
         "Left": (CGKeyCode(kVK_LeftArrow), []),
         "Right": (CGKeyCode(kVK_RightArrow), []),
         "Up": (CGKeyCode(kVK_UpArrow), []),
@@ -1209,6 +1222,13 @@ enum KeyActionCatalog {
         KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick)
     ]
 
+    private static let systemActions: [KeyAction] = [
+        KeyAction(label: volumeUpLabel, keyCode: 0, flags: 0, kind: .volumeUp),
+        KeyAction(label: volumeDownLabel, keyCode: 0, flags: 0, kind: .volumeDown),
+        KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
+        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
+    ]
+
     private static let modeActions: [KeyAction] = [
         KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle),
         KeyAction(label: chordalShiftLabel, keyCode: 0, flags: 0, kind: .chordalShift)
@@ -1217,6 +1237,7 @@ enum KeyActionCatalog {
     static let presets: [KeyAction] = {
         var items = uniqueActions(from: bindingsByLabel)
         items.append(contentsOf: mouseActions)
+        items.append(contentsOf: systemActions)
         items.append(contentsOf: modeActions)
         items.append(contentsOf: layerActions)
         return items.sorted { $0.label < $1.label }
@@ -1240,6 +1261,7 @@ enum KeyActionCatalog {
             identifiers.insert(identifier)
         }
         actions.append(contentsOf: mouseActions)
+        actions.append(contentsOf: systemActions)
         actions.append(contentsOf: modeActions)
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
@@ -1297,6 +1319,12 @@ enum KeyActionCatalog {
                 leftClickLabel,
                 doubleClickLabel,
                 rightClickLabel
+            ]),
+            (dashedHeader("System Controls"), [
+                volumeUpLabel,
+                volumeDownLabel,
+                brightnessUpLabel,
+                brightnessDownLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
@@ -1417,6 +1445,38 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .rightClick
+            )
+        }
+        if label == volumeUpLabel {
+            return KeyAction(
+                label: volumeUpLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeUp
+            )
+        }
+        if label == volumeDownLabel {
+            return KeyAction(
+                label: volumeDownLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeDown
+            )
+        }
+        if label == brightnessUpLabel {
+            return KeyAction(
+                label: brightnessUpLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessUp
+            )
+        }
+        if label == brightnessDownLabel {
+            return KeyAction(
+                label: brightnessDownLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessDown
             )
         }
         if label == typingToggleLabel {
