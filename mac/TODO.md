@@ -1,9 +1,6 @@
 ## TODO
-[0] 3-Finger hold should not trigger 2-finger hold
-[1] 4-Finger hold should not trigger 2-finger hold and 3-finger hold.
-[2] 2-Finger hold should not trigger during Dragging
-[3] 3-Finger hold should not trigger during Dragging
-[4] 4-Finger hold should not trigger during Dragging
+[0] Did you make sure to keep my hot path HOT and free of allocations? Can you check the Drag cancel MM we use in windows? I think it might be 1mm not Drag Cancel (ms), can you verify and update?
+[1] 2-finger hold should only trigger when both fingers arrive at basically the same time. Can you also verify how this was done in "../windows/glasstokey" and match?
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 - What other actions can we add?
 -------
