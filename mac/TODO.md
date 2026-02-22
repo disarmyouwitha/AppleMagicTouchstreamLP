@@ -1,11 +1,11 @@
 ## TODO
-[0] Please add the following Actions Dropdown and wire up the logic: [Delete, VOL_UP, VOL_DOWN, BRIGHT_UP, BRIGHT_DOWN]
-[1] What other actions can we add?
+- Emoji key does not work as Hold to trigger?
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
+- What other actions can we add to hit parity??
 -------
 - Implement Auto Splay
 - Implement e v e n s p a c i n g
-
+-------
 # HUGE:
 - normalize %!??
 - normalize keymap for 6x3 5x3 where it looks the same minus outer column.

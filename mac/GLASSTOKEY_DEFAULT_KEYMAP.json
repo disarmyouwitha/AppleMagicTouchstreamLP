@@ -900,9 +900,9 @@
       "right:0:5" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 117,
+          "kind" : "key",
+          "label" : "Delete"
         }
       },
       "right:1:5" : {
@@ -932,17 +932,17 @@
       "left:0:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 0,
+          "kind" : "brightnessUp",
+          "label" : "BRIGHT⬆️"
         }
       },
       "left:0:1" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 0,
+          "kind" : "brightnessDown",
+          "label" : "BRIGHT⬇️"
         }
       },
       "left:0:2" : {
@@ -980,17 +980,17 @@
       "left:1:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 0,
+          "kind" : "volumeUp",
+          "label" : "VOL⬆️"
         }
       },
       "left:1:1" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 0,
+          "kind" : "volumeDown",
+          "label" : "VOL⬇️"
         }
       },
       "left:1:2" : {
