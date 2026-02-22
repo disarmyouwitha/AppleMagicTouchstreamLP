@@ -1887,8 +1887,6 @@ struct ContentView: View {
         @Binding var fiveFingerSwipeLeftGestureAction: String
         @Binding var fiveFingerSwipeRightGestureAction: String
 
-        private let labelWidth: CGFloat = 140
-
         private func gestureBinding(
             _ rawValue: Binding<String>,
             fallbackLabel: String
@@ -1906,8 +1904,6 @@ struct ContentView: View {
         var body: some View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
-                    Text("2-finger tap")
-                        .frame(width: labelWidth, alignment: .leading)
                     Picker(
                         "2-finger tap",
                         selection: gestureBinding(
@@ -1927,8 +1923,6 @@ struct ContentView: View {
                     .gridCellColumns(3)
                 }
                 GridRow {
-                    Text("3-finger tap")
-                        .frame(width: labelWidth, alignment: .leading)
                     Picker(
                         "3-finger tap",
                         selection: gestureBinding(
@@ -1948,8 +1942,6 @@ struct ContentView: View {
                     .gridCellColumns(3)
                 }
                 GridRow {
-                    Text("4-finger hold")
-                        .frame(width: labelWidth, alignment: .leading)
                     Picker(
                         "4-finger hold",
                         selection: gestureBinding(
@@ -1969,8 +1961,6 @@ struct ContentView: View {
                     .gridCellColumns(3)
                 }
                 GridRow {
-                    Text("5-finger swipe left")
-                        .frame(width: labelWidth, alignment: .leading)
                     Picker(
                         "5-finger swipe left",
                         selection: gestureBinding(
@@ -1990,8 +1980,6 @@ struct ContentView: View {
                     .gridCellColumns(3)
                 }
                 GridRow {
-                    Text("5-finger swipe right")
-                        .frame(width: labelWidth, alignment: .leading)
                     Picker(
                         "5-finger swipe right",
                         selection: gestureBinding(

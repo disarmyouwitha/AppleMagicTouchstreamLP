@@ -1,6 +1,7 @@
 ## TODO
 - Can you move Gesture Tuning out from inside of Typing tuning into it's own section between Typing Tuning and Mode Toggles?
 - In the Action / Hold / Gesture dropdown (All pulled from the same list) the order should go: General, Letters A-Z, Numbers 0-9, Navigation, Modifiers, Symbols, CMD Shortcuts, Layers and then Gestures
+---
 - Left / Right / Double Click actions in Action Dropdown
 - What actions can we add?
 ---
