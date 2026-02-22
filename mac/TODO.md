@@ -1,6 +1,6 @@
 ## TODO
-- [0] In Mode Toggle can we change the label from "Keyboard mode" to "Keyboard/Mouse" [1] Can we move the Mode Toggles to these ordered pairs?: ["Keyboard/Mouse", "Autocorrect"], ["Chordal Shift", "Snap Radius"], ["Run at Startup","Auto-resync"]
-- Build out Gesture Tuning collapsable sub-menues: Taps, Holds, Swipes (and add our current gestures into them.)
+- Build out Gesture Tuning collapsable sub-menues: Taps, Holds, Swipes (and add our current gestures into them)
+- Add 2,3,4,5 Finger Hold Gestures!
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 ---
 - Double Click action in Action Dropdowns

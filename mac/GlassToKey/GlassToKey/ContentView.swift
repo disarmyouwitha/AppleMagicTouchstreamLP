@@ -1939,6 +1939,9 @@ struct ContentView: View {
         @Binding var fourFingerHoldGestureAction: String
         @Binding var fiveFingerSwipeLeftGestureAction: String
         @Binding var fiveFingerSwipeRightGestureAction: String
+        @State private var tapsExpanded = true
+        @State private var holdsExpanded = true
+        @State private var swipesExpanded = true
 
         private func gestureBinding(
             _ rawValue: Binding<String>,
@@ -1954,102 +1957,96 @@ struct ContentView: View {
             )
         }
 
+        @ViewBuilder
+        private func gesturePicker(
+            _ title: String,
+            selection: Binding<String>,
+            fallbackLabel: String
+        ) -> some View {
+            Picker(
+                title,
+                selection: gestureBinding(
+                    selection,
+                    fallbackLabel: fallbackLabel
+                )
+            ) {
+                ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                    let group = KeyActionCatalog.primaryActionGroups[index]
+                    ContentView.pickerGroupHeader(group.title)
+                    ForEach(group.actions, id: \.self) { action in
+                        ContentView.pickerLabel(for: action).tag(action)
+                    }
+                }
+            }
+            .pickerStyle(MenuPickerStyle())
+            .gridCellColumns(3)
+        }
+
         var body: some View {
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                GridRow {
-                    Picker(
-                        "2-finger tap",
-                        selection: gestureBinding(
-                            $twoFingerTapGestureAction,
-                            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
-                        )
-                    ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                            let group = KeyActionCatalog.primaryActionGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
+            VStack(alignment: .leading, spacing: 8) {
+                DisclosureGroup(
+                    isExpanded: $tapsExpanded
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        GridRow {
+                            gesturePicker(
+                                "2-finger tap",
+                                selection: $twoFingerTapGestureAction,
+                                fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
+                            )
+                        }
+                        GridRow {
+                            gesturePicker(
+                                "3-finger tap",
+                                selection: $threeFingerTapGestureAction,
+                                fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
+                            )
                         }
                     }
-                    .pickerStyle(MenuPickerStyle())
-                    .gridCellColumns(3)
+                    .padding(.top, 4)
+                } label: {
+                    Text("Taps")
                 }
-                GridRow {
-                    Picker(
-                        "3-finger tap",
-                        selection: gestureBinding(
-                            $threeFingerTapGestureAction,
-                            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
-                        )
-                    ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                            let group = KeyActionCatalog.primaryActionGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
+
+                DisclosureGroup(
+                    isExpanded: $holdsExpanded
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        GridRow {
+                            gesturePicker(
+                                "4-finger hold",
+                                selection: $fourFingerHoldGestureAction,
+                                fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
+                            )
                         }
                     }
-                    .pickerStyle(MenuPickerStyle())
-                    .gridCellColumns(3)
+                    .padding(.top, 4)
+                } label: {
+                    Text("Holds")
                 }
-                GridRow {
-                    Picker(
-                        "4-finger hold",
-                        selection: gestureBinding(
-                            $fourFingerHoldGestureAction,
-                            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
-                        )
-                    ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                            let group = KeyActionCatalog.primaryActionGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
+
+                DisclosureGroup(
+                    isExpanded: $swipesExpanded
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        GridRow {
+                            gesturePicker(
+                                "5-finger swipe left",
+                                selection: $fiveFingerSwipeLeftGestureAction,
+                                fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+                            )
+                        }
+                        GridRow {
+                            gesturePicker(
+                                "5-finger swipe right",
+                                selection: $fiveFingerSwipeRightGestureAction,
+                                fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+                            )
                         }
                     }
-                    .pickerStyle(MenuPickerStyle())
-                    .gridCellColumns(3)
-                }
-                GridRow {
-                    Picker(
-                        "5-finger swipe left",
-                        selection: gestureBinding(
-                            $fiveFingerSwipeLeftGestureAction,
-                            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-                        )
-                    ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                            let group = KeyActionCatalog.primaryActionGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .gridCellColumns(3)
-                }
-                GridRow {
-                    Picker(
-                        "5-finger swipe right",
-                        selection: gestureBinding(
-                            $fiveFingerSwipeRightGestureAction,
-                            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-                        )
-                    ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                            let group = KeyActionCatalog.primaryActionGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .gridCellColumns(3)
+                    .padding(.top, 4)
+                } label: {
+                    Text("Swipes")
                 }
             }
         }
