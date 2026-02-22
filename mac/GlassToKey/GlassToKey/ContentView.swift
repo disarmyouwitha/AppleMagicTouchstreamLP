@@ -1264,15 +1264,9 @@ struct ContentView: View {
                     .pickerStyle(MenuPickerStyle())
                     .labelsHidden()
                 }
-                if let selection = keySelection {
-                    Text(selection.key.label)
-                        .font(.subheadline)
-                        .bold()
-                } else if buttonSelection == nil {
-                    Text("Select a button or key on the trackpad to edit.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text("Select a button or key on the trackpad to edit.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 Picker("Primary Action", selection: primaryActionBinding) {
                     Text(KeyActionCatalog.noneLabel)
                         .tag(KeyActionCatalog.noneAction)
@@ -1298,7 +1292,7 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 6) {
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
-                                title: "X",
+                                title: "X (%)",
                                 value: positionBinding(for: selection.button, axis: .x),
                                 formatter: ContentView.columnOffsetFormatter,
                                 range: positionRange(for: selection.button, axis: .x),
@@ -1307,7 +1301,7 @@ struct ContentView: View {
                                 showSlider: false
                             )
                             ColumnTuningRow(
-                                title: "Y",
+                                title: "Y (%)",
                                 value: positionBinding(for: selection.button, axis: .y),
                                 formatter: ContentView.columnOffsetFormatter,
                                 range: positionRange(for: selection.button, axis: .y),
@@ -1316,7 +1310,7 @@ struct ContentView: View {
                                 showSlider: false
                             )
                             ColumnTuningRow(
-                                title: "Width",
+                                title: "Width (%)",
                                 value: sizeBinding(for: selection.button, dimension: .width),
                                 formatter: ContentView.columnOffsetFormatter,
                                 range: sizeRange(for: selection.button, dimension: .width),
@@ -1325,7 +1319,7 @@ struct ContentView: View {
                                 showSlider: false
                             )
                             ColumnTuningRow(
-                                title: "Height",
+                                title: "Height (%)",
                                 value: sizeBinding(for: selection.button, dimension: .height),
                                 formatter: ContentView.columnOffsetFormatter,
                                 range: sizeRange(for: selection.button, dimension: .height),
@@ -1335,13 +1329,10 @@ struct ContentView: View {
                             )
                         }
                         HStack {
-                            Text("Selected")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                            Spacer()
-                            Button("Delete") {
+                            Button("Deleted Selected Button") {
                                 onRemoveCustomButton(selection.button.id)
                             }
+                            Spacer()
                         }
                     }
                 }
