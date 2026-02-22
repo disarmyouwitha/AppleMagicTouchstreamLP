@@ -1121,14 +1121,33 @@ actor TouchProcessorEngine {
             }
             if cornersHoldEngaged {
                 var isCustomTouch = false
+                var isContinuousTouch = false
                 if let binding = resolveBinding(), binding.position == nil {
                     isCustomTouch = true
+                    if isContinuousKey(binding) {
+                        isContinuousTouch = true
+                    }
                 } else if let active = activeTouch(for: touchKey), active.binding.position == nil {
                     isCustomTouch = true
+                    if active.isContinuousKey {
+                        isContinuousTouch = true
+                    }
                 } else if let pending = pendingTouch(for: touchKey), pending.binding.position == nil {
                     isCustomTouch = true
+                    if isContinuousKey(pending.binding) {
+                        isContinuousTouch = true
+                    }
+                } else {
+                    if let binding = resolveBinding(), isContinuousKey(binding) {
+                        isContinuousTouch = true
+                    } else if let active = activeTouch(for: touchKey), active.isContinuousKey {
+                        isContinuousTouch = true
+                    } else if let pending = pendingTouch(for: touchKey),
+                              isContinuousKey(pending.binding) {
+                        isContinuousTouch = true
+                    }
                 }
-                if isCustomTouch {
+                if isCustomTouch || isContinuousTouch {
                     if disqualifiedTouches.value(for: touchKey) == nil {
                         disqualifyTouch(touchKey, reason: .typingDisabled)
                     }
@@ -1144,6 +1163,19 @@ actor TouchProcessorEngine {
                     }
                     continue
                 }
+            }
+            if disqualifiedTouches.value(for: touchKey) != nil {
+                switch touch.state {
+                case .breaking, .leaving, .notTouching:
+                    disqualifiedTouches.remove(touchKey)
+                    touchInitialContactPoint.remove(touchKey)
+                    clearPeakPressure(for: touchKey)
+                case .starting, .hovering, .making, .touching, .lingering:
+                    break
+                @unknown default:
+                    break
+                }
+                continue
             }
             if touchInitialContactPoint.value(for: touchKey) == nil,
                Self.isContactState(touch.state) {
