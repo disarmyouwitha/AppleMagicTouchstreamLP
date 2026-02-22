@@ -1,7 +1,6 @@
 ## TODO
-- Force Min Force Max aren't triggering properly. They should use Peak Force, like we do in windows. Please use "../windows/glasstokey" as reference!
-- For each finger can we show the force applied as "f:" on the touch in the visualizer? 
--Can you find somewhere nice to put Peak force? in Windows we added it to the bototm 
+- Can we move Tap Cadence right below Hold Duration
+- Can you find somewhere nice to put Peak force? in Windows we added it to the bototm 
 - Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
 - Haptic Strength (This goes 1-6 we should change scale)
 ---
