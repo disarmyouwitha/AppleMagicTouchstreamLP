@@ -21,6 +21,7 @@ enum ATPCaptureV3Codec {
 
     static let fileMagic = "ATPCAP01"
     static let schema = "g2k-replay-v1"
+    static let version2: Int32 = 2
     static let currentVersion: Int32 = 3
     static let headerSize = 20
     static let recordHeaderSize = 34
@@ -29,6 +30,19 @@ enum ATPCaptureV3Codec {
     private static let metaRecordDeviceIndex: Int32 = -1
     private static let frameHeaderBytes = 32
     private static let frameContactBytes = 40
+    private static let v2PtpReportID: UInt8 = 0x05
+    private static let v2PtpExpectedSize = 50
+    private static let v2MaxEmbeddedScanOffset = 96
+    private static let v2MaxContacts = 5
+    private static let v2MaxReasonableX = 20_000
+    private static let v2MaxReasonableY = 15_000
+    private static let v2OfficialMaxRawX = 14_720
+    private static let v2OfficialMaxRawY = 10_240
+    private static let v2TargetMaxX = 7_612
+    private static let v2TargetMaxY = 5_065
+    private static let v2UsagePageDigitizer: UInt16 = 0x0D
+    private static let v2UsageTouchpad: UInt16 = 0x05
+    private static let v2DecoderProfileLegacy: UInt8 = 1
 
     static func write(
         frames: [RuntimeRawFrame],
@@ -134,11 +148,13 @@ enum ATPCaptureV3Codec {
 
     static func parseReplayData(data: Data) throws -> ReplayData {
         let container = try readContainer(data: data)
-        guard container.header.version == currentVersion else {
+        let version = container.header.version
+        guard version == currentVersion || version == version2 else {
             throw RuntimeCaptureReplayError.unsupportedATPCaptureVersion(
-                actual: container.header.version
+                actual: version
             )
         }
+        let isV3Capture = version == currentVersion
 
         var expectedSequence: UInt64 = 1
         var frames: [RuntimeRawFrame] = []
@@ -147,19 +163,29 @@ enum ATPCaptureV3Codec {
         rawArrivalTicks.reserveCapacity(1024)
 
         for record in container.records {
-            if record.deviceIndex == metaRecordDeviceIndex {
-                _ = try decodeMetaPayload(record.payload)
+            if isV3Capture {
+                if record.deviceIndex == metaRecordDeviceIndex {
+                    _ = try decodeMetaPayload(record.payload)
+                    continue
+                }
+
+                let frame = try decodeFramePayload(
+                    record.payload,
+                    headerDeviceIndex: Int(record.deviceIndex)
+                )
+                guard frame.sequence == expectedSequence else {
+                    throw RuntimeCaptureReplayError.invalidATPCapture(
+                        reason: "invalid sequence: expected \(expectedSequence), got \(frame.sequence)"
+                    )
+                }
+                frames.append(frame)
+                rawArrivalTicks.append(record.arrivalTicks)
+                expectedSequence &+= 1
                 continue
             }
 
-            let frame = try decodeFramePayload(
-                record.payload,
-                headerDeviceIndex: Int(record.deviceIndex)
-            )
-            guard frame.sequence == expectedSequence else {
-                throw RuntimeCaptureReplayError.invalidATPCapture(
-                    reason: "invalid sequence: expected \(expectedSequence), got \(frame.sequence)"
-                )
+            guard let frame = decodeV2FramePayload(record: record, sequence: expectedSequence) else {
+                continue
             }
             frames.append(frame)
             rawArrivalTicks.append(record.arrivalTicks)
@@ -195,6 +221,355 @@ enum ATPCaptureV3Codec {
 
     static func parseFrames(data: Data) throws -> [RuntimeRawFrame] {
         try parseReplayData(data: data).samples.map(\.frame)
+    }
+
+    private static func decodeV2FramePayload(
+        record: ATPCaptureRecord,
+        sequence: UInt64
+    ) -> RuntimeRawFrame? {
+        guard record.deviceIndex >= 0 else {
+            return nil
+        }
+        guard let contacts = decodeV2Contacts(
+            payload: record.payload,
+            usagePage: record.usagePage,
+            usage: record.usage,
+            decoderProfile: record.decoderProfile
+        ) else {
+            return nil
+        }
+        return RuntimeRawFrame(
+            sequence: sequence,
+            timestamp: 0,
+            deviceNumericID: UInt64(record.deviceHash),
+            deviceIndex: Int(record.deviceIndex),
+            contacts: contacts,
+            rawTouches: []
+        )
+    }
+
+    private static func decodeV2Contacts(
+        payload: Data,
+        usagePage: UInt16,
+        usage: UInt16,
+        decoderProfile: UInt8
+    ) -> [RuntimeRawContact]? {
+        let preferredLegacy = decoderProfile == v2DecoderProfileLegacy
+        if preferredLegacy {
+            if let contacts = decodeV2PtpContacts(
+                payload: payload,
+                usagePage: usagePage,
+                usage: usage,
+                profile: .legacy
+            ) {
+                return contacts
+            }
+            return nil
+        }
+
+        if let contacts = decodeV2PtpContacts(
+            payload: payload,
+            usagePage: usagePage,
+            usage: usage,
+            profile: .official
+        ) {
+            return contacts
+        }
+        if let contacts = decodeV2PtpContacts(
+            payload: payload,
+            usagePage: usagePage,
+            usage: usage,
+            profile: .legacy
+        ) {
+            return contacts
+        }
+        return nil
+    }
+
+    private static func decodeV2PtpContacts(
+        payload: Data,
+        usagePage: UInt16,
+        usage: UInt16,
+        profile: V2DecoderProfile
+    ) -> [RuntimeRawContact]? {
+        guard payload.count >= v2PtpExpectedSize else {
+            return nil
+        }
+
+        if payload[0] == v2PtpReportID,
+           let contacts = tryParseV2PtpAtOffset(
+               payload: payload,
+               offset: 0,
+               usagePage: usagePage,
+               usage: usage,
+               profile: profile
+           ) {
+            return contacts
+        }
+
+        let maxOffset = min(payload.count - v2PtpExpectedSize, v2MaxEmbeddedScanOffset)
+        guard maxOffset >= 1 else {
+            return nil
+        }
+        for offset in 1...maxOffset {
+            guard payload[offset] == v2PtpReportID else {
+                continue
+            }
+            if let contacts = tryParseV2PtpAtOffset(
+                payload: payload,
+                offset: offset,
+                usagePage: usagePage,
+                usage: usage,
+                profile: profile
+            ) {
+                return contacts
+            }
+        }
+
+        return nil
+    }
+
+    private static func tryParseV2PtpAtOffset(
+        payload: Data,
+        offset: Int,
+        usagePage: UInt16,
+        usage: UInt16,
+        profile: V2DecoderProfile
+    ) -> [RuntimeRawContact]? {
+        guard offset >= 0, offset <= payload.count - v2PtpExpectedSize else {
+            return nil
+        }
+        guard payload[offset] == v2PtpReportID else {
+            return nil
+        }
+
+        var contacts: [V2Contact] = []
+        contacts.reserveCapacity(v2MaxContacts)
+        for index in 0..<v2MaxContacts {
+            let slotOffset = offset + 1 + (index * 9)
+            let flags = payload[slotOffset]
+            let contactID = readUInt32LE(from: payload, at: slotOffset + 1)
+            let x = readUInt16LE(from: payload, at: slotOffset + 5)
+            let y = readUInt16LE(from: payload, at: slotOffset + 7)
+            contacts.append(
+                V2Contact(
+                    id: contactID,
+                    x: x,
+                    y: y,
+                    flags: flags,
+                    pressure: 0,
+                    phase: 0
+                )
+            )
+        }
+
+        let reportedContactCount = Int(payload[offset + 48])
+        guard reportedContactCount <= v2MaxContacts else {
+            return nil
+        }
+        let clampedContactCount = min(reportedContactCount, v2MaxContacts)
+
+        switch profile {
+        case .official:
+            guard looksReasonableOfficial(
+                contacts: contacts,
+                clampedContactCount: clampedContactCount
+            ) else {
+                return nil
+            }
+            contacts = normalizeOfficialContacts(
+                contacts: contacts,
+                payload: payload,
+                offset: offset,
+                usagePage: usagePage,
+                usage: usage,
+                clampedContactCount: clampedContactCount
+            )
+        case .legacy:
+            guard looksReasonableLegacy(
+                contacts: contacts,
+                clampedContactCount: clampedContactCount
+            ) else {
+                return nil
+            }
+            contacts = Array(contacts.prefix(clampedContactCount))
+            normalizeLikelyPackedContactIDs(contacts: &contacts)
+        }
+
+        var runtimeContacts: [RuntimeRawContact] = []
+        runtimeContacts.reserveCapacity(contacts.count)
+        for contact in contacts where (contact.flags & 0x02) != 0 {
+            let xNorm = clamp01(Float(contact.x) / Float(v2TargetMaxX))
+            let yNormTopOrigin = clamp01(Float(contact.y) / Float(v2TargetMaxY))
+            let yNormBottomOrigin = 1.0 - yNormTopOrigin
+            runtimeContacts.append(
+                RuntimeRawContact(
+                    id: Int32(bitPattern: contact.id),
+                    posX: xNorm,
+                    posY: yNormBottomOrigin,
+                    pressure: Float(contact.pressure) / 255.0,
+                    majorAxis: 0,
+                    minorAxis: 0,
+                    angle: 0,
+                    density: 0,
+                    state: .touching
+                )
+            )
+        }
+        return runtimeContacts
+    }
+
+    private static func looksReasonableLegacy(
+        contacts: [V2Contact],
+        clampedContactCount: Int
+    ) -> Bool {
+        for index in 0..<clampedContactCount {
+            let contact = contacts[index]
+            if Int(contact.x) > v2MaxReasonableX || Int(contact.y) > v2MaxReasonableY {
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func looksReasonableOfficial(
+        contacts: [V2Contact],
+        clampedContactCount: Int
+    ) -> Bool {
+        guard clampedContactCount > 0 else {
+            return true
+        }
+        for index in 0..<clampedContactCount {
+            let contact = contacts[index]
+            if contact.x != 0 || contact.y != 0 || contact.flags != 0 || contact.id != 0 {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func normalizeOfficialContacts(
+        contacts: [V2Contact],
+        payload: Data,
+        offset: Int,
+        usagePage: UInt16,
+        usage: UInt16,
+        clampedContactCount: Int
+    ) -> [V2Contact] {
+        let isNativeTouchpadUsage = usagePage == v2UsagePageDigitizer && usage == v2UsageTouchpad
+        var usedIDs = Array(repeating: false, count: 256)
+        var normalized: [V2Contact] = []
+        normalized.reserveCapacity(clampedContactCount)
+
+        for index in 0..<clampedContactCount {
+            let source = contacts[index]
+            let normalizedFlags = (source.flags & 0xFC) | 0x03
+            var x = source.x
+            var y = source.y
+            var pressure: UInt8 = 0
+            var phase: UInt8 = 0
+            let assignedID: UInt32
+
+            if !isNativeTouchpadUsage {
+                let slotOffset = offset + 1 + (index * 9)
+                if slotOffset + 8 < payload.count {
+                    assignedID = assignOfficialContactID(
+                        candidateID: payload[slotOffset],
+                        usedIDs: &usedIDs
+                    )
+                    let rawX = Int(readUInt16LE(from: payload, at: slotOffset + 2))
+                    let rawY = Int(readUInt16LE(from: payload, at: slotOffset + 4))
+                    x = scaleOfficialCoordinate(
+                        value: rawX,
+                        maxRaw: v2OfficialMaxRawX,
+                        targetMax: v2TargetMaxX
+                    )
+                    y = scaleOfficialCoordinate(
+                        value: rawY,
+                        maxRaw: v2OfficialMaxRawY,
+                        targetMax: v2TargetMaxY
+                    )
+                    pressure = payload[slotOffset + 6]
+                    phase = payload[slotOffset + 7]
+                } else {
+                    assignedID = assignOfficialContactID(
+                        candidateID: UInt8(truncatingIfNeeded: index),
+                        usedIDs: &usedIDs
+                    )
+                }
+            } else {
+                assignedID = assignOfficialContactID(
+                    candidateID: UInt8(truncatingIfNeeded: index),
+                    usedIDs: &usedIDs
+                )
+            }
+
+            normalized.append(
+                V2Contact(
+                    id: assignedID,
+                    x: x,
+                    y: y,
+                    flags: normalizedFlags,
+                    pressure: pressure,
+                    phase: phase
+                )
+            )
+        }
+
+        return normalized
+    }
+
+    private static func assignOfficialContactID(
+        candidateID: UInt8,
+        usedIDs: inout [Bool]
+    ) -> UInt32 {
+        let candidateIndex = Int(candidateID)
+        if !usedIDs[candidateIndex] {
+            usedIDs[candidateIndex] = true
+            return UInt32(candidateID)
+        }
+
+        for index in usedIDs.indices where !usedIDs[index] {
+            usedIDs[index] = true
+            return UInt32(index)
+        }
+
+        return UInt32(candidateID)
+    }
+
+    private static func scaleOfficialCoordinate(
+        value: Int,
+        maxRaw: Int,
+        targetMax: Int
+    ) -> UInt16 {
+        let clamped = min(max(value, 0), maxRaw)
+        let scaled = (clamped * targetMax + (maxRaw / 2)) / maxRaw
+        return UInt16(clamping: scaled)
+    }
+
+    private static func normalizeLikelyPackedContactIDs(contacts: inout [V2Contact]) {
+        guard !contacts.isEmpty else {
+            return
+        }
+        var tipCount = 0
+        var suspiciousIDCount = 0
+        for contact in contacts where (contact.flags & 0x02) != 0 {
+            tipCount += 1
+            if (contact.id & 0xFF) == 0 && contact.id > 0x00FF_FFFF {
+                suspiciousIDCount += 1
+            }
+        }
+        guard tipCount > 0, suspiciousIDCount == tipCount else {
+            return
+        }
+
+        for index in contacts.indices where (contacts[index].flags & 0x02) != 0 {
+            contacts[index].id = UInt32(index)
+        }
+    }
+
+    private static func clamp01(_ value: Float) -> Float {
+        min(max(value, 0), 1)
     }
 
     private static func replayTimelineSeconds(
@@ -674,6 +1049,20 @@ enum ATPCaptureV3Codec {
     private struct ATPCaptureContainer: Sendable {
         let header: ATPCaptureHeader
         let records: [ATPCaptureRecord]
+    }
+
+    private enum V2DecoderProfile {
+        case legacy
+        case official
+    }
+
+    private struct V2Contact {
+        var id: UInt32
+        var x: UInt16
+        var y: UInt16
+        var flags: UInt8
+        var pressure: UInt8
+        var phase: UInt8
     }
 }
 
