@@ -768,34 +768,50 @@ struct ContentView: View {
         @Binding var testText: String
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 12) {
-                    TrackpadDeckView(
-                        viewModel: viewModel,
-                        trackpadSize: trackpadSize,
-                        leftLayout: leftLayout,
-                        rightLayout: rightLayout,
-                        leftGridLabelInfo: leftGridLabelInfo,
-                        rightGridLabelInfo: rightGridLabelInfo,
-                        customButtons: customButtons,
-                        editModeEnabled: $editModeEnabled,
-                        lastHitLeft: lastHitLeft,
-                        lastHitRight: lastHitRight,
-                        selectedButtonID: $selectedButtonID,
-                        selectedGridKey: $selectedGridKey
-                    )
-                TextEditor(text: $testText)
-                    .font(.system(.body, design: .monospaced))
-                    .frame(height: 100)
-                    .overlay(
-                        RoundedRectangle(cornerRadius: 6)
-                            .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
-                    )
+            ZStack {
+                VStack(alignment: .leading, spacing: 12) {
+                        TrackpadDeckView(
+                            viewModel: viewModel,
+                            trackpadSize: trackpadSize,
+                            leftLayout: leftLayout,
+                            rightLayout: rightLayout,
+                            leftGridLabelInfo: leftGridLabelInfo,
+                            rightGridLabelInfo: rightGridLabelInfo,
+                            customButtons: customButtons,
+                            editModeEnabled: $editModeEnabled,
+                            lastHitLeft: lastHitLeft,
+                            lastHitRight: lastHitRight,
+                            selectedButtonID: $selectedButtonID,
+                            selectedGridKey: $selectedGridKey
+                        )
+                    TextEditor(text: $testText)
+                        .font(.system(.body, design: .monospaced))
+                        .frame(height: 100)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 6)
+                                .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
+                        )
+                }
+                .padding(12)
+                .background(
+                    RoundedRectangle(cornerRadius: 12)
+                        .fill(Color.primary.opacity(0.05))
+                )
+
+                Button(action: clearSelection) {
+                    EmptyView()
+                }
+                .frame(width: 0, height: 0)
+                .keyboardShortcut(.escape, modifiers: [])
+                .buttonStyle(.borderless)
+                .disabled(!editModeEnabled)
             }
-            .padding(12)
-            .background(
-                RoundedRectangle(cornerRadius: 12)
-                    .fill(Color.primary.opacity(0.05))
-            )
+        }
+
+        private func clearSelection() {
+            guard editModeEnabled else { return }
+            selectedGridKey = nil
+            selectedButtonID = nil
         }
     }
 
@@ -1841,6 +1857,7 @@ struct ContentView: View {
                 selectedGridKey = nil
             }
         }
+
     }
 
     private struct CombinedTrackpadCanvas: View {
