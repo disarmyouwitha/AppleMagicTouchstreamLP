@@ -816,9 +816,9 @@
       "left:2:0" : {
         "hold" : {
           "flags" : 0,
-          "keyCode" : 43,
+          "keyCode" : 50,
           "kind" : "key",
-          "label" : ","
+          "label" : "`"
         },
         "primary" : {
           "flags" : 0,
