@@ -1,6 +1,6 @@
 ## TODO
 - What other actions can we add? [Delete, VOL_UP, VOL_DOWN, BRIGHT_UP, BRIGHT_DOWN]
-- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
+- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 -------
 - Implement Auto Splay
 - Implement e v e n s p a c i n g
