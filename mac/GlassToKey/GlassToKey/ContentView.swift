@@ -1277,9 +1277,6 @@ struct ContentView: View {
                 Picker("Primary Action", selection: primaryActionBinding) {
                     ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
                         let group = KeyActionCatalog.primaryActionGroups[index]
-                        if index > 0 {
-                            ContentView.dropdownDivider
-                        }
                         ContentView.pickerGroupHeader(group.title)
                         ForEach(group.actions, id: \.self) { action in
                             ContentView.pickerLabel(for: action).tag(action)
@@ -1289,11 +1286,8 @@ struct ContentView: View {
                 .pickerStyle(MenuPickerStyle())
                 .disabled(!hasEditableSelection)
                 Picker("Hold Action", selection: holdActionBinding) {
-                    ContentView.pickerGroupHeader("General")
-                    Text("None").tag(nil as KeyAction?)
                     ForEach(KeyActionCatalog.holdActionGroups.indices, id: \.self) { index in
                         let group = KeyActionCatalog.holdActionGroups[index]
-                        ContentView.dropdownDivider
                         ContentView.pickerGroupHeader(group.title)
                         ForEach(group.actions, id: \.self) { action in
                             ContentView.pickerLabel(for: action).tag(action as KeyAction?)
@@ -2841,23 +2835,16 @@ struct ContentView: View {
     }
 
     fileprivate static func pickerGroupHeader(_ title: String) -> some View {
-        Text(title.uppercased())
+        Text("— — \(title.uppercased()) — —")
             .font(.caption2)
             .fontWeight(.semibold)
             .foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
-            .background(Color.secondary.opacity(0.05))
-            .cornerRadius(4)
-    }
-
-    fileprivate static var dropdownDivider: some View {
-        Rectangle()
-            .fill(Color.secondary.opacity(0.4))
-            .frame(height: 1)
-            .frame(maxWidth: .infinity)
-            .padding(.vertical, 6)
+            .background(Color.secondary.opacity(0.04))
+            .cornerRadius(6)
+            .allowsHitTesting(false)
     }
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {
