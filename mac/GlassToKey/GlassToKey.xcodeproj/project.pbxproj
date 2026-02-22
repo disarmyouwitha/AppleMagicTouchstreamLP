@@ -193,6 +193,9 @@
 			productRefGroup = 77292A852B931953001CA3F6 /* Products */;
 			projectDirPath = "";
 			projectRoot = "";
+			packageReferences = (
+				315FA11B2F4A890900FAE9EC /* OpenMultitouchSupport */,
+			);
 			targets = (
 				77292A832B931953001CA3F6 /* GlassToKey */,
 			);
@@ -439,9 +442,17 @@
 		};
 /* End XCConfigurationList section */
 
+/* Begin XCLocalSwiftPackageReference section */
+		315FA11B2F4A890900FAE9EC /* OpenMultitouchSupport */ = {
+			isa = XCLocalSwiftPackageReference;
+			relativePath = ..;
+		};
+/* End XCLocalSwiftPackageReference section */
+
 /* Begin XCSwiftPackageProductDependency section */
 		315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */ = {
 			isa = XCSwiftPackageProductDependency;
+			package = 315FA11B2F4A890900FAE9EC /* OpenMultitouchSupport */;
 			productName = OpenMultitouchSupport;
 		};
 /* End XCSwiftPackageProductDependency section */
