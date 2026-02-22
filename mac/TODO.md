@@ -1,6 +1,5 @@
 ## TODO
-- Can we remove the Voice pill?
-- Next, I want you to implement "Inner Corners hold" and wire it into the GUI. It should work just like "Outer Corners hold" but on the opposite corners (Inner corners)
+- Inner Corners and Outer Corners gestures should override Custom buttons (Custom Buttons should not fire if Corners gesture are triggered)
 - Add 2,3,4-Finger Hold Gestures!
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 ---

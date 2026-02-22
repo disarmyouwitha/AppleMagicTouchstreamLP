@@ -441,6 +441,7 @@ final class RuntimeCommandService: @unchecked Sendable {
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) {
@@ -451,6 +452,7 @@ final class RuntimeCommandService: @unchecked Sendable {
                 threeFingerTap: threeFingerTap,
                 fourFingerHold: fourFingerHold,
                 outerCornersHold: outerCornersHold,
+                innerCornersHold: innerCornersHold,
                 fiveFingerSwipeLeft: fiveFingerSwipeLeft,
                 fiveFingerSwipeRight: fiveFingerSwipeRight
             )

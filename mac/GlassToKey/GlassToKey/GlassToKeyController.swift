@@ -21,6 +21,7 @@ enum GlassToKeySettings {
     static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
     static let fourFingerHoldGestureActionLabel = KeyActionCatalog.chordalShiftLabel
     static let outerCornersHoldGestureActionLabel = KeyActionCatalog.voiceLabel
+    static let innerCornersHoldGestureActionLabel = KeyActionCatalog.noneLabel
     static let fiveFingerSwipeLeftGestureActionLabel = KeyActionCatalog.typingToggleLabel
     static let fiveFingerSwipeRightGestureActionLabel = KeyActionCatalog.typingToggleLabel
 
@@ -284,6 +285,9 @@ final class GlassToKeyController: ObservableObject {
         let outerCornersHoldGestureActionLabel = defaults.string(
             forKey: GlassToKeyDefaultsKeys.outerCornersHoldGestureAction
         ) ?? GlassToKeySettings.outerCornersHoldGestureActionLabel
+        let innerCornersHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction
+        ) ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
         let fiveFingerSwipeLeftGestureActionLabel = defaults.string(
             forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction
         ) ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
@@ -303,6 +307,9 @@ final class GlassToKeyController: ObservableObject {
         let outerCornersHoldGestureAction = KeyActionCatalog.action(
             for: outerCornersHoldGestureActionLabel
         ) ?? KeyActionCatalog.action(for: GlassToKeySettings.outerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let innerCornersHoldGestureAction = KeyActionCatalog.action(
+            for: innerCornersHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.innerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
         let fiveFingerSwipeLeftGestureAction = KeyActionCatalog.action(
             for: fiveFingerSwipeLeftGestureActionLabel
         ) ?? KeyActionCatalog.action(for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction
@@ -330,6 +337,7 @@ final class GlassToKeyController: ObservableObject {
             threeFingerTap: threeFingerTapGestureAction,
             fourFingerHold: fourFingerHoldGestureAction,
             outerCornersHold: outerCornersHoldGestureAction,
+            innerCornersHold: innerCornersHoldGestureAction,
             fiveFingerSwipeLeft: fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRight: fiveFingerSwipeRightGestureAction
         )

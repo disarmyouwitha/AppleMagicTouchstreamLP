@@ -105,6 +105,7 @@ final class ContentViewModel: ObservableObject {
         case gestureTwoFingerTap
         case gestureThreeFingerTap
         case gestureFourFingerHold
+        case gestureInnerCornersHold
         case gestureFiveFingerSwipeLeft
         case gestureFiveFingerSwipeRight
         case layerMomentary(Int)
@@ -517,6 +518,7 @@ final class ContentViewModel: ObservableObject {
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) {
@@ -525,6 +527,7 @@ final class ContentViewModel: ObservableObject {
             threeFingerTap: threeFingerTap,
             fourFingerHold: fourFingerHold,
             outerCornersHold: outerCornersHold,
+            innerCornersHold: innerCornersHold,
             fiveFingerSwipeLeft: fiveFingerSwipeLeft,
             fiveFingerSwipeRight: fiveFingerSwipeRight
         )
@@ -766,6 +769,7 @@ enum KeyActionKind: String, Codable {
     case gestureTwoFingerTap
     case gestureThreeFingerTap
     case gestureFourFingerHold
+    case gestureInnerCornersHold
     case gestureFiveFingerSwipeLeft
     case gestureFiveFingerSwipeRight
     case layerMomentary
@@ -1003,6 +1007,7 @@ enum KeyActionCatalog {
     static let gestureTwoFingerTapLabel = "2-finger tap"
     static let gestureThreeFingerTapLabel = "3-finger tap"
     static let gestureFourFingerHoldLabel = "4-finger hold"
+    static let gestureInnerCornersHoldLabel = "Inner corners hold"
     static let gestureFiveFingerSwipeLeftLabel = "5-finger swipe left"
     static let gestureFiveFingerSwipeRightLabel = "5-finger swipe right"
     static var noneAction: KeyAction {
@@ -1411,6 +1416,14 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .chordalShift
+            )
+        }
+        if label == gestureInnerCornersHoldLabel {
+            return KeyAction(
+                label: gestureInnerCornersHoldLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureInnerCornersHold
             )
         }
         if let layer = layer(from: label, prefix: "MO") {

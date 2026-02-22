@@ -587,6 +587,7 @@ actor TouchProcessorEngine {
         case twoFingerTap
         case threeFingerTap
         case fourFingerHold
+        case innerCornersHold
         case fiveFingerSwipeLeft
         case fiveFingerSwipeRight
     }
@@ -603,6 +604,9 @@ actor TouchProcessorEngine {
     ) ?? KeyActionCatalog.noneAction
     private var outerCornersHoldAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.outerCornersHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var innerCornersHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.innerCornersHoldGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
     private var fiveFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
@@ -626,12 +630,17 @@ actor TouchProcessorEngine {
         var active: Bool = false
         var triggered: Bool = false
     }
+    private enum CornerHoldGestureKind {
+        case outer
+        case inner
+    }
     private struct VoiceDictationGestureState {
         var holdStart: TimeInterval = 0
         var holdCandidateActive = false
         var holdDidToggle = false
         var isDictating = false
         var side: TrackpadSide?
+        var kind: CornerHoldGestureKind = .outer
     }
     private var chordShiftEnabled = true
     private var chordShiftState = SidePair(left: ChordShiftState(), right: ChordShiftState())
@@ -815,6 +824,7 @@ actor TouchProcessorEngine {
         threeFingerTap: KeyAction,
         fourFingerHold: KeyAction,
         outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
         fiveFingerSwipeLeft: KeyAction,
         fiveFingerSwipeRight: KeyAction
     ) {
@@ -822,6 +832,7 @@ actor TouchProcessorEngine {
         threeFingerTapAction = threeFingerTap
         fourFingerHoldAction = fourFingerHold
         outerCornersHoldAction = outerCornersHold
+        innerCornersHoldAction = innerCornersHold
         fiveFingerSwipeLeftAction = fiveFingerSwipeLeft
         fiveFingerSwipeRightAction = fiveFingerSwipeRight
         fourFingerHoldState[.left] = MultiFingerHoldState()
@@ -835,7 +846,7 @@ actor TouchProcessorEngine {
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
         }
-        if outerCornersHold.kind != .voice {
+        if outerCornersHold.kind != .voice, innerCornersHold.kind != .voice {
             stopVoiceDictationGesture()
         }
     }
@@ -1158,7 +1169,7 @@ actor TouchProcessorEngine {
                 case .key, .leftClick, .rightClick, .chordalShift,
                      .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
-                     .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
+                     .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
                 }
             }
@@ -1706,6 +1717,8 @@ actor TouchProcessorEngine {
                 action = .gestureThreeFingerTap
             case .gestureFourFingerHold:
                 action = .gestureFourFingerHold
+            case .gestureInnerCornersHold:
+                action = .gestureInnerCornersHold
             case .gestureFiveFingerSwipeLeft:
                 action = .gestureFiveFingerSwipeLeft
             case .gestureFiveFingerSwipeRight:
@@ -1880,6 +1893,16 @@ actor TouchProcessorEngine {
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .gestureFourFingerHold,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureInnerCornersHold:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureInnerCornersHold,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -2526,9 +2549,11 @@ actor TouchProcessorEngine {
                 state.touches.remove(key)
             }
         }
-        let outerCornersHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
-        let outerCornersGestureEngaged = updateOuterCornersHoldGesture(
-            holdSide: outerCornersHoldSide,
+        let outerCornersHoldSide = outerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
+        let innerCornersHoldSide = innerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
+        let cornerHoldGestureEngaged = updateCornerHoldGesture(
+            holdSide: outerCornersHoldSide ?? innerCornersHoldSide,
+            kind: outerCornersHoldSide != nil ? .outer : .inner,
             now: now
         )
 
@@ -2568,7 +2593,7 @@ actor TouchProcessorEngine {
             isTypingCommitted = false
         }
         let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
-        if outerCornersGestureEngaged {
+        if cornerHoldGestureEngaged {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             twoFingerTapDetected = false
@@ -2602,7 +2627,7 @@ actor TouchProcessorEngine {
             return true
         }
 
-        if outerCornersGestureEngaged {
+        if cornerHoldGestureEngaged {
             state.lastContactCount = contactCount
             state.mode = .gestureCandidate(start: voiceDictationGestureState.holdStart > 0 ? voiceDictationGestureState.holdStart : now)
             suppressKeyProcessing(for: intentCurrentKeys)
@@ -2886,6 +2911,8 @@ actor TouchProcessorEngine {
             triggerGestureSlot(.threeFingerTap, side: side, visited: visited)
         case .gestureFourFingerHold:
             triggerGestureSlot(.fourFingerHold, side: side, visited: visited)
+        case .gestureInnerCornersHold:
+            triggerGestureSlot(.innerCornersHold, side: side, visited: visited)
         case .gestureFiveFingerSwipeLeft:
             triggerGestureSlot(.fiveFingerSwipeLeft, side: side, visited: visited)
         case .gestureFiveFingerSwipeRight:
@@ -2916,6 +2943,8 @@ actor TouchProcessorEngine {
             action = threeFingerTapAction
         case .fourFingerHold:
             action = fourFingerHoldAction
+        case .innerCornersHold:
+            action = innerCornersHoldAction
         case .fiveFingerSwipeLeft:
             action = fiveFingerSwipeLeftAction
         case .fiveFingerSwipeRight:
@@ -2924,7 +2953,7 @@ actor TouchProcessorEngine {
         performGestureAction(action, now: Self.now(), side: side, visited: updatedVisited)
     }
 
-    private func voiceDictationHoldSide(
+    private func outerCornersHoldSide(
         leftTouches: [OMSRawTouch],
         rightTouches: [OMSRawTouch]
     ) -> TrackpadSide? {
@@ -2975,18 +3004,71 @@ actor TouchProcessorEngine {
         return nil
     }
 
-    private func updateOuterCornersHoldGesture(
+    private func innerCornersHoldSide(
+        leftTouches: [OMSRawTouch],
+        rightTouches: [OMSRawTouch]
+    ) -> TrackpadSide? {
+        var leftContactCount = 0
+        var topNearRightEdge = false
+        var bottomNearRightEdge = false
+        for touch in leftTouches {
+            guard Self.isDictationContactState(touch.state) else { continue }
+            leftContactCount += 1
+            let x = CGFloat(touch.posX)
+            let y = CGFloat(1.0 - touch.posY)
+            if x >= voiceDictationRightEdgeMinX, y <= voiceDictationTopMaxY {
+                topNearRightEdge = true
+            }
+            if x >= voiceDictationRightEdgeMinX, y >= voiceDictationBottomMinY {
+                bottomNearRightEdge = true
+            }
+        }
+
+        var rightContactCount = 0
+        var topNearLeftEdge = false
+        var bottomNearLeftEdge = false
+        for touch in rightTouches {
+            guard Self.isDictationContactState(touch.state) else { continue }
+            rightContactCount += 1
+            let x = CGFloat(touch.posX)
+            let y = CGFloat(1.0 - touch.posY)
+            if x <= voiceDictationLeftEdgeMaxX, y <= voiceDictationTopMaxY {
+                topNearLeftEdge = true
+            }
+            if x <= voiceDictationLeftEdgeMaxX, y >= voiceDictationBottomMinY {
+                bottomNearLeftEdge = true
+            }
+        }
+
+        let leftHold = leftContactCount == 2
+            && rightContactCount == 0
+            && topNearRightEdge
+            && bottomNearRightEdge
+        if leftHold { return .left }
+
+        let rightHold = rightContactCount == 2
+            && leftContactCount == 0
+            && topNearLeftEdge
+            && bottomNearLeftEdge
+        if rightHold { return .right }
+
+        return nil
+    }
+
+    private func updateCornerHoldGesture(
         holdSide: TrackpadSide?,
+        kind: CornerHoldGestureKind,
         now: TimeInterval
     ) -> Bool {
         var state = voiceDictationGestureState
-        let action = outerCornersHoldAction
+        let action = kind == .outer ? outerCornersHoldAction : innerCornersHoldAction
         if let holdSide {
-            if !state.holdCandidateActive || state.side != holdSide {
+            if !state.holdCandidateActive || state.side != holdSide || state.kind != kind {
                 state.holdCandidateActive = true
                 state.holdDidToggle = false
                 state.holdStart = now
                 state.side = holdSide
+                state.kind = kind
             } else if !state.holdDidToggle, now - state.holdStart >= voiceDictationHoldSeconds {
                 state.holdDidToggle = true
                 if action.kind == .voice {
@@ -3012,6 +3094,7 @@ actor TouchProcessorEngine {
             state.holdDidToggle = false
             state.holdStart = 0
             state.side = nil
+            state.kind = .outer
         }
         voiceDictationGestureState = state
         updateVoiceGestureActivity()
@@ -3050,7 +3133,8 @@ actor TouchProcessorEngine {
 
     private func updateVoiceGestureActivity() {
         let state = voiceDictationGestureState
-        let isActive = state.isDictating || (outerCornersHoldAction.kind == .voice && state.holdCandidateActive)
+        let activeHoldAction = state.kind == .outer ? outerCornersHoldAction : innerCornersHoldAction
+        let isActive = state.isDictating || (activeHoldAction.kind == .voice && state.holdCandidateActive)
         guard voiceGestureActive != isActive else { return }
         voiceGestureActive = isActive
         onVoiceGestureChanged(isActive)
@@ -3315,6 +3399,8 @@ actor TouchProcessorEngine {
             triggerGestureSlot(.threeFingerTap, side: binding.side, visited: [])
         case .gestureFourFingerHold:
             triggerGestureSlot(.fourFingerHold, side: binding.side, visited: [])
+        case .gestureInnerCornersHold:
+            triggerGestureSlot(.innerCornersHold, side: binding.side, visited: [])
         case .gestureFiveFingerSwipeLeft:
             triggerGestureSlot(.fiveFingerSwipeLeft, side: binding.side, visited: [])
         case .gestureFiveFingerSwipeRight:
