@@ -1911,11 +1911,11 @@ struct ContentView: View {
                             fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
                         )
                     ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups) { group in
-                            Section(group.title) {
-                                ForEach(group.actions, id: \.self) { action in
-                                    ContentView.pickerLabel(for: action).tag(action)
-                                }
+                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                            let group = KeyActionCatalog.primaryActionGroups[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
                             }
                         }
                     }
@@ -1930,11 +1930,11 @@ struct ContentView: View {
                             fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
                         )
                     ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups) { group in
-                            Section(group.title) {
-                                ForEach(group.actions, id: \.self) { action in
-                                    ContentView.pickerLabel(for: action).tag(action)
-                                }
+                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                            let group = KeyActionCatalog.primaryActionGroups[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
                             }
                         }
                     }
@@ -1949,11 +1949,11 @@ struct ContentView: View {
                             fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
                         )
                     ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups) { group in
-                            Section(group.title) {
-                                ForEach(group.actions, id: \.self) { action in
-                                    ContentView.pickerLabel(for: action).tag(action)
-                                }
+                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                            let group = KeyActionCatalog.primaryActionGroups[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
                             }
                         }
                     }
@@ -1968,11 +1968,11 @@ struct ContentView: View {
                             fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
                         )
                     ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups) { group in
-                            Section(group.title) {
-                                ForEach(group.actions, id: \.self) { action in
-                                    ContentView.pickerLabel(for: action).tag(action)
-                                }
+                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                            let group = KeyActionCatalog.primaryActionGroups[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
                             }
                         }
                     }
@@ -1987,11 +1987,11 @@ struct ContentView: View {
                             fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
                         )
                     ) {
-                        ForEach(KeyActionCatalog.primaryActionGroups) { group in
-                            Section(group.title) {
-                                ForEach(group.actions, id: \.self) { action in
-                                    ContentView.pickerLabel(for: action).tag(action)
-                                }
+                        ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
+                            let group = KeyActionCatalog.primaryActionGroups[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
                             }
                         }
                     }
@@ -3115,15 +3115,13 @@ struct ContentView: View {
     }
 
     fileprivate static func pickerGroupHeader(_ title: String) -> some View {
-        Text("—— \(title.uppercased()) ——")
+        Text(title)
             .font(.caption2)
             .fontWeight(.semibold)
             .foregroundColor(.secondary)
             .frame(maxWidth: .infinity, alignment: .leading)
             .padding(.horizontal, 4)
             .padding(.vertical, 2)
-            .background(Color.secondary.opacity(0.04))
-            .cornerRadius(6)
             .allowsHitTesting(false)
     }
 

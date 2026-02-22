@@ -1263,20 +1263,24 @@ enum KeyActionCatalog {
         return ActionGroup(title: title, actions: actions)
     }
 
+    private static func dashedHeader(_ title: String) -> String {
+        "\u{2014}\u{2014}\(title)\u{2014}\u{2014}"
+    }
+
     private static let groupDefinitions: [(title: String, labels: [String])] = {
         let letters = (65...90)
             .compactMap { UnicodeScalar($0) }
             .map(String.init)
         let numbers = (0...9).map { String($0) }
         return [
-            ("General", [noneLabel]),
-            ("Letters A-Z", letters),
-            ("Numbers 0-9", numbers),
-            ("Mouse Actions", [
+            (dashedHeader("General"), [noneLabel]),
+            (dashedHeader("Letters A-Z"), letters),
+            (dashedHeader("Numbers 0-9"), numbers),
+            (dashedHeader("Mouse Actions"), [
                 leftClickLabel,
                 rightClickLabel
             ]),
-            ("Navigation & Editing", [
+            (dashedHeader("Navigation & Editing"), [
                 "Space",
                 "Tab",
                 "Enter",
@@ -1295,7 +1299,7 @@ enum KeyActionCatalog {
                 "Up",
                 "Down"
             ]),
-            ("Modifiers & Modes", [
+            (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
                 "Option",
@@ -1304,7 +1308,7 @@ enum KeyActionCatalog {
                 chordalShiftLabel,
                 typingToggleLabel
             ]),
-            ("Symbols & Punctuation", [
+            (dashedHeader("Symbols & Punctuation"), [
                 "!",
                 "@",
                 "#",
@@ -1348,7 +1352,7 @@ enum KeyActionCatalog {
         var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
             makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
         }
-        let layerGroup = ActionGroup(title: "Layers", actions: layerActions)
+        let layerGroup = ActionGroup(title: dashedHeader("Layers"), actions: layerActions)
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
         }
@@ -1372,7 +1376,7 @@ enum KeyActionCatalog {
 
     private static let sharedActionGroups: [ActionGroup] = {
         var groups = buildActionGroups(using: action)
-        let commandGroup = ActionGroup(title: "Cmd Shortcuts", actions: commandShortcutActions)
+        let commandGroup = ActionGroup(title: dashedHeader("Cmd Shortcuts"), actions: commandShortcutActions)
         groups.insert(commandGroup, at: 1)
         return groups
     }()
