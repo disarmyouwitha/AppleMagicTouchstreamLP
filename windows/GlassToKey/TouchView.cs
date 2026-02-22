@@ -182,17 +182,6 @@ public sealed class TouchView : FrameworkElement
             dc.DrawText(text, new Point(pad.Left + 18, pad.Top + 18));
         }
 
-        string footer = $"Contacts: {contactCount}";
-        FormattedText footerLeft = new(
-            footer,
-            CultureInfo.InvariantCulture,
-            FlowDirection.LeftToRight,
-            _uiTypeface,
-            12,
-            _footerBrush,
-            1.0);
-        dc.DrawText(footerLeft, new Point(pad.Left + 18, pad.Bottom - 24));
-
         string hitText = $"Last hit: {LastHitLabel}";
         FormattedText footerRight = new(
             hitText,
@@ -214,11 +203,9 @@ public sealed class TouchView : FrameworkElement
             1.0);
 
         const double rightPadding = 18;
-        const double footerGap = 14;
         double footerY = pad.Bottom - 24;
+        dc.DrawText(footerPeak, new Point(pad.Left + 18, footerY));
         double hitX = pad.Right - footerRight.Width - rightPadding;
-        double peakX = hitX - footerPeak.Width - footerGap;
-        dc.DrawText(footerPeak, new Point(peakX, footerY));
         dc.DrawText(footerRight, new Point(hitX, footerY));
     }
 

@@ -9,7 +9,10 @@ internal static class InputCaptureFile
 {
     public const int HeaderSize = 20;
     public const int RecordHeaderSize = 34;
-    public const int CurrentVersion = 2;
+    public const int Version2 = 2;
+    public const int Version3 = 3;
+    public const int CurrentWriteVersion = Version2;
+    public const int CurrentVersion = CurrentWriteVersion;
 
     private static readonly byte[] s_magic = Encoding.ASCII.GetBytes("ATPCAP01");
 
@@ -17,9 +20,14 @@ internal static class InputCaptureFile
     {
         Span<byte> header = stackalloc byte[HeaderSize];
         s_magic.CopyTo(header);
-        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), CurrentVersion);
+        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), CurrentWriteVersion);
         BinaryPrimitives.WriteInt64LittleEndian(header.Slice(12, 8), System.Diagnostics.Stopwatch.Frequency);
         stream.Write(header);
+    }
+
+    public static bool IsSupportedReadVersion(int version)
+    {
+        return version == Version2 || version == Version3;
     }
 
     public static bool TryReadHeader(Stream stream, out int version, out long qpcFrequency)
@@ -153,14 +161,16 @@ internal sealed class InputCaptureReader : IDisposable
             throw new InvalidDataException("Capture header is invalid.");
         }
 
-        if (version != InputCaptureFile.CurrentVersion)
+        if (!InputCaptureFile.IsSupportedReadVersion(version))
         {
             throw new InvalidDataException($"Capture version {version} is unsupported.");
         }
 
+        HeaderVersion = version;
         HeaderQpcFrequency = qpcFrequency;
     }
 
+    public int HeaderVersion { get; }
     public long HeaderQpcFrequency { get; }
 
     public bool TryReadNext(out CaptureRecord record)
