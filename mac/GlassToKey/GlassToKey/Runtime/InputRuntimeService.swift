@@ -380,6 +380,13 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateForceClickMin(grams)
+        }
+    }
+
     func updateForceClickCap(_ grams: Double) {
         let runtimeEngine = runtimeEngine
         Task {
@@ -422,17 +429,37 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTapClickEnabled(enabled)
-        }
-    }
-
     func updateTapClickCadence(_ milliseconds: Double) {
         let runtimeEngine = runtimeEngine
         Task {
             await runtimeEngine.updateTapClickCadence(milliseconds)
+        }
+    }
+
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateGestureActions(
+                twoFingerTap: twoFingerTap,
+                threeFingerTap: threeFingerTap,
+                twoFingerHold: twoFingerHold,
+                threeFingerHold: threeFingerHold,
+                fourFingerHold: fourFingerHold,
+                outerCornersHold: outerCornersHold,
+                innerCornersHold: innerCornersHold,
+                fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+                fiveFingerSwipeRight: fiveFingerSwipeRight
+            )
         }
     }
 

@@ -26,7 +26,6 @@ actor TouchProcessorEngine {
         case leftKeyRect
         case pendingLeftRect
         case typingDisabled
-        case forceCapExceeded
         case intentMouse
         case offKeyNoSnap
         case momentaryLayerCancelled
@@ -103,9 +102,6 @@ actor TouchProcessorEngine {
         var didHold: Bool
         var holdRepeatActive: Bool = false
         var maxDistanceSquared: CGFloat
-        let initialPressure: Float
-        var forceEntryTime: TimeInterval?
-        var forceGuardTriggered: Bool
         var modifierEngaged: Bool
 
     }
@@ -115,9 +111,6 @@ actor TouchProcessorEngine {
         let startTime: TimeInterval
         let startPoint: CGPoint
         var maxDistanceSquared: CGFloat
-        let initialPressure: Float
-        var forceEntryTime: TimeInterval?
-        var forceGuardTriggered: Bool
 
     }
 
@@ -526,7 +519,8 @@ actor TouchProcessorEngine {
     private var tapMaxDuration: TimeInterval = 0.2
     private var holdMinDuration: TimeInterval = 0.2
     private var dragCancelDistance: CGFloat = 2.5
-    private var forceClickCap: Float = 0
+    private var forceClickMin: Float = 0
+    private var forceClickCap: Float = 255
     private var snapRadiusFraction: Float = 0.35
     private let snapAmbiguityRatio: Float = 1.15
 #if DEBUG
@@ -544,6 +538,7 @@ actor TouchProcessorEngine {
     }
     private var contactCountCache = SidePair<ContactCountCache?>(left: nil, right: nil)
     private let contactCountHoldDuration: TimeInterval = 0.06
+    private let holdGestureMoveCancelMm: CGFloat = 1.0
     private let repeatInitialDelay: UInt64 = 350_000_000
     private let repeatInterval: UInt64 = 50_000_000
     private let spaceRepeatMultiplier: UInt64 = 2
@@ -562,6 +557,7 @@ actor TouchProcessorEngine {
         right: TouchTable<KeyBinding>(minimumCapacity: 16)
     )
     private var framePointCache = TouchTable<CGPoint>(minimumCapacity: 16)
+    private var peakPressureByTouch = TouchTable<Float>(minimumCapacity: 32)
     private var hapticStrength: Double = 0
     private static let hapticMinIntervalNanos: UInt64 = 20_000_000
     private var lastHapticTimeBySide = SidePair<UInt64>(repeating: 0)
@@ -580,7 +576,6 @@ actor TouchProcessorEngine {
     private var intentMoveThresholdSquared: CGFloat = 0
     private var intentVelocityThreshold: CGFloat = 0
     private var allowMouseTakeoverDuringTyping = false
-    private var tapClickEnabled = false
     private var typingGraceDeadline: TimeInterval?
     private var typingGraceTask: Task<Void, Never>?
     private var doubleTapDeadline: TimeInterval?
@@ -589,8 +584,43 @@ actor TouchProcessorEngine {
     private struct TapCandidate {
         let deadline: TimeInterval
     }
+    private enum GestureSlot: Hashable {
+        case twoFingerTap
+        case threeFingerTap
+        case fourFingerHold
+        case innerCornersHold
+        case fiveFingerSwipeLeft
+        case fiveFingerSwipeRight
+    }
     private var twoFingerTapCandidate: TapCandidate?
     private var threeFingerTapCandidate: TapCandidate?
+    private var twoFingerTapAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.twoFingerTapGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerTapAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerTapGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var twoFingerHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.twoFingerHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var outerCornersHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.outerCornersHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var innerCornersHoldAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.innerCornersHoldGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fiveFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fiveFingerSwipeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
     private struct FiveFingerSwipeState {
         var active: Bool = false
         var triggered: Bool = false
@@ -603,20 +633,39 @@ actor TouchProcessorEngine {
     private struct ChordShiftState {
         var active: Bool = false
     }
+    private struct MultiFingerHoldState {
+        var active: Bool = false
+        var triggered: Bool = false
+        var startTime: TimeInterval = 0
+        var startCentroid: CGPoint = .zero
+        var blockedUntilAllUp: Bool = false
+    }
+
+    private struct GestureContactSummary {
+        var count: Int = 0
+        var centroid: CGPoint = .zero
+    }
+    private enum CornerHoldGestureKind {
+        case outer
+        case inner
+    }
     private struct VoiceDictationGestureState {
         var holdStart: TimeInterval = 0
         var holdCandidateActive = false
         var holdDidToggle = false
         var isDictating = false
         var side: TrackpadSide?
+        var kind: CornerHoldGestureKind = .outer
     }
     private var chordShiftEnabled = true
     private var chordShiftState = SidePair(left: ChordShiftState(), right: ChordShiftState())
+    private var twoFingerHoldState = SidePair(left: MultiFingerHoldState(), right: MultiFingerHoldState())
+    private var threeFingerHoldState = SidePair(left: MultiFingerHoldState(), right: MultiFingerHoldState())
+    private var fourFingerHoldState = SidePair(left: MultiFingerHoldState(), right: MultiFingerHoldState())
     private var chordShiftLastContactTime = SidePair(left: TimeInterval(0), right: TimeInterval(0))
     private var chordShiftKeyDown = false
     private var voiceDictationGestureState = VoiceDictationGestureState()
     private var voiceGestureActive = false
-    private let voiceDictationHoldSeconds: TimeInterval = 0.35
     private let voiceDictationLeftEdgeMaxX: CGFloat = 0.28
     private let voiceDictationRightEdgeMinX: CGFloat = 0.72
     private let voiceDictationTopMaxY: CGFloat = 0.28
@@ -755,8 +804,17 @@ actor TouchProcessorEngine {
         allowMouseTakeoverDuringTyping = enabled
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        let clamped = Float(min(max(grams, 0), 255))
+        forceClickMin = clamped
+        if forceClickCap < clamped {
+            forceClickCap = clamped
+        }
+    }
+
     func updateForceClickCap(_ grams: Double) {
-        forceClickCap = Float(max(0, grams))
+        let clamped = Float(min(max(grams, 0), 255))
+        forceClickCap = max(clamped, forceClickMin)
     }
 
     func updateHapticStrength(_ normalized: Double) {
@@ -770,15 +828,51 @@ actor TouchProcessorEngine {
         invalidateBindingsCache()
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) {
-        tapClickEnabled = enabled
-    }
-
     func updateTapClickCadence(_ milliseconds: Double) {
         let clampedMs = min(max(milliseconds, 50.0), 1000.0)
         tapClickCadenceSeconds = clampedMs / 1000.0
         awaitingSecondTap = false
         doubleTapDeadline = nil
+    }
+
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) {
+        twoFingerTapAction = twoFingerTap
+        threeFingerTapAction = threeFingerTap
+        twoFingerHoldAction = twoFingerHold
+        threeFingerHoldAction = threeFingerHold
+        fourFingerHoldAction = fourFingerHold
+        outerCornersHoldAction = outerCornersHold
+        innerCornersHoldAction = innerCornersHold
+        fiveFingerSwipeLeftAction = fiveFingerSwipeLeft
+        fiveFingerSwipeRightAction = fiveFingerSwipeRight
+        twoFingerHoldState[.left] = MultiFingerHoldState()
+        twoFingerHoldState[.right] = MultiFingerHoldState()
+        threeFingerHoldState[.left] = MultiFingerHoldState()
+        threeFingerHoldState[.right] = MultiFingerHoldState()
+        fourFingerHoldState[.left] = MultiFingerHoldState()
+        fourFingerHoldState[.right] = MultiFingerHoldState()
+        awaitingSecondTap = false
+        doubleTapDeadline = nil
+        if !isChordShiftGestureActive {
+            chordShiftState[.left] = ChordShiftState()
+            chordShiftState[.right] = ChordShiftState()
+            chordShiftLastContactTime[.left] = 0
+            chordShiftLastContactTime[.right] = 0
+            updateChordShiftKeyState()
+        }
+        if outerCornersHold.kind != .voice, innerCornersHold.kind != .voice {
+            stopVoiceDictationGesture()
+        }
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
@@ -787,7 +881,7 @@ actor TouchProcessorEngine {
 
     func updateChordalShiftEnabled(_ enabled: Bool) {
         chordShiftEnabled = enabled
-        if !enabled {
+        if !isChordShiftGestureActive {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
             chordShiftLastContactTime[.left] = 0
@@ -811,6 +905,12 @@ actor TouchProcessorEngine {
         if !hasTouchData {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
+            twoFingerHoldState[.left] = MultiFingerHoldState()
+            twoFingerHoldState[.right] = MultiFingerHoldState()
+            threeFingerHoldState[.left] = MultiFingerHoldState()
+            threeFingerHoldState[.right] = MultiFingerHoldState()
+            fourFingerHoldState[.left] = MultiFingerHoldState()
+            fourFingerHoldState[.right] = MultiFingerHoldState()
             chordShiftLastContactTime[.left] = 0
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
@@ -820,15 +920,15 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        if chordShiftEnabled {
-            let leftContactCount = contactCount(in: leftTouches)
-            let rightContactCount = contactCount(in: rightTouches)
-            updateChordShift(for: .left, contactCount: leftContactCount, now: now)
-            updateChordShift(for: .right, contactCount: rightContactCount, now: now)
-            updateChordShiftKeyState()
-        } else if chordShiftKeyDown {
-            updateChordShiftKeyState()
-        }
+        let leftSummary = gestureContactSummary(in: leftTouches)
+        let rightSummary = gestureContactSummary(in: rightTouches)
+        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
+        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
+        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
+        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
+        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
+        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
+        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -894,6 +994,12 @@ actor TouchProcessorEngine {
         if !hasTouchData {
             chordShiftState[.left] = ChordShiftState()
             chordShiftState[.right] = ChordShiftState()
+            twoFingerHoldState[.left] = MultiFingerHoldState()
+            twoFingerHoldState[.right] = MultiFingerHoldState()
+            threeFingerHoldState[.left] = MultiFingerHoldState()
+            threeFingerHoldState[.right] = MultiFingerHoldState()
+            fourFingerHoldState[.left] = MultiFingerHoldState()
+            fourFingerHoldState[.right] = MultiFingerHoldState()
             chordShiftLastContactTime[.left] = 0
             chordShiftLastContactTime[.right] = 0
             updateChordShiftKeyState()
@@ -903,15 +1009,15 @@ actor TouchProcessorEngine {
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        if chordShiftEnabled {
-            let leftContactCount = contactCount(in: leftTouches)
-            let rightContactCount = contactCount(in: rightTouches)
-            updateChordShift(for: .left, contactCount: leftContactCount, now: now)
-            updateChordShift(for: .right, contactCount: rightContactCount, now: now)
-            updateChordShiftKeyState()
-        } else if chordShiftKeyDown {
-            updateChordShiftKeyState()
-        }
+        let leftSummary = gestureContactSummary(in: leftTouches)
+        let rightSummary = gestureContactSummary(in: rightTouches)
+        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
+        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
+        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
+        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
+        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
+        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
+        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -965,6 +1071,7 @@ actor TouchProcessorEngine {
     func resetState(stopVoiceDictation: Bool = false) {
         dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
+        peakPressureByTouch.removeAll()
         contactFingerCountsBySide[.left] = 0
         contactFingerCountsBySide[.right] = 0
         notifyContactCounts()
@@ -1007,6 +1114,7 @@ actor TouchProcessorEngine {
         let dragCancelDistanceSquared = dragCancelDistance * dragCancelDistance
         let side: TrackpadSide = isLeftSide ? .left : .right
         let chordShiftSuppressed = chordShiftEnabled && isChordShiftActive(on: side)
+        let cornersHoldEngaged = voiceDictationGestureState.holdCandidateActive
         var contactCount = 0
         for touch in touches {
             if Self.isContactState(touch.state) {
@@ -1034,6 +1142,7 @@ actor TouchProcessorEngine {
                 }
                 return bindingAtPoint
             }
+            let peakPressure = updatePeakPressure(for: touchKey, pressure: touch.pressure)
             if chordShiftSuppressed {
                 if disqualifiedTouches.value(for: touchKey) == nil {
                     disqualifyTouch(touchKey, reason: .typingDisabled)
@@ -1042,6 +1151,65 @@ actor TouchProcessorEngine {
                 case .breaking, .leaving, .notTouching:
                     disqualifiedTouches.remove(touchKey)
                     touchInitialContactPoint.remove(touchKey)
+                    clearPeakPressure(for: touchKey)
+                case .starting, .hovering, .making, .touching, .lingering:
+                    break
+                @unknown default:
+                    break
+                }
+                continue
+            }
+            if cornersHoldEngaged {
+                var isCustomTouch = false
+                var isContinuousTouch = false
+                if let binding = resolveBinding(), binding.position == nil {
+                    isCustomTouch = true
+                    if isContinuousKey(binding) {
+                        isContinuousTouch = true
+                    }
+                } else if let active = activeTouch(for: touchKey), active.binding.position == nil {
+                    isCustomTouch = true
+                    if active.isContinuousKey {
+                        isContinuousTouch = true
+                    }
+                } else if let pending = pendingTouch(for: touchKey), pending.binding.position == nil {
+                    isCustomTouch = true
+                    if isContinuousKey(pending.binding) {
+                        isContinuousTouch = true
+                    }
+                } else {
+                    if let binding = resolveBinding(), isContinuousKey(binding) {
+                        isContinuousTouch = true
+                    } else if let active = activeTouch(for: touchKey), active.isContinuousKey {
+                        isContinuousTouch = true
+                    } else if let pending = pendingTouch(for: touchKey),
+                              isContinuousKey(pending.binding) {
+                        isContinuousTouch = true
+                    }
+                }
+                if isCustomTouch || isContinuousTouch {
+                    if disqualifiedTouches.value(for: touchKey) == nil {
+                        disqualifyTouch(touchKey, reason: .typingDisabled)
+                    }
+                    switch touch.state {
+                    case .breaking, .leaving, .notTouching:
+                        disqualifiedTouches.remove(touchKey)
+                        touchInitialContactPoint.remove(touchKey)
+                        clearPeakPressure(for: touchKey)
+                    case .starting, .hovering, .making, .touching, .lingering:
+                        break
+                    @unknown default:
+                        break
+                    }
+                    continue
+                }
+            }
+            if disqualifiedTouches.value(for: touchKey) != nil {
+                switch touch.state {
+                case .breaking, .leaving, .notTouching:
+                    disqualifiedTouches.remove(touchKey)
+                    touchInitialContactPoint.remove(touchKey)
+                    clearPeakPressure(for: touchKey)
                 case .starting, .hovering, .making, .touching, .lingering:
                     break
                 @unknown default:
@@ -1052,19 +1220,6 @@ actor TouchProcessorEngine {
             if touchInitialContactPoint.value(for: touchKey) == nil,
                Self.isContactState(touch.state) {
                 touchInitialContactPoint.set(touchKey, point)
-            }
-            handleForceGuard(touchKey: touchKey, pressure: touch.pressure, now: now)
-
-            if disqualifiedTouches.value(for: touchKey) != nil {
-                switch touch.state {
-                case .breaking, .leaving, .notTouching:
-                    disqualifiedTouches.remove(touchKey)
-                case .starting, .making, .touching, .hovering, .lingering:
-                    break
-                @unknown default:
-                    break
-                }
-                continue
             }
 
             if momentaryLayerTouches.value(for: touchKey) != nil {
@@ -1110,7 +1265,12 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     continue
-                case .key:
+                case .key, .leftClick, .doubleClick, .rightClick,
+                     .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
+                     .chordalShift,
+                     .voice,
+                     .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
+                     .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight:
                     break
                 }
             }
@@ -1164,11 +1324,21 @@ actor TouchProcessorEngine {
                         )
                         var updated = active
                         if active.isContinuousKey {
-                            triggerBinding(active.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                active.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             startRepeat(for: touchKey, binding: active.binding)
                             updated.holdRepeatActive = true
                         } else if let holdBinding = active.holdBinding {
-                            triggerBinding(holdBinding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                holdBinding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             if isContinuousKey(holdBinding) {
                                 startRepeat(for: touchKey, binding: holdBinding)
                                 updated.holdRepeatActive = true
@@ -1208,7 +1378,12 @@ actor TouchProcessorEngine {
                                 maxDistanceSquared: pending.maxDistanceSquared,
                                 now: now
                             )
-                            triggerBinding(pending.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                pending.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             _ = removePendingTouch(for: touchKey)
                             touchInitialContactPoint.remove(touchKey)
                             disqualifiedTouches.set(touchKey, true)
@@ -1224,9 +1399,6 @@ actor TouchProcessorEngine {
                             holdBinding: holdBinding,
                             didHold: false,
                             maxDistanceSquared: pending.maxDistanceSquared,
-                            initialPressure: pending.initialPressure,
-                            forceEntryTime: pending.forceEntryTime,
-                            forceGuardTriggered: pending.forceGuardTriggered,
                             modifierEngaged: false
                         )
                         setActiveTouch(touchKey, active)
@@ -1257,7 +1429,12 @@ actor TouchProcessorEngine {
                             maxDistanceSquared: 0,
                             now: now
                         )
-                        triggerBinding(binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                        triggerBinding(
+                            binding,
+                            touchKey: touchKey,
+                            dispatchInfo: dispatchInfo,
+                            pressure: peakPressure
+                        )
                         touchInitialContactPoint.remove(touchKey)
                         disqualifiedTouches.set(touchKey, true)
                         continue
@@ -1270,10 +1447,7 @@ actor TouchProcessorEngine {
                                 layer: activeLayer,
                                 startTime: now,
                                 startPoint: point,
-                                maxDistanceSquared: 0,
-                                initialPressure: touch.pressure,
-                                forceEntryTime: nil,
-                                forceGuardTriggered: false
+                                maxDistanceSquared: 0
                             )
                         )
                     } else {
@@ -1287,9 +1461,6 @@ actor TouchProcessorEngine {
                                 holdBinding: holdBinding,
                                 didHold: false,
                                 maxDistanceSquared: 0,
-                                initialPressure: touch.pressure,
-                                forceEntryTime: nil,
-                                forceGuardTriggered: false,
                                 modifierEngaged: false
                             )
                         setActiveTouch(touchKey, active)
@@ -1313,7 +1484,8 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     } else if shouldCommitTypingOnRelease(
                         touchKey: touchKey,
@@ -1325,11 +1497,13 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    clearPeakPressure(for: touchKey)
                     continue
                 }
                 let removedActive = removeActiveTouch(for: touchKey)
@@ -1340,13 +1514,11 @@ actor TouchProcessorEngine {
                         to: point
                     )
                     active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
-                    let guardTriggered = active.forceGuardTriggered
                     if let modifierKey = active.modifierKey, active.modifierEngaged {
                         handleModifierUp(modifierKey, binding: active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
-                    } else if !guardTriggered,
-                              !active.didHold,
+                    } else if !active.didHold,
                               now - active.startTime <= tapMaxDuration,
                               (!isDragDetectionEnabled
                                || releaseDistanceSquared <= dragCancelDistanceSquared) {
@@ -1362,20 +1534,24 @@ actor TouchProcessorEngine {
                                 maxDistanceSquared: active.maxDistanceSquared,
                                 now: now
                             )
-                            triggerBinding(active.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+                            triggerBinding(
+                                active.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                         }
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
-                    if guardTriggered {
-                        continue
-                    }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
-                        bindings: bindings
+                        bindings: bindings,
+                        pressure: peakPressure
                     ) {
+                        clearPeakPressure(for: touchKey)
                         continue
                     }
                     if shouldAttemptSnap() {
@@ -1385,6 +1561,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                clearPeakPressure(for: touchKey)
             case .notTouching:
                 touchInitialContactPoint.remove(touchKey)
                 let removedPending = removePendingTouch(for: touchKey)
@@ -1397,7 +1574,8 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     } else if shouldCommitTypingOnRelease(
                         touchKey: touchKey,
@@ -1409,11 +1587,13 @@ actor TouchProcessorEngine {
                             pending,
                             touchKey: touchKey,
                             at: point,
-                            now: now
+                            now: now,
+                            pressure: peakPressure
                         )
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    clearPeakPressure(for: touchKey)
                     continue
                 }
                 let removedActive = removeActiveTouch(for: touchKey)
@@ -1432,8 +1612,10 @@ actor TouchProcessorEngine {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
-                        bindings: bindings
+                        bindings: bindings,
+                        pressure: peakPressure
                     ) {
+                        clearPeakPressure(for: touchKey)
                         continue
                     }
                     if shouldAttemptSnap() {
@@ -1443,6 +1625,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                clearPeakPressure(for: touchKey)
             case .hovering, .lingering:
                 break
             @unknown default:
@@ -1456,30 +1639,34 @@ actor TouchProcessorEngine {
         )
     }
 
-    private func handleForceGuard(
-        touchKey: TouchKey,
-        pressure: Float,
-        now: TimeInterval
-    ) {
-        guard forceClickCap > 0 else { return }
-        if hasActiveModifiers() { return }
+    @inline(__always)
+    private func forceRange() -> (min: Float, max: Float) {
+        let minForce = min(forceClickMin, forceClickCap)
+        let maxForce = max(forceClickMin, forceClickCap)
+        return (min: minForce, max: maxForce)
+    }
 
-        if let active = activeTouch(for: touchKey) {
-            if active.modifierKey != nil { return }
-            let delta = max(0, pressure - active.initialPressure)
-            if delta >= forceClickCap {
-                disqualifyTouch(touchKey, reason: .forceCapExceeded)
-            }
-            return
-        }
+    @inline(__always)
+    private func isPressureWithinForceRange(_ pressure: Float) -> Bool {
+        let range = forceRange()
+        return pressure >= range.min && pressure <= range.max
+    }
 
-        if let pending = pendingTouch(for: touchKey) {
-            if modifierKey(for: pending.binding) != nil { return }
-            let delta = max(0, pressure - pending.initialPressure)
-            if delta >= forceClickCap {
-                disqualifyTouch(touchKey, reason: .forceCapExceeded)
-            }
+    @inline(__always)
+    private func updatePeakPressure(for touchKey: TouchKey, pressure: Float) -> Float {
+        let pressureClamped = max(0, pressure)
+        if let existing = peakPressureByTouch.value(for: touchKey) {
+            let peak = max(existing, pressureClamped)
+            peakPressureByTouch.set(touchKey, peak)
+            return peak
         }
+        peakPressureByTouch.set(touchKey, pressureClamped)
+        return pressureClamped
+    }
+
+    @inline(__always)
+    private func clearPeakPressure(for touchKey: TouchKey) {
+        _ = peakPressureByTouch.remove(touchKey)
     }
 
     private func shouldImmediateTapWithModifiers(binding: KeyBinding) -> Bool {
@@ -1615,8 +1802,38 @@ actor TouchProcessorEngine {
                     code: CGKeyCode(button.action.keyCode),
                     flags: CGEventFlags(rawValue: button.action.flags)
                 )
+            case .leftClick:
+                action = .leftClick
+            case .doubleClick:
+                action = .doubleClick
+            case .rightClick:
+                action = .rightClick
+            case .volumeUp:
+                action = .volumeUp
+            case .volumeDown:
+                action = .volumeDown
+            case .brightnessUp:
+                action = .brightnessUp
+            case .brightnessDown:
+                action = .brightnessDown
+            case .voice:
+                action = .voice
             case .typingToggle:
                 action = .typingToggle
+            case .chordalShift:
+                action = .chordalShift
+            case .gestureTwoFingerTap:
+                action = .gestureTwoFingerTap
+            case .gestureThreeFingerTap:
+                action = .gestureThreeFingerTap
+            case .gestureFourFingerHold:
+                action = .gestureFourFingerHold
+            case .gestureInnerCornersHold:
+                action = .gestureInnerCornersHold
+            case .gestureFiveFingerSwipeLeft:
+                action = .gestureFiveFingerSwipeLeft
+            case .gestureFiveFingerSwipeRight:
+                action = .gestureFiveFingerSwipeRight
             case .layerMomentary:
                 action = .layerMomentary(KeyLayerConfig.clamped(button.action.layer ?? 1))
             case .layerToggle:
@@ -1711,12 +1928,162 @@ actor TouchProcessorEngine {
                 side: side,
                 holdAction: holdAction
             )
+        case .leftClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .leftClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .doubleClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .doubleClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .rightClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .rightClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .volumeUp:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .volumeUp,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .volumeDown:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .volumeDown,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .brightnessUp:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .brightnessUp,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .brightnessDown:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .brightnessDown,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .voice:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .voice,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
         case .typingToggle:
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .typingToggle,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .chordalShift:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .chordalShift,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureTwoFingerTap:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureTwoFingerTap,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureThreeFingerTap:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureThreeFingerTap,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFourFingerHold:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFourFingerHold,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureInnerCornersHold:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureInnerCornersHold,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFiveFingerSwipeLeft:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFiveFingerSwipeLeft,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .gestureFiveFingerSwipeRight:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .gestureFiveFingerSwipeRight,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -1862,8 +2229,10 @@ actor TouchProcessorEngine {
     private func dispatchSnappedBinding(
         _ binding: KeyBinding,
         altBinding: KeyBinding?,
-        touchKey: TouchKey
+        touchKey: TouchKey,
+        pressure: Float
     ) {
+        guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
         #if DEBUG
         onDebugBindingDetected(binding)
@@ -1891,7 +2260,8 @@ actor TouchProcessorEngine {
     private func attemptSnapOnRelease(
         touchKey: TouchKey,
         point: CGPoint,
-        bindings: BindingIndex
+        bindings: BindingIndex,
+        pressure: Float
     ) -> Bool {
         guard shouldAttemptSnap() else { return false }
         #if DEBUG
@@ -1927,7 +2297,12 @@ actor TouchProcessorEngine {
             }
             let binding = bindings.snapBindings[selectedIndex]
             let altBinding = alternateIndex.map { bindings.snapBindings[$0] }
-            dispatchSnappedBinding(binding, altBinding: altBinding, touchKey: touchKey)
+            dispatchSnappedBinding(
+                binding,
+                altBinding: altBinding,
+                touchKey: touchKey,
+                pressure: pressure
+            )
             // Prevent duplicate snap dispatch on subsequent release states.
             disqualifiedTouches.set(touchKey, true)
             #if DEBUG
@@ -2003,12 +2378,22 @@ actor TouchProcessorEngine {
         }
     }
 
-    private func contactCount(in touches: [OMSRawTouch]) -> Int {
+    private func gestureContactSummary(in touches: [OMSRawTouch]) -> GestureContactSummary {
         var count = 0
+        var sumX: CGFloat = 0
+        var sumY: CGFloat = 0
         for touch in touches where Self.isChordShiftContactState(touch.state) {
             count += 1
+            sumX += CGFloat(touch.posX) * trackpadSize.width
+            sumY += CGFloat(1.0 - touch.posY) * trackpadSize.height
         }
-        return count
+        guard count > 0 else {
+            return GestureContactSummary()
+        }
+        return GestureContactSummary(
+            count: count,
+            centroid: CGPoint(x: sumX / CGFloat(count), y: sumY / CGFloat(count))
+        )
     }
 
     private func updateChordShift(for side: TrackpadSide, contactCount: Int, now: TimeInterval) {
@@ -2030,6 +2415,169 @@ actor TouchProcessorEngine {
             state.active = true
         }
         chordShiftState[side] = state
+    }
+
+    private var isChordShiftGestureActive: Bool {
+        chordShiftEnabled && fourFingerHoldAction.kind == .chordalShift
+    }
+
+    private func updateTwoFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
+        updateMultiFingerHold(
+            for: side,
+            summary: summary,
+            requiredContactCount: 2,
+            action: twoFingerHoldAction,
+            state: &twoFingerHoldState[side],
+            now: now
+        )
+    }
+
+    private func updateThreeFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
+        updateMultiFingerHold(
+            for: side,
+            summary: summary,
+            requiredContactCount: 3,
+            action: threeFingerHoldAction,
+            state: &threeFingerHoldState[side],
+            now: now
+        )
+    }
+
+    private func updateFourFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
+        let contactCount = summary.count
+        if isChordShiftGestureActive {
+            fourFingerHoldState[side] = MultiFingerHoldState()
+            updateChordShift(for: side, contactCount: contactCount, now: now)
+            return
+        }
+
+        chordShiftState[side] = ChordShiftState()
+
+        let action = fourFingerHoldAction
+        guard action.kind != .none else {
+            fourFingerHoldState[side] = MultiFingerHoldState()
+            return
+        }
+
+        updateMultiFingerHold(
+            for: side,
+            summary: summary,
+            requiredContactCount: 4,
+            action: action,
+            state: &fourFingerHoldState[side],
+            now: now
+        )
+    }
+
+    private func updateMultiFingerHold(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        requiredContactCount: Int,
+        action: KeyAction,
+        state: inout MultiFingerHoldState,
+        now: TimeInterval
+    ) {
+        let contactCount = summary.count
+        guard action.kind != .none else {
+            state = MultiFingerHoldState()
+            return
+        }
+
+        if contactCount == 0 {
+            if state.blockedUntilAllUp {
+                state = MultiFingerHoldState()
+                return
+            }
+            if state.active {
+                let elapsed = now - chordShiftLastContactTime[side]
+                if elapsed >= contactCountHoldDuration {
+                    state = MultiFingerHoldState()
+                }
+            }
+            return
+        }
+
+        if contactCount > 0 {
+            chordShiftLastContactTime[side] = now
+        }
+
+        if state.blockedUntilAllUp {
+            return
+        }
+
+        if state.active {
+            if contactCount != requiredContactCount {
+                var blocked = MultiFingerHoldState()
+                blocked.blockedUntilAllUp = true
+                state = blocked
+                return
+            }
+
+            let holdCancelThreshold = holdGestureMoveCancelMm * unitsPerMillimeter
+            if distanceSquared(from: state.startCentroid, to: summary.centroid) > (holdCancelThreshold * holdCancelThreshold) {
+                var blocked = MultiFingerHoldState()
+                blocked.blockedUntilAllUp = true
+                state = blocked
+                return
+            }
+            let holdDelay = gestureHoldDelay(for: action)
+            if !state.triggered, holdDelay > 0, now - state.startTime >= holdDelay {
+                state.triggered = true
+                performGestureAction(action, now: now, side: side)
+            }
+            return
+        }
+
+        guard contactCount == requiredContactCount else { return }
+        if (requiredContactCount == 2 || requiredContactCount == 3),
+           !areSideTouchStartsSynchronizedForHold(side, expectedCount: requiredContactCount) {
+            return
+        }
+        state.active = true
+        state.startTime = now
+        state.startCentroid = summary.centroid
+        state.blockedUntilAllUp = false
+        let holdDelay = gestureHoldDelay(for: action)
+        if holdDelay <= 0 {
+            state.triggered = true
+            performGestureAction(action, now: now, side: side)
+            return
+        }
+        state.triggered = false
+    }
+
+    private func gestureHoldDelay(for action: KeyAction) -> TimeInterval {
+        action.kind == .chordalShift ? 0 : holdMinDuration
+    }
+
+    private func areSideTouchStartsSynchronizedForHold(
+        _ side: TrackpadSide,
+        expectedCount: Int
+    ) -> Bool {
+        let sideDeviceIndex: Int?
+        switch side {
+        case .left:
+            sideDeviceIndex = leftDeviceIndex
+        case .right:
+            sideDeviceIndex = rightDeviceIndex
+        }
+        guard let sideDeviceIndex else { return false }
+
+        var count = 0
+        var minTime = TimeInterval.greatestFiniteMagnitude
+        var maxTime: TimeInterval = 0
+        intentState.touches.forEach { touchKey, info in
+            guard Self.touchKeyDeviceIndex(touchKey) == sideDeviceIndex else { return }
+            count += 1
+            if info.startTime < minTime {
+                minTime = info.startTime
+            }
+            if info.startTime > maxTime {
+                maxTime = info.startTime
+            }
+        }
+        guard count == expectedCount else { return false }
+        return maxTime - minTime <= intentConfig.keyBufferSeconds
     }
 
     private func isChordShiftActive(on side: TrackpadSide) -> Bool {
@@ -2207,13 +2755,16 @@ actor TouchProcessorEngine {
             awaitingSecondTap = false
         }
 
+        let detectsTwoFingerTap = isTapGestureConfigured(twoFingerTapAction)
+        let detectsThreeFingerTap = isTapGestureConfigured(threeFingerTapAction)
+
         if keyboardOnly {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             awaitingSecondTap = false
             doubleTapDeadline = nil
-        } else if tapClickEnabled {
-            if intentCurrentKeys.count == 2,
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 2,
                state.touches.count == 3,
                shouldTriggerTapClick(
                 state: state.touches,
@@ -2221,8 +2772,9 @@ actor TouchProcessorEngine {
                 moveThresholdSquared: moveThresholdSquared,
                 fingerCount: 3
                ) {
-                threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-            } else if intentCurrentKeys.count == 0,
+            threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 0,
                       state.touches.count == 3,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2230,14 +2782,16 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 3
                       ) {
-                threeFingerTapDetected = true
-                threeFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 0,
+            threeFingerTapDetected = true
+            threeFingerTapCandidate = nil
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 0,
                       let candidate = threeFingerTapCandidate,
                       now <= candidate.deadline {
-                threeFingerTapDetected = true
-                threeFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 1,
+            threeFingerTapDetected = true
+            threeFingerTapCandidate = nil
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 1,
                       state.touches.count == 2,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2245,8 +2799,9 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
                       ) {
-                twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-            } else if intentCurrentKeys.count == 0,
+            twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 0,
                       state.touches.count == 2,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2254,13 +2809,20 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
                       ) {
-                twoFingerTapDetected = true
-                twoFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 0,
+            twoFingerTapDetected = true
+            twoFingerTapCandidate = nil
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 0,
                       let candidate = twoFingerTapCandidate,
                       now <= candidate.deadline {
-                twoFingerTapDetected = true
+            twoFingerTapDetected = true
+            twoFingerTapCandidate = nil
+        } else {
+            if !detectsTwoFingerTap {
                 twoFingerTapCandidate = nil
+            }
+            if !detectsThreeFingerTap {
+                threeFingerTapCandidate = nil
             }
         }
 
@@ -2275,9 +2837,11 @@ actor TouchProcessorEngine {
                 state.touches.remove(key)
             }
         }
-        let dictationHoldSide = voiceDictationHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
-        let dictationGestureEngaged = updateVoiceDictationGesture(
-            holdSide: dictationHoldSide,
+        let outerCornersHoldSide = outerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
+        let innerCornersHoldSide = innerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
+        let cornerHoldGestureEngaged = updateCornerHoldGesture(
+            holdSide: outerCornersHoldSide ?? innerCornersHoldSide,
+            kind: outerCornersHoldSide != nil ? .outer : .inner,
             now: now
         )
 
@@ -2317,7 +2881,7 @@ actor TouchProcessorEngine {
             isTypingCommitted = false
         }
         let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
-        if dictationGestureEngaged {
+        if cornerHoldGestureEngaged {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             twoFingerTapDetected = false
@@ -2335,17 +2899,9 @@ actor TouchProcessorEngine {
                 awaitingSecondTap = false
                 doubleTapDeadline = nil
             } else if threeFingerTapDetected {
-                dispatchService.postRightClick()
+                performGestureAction(threeFingerTapAction, now: now, side: nil)
             } else if wasTwoFingerTapDetected {
-                if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
-                    dispatchService.postLeftClick(clickCount: 2)
-                    awaitingSecondTap = false
-                    doubleTapDeadline = nil
-                } else {
-                    dispatchService.postLeftClick()
-                    awaitingSecondTap = true
-                    doubleTapDeadline = now + tapClickCadenceSeconds
-                }
+                performTwoFingerTapAction(now: now)
             }
             if graceActive {
                 state.mode = .typingCommitted(untilAllUp: true)
@@ -2359,7 +2915,7 @@ actor TouchProcessorEngine {
             return true
         }
 
-        if dictationGestureEngaged {
+        if cornerHoldGestureEngaged {
             state.lastContactCount = contactCount
             state.mode = .gestureCandidate(start: voiceDictationGestureState.holdStart > 0 ? voiceDictationGestureState.holdStart : now)
             suppressKeyProcessing(for: intentCurrentKeys)
@@ -2507,6 +3063,10 @@ actor TouchProcessorEngine {
         return true
     }
 
+    private func isTapGestureConfigured(_ action: KeyAction) -> Bool {
+        action.kind != .none
+    }
+
     private func updateIntentDisplayIfNeeded() {
         let next = intentDisplay(for: intentState.mode)
         if next == intentDisplayBySide[.left], next == intentDisplayBySide[.right] {
@@ -2588,13 +3148,110 @@ actor TouchProcessorEngine {
         if abs(dx) >= threshold, abs(dx) >= abs(dy) {
             state.triggered = true
             fiveFingerSwipeState = state
-            toggleTypingMode()
+            let action = dx < 0 ? fiveFingerSwipeLeftAction : fiveFingerSwipeRightAction
+            performGestureAction(action, now: now, side: nil)
         } else {
             fiveFingerSwipeState = state
         }
     }
 
-    private func voiceDictationHoldSide(
+    private func performTwoFingerTapAction(now: TimeInterval) {
+        let action = twoFingerTapAction
+        if action.kind == .leftClick {
+            if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
+                dispatchService.postLeftClick(clickCount: 2)
+                awaitingSecondTap = false
+                doubleTapDeadline = nil
+            } else {
+                dispatchService.postLeftClick()
+                awaitingSecondTap = true
+                doubleTapDeadline = now + tapClickCadenceSeconds
+            }
+            return
+        }
+        awaitingSecondTap = false
+        doubleTapDeadline = nil
+        performGestureAction(action, now: now, side: nil)
+    }
+
+    private func performGestureAction(
+        _ action: KeyAction,
+        now _: TimeInterval,
+        side: TrackpadSide?,
+        visited: Set<GestureSlot> = []
+    ) {
+        switch action.kind {
+        case .none:
+            break
+        case .leftClick:
+            dispatchService.postLeftClick()
+        case .doubleClick:
+            dispatchService.postLeftClick(clickCount: 2)
+        case .rightClick:
+            dispatchService.postRightClick()
+        case .volumeUp:
+            dispatchService.postVolumeUp()
+        case .volumeDown:
+            dispatchService.postVolumeDown()
+        case .brightnessUp:
+            dispatchService.postBrightnessUp()
+        case .brightnessDown:
+            dispatchService.postBrightnessDown()
+        case .voice:
+            toggleVoiceDictationSession()
+        case .typingToggle:
+            toggleTypingMode()
+        case .chordalShift:
+            break
+        case .gestureTwoFingerTap:
+            triggerGestureSlot(.twoFingerTap, side: side, visited: visited)
+        case .gestureThreeFingerTap:
+            triggerGestureSlot(.threeFingerTap, side: side, visited: visited)
+        case .gestureFourFingerHold:
+            triggerGestureSlot(.fourFingerHold, side: side, visited: visited)
+        case .gestureInnerCornersHold:
+            triggerGestureSlot(.innerCornersHold, side: side, visited: visited)
+        case .gestureFiveFingerSwipeLeft:
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: side, visited: visited)
+        case .gestureFiveFingerSwipeRight:
+            triggerGestureSlot(.fiveFingerSwipeRight, side: side, visited: visited)
+        case .key, .layerMomentary, .layerToggle:
+            guard let binding = makeBinding(
+                for: action,
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                position: nil,
+                side: side ?? .left
+            ) else {
+                return
+            }
+            triggerBinding(binding, touchKey: nil)
+        }
+    }
+
+    private func triggerGestureSlot(_ slot: GestureSlot, side: TrackpadSide?, visited: Set<GestureSlot>) {
+        guard !visited.contains(slot) else { return }
+        var updatedVisited = visited
+        updatedVisited.insert(slot)
+        let action: KeyAction
+        switch slot {
+        case .twoFingerTap:
+            action = twoFingerTapAction
+        case .threeFingerTap:
+            action = threeFingerTapAction
+        case .fourFingerHold:
+            action = fourFingerHoldAction
+        case .innerCornersHold:
+            action = innerCornersHoldAction
+        case .fiveFingerSwipeLeft:
+            action = fiveFingerSwipeLeftAction
+        case .fiveFingerSwipeRight:
+            action = fiveFingerSwipeRightAction
+        }
+        performGestureAction(action, now: Self.now(), side: side, visited: updatedVisited)
+    }
+
+    private func outerCornersHoldSide(
         leftTouches: [OMSRawTouch],
         rightTouches: [OMSRawTouch]
     ) -> TrackpadSide? {
@@ -2645,25 +3302,88 @@ actor TouchProcessorEngine {
         return nil
     }
 
-    private func updateVoiceDictationGesture(
+    private func innerCornersHoldSide(
+        leftTouches: [OMSRawTouch],
+        rightTouches: [OMSRawTouch]
+    ) -> TrackpadSide? {
+        var leftContactCount = 0
+        var topNearRightEdge = false
+        var bottomNearRightEdge = false
+        for touch in leftTouches {
+            guard Self.isDictationContactState(touch.state) else { continue }
+            leftContactCount += 1
+            let x = CGFloat(touch.posX)
+            let y = CGFloat(1.0 - touch.posY)
+            if x >= voiceDictationRightEdgeMinX, y <= voiceDictationTopMaxY {
+                topNearRightEdge = true
+            }
+            if x >= voiceDictationRightEdgeMinX, y >= voiceDictationBottomMinY {
+                bottomNearRightEdge = true
+            }
+        }
+
+        var rightContactCount = 0
+        var topNearLeftEdge = false
+        var bottomNearLeftEdge = false
+        for touch in rightTouches {
+            guard Self.isDictationContactState(touch.state) else { continue }
+            rightContactCount += 1
+            let x = CGFloat(touch.posX)
+            let y = CGFloat(1.0 - touch.posY)
+            if x <= voiceDictationLeftEdgeMaxX, y <= voiceDictationTopMaxY {
+                topNearLeftEdge = true
+            }
+            if x <= voiceDictationLeftEdgeMaxX, y >= voiceDictationBottomMinY {
+                bottomNearLeftEdge = true
+            }
+        }
+
+        let leftHold = leftContactCount == 2
+            && rightContactCount == 0
+            && topNearRightEdge
+            && bottomNearRightEdge
+        if leftHold { return .left }
+
+        let rightHold = rightContactCount == 2
+            && leftContactCount == 0
+            && topNearLeftEdge
+            && bottomNearLeftEdge
+        if rightHold { return .right }
+
+        return nil
+    }
+
+    private func updateCornerHoldGesture(
         holdSide: TrackpadSide?,
+        kind: CornerHoldGestureKind,
         now: TimeInterval
     ) -> Bool {
         var state = voiceDictationGestureState
+        let action = kind == .outer ? outerCornersHoldAction : innerCornersHoldAction
         if let holdSide {
-            if !state.holdCandidateActive || state.side != holdSide {
+            if !state.holdCandidateActive || state.side != holdSide || state.kind != kind {
                 state.holdCandidateActive = true
                 state.holdDidToggle = false
                 state.holdStart = now
                 state.side = holdSide
-            } else if !state.holdDidToggle, now - state.holdStart >= voiceDictationHoldSeconds {
+                state.kind = kind
+            } else if !state.holdDidToggle, now - state.holdStart >= gestureHoldDelay(for: action) {
                 state.holdDidToggle = true
-                if state.isDictating {
-                    state.isDictating = false
-                    VoiceDictationManager.shared.endSession()
+                if action.kind == .voice {
+                    voiceDictationGestureState = state
+                    if state.isDictating {
+                        endVoiceDictationSession()
+                    } else {
+                        beginVoiceDictationSession()
+                    }
+                    state = voiceDictationGestureState
                 } else {
-                    state.isDictating = true
-                    VoiceDictationManager.shared.beginSession()
+                    if state.isDictating {
+                        voiceDictationGestureState = state
+                        endVoiceDictationSession()
+                        state = voiceDictationGestureState
+                    }
+                    performGestureAction(action, now: now, side: holdSide)
                 }
                 playHapticIfNeeded(on: holdSide)
             }
@@ -2672,25 +3392,50 @@ actor TouchProcessorEngine {
             state.holdDidToggle = false
             state.holdStart = 0
             state.side = nil
+            state.kind = .outer
         }
         voiceDictationGestureState = state
-        let isActive = state.isDictating || state.holdCandidateActive
-        if voiceGestureActive != isActive {
-            voiceGestureActive = isActive
-            onVoiceGestureChanged(isActive)
-        }
-        return isActive
+        updateVoiceGestureActivity()
+        return state.holdCandidateActive
     }
 
     private func stopVoiceDictationGesture() {
         if voiceDictationGestureState.isDictating {
-            VoiceDictationManager.shared.endSession()
+            endVoiceDictationSession()
         }
         voiceDictationGestureState = VoiceDictationGestureState()
-        if voiceGestureActive {
-            voiceGestureActive = false
-            onVoiceGestureChanged(false)
+        updateVoiceGestureActivity()
+    }
+
+    private func toggleVoiceDictationSession() {
+        if voiceDictationGestureState.isDictating {
+            endVoiceDictationSession()
+        } else {
+            beginVoiceDictationSession()
         }
+    }
+
+    private func beginVoiceDictationSession() {
+        guard !voiceDictationGestureState.isDictating else { return }
+        voiceDictationGestureState.isDictating = true
+        VoiceDictationManager.shared.beginSession()
+        updateVoiceGestureActivity()
+    }
+
+    private func endVoiceDictationSession() {
+        guard voiceDictationGestureState.isDictating else { return }
+        voiceDictationGestureState.isDictating = false
+        VoiceDictationManager.shared.endSession()
+        updateVoiceGestureActivity()
+    }
+
+    private func updateVoiceGestureActivity() {
+        let state = voiceDictationGestureState
+        let activeHoldAction = state.kind == .outer ? outerCornersHoldAction : innerCornersHoldAction
+        let isActive = state.isDictating || (activeHoldAction.kind == .voice && state.holdCandidateActive)
+        guard voiceGestureActive != isActive else { return }
+        voiceGestureActive = isActive
+        onVoiceGestureChanged(isActive)
     }
 
     private func shouldCommitTypingOnRelease(
@@ -2897,15 +3642,15 @@ actor TouchProcessorEngine {
         _ pending: PendingTouch,
         touchKey: TouchKey,
         at point: CGPoint,
-        now: TimeInterval
+        now: TimeInterval,
+        pressure: Float
     ) -> Bool {
         let releaseDistanceSquared = distanceSquared(from: pending.startPoint, to: point)
         guard isContinuousKey(pending.binding),
               now - pending.startTime <= tapMaxDuration,
               pending.binding.rect.contains(point),
               (!isDragDetectionEnabled
-               || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance),
-              !pending.forceGuardTriggered else {
+               || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance) else {
             return false
         }
         let dispatchInfo = makeDispatchInfo(
@@ -2914,14 +3659,20 @@ actor TouchProcessorEngine {
             maxDistanceSquared: pending.maxDistanceSquared,
             now: now
         )
-        sendKey(binding: pending.binding, touchKey: touchKey, dispatchInfo: dispatchInfo)
+        sendKey(
+            binding: pending.binding,
+            touchKey: touchKey,
+            dispatchInfo: dispatchInfo,
+            pressure: pressure
+        )
         return true
     }
 
     private func triggerBinding(
         _ binding: KeyBinding,
         touchKey: TouchKey?,
-        dispatchInfo: DispatchInfo? = nil
+        dispatchInfo: DispatchInfo? = nil,
+        pressure: Float? = nil
     ) {
         switch binding.action {
         case let .layerMomentary(layer):
@@ -2932,15 +3683,45 @@ actor TouchProcessorEngine {
             toggleLayer(to: layer)
         case .typingToggle:
             toggleTypingMode()
+        case .leftClick:
+            dispatchService.postLeftClick()
+        case .doubleClick:
+            dispatchService.postLeftClick(clickCount: 2)
+        case .rightClick:
+            dispatchService.postRightClick()
+        case .volumeUp:
+            dispatchService.postVolumeUp()
+        case .volumeDown:
+            dispatchService.postVolumeDown()
+        case .brightnessUp:
+            dispatchService.postBrightnessUp()
+        case .brightnessDown:
+            dispatchService.postBrightnessDown()
+        case .voice:
+            toggleVoiceDictationSession()
+        case .chordalShift:
+            break
+        case .gestureTwoFingerTap:
+            triggerGestureSlot(.twoFingerTap, side: binding.side, visited: [])
+        case .gestureThreeFingerTap:
+            triggerGestureSlot(.threeFingerTap, side: binding.side, visited: [])
+        case .gestureFourFingerHold:
+            triggerGestureSlot(.fourFingerHold, side: binding.side, visited: [])
+        case .gestureInnerCornersHold:
+            triggerGestureSlot(.innerCornersHold, side: binding.side, visited: [])
+        case .gestureFiveFingerSwipeLeft:
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: binding.side, visited: [])
+        case .gestureFiveFingerSwipeRight:
+            triggerGestureSlot(.fiveFingerSwipeRight, side: binding.side, visited: [])
         case .none:
             break
-        case let .key(code, flags):
-#if DEBUG
-            onDebugBindingDetected(binding)
-#endif
-            extendTypingGrace(for: binding.side, now: Self.now())
-            playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-            sendKey(code: code, flags: flags, side: binding.side)
+        case .key:
+            sendKey(
+                binding: binding,
+                touchKey: touchKey,
+                dispatchInfo: dispatchInfo,
+                pressure: pressure
+            )
         }
     }
 
@@ -2972,12 +3753,21 @@ actor TouchProcessorEngine {
         return modifierFlags
     }
 
-    private func sendKey(binding: KeyBinding, touchKey: TouchKey?, dispatchInfo: DispatchInfo? = nil) {
+    private func sendKey(
+        binding: KeyBinding,
+        touchKey: TouchKey?,
+        dispatchInfo: DispatchInfo? = nil,
+        pressure: Float? = nil
+    ) {
         guard case let .key(code, flags) = binding.action else { return }
+        if let pressure, !isPressureWithinForceRange(pressure) {
+            return
+        }
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
         extendTypingGrace(for: binding.side, now: Self.now())
+        playHapticIfNeeded(on: binding.side, touchKey: touchKey)
         sendKey(code: code, flags: flags, side: binding.side)
     }
 
@@ -3167,6 +3957,14 @@ actor TouchProcessorEngine {
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
         chordShiftState[.left] = ChordShiftState()
         chordShiftState[.right] = ChordShiftState()
+        chordShiftLastContactTime[.left] = 0
+        chordShiftLastContactTime[.right] = 0
+        twoFingerHoldState[.left] = MultiFingerHoldState()
+        twoFingerHoldState[.right] = MultiFingerHoldState()
+        threeFingerHoldState[.left] = MultiFingerHoldState()
+        threeFingerHoldState[.right] = MultiFingerHoldState()
+        fourFingerHoldState[.left] = MultiFingerHoldState()
+        fourFingerHoldState[.right] = MultiFingerHoldState()
         if chordShiftKeyDown {
             let shiftBinding = KeyBinding(
                 rect: .zero,
@@ -3270,7 +4068,7 @@ actor TouchProcessorEngine {
             }
             endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
         }
-        if reason == .dragCancelled || reason == .pendingDragCancelled || reason == .forceCapExceeded {
+        if reason == .dragCancelled || reason == .pendingDragCancelled {
             enterMouseIntentFromDragCancel()
         }
     }

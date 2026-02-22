@@ -538,6 +538,15 @@ final class TrackpadSurfaceView: NSView {
             path.transform(using: transform)
             NSColor.labelColor.withAlphaComponent(0.95).setFill()
             path.fill()
+
+            let forceText = "f:\(Int(max(0, touch.pressure).rounded()))"
+            drawCenteredText(
+                forceText,
+                in: touchRect,
+                yOffset: 0,
+                font: .monospacedSystemFont(ofSize: 9, weight: .medium),
+                color: .white.withAlphaComponent(0.98)
+            )
         }
     }
 

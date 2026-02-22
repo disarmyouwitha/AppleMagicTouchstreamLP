@@ -97,7 +97,22 @@ struct GridKeyPosition: Codable, Hashable {
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags)
+        case leftClick
+        case doubleClick
+        case rightClick
+        case volumeUp
+        case volumeDown
+        case brightnessUp
+        case brightnessDown
+        case voice
         case typingToggle
+        case chordalShift
+        case gestureTwoFingerTap
+        case gestureThreeFingerTap
+        case gestureFourFingerHold
+        case gestureInnerCornersHold
+        case gestureFiveFingerSwipeLeft
+        case gestureFiveFingerSwipeRight
         case layerMomentary(Int)
         case layerToggle(Int)
         case none
@@ -200,8 +215,6 @@ final class ContentViewModel: ObservableObject {
     final class StatusViewModel: ObservableObject {
         @Published var contactFingerCountsBySide = SidePair(left: 0, right: 0)
         @Published var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
-        @Published var voiceGestureActive = false
-        @Published var voiceDebugStatus: String?
     }
 
     nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
@@ -254,13 +267,6 @@ final class ContentViewModel: ObservableObject {
         }
         let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { _ in }
         let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { _ in }
-        let voiceGestureHandler: @Sendable (Bool) -> Void = { _ in }
-        let voiceStatusHandler: @Sendable (String?) -> Void = { status in
-            Task { @MainActor in
-                weakSelf?.publishVoiceDebugStatus(status)
-            }
-        }
-        VoiceDictationManager.shared.setStatusHandler(voiceStatusHandler)
         let runtimeEngine = EngineActor(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
@@ -275,8 +281,7 @@ final class ContentViewModel: ObservableObject {
             },
             onDebugBindingDetected: debugBindingHandler,
             onContactCountChanged: contactCountHandler,
-            onIntentStateChanged: intentStateHandler,
-            onVoiceGestureChanged: voiceGestureHandler
+            onIntentStateChanged: intentStateHandler
         )
         runtimeCommandService = RuntimeCommandService(runtimeEngine: runtimeEngine)
         runtimeLifecycleCoordinator = RuntimeLifecycleCoordinatorService(
@@ -319,7 +324,6 @@ final class ContentViewModel: ObservableObject {
         guard uiStatusVisualsEnabled else { return }
         publishContactCountsIfNeeded(snapshot.contactCountBySide)
         publishIntentDisplayIfNeeded(Self.mapIntentDisplay(snapshot.intentBySide))
-        publishVoiceGestureIfNeeded(false)
     }
 
     var leftTouches: [OMSTouchData] {
@@ -493,6 +497,10 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateForceClickCap(grams)
     }
 
+    func updateForceClickMin(_ grams: Double) {
+        runtimeCommandService.updateForceClickMin(grams)
+    }
+
     func updateHapticStrength(_ normalized: Double) {
         runtimeCommandService.updateHapticStrength(normalized)
     }
@@ -510,6 +518,30 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateKeyboardModeEnabled(enabled)
     }
 
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) {
+        runtimeCommandService.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
+            fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
+            innerCornersHold: innerCornersHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
+    }
+
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
@@ -519,10 +551,6 @@ final class ContentViewModel: ObservableObject {
             debugLastHitRight = nil
         }
         runtimeCommandService.setKeymapEditingEnabled(enabled)
-    }
-
-    func updateTapClickEnabled(_ enabled: Bool) {
-        runtimeCommandService.updateTapClickEnabled(enabled)
     }
 
     func updateTapClickCadenceMs(_ milliseconds: Double) {
@@ -686,15 +714,6 @@ final class ContentViewModel: ObservableObject {
         statusViewModel.intentDisplayBySide = display
     }
 
-    private func publishVoiceGestureIfNeeded(_ isActive: Bool) {
-        guard uiStatusVisualsEnabled else { return }
-        guard isActive != statusViewModel.voiceGestureActive else { return }
-        statusViewModel.voiceGestureActive = isActive
-    }
-
-    private func publishVoiceDebugStatus(_ status: String?) {
-        statusViewModel.voiceDebugStatus = status
-    }
 }
 
 final class RepeatToken: @unchecked Sendable {
@@ -751,7 +770,22 @@ struct NormalizedRect: Codable, Hashable {
 
 enum KeyActionKind: String, Codable {
     case key
+    case leftClick
+    case doubleClick
+    case rightClick
+    case volumeUp
+    case volumeDown
+    case brightnessUp
+    case brightnessDown
+    case voice
     case typingToggle
+    case chordalShift
+    case gestureTwoFingerTap
+    case gestureThreeFingerTap
+    case gestureFourFingerHold
+    case gestureInnerCornersHold
+    case gestureFiveFingerSwipeLeft
+    case gestureFiveFingerSwipeRight
     case layerMomentary
     case layerToggle
     case none
@@ -977,9 +1011,24 @@ enum LayoutCustomButtonStorage {
 }
 
 enum KeyActionCatalog {
+    static let voiceLabel = "Voice"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
     static let noneLabel = "None"
+    static let leftClickLabel = "Left Click"
+    static let doubleClickLabel = "Double Click"
+    static let rightClickLabel = "Right Click"
+    static let volumeUpLabel = "VOL⬆️"
+    static let volumeDownLabel = "VOL⬇️"
+    static let brightnessUpLabel = "BRIGHT⬆️"
+    static let brightnessDownLabel = "BRIGHT⬇️"
+    static let chordalShiftLabel = "Chordal Shift"
+    static let gestureTwoFingerTapLabel = "2-finger tap"
+    static let gestureThreeFingerTapLabel = "3-finger tap"
+    static let gestureFourFingerHoldLabel = "4-finger hold"
+    static let gestureInnerCornersHoldLabel = "Inner corners hold"
+    static let gestureFiveFingerSwipeLeftLabel = "5-finger swipe left"
+    static let gestureFiveFingerSwipeRightLabel = "5-finger swipe right"
     static var noneAction: KeyAction {
         KeyAction(
             label: noneLabel,
@@ -1066,6 +1115,7 @@ enum KeyActionCatalog {
         "]": (CGKeyCode(kVK_ANSI_RightBracket), []),
         "\\": (CGKeyCode(kVK_ANSI_Backslash), []),
         "Back": (CGKeyCode(kVK_Delete), []),
+        "Delete": (CGKeyCode(kVK_ForwardDelete), []),
         "Left": (CGKeyCode(kVK_LeftArrow), []),
         "Right": (CGKeyCode(kVK_RightArrow), []),
         "Up": (CGKeyCode(kVK_UpArrow), []),
@@ -1166,14 +1216,29 @@ enum KeyActionCatalog {
         "/": "\\"
     ]
 
+    private static let mouseActions: [KeyAction] = [
+        KeyAction(label: leftClickLabel, keyCode: 0, flags: 0, kind: .leftClick),
+        KeyAction(label: doubleClickLabel, keyCode: 0, flags: 0, kind: .doubleClick),
+        KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick)
+    ]
+
+    private static let systemActions: [KeyAction] = [
+        KeyAction(label: volumeUpLabel, keyCode: 0, flags: 0, kind: .volumeUp),
+        KeyAction(label: volumeDownLabel, keyCode: 0, flags: 0, kind: .volumeDown),
+        KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
+        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
+    ]
+
+    private static let modeActions: [KeyAction] = [
+        KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle),
+        KeyAction(label: chordalShiftLabel, keyCode: 0, flags: 0, kind: .chordalShift)
+    ]
+
     static let presets: [KeyAction] = {
         var items = uniqueActions(from: bindingsByLabel)
-        items.append(KeyAction(
-            label: typingToggleLabel,
-            keyCode: 0,
-            flags: 0,
-            kind: .typingToggle
-        ))
+        items.append(contentsOf: mouseActions)
+        items.append(contentsOf: systemActions)
+        items.append(contentsOf: modeActions)
         items.append(contentsOf: layerActions)
         return items.sorted { $0.label < $1.label }
     }()
@@ -1195,12 +1260,9 @@ enum KeyActionCatalog {
             ))
             identifiers.insert(identifier)
         }
-        actions.append(KeyAction(
-            label: typingToggleLabel,
-            keyCode: 0,
-            flags: 0,
-            kind: .typingToggle
-        ))
+        actions.append(contentsOf: mouseActions)
+        actions.append(contentsOf: systemActions)
+        actions.append(contentsOf: modeActions)
         actions.append(contentsOf: layerActions)
         return actions.sorted { $0.label < $1.label }
     }()
@@ -1221,16 +1283,20 @@ enum KeyActionCatalog {
         return ActionGroup(title: title, actions: actions)
     }
 
+    private static func dashedHeader(_ title: String) -> String {
+        "\u{2014}\u{2014}\(title)\u{2014}\u{2014}"
+    }
+
     private static let groupDefinitions: [(title: String, labels: [String])] = {
         let letters = (65...90)
             .compactMap { UnicodeScalar($0) }
             .map(String.init)
         let numbers = (0...9).map { String($0) }
         return [
-            ("General", [noneLabel]),
-            ("Letters A-Z", letters),
-            ("Numbers 0-9", numbers),
-            ("Navigation & Editing", [
+            (dashedHeader("General"), [noneLabel]),
+            (dashedHeader("Letters A-Z"), letters),
+            (dashedHeader("Numbers 0-9"), numbers),
+            (dashedHeader("Navigation & Editing"), [
                 "Space",
                 "Tab",
                 "Enter",
@@ -1249,15 +1315,28 @@ enum KeyActionCatalog {
                 "Up",
                 "Down"
             ]),
-            ("Modifiers & Modes", [
+            (dashedHeader("Mouse Actions"), [
+                leftClickLabel,
+                doubleClickLabel,
+                rightClickLabel
+            ]),
+            (dashedHeader("System Controls"), [
+                volumeUpLabel,
+                volumeDownLabel,
+                brightnessUpLabel,
+                brightnessDownLabel
+            ]),
+            (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
                 "Option",
                 "Cmd",
                 "Emoji",
+                voiceLabel,
+                chordalShiftLabel,
                 typingToggleLabel
             ]),
-            ("Symbols & Punctuation", [
+            (dashedHeader("Symbols & Punctuation"), [
                 "!",
                 "@",
                 "#",
@@ -1301,14 +1380,17 @@ enum KeyActionCatalog {
         var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
             makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
         }
-        let layerGroup = ActionGroup(title: "Layers", actions: layerActions)
+        let commandGroup = ActionGroup(title: dashedHeader("Cmd Shortcuts"), actions: commandShortcutActions)
+        if !commandGroup.actions.isEmpty {
+            groups.append(commandGroup)
+        }
+        let layerGroup = ActionGroup(title: dashedHeader("Layers"), actions: layerActions)
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
         }
         return groups
     }
 
-    static let primaryActionGroups: [ActionGroup] = buildActionGroups(using: action)
     private static let commandShortcutActions: [KeyAction] = {
         let combos: [(String, CGKeyCode)] = [
             ("Cmd+F", CGKeyCode(kVK_ANSI_F)),
@@ -1323,18 +1405,79 @@ enum KeyActionCatalog {
             KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
         }
     }()
-    static let holdActionGroups: [ActionGroup] = {
-        var groups = buildActionGroups(using: holdAction)
-        let generalGroup = ActionGroup(title: "General", actions: [noneAction])
-        groups.insert(generalGroup, at: 0)
-        let commandGroup = ActionGroup(title: "Cmd Shortcuts", actions: commandShortcutActions)
-        groups.insert(commandGroup, at: 1)
-        return groups
-    }()
+
+    private static let sharedActionGroups: [ActionGroup] = buildActionGroups(using: action)
+
+    static let primaryActionGroups: [ActionGroup] = sharedActionGroups
+    static let holdActionGroups: [ActionGroup] = sharedActionGroups
 
     static func action(for label: String) -> KeyAction? {
         if label == noneLabel {
             return noneAction
+        }
+        if label == voiceLabel {
+            return KeyAction(
+                label: voiceLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .voice
+            )
+        }
+        if label == leftClickLabel {
+            return KeyAction(
+                label: leftClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .leftClick
+            )
+        }
+        if label == doubleClickLabel {
+            return KeyAction(
+                label: doubleClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .doubleClick
+            )
+        }
+        if label == rightClickLabel {
+            return KeyAction(
+                label: rightClickLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .rightClick
+            )
+        }
+        if label == volumeUpLabel {
+            return KeyAction(
+                label: volumeUpLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeUp
+            )
+        }
+        if label == volumeDownLabel {
+            return KeyAction(
+                label: volumeDownLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeDown
+            )
+        }
+        if label == brightnessUpLabel {
+            return KeyAction(
+                label: brightnessUpLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessUp
+            )
+        }
+        if label == brightnessDownLabel {
+            return KeyAction(
+                label: brightnessDownLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessDown
+            )
         }
         if label == typingToggleLabel {
             return KeyAction(
@@ -1342,6 +1485,22 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .typingToggle
+            )
+        }
+        if label == chordalShiftLabel {
+            return KeyAction(
+                label: chordalShiftLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .chordalShift
+            )
+        }
+        if label == gestureInnerCornersHoldLabel {
+            return KeyAction(
+                label: gestureInnerCornersHoldLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .gestureInnerCornersHold
             )
         }
         if let layer = layer(from: label, prefix: "MO") {

@@ -1,5 +1,5 @@
 {
-  "autoResyncMissingTrackpads" : true,
+  "autoResyncMissingTrackpads" : false,
   "autocorrectEnabled" : false,
   "chordalShiftEnabled" : true,
   "columnSettingsByLayout" : {
@@ -141,6 +141,80 @@
         "offsetYPercent" : -8.268059181897302,
         "rowSpacingPercent" : 0,
         "scale" : 1.25
+      }
+    ],
+    "Mobile Ortho 12x4" : [
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
+      },
+      {
+        "offsetXPercent" : 0,
+        "offsetYPercent" : 0,
+        "rowSpacingPercent" : 0,
+        "scale" : 1
       }
     ],
     "Mobile QWERTY" : [
@@ -354,23 +428,6 @@
             "y" : 0.6750000000000002
           },
           "side" : "left"
-        },
-        {
-          "action" : {
-            "flags" : 0,
-            "keyCode" : 3,
-            "kind" : "key",
-            "label" : "F"
-          },
-          "id" : "0CCF6512-AD95-48D4-A389-B1F1AFDD8EE3",
-          "layer" : 0,
-          "rect" : {
-            "height" : 0.14,
-            "width" : 0.18,
-            "x" : 0.82,
-            "y" : 0
-          },
-          "side" : "right"
         }
       ],
       "1" : [
@@ -499,21 +556,33 @@
         }
       ]
     },
-    "Mobile QWERTY" : {
-      "0" : [
-
-      ]
-    },
-    "None" : {
+    "Mobile Ortho 12x4" : {
       "0" : [
         {
           "action" : {
-            "flags" : 655360,
-            "keyCode" : 27,
+            "flags" : 0,
+            "keyCode" : 49,
             "kind" : "key",
-            "label" : "—"
+            "label" : "Space"
           },
-          "id" : "36DC3F3B-5369-4F90-95C6-ED406DADFCBF",
+          "id" : "C031D3A4-8650-4B7A-9E3E-9235A8EC849B",
+          "layer" : 0,
+          "rect" : {
+            "height" : 0.34812880765883375,
+            "width" : 0.25,
+            "x" : 0.75,
+            "y" : 0.6527415143603132
+          },
+          "side" : "left"
+        },
+        {
+          "action" : {
+            "flags" : 0,
+            "keyCode" : 49,
+            "kind" : "key",
+            "label" : "Space"
+          },
+          "id" : "4B80CA6B-3D9C-419F-864E-C3DB53583816",
           "layer" : 0,
           "rect" : {
             "height" : 0.34812880765883375,
@@ -522,17 +591,626 @@
             "y" : 0.6527415143603132
           },
           "side" : "right"
+        },
+        {
+          "action" : {
+            "flags" : 0,
+            "keyCode" : 49,
+            "kind" : "key",
+            "label" : "Space"
+          },
+          "id" : "806B4CF8-BA0F-47C8-8B9A-244A3C853393",
+          "layer" : 0,
+          "rect" : {
+            "height" : 0.2610966057441253,
+            "width" : 0.25,
+            "x" : 0.25,
+            "y" : 0.7397737162750218
+          },
+          "side" : "right"
+        },
+        {
+          "action" : {
+            "flags" : 0,
+            "keyCode" : 49,
+            "kind" : "key",
+            "label" : "Space"
+          },
+          "id" : "7DCCD93E-D60C-4A44-B007-CFCAE65C7B90",
+          "layer" : 0,
+          "rect" : {
+            "height" : 0.2610966057441253,
+            "width" : 0.25,
+            "x" : 0.5,
+            "y" : 0.7397737162750218
+          },
+          "side" : "right"
         }
+      ]
+    },
+    "Mobile QWERTY" : {
+      "0" : [
+
+      ]
+    },
+    "None" : {
+      "0" : [
+
       ]
     }
   },
   "dragCancelDistance" : 8,
-  "forceClickCap" : 120,
-  "hapticStrength" : 0,
+  "fiveFingerSwipeLeftGestureAction" : "Typing Toggle",
+  "fiveFingerSwipeRightGestureAction" : "Typing Toggle",
+  "forceClickCap" : 119,
+  "forceClickMin" : 0,
+  "fourFingerHoldGestureAction" : "Chordal Shift",
+  "hapticStrength" : 40,
+  "innerCornersHoldGestureAction" : "None",
   "intentMoveThresholdMm" : 3,
   "intentVelocityThresholdMmPerSec" : 30,
   "keyMappings" : {
     "0" : {
+      "left:0:0" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 39,
+          "kind" : "key",
+          "label" : "'"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 17,
+          "kind" : "key",
+          "label" : "T"
+        }
+      },
+      "left:0:1" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 30,
+          "kind" : "key",
+          "label" : "}"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 15,
+          "kind" : "key",
+          "label" : "R"
+        }
+      },
+      "left:0:2" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 33,
+          "kind" : "key",
+          "label" : "{"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 14,
+          "kind" : "key",
+          "label" : "E"
+        }
+      },
+      "left:0:3" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 30,
+          "kind" : "key",
+          "label" : "]"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 13,
+          "kind" : "key",
+          "label" : "W"
+        }
+      },
+      "left:0:4" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 33,
+          "kind" : "key",
+          "label" : "["
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 12,
+          "kind" : "key",
+          "label" : "Q"
+        }
+      },
+      "left:0:5" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 53,
+          "kind" : "key",
+          "label" : "Esc"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 48,
+          "kind" : "key",
+          "label" : "Tab"
+        }
+      },
+      "left:1:0" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 39,
+          "kind" : "key",
+          "label" : "\""
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 5,
+          "kind" : "key",
+          "label" : "G"
+        }
+      },
+      "left:1:1" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 29,
+          "kind" : "key",
+          "label" : ")"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 3,
+          "kind" : "key",
+          "label" : "F"
+        }
+      },
+      "left:1:2" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 25,
+          "kind" : "key",
+          "label" : "("
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 2,
+          "kind" : "key",
+          "label" : "D"
+        }
+      },
+      "left:1:3" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 1,
+          "kind" : "key",
+          "label" : "Cmd+S"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 1,
+          "kind" : "key",
+          "label" : "S"
+        }
+      },
+      "left:1:4" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 0,
+          "kind" : "key",
+          "label" : "Cmd+A"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "key",
+          "label" : "A"
+        }
+      },
+      "left:1:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 56,
+          "kind" : "key",
+          "label" : "Shift"
+        }
+      },
+      "left:2:0" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 50,
+          "kind" : "key",
+          "label" : "`"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 11,
+          "kind" : "key",
+          "label" : "B"
+        }
+      },
+      "left:2:1" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 9,
+          "kind" : "key",
+          "label" : "Cmd+V"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 9,
+          "kind" : "key",
+          "label" : "V"
+        }
+      },
+      "left:2:2" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 8,
+          "kind" : "key",
+          "label" : "Cmd+C"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 8,
+          "kind" : "key",
+          "label" : "C"
+        }
+      },
+      "left:2:3" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 7,
+          "kind" : "key",
+          "label" : "Cmd+X"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 7,
+          "kind" : "key",
+          "label" : "X"
+        }
+      },
+      "left:2:4" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 6,
+          "kind" : "key",
+          "label" : "Cmd+Z"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 6,
+          "kind" : "key",
+          "label" : "Z"
+        }
+      },
+      "left:2:5" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 63,
+          "kind" : "key",
+          "label" : "Emoji"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 58,
+          "kind" : "key",
+          "label" : "Option"
+        }
+      },
+      "right:0:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 117,
+          "kind" : "key",
+          "label" : "Delete"
+        }
+      },
+      "right:1:5" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 36,
+          "kind" : "key",
+          "label" : "Ret"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 36,
+          "kind" : "key",
+          "label" : "Ret"
+        }
+      },
+      "right:2:5" : {
+        "primary" : {
+          "flags" : 131072,
+          "keyCode" : 44,
+          "kind" : "key",
+          "label" : "?"
+        }
+      }
+    },
+    "1" : {
+      "left:0:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "brightnessUp",
+          "label" : "BRIGHT⬆️"
+        }
+      },
+      "left:0:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "brightnessDown",
+          "label" : "BRIGHT⬇️"
+        }
+      },
+      "left:0:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:0:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 126,
+          "kind" : "key",
+          "label" : "Up"
+        }
+      },
+      "left:0:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:0:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "voice",
+          "label" : "Voice"
+        }
+      },
+      "left:1:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "volumeUp",
+          "label" : "VOL⬆️"
+        }
+      },
+      "left:1:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "volumeDown",
+          "label" : "VOL⬇️"
+        }
+      },
+      "left:1:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 124,
+          "kind" : "key",
+          "label" : "Right"
+        }
+      },
+      "left:1:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 125,
+          "kind" : "key",
+          "label" : "Down"
+        }
+      },
+      "left:1:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 123,
+          "kind" : "key",
+          "label" : "Left"
+        }
+      },
+      "left:1:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:2:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:2:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:2:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:2:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 49,
+          "kind" : "key",
+          "label" : "Space"
+        }
+      },
+      "left:2:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "left:2:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "right:0:0" : {
+        "primary" : {
+          "flags" : 131072,
+          "keyCode" : 24,
+          "kind" : "key",
+          "label" : "+"
+        }
+      },
+      "right:0:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 26,
+          "kind" : "key",
+          "label" : "7"
+        }
+      },
+      "right:0:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 28,
+          "kind" : "key",
+          "label" : "8"
+        }
+      },
+      "right:0:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 25,
+          "kind" : "key",
+          "label" : "9"
+        }
+      },
+      "right:0:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "right:1:0" : {
+        "primary" : {
+          "flags" : 655360,
+          "keyCode" : 27,
+          "kind" : "key",
+          "label" : "—"
+        }
+      },
+      "right:1:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 21,
+          "kind" : "key",
+          "label" : "4"
+        }
+      },
+      "right:1:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 23,
+          "kind" : "key",
+          "label" : "5"
+        }
+      },
+      "right:1:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 22,
+          "kind" : "key",
+          "label" : "6"
+        }
+      },
+      "right:1:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "right:1:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "right:2:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 24,
+          "kind" : "key",
+          "label" : "="
+        }
+      },
+      "right:2:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 18,
+          "kind" : "key",
+          "label" : "1"
+        }
+      },
+      "right:2:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 19,
+          "kind" : "key",
+          "label" : "2"
+        }
+      },
+      "right:2:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 20,
+          "kind" : "key",
+          "label" : "3"
+        }
+      },
+      "right:2:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 47,
+          "kind" : "key",
+          "label" : "."
+        }
+      },
+      "right:2:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      }
+    },
+    "2" : {
       "left:0:0" : {
         "hold" : {
           "flags" : 0,
@@ -796,120 +1474,112 @@
         }
       }
     },
-    "1" : {
+    "3" : {
       "left:0:0" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 39,
+          "kind" : "key",
+          "label" : "'"
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 17,
+          "kind" : "key",
+          "label" : "T"
         }
       },
       "left:0:1" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 30,
+          "kind" : "key",
+          "label" : "}"
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 15,
+          "kind" : "key",
+          "label" : "R"
         }
       },
       "left:0:2" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 33,
+          "kind" : "key",
+          "label" : "{"
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 14,
+          "kind" : "key",
+          "label" : "E"
         }
       },
       "left:0:3" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 30,
+          "kind" : "key",
+          "label" : "]"
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 126,
+          "keyCode" : 13,
           "kind" : "key",
-          "label" : "Up"
+          "label" : "W"
         }
       },
       "left:0:4" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 33,
+          "kind" : "key",
+          "label" : "["
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 12,
+          "kind" : "key",
+          "label" : "Q"
         }
       },
       "left:0:5" : {
-        "primary" : {
+        "hold" : {
           "flags" : 0,
           "keyCode" : 53,
           "kind" : "key",
           "label" : "Esc"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 48,
+          "kind" : "key",
+          "label" : "Tab"
         }
       },
       "left:1:0" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 39,
+          "kind" : "key",
+          "label" : "\""
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "keyCode" : 5,
+          "kind" : "key",
+          "label" : "G"
         }
       },
       "left:1:1" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "left:1:2" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 124,
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 29,
           "kind" : "key",
-          "label" : "Right"
-        }
-      },
-      "left:1:3" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 125,
-          "kind" : "key",
-          "label" : "Down"
-        }
-      },
-      "left:1:4" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 123,
-          "kind" : "key",
-          "label" : "Left"
-        }
-      },
-      "left:1:5" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "left:2:0" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "left:2:1" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "left:2:2" : {
+          "label" : ")"
+        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 3,
@@ -917,15 +1587,141 @@
           "label" : "F"
         }
       },
-      "left:2:3" : {
+      "left:1:2" : {
+        "hold" : {
+          "flags" : 131072,
+          "keyCode" : 25,
+          "kind" : "key",
+          "label" : "("
+        },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 49,
+          "keyCode" : 2,
           "kind" : "key",
-          "label" : "Space"
+          "label" : "D"
+        }
+      },
+      "left:1:3" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 1,
+          "kind" : "key",
+          "label" : "Cmd+S"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 1,
+          "kind" : "key",
+          "label" : "S"
+        }
+      },
+      "left:1:4" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 0,
+          "kind" : "key",
+          "label" : "Cmd+A"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 0,
+          "kind" : "key",
+          "label" : "A"
+        }
+      },
+      "left:1:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 56,
+          "kind" : "key",
+          "label" : "Shift"
+        }
+      },
+      "left:2:0" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 43,
+          "kind" : "key",
+          "label" : ","
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 11,
+          "kind" : "key",
+          "label" : "B"
+        }
+      },
+      "left:2:1" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 9,
+          "kind" : "key",
+          "label" : "Cmd+V"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 9,
+          "kind" : "key",
+          "label" : "V"
+        }
+      },
+      "left:2:2" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 8,
+          "kind" : "key",
+          "label" : "Cmd+C"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 8,
+          "kind" : "key",
+          "label" : "C"
+        }
+      },
+      "left:2:3" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 7,
+          "kind" : "key",
+          "label" : "Cmd+X"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 7,
+          "kind" : "key",
+          "label" : "X"
         }
       },
       "left:2:4" : {
+        "hold" : {
+          "flags" : 1048576,
+          "keyCode" : 6,
+          "kind" : "key",
+          "label" : "Cmd+Z"
+        },
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 6,
+          "kind" : "key",
+          "label" : "Z"
+        }
+      },
+      "left:2:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 63,
+          "kind" : "key",
+          "label" : "Emoji"
+        }
+      },
+      "right:1:5" : {
+        "hold" : {
+          "flags" : 0,
+          "keyCode" : 36,
+          "kind" : "key",
+          "label" : "Ret"
+        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 36,
@@ -933,148 +1729,12 @@
           "label" : "Ret"
         }
       },
-      "left:2:5" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "right:0:0" : {
-        "primary" : {
-          "flags" : 131072,
-          "keyCode" : 24,
-          "kind" : "key",
-          "label" : "+"
-        }
-      },
-      "right:0:1" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 26,
-          "kind" : "key",
-          "label" : "7"
-        }
-      },
-      "right:0:2" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 28,
-          "kind" : "key",
-          "label" : "8"
-        }
-      },
-      "right:0:3" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 25,
-          "kind" : "key",
-          "label" : "9"
-        }
-      },
-      "right:0:4" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "right:1:0" : {
-        "primary" : {
-          "flags" : 655360,
-          "keyCode" : 27,
-          "kind" : "key",
-          "label" : "—"
-        }
-      },
-      "right:1:1" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 21,
-          "kind" : "key",
-          "label" : "4"
-        }
-      },
-      "right:1:2" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 23,
-          "kind" : "key",
-          "label" : "5"
-        }
-      },
-      "right:1:3" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 22,
-          "kind" : "key",
-          "label" : "6"
-        }
-      },
-      "right:1:4" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "right:1:5" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "right:2:0" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
-        }
-      },
-      "right:2:1" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 18,
-          "kind" : "key",
-          "label" : "1"
-        }
-      },
-      "right:2:2" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 19,
-          "kind" : "key",
-          "label" : "2"
-        }
-      },
-      "right:2:3" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 20,
-          "kind" : "key",
-          "label" : "3"
-        }
-      },
-      "right:2:4" : {
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 47,
-          "kind" : "key",
-          "label" : "."
-        }
-      },
       "right:2:5" : {
         "primary" : {
-          "flags" : 0,
-          "keyCode" : 65535,
-          "kind" : "none",
-          "label" : "None"
+          "flags" : 131072,
+          "keyCode" : 44,
+          "kind" : "key",
+          "label" : "?"
         }
       }
     }
@@ -1082,12 +1742,15 @@
   "keyboardModeEnabled" : false,
   "layoutPreset" : "6x3",
   "leftDeviceID" : "288230377507812716",
+  "outerCornersHoldGestureAction" : "Voice",
   "rightDeviceID" : "288230377507875157",
-  "schemaVersion" : 1,
+  "schemaVersion" : 2,
   "snapRadiusPercent" : 35,
   "tapClickCadenceMs" : 230,
-  "tapClickEnabled" : true,
-  "tapHoldDurationMs" : 230,
-  "typingGraceMs" : 3000,
-  "visualsEnabled" : true
+  "tapHoldDurationMs" : 220,
+  "threeFingerHoldGestureAction" : "Right Click",
+  "threeFingerTapGestureAction" : "None",
+  "twoFingerHoldGestureAction" : "Left Click",
+  "twoFingerTapGestureAction" : "None",
+  "typingGraceMs" : 3000
 }

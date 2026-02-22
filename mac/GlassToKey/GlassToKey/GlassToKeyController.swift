@@ -4,6 +4,7 @@ import SwiftUI
 enum GlassToKeySettings {
     static let tapHoldDurationMs: Double = 220.0
     static let dragCancelDistanceMm: Double = 8.0
+    static let forceClickMin: Double = 0.0
     static let forceClickCap: Double = 120.0
     static let hapticStrengthPercent: Double = 40.0
     static let typingGraceMs: Double = 1000.0
@@ -11,11 +12,20 @@ enum GlassToKeySettings {
     static let intentVelocityThresholdMmPerSec: Double = 50.0
     static let autocorrectEnabled: Bool = true
     static let autocorrectMinWordLength: Int = 2
-    static let tapClickEnabled: Bool = true
     static let tapClickCadenceMs: Double = 280.0
     static let snapRadiusPercent: Double = 35.0
     static let chordalShiftEnabled: Bool = true
     static let keyboardModeEnabled: Bool = false
+    static let runAtStartupEnabled: Bool = false
+    static let twoFingerTapGestureActionLabel = KeyActionCatalog.leftClickLabel
+    static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
+    static let twoFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
+    static let threeFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
+    static let fourFingerHoldGestureActionLabel = KeyActionCatalog.chordalShiftLabel
+    static let outerCornersHoldGestureActionLabel = KeyActionCatalog.voiceLabel
+    static let innerCornersHoldGestureActionLabel = KeyActionCatalog.noneLabel
+    static let fiveFingerSwipeLeftGestureActionLabel = KeyActionCatalog.typingToggleLabel
+    static let fiveFingerSwipeRightGestureActionLabel = KeyActionCatalog.typingToggleLabel
 
     static func persistedDouble(
         forKey key: String,
@@ -224,6 +234,11 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.forceClickCap
         )
+        let forceMin = GlassToKeySettings.persistedDouble(
+            forKey: GlassToKeyDefaultsKeys.forceClickMin,
+            defaults: defaults,
+            fallback: GlassToKeySettings.forceClickMin
+        )
         let hapticStrengthPercent = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.hapticStrength,
             defaults: defaults,
@@ -244,9 +259,6 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.intentVelocityThresholdMmPerSec
         )
-        let tapClickEnabled = defaults.object(
-            forKey: GlassToKeyDefaultsKeys.tapClickEnabled
-        ) as? Bool ?? GlassToKeySettings.tapClickEnabled
         let tapClickCadenceMs = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs,
             defaults: defaults,
@@ -263,20 +275,88 @@ final class GlassToKeyController: ObservableObject {
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
+        let twoFingerTapGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction
+        ) ?? GlassToKeySettings.twoFingerTapGestureActionLabel
+        let threeFingerTapGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction
+        ) ?? GlassToKeySettings.threeFingerTapGestureActionLabel
+        let twoFingerHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction
+        ) ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
+        let threeFingerHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.threeFingerHoldGestureAction
+        ) ?? GlassToKeySettings.threeFingerHoldGestureActionLabel
+        let fourFingerHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction
+        ) ?? GlassToKeySettings.fourFingerHoldGestureActionLabel
+        let outerCornersHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.outerCornersHoldGestureAction
+        ) ?? GlassToKeySettings.outerCornersHoldGestureActionLabel
+        let innerCornersHoldGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction
+        ) ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
+        let fiveFingerSwipeLeftGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction
+        ) ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+        let fiveFingerSwipeRightGestureActionLabel = defaults.string(
+            forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction
+        ) ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+
+        let twoFingerTapGestureAction = KeyActionCatalog.action(
+            for: twoFingerTapGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.twoFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let threeFingerTapGestureAction = KeyActionCatalog.action(
+            for: threeFingerTapGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.threeFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let twoFingerHoldGestureAction = KeyActionCatalog.action(
+            for: twoFingerHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.twoFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let threeFingerHoldGestureAction = KeyActionCatalog.action(
+            for: threeFingerHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.threeFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let fourFingerHoldGestureAction = KeyActionCatalog.action(
+            for: fourFingerHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.fourFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let outerCornersHoldGestureAction = KeyActionCatalog.action(
+            for: outerCornersHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.outerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let innerCornersHoldGestureAction = KeyActionCatalog.action(
+            for: innerCornersHoldGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.innerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let fiveFingerSwipeLeftGestureAction = KeyActionCatalog.action(
+            for: fiveFingerSwipeLeftGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction
+        let fiveFingerSwipeRightGestureAction = KeyActionCatalog.action(
+            for: fiveFingerSwipeRightGestureActionLabel
+        ) ?? KeyActionCatalog.action(for: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction
 
         viewModel.updateHoldThreshold(tapHoldMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
-        viewModel.updateForceClickCap(forceCap)
+        let clampedForceMin = max(0, min(255, forceMin))
+        let clampedForceCap = max(clampedForceMin, min(255, forceCap))
+        viewModel.updateForceClickMin(clampedForceMin)
+        viewModel.updateForceClickCap(clampedForceCap)
         viewModel.updateHapticStrength(hapticStrengthPercent / 100.0)
         viewModel.updateTypingGraceMs(typingGraceMs)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)
-        viewModel.updateTapClickEnabled(tapClickEnabled)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        viewModel.updateGestureActions(
+            twoFingerTap: twoFingerTapGestureAction,
+            threeFingerTap: threeFingerTapGestureAction,
+            twoFingerHold: twoFingerHoldGestureAction,
+            threeFingerHold: threeFingerHoldGestureAction,
+            fourFingerHold: fourFingerHoldGestureAction,
+            outerCornersHold: outerCornersHoldGestureAction,
+            innerCornersHold: innerCornersHoldGestureAction,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRight: fiveFingerSwipeRightGestureAction
+        )
     }
 
     private func stringValue(forKey key: String) -> String {

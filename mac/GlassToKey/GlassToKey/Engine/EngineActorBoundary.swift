@@ -31,14 +31,25 @@ protocol EngineActorBoundary: Sendable {
     func updateIntentMoveThreshold(_ millimeters: Double) async
     func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async
     func updateAllowMouseTakeover(_ enabled: Bool) async
+    func updateForceClickMin(_ grams: Double) async
     func updateForceClickCap(_ grams: Double) async
     func updateHapticStrength(_ normalized: Double) async
     func updateSnapRadiusPercent(_ percent: Double) async
     func updateChordalShiftEnabled(_ enabled: Bool) async
     func updateKeyboardModeEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
-    func updateTapClickEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) async
     func clearVisualCaches() async
     func reset(stopVoiceDictation: Bool) async
 }
@@ -171,6 +182,10 @@ actor EngineActor: EngineActorBoundary {
         await processor.updateAllowMouseTakeover(enabled)
     }
 
+    func updateForceClickMin(_ grams: Double) async {
+        await processor.updateForceClickMin(grams)
+    }
+
     func updateForceClickCap(_ grams: Double) async {
         await processor.updateForceClickCap(grams)
     }
@@ -195,12 +210,32 @@ actor EngineActor: EngineActorBoundary {
         await processor.setKeymapEditingEnabled(enabled)
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) async {
-        await processor.updateTapClickEnabled(enabled)
-    }
-
     func updateTapClickCadence(_ milliseconds: Double) async {
         await processor.updateTapClickCadence(milliseconds)
+    }
+
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) async {
+        await processor.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
+            fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
+            innerCornersHold: innerCornersHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
     }
 
     func clearVisualCaches() async {
@@ -390,6 +425,10 @@ actor EngineActorStub: EngineActorBoundary {
         await impl.updateAllowMouseTakeover(enabled)
     }
 
+    func updateForceClickMin(_ grams: Double) async {
+        await impl.updateForceClickMin(grams)
+    }
+
     func updateForceClickCap(_ grams: Double) async {
         await impl.updateForceClickCap(grams)
     }
@@ -414,12 +453,32 @@ actor EngineActorStub: EngineActorBoundary {
         await impl.setKeymapEditingEnabled(enabled)
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) async {
-        await impl.updateTapClickEnabled(enabled)
-    }
-
     func updateTapClickCadence(_ milliseconds: Double) async {
         await impl.updateTapClickCadence(milliseconds)
+    }
+
+    func updateGestureActions(
+        twoFingerTap: KeyAction,
+        threeFingerTap: KeyAction,
+        twoFingerHold: KeyAction,
+        threeFingerHold: KeyAction,
+        fourFingerHold: KeyAction,
+        outerCornersHold: KeyAction,
+        innerCornersHold: KeyAction,
+        fiveFingerSwipeLeft: KeyAction,
+        fiveFingerSwipeRight: KeyAction
+    ) async {
+        await impl.updateGestureActions(
+            twoFingerTap: twoFingerTap,
+            threeFingerTap: threeFingerTap,
+            twoFingerHold: twoFingerHold,
+            threeFingerHold: threeFingerHold,
+            fourFingerHold: fourFingerHold,
+            outerCornersHold: outerCornersHold,
+            innerCornersHold: innerCornersHold,
+            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
+            fiveFingerSwipeRight: fiveFingerSwipeRight
+        )
     }
 
     func clearVisualCaches() async {
