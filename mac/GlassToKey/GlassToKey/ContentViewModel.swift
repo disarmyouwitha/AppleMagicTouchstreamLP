@@ -766,7 +766,7 @@ struct KeyAction: Codable, Hashable {
         var displayText: String {
             switch kind {
             case .none:
-                return ""
+                return KeyActionCatalog.noneLabel
             case .typingToggle:
                 return KeyActionCatalog.typingToggleDisplayLabel
             default:
