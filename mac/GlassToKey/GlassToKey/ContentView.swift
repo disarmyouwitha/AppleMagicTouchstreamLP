@@ -1666,6 +1666,11 @@ struct ContentView: View {
         var body: some View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
+                    Text("Keyboard/Mouse")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $keyboardModeEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
                     Text("Autocorrect")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autocorrectEnabled)
@@ -1673,39 +1678,29 @@ struct ContentView: View {
                         .labelsHidden()
                 }
                 GridRow {
-                    Text("Snap Radius")
-                        .frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: snapRadiusEnabledBinding)
-                        .toggleStyle(SwitchToggleStyle())
-                        .labelsHidden()
                     Text("Chordal Shift")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $chordalShiftEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
-                }
-                GridRow {
-                    Text("Keyboard Mode")
+                    Text("Snap Radius")
                         .frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $keyboardModeEnabled)
+                    Toggle("", isOn: snapRadiusEnabledBinding)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
+                }
+                GridRow {
                     Text("Run at Startup")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $runAtStartupEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
-                }
-                GridRow {
                     Text("Auto-resync")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autoResyncEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
                         .help("Polls every 8 seconds to detect disconnected trackpads.")
-                    Color.clear
-                        .frame(width: labelWidth)
-                    Color.clear
                 }
             }
         }
