@@ -538,6 +538,7 @@ actor TouchProcessorEngine {
     }
     private var contactCountCache = SidePair<ContactCountCache?>(left: nil, right: nil)
     private let contactCountHoldDuration: TimeInterval = 0.06
+    private let holdGestureMoveCancelMm: CGFloat = 1.0
     private let repeatInitialDelay: UInt64 = 350_000_000
     private let repeatInterval: UInt64 = 50_000_000
     private let spaceRepeatMultiplier: UInt64 = 2
@@ -2462,8 +2463,8 @@ actor TouchProcessorEngine {
                 return
             }
 
-            let dragThreshold = dragCancelDistance * unitsPerMillimeter
-            if distanceSquared(from: state.startCentroid, to: summary.centroid) > (dragThreshold * dragThreshold) {
+            let holdCancelThreshold = holdGestureMoveCancelMm * unitsPerMillimeter
+            if distanceSquared(from: state.startCentroid, to: summary.centroid) > (holdCancelThreshold * holdCancelThreshold) {
                 var blocked = MultiFingerHoldState()
                 blocked.blockedUntilAllUp = true
                 state = blocked
@@ -2478,6 +2479,9 @@ actor TouchProcessorEngine {
         }
 
         guard contactCount == requiredContactCount else { return }
+        if requiredContactCount == 2, !areSideTouchStartsSynchronizedForHold(side) {
+            return
+        }
         state.active = true
         state.startTime = now
         state.startCentroid = summary.centroid
@@ -2493,6 +2497,33 @@ actor TouchProcessorEngine {
 
     private func gestureHoldDelay(for action: KeyAction) -> TimeInterval {
         action.kind == .chordalShift ? 0 : holdMinDuration
+    }
+
+    private func areSideTouchStartsSynchronizedForHold(_ side: TrackpadSide) -> Bool {
+        let sideDeviceIndex: Int?
+        switch side {
+        case .left:
+            sideDeviceIndex = leftDeviceIndex
+        case .right:
+            sideDeviceIndex = rightDeviceIndex
+        }
+        guard let sideDeviceIndex else { return false }
+
+        var count = 0
+        var minTime = TimeInterval.greatestFiniteMagnitude
+        var maxTime: TimeInterval = 0
+        intentState.touches.forEach { touchKey, info in
+            guard Self.touchKeyDeviceIndex(touchKey) == sideDeviceIndex else { return }
+            count += 1
+            if info.startTime < minTime {
+                minTime = info.startTime
+            }
+            if info.startTime > maxTime {
+                maxTime = info.startTime
+            }
+        }
+        guard count == 2 else { return false }
+        return maxTime - minTime <= intentConfig.keyBufferSeconds
     }
 
     private func isChordShiftActive(on side: TrackpadSide) -> Bool {
