@@ -1,6 +1,7 @@
 ## TODO
-- Build out Gestures sub-collapsable menues: Holds, Corners, Clicks, Force Clicks
-- Haptic Strength goes 1-6 in the Framework? We should change the scale in the GUI to match!
+- Can we remove "Tap Click" toggle and remove the logic - Tap Click should fire if the gesture is set (i.e. 2-finger tap, 3-finger tap)
+- Build out Gesture Tuning collapsable sub-menues: Taps, Holds, Swipes (and add our current gestures into them.)
+- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks
 ---
 - Double Click action in Action Dropdowns
 - What actions can we add?
@@ -10,6 +11,7 @@
 - Implement Auto Splay
 - Implement e v e n s p a c i n g
 -------
+- * Can MAKE NOTE ONLY of any migration/legacy code we are not using or that was used to transition to our current architecture? We are about to have our first release, so there are no users with "legacy" settings and we don't need to support anything legacy
 - export /import keymaps, **load GLASSTOKEY_DEFAULT_KEYMAP.json (package with app) if no keymap is saved.
 - autocorrect bugging (lets go symspell)
 - * far future - keymap import/export on windows/osx interop?

@@ -62,7 +62,6 @@ struct ContentView: View {
         let intentMoveThresholdMm: Double
         let intentVelocityThresholdMmPerSec: Double
         let autocorrectEnabled: Bool
-        let tapClickEnabled: Bool
         let tapClickCadenceMs: Double
         let snapRadiusPercent: Double
         let chordalShiftEnabled: Bool
@@ -115,8 +114,6 @@ struct ContentView: View {
     private var intentVelocityThresholdMmPerSecSetting: Double = GlassToKeySettings.intentVelocityThresholdMmPerSec
     @AppStorage(GlassToKeyDefaultsKeys.autocorrectEnabled)
     private var autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
-    @AppStorage(GlassToKeyDefaultsKeys.tapClickEnabled)
-    private var tapClickEnabled = GlassToKeySettings.tapClickEnabled
     @AppStorage(GlassToKeyDefaultsKeys.tapClickCadenceMs)
     private var tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
     @AppStorage(GlassToKeyDefaultsKeys.snapRadiusPercent)
@@ -479,9 +476,6 @@ struct ContentView: View {
             .onChange(of: autocorrectEnabled) { newValue in
                 AutocorrectEngine.shared.setEnabled(newValue)
             }
-            .onChange(of: tapClickEnabled) { newValue in
-                viewModel.updateTapClickEnabled(newValue)
-            }
             .onChange(of: tapClickCadenceMsSetting) { newValue in
                 viewModel.updateTapClickCadenceMs(newValue)
             }
@@ -715,7 +709,6 @@ struct ContentView: View {
             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: $autocorrectEnabled,
-            tapClickEnabled: $tapClickEnabled,
             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             chordalShiftEnabled: $chordalShiftEnabled,
@@ -758,7 +751,7 @@ struct ContentView: View {
         var body: some View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("GlassToKey Studio")
+                    Text("GlassToKey")
                         .font(.title2)
                         .bold()
                     HStack(spacing: 10) {
@@ -965,7 +958,6 @@ struct ContentView: View {
         @Binding var intentMoveThresholdMmSetting: Double
         @Binding var intentVelocityThresholdMmPerSecSetting: Double
         @Binding var autocorrectEnabled: Bool
-        @Binding var tapClickEnabled: Bool
         @Binding var tapClickCadenceMsSetting: Double
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
@@ -1046,7 +1038,6 @@ struct ContentView: View {
                     ) {
                         ModeTogglesSectionView(
                             autocorrectEnabled: $autocorrectEnabled,
-                            tapClickEnabled: $tapClickEnabled,
                             snapRadiusPercentSetting: $snapRadiusPercentSetting,
                             chordalShiftEnabled: $chordalShiftEnabled,
                             keyboardModeEnabled: $keyboardModeEnabled,
@@ -1641,7 +1632,6 @@ struct ContentView: View {
 
     private struct ModeTogglesSectionView: View {
         @Binding var autocorrectEnabled: Bool
-        @Binding var tapClickEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
@@ -1662,11 +1652,6 @@ struct ContentView: View {
                     Text("Autocorrect")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autocorrectEnabled)
-                        .toggleStyle(SwitchToggleStyle())
-                        .labelsHidden()
-                    Text("Tap Click")
-                        .frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $tapClickEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
                 }
@@ -2644,7 +2629,6 @@ struct ContentView: View {
         intentMoveThresholdMmSetting = GlassToKeySettings.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = GlassToKeySettings.intentVelocityThresholdMmPerSec
         autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
-        tapClickEnabled = GlassToKeySettings.tapClickEnabled
         tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
         snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
         chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
@@ -2726,7 +2710,6 @@ struct ContentView: View {
             intentMoveThresholdMm: intentMoveThresholdMmSetting,
             intentVelocityThresholdMmPerSec: intentVelocityThresholdMmPerSecSetting,
             autocorrectEnabled: autocorrectEnabled,
-            tapClickEnabled: tapClickEnabled,
             tapClickCadenceMs: tapClickCadenceMsSetting,
             snapRadiusPercent: snapRadiusPercentSetting,
             chordalShiftEnabled: chordalShiftEnabled,
@@ -2756,7 +2739,6 @@ struct ContentView: View {
         intentMoveThresholdMmSetting = profile.intentMoveThresholdMm
         intentVelocityThresholdMmPerSecSetting = profile.intentVelocityThresholdMmPerSec
         autocorrectEnabled = profile.autocorrectEnabled
-        tapClickEnabled = profile.tapClickEnabled
         tapClickCadenceMsSetting = profile.tapClickCadenceMs
         snapRadiusPercentSetting = profile.snapRadiusPercent
         chordalShiftEnabled = profile.chordalShiftEnabled

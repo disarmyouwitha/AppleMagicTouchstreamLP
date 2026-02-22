@@ -38,7 +38,6 @@ protocol EngineActorBoundary: Sendable {
     func updateChordalShiftEnabled(_ enabled: Bool) async
     func updateKeyboardModeEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
-    func updateTapClickEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
     func updateGestureActions(
         twoFingerTap: KeyAction,
@@ -205,10 +204,6 @@ actor EngineActor: EngineActorBoundary {
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {
         await processor.setKeymapEditingEnabled(enabled)
-    }
-
-    func updateTapClickEnabled(_ enabled: Bool) async {
-        await processor.updateTapClickEnabled(enabled)
     }
 
     func updateTapClickCadence(_ milliseconds: Double) async {
@@ -444,10 +439,6 @@ actor EngineActorStub: EngineActorBoundary {
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {
         await impl.setKeymapEditingEnabled(enabled)
-    }
-
-    func updateTapClickEnabled(_ enabled: Bool) async {
-        await impl.updateTapClickEnabled(enabled)
     }
 
     func updateTapClickCadence(_ milliseconds: Double) async {

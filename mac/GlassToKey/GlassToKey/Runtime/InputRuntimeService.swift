@@ -429,13 +429,6 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateTapClickEnabled(enabled)
-        }
-    }
-
     func updateTapClickCadence(_ milliseconds: Double) {
         let runtimeEngine = runtimeEngine
         Task {

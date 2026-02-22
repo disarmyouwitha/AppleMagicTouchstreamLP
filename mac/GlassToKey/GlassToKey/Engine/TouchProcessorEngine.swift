@@ -575,7 +575,6 @@ actor TouchProcessorEngine {
     private var intentMoveThresholdSquared: CGFloat = 0
     private var intentVelocityThreshold: CGFloat = 0
     private var allowMouseTakeoverDuringTyping = false
-    private var tapClickEnabled = false
     private var typingGraceDeadline: TimeInterval?
     private var typingGraceTask: Task<Void, Never>?
     private var doubleTapDeadline: TimeInterval?
@@ -799,10 +798,6 @@ actor TouchProcessorEngine {
         let clamped = min(max(percent, 0.0), 100.0)
         snapRadiusFraction = Float(clamped / 100.0)
         invalidateBindingsCache()
-    }
-
-    func updateTapClickEnabled(_ enabled: Bool) {
-        tapClickEnabled = enabled
     }
 
     func updateTapClickCadence(_ milliseconds: Double) {
@@ -2428,13 +2423,16 @@ actor TouchProcessorEngine {
             awaitingSecondTap = false
         }
 
+        let detectsTwoFingerTap = isTapGestureConfigured(twoFingerTapAction)
+        let detectsThreeFingerTap = isTapGestureConfigured(threeFingerTapAction)
+
         if keyboardOnly {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             awaitingSecondTap = false
             doubleTapDeadline = nil
-        } else if tapClickEnabled {
-            if intentCurrentKeys.count == 2,
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 2,
                state.touches.count == 3,
                shouldTriggerTapClick(
                 state: state.touches,
@@ -2442,8 +2440,9 @@ actor TouchProcessorEngine {
                 moveThresholdSquared: moveThresholdSquared,
                 fingerCount: 3
                ) {
-                threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-            } else if intentCurrentKeys.count == 0,
+            threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 0,
                       state.touches.count == 3,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2451,14 +2450,16 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 3
                       ) {
-                threeFingerTapDetected = true
-                threeFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 0,
+            threeFingerTapDetected = true
+            threeFingerTapCandidate = nil
+        } else if detectsThreeFingerTap,
+                  intentCurrentKeys.count == 0,
                       let candidate = threeFingerTapCandidate,
                       now <= candidate.deadline {
-                threeFingerTapDetected = true
-                threeFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 1,
+            threeFingerTapDetected = true
+            threeFingerTapCandidate = nil
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 1,
                       state.touches.count == 2,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2466,8 +2467,9 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
                       ) {
-                twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
-            } else if intentCurrentKeys.count == 0,
+            twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 0,
                       state.touches.count == 2,
                       shouldTriggerTapClick(
                         state: state.touches,
@@ -2475,13 +2477,20 @@ actor TouchProcessorEngine {
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
                       ) {
-                twoFingerTapDetected = true
-                twoFingerTapCandidate = nil
-            } else if intentCurrentKeys.count == 0,
+            twoFingerTapDetected = true
+            twoFingerTapCandidate = nil
+        } else if detectsTwoFingerTap,
+                  intentCurrentKeys.count == 0,
                       let candidate = twoFingerTapCandidate,
                       now <= candidate.deadline {
-                twoFingerTapDetected = true
+            twoFingerTapDetected = true
+            twoFingerTapCandidate = nil
+        } else {
+            if !detectsTwoFingerTap {
                 twoFingerTapCandidate = nil
+            }
+            if !detectsThreeFingerTap {
+                threeFingerTapCandidate = nil
             }
         }
 
@@ -2718,6 +2727,10 @@ actor TouchProcessorEngine {
             return false
         }
         return true
+    }
+
+    private func isTapGestureConfigured(_ action: KeyAction) -> Bool {
+        action.kind != .none
     }
 
     private func updateIntentDisplayIfNeeded() {

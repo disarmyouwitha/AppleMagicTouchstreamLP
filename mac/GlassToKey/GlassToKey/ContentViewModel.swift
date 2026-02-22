@@ -549,10 +549,6 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.setKeymapEditingEnabled(enabled)
     }
 
-    func updateTapClickEnabled(_ enabled: Bool) {
-        runtimeCommandService.updateTapClickEnabled(enabled)
-    }
-
     func updateTapClickCadenceMs(_ milliseconds: Double) {
         runtimeCommandService.updateTapClickCadence(milliseconds)
     }

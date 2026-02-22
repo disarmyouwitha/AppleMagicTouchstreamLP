@@ -12,7 +12,6 @@ enum GlassToKeySettings {
     static let intentVelocityThresholdMmPerSec: Double = 50.0
     static let autocorrectEnabled: Bool = true
     static let autocorrectMinWordLength: Int = 2
-    static let tapClickEnabled: Bool = true
     static let tapClickCadenceMs: Double = 280.0
     static let snapRadiusPercent: Double = 35.0
     static let chordalShiftEnabled: Bool = true
@@ -255,9 +254,6 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.intentVelocityThresholdMmPerSec
         )
-        let tapClickEnabled = defaults.object(
-            forKey: GlassToKeyDefaultsKeys.tapClickEnabled
-        ) as? Bool ?? GlassToKeySettings.tapClickEnabled
         let tapClickCadenceMs = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs,
             defaults: defaults,
@@ -317,7 +313,6 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)
-        viewModel.updateTapClickEnabled(tapClickEnabled)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
         viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
