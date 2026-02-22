@@ -757,7 +757,7 @@ enum KeyActionKind: String, Codable {
     case none
 }
 
-    struct KeyAction: Codable, Hashable {
+struct KeyAction: Codable, Hashable {
         var label: String
         var keyCode: UInt16
         var flags: UInt64
@@ -812,6 +812,15 @@ enum KeyActionKind: String, Codable {
         try container.encode(flags, forKey: .flags)
         try container.encode(kind, forKey: .kind)
         try container.encodeIfPresent(layer, forKey: .layer)
+    }
+}
+
+extension KeyAction {
+    var holdLabelText: String? {
+        guard kind != .none else { return nil }
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != KeyActionCatalog.noneLabel else { return nil }
+        return kind == .typingToggle ? KeyActionCatalog.typingToggleDisplayLabel : label
     }
 }
 

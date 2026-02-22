@@ -431,7 +431,8 @@ final class TrackpadSurfaceView: NSView {
             buttonPath.lineWidth = 1
             buttonPath.stroke()
 
-            let primaryYOffset: CGFloat = button.hold != nil ? -4 : 0
+            let holdLabel = button.hold?.holdLabelText
+            let primaryYOffset: CGFloat = holdLabel != nil ? -4 : 0
             drawCenteredText(
                 button.action.displayText,
                 in: rect,
@@ -439,7 +440,7 @@ final class TrackpadSurfaceView: NSView {
                 font: .monospacedSystemFont(ofSize: 10, weight: .semibold),
                 color: .secondaryLabelColor.withAlphaComponent(0.95)
             )
-            if let holdLabel = button.hold?.label {
+            if let holdLabel = holdLabel {
                 drawCenteredText(
                     holdLabel,
                     in: rect,

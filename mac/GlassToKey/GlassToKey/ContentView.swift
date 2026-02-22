@@ -1235,23 +1235,25 @@ struct ContentView: View {
             Binding(
                 get: {
                     if let selection = buttonSelection {
-                        return selection.button.hold
+                        return selection.button.hold ?? KeyActionCatalog.noneAction
                     }
                     if let selection = keySelection {
-                        return selection.mapping.hold
+                        return selection.mapping.hold ?? KeyActionCatalog.noneAction
                     }
-                    return nil
+                    return KeyActionCatalog.noneAction
                 },
                 set: { newValue in
+                    let normalized = newValue ?? KeyActionCatalog.noneAction
+                    let resolvedHold = normalized.kind == .none ? nil : normalized
                     if let selection = buttonSelection {
                         onUpdateButton(selection.button.id) { button in
-                            button.hold = newValue
+                            button.hold = resolvedHold
                         }
                         return
                     }
                     if let selection = keySelection {
                         onUpdateKeyMapping(selection.key) { mapping in
-                            mapping.hold = newValue
+                            mapping.hold = resolvedHold
                         }
                     }
                 }
@@ -2748,9 +2750,10 @@ struct ContentView: View {
             let primaryText = Text(button.action.displayText)
                 .font(primaryStyle)
                 .foregroundColor(.secondary)
-            let primaryY = center.y - (button.hold != nil ? 4 : 0)
+            let holdLabel = button.hold?.holdLabelText
+            let primaryY = center.y - (holdLabel != nil ? 4 : 0)
             context.draw(primaryText, at: CGPoint(x: center.x, y: primaryY))
-            if let holdLabel = button.hold?.label {
+            if let holdLabel = holdLabel {
                 let holdText = Text(holdLabel)
                     .font(holdStyle)
                     .foregroundColor(.secondary.opacity(0.7))
@@ -2761,7 +2764,7 @@ struct ContentView: View {
 
     private func labelInfo(for key: SelectedGridKey) -> (primary: String, hold: String?) {
         let mapping = effectiveKeyMapping(for: key)
-        return (primary: mapping.primary.displayText, hold: mapping.hold?.label)
+        return (primary: mapping.primary.displayText, hold: mapping.hold?.holdLabelText)
     }
 
     private func refreshColumnInspectorSelection() {
@@ -2847,18 +2850,6 @@ struct ContentView: View {
             .allowsHitTesting(false)
     }
 
-    private static func normalizedHoldAction(_ action: KeyAction?) -> KeyAction? {
-        guard let action else { return nil }
-        if action.kind == .none { return nil }
-        let trimmedLabel = action.label.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedLabel.isEmpty, trimmedLabel != KeyActionCatalog.noneLabel else { return nil }
-        return action
-    }
-
-    private static func holdLabelText(for action: KeyAction?) -> String? {
-        guard let normalized = normalizedHoldAction(action) else { return nil }
-        return normalized.kind == .typingToggle ? KeyActionCatalog.typingToggleDisplayLabel : normalized.label
-    }
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {
         let layerMappings = keyMappingsForActiveLayer()
