@@ -48,8 +48,11 @@ internal static class ReplayVisualLoader
         int droppedNonMultitouch = 0;
         int droppedParseError = 0;
         long firstArrivalTicks = -1;
+        bool hasPreviousFrameArrival = false;
+        long previousFrameArrivalTicks = 0;
 
         using InputCaptureReader reader = new(fullPath);
+        bool isV3Capture = reader.HeaderVersion == InputCaptureFile.Version3;
         while (reader.TryReadNext(out CaptureRecord record))
         {
             recordsRead++;
@@ -61,13 +64,54 @@ internal static class ReplayVisualLoader
             }
 
             RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+            InputFrame frame;
+            if (isV3Capture)
             {
-                droppedNonMultitouch++;
-                continue;
+                if (record.DeviceIndex == -1)
+                {
+                    if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                    {
+                        droppedParseError++;
+                    }
+
+                    continue;
+                }
+
+                if (record.DeviceIndex < -1)
+                {
+                    droppedParseError++;
+                    continue;
+                }
+
+                if (hasPreviousFrameArrival && record.ArrivalQpcTicks < previousFrameArrivalTicks)
+                {
+                    droppedParseError++;
+                    continue;
+                }
+
+                previousFrameArrivalTicks = record.ArrivalQpcTicks;
+                hasPreviousFrameArrival = true;
+
+                if (!AtpCapV3Payload.TryParseFrame(payload, out AtpCapV3Frame v3Frame))
+                {
+                    droppedParseError++;
+                    continue;
+                }
+
+                frame = AtpCapV3Payload.ToInputFrame(v3Frame, record.ArrivalQpcTicks, RuntimeConfigurationFactory.DefaultMaxX, RuntimeConfigurationFactory.DefaultMaxY);
+            }
+            else
+            {
+                TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                    ? TrackpadDecoderProfile.Legacy
+                    : TrackpadDecoderProfile.Official;
+                if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+                {
+                    droppedNonMultitouch++;
+                    continue;
+                }
+
+                frame = decoded.Frame;
             }
 
             framesParsed++;
@@ -86,7 +130,6 @@ internal static class ReplayVisualLoader
             RawInputDeviceTag tag = new(record.DeviceIndex, record.DeviceHash);
             string replayDeviceName = $"replay://dev/{tag.Index}/{tag.Hash:X8}";
             RawInputDeviceSnapshot snapshot = new(replayDeviceName, info, tag);
-            InputFrame frame = decoded.Frame;
             frames.Add(new ReplayVisualFrame(offsetStopwatchTicks, snapshot, frame));
 
             (int, uint) key = (tag.Index, tag.Hash);

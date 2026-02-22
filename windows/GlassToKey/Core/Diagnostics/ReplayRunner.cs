@@ -70,9 +70,12 @@ internal sealed class ReplayRunner
         using TouchProcessorActor actor = new(core, dispatchQueue: dispatchQueue);
         actor.SetDiagnosticsEnabled(collectTrace);
         ReplaySideMapper sideMapper = new(options?.SideByTag);
+        bool isV3Capture = reader.HeaderVersion == InputCaptureFile.Version3;
 
         bool hasBaseQpc = false;
         long baseQpcTicks = 0;
+        bool hasPreviousFrameArrival = false;
+        long previousFrameArrivalTicks = 0;
         while (reader.TryReadNext(out CaptureRecord record))
         {
             long started = Stopwatch.GetTimestamp();
@@ -85,18 +88,57 @@ internal sealed class ReplayRunner
                 continue;
             }
 
-            RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
-            TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-            if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+            InputFrame frame;
+            if (isV3Capture)
             {
-                metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
-                continue;
+                if (record.DeviceIndex == -1)
+                {
+                    if (!AtpCapV3Payload.TryParseMeta(payload, out _))
+                    {
+                        throw new InvalidDataException("Capture version 3 meta payload is invalid.");
+                    }
+
+                    continue;
+                }
+
+                if (record.DeviceIndex < -1)
+                {
+                    throw new InvalidDataException($"Capture version 3 record has invalid device index {record.DeviceIndex}.");
+                }
+
+                if (hasPreviousFrameArrival && record.ArrivalQpcTicks < previousFrameArrivalTicks)
+                {
+                    throw new InvalidDataException("Capture version 3 contains non-monotonic arrival ticks.");
+                }
+
+                previousFrameArrivalTicks = record.ArrivalQpcTicks;
+                hasPreviousFrameArrival = true;
+
+                if (!AtpCapV3Payload.TryParseFrame(payload, out AtpCapV3Frame v3Frame))
+                {
+                    metrics.RecordDropped(FrameDropReason.ParseFailed);
+                    continue;
+                }
+
+                frame = AtpCapV3Payload.ToInputFrame(v3Frame, record.ArrivalQpcTicks, DefaultMaxX, DefaultMaxY);
+                metrics.RecordParsed();
+            }
+            else
+            {
+                RawInputDeviceInfo info = new(record.VendorId, record.ProductId, record.UsagePage, record.Usage);
+                TrackpadDecoderProfile preferredProfile = record.DecoderProfile == TrackpadDecoderProfile.Legacy
+                    ? TrackpadDecoderProfile.Legacy
+                    : TrackpadDecoderProfile.Official;
+                if (!TrackpadReportDecoder.TryDecode(payload, info, record.ArrivalQpcTicks, preferredProfile, out TrackpadDecodeResult decoded))
+                {
+                    metrics.RecordDropped(FrameDropReason.NonMultitouchReport);
+                    continue;
+                }
+
+                metrics.RecordParsed();
+                frame = decoded.Frame;
             }
 
-            metrics.RecordParsed();
-            InputFrame frame = decoded.Frame;
             TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, record.SideHint);
 
             if (!hasBaseQpc)

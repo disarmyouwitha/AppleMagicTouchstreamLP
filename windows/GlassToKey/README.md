@@ -100,6 +100,6 @@ Notes:
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
 - `.atpcap` records embed side hints (`left`/`right`/`unknown`) and decoder profile (`official`/`opensource`) metadata for deterministic replay routing.
-- Current capture format version is `2` (`ATPCAP01` + v2 record headers); replay expects v2 captures.
+- Current capture write format version is `2` (`ATPCAP01` + v2 record headers); replay accepts both v2 and v3 captures.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
 
