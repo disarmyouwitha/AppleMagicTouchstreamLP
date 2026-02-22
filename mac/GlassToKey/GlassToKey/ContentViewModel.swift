@@ -1273,11 +1273,7 @@ enum KeyActionCatalog {
             .map(String.init)
         let numbers = (0...9).map { String($0) }
         return [
-            (dashedHeader("General"), [
-                noneLabel,
-                leftClickLabel,
-                rightClickLabel
-            ]),
+            (dashedHeader("General"), [noneLabel]),
             (dashedHeader("Letters A-Z"), letters),
             (dashedHeader("Numbers 0-9"), numbers),
             (dashedHeader("Navigation & Editing"), [
@@ -1298,6 +1294,10 @@ enum KeyActionCatalog {
                 "Right",
                 "Up",
                 "Down"
+            ]),
+            (dashedHeader("Mouse Actions"), [
+                leftClickLabel,
+                rightClickLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
