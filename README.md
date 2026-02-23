@@ -32,15 +32,16 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Pin Tray Icon:**
 - You can drag the icon from the hidden tray (`^`) to the visible tray area.
-
 **Windows Haptics:**
 - Working over USB!!!
 - Only works over USB. =x **I do not see a path forward for Bluetooth Haptics on Windows!**
 
-## FUTURE:
-Lots to do in the TODO! For now I have plenty to do to get feature parity between OSX and WIN and to really hone the controls~
+## GESTURES:
+- I have been adding Gestures that you can set in the Gesture Tuning config!
+- I am open to adding Gestures/Actions - just submit an issue with your idea or a .atpcap capture~
 
-TBH I think the Windows re-write is turning out much better so I will need to refocus my attention on Mac soon! xD
+## FUTURE:
+Lots to do in the TODO! For now I am working on feature parity between MAC and WIN and to really hone the controls~
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
