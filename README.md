@@ -38,7 +38,7 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 ## GESTURES:
 - I have been adding Gestures that you can set in the Gesture Tuning config!
-- I am open to adding Gestures/Actions - just submit an issue with your idea or a .atpcap capture~
+- I am open to adding Gestures/Actions - just add a comment to issue https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/issues/16 with your idea or a .atpcap capture!
 
 ## FUTURE:
 Lots to do in the TODO! For now I am working on feature parity between MAC and WIN and to really hone the controls~
