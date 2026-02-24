@@ -14,13 +14,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
 
+    private const uint KeyeventfExtendedkey = 0x0001;
     private const uint KeyeventfKeyup = 0x0002;
+    private const uint KeyeventfScancode = 0x0008;
     private const uint MouseeventfLeftdown = 0x0002;
     private const uint MouseeventfLeftup = 0x0004;
     private const uint MouseeventfRightdown = 0x0008;
     private const uint MouseeventfRightup = 0x0010;
     private const uint MouseeventfMiddledown = 0x0020;
     private const uint MouseeventfMiddleup = 0x0040;
+    private const uint MapvkVkToVscEx = 0x04;
     private const ushort VirtualKeyBackspace = 0x08;
     private const ushort VirtualKeyTab = 0x09;
     private const ushort VirtualKeyEnter = 0x0D;
@@ -522,6 +525,20 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private static Input CreateKeyboardInput(ushort virtualKey, bool keyUp)
     {
+        uint flags = keyUp ? KeyeventfKeyup : 0;
+        ushort sendVirtualKey = virtualKey;
+        ushort scanCode = 0;
+        if (TryResolveScanCode(virtualKey, out ushort mappedScanCode, out bool extended))
+        {
+            sendVirtualKey = 0;
+            scanCode = mappedScanCode;
+            flags |= KeyeventfScancode;
+            if (extended)
+            {
+                flags |= KeyeventfExtendedkey;
+            }
+        }
+
         return new Input
         {
             Type = InputKeyboard,
@@ -529,14 +546,29 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             {
                 Keyboard = new KeyboardInput
                 {
-                    VirtualKey = virtualKey,
-                    ScanCode = 0,
-                    Flags = keyUp ? KeyeventfKeyup : 0,
+                    VirtualKey = sendVirtualKey,
+                    ScanCode = scanCode,
+                    Flags = flags,
                     Time = 0,
                     ExtraInfo = IntPtr.Zero
                 }
             }
         };
+    }
+
+    private static bool TryResolveScanCode(ushort virtualKey, out ushort scanCode, out bool extended)
+    {
+        uint mapped = MapVirtualKey(virtualKey, MapvkVkToVscEx);
+        scanCode = (ushort)(mapped & 0xFF);
+        if (scanCode == 0)
+        {
+            extended = false;
+            return false;
+        }
+
+        uint prefix = (mapped >> 8) & 0xFF;
+        extended = prefix is 0xE0 or 0xE1;
+        return true;
     }
 
     private void SendMouseButtonClick(DispatchMouseButton button)
@@ -1285,6 +1317,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint SendInput(uint inputCount, [In] Input[] inputs, int size);
+
+    [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint code, uint mapType);
 
     [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
