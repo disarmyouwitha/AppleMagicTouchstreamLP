@@ -1,7 +1,6 @@
 ## TODO:
-- Test Force on Opensource driver — make sure we ignore it or dont let force min/max affect it
-- AMT2 - Opensource VS Official acceptance testing (USB && BT)
-- AMT2 - HAPTICS OVER USB
+- AMT2 - Opensource - test Force and make sure none of the force logic affects it
+- AMT2 - Opensource acceptance testing (USB && BT)
 - AMT2 - HAPTICS OVER BT?????
 -------
 - Can we move the Import/Export Keymap buttons that are next to "GlassToKey" at the top of the config and float them to the right?
