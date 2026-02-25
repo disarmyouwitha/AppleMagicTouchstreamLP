@@ -1081,6 +1081,259 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // Hold action repeat toggle: disabled should emit a single tap; enabled should emit repeatable down/up.
+        string holdRepeatStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
+        KeymapStore holdRepeatKeymap = KeymapStore.LoadBundledDefault();
+        holdRepeatKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "A" }
+        };
+
+        TouchProcessorCore holdRepeatDisabledCore = TouchProcessorFactory.CreateDefault(holdRepeatKeymap);
+        holdRepeatDisabledCore.Configure(holdRepeatDisabledCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = false
+        });
+        using DispatchEventQueue holdRepeatDisabledQueue = new();
+        using TouchProcessorActor holdRepeatDisabledActor = new(holdRepeatDisabledCore, dispatchQueue: holdRepeatDisabledQueue);
+
+        now = 0;
+        InputFrame holdRepeatDown = MakeFrame(contactCount: 1, id0: 142, x0: keyX, y0: keyY);
+        holdRepeatDisabledActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatDisabledActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatDisabledActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatDisabledActor.WaitForIdle();
+
+        int holdRepeatDisabledTapCount = 0;
+        int holdRepeatDisabledDownCount = 0;
+        int holdRepeatDisabledUpCount = 0;
+        while (holdRepeatDisabledQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                holdRepeatDisabledTapCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                holdRepeatDisabledDownCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                holdRepeatDisabledUpCount++;
+            }
+        }
+
+        if (holdRepeatDisabledTapCount != 1 || holdRepeatDisabledDownCount != 0 || holdRepeatDisabledUpCount != 0)
+        {
+            failure = $"hold repeat disabled mismatch (tap={holdRepeatDisabledTapCount}, down={holdRepeatDisabledDownCount}, up={holdRepeatDisabledUpCount}, expected=1/0/0)";
+            return false;
+        }
+
+        TouchProcessorCore holdRepeatEnabledCore = TouchProcessorFactory.CreateDefault(holdRepeatKeymap);
+        holdRepeatEnabledCore.Configure(holdRepeatEnabledCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatEnabledQueue = new();
+        using TouchProcessorActor holdRepeatEnabledActor = new(holdRepeatEnabledCore, dispatchQueue: holdRepeatEnabledQueue);
+
+        now = 0;
+        holdRepeatEnabledActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatEnabledActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatEnabledActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatEnabledActor.WaitForIdle();
+
+        int holdRepeatEnabledTapCount = 0;
+        int holdRepeatEnabledDownCount = 0;
+        int holdRepeatEnabledUpCount = 0;
+        bool holdRepeatEnabledRepeatableDown = false;
+        bool holdRepeatEnabledRepeatTokenReleased = false;
+        while (holdRepeatEnabledQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                holdRepeatEnabledTapCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                holdRepeatEnabledDownCount++;
+                holdRepeatEnabledRepeatableDown |=
+                    (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                holdRepeatEnabledUpCount++;
+                holdRepeatEnabledRepeatTokenReleased |= dispatchEvent.RepeatToken != 0;
+            }
+        }
+
+        if (holdRepeatEnabledTapCount != 0 ||
+            holdRepeatEnabledDownCount != 1 ||
+            holdRepeatEnabledUpCount != 1 ||
+            !holdRepeatEnabledRepeatableDown ||
+            !holdRepeatEnabledRepeatTokenReleased)
+        {
+            failure = $"hold repeat enabled mismatch (tap={holdRepeatEnabledTapCount}, down={holdRepeatEnabledDownCount}, up={holdRepeatEnabledUpCount}, repeatableDown={holdRepeatEnabledRepeatableDown}, repeatTokenReleased={holdRepeatEnabledRepeatTokenReleased}, expected=0/1/1/true/true)";
+            return false;
+        }
+
+        // Hold-repeat should also work for shifted chord labels like "(" (Shift+9).
+        KeymapStore holdRepeatChordKeymap = KeymapStore.LoadBundledDefault();
+        holdRepeatChordKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "(" }
+        };
+
+        TouchProcessorCore holdRepeatChordCore = TouchProcessorFactory.CreateDefault(holdRepeatChordKeymap);
+        holdRepeatChordCore.Configure(holdRepeatChordCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatChordQueue = new();
+        using TouchProcessorActor holdRepeatChordActor = new(holdRepeatChordCore, dispatchQueue: holdRepeatChordQueue);
+
+        now = 0;
+        InputFrame holdRepeatChordDown = MakeFrame(contactCount: 1, id0: 144, x0: keyX, y0: keyY);
+        holdRepeatChordActor.Post(TrackpadSide.Left, in holdRepeatChordDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatChordActor.Post(TrackpadSide.Left, in holdRepeatChordDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatChordActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatChordActor.WaitForIdle();
+
+        int chordShiftDownCount = 0;
+        int chordShiftUpCount = 0;
+        int chordKeyDownCount = 0;
+        int chordKeyUpCount = 0;
+        int chordTapCount = 0;
+        bool chordKeyDownRepeatable = false;
+        bool chordKeyUpRepeatToken = false;
+        while (holdRepeatChordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x10)
+            {
+                chordShiftDownCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x10)
+            {
+                chordShiftUpCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown && dispatchEvent.VirtualKey == 0x39)
+            {
+                chordKeyDownCount++;
+                chordKeyDownRepeatable |=
+                    (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp && dispatchEvent.VirtualKey == 0x39)
+            {
+                chordKeyUpCount++;
+                chordKeyUpRepeatToken |= dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                chordTapCount++;
+            }
+        }
+
+        if (chordShiftDownCount != 1 ||
+            chordShiftUpCount != 1 ||
+            chordKeyDownCount != 1 ||
+            chordKeyUpCount != 1 ||
+            !chordKeyDownRepeatable ||
+            !chordKeyUpRepeatToken ||
+            chordTapCount != 0)
+        {
+            failure = $"hold repeat chord mismatch (shiftDown={chordShiftDownCount}, shiftUp={chordShiftUpCount}, keyDown={chordKeyDownCount}, keyUp={chordKeyUpCount}, keyDownRepeatable={chordKeyDownRepeatable}, keyUpToken={chordKeyUpRepeatToken}, taps={chordTapCount}, expected=1/1/1/1/true/true/0)";
+            return false;
+        }
+
+        // Hold-repeat should survive drag-cancel jitter once hold is triggered, until finger-up.
+        TouchProcessorCore holdRepeatDragCore = TouchProcessorFactory.CreateDefault(holdRepeatKeymap);
+        holdRepeatDragCore.Configure(holdRepeatDragCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            DragCancelMm = 0.5,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatDragQueue = new();
+        using TouchProcessorActor holdRepeatDragActor = new(holdRepeatDragCore, dispatchQueue: holdRepeatDragQueue);
+
+        ushort holdRepeatMovedX = (ushort)Math.Clamp(keyX + 700, 1, maxX - 1);
+        now = 0;
+        InputFrame holdRepeatDragDown = MakeFrame(contactCount: 1, id0: 143, x0: keyX, y0: keyY);
+        InputFrame holdRepeatDragMoved = MakeFrame(contactCount: 1, id0: 143, x0: holdRepeatMovedX, y0: keyY);
+        holdRepeatDragActor.Post(TrackpadSide.Left, in holdRepeatDragDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatDragActor.Post(TrackpadSide.Left, in holdRepeatDragDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatDragActor.Post(TrackpadSide.Left, in holdRepeatDragMoved, maxX, maxY, now);
+        holdRepeatDragActor.WaitForIdle();
+
+        int holdRepeatDragDownCount = 0;
+        int holdRepeatDragUpCountBeforeLift = 0;
+        while (holdRepeatDragQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                holdRepeatDragDownCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                holdRepeatDragUpCountBeforeLift++;
+            }
+        }
+
+        if (holdRepeatDragDownCount != 1 || holdRepeatDragUpCountBeforeLift != 0)
+        {
+            failure = $"hold repeat drag-cancel pre-lift mismatch (down={holdRepeatDragDownCount}, upBeforeLift={holdRepeatDragUpCountBeforeLift}, expected=1/0)";
+            return false;
+        }
+
+        now += MsToTicks(10);
+        holdRepeatDragActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatDragActor.WaitForIdle();
+
+        int holdRepeatDragUpCountAfterLift = 0;
+        while (holdRepeatDragQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyUp && dispatchEvent.VirtualKey == 0x41)
+            {
+                holdRepeatDragUpCountAfterLift++;
+            }
+        }
+
+        if (holdRepeatDragUpCountAfterLift != 1)
+        {
+            failure = $"hold repeat drag-cancel release mismatch (upAfterLift={holdRepeatDragUpCountAfterLift}, expected=1)";
+            return false;
+        }
+
         // Snap rule: if release lands inside any key, dispatch that direct hit and do not run snap.
         KeymapStore directHitKeymap = KeymapStore.LoadBundledDefault();
         string snapStartStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 1, 3);
@@ -1776,6 +2029,69 @@ internal static class SelfTestRunner
         if (twoFingerHoldClicks != 1 || twoFingerHoldKeyTaps != 0)
         {
             failure = $"two-finger hold mismatch (clicks={twoFingerHoldClicks}, keyTaps={twoFingerHoldKeyTaps}, expected=1/0)";
+            return false;
+        }
+
+        // Two-finger hold key action should emit repeatable down/up when hold repeat is enabled.
+        TouchProcessorCore twoFingerHoldRepeatCore = TouchProcessorFactory.CreateDefault(keymap);
+        twoFingerHoldRepeatCore.Configure(twoFingerHoldRepeatCore.CurrentConfig with
+        {
+            TwoFingerHoldAction = "A",
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue twoFingerHoldRepeatQueue = new(capacity: 4096);
+        using TouchProcessorActor twoFingerHoldRepeatActor = new(twoFingerHoldRepeatCore, dispatchQueue: twoFingerHoldRepeatQueue);
+
+        now = 0;
+        InputFrame twoRepeatDown = MakeFrame(contactCount: 2, id0: 171, x0: key0X, y0: key0Y, id1: 172, x1: key1X, y1: key1Y);
+        InputFrame oneRepeatStillDown = MakeFrame(contactCount: 1, id0: 171, x0: key0X, y0: key0Y);
+        twoFingerHoldRepeatActor.Post(TrackpadSide.Left, in twoRepeatDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        twoFingerHoldRepeatActor.Post(TrackpadSide.Left, in twoRepeatDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerHoldRepeatActor.Post(TrackpadSide.Left, in oneRepeatStillDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        twoFingerHoldRepeatActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        twoFingerHoldRepeatActor.WaitForIdle();
+
+        int twoFingerHoldRepeatTaps = 0;
+        int twoFingerHoldRepeatDowns = 0;
+        int twoFingerHoldRepeatUps = 0;
+        bool twoFingerHoldRepeatDownWasRepeatable = false;
+        bool twoFingerHoldRepeatUpHadToken = false;
+        while (twoFingerHoldRepeatQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                twoFingerHoldRepeatTaps++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                twoFingerHoldRepeatDowns++;
+                twoFingerHoldRepeatDownWasRepeatable |=
+                    (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                twoFingerHoldRepeatUps++;
+                twoFingerHoldRepeatUpHadToken |= dispatchEvent.RepeatToken != 0;
+            }
+        }
+
+        if (twoFingerHoldRepeatTaps != 0 ||
+            twoFingerHoldRepeatDowns != 1 ||
+            twoFingerHoldRepeatUps != 1 ||
+            !twoFingerHoldRepeatDownWasRepeatable ||
+            !twoFingerHoldRepeatUpHadToken)
+        {
+            failure = $"two-finger hold repeat mismatch (taps={twoFingerHoldRepeatTaps}, downs={twoFingerHoldRepeatDowns}, ups={twoFingerHoldRepeatUps}, repeatableDown={twoFingerHoldRepeatDownWasRepeatable}, upToken={twoFingerHoldRepeatUpHadToken}, expected=0/1/1/true/true)";
             return false;
         }
 

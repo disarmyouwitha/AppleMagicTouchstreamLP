@@ -204,7 +204,8 @@ internal readonly record struct TouchProcessorConfig(
     string LowerRightCornerClickAction,
     int ForceMin,
     int ForceCap,
-    bool ChordShiftEnabled)
+    bool ChordShiftEnabled,
+    bool HoldRepeatEnabled)
 {
     public static TouchProcessorConfig Default => new(
         TrackpadWidthMm: 160.0,
@@ -249,5 +250,6 @@ internal readonly record struct TouchProcessorConfig(
         LowerRightCornerClickAction: "None",
         ForceMin: 0,
         ForceCap: 255,
-        ChordShiftEnabled: true);
+        ChordShiftEnabled: true,
+        HoldRepeatEnabled: false);
 }

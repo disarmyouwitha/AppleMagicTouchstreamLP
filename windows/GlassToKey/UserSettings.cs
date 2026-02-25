@@ -24,6 +24,7 @@ public sealed class UserSettings
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
     public bool RunAtStartup { get; set; }
+    public bool HoldRepeatEnabled { get; set; }
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeUpAction { get; set; } = "None";
@@ -112,6 +113,7 @@ public sealed class UserSettings
         ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;
         RunAtStartup = source.RunAtStartup;
+        HoldRepeatEnabled = source.HoldRepeatEnabled;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
         FiveFingerSwipeUpAction = source.FiveFingerSwipeUpAction;
