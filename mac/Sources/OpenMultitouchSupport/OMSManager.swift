@@ -235,12 +235,12 @@ public final class OMSManager: Sendable {
         protectedHapticManager = .init(uncheckedState: hapticManager)
         switch Self.preferredCaptureBackend {
         case .legacyV1:
-            protectedCaptureManager = .init(uncheckedState: hapticManager.map(CaptureManager.v1))
+            protectedCaptureManager = .init(uncheckedState: .v1(hapticManager))
         case .rawV2:
             if let managerV2 = Self.loadManagerV2() {
                 protectedCaptureManager = .init(uncheckedState: .v2(managerV2))
             } else {
-                protectedCaptureManager = .init(uncheckedState: hapticManager.map(CaptureManager.v1))
+                protectedCaptureManager = .init(uncheckedState: .v1(hapticManager))
             }
         }
     }

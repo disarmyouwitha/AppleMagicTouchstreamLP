@@ -1264,7 +1264,7 @@ actor TouchProcessorEngine {
                     )
                     continue
                 case .none:
-                    continue
+                    break
                 case .key, .leftClick, .doubleClick, .rightClick,
                      .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
                      .chordalShift,
@@ -1346,6 +1346,12 @@ actor TouchProcessorEngine {
                                 updated.holdRepeatActive = false
                             }
                         } else {
+                            triggerBinding(
+                                active.binding,
+                                touchKey: touchKey,
+                                dispatchInfo: dispatchInfo,
+                                pressure: peakPressure
+                            )
                             updated.holdRepeatActive = false
                         }
                         updated.didHold = true
@@ -1900,10 +1906,10 @@ actor TouchProcessorEngine {
     private func holdAction(for position: GridKeyPosition?, label: String) -> KeyAction? {
         let layerMappings = customKeyMappingsByLayer[activeLayer] ?? [:]
         if let position, let mapping = layerMappings[position.storageKey] {
-            if let hold = mapping.hold { return hold }
+            return mapping.hold
         }
-        if let mapping = layerMappings[label], let hold = mapping.hold {
-            return hold
+        if let mapping = layerMappings[label] {
+            return mapping.hold
         }
         return KeyActionCatalog.holdAction(for: label)
     }

@@ -13,10 +13,11 @@
 		5A1C2D3E4F5061728394A5B6 /* AutocorrectEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1C2D3E4F5061728394A5B5 /* AutocorrectEngine.swift */; };
 		5A1C2D3E4F5061728394A5B8 /* AccessibilityTextReplacer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1C2D3E4F5061728394A5B7 /* AccessibilityTextReplacer.swift */; };
 		5A1C2D3E4F5061728394A5BA /* KeySemanticMapper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A1C2D3E4F5061728394A5B9 /* KeySemanticMapper.swift */; };
-		77292A882B931953001CA3F6 /* GlassToKeyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A872B931953001CA3F6 /* GlassToKeyApp.swift */; };
-		77292A8A2B931953001CA3F6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A892B931953001CA3F6 /* ContentView.swift */; };
-		77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77292A8B2B931954001CA3F6 /* Assets.xcassets */; };
-		77292A982B931D60001CA3F6 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A972B931D60001CA3F6 /* ContentViewModel.swift */; };
+			77292A882B931953001CA3F6 /* GlassToKeyApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A872B931953001CA3F6 /* GlassToKeyApp.swift */; };
+			77292A8A2B931953001CA3F6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A892B931953001CA3F6 /* ContentView.swift */; };
+			77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77292A8B2B931954001CA3F6 /* Assets.xcassets */; };
+			B1C2D3E4F5A60718293A4B5D /* GLASSTOKEY_DEFAULT_KEYMAP.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */; };
+			77292A982B931D60001CA3F6 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A972B931D60001CA3F6 /* ContentViewModel.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F4 /* GlassToKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */; };
 		C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */; };
@@ -37,10 +38,11 @@
 		5A1C2D3E4F5061728394A5B7 /* AccessibilityTextReplacer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AccessibilityTextReplacer.swift; sourceTree = "<group>"; };
 		5A1C2D3E4F5061728394A5B9 /* KeySemanticMapper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeySemanticMapper.swift; sourceTree = "<group>"; };
 		77292A842B931953001CA3F6 /* GlassToKey.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GlassToKey.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		77292A872B931953001CA3F6 /* GlassToKeyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyApp.swift; sourceTree = "<group>"; };
-		77292A892B931953001CA3F6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		77292A8B2B931954001CA3F6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
-		77292A962B931C84001CA3F6 /* OpenMultitouchSupport */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = OpenMultitouchSupport; path = ..; sourceTree = "<group>"; };
+			77292A872B931953001CA3F6 /* GlassToKeyApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyApp.swift; sourceTree = "<group>"; };
+			77292A892B931953001CA3F6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+			77292A8B2B931954001CA3F6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+			B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = GLASSTOKEY_DEFAULT_KEYMAP.json; sourceTree = "<group>"; };
+			77292A962B931C84001CA3F6 /* OpenMultitouchSupport */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = OpenMultitouchSupport; path = ..; sourceTree = "<group>"; };
 		77292A972B931D60001CA3F6 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyController.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyDefaultsKeys.swift; sourceTree = "<group>"; };
@@ -85,15 +87,16 @@
 			name = Products;
 			sourceTree = "<group>";
 		};
-		77292A862B931953001CA3F6 /* GlassToKey */ = {
-			isa = PBXGroup;
-			children = (
-				77292A8B2B931954001CA3F6 /* Assets.xcassets */,
-				77292A872B931953001CA3F6 /* GlassToKeyApp.swift */,
-				A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */,
-				77292A892B931953001CA3F6 /* ContentView.swift */,
-				C0A1B2C3D4E5F60718293C41 /* Runtime */,
-				C0A1B2C3D4E5F60718293C42 /* Engine */,
+			77292A862B931953001CA3F6 /* GlassToKey */ = {
+				isa = PBXGroup;
+				children = (
+					77292A8B2B931954001CA3F6 /* Assets.xcassets */,
+					B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */,
+					77292A872B931953001CA3F6 /* GlassToKeyApp.swift */,
+					A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */,
+					77292A892B931953001CA3F6 /* ContentView.swift */,
+					C0A1B2C3D4E5F60718293C41 /* Runtime */,
+					C0A1B2C3D4E5F60718293C42 /* Engine */,
 				C0A1B2C3D4E5F60718293C43 /* Render */,
 				5A1C2D3E4F5061728394A5B5 /* AutocorrectEngine.swift */,
 				5A1C2D3E4F5061728394A5B7 /* AccessibilityTextReplacer.swift */,
@@ -208,6 +211,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
+				B1C2D3E4F5A60718293A4B5D /* GLASSTOKEY_DEFAULT_KEYMAP.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

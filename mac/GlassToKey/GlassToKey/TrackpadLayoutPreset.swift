@@ -55,9 +55,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         case .sixByThree, .sixByFour:
             return Self.columnAnchors6
         case .fiveByThree:
-            return Self.columnAnchors5FromSixDropFirst
+            return Self.columnAnchors5FromSixTakeFirst
         case .fiveByFour:
-            return Self.columnAnchors5FromSixDropFirst
+            return Self.columnAnchors5FromSixTakeFirst
         case .mobileOrtho12x4:
             return Self.columnAnchors12
         case .mobile, .none:
@@ -72,9 +72,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         case .sixByFour:
             return Self.rightLabels6x4
         case .fiveByThree:
-            return Self.rightLabels6x3.map { Array($0.suffix(self.columns)) }
+            return Self.rightLabels6x3.map { Array($0.prefix(self.columns)) }
         case .fiveByFour:
-            return Self.rightLabels6x4.map { Array($0.suffix(self.columns)) }
+            return Self.rightLabels6x4.map { Array($0.prefix(self.columns)) }
         case .mobileOrtho12x4:
             return Self.rightLabels12x4
         case .mobile:
@@ -133,6 +133,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     ]
 
     private static let columnAnchors5FromSixDropFirst: [CGPoint] = Array(columnAnchors6.suffix(5))
+    private static let columnAnchors5FromSixTakeFirst: [CGPoint] = Array(columnAnchors6.prefix(5))
 
     private static let columnAnchors12: [CGPoint] = [
         CGPoint(x: 6.0, y: 10.0),

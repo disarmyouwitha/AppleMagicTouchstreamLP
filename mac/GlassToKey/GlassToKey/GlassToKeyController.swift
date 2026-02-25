@@ -41,6 +41,10 @@ enum GlassToKeySettings {
 
 @MainActor
 final class GlassToKeyController: ObservableObject {
+    private struct BundledKeymapProfile: Decodable {
+        let keyMappings: LayeredKeyMappings
+    }
+
     let viewModel: ContentViewModel
     private var isRunning = false
 
@@ -194,7 +198,24 @@ final class GlassToKeyController: ObservableObject {
            let mappings = KeyActionMappingStore.decodeNormalized(data) {
             return mappings
         }
+        if let bundled = bundledDefaultKeyMappings() {
+            return bundled
+        }
         return KeyActionMappingStore.emptyMappings()
+    }
+
+    private func bundledDefaultKeyMappings() -> LayeredKeyMappings? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let profile = try? JSONDecoder().decode(BundledKeymapProfile.self, from: data) else {
+            return nil
+        }
+        return KeyActionMappingStore.normalized(profile.keyMappings)
     }
 
     private func resolvedLayoutPreset() -> TrackpadLayoutPreset {

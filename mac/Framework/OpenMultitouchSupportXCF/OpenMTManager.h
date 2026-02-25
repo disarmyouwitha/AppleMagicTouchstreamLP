@@ -13,8 +13,10 @@
 #import <OpenMultitouchSupportXCF/OpenMTListener.h>
 #import <OpenMultitouchSupportXCF/OpenMTEvent.h>
 
+NS_ASSUME_NONNULL_BEGIN
+
 @interface OpenMTDeviceInfo: NSObject
-@property (nonatomic, readonly) NSString *deviceName;
+@property (nonatomic, readonly) NSString * _Nonnull deviceName;
 @property (nonatomic, readonly) NSString *deviceID;
 @property (nonatomic, readonly) UInt64 deviceNumericID;
 @property (nonatomic, readonly) BOOL isBuiltIn;
@@ -44,5 +46,7 @@
 - (BOOL)triggerRawHaptic:(SInt32)actuationID unknown1:(UInt32)unknown1 unknown2:(Float32)unknown2 unknown3:(Float32)unknown3 deviceID:(NSString * _Nullable)deviceID;
 
 @end
+
+NS_ASSUME_NONNULL_END
 
 #endif /* OpenMTManager_h */

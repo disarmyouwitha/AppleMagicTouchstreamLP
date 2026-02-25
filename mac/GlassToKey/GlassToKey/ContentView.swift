@@ -162,7 +162,7 @@ struct ContentView: View {
     fileprivate static let columnOffsetPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.offsetPercentRange
     fileprivate static let rowSpacingPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.rowSpacingPercentRange
     fileprivate static let dragCancelDistanceRange: ClosedRange<Double> = 1.0...30.0
-    fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 50.0...500.0
+    fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 0.0...500.0
     fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
     fileprivate static let hapticStrengthRange: ClosedRange<Double> = 0.0...100.0
     fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
@@ -2966,10 +2966,26 @@ struct ContentView: View {
     private func loadKeyMappings() {
         if let decoded = KeyActionMappingStore.decodeNormalized(storedKeyMappingsData) {
             keyMappingsByLayer = decoded
+        } else if let fallback = bundledDefaultKeyMappings() {
+            keyMappingsByLayer = fallback
         } else {
             keyMappingsByLayer = KeyActionMappingStore.emptyMappings()
         }
         viewModel.updateKeyMappings(keyMappingsByLayer)
+    }
+
+    private func bundledDefaultKeyMappings() -> LayeredKeyMappings? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let profile = try? JSONDecoder().decode(KeymapProfile.self, from: data) else {
+            return nil
+        }
+        return KeyActionMappingStore.normalized(profile.keyMappings)
     }
 
     private func loadCustomButtons(for layout: TrackpadLayoutPreset) -> [CustomButton] {
