@@ -377,7 +377,8 @@ internal static class TrackpadReportDecoder
                 Id: id,
                 X: (ushort)x,
                 Y: (ushort)y,
-                Flags: 0x03);
+                Flags: 0x03,
+                HasForceData: false);
             if (contactCount >= contacts.Length)
             {
                 break;
@@ -440,7 +441,7 @@ internal static class TrackpadReportDecoder
                 assignedId = AssignOfficialContactId((byte)i, usedAssignedIds);
             }
 
-            frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags, pressure, phase));
+            frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags, pressure, phase, HasForceData: true));
         }
     }
 
@@ -521,7 +522,7 @@ internal static class TrackpadReportDecoder
                 continue;
             }
 
-            frame.SetContact(i, new ContactFrame((uint)i, contact.X, contact.Y, contact.Flags, contact.Pressure8, contact.Phase8));
+            frame.SetContact(i, new ContactFrame((uint)i, contact.X, contact.Y, contact.Flags, contact.Pressure8, contact.Phase8, contact.HasForceData));
         }
     }
 }

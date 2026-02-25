@@ -186,12 +186,32 @@ public partial class App : Application
             return;
         }
 
-        _trayController = new StatusTrayController(
-            OpenConfigWindow,
-            StartCaptureFromTray,
-            StartReplayFromTray,
-            RestartApplicationFromTray,
-            ExitApplicationFromTray);
+        try
+        {
+            _trayController = new StatusTrayController(
+                OpenConfigWindow,
+                StartCaptureFromTray,
+                StartReplayFromTray,
+                RestartApplicationFromTray,
+                ExitApplicationFromTray);
+        }
+        catch (Exception ex)
+        {
+            RuntimeFaultLogger.LogException("App.TrayInitialization", ex);
+            string message = "Failed to initialize system tray icon. GlassToKey cannot continue.";
+            if (showErrorDialogs)
+            {
+                MessageBox.Show(message, "GlassToKey", MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+            else
+            {
+                Console.Error.WriteLine(message);
+            }
+
+            Shutdown(9);
+            return;
+        }
+
         _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
         _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
         if (options.StartInConfigUi)

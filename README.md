@@ -20,6 +20,13 @@ I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstream
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
+**App starts in the Status Bar:**
+Green ⭕: Mixed mode (Mixed/Mouse)
+Purple⭕: Keyboard/Mouse mode (Keyboard/Mouse)
+Red   ⭕: Mouse-only mode (typing disabled)
+
+Right-clicking the indicator opens tray actions: Config, Capture, Replay, Resta5rt, and Exit.
+
 **Useful Tips:**
 - I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
 - In Keyboard/Mouse mode there is a hard switch between using the keyboard and mouse. (Rather than the default: Mixed/Mouse mode)
