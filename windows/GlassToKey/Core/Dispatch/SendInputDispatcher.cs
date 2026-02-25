@@ -14,13 +14,16 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
 
+    private const uint KeyeventfExtendedkey = 0x0001;
     private const uint KeyeventfKeyup = 0x0002;
+    private const uint KeyeventfScancode = 0x0008;
     private const uint MouseeventfLeftdown = 0x0002;
     private const uint MouseeventfLeftup = 0x0004;
     private const uint MouseeventfRightdown = 0x0008;
     private const uint MouseeventfRightup = 0x0010;
     private const uint MouseeventfMiddledown = 0x0020;
     private const uint MouseeventfMiddleup = 0x0040;
+    private const uint MapvkVkToVscEx = 0x04;
     private const ushort VirtualKeyBackspace = 0x08;
     private const ushort VirtualKeyTab = 0x09;
     private const ushort VirtualKeyEnter = 0x0D;
@@ -45,11 +48,14 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private const int SymSpellDictionaryMaxEditDistance = 2;
     private const int SymSpellPrefixLength = 7;
     private const int SymSpellDictionaryWordCount = 82765;
+    private const int KeyTapMinimumHoldMilliseconds = 20;
     private const string SymSpellDictionaryFileName = "frequency_dictionary_en_82_765.txt";
 
     private readonly int[] _modifierRefCounts = new int[256];
     private readonly bool[] _keyDown = new bool[256];
     private readonly RepeatEntry[] _repeatEntries = new RepeatEntry[64];
+    private readonly TapReleaseEntry[] _tapReleaseEntries = new TapReleaseEntry[32];
+    private readonly bool[] _tapHeldDown = new bool[256];
     private readonly Input[] _singleInput = new Input[1];
     private readonly Input[] _dualInput = new Input[2];
     private readonly StringBuilder _autocorrectWordBuffer = new(24);
@@ -58,6 +64,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private readonly HashSet<string> _autocorrectBlacklist = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _autocorrectOverrides = new(StringComparer.Ordinal);
     private readonly string[] _autocorrectWordHistory = new string[AutocorrectWordHistoryCapacity];
+    private readonly long _keyTapMinimumHoldTicks;
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
     private bool _autocorrectEnabled;
@@ -84,6 +91,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     public SendInputDispatcher()
     {
+        _keyTapMinimumHoldTicks = MsToTicks(KeyTapMinimumHoldMilliseconds);
         _repeatInitialDelayTicks = MsToTicks(275);
         _repeatIntervalTicks = MsToTicks(33);
     }
@@ -310,6 +318,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         ConsumePendingPointerActivity();
+        ProcessTapReleases(nowTicks);
 
         for (int i = 0; i < _repeatEntries.Length; i++)
         {
@@ -323,7 +332,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 continue;
             }
 
-            HandleKeyTap(_repeatEntries[i].VirtualKey);
+            HandleRepeatKeyDown(_repeatEntries[i].VirtualKey);
             _repeatEntries[i].NextTick = nowTicks + _repeatIntervalTicks;
         }
     }
@@ -347,10 +356,20 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         int vk = virtualKey;
-        if ((uint)vk < (uint)_keyDown.Length && !_keyDown[vk])
+        if ((uint)vk < (uint)_keyDown.Length)
         {
-            SendKeyboard(virtualKey, keyUp: false);
-            _keyDown[vk] = true;
+            if (_tapHeldDown[vk])
+            {
+                CancelTapRelease(virtualKey);
+                _tapHeldDown[vk] = false;
+                _keyDown[vk] = true;
+            }
+
+            if (!_keyDown[vk])
+            {
+                SendKeyboard(virtualKey, keyUp: false);
+                _keyDown[vk] = true;
+            }
         }
 
         if ((flags & DispatchEventFlags.Repeatable) != 0 && repeatToken != 0)
@@ -372,6 +391,13 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         int vk = virtualKey;
+        if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
+        {
+            CancelTapRelease(virtualKey);
+            _tapHeldDown[vk] = false;
+            SendKeyboard(virtualKey, keyUp: true);
+        }
+
         if ((uint)vk < (uint)_keyDown.Length && _keyDown[vk])
         {
             SendKeyboard(virtualKey, keyUp: true);
@@ -486,6 +512,21 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             _repeatEntries[i] = default;
         }
 
+        for (int i = 0; i < _tapReleaseEntries.Length; i++)
+        {
+            _tapReleaseEntries[i] = default;
+        }
+
+        for (int vk = 0; vk < _tapHeldDown.Length; vk++)
+        {
+            if (_tapHeldDown[vk] && !_keyDown[vk] && _modifierRefCounts[vk] <= 0)
+            {
+                SendKeyboard((ushort)vk, keyUp: true);
+            }
+
+            _tapHeldDown[vk] = false;
+        }
+
         for (int vk = 0; vk < _modifierRefCounts.Length; vk++)
         {
             if (_modifierRefCounts[vk] > 0 || _keyDown[vk])
@@ -504,9 +545,137 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
-        _dualInput[0] = CreateKeyboardInput(virtualKey, keyUp: false);
-        _dualInput[1] = CreateKeyboardInput(virtualKey, keyUp: true);
-        SendInput(2, _dualInput, Marshal.SizeOf<Input>());
+        int vk = virtualKey;
+        if ((uint)vk >= (uint)_tapHeldDown.Length)
+        {
+            _dualInput[0] = CreateKeyboardInput(virtualKey, keyUp: false);
+            _dualInput[1] = CreateKeyboardInput(virtualKey, keyUp: true);
+            SendInput(2, _dualInput, Marshal.SizeOf<Input>());
+            return;
+        }
+
+        if (_tapHeldDown[vk])
+        {
+            CancelTapRelease(virtualKey);
+            _tapHeldDown[vk] = false;
+            SendKeyboard(virtualKey, keyUp: true);
+        }
+
+        SendKeyboard(virtualKey, keyUp: false);
+        _tapHeldDown[vk] = true;
+        ScheduleTapRelease(virtualKey, Stopwatch.GetTimestamp() + _keyTapMinimumHoldTicks);
+    }
+
+    private void HandleRepeatKeyDown(ushort virtualKey)
+    {
+        if (virtualKey == 0)
+        {
+            return;
+        }
+
+        // Keep autocorrect/key history behavior aligned with repeated character input.
+        HandleKeyDownAutocorrect(virtualKey);
+
+        int vk = virtualKey;
+        if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
+        {
+            CancelTapRelease(virtualKey);
+            _tapHeldDown[vk] = false;
+        }
+
+        // Emit typematic-style repeat while preserving the held-down state until explicit KeyUp.
+        SendKeyboard(virtualKey, keyUp: false);
+        if ((uint)vk < (uint)_keyDown.Length)
+        {
+            _keyDown[vk] = true;
+        }
+    }
+
+    private void ProcessTapReleases(long nowTicks)
+    {
+        for (int i = 0; i < _tapReleaseEntries.Length; i++)
+        {
+            if (!_tapReleaseEntries[i].Active || nowTicks < _tapReleaseEntries[i].ReleaseTick)
+            {
+                continue;
+            }
+
+            ushort virtualKey = _tapReleaseEntries[i].VirtualKey;
+            int vk = virtualKey;
+            if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
+            {
+                _tapHeldDown[vk] = false;
+                if (_modifierRefCounts[vk] <= 0)
+                {
+                    SendKeyboard(virtualKey, keyUp: true);
+                }
+            }
+
+            _tapReleaseEntries[i] = default;
+        }
+    }
+
+    private void ScheduleTapRelease(ushort virtualKey, long releaseTick)
+    {
+        int firstFree = -1;
+        int oldestIndex = 0;
+        long oldestTick = long.MaxValue;
+
+        for (int i = 0; i < _tapReleaseEntries.Length; i++)
+        {
+            if (_tapReleaseEntries[i].Active)
+            {
+                if (_tapReleaseEntries[i].VirtualKey == virtualKey)
+                {
+                    _tapReleaseEntries[i].ReleaseTick = releaseTick;
+                    return;
+                }
+
+                if (_tapReleaseEntries[i].ReleaseTick < oldestTick)
+                {
+                    oldestTick = _tapReleaseEntries[i].ReleaseTick;
+                    oldestIndex = i;
+                }
+            }
+            else if (firstFree < 0)
+            {
+                firstFree = i;
+            }
+        }
+
+        int slot = firstFree >= 0 ? firstFree : oldestIndex;
+        if (firstFree < 0)
+        {
+            ushort replacedVirtualKey = _tapReleaseEntries[slot].VirtualKey;
+            int replacedVk = replacedVirtualKey;
+            if ((uint)replacedVk < (uint)_tapHeldDown.Length && _tapHeldDown[replacedVk])
+            {
+                _tapHeldDown[replacedVk] = false;
+                if (_modifierRefCounts[replacedVk] <= 0)
+                {
+                    SendKeyboard(replacedVirtualKey, keyUp: true);
+                }
+            }
+        }
+
+        _tapReleaseEntries[slot] = new TapReleaseEntry
+        {
+            Active = true,
+            VirtualKey = virtualKey,
+            ReleaseTick = releaseTick
+        };
+    }
+
+    private void CancelTapRelease(ushort virtualKey)
+    {
+        for (int i = 0; i < _tapReleaseEntries.Length; i++)
+        {
+            if (_tapReleaseEntries[i].Active && _tapReleaseEntries[i].VirtualKey == virtualKey)
+            {
+                _tapReleaseEntries[i] = default;
+                return;
+            }
+        }
     }
 
     private void SendKeyboard(ushort virtualKey, bool keyUp)
@@ -522,6 +691,20 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     private static Input CreateKeyboardInput(ushort virtualKey, bool keyUp)
     {
+        uint flags = keyUp ? KeyeventfKeyup : 0;
+        ushort sendVirtualKey = virtualKey;
+        ushort scanCode = 0;
+        if (TryResolveScanCode(virtualKey, out ushort mappedScanCode, out bool extended))
+        {
+            sendVirtualKey = 0;
+            scanCode = mappedScanCode;
+            flags |= KeyeventfScancode;
+            if (extended)
+            {
+                flags |= KeyeventfExtendedkey;
+            }
+        }
+
         return new Input
         {
             Type = InputKeyboard,
@@ -529,14 +712,29 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             {
                 Keyboard = new KeyboardInput
                 {
-                    VirtualKey = virtualKey,
-                    ScanCode = 0,
-                    Flags = keyUp ? KeyeventfKeyup : 0,
+                    VirtualKey = sendVirtualKey,
+                    ScanCode = scanCode,
+                    Flags = flags,
                     Time = 0,
                     ExtraInfo = IntPtr.Zero
                 }
             }
         };
+    }
+
+    private static bool TryResolveScanCode(ushort virtualKey, out ushort scanCode, out bool extended)
+    {
+        uint mapped = MapVirtualKey(virtualKey, MapvkVkToVscEx);
+        scanCode = (ushort)(mapped & 0xFF);
+        if (scanCode == 0)
+        {
+            extended = false;
+            return false;
+        }
+
+        uint prefix = (mapped >> 8) & 0xFF;
+        extended = prefix is 0xE0 or 0xE1;
+        return true;
     }
 
     private void SendMouseButtonClick(DispatchMouseButton button)
@@ -1287,6 +1485,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private static extern uint SendInput(uint inputCount, [In] Input[] inputs, int size);
 
     [DllImport("user32.dll")]
+    private static extern uint MapVirtualKey(uint code, uint mapType);
+
+    [DllImport("user32.dll")]
     private static extern IntPtr GetForegroundWindow();
 
     [DllImport("user32.dll")]
@@ -1298,6 +1499,13 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         public ulong Token;
         public ushort VirtualKey;
         public long NextTick;
+    }
+
+    private struct TapReleaseEntry
+    {
+        public bool Active;
+        public ushort VirtualKey;
+        public long ReleaseTick;
     }
 }
 

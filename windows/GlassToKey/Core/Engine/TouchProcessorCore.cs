@@ -835,7 +835,7 @@ internal sealed class TouchProcessorCore
 
             if (existing.DispatchDownSent &&
                 existing.MaxDistanceMm > _config.DragCancelMm &&
-                ShouldCancelHeldDispatchOnDrag(existing.DispatchDownKind))
+                ShouldCancelHeldDispatchOnDrag(in existing))
             {
                 EndPressAction(ref existing, timestampTicks);
             }
@@ -851,17 +851,19 @@ internal sealed class TouchProcessorCore
                     existing.HoldTriggered = true;
                     BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                     EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
+                    EngineKeyAction holdAction = ResolveHoldActionForDispatch(existingBinding.Mapping.Hold);
                     TryBeginPressAction(
-                        existingBinding.Mapping.Hold,
+                        holdAction,
                         touchKey,
                         timestampTicks,
                         ref existing,
                         existing.PeakForceNorm,
-                        hapticOnDispatch: IsCustomBinding(existingBinding));
+                        hapticOnDispatch: IsCustomBinding(existingBinding),
+                        isHoldTriggeredAction: true);
                     if (!existing.DispatchDownSent)
                     {
                         ApplyReleaseAction(
-                            existingBinding.Mapping.Hold,
+                            holdAction,
                             side,
                             touchKey,
                             timestampTicks,
@@ -900,6 +902,7 @@ internal sealed class TouchProcessorCore
                 DispatchDownSent: false,
                 DispatchDownKind: DispatchEventKind.None,
                 DispatchDownVirtualKey: 0,
+                DispatchDownModifierVirtualKey: 0,
                 DispatchDownMouseButton: DispatchMouseButton.None,
                 RepeatToken: 0,
                 LastForceNorm: forceNorm,
@@ -928,6 +931,7 @@ internal sealed class TouchProcessorCore
             DispatchDownSent: false,
             DispatchDownKind: DispatchEventKind.None,
             DispatchDownVirtualKey: 0,
+            DispatchDownModifierVirtualKey: 0,
             DispatchDownMouseButton: DispatchMouseButton.None,
             RepeatToken: 0,
             LastForceNorm: forceNorm,
@@ -1338,7 +1342,8 @@ internal sealed class TouchProcessorCore
         long timestampTicks,
         ref TouchBindingState state,
         int forceNorm,
-        bool hapticOnDispatch)
+        bool hapticOnDispatch,
+        bool isHoldTriggeredAction = false)
     {
         bool allowTypingDisabledOverride = IsMomentaryLayerActive();
         switch (action.Kind)
@@ -1369,6 +1374,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.ModifierDown;
                     state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = 0;
                     state.DispatchDownLabel = action.Label;
@@ -1401,9 +1407,76 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
                     state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
+                }
+                break;
+            case EngineActionKind.KeyChord:
+                if (!isHoldTriggeredAction ||
+                    !_config.HoldRepeatEnabled ||
+                    action.VirtualKey == 0 ||
+                    action.ModifierVirtualKey == 0)
+                {
+                    return;
+                }
+
+                ApplyActionState(action, timestampTicks);
+                if (!EnqueueDispatchEvent(
+                    DispatchEventKind.ModifierDown,
+                    action.ModifierVirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: 0,
+                    DispatchEventFlags.None,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    allowTypingDisabledOverride,
+                    forceNorm))
+                {
+                    return;
+                }
+
+                DispatchEventFlags chordKeyDownFlags = DispatchEventFlags.Repeatable;
+                if (_hapticsOnKeyDispatch)
+                {
+                    chordKeyDownFlags |= DispatchEventFlags.Haptic;
+                }
+
+                if (EnqueueDispatchEvent(
+                    DispatchEventKind.KeyDown,
+                    action.VirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: touchKey,
+                    chordKeyDownFlags,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    allowTypingDisabledOverride,
+                    forceNorm))
+                {
+                    state.DispatchDownSent = true;
+                    state.DispatchDownKind = DispatchEventKind.KeyDown;
+                    state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = action.ModifierVirtualKey;
+                    state.DispatchDownMouseButton = DispatchMouseButton.None;
+                    state.RepeatToken = touchKey;
+                    state.DispatchDownLabel = action.Label;
+                }
+                else
+                {
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.ModifierUp,
+                        action.ModifierVirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: 0,
+                        DispatchEventFlags.None,
+                        state.Side,
+                        timestampTicks,
+                        dispatchLabel: action.Label,
+                        allowTypingDisabledOverride,
+                        forceNorm);
                 }
                 break;
             default:
@@ -1411,10 +1484,37 @@ internal sealed class TouchProcessorCore
         }
     }
 
-    private static bool ShouldCancelHeldDispatchOnDrag(DispatchEventKind dispatchDownKind)
+    private EngineKeyAction ResolveHoldActionForDispatch(EngineKeyAction action)
+    {
+        if (!_config.HoldRepeatEnabled ||
+            action.Kind != EngineActionKind.Key ||
+            action.VirtualKey == 0)
+        {
+            return action;
+        }
+
+        return action with { Kind = EngineActionKind.Continuous };
+    }
+
+    private bool ShouldCancelHeldDispatchOnDrag(in TouchBindingState state)
     {
         // Held modifiers should stay pressed until touch-up, even if the anchor finger drifts.
-        return dispatchDownKind != DispatchEventKind.ModifierDown;
+        if (state.DispatchDownKind == DispatchEventKind.ModifierDown)
+        {
+            return false;
+        }
+
+        // When hold-repeat is enabled, a triggered hold should continue repeating until lift,
+        // even if the finger jitters past drag-cancel distance.
+        if (state.HoldTriggered &&
+            _config.HoldRepeatEnabled &&
+            state.DispatchDownKind == DispatchEventKind.KeyDown &&
+            state.RepeatToken != 0)
+        {
+            return false;
+        }
+
+        return true;
     }
 
     private void EndPressAction(ref TouchBindingState state, long timestampTicks)
@@ -1447,6 +1547,18 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: state.DispatchDownLabel);
+                if (state.DispatchDownModifierVirtualKey != 0)
+                {
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.ModifierUp,
+                        state.DispatchDownModifierVirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: 0,
+                        DispatchEventFlags.None,
+                        state.Side,
+                        timestampTicks,
+                        dispatchLabel: state.DispatchDownLabel);
+                }
                 break;
             case DispatchEventKind.MouseButtonDown:
                 EnqueueDispatchEvent(
@@ -1466,6 +1578,7 @@ internal sealed class TouchProcessorCore
         state.DispatchDownSent = false;
         state.DispatchDownKind = DispatchEventKind.None;
         state.DispatchDownVirtualKey = 0;
+        state.DispatchDownModifierVirtualKey = 0;
         state.DispatchDownMouseButton = DispatchMouseButton.None;
         state.RepeatToken = 0;
         state.DispatchDownLabel = string.Empty;
@@ -2283,6 +2396,7 @@ internal sealed class TouchProcessorCore
     {
         if (_fourFingerHoldUsesChordShift)
         {
+            EndMultiFingerHoldGestureDispatch(ref _fourFingerHoldGesture, nowTicks);
             _fourFingerHoldGesture = default;
             return;
         }
@@ -2487,12 +2601,14 @@ internal sealed class TouchProcessorCore
             !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side) ||
             !AreSideTouchesStationaryForHold(side))
         {
+            EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
             gesture = default;
             return;
         }
 
         if (!gesture.Active || gesture.Side != side)
         {
+            EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
             gesture = new MultiFingerHoldGesture(
                 Active: true,
                 Triggered: false,
@@ -2522,9 +2638,64 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        EmitGestureAction(action, gesture.Side, touchKey: 0, nowTicks: nowTicks);
+        EngineKeyAction holdAction = ResolveHoldActionForDispatch(action);
+        if (holdAction.Kind == EngineActionKind.Continuous && holdAction.VirtualKey != 0)
+        {
+            ulong repeatToken = BuildMultiFingerHoldRepeatToken(gesture.Side, requiredContactCount);
+            if (EnqueueDispatchEvent(
+                DispatchEventKind.KeyDown,
+                holdAction.VirtualKey,
+                DispatchMouseButton.None,
+                repeatToken,
+                DispatchEventFlags.Repeatable,
+                gesture.Side,
+                nowTicks,
+                dispatchLabel: holdAction.Label,
+                allowTypingDisabledOverride: true))
+            {
+                gesture.DispatchDownSent = true;
+                gesture.DispatchDownVirtualKey = holdAction.VirtualKey;
+                gesture.RepeatToken = repeatToken;
+                gesture.DispatchDownLabel = holdAction.Label;
+            }
+        }
+        else
+        {
+            EmitGestureAction(holdAction, gesture.Side, touchKey: 0, nowTicks: nowTicks);
+        }
+
         gesture.Triggered = true;
         MarkSideTouchStatesHoldConsumed(gesture.Side);
+    }
+
+    private void EndMultiFingerHoldGestureDispatch(ref MultiFingerHoldGesture gesture, long nowTicks)
+    {
+        if (!gesture.DispatchDownSent)
+        {
+            return;
+        }
+
+        EnqueueDispatchEvent(
+            DispatchEventKind.KeyUp,
+            gesture.DispatchDownVirtualKey,
+            DispatchMouseButton.None,
+            gesture.RepeatToken,
+            DispatchEventFlags.None,
+            gesture.Side,
+            nowTicks,
+            dispatchLabel: gesture.DispatchDownLabel,
+            allowTypingDisabledOverride: true);
+
+        gesture.DispatchDownSent = false;
+        gesture.DispatchDownVirtualKey = 0;
+        gesture.RepeatToken = 0;
+        gesture.DispatchDownLabel = string.Empty;
+    }
+
+    private static ulong BuildMultiFingerHoldRepeatToken(TrackpadSide side, int requiredContactCount)
+    {
+        ulong sideToken = side == TrackpadSide.Left ? 1ul : 2ul;
+        return 0xF000000000000000ul | ((ulong)(requiredContactCount & 0xFF) << 8) | sideToken;
     }
 
     private static bool TryGetEligibleHoldSide(in IntentAggregate aggregate, int requiredContactCount, out TrackpadSide side)
@@ -4287,6 +4458,7 @@ internal sealed class TouchProcessorCore
             bool DispatchDownSent,
             DispatchEventKind DispatchDownKind,
             ushort DispatchDownVirtualKey,
+            ushort DispatchDownModifierVirtualKey,
             DispatchMouseButton DispatchDownMouseButton,
             ulong RepeatToken,
             int LastForceNorm,
@@ -4309,6 +4481,7 @@ internal sealed class TouchProcessorCore
             this.DispatchDownSent = DispatchDownSent;
             this.DispatchDownKind = DispatchDownKind;
             this.DispatchDownVirtualKey = DispatchDownVirtualKey;
+            this.DispatchDownModifierVirtualKey = DispatchDownModifierVirtualKey;
             this.DispatchDownMouseButton = DispatchDownMouseButton;
             this.RepeatToken = RepeatToken;
             this.LastForceNorm = LastForceNorm;
@@ -4332,6 +4505,7 @@ internal sealed class TouchProcessorCore
         public bool DispatchDownSent;
         public DispatchEventKind DispatchDownKind;
         public ushort DispatchDownVirtualKey;
+        public ushort DispatchDownModifierVirtualKey;
         public DispatchMouseButton DispatchDownMouseButton;
         public ulong RepeatToken;
         public int LastForceNorm;
@@ -4351,12 +4525,20 @@ internal sealed class TouchProcessorCore
             this.Triggered = Triggered;
             this.Side = Side;
             this.StartedTicks = StartedTicks;
+            this.DispatchDownSent = false;
+            this.DispatchDownVirtualKey = 0;
+            this.RepeatToken = 0;
+            this.DispatchDownLabel = string.Empty;
         }
 
         public bool Active;
         public bool Triggered;
         public TrackpadSide Side;
         public long StartedTicks;
+        public bool DispatchDownSent;
+        public ushort DispatchDownVirtualKey;
+        public ulong RepeatToken;
+        public string DispatchDownLabel;
     }
 
     private struct TriangleGesture

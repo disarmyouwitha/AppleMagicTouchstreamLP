@@ -64,7 +64,8 @@ internal static class RuntimeConfigurationFactory
             LowerRightCornerClickAction = settings.LowerRightCornerClickAction,
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
-            ChordShiftEnabled = chordShiftEnabled
+            ChordShiftEnabled = chordShiftEnabled,
+            HoldRepeatEnabled = settings.HoldRepeatEnabled
         };
     }
 

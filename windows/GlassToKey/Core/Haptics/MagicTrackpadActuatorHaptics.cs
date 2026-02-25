@@ -279,9 +279,8 @@ internal static class MagicTrackpadActuatorHaptics
                     continue;
                 }
 
-                // Fast pre-filter: most non-Apple HID devices don't matter.
-                if (path.IndexOf("vid_05ac&pid_0324", StringComparison.OrdinalIgnoreCase) < 0 &&
-                    path.IndexOf("vid_004c&pid_0324", StringComparison.OrdinalIgnoreCase) < 0)
+                // Fast pre-filter: only keep Apple trackpad VID/PID pairs we already accept in raw-input routing.
+                if (!IsLikelyTrackpadPath(path))
                 {
                     continue;
                 }
@@ -546,6 +545,25 @@ internal static class MagicTrackpadActuatorHaptics
         string s = Encoding.Unicode.GetString(buffer);
         int nul = s.IndexOf('\0');
         return nul >= 0 ? s.Substring(0, nul) : s;
+    }
+
+    private static bool IsLikelyTrackpadPath(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return false;
+        }
+
+        if (RawInputInterop.TryParseVidPid(path, out uint vid, out uint pid))
+        {
+            return RawInputInterop.IsTargetVidPid(vid, pid);
+        }
+
+        // If VID/PID tokens are missing, keep a broad Apple VID fallback so scoring can still validate caps.
+        return path.IndexOf("vid_05ac", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               path.IndexOf("vid&05ac", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               path.IndexOf("vid_004c", StringComparison.OrdinalIgnoreCase) >= 0 ||
+               path.IndexOf("vid&004c", StringComparison.OrdinalIgnoreCase) >= 0;
     }
 
     private static bool TryOpenHidPath(string path, out SafeFileHandle? handle)
