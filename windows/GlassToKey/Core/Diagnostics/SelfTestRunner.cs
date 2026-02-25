@@ -1050,8 +1050,11 @@ internal static class SelfTestRunner
         ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
         NormalizedRect keyRect = leftLayout.Rects[0][2];
+        NormalizedRect keyRect2 = leftLayout.Rects[0][3];
         ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
         ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort key2X = (ushort)Math.Clamp((int)Math.Round((keyRect2.X + (keyRect2.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort key2Y = (ushort)Math.Clamp((int)Math.Round((keyRect2.Y + (keyRect2.Height * 0.5)) * maxY), 1, maxY - 1);
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
@@ -1331,6 +1334,116 @@ internal static class SelfTestRunner
         if (holdRepeatDragUpCountAfterLift != 1)
         {
             failure = $"hold repeat drag-cancel release mismatch (upAfterLift={holdRepeatDragUpCountAfterLift}, expected=1)";
+            return false;
+        }
+
+        // Hold-repeat should support simultaneous independent keys (for diagonal movement, e.g. W + D).
+        string holdRepeatStorageKey2 = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 3);
+        KeymapStore holdRepeatDualKeymap = KeymapStore.LoadBundledDefault();
+        holdRepeatDualKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "W" }
+        };
+        holdRepeatDualKeymap.Mappings[0][holdRepeatStorageKey2] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "D" }
+        };
+
+        TouchProcessorCore holdRepeatDualCore = TouchProcessorFactory.CreateDefault(holdRepeatDualKeymap);
+        holdRepeatDualCore.Configure(holdRepeatDualCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatDualQueue = new();
+        using TouchProcessorActor holdRepeatDualActor = new(holdRepeatDualCore, dispatchQueue: holdRepeatDualQueue);
+
+        now = 0;
+        InputFrame holdRepeatDualDown1 = MakeFrame(contactCount: 1, id0: 210, x0: keyX, y0: keyY);
+        InputFrame holdRepeatDualDown2 = MakeFrame(contactCount: 2, id0: 210, x0: keyX, y0: keyY, id1: 211, x1: key2X, y1: key2Y);
+        InputFrame holdRepeatDualReleaseD = MakeFrame(contactCount: 1, id0: 210, x0: keyX, y0: keyY);
+        holdRepeatDualActor.Post(TrackpadSide.Left, in holdRepeatDualDown1, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatDualActor.Post(TrackpadSide.Left, in holdRepeatDualDown2, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatDualActor.Post(TrackpadSide.Left, in holdRepeatDualDown2, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatDualActor.Post(TrackpadSide.Left, in holdRepeatDualReleaseD, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatDualActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatDualActor.WaitForIdle();
+
+        int holdRepeatDualDownW = 0;
+        int holdRepeatDualUpW = 0;
+        int holdRepeatDualDownD = 0;
+        int holdRepeatDualUpD = 0;
+        int holdRepeatDualTaps = 0;
+        bool holdRepeatDualWRepeatable = false;
+        bool holdRepeatDualDRepeatable = false;
+        ulong holdRepeatDualWToken = 0;
+        ulong holdRepeatDualDToken = 0;
+        while (holdRepeatDualQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey == 0x57) // W
+            {
+                if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+                {
+                    holdRepeatDualDownW++;
+                    holdRepeatDualWRepeatable |=
+                        (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                        dispatchEvent.RepeatToken != 0;
+                    if (dispatchEvent.RepeatToken != 0)
+                    {
+                        holdRepeatDualWToken = dispatchEvent.RepeatToken;
+                    }
+                }
+                else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+                {
+                    holdRepeatDualUpW++;
+                }
+                else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+                {
+                    holdRepeatDualTaps++;
+                }
+            }
+            else if (dispatchEvent.VirtualKey == 0x44) // D
+            {
+                if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+                {
+                    holdRepeatDualDownD++;
+                    holdRepeatDualDRepeatable |=
+                        (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                        dispatchEvent.RepeatToken != 0;
+                    if (dispatchEvent.RepeatToken != 0)
+                    {
+                        holdRepeatDualDToken = dispatchEvent.RepeatToken;
+                    }
+                }
+                else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+                {
+                    holdRepeatDualUpD++;
+                }
+                else if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+                {
+                    holdRepeatDualTaps++;
+                }
+            }
+        }
+
+        if (holdRepeatDualDownW != 1 ||
+            holdRepeatDualUpW != 1 ||
+            holdRepeatDualDownD != 1 ||
+            holdRepeatDualUpD != 1 ||
+            !holdRepeatDualWRepeatable ||
+            !holdRepeatDualDRepeatable ||
+            holdRepeatDualWToken == 0 ||
+            holdRepeatDualDToken == 0 ||
+            holdRepeatDualWToken == holdRepeatDualDToken ||
+            holdRepeatDualTaps != 0)
+        {
+            failure = $"hold repeat dual-key mismatch (downW={holdRepeatDualDownW}, upW={holdRepeatDualUpW}, downD={holdRepeatDualDownD}, upD={holdRepeatDualUpD}, wRepeatable={holdRepeatDualWRepeatable}, dRepeatable={holdRepeatDualDRepeatable}, wToken=0x{holdRepeatDualWToken:X}, dToken=0x{holdRepeatDualDToken:X}, taps={holdRepeatDualTaps}, expected=1/1/1/1/true/true/nonzero-distinct/0)";
             return false;
         }
 

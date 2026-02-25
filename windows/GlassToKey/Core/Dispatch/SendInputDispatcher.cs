@@ -332,7 +332,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
                 continue;
             }
 
-            HandleKeyTap(_repeatEntries[i].VirtualKey);
+            HandleRepeatKeyDown(_repeatEntries[i].VirtualKey);
             _repeatEntries[i].NextTick = nowTicks + _repeatIntervalTicks;
         }
     }
@@ -564,6 +564,31 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         SendKeyboard(virtualKey, keyUp: false);
         _tapHeldDown[vk] = true;
         ScheduleTapRelease(virtualKey, Stopwatch.GetTimestamp() + _keyTapMinimumHoldTicks);
+    }
+
+    private void HandleRepeatKeyDown(ushort virtualKey)
+    {
+        if (virtualKey == 0)
+        {
+            return;
+        }
+
+        // Keep autocorrect/key history behavior aligned with repeated character input.
+        HandleKeyDownAutocorrect(virtualKey);
+
+        int vk = virtualKey;
+        if ((uint)vk < (uint)_tapHeldDown.Length && _tapHeldDown[vk])
+        {
+            CancelTapRelease(virtualKey);
+            _tapHeldDown[vk] = false;
+        }
+
+        // Emit typematic-style repeat while preserving the held-down state until explicit KeyUp.
+        SendKeyboard(virtualKey, keyUp: false);
+        if ((uint)vk < (uint)_keyDown.Length)
+        {
+            _keyDown[vk] = true;
+        }
     }
 
     private void ProcessTapReleases(long nowTicks)
