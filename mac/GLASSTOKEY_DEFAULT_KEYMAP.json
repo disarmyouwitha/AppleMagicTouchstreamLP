@@ -5,66 +5,66 @@
   "columnSettingsByLayout" : {
     "5x3" : [
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5.7,
+        "offsetYPercent" : -6,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5,
+        "offsetYPercent" : -7.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.1500000000000001
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -4.3,
+        "offsetYPercent" : -8.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3.5999999999999996,
+        "offsetYPercent" : -6.268059181897302,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3,
+        "offsetYPercent" : -1,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       }
     ],
     "5x4" : [
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5.7,
+        "offsetYPercent" : -6,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5,
+        "offsetYPercent" : -7.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.1500000000000001
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -4.3,
+        "offsetYPercent" : -8.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3.5999999999999996,
+        "offsetYPercent" : -6.268059181897302,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3,
+        "offsetYPercent" : -1,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       }
     ],
     "6x3" : [
@@ -107,40 +107,40 @@
     ],
     "6x4" : [
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5.7,
+        "offsetYPercent" : -6,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -5,
+        "offsetYPercent" : -7.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.1500000000000001
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -4.3,
+        "offsetYPercent" : -8.5,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3.5999999999999996,
+        "offsetYPercent" : -6.268059181897302,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -3,
+        "offsetYPercent" : -1,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       },
       {
-        "offsetXPercent" : 6.25,
-        "offsetYPercent" : -8.268059181897302,
-        "rowSpacingPercent" : 0,
-        "scale" : 1.25
+        "offsetXPercent" : -2.4,
+        "offsetYPercent" : -1,
+        "rowSpacingPercent" : 8.5,
+        "scale" : 1.15
       }
     ],
     "Mobile Ortho 12x4" : [
@@ -652,12 +652,6 @@
   "keyMappings" : {
     "0" : {
       "left:0:0" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 39,
-          "kind" : "key",
-          "label" : "'"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 17,
@@ -666,12 +660,6 @@
         }
       },
       "left:0:1" : {
-        "hold" : {
-          "flags" : 131072,
-          "keyCode" : 30,
-          "kind" : "key",
-          "label" : "}"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 15,
@@ -680,12 +668,6 @@
         }
       },
       "left:0:2" : {
-        "hold" : {
-          "flags" : 131072,
-          "keyCode" : 33,
-          "kind" : "key",
-          "label" : "{"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 14,
@@ -694,12 +676,6 @@
         }
       },
       "left:0:3" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 30,
-          "kind" : "key",
-          "label" : "]"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 13,
@@ -708,12 +684,6 @@
         }
       },
       "left:0:4" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 33,
-          "kind" : "key",
-          "label" : "["
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 12,
@@ -736,12 +706,6 @@
         }
       },
       "left:1:0" : {
-        "hold" : {
-          "flags" : 131072,
-          "keyCode" : 39,
-          "kind" : "key",
-          "label" : "\""
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 5,
@@ -750,12 +714,6 @@
         }
       },
       "left:1:1" : {
-        "hold" : {
-          "flags" : 131072,
-          "keyCode" : 29,
-          "kind" : "key",
-          "label" : ")"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 3,
@@ -764,12 +722,6 @@
         }
       },
       "left:1:2" : {
-        "hold" : {
-          "flags" : 131072,
-          "keyCode" : 25,
-          "kind" : "key",
-          "label" : "("
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 2,
@@ -778,12 +730,6 @@
         }
       },
       "left:1:3" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 1,
-          "kind" : "key",
-          "label" : "Cmd+S"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 1,
@@ -792,12 +738,6 @@
         }
       },
       "left:1:4" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 0,
-          "kind" : "key",
-          "label" : "Cmd+A"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 0,
@@ -813,27 +753,7 @@
           "label" : "Shift"
         }
       },
-      "left:2:0" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 50,
-          "kind" : "key",
-          "label" : "`"
-        },
-        "primary" : {
-          "flags" : 0,
-          "keyCode" : 11,
-          "kind" : "key",
-          "label" : "B"
-        }
-      },
       "left:2:1" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 9,
-          "kind" : "key",
-          "label" : "Cmd+V"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 9,
@@ -842,12 +762,6 @@
         }
       },
       "left:2:2" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 8,
-          "kind" : "key",
-          "label" : "Cmd+C"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 8,
@@ -856,12 +770,6 @@
         }
       },
       "left:2:3" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 7,
-          "kind" : "key",
-          "label" : "Cmd+X"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 7,
@@ -870,12 +778,6 @@
         }
       },
       "left:2:4" : {
-        "hold" : {
-          "flags" : 1048576,
-          "keyCode" : 6,
-          "kind" : "key",
-          "label" : "Cmd+Z"
-        },
         "primary" : {
           "flags" : 0,
           "keyCode" : 6,
@@ -892,31 +794,121 @@
         },
         "primary" : {
           "flags" : 0,
-          "keyCode" : 58,
+          "keyCode" : 65535,
+          "kind" : "none",
+          "label" : "None"
+        }
+      },
+      "right:0:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 16,
           "kind" : "key",
-          "label" : "Option"
+          "label" : "Y"
+        }
+      },
+      "right:0:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 32,
+          "kind" : "key",
+          "label" : "U"
+        }
+      },
+      "right:0:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 34,
+          "kind" : "key",
+          "label" : "I"
+        }
+      },
+      "right:0:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 31,
+          "kind" : "key",
+          "label" : "O"
+        }
+      },
+      "right:0:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 35,
+          "kind" : "key",
+          "label" : "P"
         }
       },
       "right:0:5" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 117,
+          "keyCode" : 51,
           "kind" : "key",
-          "label" : "Delete"
+          "label" : "Back"
         }
       },
-      "right:1:5" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 36,
-          "kind" : "key",
-          "label" : "Ret"
-        },
+      "right:1:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 36,
+          "keyCode" : 4,
           "kind" : "key",
-          "label" : "Ret"
+          "label" : "H"
+        }
+      },
+      "right:1:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 38,
+          "kind" : "key",
+          "label" : "J"
+        }
+      },
+      "right:1:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 40,
+          "kind" : "key",
+          "label" : "K"
+        }
+      },
+      "right:1:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 37,
+          "kind" : "key",
+          "label" : "L"
+        }
+      },
+      "right:2:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 45,
+          "kind" : "key",
+          "label" : "N"
+        }
+      },
+      "right:2:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 46,
+          "kind" : "key",
+          "label" : "M"
+        }
+      },
+      "right:2:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 43,
+          "kind" : "key",
+          "label" : ","
+        }
+      },
+      "right:2:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 47,
+          "kind" : "key",
+          "label" : "."
         }
       },
       "right:2:5" : {
