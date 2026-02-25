@@ -11,6 +11,8 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
+***If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
+
 *If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
 
 ## Usage
@@ -32,9 +34,10 @@ It can't hurt to submit an Issue or PR but this is just a fun side project I am 
 
 **Windows Pin Tray Icon:**
 - You can drag the icon from the hidden tray (`^`) to the visible tray area.
+
 **Windows Haptics:**
 - Working over USB!!!
-- Only works over USB. =x **I do not see a path forward for Bluetooth Haptics on Windows!**
+- **I do not see a path forward for Bluetooth Haptics on Windows!**
 
 ## GESTURES:
 - I have been adding Gestures that you can set in the Gesture Tuning config!

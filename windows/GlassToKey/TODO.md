@@ -1,4 +1,10 @@
 ## TODO:
+- AMT2 - Opensource - test Force and make sure none of the force logic affects it
+- AMT2 - Opensource acceptance testing (USB && BT)
+- AMT2 - HAPTICS OVER BT?????
+-------
+- Can we move the Import/Export Keymap buttons that are next to "GlassToKey" at the top of the config and float them to the right?
+- In Mode Toggles change "Run at Windows Startup" > "Run at Startup"
 - Okay,  I want to see if when I backspace into a previous word if we can back up through the previous word buffer, pull that word into the current buffer as we pass through it, and keep track of where the edit is happening? I should be able to track arrow keys to move the cursor to the right place, backspace, and type, etc.
 - How far can we push symspell -- can we have it use more context? -- can we have it ressurect words from the buffer if I go back to correct them through backspaces? Lets tune it in windows and port it to mac!
 - symspell works great! I want to add "word ressurection" 
