@@ -7,13 +7,13 @@ Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descri
 
 *The app will ask for elevated Accessibility permissions on first run*
 
-## Windows: **(PREREQUISITE INSTALL)**
+## Windows: **(*PREREQUISITE INSTALL)**
 - Built on top of the Official Apple Bootcamp drivers:
 - **Please follow the <a href="windows/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
-***If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
+****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
-*If you use an open source driver based on `imbushuo/mac-precision-touchpad`, you will need to change the device decoder in the GUI but it is still supported!*
+*If you use an open source driver you will need to change the device decoder in the GUI but it is still supported!*
 
 ## Usage
 I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a **.app** and **.exe** file and hopefully people will be able to run it!
