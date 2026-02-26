@@ -13,6 +13,8 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var displayName: String {
         switch self {
+        case .none:
+            return "Blank"
         case .mobile:
             return "Mobile"
         case .mobileOrtho12x4:

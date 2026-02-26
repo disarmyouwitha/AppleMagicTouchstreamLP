@@ -1310,10 +1310,7 @@ enum KeyActionCatalog {
                 "Space",
                 "Tab",
                 "Enter",
-                "Ret",
-                "Backspace",
                 "Back",
-                "Escape",
                 "Esc",
                 "Delete",
                 "Insert",
@@ -1340,22 +1337,17 @@ enum KeyActionCatalog {
                 "BRIGHT_UP",
                 brightnessUpLabel,
                 "BRIGHT_DOWN",
-                brightnessDownLabel,
-                "VOICE"
+                brightnessDownLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
                 "Alt",
                 "Option",
-                "LWin",
-                "RWin",
                 "Cmd",
-                "EMOJI",
                 "Emoji",
                 voiceLabel,
                 chordalShiftLabel,
-                "TT",
                 typingToggleLabel
             ]),
             (dashedHeader("Symbols & Punctuation"), [
