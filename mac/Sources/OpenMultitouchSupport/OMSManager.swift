@@ -37,81 +37,44 @@ public enum OMSHapticPattern: Int32, CaseIterable, Sendable {
 }
 
 public enum OMSCaptureBridgeBackend: String, Sendable {
-    case legacyV1
     case rawV2
 }
 
 public final class OMSManager: Sendable {
     public static let shared = OMSManager()
 
-    private enum CaptureManager {
-        case v1(OpenMTManager)
-        case v2(OpenMTManagerV2)
+    private struct CaptureManager {
+        let manager: OpenMTManagerV2
 
         func refreshAvailableDevices() {
-            switch self {
-            case let .v1(manager):
-                manager.refreshAvailableDevices()
-            case let .v2(manager):
-                manager.refreshAvailableDevices()
-            }
+            manager.refreshAvailableDevices()
         }
 
         func availableDevices() -> [OpenMTDeviceInfo] {
-            switch self {
-            case let .v1(manager):
-                return manager.availableDevices()
-            case let .v2(manager):
-                return manager.availableDevices()
-            }
+            manager.availableDevices()
         }
 
         func activeDevices() -> [OpenMTDeviceInfo] {
-            switch self {
-            case let .v1(manager):
-                return manager.activeDevices()
-            case let .v2(manager):
-                return manager.activeDevices()
-            }
+            manager.activeDevices()
         }
 
         @discardableResult
         func setActiveDevices(_ devices: [OpenMTDeviceInfo]) -> Bool {
-            switch self {
-            case let .v1(manager):
-                return manager.setActiveDevices(devices)
-            case let .v2(manager):
-                return manager.setActiveDevices(devices)
-            }
+            manager.setActiveDevices(devices)
         }
 
         func addRawListener(
             callback: @escaping OpenMTRawFrameCallback
         ) -> OpenMTListener {
-            switch self {
-            case let .v1(manager):
-                return manager.addRawListener(callback: callback)
-            case let .v2(manager):
-                return manager.addRawListener(callback: callback)
-            }
+            manager.addRawListener(callback: callback)
         }
 
         func removeRawListener(_ listener: OpenMTListener) {
-            switch self {
-            case let .v1(manager):
-                manager.removeRawListener(listener)
-            case let .v2(manager):
-                manager.removeRawListener(listener)
-            }
+            manager.removeRawListener(listener)
         }
 
         var backend: OMSCaptureBridgeBackend {
-            switch self {
-            case .v1:
-                return .legacyV1
-            case .v2:
-                return .rawV2
-            }
+            .rawV2
         }
     }
 
@@ -143,23 +106,9 @@ public final class OMSManager: Sendable {
     )
 #endif
 
-    public static func defaultCaptureBackendFromEnvironment() -> OMSCaptureBridgeBackend {
-        if let value = ProcessInfo.processInfo.environment["OMS_CAPTURE_BRIDGE_V2"]?.lowercased() {
-            if value == "0" || value == "false" || value == "no" {
-                return .legacyV1
-            }
-            if value == "1" || value == "true" || value == "yes" {
-                return .rawV2
-            }
-        }
-        return .rawV2
-    }
-
-    public nonisolated(unsafe) static var preferredCaptureBackend = defaultCaptureBackendFromEnvironment()
-
     public var captureBackend: OMSCaptureBridgeBackend {
         protectedCaptureManager.withLockUnchecked { manager in
-            manager?.backend ?? .legacyV1
+            manager?.backend ?? .rawV2
         }
     }
 
@@ -236,16 +185,9 @@ public final class OMSManager: Sendable {
     private init() {
         let hapticManager = OpenMTManager.shared()
         protectedHapticManager = .init(uncheckedState: hapticManager)
-        switch Self.preferredCaptureBackend {
-        case .legacyV1:
-            protectedCaptureManager = .init(uncheckedState: .v1(hapticManager))
-        case .rawV2:
-            if let managerV2 = Self.loadManagerV2() {
-                protectedCaptureManager = .init(uncheckedState: .v2(managerV2))
-            } else {
-                protectedCaptureManager = .init(uncheckedState: .v1(hapticManager))
-            }
-        }
+        protectedCaptureManager = .init(
+            uncheckedState: Self.loadManagerV2().map { CaptureManager(manager: $0) }
+        )
     }
 
     private static func loadManagerV2() -> OpenMTManagerV2? {
@@ -292,10 +234,8 @@ public final class OMSManager: Sendable {
         guard captureManager.setActiveDevices(deviceInfos) else {
             return false
         }
-        if captureManager.backend == .rawV2 {
-            _ = protectedHapticManager.withLockUnchecked { manager in
-                manager?.setActiveDevices(deviceInfos) ?? false
-            }
+        _ = protectedHapticManager.withLockUnchecked { manager in
+            manager?.setActiveDevices(deviceInfos) ?? false
         }
         return true
     }
