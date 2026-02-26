@@ -44,7 +44,9 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 
 **Windows Haptics:**
 - Working over USB!!!
-- **I do not see a path forward for Bluetooth Haptics on Windows!**
+- **~I do not see a path forward for Bluetooth Haptics on Windows!~**
+- Maybe through extending the Opensource driver, now that Vito has BT working?
+ https://github.com/vitoplantamura/MagicTrackpad2ForWindows
 
 ## GESTURES:
 - I have been adding Gestures that you can set in the Gesture Tuning config!
