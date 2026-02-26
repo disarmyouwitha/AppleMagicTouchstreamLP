@@ -1,5 +1,5 @@
 ## TODO
-- When setting Hold action sometimes it copies the entire key from the other side (LHS copies RHS for same column and key) I do not understand how this is happening, instead of just updating the key from the dropdown?
+- When setting Action dropdown in Keymap Tuning sometimes it copies the entire key from the other side (LHS copies RHS for same column and position) I do not understand how this is happening, instead of just updating the key from the dropdown?
 ---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - What other actions can we add to hit parity??

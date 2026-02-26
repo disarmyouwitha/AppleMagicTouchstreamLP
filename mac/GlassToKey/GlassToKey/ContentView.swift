@@ -3579,13 +3579,12 @@ struct ContentView: View {
 
     private func effectiveKeyMapping(for key: SelectedGridKey) -> KeyMapping {
         let layerMappings = keyMappingsForActiveLayer()
+        let resolvedLabel = resolvedLabel(for: key)
         if let mapping = layerMappings[key.storageKey] {
             return mapping
         }
-        if let mapping = layerMappings[key.label] {
-            return mapping
-        }
-        return defaultKeyMapping(for: key.label) ?? KeyMapping(primary: KeyAction(label: key.label, keyCode: 0, flags: 0), hold: nil)
+        return defaultKeyMapping(for: resolvedLabel)
+            ?? KeyMapping(primary: KeyAction(label: resolvedLabel, keyCode: 0, flags: 0), hold: nil)
     }
 
     private func updateKeyMapping(
@@ -3594,21 +3593,32 @@ struct ContentView: View {
     ) {
         let layer = viewModel.activeLayer
         var layerMappings = keyMappingsByLayer[layer] ?? [:]
+        let resolvedLabel = resolvedLabel(for: key)
         var mapping = layerMappings[key.storageKey]
-            ?? layerMappings[key.label]
-            ?? defaultKeyMapping(for: key.label)
-            ?? KeyMapping(primary: KeyAction(label: key.label, keyCode: 0, flags: 0), hold: nil)
+            ?? defaultKeyMapping(for: resolvedLabel)
+            ?? KeyMapping(primary: KeyAction(label: resolvedLabel, keyCode: 0, flags: 0), hold: nil)
         update(&mapping)
-        if let defaultMapping = defaultKeyMapping(for: key.label),
+        if let defaultMapping = defaultKeyMapping(for: resolvedLabel),
            defaultMapping == mapping {
             layerMappings.removeValue(forKey: key.storageKey)
             layerMappings.removeValue(forKey: key.label)
+            layerMappings.removeValue(forKey: resolvedLabel)
             keyMappingsByLayer[layer] = layerMappings
             return
         }
         layerMappings[key.storageKey] = mapping
         layerMappings.removeValue(forKey: key.label)
+        layerMappings.removeValue(forKey: resolvedLabel)
         keyMappingsByLayer[layer] = layerMappings
+    }
+
+    private func resolvedLabel(for key: SelectedGridKey) -> String {
+        let labels = key.side == .left ? leftGridLabels : rightGridLabels
+        guard labels.indices.contains(key.row),
+              labels[key.row].indices.contains(key.column) else {
+            return key.label
+        }
+        return labels[key.row][key.column]
     }
 
     private func updateKeyMappingAndSelection(
