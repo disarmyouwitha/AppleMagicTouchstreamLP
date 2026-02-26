@@ -43,7 +43,6 @@ enum GlassToKeySettings {
 final class GlassToKeyController: ObservableObject {
     private struct BundledKeymapProfile: Decodable {
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
-        let keyMappings: LayeredKeyMappings?
     }
 
     let viewModel: ContentViewModel
@@ -218,9 +217,6 @@ final class GlassToKeyController: ObservableObject {
         }
         if let byLayout = profile.keyMappingsByLayout {
             return KeyActionMappingStore.normalized(byLayout)
-        }
-        if let legacy = profile.keyMappings {
-            return KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)
         }
         return nil
     }

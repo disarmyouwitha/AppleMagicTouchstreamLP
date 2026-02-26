@@ -1687,16 +1687,6 @@ enum KeyActionMappingStore {
         TrackpadLayoutPreset.allCases.map(\.rawValue)
     }
 
-    static func decode(_ data: Data) -> LayeredKeyMappings? {
-        guard !data.isEmpty else { return nil }
-        return try? JSONDecoder().decode(LayeredKeyMappings.self, from: data)
-    }
-
-    static func decodeNormalized(_ data: Data) -> LayeredKeyMappings? {
-        guard let layered = decode(data) else { return nil }
-        return normalized(layered)
-    }
-
     static func encode(_ mappings: LayeredKeyMappings) -> Data? {
         guard !mappings.isEmpty else { return nil }
         do {
@@ -1728,9 +1718,6 @@ enum KeyActionMappingStore {
         if let decoded = try? JSONDecoder().decode(LayoutLayeredKeyMappings.self, from: data) {
             return normalized(decoded)
         }
-        if let legacy = decodeNormalized(data) {
-            return legacyMappedAcrossLayouts(legacy)
-        }
         return nil
     }
 
@@ -1760,11 +1747,4 @@ enum KeyActionMappingStore {
         return mappings
     }
 
-    static func legacyMappedAcrossLayouts(_ mappings: LayeredKeyMappings) -> LayoutLayeredKeyMappings {
-        var output: LayoutLayeredKeyMappings = [:]
-        for layoutRawValue in allLayoutRawValues {
-            output[layoutRawValue] = mappings
-        }
-        return normalized(output)
-    }
 }

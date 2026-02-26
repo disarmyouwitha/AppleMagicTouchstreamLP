@@ -17,14 +17,6 @@ struct ColumnLayoutSettings: Codable, Hashable {
         self.offsetYPercent = offsetYPercent
         self.rowSpacingPercent = rowSpacingPercent
     }
-
-    init(from decoder: Decoder) throws {
-        let container = try decoder.container(keyedBy: CodingKeys.self)
-        scale = try container.decode(Double.self, forKey: .scale)
-        offsetXPercent = try container.decode(Double.self, forKey: .offsetXPercent)
-        offsetYPercent = try container.decode(Double.self, forKey: .offsetYPercent)
-        rowSpacingPercent = try container.decodeIfPresent(Double.self, forKey: .rowSpacingPercent) ?? 0.0
-    }
 }
 
 enum LayoutColumnSettingsStorage {

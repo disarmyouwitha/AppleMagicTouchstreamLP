@@ -145,11 +145,14 @@ public final class OMSManager: Sendable {
 
     public static func defaultCaptureBackendFromEnvironment() -> OMSCaptureBridgeBackend {
         if let value = ProcessInfo.processInfo.environment["OMS_CAPTURE_BRIDGE_V2"]?.lowercased() {
+            if value == "0" || value == "false" || value == "no" {
+                return .legacyV1
+            }
             if value == "1" || value == "true" || value == "yes" {
                 return .rawV2
             }
         }
-        return .legacyV1
+        return .rawV2
     }
 
     public nonisolated(unsafe) static var preferredCaptureBackend = defaultCaptureBackendFromEnvironment()

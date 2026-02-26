@@ -83,7 +83,6 @@ struct ContentView: View {
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
-        let keyMappings: LayeredKeyMappings?
     }
 
     @StateObject private var viewModel: ContentViewModel
@@ -3127,8 +3126,7 @@ struct ContentView: View {
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
-            keyMappingsByLayout: mappings,
-            keyMappings: nil
+            keyMappingsByLayout: mappings
         )
     }
 
@@ -3246,9 +3244,6 @@ struct ContentView: View {
         if let byLayout = profile.keyMappingsByLayout {
             return KeyActionMappingStore.normalized(byLayout)
         }
-        if let legacy = profile.keyMappings {
-            return KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)
-        }
         return nil
     }
 
@@ -3286,10 +3281,6 @@ struct ContentView: View {
     private func encodedLayoutKeyMappingsData(from profile: KeymapProfile) -> Data {
         if let byLayout = profile.keyMappingsByLayout,
            let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(byLayout)) {
-            return encoded
-        }
-        if let legacy = profile.keyMappings,
-           let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)) {
             return encoded
         }
         return Data()
