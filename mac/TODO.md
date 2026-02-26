@@ -1,17 +1,15 @@
 ## TODO
-- When setting Action dropdown in Keymap Tuning sometimes it copies the entire key from the other side (LHS copies RHS for same column and position) I do not understand how this is happening, instead of just updating the key from the dropdown?
----
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
-- What other actions can we add to hit parity??
+- What other dropdown actions can we add to hit parity /w ../windows/glasstokey??
 -------
 
 ### FUTURE
 - Can we make Gesture Tuning section scrollable??
-- * Can MAKE NOTE ONLY of any migration/legacy code we are not using or that was used to transition to our current architecture? We are about to have our first release, so there are no users with "legacy" settings and we don't need to support anything legacy
-- export /import keymaps, **load GLASSTOKEY_DEFAULT_KEYMAP.json (package with app) if no keymap is saved.
-- autocorrect bugging (lets go symspell)
-- * far future - keymap import/export on windows/osx interop?
+- * Can MAKE NOTE ONLY of any migration/legacy code we are not using or that was used to transition to our current architecture? We are about to have our first release, so there are no users with "legacy" settings and we don't need to support anything legacy except the Opensource drivers. 
+
 - Fix Planck layout
+- Fix 6x4 keymap.
+---
 - auto-reconnect not working?
 - Short drag sometimes fires click
 - Replay Addition: Add replay hotkeys (Space play/pause, arrow keys frame step).

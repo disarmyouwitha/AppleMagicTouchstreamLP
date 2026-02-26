@@ -100,6 +100,7 @@ final class ContentViewModel: ObservableObject {
         case leftClick
         case doubleClick
         case rightClick
+        case middleClick
         case volumeUp
         case volumeDown
         case brightnessUp
@@ -773,6 +774,7 @@ enum KeyActionKind: String, Codable {
     case leftClick
     case doubleClick
     case rightClick
+    case middleClick
     case volumeUp
     case volumeDown
     case brightnessUp
@@ -1018,6 +1020,7 @@ enum KeyActionCatalog {
     static let leftClickLabel = "Left Click"
     static let doubleClickLabel = "Double Click"
     static let rightClickLabel = "Right Click"
+    static let middleClickLabel = "Middle Click"
     static let volumeUpLabel = "VOL⬆️"
     static let volumeDownLabel = "VOL⬇️"
     static let brightnessUpLabel = "BRIGHT⬆️"
@@ -1116,6 +1119,11 @@ enum KeyActionCatalog {
         "\\": (CGKeyCode(kVK_ANSI_Backslash), []),
         "Back": (CGKeyCode(kVK_Delete), []),
         "Delete": (CGKeyCode(kVK_ForwardDelete), []),
+        "Insert": (CGKeyCode(kVK_Help), []),
+        "Home": (CGKeyCode(kVK_Home), []),
+        "End": (CGKeyCode(kVK_End), []),
+        "PageUp": (CGKeyCode(kVK_PageUp), []),
+        "PageDown": (CGKeyCode(kVK_PageDown), []),
         "Left": (CGKeyCode(kVK_LeftArrow), []),
         "Right": (CGKeyCode(kVK_RightArrow), []),
         "Up": (CGKeyCode(kVK_UpArrow), []),
@@ -1219,7 +1227,8 @@ enum KeyActionCatalog {
     private static let mouseActions: [KeyAction] = [
         KeyAction(label: leftClickLabel, keyCode: 0, flags: 0, kind: .leftClick),
         KeyAction(label: doubleClickLabel, keyCode: 0, flags: 0, kind: .doubleClick),
-        KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick)
+        KeyAction(label: rightClickLabel, keyCode: 0, flags: 0, kind: .rightClick),
+        KeyAction(label: middleClickLabel, keyCode: 0, flags: 0, kind: .middleClick)
     ]
 
     private static let systemActions: [KeyAction] = [
@@ -1303,6 +1312,7 @@ enum KeyActionCatalog {
                 "Ret",
                 "Backspace",
                 "Back",
+                "Escape",
                 "Esc",
                 "Delete",
                 "Insert",
@@ -1318,22 +1328,33 @@ enum KeyActionCatalog {
             (dashedHeader("Mouse Actions"), [
                 leftClickLabel,
                 doubleClickLabel,
-                rightClickLabel
+                rightClickLabel,
+                middleClickLabel
             ]),
             (dashedHeader("System Controls"), [
+                "VOL_UP",
                 volumeUpLabel,
+                "VOL_DOWN",
                 volumeDownLabel,
+                "BRIGHT_UP",
                 brightnessUpLabel,
-                brightnessDownLabel
+                "BRIGHT_DOWN",
+                brightnessDownLabel,
+                "VOICE"
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
+                "Alt",
                 "Option",
+                "LWin",
+                "RWin",
                 "Cmd",
+                "EMOJI",
                 "Emoji",
                 voiceLabel,
                 chordalShiftLabel,
+                "TT",
                 typingToggleLabel
             ]),
             (dashedHeader("Symbols & Punctuation"), [
@@ -1369,6 +1390,7 @@ enum KeyActionCatalog {
                 "+",
                 "=",
                 "`",
+                "EmDash",
                 "—"
             ])
         ]
@@ -1399,7 +1421,15 @@ enum KeyActionCatalog {
             ("Cmd+C", CGKeyCode(kVK_ANSI_C)),
             ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
             ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
-            ("Cmd+S", CGKeyCode(kVK_ANSI_S))
+            ("Cmd+S", CGKeyCode(kVK_ANSI_S)),
+            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z)),
+            ("Ctrl+F", CGKeyCode(kVK_ANSI_F)),
+            ("Ctrl+X", CGKeyCode(kVK_ANSI_X)),
+            ("Ctrl+C", CGKeyCode(kVK_ANSI_C)),
+            ("Ctrl+V", CGKeyCode(kVK_ANSI_V)),
+            ("Ctrl+A", CGKeyCode(kVK_ANSI_A)),
+            ("Ctrl+S", CGKeyCode(kVK_ANSI_S)),
+            ("Ctrl+Z", CGKeyCode(kVK_ANSI_Z))
         ]
         return combos.map { label, code in
             KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
@@ -1412,111 +1442,154 @@ enum KeyActionCatalog {
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
 
     static func action(for label: String) -> KeyAction? {
+        let normalizedLabel: String
+        switch label {
+        case "Escape":
+            normalizedLabel = "Esc"
+        case "Enter":
+            normalizedLabel = "Ret"
+        case "Backspace":
+            normalizedLabel = "Back"
+        case "TT":
+            normalizedLabel = typingToggleLabel
+        case "EMOJI":
+            normalizedLabel = "Emoji"
+        case "VOICE":
+            normalizedLabel = voiceLabel
+        case "VOL_UP":
+            normalizedLabel = volumeUpLabel
+        case "VOL_DOWN":
+            normalizedLabel = volumeDownLabel
+        case "BRIGHT_UP":
+            normalizedLabel = brightnessUpLabel
+        case "BRIGHT_DOWN":
+            normalizedLabel = brightnessDownLabel
+        case "Alt":
+            normalizedLabel = "Option"
+        case "LWin", "RWin":
+            normalizedLabel = "Cmd"
+        case "EmDash":
+            normalizedLabel = "—"
+        default:
+            normalizedLabel = label
+        }
+
+        if let commandAlias = controlChordAlias(normalizedLabel) {
+            return commandAlias
+        }
         if label == noneLabel {
             return noneAction
         }
-        if label == voiceLabel {
+        if normalizedLabel == voiceLabel {
             return KeyAction(
-                label: voiceLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .voice
             )
         }
-        if label == leftClickLabel {
+        if normalizedLabel == leftClickLabel {
             return KeyAction(
-                label: leftClickLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .leftClick
             )
         }
-        if label == doubleClickLabel {
+        if normalizedLabel == doubleClickLabel {
             return KeyAction(
-                label: doubleClickLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .doubleClick
             )
         }
-        if label == rightClickLabel {
+        if normalizedLabel == rightClickLabel {
             return KeyAction(
-                label: rightClickLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .rightClick
             )
         }
-        if label == volumeUpLabel {
+        if normalizedLabel == middleClickLabel {
             return KeyAction(
-                label: volumeUpLabel,
+                label: label,
+                keyCode: 0,
+                flags: 0,
+                kind: .middleClick
+            )
+        }
+        if normalizedLabel == volumeUpLabel {
+            return KeyAction(
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .volumeUp
             )
         }
-        if label == volumeDownLabel {
+        if normalizedLabel == volumeDownLabel {
             return KeyAction(
-                label: volumeDownLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .volumeDown
             )
         }
-        if label == brightnessUpLabel {
+        if normalizedLabel == brightnessUpLabel {
             return KeyAction(
-                label: brightnessUpLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .brightnessUp
             )
         }
-        if label == brightnessDownLabel {
+        if normalizedLabel == brightnessDownLabel {
             return KeyAction(
-                label: brightnessDownLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .brightnessDown
             )
         }
-        if label == typingToggleLabel {
+        if normalizedLabel == typingToggleLabel {
             return KeyAction(
-                label: typingToggleLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .typingToggle
             )
         }
-        if label == chordalShiftLabel {
+        if normalizedLabel == chordalShiftLabel {
             return KeyAction(
-                label: chordalShiftLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .chordalShift
             )
         }
-        if label == gestureInnerCornersHoldLabel {
+        if normalizedLabel == gestureInnerCornersHoldLabel {
             return KeyAction(
-                label: gestureInnerCornersHoldLabel,
+                label: label,
                 keyCode: 0,
                 flags: 0,
                 kind: .gestureInnerCornersHold
             )
         }
-        if let layer = layer(from: label, prefix: "MO") {
+        if let layer = layer(from: normalizedLabel, prefix: "MO", allowBaseLayer: false) {
             return makeLayerAction(kind: .layerMomentary, layer: layer)
         }
-        if let layer = layer(from: label, prefix: "TO") {
+        if let layer = layer(from: normalizedLabel, prefix: "TO", allowBaseLayer: true) {
             return makeLayerAction(kind: .layerToggle, layer: layer)
         }
-        if label == "Globe", let emojiBinding = bindingsByLabel["Emoji"] {
+        if normalizedLabel == "Globe", let emojiBinding = bindingsByLabel["Emoji"] {
             return KeyAction(
                 label: "Emoji",
                 keyCode: UInt16(emojiBinding.0),
                 flags: emojiBinding.1.rawValue
             )
         }
-        guard let binding = bindingsByLabel[label] else { return nil }
+        guard let binding = bindingsByLabel[normalizedLabel] else { return nil }
         return KeyAction(
             label: label,
             keyCode: UInt16(binding.0),
@@ -1547,12 +1620,16 @@ enum KeyActionCatalog {
     }
 
     private static var layerActions: [KeyAction] {
-        (KeyLayerConfig.baseLayer + 1...KeyLayerConfig.maxLayer).flatMap { layer in
-            [
-                makeLayerAction(kind: .layerMomentary, layer: layer),
-                makeLayerAction(kind: .layerToggle, layer: layer)
-            ]
-        }
+        var actions = [makeLayerAction(kind: .layerToggle, layer: KeyLayerConfig.baseLayer)]
+        actions.append(
+            contentsOf: (KeyLayerConfig.baseLayer + 1...KeyLayerConfig.maxLayer).flatMap { layer in
+                [
+                    makeLayerAction(kind: .layerMomentary, layer: layer),
+                    makeLayerAction(kind: .layerToggle, layer: layer)
+                ]
+            }
+        )
+        return actions
     }
 
     private static func makeLayerAction(kind: KeyActionKind, layer: Int) -> KeyAction {
@@ -1567,7 +1644,7 @@ enum KeyActionCatalog {
         )
     }
 
-    private static func layer(from label: String, prefix: String) -> Int? {
+    private static func layer(from label: String, prefix: String, allowBaseLayer: Bool) -> Int? {
         let expectedPrefix = "\(prefix)("
         guard label.hasPrefix(expectedPrefix), label.hasSuffix(")") else { return nil }
         let start = label.index(label.startIndex, offsetBy: expectedPrefix.count)
@@ -1575,8 +1652,40 @@ enum KeyActionCatalog {
         let numberText = label[start..<end]
         guard let parsed = Int(numberText) else { return nil }
         let clamped = KeyLayerConfig.clamped(parsed)
-        guard clamped == parsed, clamped > KeyLayerConfig.baseLayer else { return nil }
+        guard clamped == parsed else { return nil }
+        if !allowBaseLayer, clamped == KeyLayerConfig.baseLayer {
+            return nil
+        }
         return clamped
+    }
+
+    private static func controlChordAlias(_ label: String) -> KeyAction? {
+        let keyCode: CGKeyCode
+        switch label {
+        case "Ctrl+F":
+            keyCode = CGKeyCode(kVK_ANSI_F)
+        case "Ctrl+R":
+            keyCode = CGKeyCode(kVK_ANSI_R)
+        case "Ctrl+X":
+            keyCode = CGKeyCode(kVK_ANSI_X)
+        case "Ctrl+C":
+            keyCode = CGKeyCode(kVK_ANSI_C)
+        case "Ctrl+V":
+            keyCode = CGKeyCode(kVK_ANSI_V)
+        case "Ctrl+A":
+            keyCode = CGKeyCode(kVK_ANSI_A)
+        case "Ctrl+S":
+            keyCode = CGKeyCode(kVK_ANSI_S)
+        case "Ctrl+Z":
+            keyCode = CGKeyCode(kVK_ANSI_Z)
+        default:
+            return nil
+        }
+        return KeyAction(
+            label: label,
+            keyCode: UInt16(keyCode),
+            flags: CGEventFlags.maskCommand.rawValue
+        )
     }
 }
 

@@ -94,6 +94,14 @@ final class KeyEventDispatcher: @unchecked Sendable {
         dispatcher.postRightClickImmediate()
     }
 
+    func postMiddleClick() {
+        dispatcher.postMiddleClick()
+    }
+
+    func postMiddleClickImmediate() {
+        dispatcher.postMiddleClickImmediate()
+    }
+
     func postText(_ text: String) {
         dispatcher.postText(text)
     }
@@ -120,6 +128,8 @@ private protocol KeyDispatching: Sendable {
     func postLeftClickImmediate(clickCount: Int)
     func postRightClick()
     func postRightClickImmediate()
+    func postMiddleClick()
+    func postMiddleClickImmediate()
     func postText(_ text: String)
     func postTextImmediate(_ text: String)
     func postSystemKey(_ key: KeyEventDispatcher.SystemKey)
@@ -364,6 +374,37 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         }
     }
 
+    func postMiddleClick() {
+        queue.async { [self] in
+            postMiddleClickImmediate()
+        }
+    }
+
+    func postMiddleClickImmediate() {
+        autoreleasepool {
+            guard let source = ensureEventSource() else {
+                return
+            }
+            let location = CGEvent(source: nil)?.location ?? .zero
+            guard let mouseDown = CGEvent(
+                mouseEventSource: source,
+                mouseType: .otherMouseDown,
+                mouseCursorPosition: location,
+                mouseButton: .center
+            ),
+            let mouseUp = CGEvent(
+                mouseEventSource: source,
+                mouseType: .otherMouseUp,
+                mouseCursorPosition: location,
+                mouseButton: .center
+            ) else {
+                return
+            }
+            mouseDown.post(tap: .cghidEventTap)
+            mouseUp.post(tap: .cghidEventTap)
+        }
+    }
+
     func postText(_ text: String) {
         guard !text.isEmpty else { return }
         queue.async { [self] in
@@ -472,6 +513,7 @@ final class DispatchService: @unchecked Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case leftClick(clickCount: Int)
         case rightClick
+        case middleClick
         case systemKey(KeyEventDispatcher.SystemKey)
         case haptic(strength: Double, deviceID: String?)
     }
@@ -571,6 +613,10 @@ final class DispatchService: @unchecked Sendable {
         enqueue(.rightClick)
     }
 
+    func postMiddleClick() {
+        enqueue(.middleClick)
+    }
+
     func postVolumeUp() {
         enqueue(.systemKey(.volumeUp))
     }
@@ -659,6 +705,8 @@ final class DispatchService: @unchecked Sendable {
             keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
         case .rightClick:
             keyDispatcher.postRightClickImmediate()
+        case .middleClick:
+            keyDispatcher.postMiddleClickImmediate()
         case let .systemKey(key):
             keyDispatcher.postSystemKeyImmediate(key)
         case let .haptic(strength, deviceID):

@@ -1265,7 +1265,7 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     break
-                case .key, .leftClick, .doubleClick, .rightClick,
+                case .key, .leftClick, .doubleClick, .rightClick, .middleClick,
                      .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
                      .chordalShift,
                      .voice,
@@ -1814,6 +1814,8 @@ actor TouchProcessorEngine {
                 action = .doubleClick
             case .rightClick:
                 action = .rightClick
+            case .middleClick:
+                action = .middleClick
             case .volumeUp:
                 action = .volumeUp
             case .volumeDown:
@@ -1960,6 +1962,16 @@ actor TouchProcessorEngine {
                 normalizedRect: normalizedRect,
                 label: action.label,
                 action: .rightClick,
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .middleClick:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                label: action.label,
+                action: .middleClick,
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -3195,6 +3207,8 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
+        case .middleClick:
+            dispatchService.postMiddleClick()
         case .volumeUp:
             dispatchService.postVolumeUp()
         case .volumeDown:
@@ -3695,6 +3709,8 @@ actor TouchProcessorEngine {
             dispatchService.postLeftClick(clickCount: 2)
         case .rightClick:
             dispatchService.postRightClick()
+        case .middleClick:
+            dispatchService.postMiddleClick()
         case .volumeUp:
             dispatchService.postVolumeUp()
         case .volumeDown:
