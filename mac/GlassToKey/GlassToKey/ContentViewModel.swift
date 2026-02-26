@@ -1415,14 +1415,7 @@ enum KeyActionCatalog {
             ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
             ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
             ("Cmd+S", CGKeyCode(kVK_ANSI_S)),
-            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z)),
-            ("Ctrl+F", CGKeyCode(kVK_ANSI_F)),
-            ("Ctrl+X", CGKeyCode(kVK_ANSI_X)),
-            ("Ctrl+C", CGKeyCode(kVK_ANSI_C)),
-            ("Ctrl+V", CGKeyCode(kVK_ANSI_V)),
-            ("Ctrl+A", CGKeyCode(kVK_ANSI_A)),
-            ("Ctrl+S", CGKeyCode(kVK_ANSI_S)),
-            ("Ctrl+Z", CGKeyCode(kVK_ANSI_Z))
+            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z))
         ]
         return combos.map { label, code in
             KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
