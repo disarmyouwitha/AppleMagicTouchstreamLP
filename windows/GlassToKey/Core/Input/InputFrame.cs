@@ -2,13 +2,20 @@ using System;
 
 namespace GlassToKey;
 
-public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Flags, byte Pressure = 0, byte Phase = 0)
+public readonly record struct ContactFrame(
+    uint Id,
+    ushort X,
+    ushort Y,
+    byte Flags,
+    byte Pressure = 0,
+    byte Phase = 0,
+    bool HasForceData = true)
 {
     public bool TipSwitch => (Flags & 0x02) != 0;
     public bool Confidence => (Flags & 0x01) != 0;
     public byte Pressure8 => Pressure;
     public byte Phase8 => Phase;
-    public int ForceNorm => ForceNormalizer.Compute(Pressure8, Phase8);
+    public int ForceNorm => HasForceData ? ForceNormalizer.Compute(Pressure8, Phase8) : -1;
     public byte Pressure6 => (byte)(Pressure >> 2);
     public byte PressureApprox => (byte)(Pressure6 << 2);
 
@@ -16,7 +23,7 @@ public readonly record struct ContactFrame(uint Id, ushort X, ushort Y, byte Fla
     {
         // Do not attempt to synthesize pressure from legacy/open-source PTP flag bits.
         // Only the official decoder path may populate Pressure/Phase from known fields.
-        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, Pressure: 0, Phase: 0);
+        return new ContactFrame(contact.ContactId, contact.X, contact.Y, contact.Flags, Pressure: 0, Phase: 0, HasForceData: false);
     }
 }
 
