@@ -82,7 +82,8 @@ struct ContentView: View {
         let fiveFingerSwipeRightGestureAction: String?
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
-        let keyMappings: LayeredKeyMappings
+        let keyMappingsByLayout: LayoutLayeredKeyMappings?
+        let keyMappings: LayeredKeyMappings?
     }
 
     @StateObject private var viewModel: ContentViewModel
@@ -99,6 +100,7 @@ struct ContentView: View {
     @State private var buttonInspectorSelection: ButtonInspectorSelection?
     @State private var keyInspectorSelection: KeyInspectorSelection?
     @State private var keyMappingsByLayer: LayeredKeyMappings = [:]
+    @State private var keyMappingsByLayout: LayoutLayeredKeyMappings = [:]
     @State private var layoutOption: TrackpadLayoutPreset = .sixByThree
     @State private var leftGridLabelInfo: [[GridLabel]] = []
     @State private var rightGridLabelInfo: [[GridLabel]] = []
@@ -202,6 +204,15 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 1
         formatter.minimum = NSNumber(value: ContentView.rowSpacingPercentRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.rowSpacingPercentRange.upperBound)
+        return formatter
+    }()
+    fileprivate static let buttonGeometryPercentFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        formatter.minimum = 0
+        formatter.maximum = 100
         return formatter
     }()
     fileprivate static let snapRadiusPercentFormatter: NumberFormatter = {
@@ -460,6 +471,7 @@ struct ContentView: View {
                 updateGridLabelInfo()
             }
             .onChange(of: keyMappingsByLayer) { newValue in
+                keyMappingsByLayout[layoutOption.rawValue] = KeyActionMappingStore.normalized(newValue)
                 viewModel.updateKeyMappings(newValue)
                 updateGridLabelInfo()
                 refreshKeyInspectorSelection()
@@ -1592,7 +1604,7 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "X (%)",
                                 value: positionBinding(for: selection.button, axis: .x),
-                                formatter: ContentView.columnOffsetFormatter,
+                                formatter: ContentView.buttonGeometryPercentFormatter,
                                 range: positionRange(for: selection.button, axis: .x),
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
@@ -1601,7 +1613,7 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "Y (%)",
                                 value: positionBinding(for: selection.button, axis: .y),
-                                formatter: ContentView.columnOffsetFormatter,
+                                formatter: ContentView.buttonGeometryPercentFormatter,
                                 range: positionRange(for: selection.button, axis: .y),
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
@@ -1610,7 +1622,7 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "Width (%)",
                                 value: sizeBinding(for: selection.button, dimension: .width),
-                                formatter: ContentView.columnOffsetFormatter,
+                                formatter: ContentView.buttonGeometryPercentFormatter,
                                 range: sizeRange(for: selection.button, dimension: .width),
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
@@ -1619,7 +1631,7 @@ struct ContentView: View {
                             ColumnTuningRow(
                                 title: "Height (%)",
                                 value: sizeBinding(for: selection.button, dimension: .height),
-                                formatter: ContentView.columnOffsetFormatter,
+                                formatter: ContentView.buttonGeometryPercentFormatter,
                                 range: sizeRange(for: selection.button, dimension: .height),
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
@@ -2854,6 +2866,7 @@ struct ContentView: View {
         columnSettings = columnSettings(for: newLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: newLayout)
+        keyMappingsByLayer = keyMappings(for: newLayout)
         viewModel.updateCustomButtons(customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
@@ -2956,8 +2969,9 @@ struct ContentView: View {
         columnSettings = columnSettings(for: resolvedLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: resolvedLayout)
-        viewModel.updateCustomButtons(customButtons)
         loadKeyMappings()
+        keyMappingsByLayer = keyMappings(for: resolvedLayout)
+        viewModel.updateCustomButtons(customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
         if let leftDevice = deviceForID(storedLeftDeviceID) {
@@ -3081,7 +3095,8 @@ struct ContentView: View {
     private func keymapProfileSnapshot() -> KeymapProfile {
         let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
         let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
-        let mappings = KeyActionMappingStore.decode(storedKeyMappingsData) ?? keyMappingsByLayer
+        let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
+            ?? normalizedLayoutMappingsWithCurrentRuntime()
         return KeymapProfile(
             schemaVersion: 2,
             leftDeviceID: storedLeftDeviceID,
@@ -3112,7 +3127,8 @@ struct ContentView: View {
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
-            keyMappings: mappings
+            keyMappingsByLayout: mappings,
+            keyMappings: nil
         )
     }
 
@@ -3145,7 +3161,7 @@ struct ContentView: View {
         fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
         storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
         storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
-        storedKeyMappingsData = KeyActionMappingStore.encode(profile.keyMappings) ?? Data()
+        storedKeyMappingsData = encodedLayoutKeyMappingsData(from: profile)
         applySavedSettings()
         viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
     }
@@ -3173,7 +3189,7 @@ struct ContentView: View {
     private func persistConfig() {
         saveSettings()
         saveCustomButtons(customButtons)
-        saveKeyMappings(keyMappingsByLayer)
+        saveKeyMappings(normalizedLayoutMappingsWithCurrentRuntime())
     }
 
     private func columnSettings(
@@ -3205,17 +3221,18 @@ struct ContentView: View {
     }
 
     private func loadKeyMappings() {
-        if let decoded = KeyActionMappingStore.decodeNormalized(storedKeyMappingsData) {
-            keyMappingsByLayer = decoded
-        } else if let fallback = bundledDefaultKeyMappings() {
-            keyMappingsByLayer = fallback
-        } else {
-            keyMappingsByLayer = KeyActionMappingStore.emptyMappings()
+        if let decoded = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData) {
+            keyMappingsByLayout = decoded
+            return
         }
-        viewModel.updateKeyMappings(keyMappingsByLayer)
+        if let fallback = bundledDefaultKeyMappings() {
+            keyMappingsByLayout = fallback
+            return
+        }
+        keyMappingsByLayout = KeyActionMappingStore.emptyLayoutMappings()
     }
 
-    private func bundledDefaultKeyMappings() -> LayeredKeyMappings? {
+    private func bundledDefaultKeyMappings() -> LayoutLayeredKeyMappings? {
         guard let url = Bundle.main.url(
             forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
             withExtension: "json"
@@ -3226,7 +3243,13 @@ struct ContentView: View {
         guard let profile = try? JSONDecoder().decode(KeymapProfile.self, from: data) else {
             return nil
         }
-        return KeyActionMappingStore.normalized(profile.keyMappings)
+        if let byLayout = profile.keyMappingsByLayout {
+            return KeyActionMappingStore.normalized(byLayout)
+        }
+        if let legacy = profile.keyMappings {
+            return KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)
+        }
+        return nil
     }
 
     private func loadCustomButtons(for layout: TrackpadLayoutPreset) -> [CustomButton] {
@@ -3240,8 +3263,36 @@ struct ContentView: View {
         )
     }
 
-    private func saveKeyMappings(_ mappings: LayeredKeyMappings) {
+    private func saveKeyMappings(_ mappings: LayoutLayeredKeyMappings) {
         storedKeyMappingsData = KeyActionMappingStore.encode(mappings) ?? Data()
+    }
+
+    private func keyMappings(for layout: TrackpadLayoutPreset) -> LayeredKeyMappings {
+        let layoutKey = layout.rawValue
+        if let mappings = keyMappingsByLayout[layoutKey] {
+            return KeyActionMappingStore.normalized(mappings)
+        }
+        let empty = KeyActionMappingStore.emptyMappings()
+        keyMappingsByLayout[layoutKey] = empty
+        return empty
+    }
+
+    private func normalizedLayoutMappingsWithCurrentRuntime() -> LayoutLayeredKeyMappings {
+        var merged = keyMappingsByLayout
+        merged[layoutOption.rawValue] = keyMappingsByLayer
+        return KeyActionMappingStore.normalized(merged)
+    }
+
+    private func encodedLayoutKeyMappingsData(from profile: KeymapProfile) -> Data {
+        if let byLayout = profile.keyMappingsByLayout,
+           let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(byLayout)) {
+            return encoded
+        }
+        if let legacy = profile.keyMappings,
+           let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)) {
+            return encoded
+        }
+        return Data()
     }
 
     private func saveCustomButtons(_ buttons: [CustomButton]) {

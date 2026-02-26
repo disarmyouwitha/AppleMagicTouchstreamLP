@@ -110,37 +110,37 @@
         "offsetXPercent" : -5.7,
         "offsetYPercent" : -6,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.15
+        "scale" : 0.9999999999999998
       },
       {
         "offsetXPercent" : -5,
         "offsetYPercent" : -7.5,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.1500000000000001
+        "scale" : 1
       },
       {
         "offsetXPercent" : -4.3,
         "offsetYPercent" : -8.5,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.15
+        "scale" : 0.9999999999999998
       },
       {
         "offsetXPercent" : -3.5999999999999996,
         "offsetYPercent" : -6.268059181897302,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.15
+        "scale" : 0.9999999999999998
       },
       {
         "offsetXPercent" : -3,
         "offsetYPercent" : -1,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.15
+        "scale" : 0.9999999999999998
       },
       {
         "offsetXPercent" : -2.4,
         "offsetYPercent" : -1,
         "rowSpacingPercent" : 8.5,
-        "scale" : 1.15
+        "scale" : 0.9999999999999998
       }
     ],
     "Mobile Ortho 12x4" : [
@@ -489,17 +489,17 @@
         {
           "action" : {
             "flags" : 0,
-            "keyCode" : 49,
+            "keyCode" : 51,
             "kind" : "key",
-            "label" : "Space"
+            "label" : "Back"
           },
           "id" : "54707ADF-43D0-4131-8D17-3EB287A2A920",
           "layer" : 0,
           "rect" : {
-            "height" : 0.34812880765883375,
+            "height" : 0.25,
             "width" : 0.25,
             "x" : 0.75,
-            "y" : 0.6527415143603132
+            "y" : 0.75
           },
           "side" : "left"
         },
@@ -513,44 +513,10 @@
           "id" : "96B34AE0-6EE8-4652-9E6D-332867665DD7",
           "layer" : 0,
           "rect" : {
-            "height" : 0.34812880765883375,
+            "height" : 0.25,
             "width" : 0.25,
             "x" : 0,
-            "y" : 0.6527415143603132
-          },
-          "side" : "right"
-        },
-        {
-          "action" : {
-            "flags" : 0,
-            "keyCode" : 49,
-            "kind" : "key",
-            "label" : "Space"
-          },
-          "id" : "79AC2506-2F07-4E9D-882F-3D2ADF603EF4",
-          "layer" : 0,
-          "rect" : {
-            "height" : 0.2610966057441253,
-            "width" : 0.25,
-            "x" : 0.25,
-            "y" : 0.7397737162750218
-          },
-          "side" : "right"
-        },
-        {
-          "action" : {
-            "flags" : 0,
-            "keyCode" : 49,
-            "kind" : "key",
-            "label" : "Space"
-          },
-          "id" : "8EE83754-3C6B-4F10-8A7C-22B16547CDD8",
-          "layer" : 0,
-          "rect" : {
-            "height" : 0.2610966057441253,
-            "width" : 0.25,
-            "x" : 0.5,
-            "y" : 0.7397737162750218
+            "y" : 0.03
           },
           "side" : "right"
         }
@@ -654,12 +620,60 @@
       "left:0:0" : {
         "primary" : {
           "flags" : 0,
+          "keyCode" : 23,
+          "kind" : "key",
+          "label" : "5"
+        }
+      },
+      "left:0:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 21,
+          "kind" : "key",
+          "label" : "4"
+        }
+      },
+      "left:0:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 20,
+          "kind" : "key",
+          "label" : "3"
+        }
+      },
+      "left:0:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 19,
+          "kind" : "key",
+          "label" : "2"
+        }
+      },
+      "left:0:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 18,
+          "kind" : "key",
+          "label" : "1"
+        }
+      },
+      "left:0:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 53,
+          "kind" : "key",
+          "label" : "Esc"
+        }
+      },
+      "left:1:0" : {
+        "primary" : {
+          "flags" : 0,
           "keyCode" : 17,
           "kind" : "key",
           "label" : "T"
         }
       },
-      "left:0:1" : {
+      "left:1:1" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 15,
@@ -667,7 +681,7 @@
           "label" : "R"
         }
       },
-      "left:0:2" : {
+      "left:1:2" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 14,
@@ -675,7 +689,7 @@
           "label" : "E"
         }
       },
-      "left:0:3" : {
+      "left:1:3" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 13,
@@ -683,7 +697,7 @@
           "label" : "W"
         }
       },
-      "left:0:4" : {
+      "left:1:4" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 12,
@@ -691,13 +705,7 @@
           "label" : "Q"
         }
       },
-      "left:0:5" : {
-        "hold" : {
-          "flags" : 0,
-          "keyCode" : 53,
-          "kind" : "key",
-          "label" : "Esc"
-        },
+      "left:1:5" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 48,
@@ -705,7 +713,7 @@
           "label" : "Tab"
         }
       },
-      "left:1:0" : {
+      "left:2:0" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 5,
@@ -713,7 +721,7 @@
           "label" : "G"
         }
       },
-      "left:1:1" : {
+      "left:2:1" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 3,
@@ -721,7 +729,7 @@
           "label" : "F"
         }
       },
-      "left:1:2" : {
+      "left:2:2" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 2,
@@ -729,7 +737,7 @@
           "label" : "D"
         }
       },
-      "left:1:3" : {
+      "left:2:3" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 1,
@@ -737,7 +745,7 @@
           "label" : "S"
         }
       },
-      "left:1:4" : {
+      "left:2:4" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 0,
@@ -745,7 +753,7 @@
           "label" : "A"
         }
       },
-      "left:1:5" : {
+      "left:2:5" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 56,
@@ -753,7 +761,15 @@
           "label" : "Shift"
         }
       },
-      "left:2:1" : {
+      "left:3:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 11,
+          "kind" : "key",
+          "label" : "B"
+        }
+      },
+      "left:3:1" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 9,
@@ -761,7 +777,7 @@
           "label" : "V"
         }
       },
-      "left:2:2" : {
+      "left:3:2" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 8,
@@ -769,7 +785,7 @@
           "label" : "C"
         }
       },
-      "left:2:3" : {
+      "left:3:3" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 7,
@@ -777,7 +793,7 @@
           "label" : "X"
         }
       },
-      "left:2:4" : {
+      "left:3:4" : {
         "primary" : {
           "flags" : 0,
           "keyCode" : 6,
@@ -785,7 +801,7 @@
           "label" : "Z"
         }
       },
-      "left:2:5" : {
+      "left:3:5" : {
         "hold" : {
           "flags" : 0,
           "keyCode" : 63,
@@ -802,41 +818,41 @@
       "right:0:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 16,
+          "keyCode" : 22,
           "kind" : "key",
-          "label" : "Y"
+          "label" : "6"
         }
       },
       "right:0:1" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 32,
+          "keyCode" : 26,
           "kind" : "key",
-          "label" : "U"
+          "label" : "7"
         }
       },
       "right:0:2" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 34,
+          "keyCode" : 28,
           "kind" : "key",
-          "label" : "I"
+          "label" : "8"
         }
       },
       "right:0:3" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 31,
+          "keyCode" : 25,
           "kind" : "key",
-          "label" : "O"
+          "label" : "9"
         }
       },
       "right:0:4" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 35,
+          "keyCode" : 29,
           "kind" : "key",
-          "label" : "P"
+          "label" : "0"
         }
       },
       "right:0:5" : {
@@ -850,33 +866,49 @@
       "right:1:0" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 4,
+          "keyCode" : 16,
           "kind" : "key",
-          "label" : "H"
+          "label" : "Y"
         }
       },
       "right:1:1" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 38,
+          "keyCode" : 32,
           "kind" : "key",
-          "label" : "J"
+          "label" : "U"
         }
       },
       "right:1:2" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 40,
+          "keyCode" : 34,
           "kind" : "key",
-          "label" : "K"
+          "label" : "I"
         }
       },
       "right:1:3" : {
         "primary" : {
           "flags" : 0,
-          "keyCode" : 37,
+          "keyCode" : 31,
           "kind" : "key",
-          "label" : "L"
+          "label" : "O"
+        }
+      },
+      "right:1:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 35,
+          "kind" : "key",
+          "label" : "P"
+        }
+      },
+      "right:1:5" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 30,
+          "kind" : "key",
+          "label" : "]"
         }
       },
       "right:2:0" : {
@@ -911,7 +943,47 @@
           "label" : "."
         }
       },
-      "right:2:5" : {
+      "right:3:0" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 45,
+          "kind" : "key",
+          "label" : "N"
+        }
+      },
+      "right:3:1" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 46,
+          "kind" : "key",
+          "label" : "M"
+        }
+      },
+      "right:3:2" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 43,
+          "kind" : "key",
+          "label" : ","
+        }
+      },
+      "right:3:3" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 47,
+          "kind" : "key",
+          "label" : "."
+        }
+      },
+      "right:3:4" : {
+        "primary" : {
+          "flags" : 0,
+          "keyCode" : 44,
+          "kind" : "key",
+          "label" : "\/"
+        }
+      },
+      "right:3:5" : {
         "primary" : {
           "flags" : 131072,
           "keyCode" : 44,
@@ -1732,7 +1804,7 @@
     }
   },
   "keyboardModeEnabled" : false,
-  "layoutPreset" : "6x3",
+  "layoutPreset" : "6x4",
   "leftDeviceID" : "288230377507812716",
   "outerCornersHoldGestureAction" : "Voice",
   "rightDeviceID" : "288230377507875157",

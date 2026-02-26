@@ -42,7 +42,8 @@ enum GlassToKeySettings {
 @MainActor
 final class GlassToKeyController: ObservableObject {
     private struct BundledKeymapProfile: Decodable {
-        let keyMappings: LayeredKeyMappings
+        let keyMappingsByLayout: LayoutLayeredKeyMappings?
+        let keyMappings: LayeredKeyMappings?
     }
 
     let viewModel: ContentViewModel
@@ -149,7 +150,7 @@ final class GlassToKeyController: ObservableObject {
         let customButtons = loadCustomButtons(for: layout)
         viewModel.updateCustomButtons(customButtons)
 
-        let keyMappings = loadKeyMappings()
+        let keyMappings = loadKeyMappings(for: layout)
         viewModel.updateKeyMappings(keyMappings)
 
         applySavedInteractionSettings()
@@ -192,19 +193,19 @@ final class GlassToKeyController: ObservableObject {
         )
     }
 
-    private func loadKeyMappings() -> LayeredKeyMappings {
+    private func loadKeyMappings(for layout: TrackpadLayoutPreset) -> LayeredKeyMappings {
         let defaults = UserDefaults.standard
         if let data = defaults.data(forKey: GlassToKeyDefaultsKeys.keyMappings),
-           let mappings = KeyActionMappingStore.decodeNormalized(data) {
-            return mappings
+           let mappingsByLayout = KeyActionMappingStore.decodeLayoutNormalized(data) {
+            return mappingsByLayout[layout.rawValue] ?? KeyActionMappingStore.emptyMappings()
         }
         if let bundled = bundledDefaultKeyMappings() {
-            return bundled
+            return bundled[layout.rawValue] ?? KeyActionMappingStore.emptyMappings()
         }
         return KeyActionMappingStore.emptyMappings()
     }
 
-    private func bundledDefaultKeyMappings() -> LayeredKeyMappings? {
+    private func bundledDefaultKeyMappings() -> LayoutLayeredKeyMappings? {
         guard let url = Bundle.main.url(
             forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
             withExtension: "json"
@@ -215,7 +216,13 @@ final class GlassToKeyController: ObservableObject {
         guard let profile = try? JSONDecoder().decode(BundledKeymapProfile.self, from: data) else {
             return nil
         }
-        return KeyActionMappingStore.normalized(profile.keyMappings)
+        if let byLayout = profile.keyMappingsByLayout {
+            return KeyActionMappingStore.normalized(byLayout)
+        }
+        if let legacy = profile.keyMappings {
+            return KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)
+        }
+        return nil
     }
 
     private func resolvedLayoutPreset() -> TrackpadLayoutPreset {

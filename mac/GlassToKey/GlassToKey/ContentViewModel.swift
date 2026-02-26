@@ -23,6 +23,7 @@ enum TrackpadSide: String, Codable, CaseIterable, Identifiable {
 }
 
 typealias LayeredKeyMappings = [Int: [String: KeyMapping]]
+typealias LayoutLayeredKeyMappings = [String: LayeredKeyMappings]
 
 enum KeyLayerConfig {
     static let baseLayer = 0
@@ -1690,6 +1691,10 @@ enum KeyActionCatalog {
 }
 
 enum KeyActionMappingStore {
+    private static var allLayoutRawValues: [String] {
+        TrackpadLayoutPreset.allCases.map(\.rawValue)
+    }
+
     static func decode(_ data: Data) -> LayeredKeyMappings? {
         guard !data.isEmpty else { return nil }
         return try? JSONDecoder().decode(LayeredKeyMappings.self, from: data)
@@ -1724,5 +1729,50 @@ enum KeyActionMappingStore {
             mappings[layer] = [:]
         }
         return mappings
+    }
+
+    static func decodeLayoutNormalized(_ data: Data) -> LayoutLayeredKeyMappings? {
+        guard !data.isEmpty else { return nil }
+        if let decoded = try? JSONDecoder().decode(LayoutLayeredKeyMappings.self, from: data) {
+            return normalized(decoded)
+        }
+        if let legacy = decodeNormalized(data) {
+            return legacyMappedAcrossLayouts(legacy)
+        }
+        return nil
+    }
+
+    static func encode(_ mappings: LayoutLayeredKeyMappings) -> Data? {
+        guard !mappings.isEmpty else { return nil }
+        do {
+            return try JSONEncoder().encode(mappings)
+        } catch {
+            return nil
+        }
+    }
+
+    static func normalized(_ mappings: LayoutLayeredKeyMappings) -> LayoutLayeredKeyMappings {
+        var normalizedMappings: LayoutLayeredKeyMappings = [:]
+        for layoutRawValue in allLayoutRawValues {
+            let mapping = mappings[layoutRawValue] ?? emptyMappings()
+            normalizedMappings[layoutRawValue] = normalized(mapping)
+        }
+        return normalizedMappings
+    }
+
+    static func emptyLayoutMappings() -> LayoutLayeredKeyMappings {
+        var mappings: LayoutLayeredKeyMappings = [:]
+        for layoutRawValue in allLayoutRawValues {
+            mappings[layoutRawValue] = emptyMappings()
+        }
+        return mappings
+    }
+
+    static func legacyMappedAcrossLayouts(_ mappings: LayeredKeyMappings) -> LayoutLayeredKeyMappings {
+        var output: LayoutLayeredKeyMappings = [:]
+        for layoutRawValue in allLayoutRawValues {
+            output[layoutRawValue] = mappings
+        }
+        return normalized(output)
     }
 }
