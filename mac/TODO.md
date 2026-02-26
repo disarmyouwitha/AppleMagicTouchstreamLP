@@ -21,6 +21,7 @@
 - sometimes 2-finger scrolling types letters (Lifting fingers after drag)
 - sometimes tap-click types letters (Lifting fingers after tap)
 
+# Release Build:
 
 # xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/GlassToKeyReleaseBuild build
 

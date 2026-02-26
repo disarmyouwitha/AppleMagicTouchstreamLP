@@ -1445,7 +1445,7 @@ struct ContentView: View {
                             )
                         }
                         HStack(spacing: 8) {
-                            Button("Auto Splay (4+ Fingers)") {
+                            Button("Auto Splay (4 Fingers)") {
                                 onAutoSplay()
                             }
                                 .buttonStyle(.bordered)
