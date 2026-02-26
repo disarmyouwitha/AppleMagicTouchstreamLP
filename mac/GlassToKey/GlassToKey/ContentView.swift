@@ -53,7 +53,6 @@ struct ContentView: View {
     }
 
     private struct KeymapProfile: Codable {
-        let schemaVersion: Int
         let leftDeviceID: String
         let rightDeviceID: String
         let layoutPreset: String
@@ -3097,7 +3096,6 @@ struct ContentView: View {
         let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
             ?? normalizedLayoutMappingsWithCurrentRuntime()
         return KeymapProfile(
-            schemaVersion: 2,
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
             layoutPreset: storedLayoutPreset,

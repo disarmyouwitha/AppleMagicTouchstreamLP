@@ -4,11 +4,10 @@
 ---
 - I need you to check out how we did Autocorrect with Symspell in "../windows/glasstokey" and implement it in the same way here. If we can reuse the AX stuff for a cleaner replace than backspace replace we can use that, but I want to rip the word ressurection engine out and start using Symspell for the correction engine.
 -------
+- User idea#48: Super cool project, I would love to be able to rotate a key a few degrees when adjusting its position
 
 ### FUTURE
-- * Can MAKE NOTE ONLY of any migration/legacy code we are not using or that was used to transition to our current architecture? We are about to have our first release, so there are no users with "legacy" settings and we don't need to support anything legacy except the Opensource drivers. 
----
-- auto-reconnect not working?
+- auto-reconnect not working correctly after sleep
 ---
 
 ## Issues: (verify)
