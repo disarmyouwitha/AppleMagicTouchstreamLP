@@ -29,7 +29,7 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 
 **Useful Tips:**
 - I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
-- In Keyboard mode Mouse clicks are disabled. (Rather than the default: Mixed/Mouse mode)
+- In Keyboard mode Mouse clicks are disabled.
 - 5-finger left/right swipes will toggle Typing Mode on/off!
 - If Chordal Shift is enabled, placing 4 fingers on 1 side will shift characters on the other side 
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
