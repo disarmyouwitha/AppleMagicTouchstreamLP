@@ -38,6 +38,11 @@ struct ContentView: View {
         var settings: ColumnLayoutSettings
     }
 
+    private struct AutoSplayTouch {
+        let xNorm: Double
+        let yNorm: Double
+    }
+
     private struct ButtonInspectorSelection: Equatable {
         var button: CustomButton
     }
@@ -171,6 +176,7 @@ struct ContentView: View {
     fileprivate static let intentVelocityThresholdRange: ClosedRange<Double> = 10.0...200.0
     fileprivate static let snapRadiusPercentRange: ClosedRange<Double> = 0.0...100.0
     private static let keyCornerRadius: CGFloat = 6.0
+    private static let autoSplayTouchCount = 4
     fileprivate static let columnScaleFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -863,7 +869,9 @@ struct ContentView: View {
             onUpdateKeyMapping: { key, update in
                 updateKeyMappingAndSelection(key: key, update: update)
             },
-            onRestoreDefaults: restoreTypingTuningDefaults
+            onRestoreDefaults: restoreTypingTuningDefaults,
+            onAutoSplayColumns: applyAutoSplay,
+            onEvenSpaceColumns: applyEvenColumnSpacing
         )
     }
 
@@ -1077,6 +1085,8 @@ struct ContentView: View {
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let onRestoreDefaults: () -> Void
+        let onAutoSplayColumns: () -> Void
+        let onEvenSpaceColumns: () -> Void
 
         var body: some View {
             VStack(alignment: .leading, spacing: 14) {
@@ -1184,7 +1194,9 @@ struct ContentView: View {
                                 columnSettings: columnSettings,
                                 selection: columnSelection,
                                 editColumnIndex: $editColumnIndex,
-                                onUpdateColumn: onUpdateColumn
+                                onUpdateColumn: onUpdateColumn,
+                                onAutoSplay: onAutoSplayColumns,
+                                onEvenSpacing: onEvenSpaceColumns
                             )
                             .padding(.top, 8)
                         } label: {
@@ -1316,6 +1328,8 @@ struct ContentView: View {
         let selection: ColumnInspectorSelection?
         @Binding var editColumnIndex: Int
         let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
+        let onAutoSplay: () -> Void
+        let onEvenSpacing: () -> Void
 
         private var editColumnBinding: Binding<Int> {
             Binding(
@@ -1338,6 +1352,16 @@ struct ContentView: View {
         private var activeColumnSettings: ColumnLayoutSettings? {
             guard let index = activeColumnIndex else { return nil }
             return columnSettings[index]
+        }
+
+        private var isAutoSplaySupportedPreset: Bool {
+            layoutOption.columns == 6 || layoutOption == .fiveByThree || layoutOption == .fiveByFour
+        }
+
+        private var isEvenSpacingAvailable: Bool {
+            layoutOption.allowsColumnSettings &&
+            layoutOption.columns >= 3 &&
+            columnSettings.count >= layoutOption.columns
         }
 
         var body: some View {
@@ -1421,11 +1445,17 @@ struct ContentView: View {
                             )
                         }
                         HStack(spacing: 8) {
-                            Button("Auto Splay (4+ Fingers)") {}
+                            Button("Auto Splay (4+ Fingers)") {
+                                onAutoSplay()
+                            }
                                 .buttonStyle(.bordered)
+                                .disabled(!isAutoSplaySupportedPreset)
                             Spacer()
-                            Button("e v e n s p a c e") {}
+                            Button("e v e n s p a c i n g") {
+                                onEvenSpacing()
+                            }
                                 .buttonStyle(.bordered)
+                                .disabled(!isEvenSpacingAvailable)
                         }
                     } else {
                         Text("No columns available for this layout.")
@@ -2591,6 +2621,217 @@ struct ContentView: View {
     ) {
         updateColumnSetting(index: index, update: update)
         refreshColumnInspectorSelection()
+    }
+
+    private func applyAutoSplay() {
+        guard layoutOption.allowsColumnSettings else { return }
+        guard isAutoSplaySupportedPreset else {
+            showKeymapAlert(
+                title: "Auto Splay",
+                message: "Auto Splay currently supports 6-column layouts plus 5x3 and 5x4."
+            )
+            return
+        }
+
+        let snapshot = viewModel.snapshotTouchData()
+        let leftTouches = collectAutoSplayTouches(from: snapshot.left, mirrored: true)
+        let rightTouches = collectAutoSplayTouches(from: snapshot.right, mirrored: false)
+        let leftReady = leftTouches.count >= Self.autoSplayTouchCount
+        let rightReady = rightTouches.count >= Self.autoSplayTouchCount
+
+        guard !(leftReady && rightReady) else {
+            showKeymapAlert(
+                title: "Auto Splay",
+                message: "Detected 4+ touches on both sides. Keep touches on only one side and retry."
+            )
+            return
+        }
+
+        guard leftReady || rightReady else {
+            let message = leftTouches.isEmpty && rightTouches.isEmpty
+                ? "Place at least 4 fingertips on one side, then click Auto Splay."
+                : "Auto Splay needs at least 4 touches on one side (left: \(leftTouches.count), right: \(rightTouches.count))."
+            showKeymapAlert(title: "Auto Splay", message: message)
+            return
+        }
+
+        var selectedTouches = leftReady ? leftTouches : rightTouches
+        if selectedTouches.count > Self.autoSplayTouchCount,
+           let lowestIndex = selectedTouches.indices.max(by: { selectedTouches[$0].yNorm < selectedTouches[$1].yNorm }) {
+            selectedTouches.remove(at: lowestIndex)
+        }
+        selectedTouches.sort { lhs, rhs in
+            if lhs.xNorm == rhs.xNorm {
+                return lhs.yNorm < rhs.yNorm
+            }
+            return lhs.xNorm < rhs.xNorm
+        }
+        if selectedTouches.count > Self.autoSplayTouchCount {
+            selectedTouches = Array(selectedTouches.prefix(Self.autoSplayTouchCount))
+        }
+
+        guard selectedTouches.count == Self.autoSplayTouchCount else {
+            showKeymapAlert(
+                title: "Auto Splay",
+                message: "Auto Splay requires \(Self.autoSplayTouchCount) touches."
+            )
+            return
+        }
+
+        let referenceRow = resolveAutoSplayReferenceRow()
+        guard rightLayout.keyRects.indices.contains(referenceRow) else {
+            showKeymapAlert(
+                title: "Auto Splay",
+                message: "Auto Splay could not resolve a valid reference row.",
+                style: .warning
+            )
+            return
+        }
+
+        let referenceRects = rightLayout.keyRects[referenceRow]
+        var updated = columnSettings
+
+        if layoutOption.columns == 6, updated.count >= 6, referenceRects.count >= 6 {
+            let leftEdgeOffsetX = updated[0].offsetXPercent - updated[1].offsetXPercent
+            let rightEdgeOffsetX = updated[5].offsetXPercent - updated[4].offsetXPercent
+
+            for index in 0..<Self.autoSplayTouchCount {
+                let column = index + 1
+                let center = normalizedCenter(for: referenceRects[column])
+                let target = selectedTouches[index]
+                updated[column].offsetXPercent = Self.normalizedColumnOffsetPercent(
+                    updated[column].offsetXPercent + ((target.xNorm - center.x) * 100.0)
+                )
+                updated[column].offsetYPercent = Self.normalizedColumnOffsetPercent(
+                    updated[column].offsetYPercent + ((target.yNorm - center.y) * 100.0)
+                )
+            }
+
+            updated[0].offsetXPercent = Self.normalizedColumnOffsetPercent(updated[1].offsetXPercent + leftEdgeOffsetX)
+            updated[0].offsetYPercent = updated[1].offsetYPercent
+            updated[5].offsetXPercent = Self.normalizedColumnOffsetPercent(updated[4].offsetXPercent + rightEdgeOffsetX)
+            updated[5].offsetYPercent = updated[4].offsetYPercent
+            columnSettings = updated
+            return
+        }
+
+        if isFiveColumnAutoSplayPreset, layoutOption.columns == 5, updated.count >= 5, referenceRects.count >= 5 {
+            for index in 0..<Self.autoSplayTouchCount {
+                let center = normalizedCenter(for: referenceRects[index])
+                let target = selectedTouches[index]
+                updated[index].offsetXPercent = Self.normalizedColumnOffsetPercent(
+                    updated[index].offsetXPercent + ((target.xNorm - center.x) * 100.0)
+                )
+                updated[index].offsetYPercent = Self.normalizedColumnOffsetPercent(
+                    updated[index].offsetYPercent + ((target.yNorm - center.y) * 100.0)
+                )
+            }
+
+            updated[4].offsetXPercent = updated[3].offsetXPercent
+            updated[4].offsetYPercent = updated[3].offsetYPercent
+            columnSettings = updated
+            return
+        }
+
+        showKeymapAlert(
+            title: "Auto Splay",
+            message: "Auto Splay could not apply to this layout configuration.",
+            style: .warning
+        )
+    }
+
+    private func applyEvenColumnSpacing() {
+        guard layoutOption.allowsColumnSettings,
+              layoutOption.columns >= 3,
+              columnSettings.count >= layoutOption.columns else {
+            showKeymapAlert(
+                title: "Even spacing",
+                message: "Even spacing requires a layout with at least 3 editable columns."
+            )
+            return
+        }
+
+        let referenceRow = resolveAutoSplayReferenceRow()
+        guard rightLayout.keyRects.indices.contains(referenceRow),
+              rightLayout.keyRects[referenceRow].count >= layoutOption.columns else {
+            showKeymapAlert(
+                title: "Even spacing",
+                message: "Even spacing could not resolve a valid reference row."
+            )
+            return
+        }
+
+        let rects = rightLayout.keyRects[referenceRow]
+        let lastColumn = layoutOption.columns - 1
+        let firstCenter = normalizedCenter(for: rects[0]).x
+        let lastCenter = normalizedCenter(for: rects[lastColumn]).x
+        let step = (lastCenter - firstCenter) / Double(lastColumn)
+
+        var updated = columnSettings
+        for column in 1..<lastColumn {
+            let currentCenter = normalizedCenter(for: rects[column]).x
+            let targetCenter = firstCenter + (step * Double(column))
+            updated[column].offsetXPercent = Self.normalizedColumnOffsetPercent(
+                updated[column].offsetXPercent + ((targetCenter - currentCenter) * 100.0)
+            )
+        }
+
+        columnSettings = updated
+    }
+
+    private func collectAutoSplayTouches(
+        from touches: [OMSTouchData],
+        mirrored: Bool
+    ) -> [AutoSplayTouch] {
+        var resolved: [AutoSplayTouch] = []
+        resolved.reserveCapacity(touches.count)
+        for touch in touches where isAutoSplayTouchState(touch.state) {
+            let x = min(max(Double(touch.position.x), 0.0), 1.0)
+            let y = min(max(Double(touch.position.y), 0.0), 1.0)
+            let canonicalX = mirrored ? (1.0 - x) : x
+            // Touch reports use bottom-origin Y; layouts are top-origin.
+            let canonicalY = 1.0 - y
+            resolved.append(AutoSplayTouch(xNorm: canonicalX, yNorm: canonicalY))
+        }
+        return resolved
+    }
+
+    private func normalizedCenter(for rect: CGRect) -> (x: Double, y: Double) {
+        guard trackpadSize.width > 0, trackpadSize.height > 0 else {
+            return (0.0, 0.0)
+        }
+        let centerX = (rect.minX + (rect.width * 0.5)) / trackpadSize.width
+        let centerY = (rect.minY + (rect.height * 0.5)) / trackpadSize.height
+        return (
+            x: min(max(Double(centerX), 0.0), 1.0),
+            y: min(max(Double(centerY), 0.0), 1.0)
+        )
+    }
+
+    private var isAutoSplaySupportedPreset: Bool {
+        layoutOption.columns == 6 || isFiveColumnAutoSplayPreset
+    }
+
+    private var isFiveColumnAutoSplayPreset: Bool {
+        layoutOption == .fiveByThree || layoutOption == .fiveByFour
+    }
+
+    private func resolveAutoSplayReferenceRow() -> Int {
+        guard layoutOption.rows > 0 else { return 0 }
+        if isFiveColumnAutoSplayPreset || layoutOption == .sixByFour {
+            // Keep the reference on the home row (2nd row from bottom).
+            return min(max(layoutOption.rows - 2, 0), layoutOption.rows - 1)
+        }
+        return min(max((layoutOption.rows - 1) / 2, 0), layoutOption.rows - 1)
+    }
+
+    private func isAutoSplayTouchState(_ state: OMSState) -> Bool {
+        switch state {
+        case .starting, .making, .touching, .breaking, .lingering:
+            return true
+        case .notTouching, .hovering, .leaving:
+            return false
+        }
     }
 
     private func applyColumnSettings(_ settings: [ColumnLayoutSettings]) {
