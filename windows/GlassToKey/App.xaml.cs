@@ -214,7 +214,10 @@ public partial class App : Application
 
         _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
         _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
-        if (options.StartInConfigUi)
+
+        UserSettings startupSettings = UserSettings.Load();
+        bool shouldOpenConfigOnLaunch = options.StartInConfigUi || !startupSettings.StartInTrayOnLaunch;
+        if (shouldOpenConfigOnLaunch)
         {
             OpenConfigWindow();
         }
