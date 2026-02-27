@@ -1,11 +1,4 @@
 ## TODO:
-0. GlassToKey (windows) currently uses ~15mb, autocorrect: Disabled, Config: Unopened
-1. GlassToKey (windows) currently uses ~80mb, autocorrect: Disabled, Config: Opened
-2. GlassToKey (windows) currently uses ~63mb, autocorrect: Disabled, Config: Closed
-3. GlassToKey (windows) currently uses ~192mb, autocorrect: Enabled, Config: Opened
-4. GlassToKey (windows) currently uses ~205mb, autocorrect: Disabled, Config: Opened
-5. GlassToKey (windows) currently uses ~108mb, autocorrect: Disabled, Config: Closed
-
 - Hold Repeat fallthrough to Primary action if Hold is unmapped (and checkbox is checked)
 - Test CTRL
 ---
@@ -25,7 +18,7 @@
 - ^ In this mode we ignore gesture intent, etc so that dispatch is based only on force (TRY IN KEYBOARD MODE?!)
 - ^ In this mode can we ignore touches under X Force as if they were not contacts on the keyboard? That would allow what they want I think!
 ---
-- REFACTOR
+- REFACTOR$
 
 ## FUTURE:
 - `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)

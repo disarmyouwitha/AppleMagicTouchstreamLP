@@ -1198,6 +1198,71 @@ internal static class SelfTestRunner
             return false;
         }
 
+        // When no explicit hold is mapped, hold-repeat should fall through to the primary key action.
+        KeymapStore holdRepeatPrimaryFallbackKeymap = KeymapStore.LoadBundledDefault();
+        holdRepeatPrimaryFallbackKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        TouchProcessorCore holdRepeatPrimaryFallbackCore = TouchProcessorFactory.CreateDefault(holdRepeatPrimaryFallbackKeymap);
+        holdRepeatPrimaryFallbackCore.Configure(holdRepeatPrimaryFallbackCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatPrimaryFallbackQueue = new();
+        using TouchProcessorActor holdRepeatPrimaryFallbackActor = new(holdRepeatPrimaryFallbackCore, dispatchQueue: holdRepeatPrimaryFallbackQueue);
+
+        now = 0;
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatPrimaryFallbackActor.WaitForIdle();
+
+        int holdRepeatPrimaryFallbackTapCount = 0;
+        int holdRepeatPrimaryFallbackDownCount = 0;
+        int holdRepeatPrimaryFallbackUpCount = 0;
+        bool holdRepeatPrimaryFallbackRepeatableDown = false;
+        bool holdRepeatPrimaryFallbackRepeatTokenReleased = false;
+        while (holdRepeatPrimaryFallbackQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                holdRepeatPrimaryFallbackTapCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                holdRepeatPrimaryFallbackDownCount++;
+                holdRepeatPrimaryFallbackRepeatableDown |=
+                    (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                holdRepeatPrimaryFallbackUpCount++;
+                holdRepeatPrimaryFallbackRepeatTokenReleased |= dispatchEvent.RepeatToken != 0;
+            }
+        }
+
+        if (holdRepeatPrimaryFallbackTapCount != 0 ||
+            holdRepeatPrimaryFallbackDownCount != 1 ||
+            holdRepeatPrimaryFallbackUpCount != 1 ||
+            !holdRepeatPrimaryFallbackRepeatableDown ||
+            !holdRepeatPrimaryFallbackRepeatTokenReleased)
+        {
+            failure = $"hold repeat primary fallback mismatch (tap={holdRepeatPrimaryFallbackTapCount}, down={holdRepeatPrimaryFallbackDownCount}, up={holdRepeatPrimaryFallbackUpCount}, repeatableDown={holdRepeatPrimaryFallbackRepeatableDown}, repeatTokenReleased={holdRepeatPrimaryFallbackRepeatTokenReleased}, expected=0/1/1/true/true)";
+            return false;
+        }
+
         // Hold-repeat should also work for shifted chord labels like "(" (Shift+9).
         KeymapStore holdRepeatChordKeymap = KeymapStore.LoadBundledDefault();
         holdRepeatChordKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping

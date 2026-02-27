@@ -803,7 +803,7 @@ internal sealed class TouchProcessorCore
                 EngineKeyBinding rebound = rebindIndex.Bindings[hit.BindingIndex];
                 existing.BindingIndex = hit.BindingIndex;
                 existing.BindingLayer = _activeLayer;
-                existing.HasHoldAction = rebound.Mapping.HasHold;
+                existing.HasHoldAction = HasEffectiveHoldAction(rebound.Mapping);
                 existing.HoldTriggered = false;
                 existing.Lifecycle = EngineTouchLifecycle.Pending;
                 existing.StartTicks = timestampTicks;
@@ -851,7 +851,7 @@ internal sealed class TouchProcessorCore
                     existing.HoldTriggered = true;
                     BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                     EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
-                    EngineKeyAction holdAction = ResolveHoldActionForDispatch(existingBinding.Mapping.Hold);
+                    EngineKeyAction holdAction = ResolveEffectiveHoldAction(existingBinding.Mapping);
                     TryBeginPressAction(
                         holdAction,
                         touchKey,
@@ -925,7 +925,7 @@ internal sealed class TouchProcessorCore
             LastXNorm: xNorm,
             LastYNorm: yNorm,
             MaxDistanceMm: 0,
-            HasHoldAction: binding.Mapping.HasHold,
+            HasHoldAction: HasEffectiveHoldAction(binding.Mapping),
             HoldTriggered: false,
             MomentaryLayerTarget: binding.Mapping.Primary.Kind == EngineActionKind.MomentaryLayer ? binding.Mapping.Primary.LayerTarget : -1,
             DispatchDownSent: false,
@@ -1484,6 +1484,31 @@ internal sealed class TouchProcessorCore
         }
     }
 
+    private bool HasEffectiveHoldAction(EngineKeyMapping mapping)
+    {
+        if (mapping.HasHold)
+        {
+            return true;
+        }
+
+        return ShouldUsePrimaryAsHoldFallback(mapping.Primary);
+    }
+
+    private EngineKeyAction ResolveEffectiveHoldAction(EngineKeyMapping mapping)
+    {
+        if (mapping.HasHold)
+        {
+            return ResolveHoldActionForDispatch(mapping.Hold);
+        }
+
+        if (ShouldUsePrimaryAsHoldFallback(mapping.Primary))
+        {
+            return ResolveHoldActionForDispatch(mapping.Primary);
+        }
+
+        return EngineKeyAction.None;
+    }
+
     private EngineKeyAction ResolveHoldActionForDispatch(EngineKeyAction action)
     {
         if (!_config.HoldRepeatEnabled ||
@@ -1494,6 +1519,16 @@ internal sealed class TouchProcessorCore
         }
 
         return action with { Kind = EngineActionKind.Continuous };
+    }
+
+    private bool ShouldUsePrimaryAsHoldFallback(EngineKeyAction action)
+    {
+        if (!_config.HoldRepeatEnabled)
+        {
+            return false;
+        }
+
+        return action.Kind is EngineActionKind.Key or EngineActionKind.KeyChord;
     }
 
     private bool ShouldCancelHeldDispatchOnDrag(in TouchBindingState state)
