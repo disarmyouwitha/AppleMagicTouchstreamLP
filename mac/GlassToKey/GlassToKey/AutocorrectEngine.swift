@@ -12,7 +12,7 @@ import Darwin
 final class AutocorrectEngine: @unchecked Sendable {
     static let shared = AutocorrectEngine()
 
-    struct StatusSnapshot {
+    struct StatusSnapshot: Equatable {
         let enabled: Bool
         let currentBuffer: String
         let lastCorrected: String
@@ -43,6 +43,8 @@ final class AutocorrectEngine: @unchecked Sendable {
     private var autocorrectBuffer: [UInt8] = []
     private var ambiguityBuffer: [UInt8] = []
     private var lastCorrectedSummary = "none"
+    private var statusUpdateHandler: (@Sendable (StatusSnapshot) -> Void)?
+    private var lastPublishedStatusSnapshot: StatusSnapshot?
     private var leftContext = ByteRing(capacity: AutocorrectEngine.maxContextLeft)
     private var rightContext = ByteRing(capacity: AutocorrectEngine.maxContextRight)
     private let maxWordLength = 64
@@ -83,6 +85,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                 self?.lastCorrectedSummary = "none"
                 self?.leftContext.removeAll()
                 self?.rightContext.removeAll()
+                self?.publishStatusIfNeeded()
             }
         }
     }
@@ -105,6 +108,15 @@ final class AutocorrectEngine: @unchecked Sendable {
                 return StatusSnapshot(enabled: false, currentBuffer: "", lastCorrected: "none")
             }
             return self.makeStatusSnapshot()
+        }
+    }
+
+    func setStatusUpdateHandler(_ handler: (@Sendable (StatusSnapshot) -> Void)?) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.statusUpdateHandler = handler
+            self.lastPublishedStatusSnapshot = nil
+            self.publishStatusIfNeeded()
         }
     }
 
@@ -157,6 +169,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             ambiguityBuffer.removeAll(keepingCapacity: true)
             leftContext.removeAll()
             rightContext.removeAll()
+            publishStatusIfNeeded()
             return
         }
         let pending = end - readIndex
@@ -219,6 +232,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             leftContext.removeAll()
             rightContext.removeAll()
         }
+        publishStatusIfNeeded()
     }
 
     private func attemptCorrection(
@@ -439,6 +453,16 @@ final class AutocorrectEngine: @unchecked Sendable {
             currentBuffer: String(bytes: autocorrectBuffer, encoding: .ascii) ?? "",
             lastCorrected: lastCorrectedSummary
         )
+    }
+
+    private func publishStatusIfNeeded() {
+        guard let handler = statusUpdateHandler else { return }
+        let snapshot = makeStatusSnapshot()
+        if let previous = lastPublishedStatusSnapshot, previous == snapshot {
+            return
+        }
+        lastPublishedStatusSnapshot = snapshot
+        handler(snapshot)
     }
 
     private struct ByteRing {

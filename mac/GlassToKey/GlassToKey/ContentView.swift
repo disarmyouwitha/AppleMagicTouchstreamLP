@@ -177,11 +177,6 @@ struct ContentView: View {
     fileprivate static let intentMoveThresholdRange: ClosedRange<Double> = 0.5...10.0
     fileprivate static let intentVelocityThresholdRange: ClosedRange<Double> = 10.0...200.0
     fileprivate static let snapRadiusPercentRange: ClosedRange<Double> = 0.0...100.0
-    private let autocorrectStatusRefreshTimer = Timer.publish(
-        every: 0.2,
-        on: .main,
-        in: .common
-    ).autoconnect()
     private static let keyCornerRadius: CGFloat = 6.0
     private static let autoSplayTouchCount = 4
     fileprivate static let columnScaleFormatter: NumberFormatter = {
@@ -448,10 +443,15 @@ struct ContentView: View {
                 applySavedSettings()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
                 viewModel.setKeymapEditingEnabled(editModeEnabled)
-                refreshAutocorrectStatusDetails()
+                AutocorrectEngine.shared.setStatusUpdateHandler { snapshot in
+                    DispatchQueue.main.async {
+                        applyAutocorrectStatusSnapshot(snapshot)
+                    }
+                }
             }
             .onDisappear {
                 persistConfig()
+                AutocorrectEngine.shared.setStatusUpdateHandler(nil)
             }
             .onChange(of: editModeEnabled) { enabled in
                 if !enabled {
@@ -698,9 +698,6 @@ struct ContentView: View {
                     replayScrubValue = 0
                 }
             }
-            .onReceive(autocorrectStatusRefreshTimer) { _ in
-                refreshAutocorrectStatusDetails()
-            }
     }
 
     @ViewBuilder
@@ -841,8 +838,7 @@ struct ContentView: View {
             )
     }
 
-    private func refreshAutocorrectStatusDetails() {
-        let snapshot = AutocorrectEngine.shared.statusSnapshot()
+    private func applyAutocorrectStatusSnapshot(_ snapshot: AutocorrectEngine.StatusSnapshot) {
         if snapshot.enabled {
             autocorrectCurrentBufferText = snapshot.currentBuffer.isEmpty ? "<empty>" : snapshot.currentBuffer
         } else {
