@@ -12,9 +12,14 @@ import Darwin
 final class AutocorrectEngine: @unchecked Sendable {
     static let shared = AutocorrectEngine()
 
+    struct StatusSnapshot: Equatable {
+        let enabled: Bool
+        let currentBuffer: String
+        let lastCorrected: String
+    }
+
     private static let capacity = 2048
     private static let mask = capacity - 1
-    private static let historyCapacity = 3
     private static let maxContextLeft = 1024
     private static let maxContextRight = 256
 
@@ -23,6 +28,8 @@ final class AutocorrectEngine: @unchecked Sendable {
     nonisolated(unsafe) private static var minWordLengthFlag: Int32 = 2
 
     private let queue: DispatchQueue
+    private let queueSpecificKey = DispatchSpecificKey<UInt8>()
+    private let queueSpecificValue: UInt8 = 1
     private let wakeSource: DispatchSourceUserDataAdd
     private let spellChecker: NSSpellChecker
     private let spellDocumentTag: Int
@@ -35,11 +42,11 @@ final class AutocorrectEngine: @unchecked Sendable {
     private var wordBuffer: [UInt8] = []
     private var autocorrectBuffer: [UInt8] = []
     private var ambiguityBuffer: [UInt8] = []
+    private var lastCorrectedSummary = "none"
+    private var statusUpdateHandler: (@Sendable (StatusSnapshot) -> Void)?
+    private var lastPublishedStatusSnapshot: StatusSnapshot?
     private var leftContext = ByteRing(capacity: AutocorrectEngine.maxContextLeft)
     private var rightContext = ByteRing(capacity: AutocorrectEngine.maxContextRight)
-    private var historyBuffers: [[UInt8]] = []
-    private var historyHead = 0
-    private var historyCount = 0
     private let maxWordLength = 64
 
     private init() {
@@ -52,6 +59,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         spellDocumentTag = NSSpellChecker.uniqueSpellDocumentTag()
 
         queue = DispatchQueue(label: "com.kyome.GlassToKey.Autocorrect", qos: .utility)
+        queue.setSpecific(key: queueSpecificKey, value: queueSpecificValue)
         wakeSource = DispatchSource.makeUserDataAddSource(queue: queue)
         wakeSource.setEventHandler { [weak self] in
             self?.drain()
@@ -61,10 +69,6 @@ final class AutocorrectEngine: @unchecked Sendable {
         wordBuffer.reserveCapacity(maxWordLength)
         autocorrectBuffer.reserveCapacity(maxWordLength)
         ambiguityBuffer.reserveCapacity(maxWordLength)
-        historyBuffers = Array(repeating: [], count: Self.historyCapacity)
-        for index in 0..<historyBuffers.count {
-            historyBuffers[index].reserveCapacity(maxWordLength)
-        }
     }
 
     func setEnabled(_ enabled: Bool) {
@@ -78,9 +82,10 @@ final class AutocorrectEngine: @unchecked Sendable {
                 self?.wordBuffer.removeAll(keepingCapacity: true)
                 self?.autocorrectBuffer.removeAll(keepingCapacity: true)
                 self?.ambiguityBuffer.removeAll(keepingCapacity: true)
+                self?.lastCorrectedSummary = "none"
                 self?.leftContext.removeAll()
                 self?.rightContext.removeAll()
-                self?.resetHistory()
+                self?.publishStatusIfNeeded()
             }
         }
     }
@@ -91,6 +96,27 @@ final class AutocorrectEngine: @unchecked Sendable {
         var current = OSAtomicAdd32Barrier(0, &Self.minWordLengthFlag)
         while !OSAtomicCompareAndSwap32Barrier(current, value, &Self.minWordLengthFlag) {
             current = OSAtomicAdd32Barrier(0, &Self.minWordLengthFlag)
+        }
+    }
+
+    func statusSnapshot() -> StatusSnapshot {
+        if DispatchQueue.getSpecific(key: queueSpecificKey) == queueSpecificValue {
+            return makeStatusSnapshot()
+        }
+        return queue.sync { [weak self] in
+            guard let self else {
+                return StatusSnapshot(enabled: false, currentBuffer: "", lastCorrected: "none")
+            }
+            return self.makeStatusSnapshot()
+        }
+    }
+
+    func setStatusUpdateHandler(_ handler: (@Sendable (StatusSnapshot) -> Void)?) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            self.statusUpdateHandler = handler
+            self.lastPublishedStatusSnapshot = nil
+            self.publishStatusIfNeeded()
         }
     }
 
@@ -143,7 +169,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             ambiguityBuffer.removeAll(keepingCapacity: true)
             leftContext.removeAll()
             rightContext.removeAll()
-            resetHistory()
+            publishStatusIfNeeded()
             return
         }
         let pending = end - readIndex
@@ -179,22 +205,15 @@ final class AutocorrectEngine: @unchecked Sendable {
                 if !ambiguityBuffer.isEmpty {
                     ambiguityBuffer.removeLast()
                 }
-            } else {
-                _ = resurrectPreviousWord()
-                autocorrectBuffer.removeAll(keepingCapacity: true)
-                ambiguityBuffer.removeAll(keepingCapacity: true)
             }
         case .boundary:
             if !wordBuffer.isEmpty {
-                if autocorrectBuffer.count == wordBuffer.count,
-                   let correctedBytes = attemptCorrection(
+                if autocorrectBuffer.count == wordBuffer.count {
+                    attemptCorrection(
                     bytes: autocorrectBuffer,
                     ambiguity: ambiguityBuffer,
                     boundaryEvent: event
-                   ) {
-                    pushHistory(bytes: correctedBytes)
-                } else {
-                    pushHistoryFromCurrent()
+                    )
                 }
             }
             appendBoundaryByte(for: event)
@@ -206,28 +225,27 @@ final class AutocorrectEngine: @unchecked Sendable {
             wordBuffer.removeAll(keepingCapacity: true)
             autocorrectBuffer.removeAll(keepingCapacity: true)
             ambiguityBuffer.removeAll(keepingCapacity: true)
-            resetHistory()
         case .nonText:
             wordBuffer.removeAll(keepingCapacity: true)
             autocorrectBuffer.removeAll(keepingCapacity: true)
             ambiguityBuffer.removeAll(keepingCapacity: true)
-            resetHistory()
             leftContext.removeAll()
             rightContext.removeAll()
         }
+        publishStatusIfNeeded()
     }
 
     private func attemptCorrection(
         bytes: [UInt8],
         ambiguity: [UInt8],
         boundaryEvent: KeySemanticEvent
-    ) -> [UInt8]? {
-        guard shouldConsiderWord(bytes) else { return nil }
+    ) {
+        guard shouldConsiderWord(bytes) else { return }
         let hasAmbiguity = hasAmbiguity(ambiguity)
         if bytes.count == 2, minWordLength <= 2, !hasAmbiguity {
-            return nil
+            return
         }
-        guard let word = String(bytes: bytes, encoding: .ascii) else { return nil }
+        guard let word = String(bytes: bytes, encoding: .ascii) else { return }
         let fallbackRange = NSRange(location: 0, length: word.utf16.count)
         let (contextString, wordRange) =
             contextStringForCorrection(currentWordBytes: bytes) ?? (word, fallbackRange)
@@ -242,17 +260,16 @@ final class AutocorrectEngine: @unchecked Sendable {
             language: language,
             inSpellDocumentWithTag: spellDocumentTag
         ) {
-            guard correction != word else { return nil }
-            guard KeySemanticMapper.canTypeASCII(correction) else { return nil }
-
-            let correctionBytes = [UInt8](correction.utf8)
+            guard correction != word else { return }
+            guard KeySemanticMapper.canTypeASCII(correction) else { return }
+            lastCorrectedSummary = "\(word) -> \(correction)"
             let boundaryLength = boundaryEvent.boundaryLength
             if textReplacer.replaceLastWord(
                 wordLength: bytes.count,
                 boundaryLength: boundaryLength,
                 replacement: correction
             ) {
-                return correctionBytes
+                return
             }
 
             fallbackBackspaceRetype(
@@ -260,7 +277,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                 boundaryEvent: boundaryEvent,
                 replacement: correction
             )
-            return correctionBytes
+            return
         }
 
         if let ambiguousCorrection = attemptAmbiguousCorrection(
@@ -272,27 +289,23 @@ final class AutocorrectEngine: @unchecked Sendable {
             language: language
         ) {
             let correction = ambiguousCorrection
-            guard let correctionString = String(bytes: correction, encoding: .ascii) else {
-                return nil
-            }
+            lastCorrectedSummary = "\(word) -> \(correction)"
             let boundaryLength = boundaryEvent.boundaryLength
             if textReplacer.replaceLastWord(
                 wordLength: bytes.count,
                 boundaryLength: boundaryLength,
-                replacement: correctionString
+                replacement: correction
             ) {
-                return correction
+                return
             }
 
             fallbackBackspaceRetype(
                 originalWordLength: bytes.count,
                 boundaryEvent: boundaryEvent,
-                replacement: correctionString
+                replacement: correction
             )
-            return correction
+            return
         }
-
-        return nil
     }
 
     private func attemptAmbiguousCorrection(
@@ -302,7 +315,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         contextString: String,
         wordRange: NSRange,
         language: String
-    ) -> [UInt8]? {
+    ) -> String? {
         guard bytes.count == ambiguity.count else { return nil }
         guard hasAmbiguity else { return nil }
         guard let guesses = spellChecker.guesses(
@@ -333,7 +346,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                 }
             }
             if matches && guessBytes != bytes {
-                return guessBytes
+                return guess
             }
         }
         return nil
@@ -427,54 +440,29 @@ final class AutocorrectEngine: @unchecked Sendable {
         }
     }
 
-    @inline(__always)
-    private func resetHistory() {
-        historyHead = 0
-        historyCount = 0
-    }
-
-    @inline(__always)
-    private func pushHistoryFromCurrent() {
-        guard !wordBuffer.isEmpty else { return }
-        let slot = historyHead
-        if !historyBuffers.isEmpty {
-            swap(&wordBuffer, &historyBuffers[slot])
-        }
-        historyHead = (historyHead + 1) % Self.historyCapacity
-        if historyCount < Self.historyCapacity {
-            historyCount += 1
-        }
-    }
-
-    @inline(__always)
-    private func pushHistory(bytes: [UInt8]) {
-        guard !bytes.isEmpty else { return }
-        let slot = historyHead
-        historyBuffers[slot].removeAll(keepingCapacity: true)
-        historyBuffers[slot].append(contentsOf: bytes)
-        historyHead = (historyHead + 1) % Self.historyCapacity
-        if historyCount < Self.historyCapacity {
-            historyCount += 1
-        }
-    }
-
-    @inline(__always)
-    private func resurrectPreviousWord() -> Bool {
-        guard historyCount > 0 else { return false }
-        let lastIndex = (historyHead - 1 + Self.historyCapacity) % Self.historyCapacity
-        if !historyBuffers.isEmpty {
-            swap(&wordBuffer, &historyBuffers[lastIndex])
-        }
-        historyHead = lastIndex
-        historyCount -= 1
-        return true
-    }
-
     private func hasAmbiguity(_ ambiguity: [UInt8]) -> Bool {
         for alt in ambiguity where alt != 0 {
             return true
         }
         return false
+    }
+
+    private func makeStatusSnapshot() -> StatusSnapshot {
+        StatusSnapshot(
+            enabled: isEnabled,
+            currentBuffer: String(bytes: autocorrectBuffer, encoding: .ascii) ?? "",
+            lastCorrected: lastCorrectedSummary
+        )
+    }
+
+    private func publishStatusIfNeeded() {
+        guard let handler = statusUpdateHandler else { return }
+        let snapshot = makeStatusSnapshot()
+        if let previous = lastPublishedStatusSnapshot, previous == snapshot {
+            return
+        }
+        lastPublishedStatusSnapshot = snapshot
+        handler(snapshot)
     }
 
     private struct ByteRing {

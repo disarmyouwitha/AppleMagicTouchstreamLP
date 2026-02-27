@@ -86,6 +86,8 @@ struct ContentView: View {
 
     @StateObject private var viewModel: ContentViewModel
     @State private var testText = ""
+    @State private var autocorrectCurrentBufferText = "<empty>"
+    @State private var autocorrectLastCorrectedText = "none"
     @State private var editModeEnabled = false
     @State private var columnSettings: [ColumnLayoutSettings]
     @State private var leftLayout: ContentViewModel.Layout
@@ -441,9 +443,15 @@ struct ContentView: View {
                 applySavedSettings()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
                 viewModel.setKeymapEditingEnabled(editModeEnabled)
+                AutocorrectEngine.shared.setStatusUpdateHandler { snapshot in
+                    DispatchQueue.main.async {
+                        applyAutocorrectStatusSnapshot(snapshot)
+                    }
+                }
             }
             .onDisappear {
                 persistConfig()
+                AutocorrectEngine.shared.setStatusUpdateHandler(nil)
             }
             .onChange(of: editModeEnabled) { enabled in
                 if !enabled {
@@ -824,8 +832,19 @@ struct ContentView: View {
                 lastHitRight: viewModel.debugLastHitRight,
                 selectedButtonID: $selectedButtonID,
                 selectedGridKey: $selectedGridKey,
-                testText: $testText
+                testText: $testText,
+                autocorrectCurrentBufferText: $autocorrectCurrentBufferText,
+                autocorrectLastCorrectedText: $autocorrectLastCorrectedText
             )
+    }
+
+    private func applyAutocorrectStatusSnapshot(_ snapshot: AutocorrectEngine.StatusSnapshot) {
+        if snapshot.enabled {
+            autocorrectCurrentBufferText = snapshot.currentBuffer.isEmpty ? "<empty>" : snapshot.currentBuffer
+        } else {
+            autocorrectCurrentBufferText = "<empty>"
+        }
+        autocorrectLastCorrectedText = snapshot.lastCorrected
     }
 
     private var rightSidebarView: some View {
@@ -1004,6 +1023,8 @@ struct ContentView: View {
         @Binding var selectedButtonID: UUID?
         @Binding var selectedGridKey: SelectedGridKey?
         @Binding var testText: String
+        @Binding var autocorrectCurrentBufferText: String
+        @Binding var autocorrectLastCorrectedText: String
 
         var body: some View {
             ZStack {
@@ -1031,6 +1052,29 @@ struct ContentView: View {
                             RoundedRectangle(cornerRadius: 6)
                                 .stroke(Color.secondary.opacity(0.6), lineWidth: 1)
                         )
+                    HStack(alignment: .firstTextBaseline, spacing: 16) {
+                        HStack(spacing: 4) {
+                            Text("Current buffer:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(autocorrectCurrentBufferText)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                        Spacer(minLength: 12)
+                        HStack(spacing: 4) {
+                            Text("Last corrected:")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            Text(autocorrectLastCorrectedText)
+                                .font(.caption)
+                                .foregroundStyle(.primary)
+                                .lineLimit(1)
+                                .truncationMode(.tail)
+                        }
+                    }
                 }
                 .padding(12)
                 .background(

@@ -230,9 +230,9 @@
         {
           "action" : {
             "flags" : 0,
-            "keyCode" : 49,
+            "keyCode" : 51,
             "kind" : "key",
-            "label" : "Space"
+            "label" : "Back"
           },
           "id" : "72335759-A9C4-4E2F-B75C-7717F26E88E9",
           "layer" : 0,
@@ -603,41 +603,41 @@
         "left:1:0" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 17,
+            "keyCode" : 5,
             "kind" : "key",
-            "label" : "T"
+            "label" : "G"
           }
         },
         "left:1:1" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 15,
+            "keyCode" : 3,
             "kind" : "key",
-            "label" : "R"
+            "label" : "F"
           }
         },
         "left:1:2" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 14,
+            "keyCode" : 2,
             "kind" : "key",
-            "label" : "E"
+            "label" : "D"
           }
         },
         "left:1:3" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 13,
+            "keyCode" : 1,
             "kind" : "key",
-            "label" : "W"
+            "label" : "S"
           }
         },
         "left:1:4" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 12,
+            "keyCode" : 0,
             "kind" : "key",
-            "label" : "Q"
+            "label" : "A"
           }
         },
         "left:1:5" : {
@@ -651,17 +651,17 @@
         "left:2:0" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 5,
+            "keyCode" : 11,
             "kind" : "key",
-            "label" : "G"
+            "label" : "B"
           }
         },
         "left:2:1" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 3,
+            "keyCode" : 9,
             "kind" : "key",
-            "label" : "F"
+            "label" : "V"
           }
         },
         "left:2:2" : {
@@ -675,17 +675,17 @@
         "left:2:3" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 1,
+            "keyCode" : 7,
             "kind" : "key",
-            "label" : "S"
+            "label" : "X"
           }
         },
         "left:2:4" : {
           "primary" : {
             "flags" : 0,
-            "keyCode" : 0,
+            "keyCode" : 6,
             "kind" : "key",
-            "label" : "A"
+            "label" : "Z"
           }
         },
         "left:2:5" : {
@@ -3268,38 +3268,6 @@
             "label" : "None"
           }
         },
-        "right:0:0" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 16,
-            "kind" : "key",
-            "label" : "Y"
-          }
-        },
-        "right:0:1" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 32,
-            "kind" : "key",
-            "label" : "U"
-          }
-        },
-        "right:0:2" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 34,
-            "kind" : "key",
-            "label" : "I"
-          }
-        },
-        "right:0:3" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 31,
-            "kind" : "key",
-            "label" : "O"
-          }
-        },
         "right:0:4" : {
           "primary" : {
             "flags" : 0,
@@ -3316,84 +3284,12 @@
             "label" : "Back"
           }
         },
-        "right:1:0" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 16,
-            "kind" : "key",
-            "label" : "Y"
-          }
-        },
-        "right:1:1" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 32,
-            "kind" : "key",
-            "label" : "U"
-          }
-        },
-        "right:1:2" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 34,
-            "kind" : "key",
-            "label" : "I"
-          }
-        },
-        "right:1:3" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 31,
-            "kind" : "key",
-            "label" : "O"
-          }
-        },
-        "right:1:4" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 35,
-            "kind" : "key",
-            "label" : "P"
-          }
-        },
         "right:1:5" : {
           "primary" : {
             "flags" : 0,
             "keyCode" : 36,
             "kind" : "key",
             "label" : "Enter"
-          }
-        },
-        "right:2:0" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 45,
-            "kind" : "key",
-            "label" : "N"
-          }
-        },
-        "right:2:1" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 46,
-            "kind" : "key",
-            "label" : "M"
-          }
-        },
-        "right:2:2" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 43,
-            "kind" : "key",
-            "label" : ","
-          }
-        },
-        "right:2:3" : {
-          "primary" : {
-            "flags" : 0,
-            "keyCode" : 47,
-            "kind" : "key",
-            "label" : "."
           }
         },
         "right:2:5" : {
