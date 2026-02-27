@@ -1,16 +1,14 @@
 # Driver Install Guide
-You will need to install the driver for both USB and for Bluetooth! (For each Apple Magic Trackpad)
+You may need to install the driver for both USB and for Bluetooth! (For each Apple Magic Trackpad)
 
 ## Do you have drivers installed for your trackpad already??
 - Go to a webpage and try to 2-finger scroll. If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed! **(You should be able to start GlassToKey and select one of the decoders to see your touches)**
-- The Official Apple driver is considered default, however, any Opensource driver should work! (Force settings are the only thing not supported on Opensource drivers)
-
-**If you can move your mouse but you can't scroll with a gesture — perfect!** *You need to install drivers:*
+- **If you can move your mouse but you can't scroll with a gesture — perfect!** *You need to install drivers:*
 
 ~DRAFT~
 ## (Option1: Simple install) Download the Opensource drivers:
 - https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/tag/v2.0
-- Force Min and Force Max will not apply when using the Opensource drivers.
+- **Force Min and Force Max settings will not apply when using the Opensource drivers.**
 
 Download the .zip file, right-click the `.INF` files and click `Install`
 
