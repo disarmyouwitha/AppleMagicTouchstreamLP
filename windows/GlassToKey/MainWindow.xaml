@@ -774,6 +774,7 @@
               <StackPanel Margin="0,6,0,0">
                 <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
+                <CheckBox x:Name="StartInTrayOnLaunchCheck" Content="Start in taskbar (tray only)" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="HoldRepeatModeCheck" Content="Hold Repeat" Foreground="#8b949e" Margin="0,4,0,0" />
                 <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />

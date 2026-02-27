@@ -9,6 +9,8 @@ A status bar indicator shows the active mode:
 
 Right-clicking the indicator opens tray actions: `Config...`, separator, `Capture`, `Replay`, separator, `Restart`, and `Exit`.
 
+By default, GlassToKey opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Mode Toggles`.
+
 ### Pin Tray Icon
 - Windows 11:
   - `Settings` -> `Personalization` -> `Taskbar` -> `Other system tray icons` -> turn on `GlassToKey`.
