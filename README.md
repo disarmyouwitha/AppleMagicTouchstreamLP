@@ -38,9 +38,6 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 - There is also a "Blank" mode where you can just use it as a Trackpad + Gestures + Custom buttons
 - There is also a "Planck" mode where all 12x4 are on 1 trackpad xD (It's terrible)
 
-**Windows Pin Tray Icon:**
-- You can drag the icon from the hidden tray (`^`) to the visible tray area.
-
 **Windows Haptics:**
 - Working over USB!!!
 - **~I do not see a path forward for Bluetooth Haptics on Windows!~**
