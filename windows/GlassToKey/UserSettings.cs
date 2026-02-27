@@ -696,7 +696,8 @@ public sealed class UserSettings
                 scale: safe.Scale,
                 offsetXPercent: safe.OffsetXPercent,
                 offsetYPercent: safe.OffsetYPercent,
-                rowSpacingPercent: safe.RowSpacingPercent));
+                rowSpacingPercent: safe.RowSpacingPercent,
+                rotationDegrees: Math.Clamp(safe.RotationDegrees, 0.0, 360.0)));
         }
 
         return clone;
@@ -720,7 +721,8 @@ public sealed class UserSettings
                     RuntimeConfigurationFactory.TrackpadHeightMm / RuntimeConfigurationFactory.KeyHeightMm),
                 offsetXPercent: safe.OffsetXPercent,
                 offsetYPercent: safe.OffsetYPercent,
-                rowSpacingPercent: safe.RowSpacingPercent));
+                rowSpacingPercent: safe.RowSpacingPercent,
+                rotationDegrees: Math.Clamp(safe.RotationDegrees, 0.0, 360.0)));
         }
 
         return normalized;
@@ -830,7 +832,8 @@ public sealed class UserSettings
             if (Math.Abs(lhs.Scale - rhs.Scale) > 0.000001 ||
                 Math.Abs(lhs.OffsetXPercent - rhs.OffsetXPercent) > 0.000001 ||
                 Math.Abs(lhs.OffsetYPercent - rhs.OffsetYPercent) > 0.000001 ||
-                Math.Abs(lhs.RowSpacingPercent - rhs.RowSpacingPercent) > 0.000001)
+                Math.Abs(lhs.RowSpacingPercent - rhs.RowSpacingPercent) > 0.000001 ||
+                Math.Abs(lhs.RotationDegrees - rhs.RotationDegrees) > 0.000001)
             {
                 return false;
             }

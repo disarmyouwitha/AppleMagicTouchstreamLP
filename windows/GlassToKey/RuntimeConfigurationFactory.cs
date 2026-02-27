@@ -139,7 +139,7 @@ internal static class RuntimeConfigurationFactory
         for (int i = 0; i < source.Length; i++)
         {
             ColumnLayoutSettings item = source[i];
-            output[i] = new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent);
+            output[i] = new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees);
         }
 
         return output;
@@ -184,7 +184,8 @@ internal static class RuntimeConfigurationFactory
                 scale: Math.Clamp(saved.Scale, MinColumnScale, maxColumnScale),
                 offsetXPercent: saved.OffsetXPercent,
                 offsetYPercent: saved.OffsetYPercent,
-                rowSpacingPercent: saved.RowSpacingPercent);
+                rowSpacingPercent: saved.RowSpacingPercent,
+                rotationDegrees: Math.Clamp(saved.RotationDegrees, 0.0, 360.0));
         }
 
         return output;
@@ -211,7 +212,7 @@ internal static class RuntimeConfigurationFactory
             for (int i = 0; i < fixedSettings.Length; i++)
             {
                 ColumnLayoutSettings item = fixedSettings[i];
-                fixedList.Add(new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent));
+                fixedList.Add(new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees));
             }
             settings.ColumnSettingsByLayout[preset.Name] = fixedList;
             settings.ColumnSettings = fixedList;
@@ -238,7 +239,8 @@ internal static class RuntimeConfigurationFactory
                 scale: item.Scale,
                 offsetXPercent: item.OffsetXPercent,
                 offsetYPercent: item.OffsetYPercent,
-                rowSpacingPercent: item.RowSpacingPercent));
+                rowSpacingPercent: item.RowSpacingPercent,
+                rotationDegrees: item.RotationDegrees));
         }
     }
 

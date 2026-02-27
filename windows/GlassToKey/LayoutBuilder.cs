@@ -92,17 +92,29 @@ public static class LayoutBuilder
             }
         }
 
+        for (int col = 0; col < columns; col++)
+        {
+            double rotationDegrees = -Math.Clamp(settings[col].RotationDegrees, 0.0, 360.0);
+            if (Math.Abs(rotationDegrees) < 0.00001)
+            {
+                continue;
+            }
+
+            double pivotX = rects[0][col].CenterX;
+            double pivotY = (rects[0][col].CenterY + rects[rows - 1][col].CenterY) * 0.5;
+            for (int row = 0; row < rows; row++)
+            {
+                rects[row][col] = rects[row][col].RotateAround(pivotX, pivotY, rotationDegrees);
+            }
+        }
+
         if (mirrored)
         {
             for (int row = 0; row < rows; row++)
             {
                 for (int col = 0; col < columns; col++)
                 {
-                    NormalizedRect rect = rects[row][col];
-                    rects[row][col] = rect with
-                    {
-                        X = 1.0 - rect.X - rect.Width
-                    };
+                    rects[row][col] = rects[row][col].MirrorHorizontally();
                 }
             }
         }

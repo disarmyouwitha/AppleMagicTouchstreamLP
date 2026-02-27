@@ -54,10 +54,8 @@ internal sealed class BindingIndex
                 continue;
             }
 
-            double dx = Math.Min(normalizedX - rect.X, rect.X + rect.Width - normalizedX);
-            double dy = Math.Min(normalizedY - rect.Y, rect.Y + rect.Height - normalizedY);
-            double score = Math.Min(dx, dy);
-            double area = rect.Width * rect.Height;
+            double score = rect.DistanceToEdge(normalizedX, normalizedY);
+            double area = rect.Area;
             if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
             {
                 best = index;
@@ -185,10 +183,10 @@ internal sealed class BindingIndex
         for (int i = 0; i < bindings.Length; i++)
         {
             NormalizedRect rect = bindings[i].Rect;
-            int minRow = BucketIndex(rect.Y, bucketRows);
-            int maxRow = BucketIndex(rect.Y + rect.Height, bucketRows);
-            int minCol = BucketIndex(rect.X, bucketColumns);
-            int maxCol = BucketIndex(rect.X + rect.Width, bucketColumns);
+            int minRow = BucketIndex(rect.MinY, bucketRows);
+            int maxRow = BucketIndex(rect.MaxY, bucketRows);
+            int minCol = BucketIndex(rect.MinX, bucketColumns);
+            int maxCol = BucketIndex(rect.MaxX, bucketColumns);
             for (int row = minRow; row <= maxRow; row++)
             {
                 for (int col = minCol; col <= maxCol; col++)

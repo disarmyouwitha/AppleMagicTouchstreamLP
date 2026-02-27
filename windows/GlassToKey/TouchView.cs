@@ -222,58 +222,21 @@ public sealed class TouchView : FrameworkElement
             for (int col = 0; col < rowRects.Length; col++)
             {
                 Rect rect = rowRects[col].ToRect(pad);
-                dc.DrawRoundedRectangle(_keyFillBrush, _keyStrokePen, rect, 6, 6);
+                DrawKeyRect(dc, rowRects[col], rect, _keyFillBrush, _keyStrokePen);
 
                 if (HighlightedKey.HasValue && RectEquals(rowRects[col], HighlightedKey.Value))
                 {
-                    dc.DrawRoundedRectangle(_hitFillBrush, _hitStrokePen, rect, 6, 6);
+                    DrawKeyRect(dc, rowRects[col], rect, _hitFillBrush, _hitStrokePen);
                 }
                 if (SelectedKey.HasValue && RectEquals(rowRects[col], SelectedKey.Value))
                 {
-                    dc.DrawRoundedRectangle(_selectedFillBrush, _selectedStrokePen, rect, 6, 6);
+                    DrawKeyRect(dc, rowRects[col], rect, _selectedFillBrush, _selectedStrokePen);
                 }
 
                 if (LabelMatrix != null && row < LabelMatrix.Length && col < LabelMatrix[row].Length)
                 {
                     string label = LabelMatrix[row][col];
-                    int split = label.IndexOf('\n');
-                    if (split > 0 && split < label.Length - 1)
-                    {
-                        string primary = label.Substring(0, split);
-                        string hold = label.Substring(split + 1);
-
-                        FormattedText primaryText = new(
-                            primary,
-                            CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight,
-                            _monoTypeface,
-                            10,
-                            _textBrush,
-                            1.0);
-                        dc.DrawText(primaryText, new Point(rect.Left + (rect.Width - primaryText.Width) / 2, rect.Top + (rect.Height - primaryText.Height) / 2));
-
-                        FormattedText holdText = new(
-                            hold,
-                            CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight,
-                            _monoTypeface,
-                            8,
-                            _textBrush,
-                            1.0);
-                        dc.DrawText(holdText, new Point(rect.Left + (rect.Width - holdText.Width) / 2, rect.Bottom - holdText.Height - 2));
-                    }
-                    else
-                    {
-                        FormattedText text = new(
-                            label,
-                            CultureInfo.InvariantCulture,
-                            FlowDirection.LeftToRight,
-                            _monoTypeface,
-                            10,
-                            _textBrush,
-                            1.0);
-                        dc.DrawText(text, new Point(rect.Left + (rect.Width - text.Width) / 2, rect.Top + (rect.Height - text.Height) / 2));
-                    }
+                    DrawKeyLabel(dc, rowRects[col], rect, label);
                 }
             }
         }
@@ -351,7 +314,76 @@ public sealed class TouchView : FrameworkElement
 
     private static bool RectEquals(NormalizedRect a, NormalizedRect b)
     {
-        return Math.Abs(a.X - b.X) < 0.00001 && Math.Abs(a.Y - b.Y) < 0.00001 && Math.Abs(a.Width - b.Width) < 0.00001 && Math.Abs(a.Height - b.Height) < 0.00001;
+        return Math.Abs(a.X - b.X) < 0.00001 &&
+               Math.Abs(a.Y - b.Y) < 0.00001 &&
+               Math.Abs(a.Width - b.Width) < 0.00001 &&
+               Math.Abs(a.Height - b.Height) < 0.00001 &&
+               Math.Abs(a.RotationDegrees - b.RotationDegrees) < 0.00001;
+    }
+
+    private static void DrawKeyRect(DrawingContext dc, NormalizedRect normalizedRect, Rect rect, Brush fill, Pen pen)
+    {
+        if (Math.Abs(normalizedRect.RotationDegrees) < 0.00001)
+        {
+            dc.DrawRoundedRectangle(fill, pen, rect, 6, 6);
+            return;
+        }
+
+        dc.PushTransform(new RotateTransform(normalizedRect.RotationDegrees, rect.Left + (rect.Width * 0.5), rect.Top + (rect.Height * 0.5)));
+        dc.DrawRoundedRectangle(fill, pen, rect, 6, 6);
+        dc.Pop();
+    }
+
+    private void DrawKeyLabel(DrawingContext dc, NormalizedRect normalizedRect, Rect rect, string label)
+    {
+        if (Math.Abs(normalizedRect.RotationDegrees) >= 0.00001)
+        {
+            dc.PushTransform(new RotateTransform(normalizedRect.RotationDegrees, rect.Left + (rect.Width * 0.5), rect.Top + (rect.Height * 0.5)));
+        }
+
+        int split = label.IndexOf('\n');
+        if (split > 0 && split < label.Length - 1)
+        {
+            string primary = label.Substring(0, split);
+            string hold = label.Substring(split + 1);
+
+            FormattedText primaryText = new(
+                primary,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                10,
+                _textBrush,
+                1.0);
+            dc.DrawText(primaryText, new Point(rect.Left + (rect.Width - primaryText.Width) / 2, rect.Top + (rect.Height - primaryText.Height) / 2));
+
+            FormattedText holdText = new(
+                hold,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                8,
+                _textBrush,
+                1.0);
+            dc.DrawText(holdText, new Point(rect.Left + (rect.Width - holdText.Width) / 2, rect.Bottom - holdText.Height - 2));
+        }
+        else
+        {
+            FormattedText text = new(
+                label,
+                CultureInfo.InvariantCulture,
+                FlowDirection.LeftToRight,
+                _monoTypeface,
+                10,
+                _textBrush,
+                1.0);
+            dc.DrawText(text, new Point(rect.Left + (rect.Width - text.Width) / 2, rect.Top + (rect.Height - text.Height) / 2));
+        }
+
+        if (Math.Abs(normalizedRect.RotationDegrees) >= 0.00001)
+        {
+            dc.Pop();
+        }
     }
 
     private Rect CreatePadRect(Rect bounds)

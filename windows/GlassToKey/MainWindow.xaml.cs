@@ -862,7 +862,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AutocorrectOverridesBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
-            ColumnOffsetYBox
+            ColumnOffsetYBox,
+            ColumnRotationBox
         };
 
         foreach (TextBox box in boxes)
@@ -1182,7 +1183,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     scale: item.Scale,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
-                    rowSpacingPercent: item.RowSpacingPercent));
+                    rowSpacingPercent: item.RowSpacingPercent,
+                    rotationDegrees: item.RotationDegrees));
             }
 
             snapshot.ColumnSettingsByLayout[preset.Name] = list;
@@ -1201,7 +1203,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     scale: item.Scale,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
-                    rowSpacingPercent: item.RowSpacingPercent));
+                    rowSpacingPercent: item.RowSpacingPercent,
+                    rotationDegrees: item.RotationDegrees));
             }
         }
         else
@@ -1530,6 +1533,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnScaleBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
+        ColumnRotationBox.IsEnabled = allowsColumnSettings;
         ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && IsAutoSplaySupportedPreset();
         ColumnEvenSpaceButton.IsEnabled = allowsColumnSettings && _preset.Columns >= 3;
 
@@ -1561,6 +1565,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnScaleBox.ToolTip = "Fixed layout scale.";
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
+            ColumnRotationBox.Text = "0";
             return;
         }
 
@@ -1571,6 +1576,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnScaleBox.ToolTip = null;
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
+            ColumnRotationBox.Text = "0";
             return;
         }
 
@@ -1582,6 +1588,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "(based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).";
         ColumnOffsetXBox.Text = FormatNumber(settings.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(settings.OffsetYPercent);
+        ColumnRotationBox.Text = FormatNumber(settings.RotationDegrees);
+        ColumnRotationBox.ToolTip = "Rotation range: 0° - 360°.";
     }
 
     private bool ApplyColumnLayoutFromUi()
@@ -1613,6 +1621,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
         double nextOffsetX = ReadDouble(ColumnOffsetXBox, target.OffsetXPercent);
         double nextOffsetY = ReadDouble(ColumnOffsetYBox, target.OffsetYPercent);
+        double nextRotation = Math.Clamp(ReadDouble(ColumnRotationBox, target.RotationDegrees), 0.0, 360.0);
 
         if (Math.Abs(nextScale - target.Scale) > 0.00001)
         {
@@ -1632,9 +1641,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             changed = true;
         }
 
+        if (Math.Abs(nextRotation - target.RotationDegrees) > 0.00001)
+        {
+            target.RotationDegrees = nextRotation;
+            changed = true;
+        }
+
         ColumnScaleBox.Text = FormatNumber(target.Scale * 100.0);
         ColumnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
+        ColumnRotationBox.Text = FormatNumber(target.RotationDegrees);
         return changed;
     }
 
@@ -3301,10 +3317,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     continue;
                 }
 
-                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                double score = Math.Min(dx, dy);
-                double area = rect.Width * rect.Height;
+                double score = rect.DistanceToEdge(xNorm, yNorm);
+                double area = rect.Area;
                 if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                 {
                     bestScore = score;
@@ -3327,10 +3341,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     continue;
                 }
 
-                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                double score = Math.Min(dx, dy);
-                double area = rect.Width * rect.Height;
+                double score = rect.DistanceToEdge(xNorm, yNorm);
+                double area = rect.Area;
                 if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                 {
                     bestScore = score;
