@@ -29,13 +29,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false
     private var replayInProgress = false
+    private static let persistedConfigKeys: [String] = [
+        GlassToKeyDefaultsKeys.leftDeviceID,
+        GlassToKeyDefaultsKeys.rightDeviceID,
+        GlassToKeyDefaultsKeys.columnSettings,
+        GlassToKeyDefaultsKeys.customButtons,
+        GlassToKeyDefaultsKeys.keyMappings,
+        GlassToKeyDefaultsKeys.tapHoldDuration,
+        GlassToKeyDefaultsKeys.dragCancelDistance,
+        GlassToKeyDefaultsKeys.forceClickMin,
+        GlassToKeyDefaultsKeys.forceClickCap,
+        GlassToKeyDefaultsKeys.hapticStrength,
+        GlassToKeyDefaultsKeys.typingGraceMs,
+        GlassToKeyDefaultsKeys.intentMoveThresholdMm,
+        GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec,
+        GlassToKeyDefaultsKeys.tapClickCadenceMs,
+        GlassToKeyDefaultsKeys.layoutPreset,
+        GlassToKeyDefaultsKeys.autoResyncMissingTrackpads,
+        GlassToKeyDefaultsKeys.autocorrectEnabled,
+        GlassToKeyDefaultsKeys.snapRadiusPercent,
+        GlassToKeyDefaultsKeys.chordalShiftEnabled,
+        GlassToKeyDefaultsKeys.keyboardModeEnabled,
+        GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
+        GlassToKeyDefaultsKeys.threeFingerTapGestureAction,
+        GlassToKeyDefaultsKeys.twoFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.threeFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.fourFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.outerCornersHoldGestureAction,
+        GlassToKeyDefaultsKeys.innerCornersHoldGestureAction,
+        GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction,
+        GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction
+    ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
         controller.start()
         configureStatusItem()
         observeStatus()
+        if shouldOpenConfigOnLaunch {
+            openConfigWindow()
+        }
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
@@ -276,6 +311,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         } catch {
             defaults.set(manager.isEnabled, forKey: key)
         }
+    }
+
+    private func hasSavedConfiguration(defaults: UserDefaults = .standard) -> Bool {
+        for key in Self.persistedConfigKeys {
+            if defaults.object(forKey: key) != nil {
+                return true
+            }
+        }
+        return false
     }
 
     private func startCaptureFlow() {

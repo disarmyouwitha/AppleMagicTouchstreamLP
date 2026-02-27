@@ -1,8 +1,15 @@
 ## TODO
+- I would like to totally strip out word ressurrection and make autocorrect work in the standard behavior?
+z
+- Can you take a look at some of the Features we added to Autocorrect for "../windows/glasstokey" can we replicate some of the features under "Autocorrect Status" by adding our own Collapsable menu (defaul collapsed) that is hidden unless Autocorrect is enabled. When visible I want it to replicate the same features, but using the buil
+- sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
+- 3-finger click for right-click immediately closes!
+- 1. can we have Autocorrect Details named "Autocorrect Tuning" 2. Can we have Autocorrect Tuning start
+  collapsed? 3. in "Recent words" it adds the words I type + the corrected word; we already show last
+  corrected so it should only show what I type in recent words buffer
+---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
----
-- I need you to check out how we did Autocorrect with Symspell in "../windows/glasstokey" and implement it in the same way here. If we can reuse the AX stuff for a cleaner replace than backspace replace we can use that, but I want to rip the word ressurection engine out and start using Symspell for the correction engine.
 -------
 - User idea#48: Super cool project, I would love to be able to rotate a key a few degrees when adjusting its position
 
@@ -17,6 +24,6 @@
 
 # Release Build:
 
-# xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/GlassToKeyReleaseBuild build
+# xcodebuild -project mac/GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Release -destination 'platform=macOS' -derivedDataPath /tmp/GlassToKeyReleaseBuild build
 
 # /usr/bin/ditto /tmp/GlassToKeyReleaseBuild/Build/Products/Release/GlassToKey.app /Users/nap/Downloads/GlassToKey.app && ls -ld /Users/nap/Downloads/GlassToKey.app
