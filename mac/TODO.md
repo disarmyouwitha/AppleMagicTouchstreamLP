@@ -1,10 +1,6 @@
 ## TODO
-- Can you take a look at "../windows/glasstokey" can we replicate "Current buffer" (left under textarea) and "Last corrected" (right under Textarea)
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
 - 3-finger click for right-click immediately closes!
-- 1. can we have Autocorrect Details named "Autocorrect Tuning" 2. Can we have Autocorrect Tuning start
-  collapsed? 3. in "Recent words" it adds the words I type + the corrected word; we already show last
-  corrected so it should only show what I type in recent words buffer
 ---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
