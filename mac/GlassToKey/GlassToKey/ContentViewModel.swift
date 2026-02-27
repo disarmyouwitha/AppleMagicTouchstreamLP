@@ -1415,14 +1415,7 @@ enum KeyActionCatalog {
             ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
             ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
             ("Cmd+S", CGKeyCode(kVK_ANSI_S)),
-            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z)),
-            ("Ctrl+F", CGKeyCode(kVK_ANSI_F)),
-            ("Ctrl+X", CGKeyCode(kVK_ANSI_X)),
-            ("Ctrl+C", CGKeyCode(kVK_ANSI_C)),
-            ("Ctrl+V", CGKeyCode(kVK_ANSI_V)),
-            ("Ctrl+A", CGKeyCode(kVK_ANSI_A)),
-            ("Ctrl+S", CGKeyCode(kVK_ANSI_S)),
-            ("Ctrl+Z", CGKeyCode(kVK_ANSI_Z))
+            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z))
         ]
         return combos.map { label, code in
             KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
@@ -1687,14 +1680,8 @@ enum KeyActionMappingStore {
         TrackpadLayoutPreset.allCases.map(\.rawValue)
     }
 
-    static func decode(_ data: Data) -> LayeredKeyMappings? {
-        guard !data.isEmpty else { return nil }
-        return try? JSONDecoder().decode(LayeredKeyMappings.self, from: data)
-    }
-
-    static func decodeNormalized(_ data: Data) -> LayeredKeyMappings? {
-        guard let layered = decode(data) else { return nil }
-        return normalized(layered)
+    private static func storageOnly(_ mappings: [String: KeyMapping]) -> [String: KeyMapping] {
+        mappings.filter { GridKeyPosition.from(storageKey: $0.key) != nil }
     }
 
     static func encode(_ mappings: LayeredKeyMappings) -> Data? {
@@ -1707,10 +1694,9 @@ enum KeyActionMappingStore {
     }
 
     static func normalized(_ mappings: LayeredKeyMappings) -> LayeredKeyMappings {
-        let layer0 = mappings[KeyLayerConfig.baseLayer] ?? [:]
         var normalizedMappings: LayeredKeyMappings = [:]
         for layer in KeyLayerConfig.editableLayers {
-            normalizedMappings[layer] = mappings[layer] ?? layer0
+            normalizedMappings[layer] = storageOnly(mappings[layer] ?? [:])
         }
         return normalizedMappings
     }
@@ -1727,9 +1713,6 @@ enum KeyActionMappingStore {
         guard !data.isEmpty else { return nil }
         if let decoded = try? JSONDecoder().decode(LayoutLayeredKeyMappings.self, from: data) {
             return normalized(decoded)
-        }
-        if let legacy = decodeNormalized(data) {
-            return legacyMappedAcrossLayouts(legacy)
         }
         return nil
     }
@@ -1760,11 +1743,4 @@ enum KeyActionMappingStore {
         return mappings
     }
 
-    static func legacyMappedAcrossLayouts(_ mappings: LayeredKeyMappings) -> LayoutLayeredKeyMappings {
-        var output: LayoutLayeredKeyMappings = [:]
-        for layoutRawValue in allLayoutRawValues {
-            output[layoutRawValue] = mappings
-        }
-        return normalized(output)
-    }
 }

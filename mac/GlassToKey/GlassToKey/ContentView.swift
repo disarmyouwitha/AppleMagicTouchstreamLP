@@ -53,7 +53,6 @@ struct ContentView: View {
     }
 
     private struct KeymapProfile: Codable {
-        let schemaVersion: Int
         let leftDeviceID: String
         let rightDeviceID: String
         let layoutPreset: String
@@ -83,7 +82,6 @@ struct ContentView: View {
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
-        let keyMappings: LayeredKeyMappings?
     }
 
     @StateObject private var viewModel: ContentViewModel
@@ -816,6 +814,8 @@ struct ContentView: View {
                 trackpadSize: trackpadSize,
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
+                leftBaseLabels: leftGridLabels,
+                rightBaseLabels: rightGridLabels,
                 leftGridLabelInfo: leftGridLabelInfo,
                 rightGridLabelInfo: rightGridLabelInfo,
                 customButtons: customButtons,
@@ -993,6 +993,8 @@ struct ContentView: View {
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
+        let leftBaseLabels: [[String]]
+        let rightBaseLabels: [[String]]
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
@@ -1011,6 +1013,8 @@ struct ContentView: View {
                             trackpadSize: trackpadSize,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
+                            leftBaseLabels: leftBaseLabels,
+                            rightBaseLabels: rightBaseLabels,
                             leftGridLabelInfo: leftGridLabelInfo,
                             rightGridLabelInfo: rightGridLabelInfo,
                             customButtons: customButtons,
@@ -2217,6 +2221,8 @@ struct ContentView: View {
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
+        let leftBaseLabels: [[String]]
+        let rightBaseLabels: [[String]]
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
@@ -2318,10 +2324,17 @@ struct ContentView: View {
                 selectedGridKey = nil
             case .key(let row, let column, let label):
                 selectedButtonID = nil
+                let labels = selection.side == .left ? leftBaseLabels : rightBaseLabels
+                let resolvedLabel: String
+                if labels.indices.contains(row), labels[row].indices.contains(column) {
+                    resolvedLabel = labels[row][column]
+                } else {
+                    resolvedLabel = label
+                }
                 selectedGridKey = SelectedGridKey(
                     row: row,
                     column: column,
-                    label: label,
+                    label: resolvedLabel,
                     side: selection.side
                 )
             case .none:
@@ -3098,7 +3111,6 @@ struct ContentView: View {
         let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
             ?? normalizedLayoutMappingsWithCurrentRuntime()
         return KeymapProfile(
-            schemaVersion: 2,
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
             layoutPreset: storedLayoutPreset,
@@ -3127,8 +3139,7 @@ struct ContentView: View {
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
-            keyMappingsByLayout: mappings,
-            keyMappings: nil
+            keyMappingsByLayout: mappings
         )
     }
 
@@ -3246,9 +3257,6 @@ struct ContentView: View {
         if let byLayout = profile.keyMappingsByLayout {
             return KeyActionMappingStore.normalized(byLayout)
         }
-        if let legacy = profile.keyMappings {
-            return KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)
-        }
         return nil
     }
 
@@ -3286,10 +3294,6 @@ struct ContentView: View {
     private func encodedLayoutKeyMappingsData(from profile: KeymapProfile) -> Data {
         if let byLayout = profile.keyMappingsByLayout,
            let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(byLayout)) {
-            return encoded
-        }
-        if let legacy = profile.keyMappings,
-           let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.legacyMappedAcrossLayouts(legacy)) {
             return encoded
         }
         return Data()
@@ -3652,14 +3656,10 @@ struct ContentView: View {
         if let defaultMapping = defaultKeyMapping(for: resolvedLabel),
            defaultMapping == mapping {
             layerMappings.removeValue(forKey: key.storageKey)
-            layerMappings.removeValue(forKey: key.label)
-            layerMappings.removeValue(forKey: resolvedLabel)
             keyMappingsByLayer[layer] = layerMappings
             return
         }
         layerMappings[key.storageKey] = mapping
-        layerMappings.removeValue(forKey: key.label)
-        layerMappings.removeValue(forKey: resolvedLabel)
         keyMappingsByLayer[layer] = layerMappings
     }
 

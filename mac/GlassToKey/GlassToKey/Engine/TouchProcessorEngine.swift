@@ -1899,18 +1899,12 @@ actor TouchProcessorEngine {
         if let mapping = layerMappings[position.storageKey] {
             return mapping.primary
         }
-        if let mapping = layerMappings[label] {
-            return mapping.primary
-        }
         return KeyActionCatalog.action(for: label)
     }
 
     private func holdAction(for position: GridKeyPosition?, label: String) -> KeyAction? {
         let layerMappings = customKeyMappingsByLayer[activeLayer] ?? [:]
         if let position, let mapping = layerMappings[position.storageKey] {
-            return mapping.hold
-        }
-        if let mapping = layerMappings[label] {
             return mapping.hold
         }
         return KeyActionCatalog.holdAction(for: label)
