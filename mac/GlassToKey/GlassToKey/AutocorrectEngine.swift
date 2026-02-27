@@ -12,6 +12,12 @@ import Darwin
 final class AutocorrectEngine: @unchecked Sendable {
     static let shared = AutocorrectEngine()
 
+    struct StatusSnapshot {
+        let enabled: Bool
+        let currentBuffer: String
+        let lastCorrected: String
+    }
+
     private static let capacity = 2048
     private static let mask = capacity - 1
     private static let maxContextLeft = 1024
@@ -22,6 +28,8 @@ final class AutocorrectEngine: @unchecked Sendable {
     nonisolated(unsafe) private static var minWordLengthFlag: Int32 = 2
 
     private let queue: DispatchQueue
+    private let queueSpecificKey = DispatchSpecificKey<UInt8>()
+    private let queueSpecificValue: UInt8 = 1
     private let wakeSource: DispatchSourceUserDataAdd
     private let spellChecker: NSSpellChecker
     private let spellDocumentTag: Int
@@ -34,6 +42,7 @@ final class AutocorrectEngine: @unchecked Sendable {
     private var wordBuffer: [UInt8] = []
     private var autocorrectBuffer: [UInt8] = []
     private var ambiguityBuffer: [UInt8] = []
+    private var lastCorrectedSummary = "none"
     private var leftContext = ByteRing(capacity: AutocorrectEngine.maxContextLeft)
     private var rightContext = ByteRing(capacity: AutocorrectEngine.maxContextRight)
     private let maxWordLength = 64
@@ -48,6 +57,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         spellDocumentTag = NSSpellChecker.uniqueSpellDocumentTag()
 
         queue = DispatchQueue(label: "com.kyome.GlassToKey.Autocorrect", qos: .utility)
+        queue.setSpecific(key: queueSpecificKey, value: queueSpecificValue)
         wakeSource = DispatchSource.makeUserDataAddSource(queue: queue)
         wakeSource.setEventHandler { [weak self] in
             self?.drain()
@@ -70,6 +80,7 @@ final class AutocorrectEngine: @unchecked Sendable {
                 self?.wordBuffer.removeAll(keepingCapacity: true)
                 self?.autocorrectBuffer.removeAll(keepingCapacity: true)
                 self?.ambiguityBuffer.removeAll(keepingCapacity: true)
+                self?.lastCorrectedSummary = "none"
                 self?.leftContext.removeAll()
                 self?.rightContext.removeAll()
             }
@@ -82,6 +93,18 @@ final class AutocorrectEngine: @unchecked Sendable {
         var current = OSAtomicAdd32Barrier(0, &Self.minWordLengthFlag)
         while !OSAtomicCompareAndSwap32Barrier(current, value, &Self.minWordLengthFlag) {
             current = OSAtomicAdd32Barrier(0, &Self.minWordLengthFlag)
+        }
+    }
+
+    func statusSnapshot() -> StatusSnapshot {
+        if DispatchQueue.getSpecific(key: queueSpecificKey) == queueSpecificValue {
+            return makeStatusSnapshot()
+        }
+        return queue.sync { [weak self] in
+            guard let self else {
+                return StatusSnapshot(enabled: false, currentBuffer: "", lastCorrected: "none")
+            }
+            return self.makeStatusSnapshot()
         }
     }
 
@@ -225,6 +248,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         ) {
             guard correction != word else { return }
             guard KeySemanticMapper.canTypeASCII(correction) else { return }
+            lastCorrectedSummary = "\(word) -> \(correction)"
             let boundaryLength = boundaryEvent.boundaryLength
             if textReplacer.replaceLastWord(
                 wordLength: bytes.count,
@@ -251,6 +275,7 @@ final class AutocorrectEngine: @unchecked Sendable {
             language: language
         ) {
             let correction = ambiguousCorrection
+            lastCorrectedSummary = "\(word) -> \(correction)"
             let boundaryLength = boundaryEvent.boundaryLength
             if textReplacer.replaceLastWord(
                 wordLength: bytes.count,
@@ -406,6 +431,14 @@ final class AutocorrectEngine: @unchecked Sendable {
             return true
         }
         return false
+    }
+
+    private func makeStatusSnapshot() -> StatusSnapshot {
+        StatusSnapshot(
+            enabled: isEnabled,
+            currentBuffer: String(bytes: autocorrectBuffer, encoding: .ascii) ?? "",
+            lastCorrected: lastCorrectedSummary
+        )
     }
 
     private struct ByteRing {

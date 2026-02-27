@@ -1,7 +1,5 @@
 ## TODO
-- I would like to totally strip out word ressurrection and make autocorrect work in the standard behavior?
-z
-- Can you take a look at some of the Features we added to Autocorrect for "../windows/glasstokey" can we replicate some of the features under "Autocorrect Status" by adding our own Collapsable menu (defaul collapsed) that is hidden unless Autocorrect is enabled. When visible I want it to replicate the same features, but using the buil
+- Can you take a look at "../windows/glasstokey" can we replicate "Current buffer" (left under textarea) and "Last corrected" (right under Textarea)
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
 - 3-finger click for right-click immediately closes!
 - 1. can we have Autocorrect Details named "Autocorrect Tuning" 2. Can we have Autocorrect Tuning start
