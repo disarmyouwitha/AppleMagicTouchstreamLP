@@ -814,6 +814,8 @@ struct ContentView: View {
                 trackpadSize: trackpadSize,
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
+                leftBaseLabels: leftGridLabels,
+                rightBaseLabels: rightGridLabels,
                 leftGridLabelInfo: leftGridLabelInfo,
                 rightGridLabelInfo: rightGridLabelInfo,
                 customButtons: customButtons,
@@ -991,6 +993,8 @@ struct ContentView: View {
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
+        let leftBaseLabels: [[String]]
+        let rightBaseLabels: [[String]]
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
@@ -1009,6 +1013,8 @@ struct ContentView: View {
                             trackpadSize: trackpadSize,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
+                            leftBaseLabels: leftBaseLabels,
+                            rightBaseLabels: rightBaseLabels,
                             leftGridLabelInfo: leftGridLabelInfo,
                             rightGridLabelInfo: rightGridLabelInfo,
                             customButtons: customButtons,
@@ -2215,6 +2221,8 @@ struct ContentView: View {
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
+        let leftBaseLabels: [[String]]
+        let rightBaseLabels: [[String]]
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
@@ -2316,10 +2324,17 @@ struct ContentView: View {
                 selectedGridKey = nil
             case .key(let row, let column, let label):
                 selectedButtonID = nil
+                let labels = selection.side == .left ? leftBaseLabels : rightBaseLabels
+                let resolvedLabel: String
+                if labels.indices.contains(row), labels[row].indices.contains(column) {
+                    resolvedLabel = labels[row][column]
+                } else {
+                    resolvedLabel = label
+                }
                 selectedGridKey = SelectedGridKey(
                     row: row,
                     column: column,
-                    label: label,
+                    label: resolvedLabel,
                     side: selection.side
                 )
             case .none:
@@ -3641,14 +3656,10 @@ struct ContentView: View {
         if let defaultMapping = defaultKeyMapping(for: resolvedLabel),
            defaultMapping == mapping {
             layerMappings.removeValue(forKey: key.storageKey)
-            layerMappings.removeValue(forKey: key.label)
-            layerMappings.removeValue(forKey: resolvedLabel)
             keyMappingsByLayer[layer] = layerMappings
             return
         }
         layerMappings[key.storageKey] = mapping
-        layerMappings.removeValue(forKey: key.label)
-        layerMappings.removeValue(forKey: resolvedLabel)
         keyMappingsByLayer[layer] = layerMappings
     }
 

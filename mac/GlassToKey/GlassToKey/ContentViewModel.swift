@@ -1680,6 +1680,10 @@ enum KeyActionMappingStore {
         TrackpadLayoutPreset.allCases.map(\.rawValue)
     }
 
+    private static func storageOnly(_ mappings: [String: KeyMapping]) -> [String: KeyMapping] {
+        mappings.filter { GridKeyPosition.from(storageKey: $0.key) != nil }
+    }
+
     static func encode(_ mappings: LayeredKeyMappings) -> Data? {
         guard !mappings.isEmpty else { return nil }
         do {
@@ -1690,10 +1694,9 @@ enum KeyActionMappingStore {
     }
 
     static func normalized(_ mappings: LayeredKeyMappings) -> LayeredKeyMappings {
-        let layer0 = mappings[KeyLayerConfig.baseLayer] ?? [:]
         var normalizedMappings: LayeredKeyMappings = [:]
         for layer in KeyLayerConfig.editableLayers {
-            normalizedMappings[layer] = mappings[layer] ?? layer0
+            normalizedMappings[layer] = storageOnly(mappings[layer] ?? [:])
         }
         return normalizedMappings
     }
