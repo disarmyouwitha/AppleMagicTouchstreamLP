@@ -4191,6 +4191,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
         session.UpdateButtonState(in report);
+        if (session.LastButtonState.Changed)
+        {
+            _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(report.ArrivalQpcTicks);
+        }
         ApplyReport(session, snapshot.Tag, in report, side);
     }
 

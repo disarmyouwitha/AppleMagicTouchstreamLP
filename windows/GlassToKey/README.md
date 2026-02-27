@@ -34,7 +34,7 @@ By default, GlassToKey opens the config window on launch. To start tray-only (ta
 - Gesture Tuning: 5-finger swipe L/R/U/D, 3-finger swipe L/R/U/D, 4-finger swipe L/R/U/D, 2-finger hold, 3-finger hold, 4-finger hold, and outer/inner corner holds can each be mapped to any action.
   - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
-- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, mouse down/up events are blocked globally (except inside the GlassToKey config window). Blocking clicks requires Input Monitoring/Accessibility permission.
+- Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, click suppression is scoped to selected Apple Magic Trackpad click edges (except inside the GlassToKey config window) so non-trackpad mice are not blocked. Blocking clicks requires Input Monitoring/Accessibility permission.
 
 ## Intent State Machine
 GlassToKey runs a simple intent state machine to decide when touches should be interpreted as typing vs mouse input. The UI intent badges use these labels: `idle`, `cand`, `typing`, `mouse`, `gest`.
