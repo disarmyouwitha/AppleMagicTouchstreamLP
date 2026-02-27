@@ -20,11 +20,10 @@ I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstream
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
-**The app starts minimized in the TaskBar:** (You may need to expand it and drag it out on Windows)<br>
+**TaskBar Indicators:** (You may need to expand it and drag it out on Windows)<br>
 **Green** 🟢: Mixed mode (Mixed/Mouse)<br>
-**Purple**🟣: Keyboard/Mouse mode (Keyboard/Mouse)<br>
+**Purple**🟣: Keyboard/Mouse mode (clicking disabled)<br>
 **Red** &nbsp;&nbsp;&nbsp;🔴: Mouse-only mode (typing disabled)<br>
-
 Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restart, and Exit.
 
 **Useful Tips:**
