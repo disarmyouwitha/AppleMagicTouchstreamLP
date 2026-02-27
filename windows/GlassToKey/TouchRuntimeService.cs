@@ -349,6 +349,10 @@ internal sealed class TouchRuntimeService : IDisposable
                 if (routeLeft)
                 {
                     ButtonEdgeState buttonState = _leftButtonTracker.Update(in frame);
+                    if (buttonState.Changed)
+                    {
+                        _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
+                    }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
                     _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
                 }
@@ -356,6 +360,10 @@ internal sealed class TouchRuntimeService : IDisposable
                 if (routeRight)
                 {
                     ButtonEdgeState buttonState = _rightButtonTracker.Update(in frame);
+                    if (buttonState.Changed)
+                    {
+                        _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
+                    }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
                     _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
                 }

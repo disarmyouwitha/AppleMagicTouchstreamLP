@@ -226,6 +226,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SnapRadiusModeCheck.Unchecked += OnModeSettingChanged;
         RunAtStartupCheck.Checked += OnModeSettingChanged;
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
+        StartInTrayOnLaunchCheck.Checked += OnModeSettingChanged;
+        StartInTrayOnLaunchCheck.Unchecked += OnModeSettingChanged;
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
@@ -598,6 +600,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
+        StartInTrayOnLaunchCheck.IsChecked = _settings.StartInTrayOnLaunch;
         InitializeDecoderProfileCombos();
         RefreshDecoderProfileCombos();
 
@@ -1065,6 +1068,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             : 0.0;
         _settings.HoldRepeatEnabled = HoldRepeatModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
+        _settings.StartInTrayOnLaunch = StartInTrayOnLaunchCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)
         {
             if (!StartupRegistration.TrySetEnabled(startupRequested, out string? startupError))
@@ -4187,6 +4191,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
         session.UpdateButtonState(in report);
+        if (session.LastButtonState.Changed)
+        {
+            _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(report.ArrivalQpcTicks);
+        }
         ApplyReport(session, snapshot.Tag, in report, side);
     }
 

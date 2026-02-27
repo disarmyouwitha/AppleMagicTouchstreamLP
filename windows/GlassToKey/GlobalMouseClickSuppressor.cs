@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 
@@ -36,9 +37,11 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private const int WmNcXButtonDblClk = 0x00AD;
 
     private readonly uint _processId;
+    private static readonly long TrackedDeviceClickWindowTicks = Stopwatch.Frequency / 5; // 200 ms
     private HookProc? _hookProc;
     private IntPtr _hookHandle;
     private int _enabled;
+    private long _lastTrackedDeviceButtonEdgeTicks;
     private bool _disposed;
     public event Action? ClickObserved;
 
@@ -88,6 +91,12 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         Volatile.Write(ref _enabled, enabled ? 1 : 0);
     }
 
+    public void NotifyTrackedDeviceButtonEdge(long timestampTicks = 0)
+    {
+        long edgeTicks = timestampTicks > 0 ? timestampTicks : Stopwatch.GetTimestamp();
+        Interlocked.Exchange(ref _lastTrackedDeviceButtonEdgeTicks, edgeTicks);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -129,6 +138,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
             if (Volatile.Read(ref _enabled) != 0 &&
                 isClick &&
                 !isInjected &&
+                HasRecentTrackedDeviceButtonEdge() &&
                 !IsCurrentProcessWindowAtCursor(lParam))
             {
                 return (IntPtr)1;
@@ -150,6 +160,19 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
 
         _ = GetWindowThreadProcessId(hwnd, out uint processId);
         return processId == _processId;
+    }
+
+    private bool HasRecentTrackedDeviceButtonEdge()
+    {
+        long lastEdgeTicks = Interlocked.Read(ref _lastTrackedDeviceButtonEdgeTicks);
+        if (lastEdgeTicks <= 0)
+        {
+            return false;
+        }
+
+        long nowTicks = Stopwatch.GetTimestamp();
+        long elapsed = nowTicks - lastEdgeTicks;
+        return elapsed >= 0 && elapsed <= TrackedDeviceClickWindowTicks;
     }
 
     private static bool IsInjected(IntPtr lParam)
