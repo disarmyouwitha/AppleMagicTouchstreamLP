@@ -325,16 +325,10 @@ public partial class App : Application
 
         if (_configWindow == null)
         {
-            _configWindow = new MainWindow(_startupOptions, _runtimeService);
-            MainWindow = _configWindow;
-            _configWindow.Closed += (_, _) =>
-            {
-                if (ReferenceEquals(MainWindow, _configWindow))
-                {
-                    MainWindow = null;
-                }
-                _configWindow = null;
-            };
+            MainWindow window = new(_startupOptions, _runtimeService);
+            window.Closed += OnConfigWindowClosed;
+            _configWindow = window;
+            MainWindow = window;
         }
 
         if (!_configWindow.IsVisible)
@@ -352,6 +346,27 @@ public partial class App : Application
         _configWindow?.Close();
         _configWindow = null;
         Shutdown(0);
+    }
+
+    private void OnConfigWindowClosed(object? sender, EventArgs e)
+    {
+        if (sender is not MainWindow window)
+        {
+            return;
+        }
+
+        window.Closed -= OnConfigWindowClosed;
+        if (ReferenceEquals(MainWindow, window))
+        {
+            MainWindow = null;
+        }
+
+        if (ReferenceEquals(_configWindow, window))
+        {
+            _configWindow = null;
+        }
+
+        ManagedMemoryCompactor.QueueCompaction();
     }
 
     private void StartCaptureFromTray()

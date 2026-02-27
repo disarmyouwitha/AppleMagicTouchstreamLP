@@ -87,7 +87,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher
     private int _autocorrectPointerActivityPending;
     private bool _suppressPhysicalOutput;
     private bool _disposed;
-    private static readonly Lazy<SymSpell?> SymSpellInstance = new(CreateSymSpell);
+    private SymSpell? _symSpell;
+    private bool _autocorrectDictionaryLoadAttempted;
 
     public SendInputDispatcher()
     {
@@ -98,10 +99,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
 
     public void SetAutocorrectEnabled(bool enabled)
     {
+        bool wasEnabled = _autocorrectEnabled;
         _autocorrectEnabled = enabled;
         if (enabled)
         {
-            _ = SymSpellInstance.Value;
+            _ = EnsureSymSpellLoaded();
             _autocorrectSkipReason = "enabled";
         }
         else
@@ -109,6 +111,11 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             ResetAutocorrectState("disabled");
             _autocorrectForegroundProcessId = 0;
             _autocorrectForegroundApp = "unknown";
+            UnloadAutocorrectResources();
+            if (wasEnabled)
+            {
+                ManagedMemoryCompactor.QueueCompaction();
+            }
         }
     }
 
@@ -345,7 +352,32 @@ internal sealed class SendInputDispatcher : IInputDispatcher
         }
 
         _disposed = true;
+        UnloadAutocorrectResources();
         ReleaseAllHeldKeys();
+    }
+
+    private SymSpell? EnsureSymSpellLoaded()
+    {
+        if (_symSpell != null)
+        {
+            return _symSpell;
+        }
+
+        if (_autocorrectDictionaryLoadAttempted)
+        {
+            return null;
+        }
+
+        _autocorrectDictionaryLoadAttempted = true;
+        _symSpell = CreateSymSpell();
+        return _symSpell;
+    }
+
+    private void UnloadAutocorrectResources()
+    {
+        _symSpell = null;
+        _autocorrectDictionaryLoadAttempted = false;
+        _autocorrectCache.Clear();
     }
 
     private void HandleKeyDown(ushort virtualKey, ulong repeatToken, DispatchEventFlags flags, long timestampTicks)
@@ -895,7 +927,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher
             return;
         }
 
-        SymSpell? symSpell = SymSpellInstance.Value;
+        SymSpell? symSpell = EnsureSymSpellLoaded();
         if (symSpell == null)
         {
             RegisterAutocorrectSkip("dictionary_unavailable");
