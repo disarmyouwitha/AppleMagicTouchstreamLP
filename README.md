@@ -48,7 +48,7 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 ## FUTURE:
 Lots to do in the TODO! For now I am working on feature parity between MAC and WIN and to really hone the controls~
 
-Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT) which would help support the community but also help this project! =]
+Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT for Windows) which would help support the community but also help this project! =]
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
