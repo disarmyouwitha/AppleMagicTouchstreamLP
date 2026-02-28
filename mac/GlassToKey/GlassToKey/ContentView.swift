@@ -1326,9 +1326,38 @@ struct ContentView: View {
                         }
                     }
                 }
+                .overlay(alignment: .top) {
+                    VerticalScrollViewConfigurator()
+                        .frame(width: 0, height: 0)
+                }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(width: 420)
+        }
+    }
+
+    private struct VerticalScrollViewConfigurator: NSViewRepresentable {
+        func makeNSView(context: Context) -> NSView {
+            let view = NSView(frame: .zero)
+            DispatchQueue.main.async {
+                configureScrollView(from: view)
+            }
+            return view
+        }
+
+        func updateNSView(_ nsView: NSView, context: Context) {
+            DispatchQueue.main.async {
+                configureScrollView(from: nsView)
+            }
+        }
+
+        @MainActor
+        private func configureScrollView(from view: NSView) {
+            guard let scrollView = view.enclosingScrollView else { return }
+            scrollView.hasVerticalScroller = true
+            scrollView.autohidesScrollers = false
+            scrollView.scrollerStyle = .legacy
+            scrollView.drawsBackground = false
         }
     }
 

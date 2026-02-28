@@ -18,6 +18,7 @@ struct GlassToKeyApp: App {
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    private static let relaunchArgument = "--relaunch"
     private let controller = GlassToKeyController()
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
@@ -64,6 +65,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        guard enforceSingleInstancePolicyAtLaunch() else { return }
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
         controller.start()
@@ -294,6 +296,59 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.terminate(nil)
     }
 
+    private func enforceSingleInstancePolicyAtLaunch() -> Bool {
+        guard let bundleIdentifier = Bundle.main.bundleIdentifier else {
+            return true
+        }
+
+        let peerInstances = runningPeerInstances(bundleIdentifier: bundleIdentifier)
+        guard !peerInstances.isEmpty else {
+            return true
+        }
+
+        if ProcessInfo.processInfo.arguments.contains(Self.relaunchArgument) {
+            terminateInstances(peerInstances)
+            guard waitForPeerInstancesToExit(bundleIdentifier: bundleIdentifier) else {
+                isTerminatingApp = true
+                NSApp.terminate(nil)
+                return false
+            }
+            return true
+        }
+
+        peerInstances.min(by: { $0.processIdentifier < $1.processIdentifier })?
+            .activate(options: [.activateIgnoringOtherApps])
+        isTerminatingApp = true
+        NSApp.terminate(nil)
+        return false
+    }
+
+    private func runningPeerInstances(bundleIdentifier: String) -> [NSRunningApplication] {
+        let currentPID = ProcessInfo.processInfo.processIdentifier
+        return NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+            .filter { $0.processIdentifier != currentPID }
+    }
+
+    private func terminateInstances(_ applications: [NSRunningApplication]) {
+        for application in applications {
+            _ = application.terminate()
+        }
+    }
+
+    private func waitForPeerInstancesToExit(
+        bundleIdentifier: String,
+        timeout: TimeInterval = 2.0
+    ) -> Bool {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if runningPeerInstances(bundleIdentifier: bundleIdentifier).isEmpty {
+                return true
+            }
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        return runningPeerInstances(bundleIdentifier: bundleIdentifier).isEmpty
+    }
+
     private func initializeRunAtStartupPreference() {
         let defaults = UserDefaults.standard
         let key = GlassToKeyDefaultsKeys.runAtStartupEnabled
@@ -493,7 +548,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let bundlePath = Bundle.main.bundlePath
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", bundlePath]
+        task.arguments = ["-n", bundlePath, "--args", Self.relaunchArgument]
         try? task.run()
         NSApp.terminate(nil)
     }
