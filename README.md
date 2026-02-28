@@ -1,5 +1,5 @@
 # Apple Magic TouchstreamLP
-Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
+- Also known as GlassToKey!
 
 ## Mac: **(Packaged with .APP)**
 - Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
