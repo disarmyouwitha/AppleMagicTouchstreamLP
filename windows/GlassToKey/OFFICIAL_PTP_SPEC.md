@@ -55,8 +55,9 @@ For non-native touchpad usage (`usagePage/usage != digitizer/touchpad`), the off
   - `pressureRaw = payload[slotOffset + 6]` (8-bit)
   - `phaseRaw = payload[slotOffset + 7]` (8-bit state-class value; observed set `0..3`)
 - flags normalization:
-  - `normalizedFlags = (rawFlags & 0xFC) | 0x03`
-- this forces tip+confidence bits on output contacts
+  - `slot+8 == 0x03` -> `normalizedFlags = 0x03` (`confidence + tip`)
+  - `slot+8 == 0x01` -> `normalizedFlags = 0x01` (`confidence only`, release sample)
+  - any other lifecycle value -> `normalizedFlags = 0x00` until confirmed
 
 Locked decoder contract (current):
 - `slot+6` is the official-stream source for per-contact pressure signal `p`.

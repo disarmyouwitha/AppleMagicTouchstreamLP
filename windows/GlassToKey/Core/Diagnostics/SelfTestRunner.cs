@@ -131,8 +131,7 @@ internal static class SelfTestRunner
         }
 
         Span<byte> officialLike = stackalloc byte[PtpReport.ExpectedSize];
-        officialLike[0] = RawInputInterop.ReportIdMultitouch;
-        WriteContact(officialLike, 0, flags: 0x04, contactId: 0x12345600, x: 2500, y: 1900);
+        WriteOfficialUsageZeroContact(officialLike, 0, candidateId: 4, rawX: 2500, rawY: 1900, pressure: 27, phase: 2, lifecycle: 0x03);
         officialLike[48] = 1;
         RawInputDeviceInfo officialInfo = new(
             VendorId: 0x05AC,
@@ -146,6 +145,20 @@ internal static class SelfTestRunner
             officialDecoded.Frame.GetContact(0).Id != 4)
         {
             failure = "official profile decode failed";
+            return false;
+        }
+
+        Span<byte> officialReleaseLike = stackalloc byte[PtpReport.ExpectedSize];
+        WriteOfficialUsageZeroContact(officialReleaseLike, 0, candidateId: 7, rawX: 2600, rawY: 1800, pressure: 0, phase: 0, lifecycle: 0x01);
+        officialReleaseLike[48] = 1;
+        if (!TrackpadReportDecoder.TryDecode(officialReleaseLike, officialInfo, arrivalQpcTicks: 310, TrackpadDecoderProfile.Official, out TrackpadDecodeResult officialReleaseDecoded) ||
+            officialReleaseDecoded.Profile != TrackpadDecoderProfile.Official ||
+            officialReleaseDecoded.Frame.GetClampedContactCount() != 1 ||
+            officialReleaseDecoded.Frame.GetContact(0).TipSwitch ||
+            !officialReleaseDecoded.Frame.GetContact(0).Confidence ||
+            officialReleaseDecoded.Frame.GetContact(0).Id != 7)
+        {
+            failure = "official profile release decode failed";
             return false;
         }
 
@@ -2978,6 +2991,19 @@ internal static class SelfTestRunner
         WriteUInt32(reportBytes.Slice(offset + 1, 4), contactId);
         WriteUInt16(reportBytes.Slice(offset + 5, 2), x);
         WriteUInt16(reportBytes.Slice(offset + 7, 2), y);
+    }
+
+    private static void WriteOfficialUsageZeroContact(Span<byte> reportBytes, int index, byte candidateId, ushort rawX, ushort rawY, byte pressure, byte phase, byte lifecycle)
+    {
+        int offset = 1 + (index * 9);
+        reportBytes[0] = RawInputInterop.ReportIdMultitouch;
+        reportBytes[offset] = candidateId;
+        reportBytes[offset + 1] = 0;
+        WriteUInt16(reportBytes.Slice(offset + 2, 2), rawX);
+        WriteUInt16(reportBytes.Slice(offset + 4, 2), rawY);
+        reportBytes[offset + 6] = pressure;
+        reportBytes[offset + 7] = phase;
+        reportBytes[offset + 8] = lifecycle;
     }
 
     private static void WriteUInt16(Span<byte> target, ushort value)
