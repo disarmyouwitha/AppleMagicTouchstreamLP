@@ -8,7 +8,7 @@ public sealed class LinuxMtFrameAssembler
     public const byte SyntheticReportId = 0xEE;
     private const byte ActiveContactFlags = 0x03;
 
-    private readonly LinuxMtSlotState[] _slots;
+    private LinuxMtSlotState[] _slots;
     private readonly long _openTimestampTicks;
     private int _currentSlot;
     private bool _buttonPressed;
@@ -50,11 +50,12 @@ public sealed class LinuxMtFrameAssembler
 
     public void SelectSlot(int slot)
     {
-        if ((uint)slot >= (uint)_slots.Length)
+        if (slot < 0)
         {
             throw new ArgumentOutOfRangeException(nameof(slot));
         }
 
+        EnsureSlotCapacity(slot);
         _currentSlot = slot;
     }
 
@@ -162,6 +163,22 @@ public sealed class LinuxMtFrameAssembler
         long elapsedTicks = Math.Max(0, timestampTicks - _openTimestampTicks);
         long elapsedMilliseconds = (elapsedTicks * 1000L) / Stopwatch.Frequency;
         return unchecked((ushort)elapsedMilliseconds);
+    }
+
+    private void EnsureSlotCapacity(int slot)
+    {
+        if ((uint)slot < (uint)_slots.Length)
+        {
+            return;
+        }
+
+        int newLength = _slots.Length;
+        while (newLength <= slot)
+        {
+            newLength *= 2;
+        }
+
+        Array.Resize(ref _slots, newLength);
     }
 
     private struct LinuxMtSlotState
