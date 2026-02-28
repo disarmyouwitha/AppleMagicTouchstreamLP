@@ -168,6 +168,14 @@
                   <TextBlock Text="Column Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnOffsetYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnRotationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
                 <Button x:Name="ColumnAutoSplayButton"
                         Content="Auto Splay (4+ Fingers)"
                         Height="26"
@@ -197,6 +205,14 @@
                     <StaticResource ResourceKey="KeymapActionGroupStyle" />
                   </ComboBox.GroupStyle>
                 </ComboBox>
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="90" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyRotationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
                 <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" Margin="0,12,0,2" />
                 <Grid>
                   <Grid.ColumnDefinitions>

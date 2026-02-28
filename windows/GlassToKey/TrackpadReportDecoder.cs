@@ -406,7 +406,7 @@ internal static class TrackpadReportDecoder
         for (int i = 0; i < count; i++)
         {
             ContactFrame contact = frame.GetContact(i);
-            byte normalizedFlags = (byte)((contact.Flags & 0xFC) | 0x03);
+            byte normalizedFlags = (byte)(contact.Flags & 0x03);
             ushort x = contact.X;
             ushort y = contact.Y;
             byte pressure = contact.Pressure8;
@@ -430,6 +430,7 @@ internal static class TrackpadReportDecoder
                     // Empirically, slot+6 carries the strongest analog pressure/force signal.
                     pressure = payload[slotOffset + 6];
                     phase = payload[slotOffset + 7];
+                    normalizedFlags = NormalizeOfficialUsageZeroFlags(payload[slotOffset + 8]);
                 }
                 else
                 {
@@ -443,6 +444,16 @@ internal static class TrackpadReportDecoder
 
             frame.SetContact(i, new ContactFrame(assignedId, x, y, normalizedFlags, pressure, phase, HasForceData: true));
         }
+    }
+
+    private static byte NormalizeOfficialUsageZeroFlags(byte lifecycle)
+    {
+        return lifecycle switch
+        {
+            0x03 => 0x03,
+            0x01 => 0x01,
+            _ => 0x00
+        };
     }
 
     private static uint AssignOfficialContactId(byte candidateId, Span<bool> usedIds)

@@ -181,7 +181,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _statusTimer.Start();
         }
 
-        RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out _leftLayout, out _rightLayout);
+        RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out _leftLayout, out _rightLayout);
 
         LeftSurface.State = _left.State;
         RightSurface.State = _right.State;
@@ -272,10 +272,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         CustomButtonYBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
         CustomButtonWidthBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
         CustomButtonHeightBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
+        KeyRotationBox.LostKeyboardFocus += OnKeyGeometryCommitted;
         CustomButtonXBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonYBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonWidthBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonHeightBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        KeyRotationBox.KeyDown += OnKeyGeometryKeyDown;
         KeyDown += OnWindowKeyDown;
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
@@ -862,7 +864,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AutocorrectOverridesBox,
             ColumnScaleBox,
             ColumnOffsetXBox,
-            ColumnOffsetYBox
+            ColumnOffsetYBox,
+            ColumnRotationBox
         };
 
         foreach (TextBox box in boxes)
@@ -1182,7 +1185,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     scale: item.Scale,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
-                    rowSpacingPercent: item.RowSpacingPercent));
+                    rowSpacingPercent: item.RowSpacingPercent,
+                    rotationDegrees: item.RotationDegrees));
             }
 
             snapshot.ColumnSettingsByLayout[preset.Name] = list;
@@ -1201,7 +1205,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     scale: item.Scale,
                     offsetXPercent: item.OffsetXPercent,
                     offsetYPercent: item.OffsetYPercent,
-                    rowSpacingPercent: item.RowSpacingPercent));
+                    rowSpacingPercent: item.RowSpacingPercent,
+                    rotationDegrees: item.RotationDegrees));
             }
         }
         else
@@ -1414,7 +1419,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void RebuildLayouts()
     {
-        RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out _leftLayout, out _rightLayout);
+        RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out _leftLayout, out _rightLayout);
         LeftSurface.Layout = _leftLayout;
         RightSurface.Layout = _rightLayout;
         UpdateLabelMatrices();
@@ -1530,6 +1535,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ColumnScaleBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetXBox.IsEnabled = allowsColumnSettings;
         ColumnOffsetYBox.IsEnabled = allowsColumnSettings;
+        ColumnRotationBox.IsEnabled = allowsColumnSettings;
         ColumnAutoSplayButton.IsEnabled = allowsColumnSettings && IsAutoSplaySupportedPreset();
         ColumnEvenSpaceButton.IsEnabled = allowsColumnSettings && _preset.Columns >= 3;
 
@@ -1561,6 +1567,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnScaleBox.ToolTip = "Fixed layout scale.";
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
+            ColumnRotationBox.Text = "0";
             return;
         }
 
@@ -1571,6 +1578,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnScaleBox.ToolTip = null;
             ColumnOffsetXBox.Text = "0";
             ColumnOffsetYBox.Text = "0";
+            ColumnRotationBox.Text = "0";
             return;
         }
 
@@ -1582,6 +1590,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "(based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).";
         ColumnOffsetXBox.Text = FormatNumber(settings.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(settings.OffsetYPercent);
+        ColumnRotationBox.Text = FormatNumber(settings.RotationDegrees);
+        ColumnRotationBox.ToolTip = "Rotation range: 0° - 360°.";
     }
 
     private bool ApplyColumnLayoutFromUi()
@@ -1613,6 +1623,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
         double nextOffsetX = ReadDouble(ColumnOffsetXBox, target.OffsetXPercent);
         double nextOffsetY = ReadDouble(ColumnOffsetYBox, target.OffsetYPercent);
+        double nextRotation = Math.Clamp(ReadDouble(ColumnRotationBox, target.RotationDegrees), 0.0, 360.0);
 
         if (Math.Abs(nextScale - target.Scale) > 0.00001)
         {
@@ -1632,9 +1643,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             changed = true;
         }
 
+        if (Math.Abs(nextRotation - target.RotationDegrees) > 0.00001)
+        {
+            target.RotationDegrees = nextRotation;
+            changed = true;
+        }
+
         ColumnScaleBox.Text = FormatNumber(target.Scale * 100.0);
         ColumnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
         ColumnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
+        ColumnRotationBox.Text = FormatNumber(target.RotationDegrees);
         return changed;
     }
 
@@ -2807,6 +2825,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeymapPrimaryCombo.IsEnabled = true;
             KeymapHoldCombo.IsEnabled = true;
             CustomButtonDeleteButton.IsEnabled = true;
+            KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
 
             string buttonPrimary = string.IsNullOrWhiteSpace(selectedButton.Primary?.Label) ? "None" : selectedButton.Primary.Label;
@@ -2819,6 +2838,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             CustomButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
             CustomButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
             CustomButtonHeightBox.Text = FormatNumber(selectedButton.Rect.Height * 100.0);
+            KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
             return;
         }
@@ -2828,10 +2848,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
+            KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
             KeymapPrimaryCombo.SelectedValue = "None";
             KeymapHoldCombo.SelectedValue = "None";
             ClearCustomButtonGeometryEditorValues();
+            KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
             return;
         }
@@ -2847,6 +2869,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapPrimaryCombo.IsEnabled = true;
         KeymapHoldCombo.IsEnabled = true;
         CustomButtonDeleteButton.IsEnabled = false;
+        KeyRotationBox.IsEnabled = true;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
         string defaultLabel = layout.Labels[row][column];
@@ -2858,6 +2881,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         EnsureActionOption(hold);
         KeymapPrimaryCombo.SelectedValue = primary;
         KeymapHoldCombo.SelectedValue = hold;
+        KeyRotationBox.Text = FormatNumber(_keymap.ResolveKeyGeometry(storageKey).RotationDegrees);
         _suppressKeymapActionEvents = false;
     }
 
@@ -2875,6 +2899,32 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         CustomButtonYBox.Text = string.Empty;
         CustomButtonWidthBox.Text = string.Empty;
         CustomButtonHeightBox.Text = string.Empty;
+    }
+
+    private void OnKeyGeometryCommitted(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressKeymapActionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedKeyGeometryFromUi();
+    }
+
+    private void OnKeyGeometryKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter)
+        {
+            return;
+        }
+
+        if (_suppressKeymapActionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedKeyGeometryFromUi();
+        e.Handled = true;
     }
 
     private void OnKeymapActionSelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -2937,6 +2987,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ApplyCoreSettings();
         UpdateHitForSide(_left, TrackpadSide.Left);
         UpdateHitForSide(_right, TrackpadSide.Right);
+        RefreshKeymapEditor();
+    }
+
+    private void ApplySelectedKeyGeometryFromUi()
+    {
+        if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column) || _hasSelectedCustomButton)
+        {
+            return;
+        }
+
+        string storageKey = GridKeyPosition.StorageKey(side, row, column);
+        double currentRotation = _keymap.ResolveKeyGeometry(storageKey).RotationDegrees;
+        double nextRotation = Math.Clamp(ReadDouble(KeyRotationBox, currentRotation), 0.0, 360.0);
+        _keymap.SetKeyGeometry(storageKey, nextRotation);
+        _keymap.Save();
+        RebuildLayouts();
+        ApplyCoreSettings();
         RefreshKeymapEditor();
     }
 
@@ -3295,16 +3362,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             NormalizedRect[] rowRects = layout.Rects[r];
             for (int c = 0; c < rowRects.Length; c++)
             {
-                NormalizedRect rect = rowRects[c];
-                if (!rect.Contains(xNorm, yNorm))
+                KeyHitGeometry geometry = layout.HitGeometries[r][c];
+                if (!geometry.Contains(xNorm, yNorm))
                 {
                     continue;
                 }
 
-                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                double score = Math.Min(dx, dy);
-                double area = rect.Width * rect.Height;
+                double score = geometry.DistanceToEdge(xNorm, yNorm);
+                double area = geometry.Area;
                 if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                 {
                     bestScore = score;
@@ -3321,16 +3386,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             for (int i = 0; i < customButtons.Count; i++)
             {
                 CustomButton button = customButtons[i];
-                NormalizedRect rect = button.Rect;
-                if (!rect.Contains(xNorm, yNorm))
+                KeyHitGeometry geometry = KeyHitGeometry.FromRect(button.Rect);
+                if (!geometry.Contains(xNorm, yNorm))
                 {
                     continue;
                 }
 
-                double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                double score = Math.Min(dx, dy);
-                double area = rect.Width * rect.Height;
+                double score = geometry.DistanceToEdge(xNorm, yNorm);
+                double area = geometry.Area;
                 if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                 {
                     bestScore = score;
@@ -3421,21 +3484,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     NormalizedRect[] rowRects = layout.Rects[row];
                     for (int col = 0; col < rowRects.Length; col++)
                     {
-                        NormalizedRect rect = rowRects[col];
-                        if (!rect.Contains(xNorm, yNorm))
+                        KeyHitGeometry geometry = layout.HitGeometries[row][col];
+                        if (!geometry.Contains(xNorm, yNorm))
                         {
                             continue;
                         }
 
-                        double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                        double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                        double score = Math.Min(dx, dy);
-                        double area = rect.Width * rect.Height;
+                        double score = geometry.DistanceToEdge(xNorm, yNorm);
+                        double area = geometry.Area;
                         if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                         {
                             bestScore = score;
                             bestArea = area;
-                            hit = rect;
+                            hit = rowRects[col];
                             hitCustomButtonId = null;
                             hitLabel = _keymap.ResolveLabel(activeLayer, GridKeyPosition.StorageKey(side, row, col), layout.Labels[row][col]);
                         }
@@ -3445,21 +3506,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 for (int i = 0; i < customButtons.Count; i++)
                 {
                     CustomButton button = customButtons[i];
-                    NormalizedRect rect = button.Rect;
-                    if (!rect.Contains(xNorm, yNorm))
+                    KeyHitGeometry geometry = KeyHitGeometry.FromRect(button.Rect);
+                    if (!geometry.Contains(xNorm, yNorm))
                     {
                         continue;
                     }
 
-                    double dx = Math.Min(xNorm - rect.X, rect.X + rect.Width - xNorm);
-                    double dy = Math.Min(yNorm - rect.Y, rect.Y + rect.Height - yNorm);
-                    double score = Math.Min(dx, dy);
-                    double area = rect.Width * rect.Height;
+                    double score = geometry.DistanceToEdge(xNorm, yNorm);
+                    double area = geometry.Area;
                     if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
                     {
                         bestScore = score;
                         bestArea = area;
-                        hit = rect;
+                        hit = button.Rect;
                         hitCustomButtonId = button.Id;
                         hitLabel = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
                     }

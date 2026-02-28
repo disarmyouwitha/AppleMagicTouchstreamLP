@@ -131,8 +131,7 @@ internal static class SelfTestRunner
         }
 
         Span<byte> officialLike = stackalloc byte[PtpReport.ExpectedSize];
-        officialLike[0] = RawInputInterop.ReportIdMultitouch;
-        WriteContact(officialLike, 0, flags: 0x04, contactId: 0x12345600, x: 2500, y: 1900);
+        WriteOfficialUsageZeroContact(officialLike, 0, candidateId: 4, rawX: 2500, rawY: 1900, pressure: 27, phase: 2, lifecycle: 0x03);
         officialLike[48] = 1;
         RawInputDeviceInfo officialInfo = new(
             VendorId: 0x05AC,
@@ -146,6 +145,20 @@ internal static class SelfTestRunner
             officialDecoded.Frame.GetContact(0).Id != 4)
         {
             failure = "official profile decode failed";
+            return false;
+        }
+
+        Span<byte> officialReleaseLike = stackalloc byte[PtpReport.ExpectedSize];
+        WriteOfficialUsageZeroContact(officialReleaseLike, 0, candidateId: 7, rawX: 2600, rawY: 1800, pressure: 0, phase: 0, lifecycle: 0x01);
+        officialReleaseLike[48] = 1;
+        if (!TrackpadReportDecoder.TryDecode(officialReleaseLike, officialInfo, arrivalQpcTicks: 310, TrackpadDecoderProfile.Official, out TrackpadDecodeResult officialReleaseDecoded) ||
+            officialReleaseDecoded.Profile != TrackpadDecoderProfile.Official ||
+            officialReleaseDecoded.Frame.GetClampedContactCount() != 1 ||
+            officialReleaseDecoded.Frame.GetContact(0).TipSwitch ||
+            !officialReleaseDecoded.Frame.GetContact(0).Confidence ||
+            officialReleaseDecoded.Frame.GetContact(0).Id != 7)
+        {
+            failure = "official profile release decode failed";
             return false;
         }
 
@@ -1195,6 +1208,71 @@ internal static class SelfTestRunner
             !holdRepeatEnabledRepeatTokenReleased)
         {
             failure = $"hold repeat enabled mismatch (tap={holdRepeatEnabledTapCount}, down={holdRepeatEnabledDownCount}, up={holdRepeatEnabledUpCount}, repeatableDown={holdRepeatEnabledRepeatableDown}, repeatTokenReleased={holdRepeatEnabledRepeatTokenReleased}, expected=0/1/1/true/true)";
+            return false;
+        }
+
+        // When no explicit hold is mapped, hold-repeat should fall through to the primary key action.
+        KeymapStore holdRepeatPrimaryFallbackKeymap = KeymapStore.LoadBundledDefault();
+        holdRepeatPrimaryFallbackKeymap.Mappings[0][holdRepeatStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        TouchProcessorCore holdRepeatPrimaryFallbackCore = TouchProcessorFactory.CreateDefault(holdRepeatPrimaryFallbackKeymap);
+        holdRepeatPrimaryFallbackCore.Configure(holdRepeatPrimaryFallbackCore.CurrentConfig with
+        {
+            HoldDurationMs = 120.0,
+            HoldRepeatEnabled = true
+        });
+        using DispatchEventQueue holdRepeatPrimaryFallbackQueue = new();
+        using TouchProcessorActor holdRepeatPrimaryFallbackActor = new(holdRepeatPrimaryFallbackCore, dispatchQueue: holdRepeatPrimaryFallbackQueue);
+
+        now = 0;
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(140);
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in holdRepeatDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdRepeatPrimaryFallbackActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        holdRepeatPrimaryFallbackActor.WaitForIdle();
+
+        int holdRepeatPrimaryFallbackTapCount = 0;
+        int holdRepeatPrimaryFallbackDownCount = 0;
+        int holdRepeatPrimaryFallbackUpCount = 0;
+        bool holdRepeatPrimaryFallbackRepeatableDown = false;
+        bool holdRepeatPrimaryFallbackRepeatTokenReleased = false;
+        while (holdRepeatPrimaryFallbackQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.VirtualKey != 0x41)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap)
+            {
+                holdRepeatPrimaryFallbackTapCount++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyDown)
+            {
+                holdRepeatPrimaryFallbackDownCount++;
+                holdRepeatPrimaryFallbackRepeatableDown |=
+                    (dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+            {
+                holdRepeatPrimaryFallbackUpCount++;
+                holdRepeatPrimaryFallbackRepeatTokenReleased |= dispatchEvent.RepeatToken != 0;
+            }
+        }
+
+        if (holdRepeatPrimaryFallbackTapCount != 0 ||
+            holdRepeatPrimaryFallbackDownCount != 1 ||
+            holdRepeatPrimaryFallbackUpCount != 1 ||
+            !holdRepeatPrimaryFallbackRepeatableDown ||
+            !holdRepeatPrimaryFallbackRepeatTokenReleased)
+        {
+            failure = $"hold repeat primary fallback mismatch (tap={holdRepeatPrimaryFallbackTapCount}, down={holdRepeatPrimaryFallbackDownCount}, up={holdRepeatPrimaryFallbackUpCount}, repeatableDown={holdRepeatPrimaryFallbackRepeatableDown}, repeatTokenReleased={holdRepeatPrimaryFallbackRepeatTokenReleased}, expected=0/1/1/true/true)";
             return false;
         }
 
@@ -2913,6 +2991,19 @@ internal static class SelfTestRunner
         WriteUInt32(reportBytes.Slice(offset + 1, 4), contactId);
         WriteUInt16(reportBytes.Slice(offset + 5, 2), x);
         WriteUInt16(reportBytes.Slice(offset + 7, 2), y);
+    }
+
+    private static void WriteOfficialUsageZeroContact(Span<byte> reportBytes, int index, byte candidateId, ushort rawX, ushort rawY, byte pressure, byte phase, byte lifecycle)
+    {
+        int offset = 1 + (index * 9);
+        reportBytes[0] = RawInputInterop.ReportIdMultitouch;
+        reportBytes[offset] = candidateId;
+        reportBytes[offset + 1] = 0;
+        WriteUInt16(reportBytes.Slice(offset + 2, 2), rawX);
+        WriteUInt16(reportBytes.Slice(offset + 4, 2), rawY);
+        reportBytes[offset + 6] = pressure;
+        reportBytes[offset + 7] = phase;
+        reportBytes[offset + 8] = lifecycle;
     }
 
     private static void WriteUInt16(Span<byte> target, ushort value)
