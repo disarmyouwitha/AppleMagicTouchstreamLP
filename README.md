@@ -7,7 +7,7 @@
 *The app will ask for elevated Accessibility permissions on first run*
 
 ## Windows: **(*PREREQUISITE INSTALL)**
-- Built on top of the Official Apple Bootcamp drivers:
+- Supports both the Official Apple Bootcamp drivers and Opensource drivers!
 - **Please follow the <a href="windows_linux/GlassToKey/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
