@@ -316,7 +316,7 @@ Deliverables:
 - no code moved yet
 - docs define exact responsibilities
 
-This is the current scaffold state.
+This was the initial scaffold state.
 
 ## Phase 2: shared model extraction
 
@@ -331,6 +331,12 @@ Move first:
 Goal:
 
 - compile the shared model without Windows target framework
+
+Current repo status:
+
+- `GlassToKey.Core` now links the shared input/dispatch primitives (`InputFrame`, `PtpReport`, `ForceNormalizer`, `ButtonEdgeTracker`, `DispatchModels`, `IInputDispatcher`, `TrackpadSide`)
+- `GlassToKey.Platform.Linux` now contains an initial `LinuxMtFrameAssembler` for evdev slot-to-`InputFrame` translation
+- the engine, layout system, keymap store, and semantic action split are still pending
 
 ## Phase 3: engine extraction
 

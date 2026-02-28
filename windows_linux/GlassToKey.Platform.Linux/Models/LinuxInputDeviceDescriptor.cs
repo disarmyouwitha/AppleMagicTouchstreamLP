@@ -8,4 +8,6 @@ public sealed record LinuxInputDeviceDescriptor(
     ushort ProductId,
     bool SupportsMultitouch,
     bool SupportsPressure,
-    bool SupportsButtonClick);
+    bool SupportsButtonClick,
+    bool CanOpenEventStream,
+    string AccessError);

@@ -12,9 +12,9 @@
 
 ## Current State
 - `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
-- `GlassToKey.Core/` is scaffold-only. `CoreProjectMarker.cs` says shared engine extraction has not started.
-- `GlassToKey.Platform.Linux/` is scaffold-only. `LinuxPlatformMarker.cs` says the Linux backend has not started.
-- `GlassToKey.Linux/` is a placeholder host. `Program.cs` prints a scaffold-only message and `EnableSharedPortReferences=false` keeps shared references disabled by default.
+- `GlassToKey.Core/` has started shared extraction for low-dependency input/dispatch primitives. Engine extraction has not started yet.
+- `GlassToKey.Platform.Linux/` now has candidate device enumeration and an initial evdev slot-to-`InputFrame` assembler. Live event reads and `uinput` output are not implemented yet.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, and shared project references are enabled by default.
 
 ## What To Build
 - For Windows app work, target `GlassToKey/GlassToKey.csproj`.
@@ -26,11 +26,13 @@
   - `dotnet build GlassToKey/GlassToKey.csproj -c Release`
 - Windows app self-test:
   - `dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --selftest`
-- Shared scaffold builds:
+- Shared/Linux builds:
   - `dotnet build GlassToKey.Core/GlassToKey.Core.csproj -c Release`
   - `dotnet build GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj -c Release`
   - `dotnet build GlassToKey.Linux/GlassToKey.Linux.csproj -c Release`
-- In the current shell environment, `dotnet` was not installed, so these commands were not verified here.
+- Linux device probe:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- list-devices`
+- In the current Ubuntu 24.04 shell, the three Linux-targeted build commands above were verified.
 
 ## Directory Map
 - `GlassToKey/`: Windows runtime, WPF UI, Raw Input, dispatch, replay, diagnostics, tray behavior.
@@ -38,8 +40,8 @@
 - `GlassToKey/Core/Dispatch/`: shared model seams plus Windows-specific `SendInput` implementation.
 - `GlassToKey/Core/Diagnostics/`: replay, capture, raw analysis, and self-test infrastructure.
 - `GlassToKey.Core/`: future platform-neutral engine/library.
-- `GlassToKey.Platform.Linux/`: future evdev/uinput backend.
-- `GlassToKey.Linux/`: future Linux host.
+- `GlassToKey.Platform.Linux/`: Linux device enumeration, evdev/uinput backend in progress.
+- `GlassToKey.Linux/`: Linux CLI host in progress.
 - `LINUX_PROJECT_SKELETON.md`, `LINUX_VERSION.md`, `LINUX_EVDEV_MAPPING.md`: planning docs for the migration.
 
 ## Important Boundaries
@@ -62,5 +64,5 @@
 - Treat touch processing as latency-sensitive. Avoid allocations, logging, and file I/O on hot paths.
 - If the user asks to "build" from this folder without more detail, prefer the target most relevant to the touched code:
   - `GlassToKey/GlassToKey.csproj` for current app behavior
-  - one of the scaffold projects only if the change is confined there
+  - one of the Linux/shared projects if the change is confined there
 - Keep this file aligned with `GlassToKey/AGENTS.md` when Windows workflows or architecture shift.

@@ -5,7 +5,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <EnableSharedPortReferences>false</EnableSharedPortReferences>
+    <EnableSharedPortReferences>true</EnableSharedPortReferences>
   </PropertyGroup>
   <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
     <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
