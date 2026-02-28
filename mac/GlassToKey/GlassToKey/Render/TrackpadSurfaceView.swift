@@ -235,7 +235,12 @@ final class TrackpadSurfaceView: NSView {
         drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
         drawKeyGrid(layout.normalizedKeyRects, origin: origin, trackpadSize: trackpadSize)
         drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
-        drawGridLabels(labels, keyRects: layout.keyRects, origin: origin)
+        drawGridLabels(
+            labels,
+            normalizedKeyRects: layout.normalizedKeyRects,
+            origin: origin,
+            trackpadSize: trackpadSize
+        )
     }
 
     private func drawTrackpadDynamicSide(
@@ -466,26 +471,34 @@ final class TrackpadSurfaceView: NSView {
         }
     }
 
-    private func drawGridLabels(_ labels: [[TrackpadSurfaceLabel]], keyRects: [[CGRect]], origin: CGPoint) {
-        for rowIndex in keyRects.indices {
-            for columnIndex in keyRects[rowIndex].indices {
+    private func drawGridLabels(
+        _ labels: [[TrackpadSurfaceLabel]],
+        normalizedKeyRects: [[NormalizedRect]],
+        origin: CGPoint,
+        trackpadSize: CGSize
+    ) {
+        for rowIndex in normalizedKeyRects.indices {
+            for columnIndex in normalizedKeyRects[rowIndex].indices {
                 guard rowIndex < labels.count, columnIndex < labels[rowIndex].count else { continue }
-                let rect = keyRects[rowIndex][columnIndex].offsetBy(dx: origin.x, dy: origin.y)
+                let rect = normalizedKeyRects[rowIndex][columnIndex]
+                let baseRect = rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
                 let label = labels[rowIndex][columnIndex]
                 drawCenteredText(
                     label.primary,
-                    in: rect,
+                    in: baseRect,
                     yOffset: -4,
                     font: .monospacedSystemFont(ofSize: 10, weight: .semibold),
-                    color: .secondaryLabelColor.withAlphaComponent(0.95)
+                    color: .secondaryLabelColor.withAlphaComponent(0.95),
+                    rotationDegrees: rect.rotationDegrees
                 )
                 if let hold = label.hold {
                     drawCenteredText(
                         hold,
-                        in: rect,
+                        in: baseRect,
                         yOffset: 6,
                         font: .monospacedSystemFont(ofSize: 8, weight: .semibold),
-                        color: .secondaryLabelColor.withAlphaComponent(0.7)
+                        color: .secondaryLabelColor.withAlphaComponent(0.7),
+                        rotationDegrees: rect.rotationDegrees
                     )
                 }
             }
@@ -667,7 +680,8 @@ final class TrackpadSurfaceView: NSView {
         in rect: CGRect,
         yOffset: CGFloat,
         font: NSFont,
-        color: NSColor
+        color: NSColor,
+        rotationDegrees: Double = 0
     ) {
         guard !string.isEmpty else { return }
         let attributes: [NSAttributedString.Key: Any] = [
@@ -676,11 +690,34 @@ final class TrackpadSurfaceView: NSView {
         ]
         let attributed = NSAttributedString(string: string, attributes: attributes)
         let size = attributed.size()
-        let point = CGPoint(
-            x: rect.midX - (size.width * 0.5),
-            y: rect.midY - (size.height * 0.5) + yOffset
+        let drawPoint = CGPoint(
+            x: -(size.width * 0.5),
+            y: -(size.height * 0.5) + yOffset
         )
-        attributed.draw(at: point)
+        guard abs(rotationDegrees) >= 0.000_01 else {
+            attributed.draw(
+                at: CGPoint(
+                    x: rect.midX + drawPoint.x,
+                    y: rect.midY + drawPoint.y
+                )
+            )
+            return
+        }
+
+        NSGraphicsContext.saveGraphicsState()
+        defer { NSGraphicsContext.restoreGraphicsState() }
+        guard let cgContext = NSGraphicsContext.current?.cgContext else {
+            attributed.draw(
+                at: CGPoint(
+                    x: rect.midX + drawPoint.x,
+                    y: rect.midY + drawPoint.y
+                )
+            )
+            return
+        }
+        cgContext.translateBy(x: rect.midX, y: rect.midY)
+        cgContext.rotate(by: CGFloat(rotationDegrees * .pi / 180.0))
+        attributed.draw(at: drawPoint)
     }
 }
 

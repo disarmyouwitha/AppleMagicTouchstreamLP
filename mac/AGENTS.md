@@ -1,56 +1,110 @@
 # AGENTS
 
-## Project summary
-- Purpose: observe global trackpad multitouch events via the private MultitouchSupport.framework. Build keyboard on top of apple magic trackpad.
-- Deliverables: Swift wrapper API + Objective-C framework shipped as an XCFramework.
-- Platform: macOS 13+, Xcode 16+, Swift tools 6.0.
-- Sandbox: App Sandbox must be disabled for consumers and the GlassToKey app.
+## Scope
+- This file is for the `mac/` working folder only.
+- When Codex is opened from `mac/`, target the macOS app, Swift package, and Objective-C bridge that live in this folder.
+- Do not drift into `../windows_linux/` unless the user explicitly asks for cross-platform comparison or parity work.
 
-## Repository map
-- `Sources/OpenMultitouchSupport/`: Swift wrapper API and touch stream helpers (OMSManager).
-- `Framework/OpenMultitouchSupportXCF/`: Objective-C framework source that bridges into the private MultitouchSupport.framework.
-- `Framework/OpenMultitouchSupportXCF.xcodeproj`: local project for building the framework target.
-- `GlassToKey/GlassToKey/`: SwiftUI menu bar app sources (UI, controller, diagnostics, autocorrect, helpers) that orchestrate the typing pipeline and layout editing.
-- `GlassToKey/GlassToKey.xcodeproj`: app project referencing the Swift target, assets, and build settings.
-- `GlassToKey/`: wrapper folder containing the app target bundle plus supporting scripts/icons.
-- `OpenMultitouchSupportXCF.xcframework` (& `.zip`): generated XCFramework bundle exported for distribution.
-- `Package.swift` / `Package.swift.template`: Swift package manifests (release manifest vs template for local editing).
-- `build_framework.sh`, `release.sh`, `checksum.sh`: shell helpers for building the framework, packaging releases, and validating checksums.
-- `Screenshots/`: reference images used in `README.md`.
+## What This Codebase Is
+- A macOS menu bar app that turns Apple Magic Trackpads into a typing surface.
+- Input comes from the private MultitouchSupport path through the local `OpenMultitouchSupportXCF` bridge and the Swift `OMSManager` wrapper.
+- Output is posted with Core Graphics events, plus app-side mouse blocking and haptic hooks where needed.
+- Replay/capture tooling is first-class here: this folder contains `.atpcap` fixtures, transcript baselines, analysis tools, and Swift package tests.
 
-## Key files and responsibilities
-- `Framework/OpenMultitouchSupportXCF/OpenMTManager.h`: public API for device listing/selection and haptics.
-- `Framework/OpenMultitouchSupportXCF/OpenMTManager.m`: device enumeration, device ID mapping, callbacks.
-- `Framework/OpenMultitouchSupportXCF/OpenMTEvent.h` / `OpenMTEvent.m`: event payloads (includes deviceID).
-- `Sources/OpenMultitouchSupport/OMSManager.swift`: Swift API for device selection and event streaming.
-- `Sources/OpenMultitouchSupport/OMSTouchData.swift`: touch data model (includes deviceID + deviceIndex).
-- `GlassToKey/GlassToKeyApp.swift`: menu bar status item + app lifecycle.
-- `GlassToKey/ContentView.swift`: main UI for trackpad visualization and settings.
-- `GlassToKey/ContentViewModel.swift`: touch filtering, typing mode state, key dispatch.
-- `GlassToKey/GlassToKeyController.swift`: orchestrates app startup, persists layout/mapping defaults, and forwards user defaults, layouts, and devices into the view model for live trackpad control.
-- `GlassToKey/GlassToKeyDefaultsKeys.swift`: defines every UserDefaults key the app uses to store device IDs, layout presets, custom buttons, interaction thresholds, and auto-resync settings.
-- `GlassToKey/ColumnLayoutSettings.swift`: serializes per-column scale/offset/spacing adjustments, provides normalized defaults, and migrates legacy layouts for UI editing.
-- `GlassToKey/TrackpadLayoutPreset.swift`: enumerates grid presets, label matrices, and anchor points that power the surface layout generator in `ContentView`.
-- `GlassToKey/KeyEventDispatcher.swift`: serializes Core Graphics keyboard events through `CGEventSource`, supplying a single entry point for posting key strokes and individual key down/up signals.
-- `GlassToKey/AccessibilityTextReplacer.swift`: Accessibility-based helper that rewrites the most recently typed word when the autocorrect engine cannot patch via AX.
-- `GlassToKey/AutocorrectEngine.swift`: queues dispatched keystrokes, feeds them to `NSSpellChecker`, and either rewrites text via AX or backspace-retypes to implement autocorrect.
-- `GlassToKey/KeySemanticMapper.swift`: converts CGKeyCodes into semantic events (text, boundary, backspace, non-text) and maps ASCII characters back to key strokes for autocorrect fallbacks.
-- `GlassToKey/Notifications.swift`: centralizes the custom `Notification.Name` used when the user switches edit focus inside the UI.
-- `Framework/OpenMultitouchSupportXCF/OpenMTListener.h` / `OpenMTListener.m`: lightweight listener wrapper that delivers `OpenMTEvent` callbacks either via target-selector or block to the Objective-C API.
-- `Framework/OpenMultitouchSupportXCF/OpenMTTouch.h` / `OpenMTTouch.m`: models the raw touch identifiers, positions, velocities, pressure, and state that `OpenMTEvent` exposes to Swift.
+## Default Build Targets
+- Main app: `GlassToKey/GlassToKey.xcodeproj` with scheme `GlassToKey`
+- Swift package root: `Package.swift`
+- Bridge framework project: `Framework/OpenMultitouchSupportXCF.xcodeproj`
 
+## Build And Test Commands
+- Main app build:
+  - `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
+- Reproducible app launch outside the Xcode UI:
+  - `pkill -x GlassToKey || true`
+  - `DERIVED=/tmp/glasstokey-phase4`
+  - `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' -derivedDataPath "$DERIVED" build`
+  - `"$DERIVED/Build/Products/Debug/GlassToKey.app/Contents/MacOS/GlassToKey"`
+- Swift package tests:
+  - `swift test`
+- Framework rebuild:
+  - `./build_framework.sh`
+- Replay transcript parity check:
+  - `swift run ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.atpcap --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+- Raw capture analysis:
+  - `swift run RawCaptureAnalyze --raw-analyze ReplayFixtures/macos_first_capture_2026-02-20.atpcap`
 
-## Working agreements
-- Keep Swift API changes in `Sources/OpenMultitouchSupport/`.
-- Keep framework changes in `Framework/OpenMultitouchSupportXCF/`.
-- Treat `OpenMultitouchSupportXCF.xcframework` as generated output (rebuild instead of hand-editing).
-- Call out testing gaps when relevant.
-- GlassToKey build command (if the change was big automatically run): `xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build`
-- If build fails due to added files, please add them to the project to fix the error.
-- Always write the most performant and efficient code to turn an Apple Magic Trackpad into a keyboard with an emphasis on running in the background as a status app and instant key detection.
-- Always consider re-writes to the Private or Public APIs if there are efficiency gains to be had at a higher level.
-- Do not add allocations, logging, or file I/O to any hot path. If unsure whether a path is hot, assume it is hot.
-- Gesture action sources must stay identical: Gesture dropdown, Primary Action dropdown, and Hold Action dropdown must all pull from the exact same shared `KeyActionCatalog` list/groups, with no UI-only additions or removals.
-  
-## Important notes for next instance of Codex
-- None given.
+## App Architecture
+- `GlassToKey/GlassToKey/GlassToKeyApp.swift`
+  - launches as an accessory app
+  - owns the menu bar item and config window
+  - exposes tray actions for `Config...`, `Capture...`, `Replay...`, restart, and quit
+  - manages `MouseEventBlocker` and replay/capture menu state
+- `GlassToKey/GlassToKey/GlassToKeyController.swift`
+  - bootstraps the app from `UserDefaults`
+  - loads devices, layout preset, column settings, custom buttons, key mappings, and geometry overrides
+  - starts capture/replay sessions through the view model
+- `GlassToKey/GlassToKey/ContentViewModel.swift`
+  - is the central app model
+  - owns device selection, layouts, key mappings, runtime state, gesture labels, and action catalogs
+  - defines the action semantics used by the UI and runtime
+- `GlassToKey/GlassToKey/Runtime/InputRuntimeService.swift`
+  - consumes `OMSManager.rawTouchStream`
+  - fans out runtime frames with `AsyncStream`
+  - tracks ingestion metrics with unfair-lock protected state
+- `GlassToKey/GlassToKey/Engine/TouchProcessorEngine.swift`
+  - is the core touch/intent/dispatch engine
+  - uses an actor and a custom `TouchTable` implementation to stay hot-path friendly
+  - contains intent state, active/pending touches, repeat handling, and runtime diagnostics
+- `GlassToKey/GlassToKey/KeyEventDispatcher.swift`
+  - is the single Core Graphics key/mouse posting path
+- `GlassToKey/GlassToKey/Runtime/ATPCaptureV3Coordinator.swift`
+  - handles capture/replay workflow inside the app
+
+## Package And Tooling
+- `Sources/OpenMultitouchSupport/`
+  - Swift wrapper layer over the XCFramework
+- `Sources/ReplayFixtureKit/`
+  - fixture parsing, `.atpcap` codec, replay harness, and raw capture analysis
+- `Tools/ReplayFixtureCapture/`
+  - records live OMS frames into replay fixtures
+- `Tools/ReplayHarness/`
+  - generates deterministic engine transcripts and can compare them to committed baselines
+- `Tools/RawCaptureAnalyze/`
+  - produces raw analysis summaries and optional JSON/CSV outputs
+- `Tests/ReplayFixtureKitTests/`
+  - checks fixture parsing, transcript determinism, committed baseline parity, and `.atpcap` round-trips
+
+## Data And Persistence
+- Most app settings are persisted in `UserDefaults` via `GlassToKeyDefaultsKeys.swift`.
+- Key persisted values include:
+  - left/right device IDs
+  - layout preset and column settings
+  - custom buttons
+  - key mappings and geometry overrides
+  - typing/gesture thresholds
+  - autocorrect, keyboard mode, run-at-startup, and gesture action labels
+- Bundled defaults come from `GLASSTOKEY_DEFAULT_KEYMAP.json`.
+- Replay baselines live in `ReplayFixtures/`, and canonical transcript baselines use the `.engine.transcript.jsonl` suffix.
+
+## Bridge Rules
+- Keep Swift API work in `Sources/OpenMultitouchSupport/`.
+- Keep Objective-C private-framework bridge work in `Framework/OpenMultitouchSupportXCF/`.
+- Treat `OpenMultitouchSupportXCF.xcframework` as generated output.
+- If you change the bridge, rebuild the XCFramework; do not hand-edit generated bundle contents.
+- `build_framework.sh` clears `~/Library/Developer/Xcode/DerivedData/OpenMultitouchSupport*` and rebuilds the framework into `Framework/build`, then recreates `OpenMultitouchSupportXCF.xcframework`.
+
+## Performance Rules
+- This app is latency-sensitive. Assume touch ingestion, intent updates, dispatch, and render snapshot production are hot paths.
+- Do not add avoidable allocations, logging, or file I/O in `InputRuntimeService`, `TouchProcessorEngine`, `KeyEventDispatcher`, or frame-to-snapshot code.
+- Preserve deterministic replay behavior when changing engine logic. If engine behavior changes intentionally, update the committed transcript baseline and explain why.
+
+## UI And Behavior Rules
+- The app is menu-bar first. Do not accidentally turn it into a normal dock-style foreground app unless requested.
+- Keep the status item behavior intact: config window, capture/replay flows, restart, and quit are part of the expected product shape.
+- Gesture action sources must remain unified. Gesture pickers and button action pickers should continue to use the same shared catalog defined in the app model.
+- Keyboard mode and click blocking are permission-sensitive. Be careful when changing behavior tied to Accessibility or Input Monitoring.
+
+## Project Hygiene
+- If you add app source files, add them to `GlassToKey.xcodeproj` so command-line builds keep working.
+- If you add Swift package files, update `Package.swift` when needed.
+- Call out when you could not run `xcodebuild` or `swift test`.

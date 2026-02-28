@@ -1159,7 +1159,7 @@ struct ContentView: View {
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
-        @State private var gestureTuningExpanded = true
+        @State private var gestureTuningExpanded = false
         @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = true
         let onAddCustomButton: (TrackpadSide) -> Void
@@ -2454,70 +2454,6 @@ struct ContentView: View {
 
     }
 
-    private struct CombinedTrackpadCanvas: View {
-        let trackpadSize: CGSize
-        let spacing: CGFloat
-        let showDetailed: Bool
-        let leftLayout: ContentViewModel.Layout
-        let rightLayout: ContentViewModel.Layout
-        let leftLabelInfo: [[GridLabel]]
-        let rightLabelInfo: [[GridLabel]]
-        let leftCustomButtons: [CustomButton]
-        let rightCustomButtons: [CustomButton]
-        let selectedLeftKey: SelectedGridKey?
-        let selectedRightKey: SelectedGridKey?
-        let selectedLeftButton: CustomButton?
-        let selectedRightButton: CustomButton?
-        let leftTouches: [OMSTouchData]
-        let rightTouches: [OMSTouchData]
-
-        var body: some View {
-            Canvas { context, _ in
-                let leftOrigin = CGPoint.zero
-                let rightOrigin = CGPoint(x: trackpadSize.width + spacing, y: 0)
-                let leftRect = CGRect(origin: leftOrigin, size: trackpadSize)
-                let rightRect = CGRect(origin: rightOrigin, size: trackpadSize)
-                let borderColor = Color.secondary.opacity(0.6)
-                context.stroke(
-                    Path(roundedRect: leftRect, cornerRadius: ContentView.keyCornerRadius),
-                    with: .color(borderColor),
-                    lineWidth: 1
-                )
-                context.stroke(
-                    Path(roundedRect: rightRect, cornerRadius: ContentView.keyCornerRadius),
-                    with: .color(borderColor),
-                    lineWidth: 1
-                )
-
-                guard showDetailed else { return }
-
-                ContentView.drawTrackpadContents(
-                    context: &context,
-                    origin: leftOrigin,
-                    layout: leftLayout,
-                    labelInfo: leftLabelInfo,
-                    customButtons: leftCustomButtons,
-                    selectedKey: selectedLeftKey,
-                    selectedButton: selectedLeftButton,
-                    touches: leftTouches,
-                    trackpadSize: trackpadSize
-                )
-                ContentView.drawTrackpadContents(
-                    context: &context,
-                    origin: rightOrigin,
-                    layout: rightLayout,
-                    labelInfo: rightLabelInfo,
-                    customButtons: rightCustomButtons,
-                    selectedKey: selectedRightKey,
-                    selectedButton: selectedRightButton,
-                    touches: rightTouches,
-                    trackpadSize: trackpadSize
-                )
-            }
-            .frame(width: (trackpadSize.width * 2) + spacing, height: trackpadSize.height)
-        }
-    }
-
     private struct LastHitHighlightLayer: View {
         let lastHit: ContentViewModel.DebugHit
 
@@ -2542,18 +2478,6 @@ struct ContentView: View {
                 }
             }
         }
-    }
-
-    private static func makeEllipse(touch: OMSTouchData, size: CGSize) -> Path {
-        let x = Double(touch.position.x) * size.width
-        let y = Double(1.0 - touch.position.y) * size.height
-        let u = size.width / 100.0
-        let w = Double(touch.axis.major) * u
-        let h = Double(touch.axis.minor) * u
-        return Path(ellipseIn: CGRect(x: -0.5 * w, y: -0.5 * h, width: w, height: h))
-            .rotation(.radians(Double(-touch.angle)), anchor: .topLeading)
-            .offset(x: x, y: y)
-            .path(in: CGRect(origin: .zero, size: size))
     }
 
     static func makeKeyLayout(
@@ -2647,22 +2571,6 @@ struct ContentView: View {
             let scale = columnScales.indices.contains(index) ? columnScales[index] : 1.0
             let offsetX = anchor.x - originX
             return CGPoint(x: originX + offsetX * scale, y: anchor.y)
-        }
-    }
-
-    private static func applyColumnOffsets(
-        keyRects: inout [[CGRect]],
-        columnOffsets: [CGSize]
-    ) {
-        guard !columnOffsets.isEmpty else { return }
-        for rowIndex in 0..<keyRects.count {
-            for colIndex in 0..<keyRects[rowIndex].count {
-                let offset = columnOffsets.indices.contains(colIndex)
-                    ? columnOffsets[colIndex]
-                    : .zero
-                keyRects[rowIndex][colIndex] = keyRects[rowIndex][colIndex]
-                    .offsetBy(dx: offset.width, dy: offset.height)
-            }
         }
     }
 
@@ -3707,94 +3615,6 @@ struct ContentView: View {
         return viewModel.availableDevices.first { $0.deviceID == deviceID }
     }
 
-    private static func drawSensorGrid(
-        context: inout GraphicsContext,
-        size: CGSize,
-        columns: Int,
-        rows: Int
-    ) {
-        guard columns > 0, rows > 0 else { return }
-        let strokeColor = Color.secondary.opacity(0.2)
-        let lineWidth = CGFloat(0.5)
-
-        let columnWidth = size.width / CGFloat(columns)
-        let rowHeight = size.height / CGFloat(rows)
-
-        for col in 0...columns {
-            let x = CGFloat(col) * columnWidth
-            let path = Path { path in
-                path.move(to: CGPoint(x: x, y: 0))
-                path.addLine(to: CGPoint(x: x, y: size.height))
-            }
-            context.stroke(path, with: .color(strokeColor), lineWidth: lineWidth)
-        }
-
-        for row in 0...rows {
-            let y = CGFloat(row) * rowHeight
-            let path = Path { path in
-                path.move(to: CGPoint(x: 0, y: y))
-                path.addLine(to: CGPoint(x: size.width, y: y))
-            }
-            context.stroke(path, with: .color(strokeColor), lineWidth: lineWidth)
-        }
-    }
-
-    private static func drawKeyGrid(
-        context: inout GraphicsContext,
-        keyRects: [[CGRect]]
-    ) {
-        for row in keyRects {
-            for rect in row {
-                let keyPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
-                context.stroke(keyPath, with: .color(.secondary.opacity(0.6)), lineWidth: 1)
-            }
-        }
-    }
-
-    private static func drawKeySelection(
-        context: inout GraphicsContext,
-        keyRects: [[CGRect]],
-        selectedKey: SelectedGridKey?
-    ) {
-        guard let key = selectedKey,
-              keyRects.indices.contains(key.row),
-              keyRects[key.row].indices.contains(key.column) else {
-            return
-        }
-        let rect = keyRects[key.row][key.column]
-        let keyPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
-        context.fill(keyPath, with: .color(Color.accentColor.opacity(0.18)))
-        context.stroke(keyPath, with: .color(Color.accentColor.opacity(0.9)), lineWidth: 1.5)
-    }
-
-    private static func drawCustomButtons(
-        context: inout GraphicsContext,
-        buttons: [CustomButton],
-        trackpadSize: CGSize
-    ) {
-        let primaryStyle = Font.system(size: 10, weight: .semibold, design: .monospaced)
-        let holdStyle = Font.system(size: 8, weight: .semibold, design: .monospaced)
-        for button in buttons {
-            let rect = button.rect.rect(in: trackpadSize)
-            let buttonPath = Path(roundedRect: rect, cornerRadius: Self.keyCornerRadius)
-            context.fill(buttonPath, with: .color(Color.blue.opacity(0.12)))
-            context.stroke(buttonPath, with: .color(.secondary.opacity(0.6)), lineWidth: 1)
-            let center = CGPoint(x: rect.midX, y: rect.midY)
-            let primaryText = Text(button.action.displayText)
-                .font(primaryStyle)
-                .foregroundColor(.secondary)
-            let holdLabel = button.hold?.holdLabelText
-            let primaryY = center.y - (holdLabel != nil ? 4 : 0)
-            context.draw(primaryText, at: CGPoint(x: center.x, y: primaryY))
-            if let holdLabel = holdLabel {
-                let holdText = Text(holdLabel)
-                    .font(holdStyle)
-                    .foregroundColor(.secondary.opacity(0.7))
-                context.draw(holdText, at: CGPoint(x: center.x, y: center.y + 6))
-            }
-        }
-    }
-
     private func labelInfo(for key: SelectedGridKey) -> (primary: String, hold: String?) {
         let mapping = effectiveKeyMapping(for: key)
         return (primary: mapping.primary.displayText, hold: mapping.hold?.holdLabelText)
@@ -3957,114 +3777,6 @@ struct ContentView: View {
     private func defaultKeyMapping(for label: String) -> KeyMapping? {
         guard let primary = KeyActionCatalog.action(for: label) else { return nil }
         return KeyMapping(primary: primary, hold: KeyActionCatalog.holdAction(for: label))
-    }
-
-    private static func drawGridLabels(
-        context: inout GraphicsContext,
-        keyRects: [[CGRect]],
-        labelInfo: [[GridLabel]]
-    ) {
-        let textStyle = Font.system(size: 10, weight: .semibold, design: .monospaced)
-
-        for row in 0..<keyRects.count {
-            for col in 0..<keyRects[row].count {
-                guard row < labelInfo.count,
-                      col < labelInfo[row].count else { continue }
-                let rect = keyRects[row][col]
-                let center = CGPoint(x: rect.midX, y: rect.midY)
-                let info = labelInfo[row][col]
-                let primaryText = Text(info.primary)
-                    .font(textStyle)
-                    .foregroundColor(.secondary)
-                context.draw(primaryText, at: CGPoint(x: center.x, y: center.y - 4))
-                if let holdLabel = info.hold {
-                    let holdText = Text(holdLabel)
-                        .font(.system(size: 8, weight: .semibold, design: .monospaced))
-                        .foregroundColor(.secondary.opacity(0.7))
-                    context.draw(holdText, at: CGPoint(x: center.x, y: center.y + 6))
-                }
-            }
-        }
-    }
-
-    private static func drawTrackpadContents(
-        context: inout GraphicsContext,
-        origin: CGPoint,
-        layout: ContentViewModel.Layout,
-        labelInfo: [[GridLabel]],
-        customButtons: [CustomButton],
-        selectedKey: SelectedGridKey?,
-        selectedButton: CustomButton?,
-        touches: [OMSTouchData],
-        trackpadSize: CGSize
-    ) {
-        withTranslatedContext(context: &context, origin: origin) { innerContext in
-            drawSensorGrid(
-                context: &innerContext,
-                size: trackpadSize,
-                columns: 30,
-                rows: 22
-            )
-            drawKeyGrid(context: &innerContext, keyRects: layout.keyRects)
-            drawCustomButtons(
-                context: &innerContext,
-                buttons: customButtons,
-                trackpadSize: trackpadSize
-            )
-            drawGridLabels(
-                context: &innerContext,
-                keyRects: layout.keyRects,
-                labelInfo: labelInfo
-            )
-            drawKeySelection(
-                context: &innerContext,
-                keyRects: layout.keyRects,
-                selectedKey: selectedKey
-            )
-            drawButtonSelection(
-                context: &innerContext,
-                button: selectedButton,
-                trackpadSize: trackpadSize
-            )
-            drawTrackpadTouches(
-                context: &innerContext,
-                touches: touches,
-                trackpadSize: trackpadSize
-            )
-        }
-    }
-
-    private static func drawButtonSelection(
-        context: inout GraphicsContext,
-        button: CustomButton?,
-        trackpadSize: CGSize
-    ) {
-        guard let button else { return }
-        let rect = button.rect.rect(in: trackpadSize)
-        let path = Path(roundedRect: rect, cornerRadius: ContentView.keyCornerRadius)
-        context.fill(path, with: .color(Color.accentColor.opacity(0.08)))
-        context.stroke(path, with: .color(Color.accentColor.opacity(0.9)), lineWidth: 1.5)
-    }
-
-    private static func drawTrackpadTouches(
-        context: inout GraphicsContext,
-        touches: [OMSTouchData],
-        trackpadSize: CGSize
-    ) {
-        touches.forEach { touch in
-            let path = makeEllipse(touch: touch, size: trackpadSize)
-            context.fill(path, with: .color(.primary.opacity(0.95)))
-        }
-    }
-
-    private static func withTranslatedContext(
-        context: inout GraphicsContext,
-        origin: CGPoint,
-        draw: (inout GraphicsContext) -> Void
-    ) {
-        context.translateBy(x: origin.x, y: origin.y)
-        draw(&context)
-        context.translateBy(x: -origin.x, y: -origin.y)
     }
 
     private var layerSelectionBinding: Binding<Int> {

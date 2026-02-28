@@ -2208,40 +2208,6 @@ actor TouchProcessorEngine {
         return (bestIndex, bestDistance, secondIndex, secondDistance)
     }
 
-    @inline(__always)
-    private func isSameKeyBinding(_ lhs: KeyBinding, _ rhs: KeyBinding) -> Bool {
-        guard lhs.side == rhs.side else { return false }
-        return lhs.position?.storageKey == rhs.position?.storageKey
-    }
-
-    private func nearestSnapIndexExcluding(
-        _ excluded: KeyBinding,
-        point: CGPoint,
-        bindings: BindingIndex
-    ) -> (index: Int, distance: Float)? {
-        let count = bindings.snapCentersX.count
-        guard count > 0 else { return nil }
-        let px = Float(point.x)
-        let py = Float(point.y)
-        var bestIndex = -1
-        var bestDistance = Float.greatestFiniteMagnitude
-        for index in 0..<count {
-            let candidate = bindings.snapBindings[index]
-            if isSameKeyBinding(candidate, excluded) {
-                continue
-            }
-            let dx = px - bindings.snapCentersX[index]
-            let dy = py - bindings.snapCentersY[index]
-            let distance = dx * dx + dy * dy
-            if distance < bestDistance {
-                bestDistance = distance
-                bestIndex = index
-            }
-        }
-        guard bestIndex >= 0 else { return nil }
-        return (bestIndex, bestDistance)
-    }
-
     private func dispatchSnappedBinding(
         _ binding: KeyBinding,
         altBinding: KeyBinding?,
@@ -3490,10 +3456,6 @@ actor TouchProcessorEngine {
         let moveThreshold = intentConfig.moveThresholdMm * unitsPerMillimeter
         intentMoveThresholdSquared = moveThreshold * moveThreshold
         intentVelocityThreshold = intentConfig.velocityThresholdMmPerSec * unitsPerMillimeter
-    }
-
-    private func mmUnitsPerMillimeter() -> CGFloat {
-        unitsPerMillimeter
     }
 
     private func handleTypingToggleTouch(
