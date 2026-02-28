@@ -12,8 +12,6 @@
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
-*If you use an open source driver you will need to change the device decoder in the GUI but it is still supported!*
-
 ## Usage
 I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a **.app** and **.exe** file and hopefully people will be able to run it!
 
