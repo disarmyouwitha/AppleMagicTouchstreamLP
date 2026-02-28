@@ -17,6 +17,7 @@
 			77292A8A2B931953001CA3F6 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A892B931953001CA3F6 /* ContentView.swift */; };
 			77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 77292A8B2B931954001CA3F6 /* Assets.xcassets */; };
 			B1C2D3E4F5A60718293A4B5D /* GLASSTOKEY_DEFAULT_KEYMAP.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */; };
+			B1C2D3E4F5A60718293A4B61 /* MY_KEYMAP.json in Resources */ = {isa = PBXBuildFile; fileRef = B1C2D3E4F5A60718293A4B60 /* MY_KEYMAP.json */; };
 			77292A982B931D60001CA3F6 /* ContentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 77292A972B931D60001CA3F6 /* ContentViewModel.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F4 /* GlassToKeyController.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */; };
 		A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1B2C3D4E5F6A7B8C9D0E1F3 /* GlassToKeyDefaultsKeys.swift */; };
@@ -42,6 +43,7 @@
 			77292A892B931953001CA3F6 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 			77292A8B2B931954001CA3F6 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 			B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = GLASSTOKEY_DEFAULT_KEYMAP.json; sourceTree = "<group>"; };
+			B1C2D3E4F5A60718293A4B60 /* MY_KEYMAP.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = MY_KEYMAP.json; sourceTree = "<group>"; };
 			77292A962B931C84001CA3F6 /* OpenMultitouchSupport */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = OpenMultitouchSupport; path = ..; sourceTree = "<group>"; };
 		77292A972B931D60001CA3F6 /* ContentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentViewModel.swift; sourceTree = "<group>"; };
 		A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassToKeyController.swift; sourceTree = "<group>"; };
@@ -92,6 +94,7 @@
 				children = (
 					77292A8B2B931954001CA3F6 /* Assets.xcassets */,
 					B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */,
+					B1C2D3E4F5A60718293A4B60 /* MY_KEYMAP.json */,
 					77292A872B931953001CA3F6 /* GlassToKeyApp.swift */,
 					A1B2C3D4E5F6A7B8C9D0E1F2 /* GlassToKeyController.swift */,
 					77292A892B931953001CA3F6 /* ContentView.swift */,
@@ -212,6 +215,7 @@
 			files = (
 				77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
 				B1C2D3E4F5A60718293A4B5D /* GLASSTOKEY_DEFAULT_KEYMAP.json in Resources */,
+				B1C2D3E4F5A60718293A4B61 /* MY_KEYMAP.json in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
