@@ -1,7 +1,6 @@
 ## TODO
-- Can we have the labels rotate with the keys? (cache)
-- If "memory saver" toggle is enabled: When Config is closed to Tray can we restart the entire app to save memory? (60mb)
 - can we make the right side "* Tuning" sections scrollable
+- If "memory saver" toggle is enabled: When Config is closed to Tray can we restart the entire app to save memory? (60mb)
 - 3-finger click for right-click immediately closes!
 ---
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
