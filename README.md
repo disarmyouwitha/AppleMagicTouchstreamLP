@@ -12,9 +12,11 @@
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
-## Linux: 
+## Linux:
+- Thanks to the Linux community, support for this device is already included in the mainline Linux kernel.
 > sudo apt-get install -y dotnet-sdk-10.0
 
+<hr>
 
 ## Usage
 I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a **.app** and **.exe** file and hopefully people will be able to run it!
@@ -53,6 +55,8 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 Lots to do in the TODO! For now I am working on feature parity between MAC and WIN and to really hone the controls~
 
 Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT for Windows) which would help support the community but also help this project! =]
+
+<hr>
 
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
