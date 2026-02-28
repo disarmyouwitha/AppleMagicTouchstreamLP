@@ -2986,19 +2986,6 @@ struct ContentView: View {
     }
 
     private func rebuildLayouts() {
-        if layoutOption.usesFixedRightLayout {
-            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-            rightLayout = ContentView.makeMobileKeyLayout(size: trackpadSize)
-            viewModel.configureLayouts(
-                leftLayout: leftLayout,
-                rightLayout: rightLayout,
-                leftLabels: leftGridLabels,
-                rightLabels: rightGridLabels,
-                trackpadSize: trackpadSize,
-                trackpadWidthMm: Self.trackpadWidthMM
-            )
-            return
-        }
         guard layoutColumns > 0,
               layoutRows > 0,
               layoutColumnAnchors.count == layoutColumns else {

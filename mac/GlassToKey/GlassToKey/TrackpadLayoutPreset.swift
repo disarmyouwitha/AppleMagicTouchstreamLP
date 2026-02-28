@@ -7,7 +7,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     case fiveByThree = "5x3"
     case fiveByFour = "5x4"
     case mobileOrtho12x4 = "Mobile Ortho 12x4"
-    case mobile = "Mobile QWERTY"
 
     var id: String { rawValue }
 
@@ -15,8 +14,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         switch self {
         case .none:
             return "Blank"
-        case .mobile:
-            return "Mobile"
         case .mobileOrtho12x4:
             return "Planck"
         default:
@@ -32,7 +29,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return 5
         case .mobileOrtho12x4:
             return 12
-        case .mobile, .none:
+        case .none:
             return 0
         }
     }
@@ -43,7 +40,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return 3
         case .sixByFour, .fiveByFour, .mobileOrtho12x4:
             return 4
-        case .mobile, .none:
+        case .none:
             return 0
         }
     }
@@ -62,7 +59,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return Self.columnAnchors5FromSixTakeFirst
         case .mobileOrtho12x4:
             return Self.columnAnchors12
-        case .mobile, .none:
+        case .none:
             return []
         }
     }
@@ -79,8 +76,6 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return Self.rightLabels6x4.map { Array($0.prefix(self.columns)) }
         case .mobileOrtho12x4:
             return Self.rightLabels12x4
-        case .mobile:
-            return MobileLayoutDefinition.labelMatrix
         case .none:
             return []
         }
@@ -88,7 +83,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var leftLabels: [[String]] {
         switch self {
-        case .mobile, .mobileOrtho12x4:
+        case .mobileOrtho12x4:
             return []
         default:
             return Self.mirrored(rightLabels)
@@ -97,28 +92,19 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var blankLeftSide: Bool {
         switch self {
-        case .mobile, .mobileOrtho12x4:
+        case .mobileOrtho12x4:
             return true
         default:
             return false
         }
     }
 
-    var usesFixedRightLayout: Bool {
-        self == .mobile
-    }
-
     var allowsColumnSettings: Bool {
-        switch self {
-        case .mobile:
-            return false
-        default:
-            return hasGrid
-        }
+        hasGrid
     }
 
     var allowHoldBindings: Bool {
-        self != .mobile
+        true
     }
 
     private static func mirrored(_ labels: [[String]]) -> [[String]] {

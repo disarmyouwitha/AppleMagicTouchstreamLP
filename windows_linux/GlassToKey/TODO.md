@@ -1,5 +1,9 @@
 ## TODO:
+- Remove Mobile layout from layout dropdown, remove from MY and DEFAULT .json keymaps
+- If "memory saver" toggle is enabled: When Config is closed to Tray can we restart the entire app to save memory? (60mb)
+---
 - LINUX WHEN?
+-------
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Is there any way to add a "click and drag gesture that would start on Hold and Release when you release your fingers? [3 finger "grasp" to 1 finger] [Can we try 5-finger hold to activate - gesture stays active until 0 fingers so I can drag around until I release??]
 - What other actions could we add??

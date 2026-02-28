@@ -29,6 +29,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false
     private var replayInProgress = false
+    private var isTerminatingApp = false
     private static let persistedConfigKeys: [String] = [
         GlassToKeyDefaultsKeys.leftDeviceID,
         GlassToKeyDefaultsKeys.rightDeviceID,
@@ -95,6 +96,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             await controller.endReplaySession()
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
+            restartAppProcess()
         }
     }
 
@@ -284,15 +286,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func restartApp() {
-        let bundlePath = Bundle.main.bundlePath
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", bundlePath]
-        try? task.run()
-        NSApp.terminate(nil)
+        restartAppProcess()
     }
 
     @objc private func quitApp() {
+        isTerminatingApp = true
         NSApp.terminate(nil)
     }
 
@@ -487,6 +485,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         mouseEventBlocker.setAllowedRect(window.frame)
+    }
+
+    private func restartAppProcess() {
+        guard !isTerminatingApp else { return }
+        isTerminatingApp = true
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", bundlePath]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 }
 
