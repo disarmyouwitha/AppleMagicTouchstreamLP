@@ -24,6 +24,8 @@ enum TrackpadSide: String, Codable, CaseIterable, Identifiable {
 
 typealias LayeredKeyMappings = [Int: [String: KeyMapping]]
 typealias LayoutLayeredKeyMappings = [String: LayeredKeyMappings]
+typealias KeyGeometryOverrides = [String: KeyGeometryOverride]
+typealias LayoutKeyGeometryOverrides = [String: KeyGeometryOverrides]
 
 enum KeyLayerConfig {
     static let baseLayer = 0
@@ -123,17 +125,52 @@ final class ContentViewModel: ObservableObject {
     struct KeyBinding: Sendable {
         let rect: CGRect
         let normalizedRect: NormalizedRect
+        let hitGeometry: KeyHitGeometry
+        let normalizedHitGeometry: KeyHitGeometry
         let label: String
         let action: KeyBindingAction
         let position: GridKeyPosition?
         let side: TrackpadSide
         let holdAction: KeyAction?
+
+        init(
+            rect: CGRect,
+            normalizedRect: NormalizedRect,
+            canvasSize: CGSize,
+            label: String,
+            action: KeyBindingAction,
+            position: GridKeyPosition?,
+            side: TrackpadSide,
+            holdAction: KeyAction?
+        ) {
+            self.rect = rect
+            self.normalizedRect = normalizedRect
+            self.hitGeometry = KeyHitGeometry(normalizedRect: normalizedRect, size: canvasSize)
+            self.normalizedHitGeometry = KeyHitGeometry(normalizedRect: normalizedRect)
+            self.label = label
+            self.action = action
+            self.position = position
+            self.side = side
+            self.holdAction = holdAction
+        }
     }
 
     struct Layout {
         let keyRects: [[CGRect]]
         let normalizedKeyRects: [[NormalizedRect]]
         let allowHoldBindings: Bool
+
+        init(
+            normalizedKeyRects: [[NormalizedRect]],
+            trackpadSize: CGSize,
+            allowHoldBindings: Bool = true
+        ) {
+            self.normalizedKeyRects = normalizedKeyRects
+            self.allowHoldBindings = allowHoldBindings
+            self.keyRects = normalizedKeyRects.map { row in
+                row.map { $0.boundingRect(in: trackpadSize) }
+            }
+        }
 
         init(
             keyRects: [[CGRect]],
@@ -730,11 +767,212 @@ final class RepeatToken: @unchecked Sendable {
     }
 }
 
+struct KeyHitGeometry: Sendable, Hashable {
+    let centerX: CGFloat
+    let centerY: CGFloat
+    let halfWidth: CGFloat
+    let halfHeight: CGFloat
+    let cosValue: CGFloat
+    let sinValue: CGFloat
+    let minX: CGFloat
+    let maxX: CGFloat
+    let minY: CGFloat
+    let maxY: CGFloat
+    let area: CGFloat
+    let isRotated: Bool
+
+    init(rect: CGRect) {
+        self.init(
+            centerX: rect.midX,
+            centerY: rect.midY,
+            width: rect.width,
+            height: rect.height,
+            rotationDegrees: 0
+        )
+    }
+
+    init(normalizedRect: NormalizedRect) {
+        self.init(
+            centerX: normalizedRect.centerX,
+            centerY: normalizedRect.centerY,
+            width: normalizedRect.width,
+            height: normalizedRect.height,
+            rotationDegrees: normalizedRect.rotationDegrees
+        )
+    }
+
+    init(normalizedRect: NormalizedRect, size: CGSize) {
+        self.init(
+            centerX: normalizedRect.centerX * size.width,
+            centerY: normalizedRect.centerY * size.height,
+            width: normalizedRect.width * size.width,
+            height: normalizedRect.height * size.height,
+            rotationDegrees: normalizedRect.rotationDegrees
+        )
+    }
+
+    private init(
+        centerX: CGFloat,
+        centerY: CGFloat,
+        width: CGFloat,
+        height: CGFloat,
+        rotationDegrees: Double
+    ) {
+        let halfWidth = width * 0.5
+        let halfHeight = height * 0.5
+        let area = width * height
+        let normalizedRotation = NormalizedRect.normalizeDegrees(rotationDegrees)
+        let isRotated = abs(normalizedRotation) >= 0.000_01
+
+        if !isRotated {
+            self.centerX = centerX
+            self.centerY = centerY
+            self.halfWidth = halfWidth
+            self.halfHeight = halfHeight
+            self.cosValue = 1
+            self.sinValue = 0
+            self.minX = centerX - halfWidth
+            self.maxX = centerX + halfWidth
+            self.minY = centerY - halfHeight
+            self.maxY = centerY + halfHeight
+            self.area = area
+            self.isRotated = false
+            return
+        }
+
+        let radians = CGFloat(-(normalizedRotation * .pi / 180.0))
+        let cosValue = cos(radians)
+        let sinValue = sin(radians)
+
+        func rotatedCorner(localX: CGFloat, localY: CGFloat) -> CGPoint {
+            CGPoint(
+                x: centerX + (localX * cosValue) - (localY * -sinValue),
+                y: centerY + (localX * -sinValue) + (localY * cosValue)
+            )
+        }
+
+        let corners = [
+            rotatedCorner(localX: -halfWidth, localY: -halfHeight),
+            rotatedCorner(localX: halfWidth, localY: -halfHeight),
+            rotatedCorner(localX: halfWidth, localY: halfHeight),
+            rotatedCorner(localX: -halfWidth, localY: halfHeight)
+        ]
+        var minX = corners[0].x
+        var maxX = corners[0].x
+        var minY = corners[0].y
+        var maxY = corners[0].y
+        for corner in corners.dropFirst() {
+            minX = min(minX, corner.x)
+            maxX = max(maxX, corner.x)
+            minY = min(minY, corner.y)
+            maxY = max(maxY, corner.y)
+        }
+
+        self.centerX = centerX
+        self.centerY = centerY
+        self.halfWidth = halfWidth
+        self.halfHeight = halfHeight
+        self.cosValue = cosValue
+        self.sinValue = sinValue
+        self.minX = minX
+        self.maxX = maxX
+        self.minY = minY
+        self.maxY = maxY
+        self.area = area
+        self.isRotated = true
+    }
+
+    @inline(__always)
+    func contains(_ point: CGPoint) -> Bool {
+        guard point.x >= minX, point.x <= maxX, point.y >= minY, point.y <= maxY else {
+            return false
+        }
+        guard isRotated else { return true }
+        let translatedX = point.x - centerX
+        let translatedY = point.y - centerY
+        let localX = (translatedX * cosValue) - (translatedY * sinValue)
+        let localY = (translatedX * sinValue) + (translatedY * cosValue)
+        return abs(localX) <= halfWidth && abs(localY) <= halfHeight
+    }
+
+    @inline(__always)
+    func distanceToEdge(from point: CGPoint) -> CGFloat {
+        let translatedX = point.x - centerX
+        let translatedY = point.y - centerY
+        let localX: CGFloat
+        let localY: CGFloat
+        if isRotated {
+            localX = (translatedX * cosValue) - (translatedY * sinValue)
+            localY = (translatedX * sinValue) + (translatedY * cosValue)
+        } else {
+            localX = translatedX
+            localY = translatedY
+        }
+        let dx = halfWidth - abs(localX)
+        let dy = halfHeight - abs(localY)
+        return min(dx, dy)
+    }
+}
+
 struct NormalizedRect: Codable, Hashable {
     var x: CGFloat
     var y: CGFloat
     var width: CGFloat
     var height: CGFloat
+
+    var rotationDegrees: Double = 0
+
+    private enum CodingKeys: String, CodingKey {
+        case x
+        case y
+        case width
+        case height
+        case rotationDegrees
+    }
+
+    var centerX: CGFloat {
+        x + (width * 0.5)
+    }
+
+    var centerY: CGFloat {
+        y + (height * 0.5)
+    }
+
+    init(
+        x: CGFloat,
+        y: CGFloat,
+        width: CGFloat,
+        height: CGFloat,
+        rotationDegrees: Double = 0
+    ) {
+        self.x = x
+        self.y = y
+        self.width = width
+        self.height = height
+        self.rotationDegrees = Self.normalizeDegrees(rotationDegrees)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        x = try container.decode(CGFloat.self, forKey: .x)
+        y = try container.decode(CGFloat.self, forKey: .y)
+        width = try container.decode(CGFloat.self, forKey: .width)
+        height = try container.decode(CGFloat.self, forKey: .height)
+        rotationDegrees = Self.normalizeDegrees(
+            try container.decodeIfPresent(Double.self, forKey: .rotationDegrees) ?? 0
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(x, forKey: .x)
+        try container.encode(y, forKey: .y)
+        try container.encode(width, forKey: .width)
+        try container.encode(height, forKey: .height)
+        if abs(rotationDegrees) > 0.000_01 {
+            try container.encode(rotationDegrees, forKey: .rotationDegrees)
+        }
+    }
 
     func rect(in size: CGSize) -> CGRect {
         CGRect(
@@ -751,6 +989,7 @@ struct NormalizedRect: Codable, Hashable {
         updated.height = max(minHeight, min(updated.height, 1.0))
         updated.x = min(max(updated.x, 0.0), 1.0 - updated.width)
         updated.y = min(max(updated.y, 0.0), 1.0 - updated.height)
+        updated.rotationDegrees = Self.normalizeDegrees(updated.rotationDegrees)
         return updated
     }
 
@@ -759,14 +998,138 @@ struct NormalizedRect: Codable, Hashable {
             x: 1.0 - x - width,
             y: y,
             width: width,
-            height: height
+            height: height,
+            rotationDegrees: -rotationDegrees
         )
     }
 
     func contains(_ point: CGPoint) -> Bool {
-        let maxX = x + width
-        let maxY = y + height
-        return point.x >= x && point.x <= maxX && point.y >= y && point.y <= maxY
+        if abs(rotationDegrees) < 0.000_01 {
+            let maxX = x + width
+            let maxY = y + height
+            return point.x >= x && point.x <= maxX && point.y >= y && point.y <= maxY
+        }
+
+        let radians = CGFloat(-(rotationDegrees * .pi / 180.0))
+        let cosValue = cos(radians)
+        let sinValue = sin(radians)
+        let localX = point.x - centerX
+        let localY = point.y - centerY
+        let rotatedX = (localX * cosValue) - (localY * sinValue)
+        let rotatedY = (localX * sinValue) + (localY * cosValue)
+        return abs(rotatedX) <= width * 0.5 && abs(rotatedY) <= height * 0.5
+    }
+
+    func distanceToEdge(from point: CGPoint) -> CGFloat {
+        let radians = CGFloat(-(rotationDegrees * .pi / 180.0))
+        let cosValue = cos(radians)
+        let sinValue = sin(radians)
+        let localX = point.x - centerX
+        let localY = point.y - centerY
+        let rotatedX = (localX * cosValue) - (localY * sinValue)
+        let rotatedY = (localX * sinValue) + (localY * cosValue)
+        let dx = (width * 0.5) - abs(rotatedX)
+        let dy = (height * 0.5) - abs(rotatedY)
+        return min(dx, dy)
+    }
+
+    func rotatedAround(
+        pivotX: CGFloat,
+        pivotY: CGFloat,
+        rotationDegrees: Double
+    ) -> NormalizedRect {
+        guard abs(rotationDegrees) >= 0.000_01 else { return self }
+        let radians = CGFloat(rotationDegrees * .pi / 180.0)
+        let cosValue = cos(radians)
+        let sinValue = sin(radians)
+        let localX = centerX - pivotX
+        let localY = centerY - pivotY
+        let rotatedCenterX = pivotX + (localX * cosValue) - (localY * sinValue)
+        let rotatedCenterY = pivotY + (localX * sinValue) + (localY * cosValue)
+        return NormalizedRect(
+            x: rotatedCenterX - (width * 0.5),
+            y: rotatedCenterY - (height * 0.5),
+            width: width,
+            height: height,
+            rotationDegrees: Self.normalizeDegrees(self.rotationDegrees + rotationDegrees)
+        )
+    }
+
+    func corners(in size: CGSize) -> [CGPoint] {
+        let rect = rect(in: size)
+        let center = CGPoint(x: rect.midX, y: rect.midY)
+        let corners = [
+            CGPoint(x: rect.minX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.minY),
+            CGPoint(x: rect.maxX, y: rect.maxY),
+            CGPoint(x: rect.minX, y: rect.maxY)
+        ]
+        guard abs(rotationDegrees) >= 0.000_01 else { return corners }
+
+        let radians = CGFloat(rotationDegrees * .pi / 180.0)
+        let cosValue = cos(radians)
+        let sinValue = sin(radians)
+        return corners.map { corner in
+            let localX = corner.x - center.x
+            let localY = corner.y - center.y
+            return CGPoint(
+                x: center.x + (localX * cosValue) - (localY * sinValue),
+                y: center.y + (localX * sinValue) + (localY * cosValue)
+            )
+        }
+    }
+
+    func boundingRect(in size: CGSize) -> CGRect {
+        let points = corners(in: size)
+        guard let first = points.first else { return .zero }
+        var minX = first.x
+        var maxX = first.x
+        var minY = first.y
+        var maxY = first.y
+        for point in points.dropFirst() {
+            minX = min(minX, point.x)
+            maxX = max(maxX, point.x)
+            minY = min(minY, point.y)
+            maxY = max(maxY, point.y)
+        }
+        return CGRect(x: minX, y: minY, width: maxX - minX, height: maxY - minY)
+    }
+
+    static func normalizeDegrees(_ value: Double) -> Double {
+        var normalized = value.truncatingRemainder(dividingBy: 360.0)
+        if normalized <= -180.0 {
+            normalized += 360.0
+        } else if normalized > 180.0 {
+            normalized -= 360.0
+        }
+        return normalized
+    }
+}
+
+struct KeyGeometryOverride: Codable, Hashable {
+    var rotationDegrees: Double
+
+    private enum CodingKeys: String, CodingKey {
+        case rotationDegrees
+    }
+
+    init(rotationDegrees: Double = 0) {
+        self.rotationDegrees = min(max(rotationDegrees, 0.0), 360.0)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        rotationDegrees = min(
+            max(try container.decodeIfPresent(Double.self, forKey: .rotationDegrees) ?? 0.0, 0.0),
+            360.0
+        )
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        if rotationDegrees > 0.000_01 {
+            try container.encode(rotationDegrees, forKey: .rotationDegrees)
+        }
     }
 }
 
@@ -1743,4 +2106,48 @@ enum KeyActionMappingStore {
         return mappings
     }
 
+}
+
+enum KeyGeometryStore {
+    private static var allLayoutRawValues: [String] {
+        TrackpadLayoutPreset.allCases.map(\.rawValue)
+    }
+
+    private static func storageOnly(_ overrides: KeyGeometryOverrides) -> KeyGeometryOverrides {
+        overrides.reduce(into: [:]) { result, entry in
+            guard GridKeyPosition.from(storageKey: entry.key) != nil else { return }
+            let rotationDegrees = min(max(entry.value.rotationDegrees, 0.0), 360.0)
+            guard rotationDegrees > 0.000_01 else { return }
+            result[entry.key] = KeyGeometryOverride(rotationDegrees: rotationDegrees)
+        }
+    }
+
+    static func decodeLayoutNormalized(_ data: Data) -> LayoutKeyGeometryOverrides? {
+        guard !data.isEmpty else { return nil }
+        guard let decoded = try? JSONDecoder().decode(LayoutKeyGeometryOverrides.self, from: data) else {
+            return nil
+        }
+        return normalized(decoded)
+    }
+
+    static func encode(_ overrides: LayoutKeyGeometryOverrides) -> Data? {
+        guard !overrides.isEmpty else { return nil }
+        return try? JSONEncoder().encode(overrides)
+    }
+
+    static func normalized(_ overrides: LayoutKeyGeometryOverrides) -> LayoutKeyGeometryOverrides {
+        var normalizedOverrides: LayoutKeyGeometryOverrides = [:]
+        for layoutRawValue in allLayoutRawValues {
+            normalizedOverrides[layoutRawValue] = storageOnly(overrides[layoutRawValue] ?? [:])
+        }
+        return normalizedOverrides
+    }
+
+    static func emptyLayoutOverrides() -> LayoutKeyGeometryOverrides {
+        var overrides: LayoutKeyGeometryOverrides = [:]
+        for layoutRawValue in allLayoutRawValues {
+            overrides[layoutRawValue] = [:]
+        }
+        return overrides
+    }
 }

@@ -5,17 +5,20 @@ struct ColumnLayoutSettings: Codable, Hashable {
     var offsetXPercent: Double
     var offsetYPercent: Double
     var rowSpacingPercent: Double
+    var rotationDegrees: Double
 
     init(
         scale: Double,
         offsetXPercent: Double,
         offsetYPercent: Double,
-        rowSpacingPercent: Double = 0.0
+        rowSpacingPercent: Double = 0.0,
+        rotationDegrees: Double = 0.0
     ) {
         self.scale = scale
         self.offsetXPercent = offsetXPercent
         self.offsetYPercent = offsetYPercent
         self.rowSpacingPercent = rowSpacingPercent
+        self.rotationDegrees = rotationDegrees
     }
 }
 
@@ -48,6 +51,7 @@ enum ColumnLayoutDefaults {
     static let scaleRange: ClosedRange<Double> = 0.5...2.0
     static let offsetPercentRange: ClosedRange<Double> = -30.0...30.0
     static let rowSpacingPercentRange: ClosedRange<Double> = -20.0...40.0
+    static let rotationDegreesRange: ClosedRange<Double> = 0.0...360.0
 
     static func defaultSettings(columns: Int) -> [ColumnLayoutSettings] {
         Array(
@@ -55,7 +59,8 @@ enum ColumnLayoutDefaults {
                 scale: 1.0,
                 offsetXPercent: 0.0,
                 offsetYPercent: 0.0,
-                rowSpacingPercent: 0.0
+                rowSpacingPercent: 0.0,
+                rotationDegrees: 0.0
             ),
             count: columns
         )
@@ -83,6 +88,10 @@ enum ColumnLayoutDefaults {
                 rowSpacingPercent: min(
                     max(setting.rowSpacingPercent, rowSpacingPercentRange.lowerBound),
                     rowSpacingPercentRange.upperBound
+                ),
+                rotationDegrees: min(
+                    max(setting.rotationDegrees, rotationDegreesRange.lowerBound),
+                    rotationDegreesRange.upperBound
                 )
             )
         }

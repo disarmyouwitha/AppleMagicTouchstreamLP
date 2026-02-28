@@ -82,6 +82,7 @@ struct ContentView: View {
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
+        let keyGeometryByLayout: LayoutKeyGeometryOverrides?
     }
 
     @StateObject private var viewModel: ContentViewModel
@@ -101,6 +102,7 @@ struct ContentView: View {
     @State private var keyInspectorSelection: KeyInspectorSelection?
     @State private var keyMappingsByLayer: LayeredKeyMappings = [:]
     @State private var keyMappingsByLayout: LayoutLayeredKeyMappings = [:]
+    @State private var keyGeometryOverrides: KeyGeometryOverrides = [:]
     @State private var layoutOption: TrackpadLayoutPreset = .sixByThree
     @State private var leftGridLabelInfo: [[GridLabel]] = []
     @State private var rightGridLabelInfo: [[GridLabel]] = []
@@ -112,6 +114,7 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.layoutPreset) private var storedLayoutPreset = TrackpadLayoutPreset.sixByThree.rawValue
     @AppStorage(GlassToKeyDefaultsKeys.customButtons) private var storedCustomButtonsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.keyMappings) private var storedKeyMappingsData = Data()
+    @AppStorage(GlassToKeyDefaultsKeys.keyGeometry) private var storedKeyGeometryData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.autoResyncMissingTrackpads) private var storedAutoResyncMissingTrackpads = false
     @AppStorage(GlassToKeyDefaultsKeys.tapHoldDuration) private var tapHoldDurationMs: Double = GlassToKeySettings.tapHoldDurationMs
     @AppStorage(GlassToKeyDefaultsKeys.dragCancelDistance) private var dragCancelDistanceSetting: Double = GlassToKeySettings.dragCancelDistanceMm
@@ -168,6 +171,7 @@ struct ContentView: View {
     fileprivate static let columnScaleRange: ClosedRange<Double> = ColumnLayoutDefaults.scaleRange
     fileprivate static let columnOffsetPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.offsetPercentRange
     fileprivate static let rowSpacingPercentRange: ClosedRange<Double> = ColumnLayoutDefaults.rowSpacingPercentRange
+    fileprivate static let rotationDegreesRange: ClosedRange<Double> = ColumnLayoutDefaults.rotationDegreesRange
     fileprivate static let dragCancelDistanceRange: ClosedRange<Double> = 1.0...30.0
     fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 0.0...500.0
     fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
@@ -204,6 +208,15 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 1
         formatter.minimum = NSNumber(value: ContentView.rowSpacingPercentRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.rowSpacingPercentRange.upperBound)
+        return formatter
+    }()
+    fileprivate static let rotationDegreesFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.minimumFractionDigits = 0
+        formatter.maximumFractionDigits = 1
+        formatter.minimum = NSNumber(value: ContentView.rotationDegreesRange.lowerBound)
+        formatter.maximum = NSNumber(value: ContentView.rotationDegreesRange.upperBound)
         return formatter
     }()
     fileprivate static let buttonGeometryPercentFormatter: NumberFormatter = {
@@ -480,6 +493,11 @@ struct ContentView: View {
                 keyMappingsByLayout[layoutOption.rawValue] = KeyActionMappingStore.normalized(newValue)
                 viewModel.updateKeyMappings(newValue)
                 updateGridLabelInfo()
+                refreshKeyInspectorSelection()
+            }
+            .onChange(of: keyGeometryOverrides) { newValue in
+                saveKeyGeometryOverrides(newValue)
+                rebuildLayouts()
                 refreshKeyInspectorSelection()
             }
             .onChange(of: selectedButtonID) { _ in
@@ -900,6 +918,12 @@ struct ContentView: View {
             onUpdateKeyMapping: { key, update in
                 updateKeyMappingAndSelection(key: key, update: update)
             },
+            keyRotationDegrees: { key in
+                keyRotationDegrees(for: key)
+            },
+            onUpdateKeyRotation: { key, rotationDegrees in
+                updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
+            },
             onRestoreDefaults: restoreTypingTuningDefaults,
             onAutoSplayColumns: applyAutoSplay,
             onEvenSpaceColumns: applyEvenColumnSpacing
@@ -1144,6 +1168,8 @@ struct ContentView: View {
         let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
+        let keyRotationDegrees: (SelectedGridKey) -> Double
+        let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onRestoreDefaults: () -> Void
         let onAutoSplayColumns: () -> Void
         let onEvenSpaceColumns: () -> Void
@@ -1281,7 +1307,9 @@ struct ContentView: View {
                                 onRemoveCustomButton: onRemoveCustomButton,
                                 onClearTouchState: onClearTouchState,
                                 onUpdateButton: onUpdateButton,
-                                onUpdateKeyMapping: onUpdateKeyMapping
+                                onUpdateKeyMapping: onUpdateKeyMapping,
+                                keyRotationDegrees: keyRotationDegrees,
+                                onUpdateKeyRotation: onUpdateKeyRotation
                             )
                             .padding(.top, 8)
                         } label: {
@@ -1503,6 +1531,22 @@ struct ContentView: View {
                                 buttonStep: 0.5,
                                 showSlider: false
                             )
+                            ColumnTuningRow(
+                                title: "Rotation (0-360 deg)",
+                                value: Binding(
+                                    get: { settings.rotationDegrees },
+                                    set: { newValue in
+                                        onUpdateColumn(index) { setting in
+                                            setting.rotationDegrees = ContentView.normalizedRotationDegrees(newValue)
+                                        }
+                                    }
+                                ),
+                                formatter: ContentView.rotationDegreesFormatter,
+                                range: ContentView.rotationDegreesRange,
+                                sliderStep: 1.0,
+                                buttonStep: 0.5,
+                                showSlider: false
+                            )
                         }
                         HStack(spacing: 8) {
                             Button("Auto Splay (4 Fingers)") {
@@ -1543,6 +1587,8 @@ struct ContentView: View {
         let onClearTouchState: () -> Void
         let onUpdateButton: (UUID, (inout CustomButton) -> Void) -> Void
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
+        let keyRotationDegrees: (SelectedGridKey) -> Double
+        let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
 
         private var hasEditableSelection: Bool {
             buttonSelection != nil || keySelection != nil
@@ -1642,6 +1688,25 @@ struct ContentView: View {
                 }
                 .pickerStyle(MenuPickerStyle())
                 .disabled(!hasEditableSelection)
+                if let selection = keySelection {
+                    ColumnTuningRow(
+                        title: "Key Rotation (0-360 deg)",
+                        value: Binding(
+                            get: { keyRotationDegrees(selection.key) },
+                            set: { newValue in
+                                onUpdateKeyRotation(
+                                    selection.key,
+                                    ContentView.normalizedRotationDegrees(newValue)
+                                )
+                            }
+                        ),
+                        formatter: ContentView.rotationDegreesFormatter,
+                        range: ContentView.rotationDegreesRange,
+                        sliderStep: 1.0,
+                        buttonStep: 0.5,
+                        showSlider: false
+                    )
+                }
                 Text("Custom Buttons")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -2501,12 +2566,13 @@ struct ContentView: View {
         trackpadHeight: CGFloat,
         columnAnchorsMM: [CGPoint],
         columnSettings: [ColumnLayoutSettings],
+        keyGeometryOverrides: KeyGeometryOverrides = [:],
         mirrored: Bool = false
     ) -> ContentViewModel.Layout {
         guard columns > 0,
               rows > 0,
               columnAnchorsMM.count == columns else {
-            return ContentViewModel.Layout(keyRects: [], trackpadSize: size)
+            return ContentViewModel.Layout(normalizedKeyRects: [], trackpadSize: size)
         }
         let scaleX = size.width / trackpadWidth
         let scaleY = size.height / trackpadHeight
@@ -2543,33 +2609,33 @@ struct ContentView: View {
             }
         }
 
+        var normalizedKeyRects = keyRects.map { row in
+            row.map { normalizedRect(for: $0, in: size) }
+        }
+
         let columnOffsets = resolvedSettings.map { setting in
             CGSize(
                 width: size.width * CGFloat(setting.offsetXPercent / 100.0),
                 height: size.height * CGFloat(setting.offsetYPercent / 100.0)
             )
         }
+
+        applyColumnOffsets(keyRects: &normalizedKeyRects, columnOffsets: columnOffsets, size: size)
+        applyColumnRotations(keyRects: &normalizedKeyRects, columnSettings: resolvedSettings)
+        applyKeyGeometryOverrides(
+            keyRects: &normalizedKeyRects,
+            keyGeometryOverrides: keyGeometryOverrides,
+            mirrored: mirrored
+        )
+
         if mirrored {
-            let mirroredKeyRects = keyRects.map { row in
-                row.map { rect in
-                    CGRect(
-                        x: size.width - rect.maxX,
-                        y: rect.minY,
-                        width: rect.width,
-                        height: rect.height
-                    )
-                }
+            let mirroredKeyRects = normalizedKeyRects.map { row in
+                row.map { $0.mirroredHorizontally() }
             }
-            var adjusted = mirroredKeyRects
-            let mirroredOffsets = columnOffsets.map { offset in
-                CGSize(width: -offset.width, height: offset.height)
-            }
-            applyColumnOffsets(keyRects: &adjusted, columnOffsets: mirroredOffsets)
-            return ContentViewModel.Layout(keyRects: adjusted, trackpadSize: size)
+            return ContentViewModel.Layout(normalizedKeyRects: mirroredKeyRects, trackpadSize: size)
         }
 
-        applyColumnOffsets(keyRects: &keyRects, columnOffsets: columnOffsets)
-        return ContentViewModel.Layout(keyRects: keyRects, trackpadSize: size)
+        return ContentViewModel.Layout(normalizedKeyRects: normalizedKeyRects, trackpadSize: size)
     }
 
     private static func scaledColumnAnchorsMM(
@@ -2598,6 +2664,79 @@ struct ContentView: View {
                     .offsetBy(dx: offset.width, dy: offset.height)
             }
         }
+    }
+
+    private static func applyColumnOffsets(
+        keyRects: inout [[NormalizedRect]],
+        columnOffsets: [CGSize],
+        size: CGSize
+    ) {
+        guard !columnOffsets.isEmpty, size.width > 0, size.height > 0 else { return }
+        for rowIndex in 0..<keyRects.count {
+            for colIndex in 0..<keyRects[rowIndex].count {
+                let offset = columnOffsets.indices.contains(colIndex)
+                    ? columnOffsets[colIndex]
+                    : .zero
+                keyRects[rowIndex][colIndex].x += offset.width / size.width
+                keyRects[rowIndex][colIndex].y += offset.height / size.height
+            }
+        }
+    }
+
+    private static func applyColumnRotations(
+        keyRects: inout [[NormalizedRect]],
+        columnSettings: [ColumnLayoutSettings]
+    ) {
+        guard !keyRects.isEmpty, let lastRow = keyRects.indices.last else { return }
+        for col in keyRects[0].indices {
+            guard columnSettings.indices.contains(col) else { continue }
+            let rotationDegrees = -normalizedRotationDegrees(columnSettings[col].rotationDegrees)
+            guard abs(rotationDegrees) >= 0.000_01 else { continue }
+            let pivotX = keyRects[0][col].centerX
+            let pivotY = (keyRects[0][col].centerY + keyRects[lastRow][col].centerY) * 0.5
+            for row in keyRects.indices {
+                keyRects[row][col] = keyRects[row][col].rotatedAround(
+                    pivotX: pivotX,
+                    pivotY: pivotY,
+                    rotationDegrees: rotationDegrees
+                )
+            }
+        }
+    }
+
+    private static func applyKeyGeometryOverrides(
+        keyRects: inout [[NormalizedRect]],
+        keyGeometryOverrides: KeyGeometryOverrides,
+        mirrored: Bool
+    ) {
+        guard !keyGeometryOverrides.isEmpty else { return }
+        let side: TrackpadSide = mirrored ? .left : .right
+        for row in keyRects.indices {
+            for col in keyRects[row].indices {
+                let storageKey = GridKeyPosition(side: side, row: row, column: col).storageKey
+                guard let geometry = keyGeometryOverrides[storageKey] else { continue }
+                let rotationDegrees = -normalizedRotationDegrees(geometry.rotationDegrees)
+                guard abs(rotationDegrees) >= 0.000_01 else { continue }
+                let rect = keyRects[row][col]
+                keyRects[row][col] = rect.rotatedAround(
+                    pivotX: rect.centerX,
+                    pivotY: rect.centerY,
+                    rotationDegrees: rotationDegrees
+                )
+            }
+        }
+    }
+
+    private static func normalizedRect(for rect: CGRect, in size: CGSize) -> NormalizedRect {
+        guard size.width > 0, size.height > 0 else {
+            return NormalizedRect(x: 0, y: 0, width: 0, height: 0)
+        }
+        return NormalizedRect(
+            x: rect.minX / size.width,
+            y: rect.minY / size.height,
+            width: rect.width / size.width,
+            height: rect.height / size.height
+        )
     }
 
     private static func makeMobileKeyLayout(size: CGSize) -> ContentViewModel.Layout {
@@ -2664,6 +2803,10 @@ struct ContentView: View {
 
     fileprivate static func normalizedRowSpacingPercent(_ value: Double) -> Double {
         min(max(value, Self.rowSpacingPercentRange.lowerBound), Self.rowSpacingPercentRange.upperBound)
+    }
+
+    fileprivate static func normalizedRotationDegrees(_ value: Double) -> Double {
+        min(max(value, Self.rotationDegreesRange.lowerBound), Self.rotationDegreesRange.upperBound)
     }
 
     private func normalizeEditColumnIndex(for count: Int) {
@@ -2921,6 +3064,7 @@ struct ContentView: View {
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: newLayout)
+        keyGeometryOverrides = keyGeometryOverrides(for: newLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: newLayout)
         keyMappingsByLayer = keyMappings(for: newLayout)
@@ -2970,7 +3114,8 @@ struct ContentView: View {
                 trackpadWidth: Self.trackpadWidthMM,
                 trackpadHeight: Self.trackpadHeightMM,
                 columnAnchorsMM: layoutColumnAnchors,
-                columnSettings: columnSettings
+                columnSettings: columnSettings,
+                keyGeometryOverrides: keyGeometryOverrides
             )
             viewModel.configureLayouts(
                 leftLayout: leftLayout,
@@ -2992,6 +3137,7 @@ struct ContentView: View {
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: layoutColumnAnchors,
             columnSettings: columnSettings,
+            keyGeometryOverrides: keyGeometryOverrides,
             mirrored: true
         )
         rightLayout = ContentView.makeKeyLayout(
@@ -3003,7 +3149,8 @@ struct ContentView: View {
             trackpadWidth: Self.trackpadWidthMM,
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: layoutColumnAnchors,
-            columnSettings: columnSettings
+            columnSettings: columnSettings,
+            keyGeometryOverrides: keyGeometryOverrides
         )
         viewModel.configureLayouts(
             leftLayout: leftLayout,
@@ -3024,6 +3171,7 @@ struct ContentView: View {
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: resolvedLayout)
+        keyGeometryOverrides = keyGeometryOverrides(for: resolvedLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: resolvedLayout)
         loadKeyMappings()
@@ -3154,6 +3302,8 @@ struct ContentView: View {
         let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
         let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
             ?? normalizedLayoutMappingsWithCurrentRuntime()
+        let keyGeometryByLayout = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData)
+            ?? normalizedLayoutKeyGeometryWithCurrentRuntime()
         return KeymapProfile(
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
@@ -3183,7 +3333,8 @@ struct ContentView: View {
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
-            keyMappingsByLayout: mappings
+            keyMappingsByLayout: mappings,
+            keyGeometryByLayout: keyGeometryByLayout
         )
     }
 
@@ -3217,6 +3368,7 @@ struct ContentView: View {
         storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
         storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
         storedKeyMappingsData = encodedLayoutKeyMappingsData(from: profile)
+        storedKeyGeometryData = encodedLayoutKeyGeometryData(from: profile)
         applySavedSettings()
         viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
     }
@@ -3245,6 +3397,7 @@ struct ContentView: View {
         saveSettings()
         saveCustomButtons(customButtons)
         saveKeyMappings(normalizedLayoutMappingsWithCurrentRuntime())
+        saveLayoutKeyGeometryOverrides(normalizedLayoutKeyGeometryWithCurrentRuntime())
     }
 
     private func columnSettings(
@@ -3304,6 +3457,33 @@ struct ContentView: View {
         return nil
     }
 
+    private func bundledDefaultKeyGeometry() -> LayoutKeyGeometryOverrides? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let profile = try? JSONDecoder().decode(KeymapProfile.self, from: data) else {
+            return nil
+        }
+        if let byLayout = profile.keyGeometryByLayout {
+            return KeyGeometryStore.normalized(byLayout)
+        }
+        return nil
+    }
+
+    private func keyGeometryOverrides(for layout: TrackpadLayoutPreset) -> KeyGeometryOverrides {
+        if let decoded = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData) {
+            return decoded[layout.rawValue] ?? [:]
+        }
+        if let bundled = bundledDefaultKeyGeometry() {
+            return bundled[layout.rawValue] ?? [:]
+        }
+        return [:]
+    }
+
     private func loadCustomButtons(for layout: TrackpadLayoutPreset) -> [CustomButton] {
         if let stored = LayoutCustomButtonStorage.buttons(for: layout, from: storedCustomButtonsData) {
             return stored
@@ -3317,6 +3497,17 @@ struct ContentView: View {
 
     private func saveKeyMappings(_ mappings: LayoutLayeredKeyMappings) {
         storedKeyMappingsData = KeyActionMappingStore.encode(mappings) ?? Data()
+    }
+
+    private func saveKeyGeometryOverrides(_ overrides: KeyGeometryOverrides) {
+        var byLayout = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData)
+            ?? KeyGeometryStore.emptyLayoutOverrides()
+        byLayout[layoutOption.rawValue] = overrides
+        saveLayoutKeyGeometryOverrides(byLayout)
+    }
+
+    private func saveLayoutKeyGeometryOverrides(_ overrides: LayoutKeyGeometryOverrides) {
+        storedKeyGeometryData = KeyGeometryStore.encode(KeyGeometryStore.normalized(overrides)) ?? Data()
     }
 
     private func keyMappings(for layout: TrackpadLayoutPreset) -> LayeredKeyMappings {
@@ -3335,9 +3526,24 @@ struct ContentView: View {
         return KeyActionMappingStore.normalized(merged)
     }
 
+    private func normalizedLayoutKeyGeometryWithCurrentRuntime() -> LayoutKeyGeometryOverrides {
+        var merged = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData)
+            ?? KeyGeometryStore.emptyLayoutOverrides()
+        merged[layoutOption.rawValue] = keyGeometryOverrides
+        return KeyGeometryStore.normalized(merged)
+    }
+
     private func encodedLayoutKeyMappingsData(from profile: KeymapProfile) -> Data {
         if let byLayout = profile.keyMappingsByLayout,
            let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(byLayout)) {
+            return encoded
+        }
+        return Data()
+    }
+
+    private func encodedLayoutKeyGeometryData(from profile: KeymapProfile) -> Data {
+        if let byLayout = profile.keyGeometryByLayout,
+           let encoded = KeyGeometryStore.encode(KeyGeometryStore.normalized(byLayout)) {
             return encoded
         }
         return Data()
@@ -3721,6 +3927,30 @@ struct ContentView: View {
         update: (inout KeyMapping) -> Void
     ) {
         updateKeyMapping(for: key, update)
+        refreshKeyInspectorSelection()
+    }
+
+    private func keyRotationDegrees(for key: SelectedGridKey) -> Double {
+        keyGeometryOverrides[key.storageKey]?.rotationDegrees ?? 0
+    }
+
+    private func updateKeyRotation(
+        for key: SelectedGridKey,
+        rotationDegrees: Double
+    ) {
+        let normalized = Self.normalizedRotationDegrees(rotationDegrees)
+        if normalized <= 0.000_01 {
+            keyGeometryOverrides.removeValue(forKey: key.storageKey)
+            return
+        }
+        keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(rotationDegrees: normalized)
+    }
+
+    private func updateKeyRotationAndSelection(
+        for key: SelectedGridKey,
+        rotationDegrees: Double
+    ) {
+        updateKeyRotation(for: key, rotationDegrees: rotationDegrees)
         refreshKeyInspectorSelection()
     }
 

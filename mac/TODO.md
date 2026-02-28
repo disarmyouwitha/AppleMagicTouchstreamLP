@@ -1,19 +1,12 @@
 ## TODO
-- 
-- Add Rotatable Keys to Column Tuning
-- Add Rotatable keys to Keymap Tuning
-- 3-finger click for right-click immediately closes!
 - Can we make gestures section collapsable by default
+- Can we have the labels rotate with the key?
+- 3-finger click for right-click immediately closes!
+---
+- When Config is closed to Tray can we have it restart the entire app to save memory? (60mb)
+- Does this work well enough or should it be a "memory saver" option?
 - can we make the right side "* Tuning" sections scrollable
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
----
-???
-› why couldn't you build the framework? {  I ran an Xcode build, but it is currently blocked by an existing
-  project dependency issue
-    unrelated to this patch: the app target cannot resolve OpenMultitouchSupport during build. No compile
-  error
-    from the new mouse-hold code surfaced before that failure.
-   }
 ---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??

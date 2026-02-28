@@ -388,9 +388,9 @@ actor TouchProcessorEngine {
             var bestScore: CGFloat = -1
             var bestArea: CGFloat = .greatestFiniteMagnitude
             for binding in buckets[row][col] {
-                guard binding.rect.contains(point) else { continue }
-                let score = insideDistanceToRectEdge(point: point, rect: binding.rect)
-                let area = binding.rect.width * binding.rect.height
+                guard binding.hitGeometry.contains(point) else { continue }
+                let score = binding.hitGeometry.distanceToEdge(from: point)
+                let area = binding.hitGeometry.area
                 if score > bestScore || (score == bestScore && area < bestArea) {
                     bestBinding = binding
                     bestScore = score
@@ -411,12 +411,9 @@ actor TouchProcessorEngine {
             var bestScore: CGFloat = -1
             var bestArea: CGFloat = .greatestFiniteMagnitude
             for binding in buckets[row][col] {
-                guard binding.normalizedRect.contains(clampedPoint) else { continue }
-                let score = insideDistanceToNormalizedRectEdge(
-                    point: clampedPoint,
-                    rect: binding.normalizedRect
-                )
-                let area = binding.normalizedRect.width * binding.normalizedRect.height
+                guard binding.normalizedHitGeometry.contains(clampedPoint) else { continue }
+                let score = binding.normalizedHitGeometry.distanceToEdge(from: clampedPoint)
+                let area = binding.normalizedHitGeometry.area
                 if score > bestScore || (score == bestScore && area < bestArea) {
                     bestBinding = binding
                     bestScore = score
@@ -451,24 +448,6 @@ actor TouchProcessorEngine {
         @inline(__always)
         private func normalize(_ coordinate: CGFloat, invAxisSize: CGFloat) -> CGFloat {
             return min(max(coordinate * invAxisSize, 0), 1)
-        }
-
-        @inline(__always)
-        private func insideDistanceToRectEdge(point: CGPoint, rect: CGRect) -> CGFloat {
-            let dx = min(point.x - rect.minX, rect.maxX - point.x)
-            let dy = min(point.y - rect.minY, rect.maxY - point.y)
-            return min(dx, dy)
-        }
-
-        @inline(__always)
-        private func insideDistanceToNormalizedRectEdge(point: CGPoint, rect: NormalizedRect) -> CGFloat {
-            let minX = rect.x
-            let maxX = rect.x + rect.width
-            let minY = rect.y
-            let maxY = rect.y + rect.height
-            let dx = min(point.x - minX, maxX - point.x)
-            let dy = min(point.y - minY, maxY - point.y)
-            return min(dx, dy)
         }
     }
 
@@ -1305,7 +1284,7 @@ actor TouchProcessorEngine {
                     }
 
                     if active.isContinuousKey,
-                       !active.binding.rect.contains(point) {
+                       !active.binding.hitGeometry.contains(point) {
                         disqualifyTouch(touchKey, reason: .leftContinuousRect)
                         continue
                     }
@@ -1369,7 +1348,7 @@ actor TouchProcessorEngine {
                     }
 
                     let allowPriority = allowsPriorityTyping(for: pending.binding)
-                    if pending.binding.rect.contains(point),
+                    if pending.binding.hitGeometry.contains(point),
                        (intentAllowsTyping || allowPriority) {
                         let modifierKey = modifierKey(for: pending.binding)
                         let isContinuousKey = isContinuousKey(pending.binding)
@@ -1769,9 +1748,10 @@ actor TouchProcessorEngine {
         func appendSnapBinding(_ binding: KeyBinding) {
             guard case .key = binding.action else { return }
             snapBindings.append(binding)
-            snapCentersX.append(Float(binding.rect.midX))
-            snapCentersY.append(Float(binding.rect.midY))
-            let radius = Float(min(binding.rect.width, binding.rect.height)) * snapRadiusFraction
+            snapCentersX.append(Float(binding.hitGeometry.centerX))
+            snapCentersY.append(Float(binding.hitGeometry.centerY))
+            let diameter = min(binding.hitGeometry.halfWidth, binding.hitGeometry.halfHeight) * 2
+            let radius = Float(diameter) * snapRadiusFraction
             snapRadiusSq.append(radius * radius)
         }
 
@@ -1790,7 +1770,8 @@ actor TouchProcessorEngine {
                     rect: rect,
                     normalizedRect: normalizedRect,
                     position: position,
-                    layout: layout
+                    layout: layout,
+                    canvasSize: canvasSize
                 ) else {
                     continue
                 }
@@ -1852,6 +1833,7 @@ actor TouchProcessorEngine {
             let binding = KeyBinding(
                 rect: rect,
                 normalizedRect: button.rect,
+                canvasSize: canvasSize,
                 label: button.action.label,
                 action: action,
                 position: nil,
@@ -1878,7 +1860,8 @@ actor TouchProcessorEngine {
         rect: CGRect,
         normalizedRect: NormalizedRect,
         position: GridKeyPosition,
-        layout: Layout
+        layout: Layout,
+        canvasSize: CGSize
     ) -> KeyBinding? {
         guard let action = keyAction(for: position, label: label) else { return nil }
         let holdAction = layout.allowHoldBindings
@@ -1888,6 +1871,7 @@ actor TouchProcessorEngine {
             for: action,
             rect: rect,
             normalizedRect: normalizedRect,
+            canvasSize: canvasSize,
             position: position,
             side: position.side,
             holdAction: holdAction
@@ -1914,6 +1898,7 @@ actor TouchProcessorEngine {
         for action: KeyAction,
         rect: CGRect,
         normalizedRect: NormalizedRect,
+        canvasSize: CGSize,
         position: GridKeyPosition?,
         side: TrackpadSide,
         holdAction: KeyAction? = nil
@@ -1924,6 +1909,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .key(code: CGKeyCode(action.keyCode), flags: flags),
                 position: position,
@@ -1934,6 +1920,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .leftClick,
                 position: position,
@@ -1944,6 +1931,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .doubleClick,
                 position: position,
@@ -1954,6 +1942,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .rightClick,
                 position: position,
@@ -1964,6 +1953,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .middleClick,
                 position: position,
@@ -1974,6 +1964,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .volumeUp,
                 position: position,
@@ -1984,6 +1975,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .volumeDown,
                 position: position,
@@ -1994,6 +1986,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .brightnessUp,
                 position: position,
@@ -2004,6 +1997,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .brightnessDown,
                 position: position,
@@ -2014,6 +2008,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .voice,
                 position: position,
@@ -2024,6 +2019,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .typingToggle,
                 position: position,
@@ -2034,6 +2030,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .chordalShift,
                 position: position,
@@ -2044,6 +2041,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureTwoFingerTap,
                 position: position,
@@ -2054,6 +2052,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureThreeFingerTap,
                 position: position,
@@ -2064,6 +2063,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureFourFingerHold,
                 position: position,
@@ -2074,6 +2074,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureInnerCornersHold,
                 position: position,
@@ -2084,6 +2085,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureFiveFingerSwipeLeft,
                 position: position,
@@ -2094,6 +2096,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .gestureFiveFingerSwipeRight,
                 position: position,
@@ -2104,6 +2107,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .layerMomentary(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
@@ -2114,6 +2118,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .layerToggle(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
@@ -2124,6 +2129,7 @@ actor TouchProcessorEngine {
             return KeyBinding(
                 rect: rect,
                 normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
                 label: action.label,
                 action: .none,
                 position: position,
@@ -2144,11 +2150,9 @@ actor TouchProcessorEngine {
         var bestScore: CGFloat = -1
         var bestArea: CGFloat = .greatestFiniteMagnitude
         for binding in index.customBindings {
-            guard binding.rect.contains(point) else { continue }
-            let dx = min(point.x - binding.rect.minX, binding.rect.maxX - point.x)
-            let dy = min(point.y - binding.rect.minY, binding.rect.maxY - point.y)
-            let score = min(dx, dy)
-            let area = binding.rect.width * binding.rect.height
+            guard binding.hitGeometry.contains(point) else { continue }
+            let score = binding.hitGeometry.distanceToEdge(from: point)
+            let area = binding.hitGeometry.area
             if score > bestScore || (score == bestScore && area < bestArea) {
                 bestBinding = binding
                 bestScore = score
@@ -2603,6 +2607,7 @@ actor TouchProcessorEngine {
         let shiftBinding = KeyBinding(
             rect: .zero,
             normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+            canvasSize: .zero,
             label: "Shift",
             action: .key(code: CGKeyCode(kVK_Shift), flags: []),
             position: nil,
@@ -3234,6 +3239,7 @@ actor TouchProcessorEngine {
                 for: action,
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 position: nil,
                 side: side ?? .left
             ) else {
@@ -3464,7 +3470,7 @@ actor TouchProcessorEngine {
         }
         let maxDistanceSquared = state.touches.value(for: touchKey)?.maxDistanceSquared ?? 0
         guard maxDistanceSquared <= intentMoveThresholdSquared else { return false }
-        guard binding.rect.contains(point),
+        guard binding.hitGeometry.contains(point),
               initialContactPointIsInsideBinding(touchKey, binding: binding) else {
             return false
         }
@@ -3636,6 +3642,7 @@ actor TouchProcessorEngine {
                 for: holdAction,
                 rect: binding.rect,
                 normalizedRect: binding.normalizedRect,
+                canvasSize: trackpadSize,
                 position: binding.position,
                 side: binding.side,
                 holdAction: binding.holdAction
@@ -3646,6 +3653,7 @@ actor TouchProcessorEngine {
             for: action,
             rect: binding.rect,
             normalizedRect: binding.normalizedRect,
+            canvasSize: trackpadSize,
             position: binding.position,
             side: binding.side
         )
@@ -3662,7 +3670,7 @@ actor TouchProcessorEngine {
         let releaseDistanceSquared = distanceSquared(from: pending.startPoint, to: point)
         guard isContinuousKey(pending.binding),
               now - pending.startTime <= tapMaxDuration,
-              pending.binding.rect.contains(point),
+              pending.binding.hitGeometry.contains(point),
               (!isDragDetectionEnabled
                || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance) else {
             return false
@@ -3809,7 +3817,7 @@ actor TouchProcessorEngine {
         guard let startPoint = touchInitialContactPoint.value(for: touchKey) else {
             return true
         }
-        return binding.rect.contains(startPoint)
+        return binding.hitGeometry.contains(startPoint)
     }
 
     private func startRepeat(for touchKey: TouchKey, binding: KeyBinding) {
@@ -3985,6 +3993,7 @@ actor TouchProcessorEngine {
             let shiftBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 label: "Shift",
                 action: .key(code: CGKeyCode(kVK_Shift), flags: []),
                 position: nil,
@@ -3998,6 +4007,7 @@ actor TouchProcessorEngine {
             let shiftBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 label: "Shift",
                 action: .key(code: CGKeyCode(kVK_Shift), flags: []),
                 position: nil,
@@ -4011,6 +4021,7 @@ actor TouchProcessorEngine {
             let controlBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 label: "Ctrl",
                 action: .key(code: CGKeyCode(kVK_Control), flags: []),
                 position: nil,
@@ -4024,6 +4035,7 @@ actor TouchProcessorEngine {
             let optionBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 label: "Option",
                 action: .key(code: CGKeyCode(kVK_Option), flags: []),
                 position: nil,
@@ -4037,6 +4049,7 @@ actor TouchProcessorEngine {
             let commandBinding = KeyBinding(
                 rect: .zero,
                 normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
                 label: "Cmd",
                 action: .key(code: CGKeyCode(kVK_Command), flags: []),
                 position: nil,

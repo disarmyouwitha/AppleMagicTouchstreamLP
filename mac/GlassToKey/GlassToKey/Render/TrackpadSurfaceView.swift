@@ -66,8 +66,8 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
     var trackpadSize: CGSize
     var spacing: CGFloat
     var showDetailed: Bool
-    var leftKeyRects: [[CGRect]]
-    var rightKeyRects: [[CGRect]]
+    var leftKeyRects: [[NormalizedRect]]
+    var rightKeyRects: [[NormalizedRect]]
     var leftAllowHoldBindings: Bool
     var rightAllowHoldBindings: Bool
     var leftLabels: [[TrackpadSurfaceLabel]]
@@ -79,8 +79,8 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
         trackpadSize = snapshot.trackpadSize
         spacing = snapshot.spacing
         showDetailed = snapshot.showDetailed
-        leftKeyRects = snapshot.leftLayout.keyRects
-        rightKeyRects = snapshot.rightLayout.keyRects
+        leftKeyRects = snapshot.leftLayout.normalizedKeyRects
+        rightKeyRects = snapshot.rightLayout.normalizedKeyRects
         leftAllowHoldBindings = snapshot.leftLayout.allowHoldBindings
         rightAllowHoldBindings = snapshot.rightLayout.allowHoldBindings
         leftLabels = snapshot.leftLabels
@@ -199,7 +199,7 @@ final class TrackpadSurfaceView: NSView {
 
         drawTrackpadStaticSide(
             origin: leftOrigin,
-            keyRects: input.leftKeyRects,
+            layout: snapshot.leftLayout,
             labels: input.leftLabels,
             customButtons: input.leftCustomButtons,
             showDetailed: input.showDetailed,
@@ -207,7 +207,7 @@ final class TrackpadSurfaceView: NSView {
         )
         drawTrackpadStaticSide(
             origin: rightOrigin,
-            keyRects: input.rightKeyRects,
+            layout: snapshot.rightLayout,
             labels: input.rightLabels,
             customButtons: input.rightCustomButtons,
             showDetailed: input.showDetailed,
@@ -218,7 +218,7 @@ final class TrackpadSurfaceView: NSView {
 
     private func drawTrackpadStaticSide(
         origin: CGPoint,
-        keyRects: [[CGRect]],
+        layout: ContentViewModel.Layout,
         labels: [[TrackpadSurfaceLabel]],
         customButtons: [CustomButton],
         showDetailed: Bool,
@@ -233,9 +233,9 @@ final class TrackpadSurfaceView: NSView {
         guard showDetailed else { return }
 
         drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
-        drawKeyGrid(keyRects, origin: origin)
+        drawKeyGrid(layout.normalizedKeyRects, origin: origin, trackpadSize: trackpadSize)
         drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
-        drawGridLabels(labels, keyRects: keyRects, origin: origin)
+        drawGridLabels(labels, keyRects: layout.keyRects, origin: origin)
     }
 
     private func drawTrackpadDynamicSide(
@@ -248,9 +248,10 @@ final class TrackpadSurfaceView: NSView {
         selectedButtonID: UUID?
     ) {
         drawKeySelection(
-            keyRects: layout.keyRects,
+            normalizedKeyRects: layout.normalizedKeyRects,
             selectedKey: selectedKey,
-            origin: origin
+            origin: origin,
+            trackpadSize: trackpadSize
         )
         drawButtonSelection(
             customButtons,
@@ -293,7 +294,7 @@ final class TrackpadSurfaceView: NSView {
 
         if let selectedKey = gridKey(
             at: localPoint,
-            keyRects: layout.keyRects,
+            normalizedKeyRects: layout.normalizedKeyRects,
             labels: labels
         ) {
             return TrackpadSurfaceSelectionEvent(
@@ -358,23 +359,33 @@ final class TrackpadSurfaceView: NSView {
 
     private func gridKey(
         at point: CGPoint,
-        keyRects: [[CGRect]],
+        normalizedKeyRects: [[NormalizedRect]],
         labels: [[TrackpadSurfaceLabel]]
     ) -> SurfaceKeyHit? {
-        for rowIndex in keyRects.indices {
+        let normalizedPoint = normalize(point: point, in: snapshot.trackpadSize)
+        var bestHit: SurfaceKeyHit?
+        var bestScore = -CGFloat.greatestFiniteMagnitude
+        var bestArea = CGFloat.greatestFiniteMagnitude
+        for rowIndex in normalizedKeyRects.indices {
             guard rowIndex < labels.count else { continue }
-            for columnIndex in keyRects[rowIndex].indices {
+            for columnIndex in normalizedKeyRects[rowIndex].indices {
                 guard columnIndex < labels[rowIndex].count else { continue }
-                if keyRects[rowIndex][columnIndex].contains(point) {
-                    return SurfaceKeyHit(
+                let rect = normalizedKeyRects[rowIndex][columnIndex]
+                guard rect.contains(normalizedPoint) else { continue }
+                let score = rect.distanceToEdge(from: normalizedPoint)
+                let area = rect.width * rect.height
+                if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
+                    bestHit = SurfaceKeyHit(
                         row: rowIndex,
                         column: columnIndex,
                         label: labels[rowIndex][columnIndex].primary
                     )
+                    bestScore = score
+                    bestArea = area
                 }
             }
         }
-        return nil
+        return bestHit
     }
 
     private func drawSensorGrid(origin: CGPoint, trackpadSize: CGSize) {
@@ -405,12 +416,15 @@ final class TrackpadSurfaceView: NSView {
         }
     }
 
-    private func drawKeyGrid(_ keyRects: [[CGRect]], origin: CGPoint) {
+    private func drawKeyGrid(
+        _ normalizedKeyRects: [[NormalizedRect]],
+        origin: CGPoint,
+        trackpadSize: CGSize
+    ) {
         NSColor.secondaryLabelColor.withAlphaComponent(0.6).setStroke()
-        for row in keyRects {
+        for row in normalizedKeyRects {
             for rect in row {
-                let translated = rect.offsetBy(dx: origin.x, dy: origin.y)
-                let keyPath = NSBezierPath(roundedRect: translated, xRadius: 6, yRadius: 6)
+                let keyPath = keyPath(for: rect, origin: origin, trackpadSize: trackpadSize)
                 keyPath.lineWidth = 1
                 keyPath.stroke()
             }
@@ -479,15 +493,19 @@ final class TrackpadSurfaceView: NSView {
     }
 
     private func drawKeySelection(
-        keyRects: [[CGRect]],
+        normalizedKeyRects: [[NormalizedRect]],
         selectedKey: TrackpadSurfaceKeySelection?,
-        origin: CGPoint
+        origin: CGPoint,
+        trackpadSize: CGSize
     ) {
         if let selectedKey,
-           keyRects.indices.contains(selectedKey.row),
-           keyRects[selectedKey.row].indices.contains(selectedKey.column) {
-            let rect = keyRects[selectedKey.row][selectedKey.column].offsetBy(dx: origin.x, dy: origin.y)
-            let path = NSBezierPath(roundedRect: rect, xRadius: 6, yRadius: 6)
+           normalizedKeyRects.indices.contains(selectedKey.row),
+           normalizedKeyRects[selectedKey.row].indices.contains(selectedKey.column) {
+            let path = keyPath(
+                for: normalizedKeyRects[selectedKey.row][selectedKey.column],
+                origin: origin,
+                trackpadSize: trackpadSize
+            )
             NSColor.controlAccentColor.withAlphaComponent(0.18).setFill()
             path.fill()
             NSColor.controlAccentColor.withAlphaComponent(0.9).setStroke()
@@ -572,18 +590,19 @@ final class TrackpadSurfaceView: NSView {
         let x = CGFloat(selectedTouch.position.x) * trackpadSize.width
         let y = (1.0 - CGFloat(selectedTouch.position.y)) * trackpadSize.height
         let point = CGPoint(x: x, y: y)
+        let normalizedPoint = normalize(point: point, in: trackpadSize)
 
         var bestRect: CGRect?
         var bestScore = -CGFloat.greatestFiniteMagnitude
         var bestArea = CGFloat.greatestFiniteMagnitude
 
-        for row in layout.keyRects {
+        for row in layout.normalizedKeyRects {
             for rect in row {
-                guard rect.contains(point) else { continue }
-                let score = edgeDistanceScore(point: point, rect: rect)
+                guard rect.contains(normalizedPoint) else { continue }
+                let score = rect.distanceToEdge(from: normalizedPoint)
                 let area = rect.width * rect.height
                 if score > bestScore || (abs(score - bestScore) < 0.000_001 && area < bestArea) {
-                    bestRect = rect
+                    bestRect = rect.boundingRect(in: trackpadSize)
                     bestScore = score
                     bestArea = area
                 }
@@ -609,6 +628,27 @@ final class TrackpadSurfaceView: NSView {
         let dx = min(point.x - rect.minX, rect.maxX - point.x)
         let dy = min(point.y - rect.minY, rect.maxY - point.y)
         return min(dx, dy)
+    }
+
+    private func normalize(point: CGPoint, in trackpadSize: CGSize) -> CGPoint {
+        guard trackpadSize.width > 0, trackpadSize.height > 0 else { return .zero }
+        return CGPoint(x: point.x / trackpadSize.width, y: point.y / trackpadSize.height)
+    }
+
+    private func keyPath(
+        for rect: NormalizedRect,
+        origin: CGPoint,
+        trackpadSize: CGSize
+    ) -> NSBezierPath {
+        let baseRect = rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
+        let path = NSBezierPath(roundedRect: baseRect, xRadius: 6, yRadius: 6)
+        guard abs(rect.rotationDegrees) >= 0.000_01 else { return path }
+        var transform = AffineTransform.identity
+        transform.translate(x: baseRect.midX, y: baseRect.midY)
+        transform.rotate(byDegrees: CGFloat(rect.rotationDegrees))
+        transform.translate(x: -baseRect.midX, y: -baseRect.midY)
+        path.transform(using: transform)
+        return path
     }
 
     private static func isPhysicalContactState(_ state: OMSState) -> Bool {

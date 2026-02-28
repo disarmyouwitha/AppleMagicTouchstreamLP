@@ -43,6 +43,7 @@ enum GlassToKeySettings {
 final class GlassToKeyController: ObservableObject {
     private struct BundledKeymapProfile: Decodable {
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
+        let keyGeometryByLayout: LayoutKeyGeometryOverrides?
     }
 
     let viewModel: ContentViewModel
@@ -100,6 +101,7 @@ final class GlassToKeyController: ObservableObject {
         viewModel.loadDevices()
         let layout = resolvedLayoutPreset()
         let columnSettings = resolvedColumnSettings(for: layout)
+        let keyGeometryOverrides = loadKeyGeometryOverrides(for: layout)
 
         let trackpadSize = CGSize(
             width: ContentView.trackpadWidthMM * ContentView.displayScale,
@@ -119,6 +121,7 @@ final class GlassToKeyController: ObservableObject {
                 trackpadHeight: ContentView.trackpadHeightMM,
                 columnAnchorsMM: layout.columnAnchors,
                 columnSettings: columnSettings,
+                keyGeometryOverrides: keyGeometryOverrides,
                 mirrored: true
             )
             rightLayout = ContentView.makeKeyLayout(
@@ -130,7 +133,8 @@ final class GlassToKeyController: ObservableObject {
                 trackpadWidth: ContentView.trackpadWidthMM,
                 trackpadHeight: ContentView.trackpadHeightMM,
                 columnAnchorsMM: layout.columnAnchors,
-                columnSettings: columnSettings
+                columnSettings: columnSettings,
+                keyGeometryOverrides: keyGeometryOverrides
             )
         } else {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
@@ -217,6 +221,35 @@ final class GlassToKeyController: ObservableObject {
         }
         if let byLayout = profile.keyMappingsByLayout {
             return KeyActionMappingStore.normalized(byLayout)
+        }
+        return nil
+    }
+
+    private func loadKeyGeometryOverrides(for layout: TrackpadLayoutPreset) -> KeyGeometryOverrides {
+        let defaults = UserDefaults.standard
+        if let data = defaults.data(forKey: GlassToKeyDefaultsKeys.keyGeometry),
+           let overridesByLayout = KeyGeometryStore.decodeLayoutNormalized(data) {
+            return overridesByLayout[layout.rawValue] ?? [:]
+        }
+        if let bundled = bundledDefaultKeyGeometry() {
+            return bundled[layout.rawValue] ?? [:]
+        }
+        return [:]
+    }
+
+    private func bundledDefaultKeyGeometry() -> LayoutKeyGeometryOverrides? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let profile = try? JSONDecoder().decode(BundledKeymapProfile.self, from: data) else {
+            return nil
+        }
+        if let byLayout = profile.keyGeometryByLayout {
+            return KeyGeometryStore.normalized(byLayout)
         }
         return nil
     }
