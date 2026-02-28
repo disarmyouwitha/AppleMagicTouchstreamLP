@@ -34,7 +34,6 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 - I encourage you to try it out with your normal split keyboard setup + Apple Magic Trackpad first before you commit to two! Just set your AMT to one side and next time you want to type just don't move your hand from the mouse~
 - There is also a "Blank" mode where you can just use it as a Trackpad + Gestures + Custom buttons
 - There is also a "Planck" mode where all 12x4 are on 1 trackpad xD (It's terrible)
-- **YES** It will work with your internal laptop trackpad + 1 Apple Magic Trackpad!
 
 **Windows Haptics:**
 - Working over USB!!!
