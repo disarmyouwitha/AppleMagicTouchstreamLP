@@ -12,6 +12,10 @@
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
 
+## Linux: 
+> sudo apt-get install -y dotnet-sdk-10.0
+
+
 ## Usage
 I have posted a <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Beta Release</a> with a **.app** and **.exe** file and hopefully people will be able to run it!
 
