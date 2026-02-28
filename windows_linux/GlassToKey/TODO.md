@@ -3,6 +3,8 @@
 - If "memory saver" toggle is enabled: When Config is closed to Tray can we restart the entire app to save memory? (60mb)
 ---
 - LINUX WHEN?
+---
+Is SymSpell the best? Can we use Microsoft built-in spellcheck? I didn't realize symspell would be like 80mb memory for the dict in x64. 
 -------
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Is there any way to add a "click and drag gesture that would start on Hold and Release when you release your fingers? [3 finger "grasp" to 1 finger] [Can we try 5-finger hold to activate - gesture stays active until 0 fingers so I can drag around until I release??]

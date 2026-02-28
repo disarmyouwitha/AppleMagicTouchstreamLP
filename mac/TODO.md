@@ -3,7 +3,8 @@
 ---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
-
+---
+- Mac Replay does not update contact pills, status pills
 
 ### FUTURE
 - auto-reconnect not working correctly after sleep
