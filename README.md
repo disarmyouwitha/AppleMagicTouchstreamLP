@@ -48,6 +48,8 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 ## FUTURE:
 Lots to do in the TODO! For now I am working on feature parity between MAC and WIN and to really hone the controls~
 
+Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT) which would help support the community but also help this project! =]
+
 ## Intention
 <img src="touchstreamLP.jpg" width="900px">
 The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
