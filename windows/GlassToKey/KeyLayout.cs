@@ -9,10 +9,132 @@ public sealed class KeyLayout
     {
         Rects = rects;
         Labels = labels;
+        HitGeometries = BuildHitGeometries(rects);
     }
 
     public NormalizedRect[][] Rects { get; }
     public string[][] Labels { get; }
+    public KeyHitGeometry[][] HitGeometries { get; }
+
+    private static KeyHitGeometry[][] BuildHitGeometries(NormalizedRect[][] rects)
+    {
+        KeyHitGeometry[][] geometries = new KeyHitGeometry[rects.Length][];
+        for (int row = 0; row < rects.Length; row++)
+        {
+            NormalizedRect[] rowRects = rects[row];
+            geometries[row] = new KeyHitGeometry[rowRects.Length];
+            for (int col = 0; col < rowRects.Length; col++)
+            {
+                geometries[row][col] = KeyHitGeometry.FromRect(rowRects[col]);
+            }
+        }
+
+        return geometries;
+    }
+}
+
+public readonly record struct KeyHitGeometry(
+    double CenterX,
+    double CenterY,
+    double HalfWidth,
+    double HalfHeight,
+    double Cos,
+    double Sin,
+    double MinX,
+    double MaxX,
+    double MinY,
+    double MaxY,
+    double Area,
+    bool IsRotated)
+{
+    public static KeyHitGeometry FromRect(NormalizedRect rect)
+    {
+        double centerX = rect.CenterX;
+        double centerY = rect.CenterY;
+        double halfWidth = rect.Width * 0.5;
+        double halfHeight = rect.Height * 0.5;
+        double area = rect.Width * rect.Height;
+        bool isRotated = Math.Abs(rect.RotationDegrees) >= 0.00001;
+
+        if (!isRotated)
+        {
+            return new KeyHitGeometry(
+                centerX,
+                centerY,
+                halfWidth,
+                halfHeight,
+                Cos: 1.0,
+                Sin: 0.0,
+                MinX: rect.X,
+                MaxX: rect.X + rect.Width,
+                MinY: rect.Y,
+                MaxY: rect.Y + rect.Height,
+                Area: area,
+                IsRotated: false);
+        }
+
+        double radians = -(rect.RotationDegrees * Math.PI / 180.0);
+        double cos = Math.Cos(radians);
+        double sin = Math.Sin(radians);
+
+        Point[] corners =
+        {
+            RotateCorner(-halfWidth, -halfHeight, centerX, centerY, cos, -sin),
+            RotateCorner(halfWidth, -halfHeight, centerX, centerY, cos, -sin),
+            RotateCorner(halfWidth, halfHeight, centerX, centerY, cos, -sin),
+            RotateCorner(-halfWidth, halfHeight, centerX, centerY, cos, -sin)
+        };
+
+        double minX = double.PositiveInfinity;
+        double maxX = double.NegativeInfinity;
+        double minY = double.PositiveInfinity;
+        double maxY = double.NegativeInfinity;
+        for (int i = 0; i < corners.Length; i++)
+        {
+            Point point = corners[i];
+            minX = Math.Min(minX, point.X);
+            maxX = Math.Max(maxX, point.X);
+            minY = Math.Min(minY, point.Y);
+            maxY = Math.Max(maxY, point.Y);
+        }
+
+        return new KeyHitGeometry(centerX, centerY, halfWidth, halfHeight, cos, sin, minX, maxX, minY, maxY, area, true);
+    }
+
+    public bool Contains(double x, double y)
+    {
+        (double localX, double localY) = ToLocal(x, y);
+        return Math.Abs(localX) <= HalfWidth && Math.Abs(localY) <= HalfHeight;
+    }
+
+    public double DistanceToEdge(double x, double y)
+    {
+        (double localX, double localY) = ToLocal(x, y);
+        double dx = HalfWidth - Math.Abs(localX);
+        double dy = HalfHeight - Math.Abs(localY);
+        return Math.Min(dx, dy);
+    }
+
+    private (double X, double Y) ToLocal(double x, double y)
+    {
+        double translatedX = x - CenterX;
+        double translatedY = y - CenterY;
+        if (!IsRotated)
+        {
+            return (translatedX, translatedY);
+        }
+
+        return (
+            (translatedX * Cos) - (translatedY * Sin),
+            (translatedX * Sin) + (translatedY * Cos));
+    }
+
+    private static Point RotateCorner(double localX, double localY, double centerX, double centerY, double cos, double sin)
+    {
+        return new(
+            centerX + (localX * cos) - (localY * sin),
+            centerY + (localX * sin) + (localY * cos));
+    }
 }
 
 public readonly record struct NormalizedRect(double X, double Y, double Width, double Height)

@@ -63,7 +63,7 @@ internal sealed class TouchRuntimeService : IDisposable
         try
         {
             _keymap.SetActiveLayout(_preset.Name);
-            RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
+            RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
 
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, RuntimeConfigurationFactory.BuildTouchConfig(_settings));
             _dispatchQueue = new DispatchEventQueue();
@@ -135,7 +135,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
 
         _keymap.SetActiveLayout(_preset.Name);
-        RuntimeConfigurationFactory.BuildLayouts(_settings, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
+        RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
 
         TouchProcessorActor? actor = _touchActor;
         if (actor == null)

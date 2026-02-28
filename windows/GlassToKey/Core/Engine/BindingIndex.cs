@@ -7,9 +7,11 @@ namespace GlassToKey;
 internal sealed class BindingIndex
 {
     private readonly int[][] _buckets;
+    private readonly KeyHitGeometry[] _geometries;
 
     public BindingIndex(
         EngineKeyBinding[] bindings,
+        KeyHitGeometry[] geometries,
         int bucketRows,
         int bucketColumns,
         int[][] buckets,
@@ -19,6 +21,7 @@ internal sealed class BindingIndex
         float[] snapRadiusSq)
     {
         Bindings = bindings;
+        _geometries = geometries;
         BucketRows = bucketRows;
         BucketColumns = bucketColumns;
         _buckets = buckets;
@@ -48,14 +51,14 @@ internal sealed class BindingIndex
         for (int i = 0; i < candidates.Length; i++)
         {
             int index = candidates[i];
-            NormalizedRect rect = Bindings[index].Rect;
-            if (!rect.Contains(normalizedX, normalizedY))
+            KeyHitGeometry geometry = _geometries[index];
+            if (!geometry.Contains(normalizedX, normalizedY))
             {
                 continue;
             }
 
-            double score = rect.DistanceToEdge(normalizedX, normalizedY);
-            double area = rect.Area;
+            double score = geometry.DistanceToEdge(normalizedX, normalizedY);
+            double area = geometry.Area;
             if (score > bestScore || (Math.Abs(score - bestScore) < 1e-9 && area < bestArea))
             {
                 best = index;
@@ -81,6 +84,7 @@ internal sealed class BindingIndex
         IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
         int estimated = (rows == 0 ? 0 : rows * layout.Rects[0].Length) + customButtons.Count;
         EngineKeyBinding[] bindings = new EngineKeyBinding[estimated];
+        KeyHitGeometry[] geometries = new KeyHitGeometry[estimated];
         int[] snapBindingIndices = new int[estimated];
         float[] snapCentersX = new float[estimated];
         float[] snapCentersY = new float[estimated];
@@ -106,6 +110,7 @@ internal sealed class BindingIndex
                     rowLabels[col],
                     rect,
                     engineMapping);
+                geometries[cursor] = layout.HitGeometries[row][col];
 
                 if (IsSnappable(engineMapping.Primary))
                 {
@@ -143,6 +148,7 @@ internal sealed class BindingIndex
                 fallbackLabel,
                 rect,
                 engineMapping);
+            geometries[cursor] = KeyHitGeometry.FromRect(rect);
 
             if (IsSnappable(engineMapping.Primary))
             {
@@ -162,6 +168,7 @@ internal sealed class BindingIndex
         if (cursor != estimated)
         {
             Array.Resize(ref bindings, cursor);
+            Array.Resize(ref geometries, cursor);
             Array.Resize(ref snapCentersX, cursor);
             Array.Resize(ref snapCentersY, cursor);
             Array.Resize(ref snapRadiusSq, cursor);
@@ -182,11 +189,11 @@ internal sealed class BindingIndex
 
         for (int i = 0; i < bindings.Length; i++)
         {
-            NormalizedRect rect = bindings[i].Rect;
-            int minRow = BucketIndex(rect.MinY, bucketRows);
-            int maxRow = BucketIndex(rect.MaxY, bucketRows);
-            int minCol = BucketIndex(rect.MinX, bucketColumns);
-            int maxCol = BucketIndex(rect.MaxX, bucketColumns);
+            KeyHitGeometry geometry = geometries[i];
+            int minRow = BucketIndex(geometry.MinY, bucketRows);
+            int maxRow = BucketIndex(geometry.MaxY, bucketRows);
+            int minCol = BucketIndex(geometry.MinX, bucketColumns);
+            int maxCol = BucketIndex(geometry.MaxX, bucketColumns);
             for (int row = minRow; row <= maxRow; row++)
             {
                 for (int col = minCol; col <= maxCol; col++)
@@ -202,7 +209,7 @@ internal sealed class BindingIndex
             buckets[i] = bucketLists[i].ToArray();
         }
 
-        return new BindingIndex(bindings, bucketRows, bucketColumns, buckets, snapBindingIndices, snapCentersX, snapCentersY, snapRadiusSq);
+        return new BindingIndex(bindings, geometries, bucketRows, bucketColumns, buckets, snapBindingIndices, snapCentersX, snapCentersY, snapRadiusSq);
     }
 
     private static bool IsSnappable(EngineKeyAction action)

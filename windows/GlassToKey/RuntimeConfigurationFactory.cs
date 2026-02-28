@@ -76,6 +76,7 @@ internal static class RuntimeConfigurationFactory
 
     public static void BuildLayouts(
         UserSettings settings,
+        KeymapStore keymap,
         TrackpadLayoutPreset preset,
         ColumnLayoutSettings[] columnSettings,
         out KeyLayout leftLayout,
@@ -89,6 +90,7 @@ internal static class RuntimeConfigurationFactory
             KeyWidthMm,
             KeyHeightMm,
             columnSettings,
+            keymap,
             mirrored: true,
             keySpacingPercent: keyPaddingPercent);
 
@@ -99,6 +101,7 @@ internal static class RuntimeConfigurationFactory
             KeyWidthMm,
             KeyHeightMm,
             columnSettings,
+            keymap,
             mirrored: false,
             keySpacingPercent: keyPaddingPercent);
     }

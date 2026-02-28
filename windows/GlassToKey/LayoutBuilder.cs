@@ -16,6 +16,30 @@ public static class LayoutBuilder
         double keySpacingPercent = 0.0
     )
     {
+        return BuildLayout(
+            preset,
+            trackpadWidthMm,
+            trackpadHeightMm,
+            keyWidthMm,
+            keyHeightMm,
+            columnSettings,
+            keymap: null,
+            mirrored,
+            keySpacingPercent);
+    }
+
+    public static KeyLayout BuildLayout(
+        TrackpadLayoutPreset preset,
+        double trackpadWidthMm,
+        double trackpadHeightMm,
+        double keyWidthMm,
+        double keyHeightMm,
+        ColumnLayoutSettings[] columnSettings,
+        KeymapStore? keymap,
+        bool mirrored,
+        double keySpacingPercent = 0.0
+    )
+    {
         int columns = preset.Columns;
         int rows = preset.Rows;
         if (mirrored && preset.BlankLeftSide)
@@ -31,6 +55,7 @@ public static class LayoutBuilder
                 trackpadHeightMm,
                 keyWidthMm,
                 keyHeightMm,
+                keymap,
                 keySpacingPercent);
         }
 
@@ -108,6 +133,27 @@ public static class LayoutBuilder
             }
         }
 
+        if (keymap != null)
+        {
+            TrackpadSide side = mirrored ? TrackpadSide.Left : TrackpadSide.Right;
+            for (int row = 0; row < rows; row++)
+            {
+                for (int col = 0; col < columns; col++)
+                {
+                    string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                    KeyGeometryOverride geometry = keymap.ResolveKeyGeometry(storageKey);
+                    double rotationDegrees = -Math.Clamp(geometry.RotationDegrees, 0.0, 360.0);
+                    if (Math.Abs(rotationDegrees) < 0.00001)
+                    {
+                        continue;
+                    }
+
+                    NormalizedRect rect = rects[row][col];
+                    rects[row][col] = rect.RotateAround(rect.CenterX, rect.CenterY, rotationDegrees);
+                }
+            }
+        }
+
         if (mirrored)
         {
             for (int row = 0; row < rows; row++)
@@ -129,6 +175,7 @@ public static class LayoutBuilder
         double trackpadHeightMm,
         double keyWidthMm,
         double keyHeightMm,
+        KeymapStore? keymap,
         double keySpacingPercent)
     {
         string[][] labels = preset.RightLabels;
@@ -212,6 +259,26 @@ public static class LayoutBuilder
                     Y: rowYmm / trackpadHeightMm,
                     Width: widthMm / trackpadWidthMm,
                     Height: heightMm / trackpadHeightMm);
+            }
+        }
+
+        if (keymap != null)
+        {
+            for (int row = 0; row < rowCount; row++)
+            {
+                for (int col = 0; col < rects[row].Length; col++)
+                {
+                    string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Right, row, col);
+                    KeyGeometryOverride geometry = keymap.ResolveKeyGeometry(storageKey);
+                    double rotationDegrees = -Math.Clamp(geometry.RotationDegrees, 0.0, 360.0);
+                    if (Math.Abs(rotationDegrees) < 0.00001)
+                    {
+                        continue;
+                    }
+
+                    NormalizedRect rect = rects[row][col];
+                    rects[row][col] = rect.RotateAround(rect.CenterX, rect.CenterY, rotationDegrees);
+                }
             }
         }
 

@@ -16,6 +16,11 @@ public sealed class KeyMapping
     public KeyAction? Hold { get; set; }
 }
 
+public sealed class KeyGeometryOverride
+{
+    public double RotationDegrees { get; set; }
+}
+
 public sealed class CustomButton
 {
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
@@ -280,6 +285,44 @@ public sealed class KeymapStore
         return resolved;
     }
 
+    public KeyGeometryOverride ResolveKeyGeometry(string storageKey)
+    {
+        LayoutKeymapData data = EnsureLayoutData(_activeLayoutKey);
+        if (data.KeyGeometry != null &&
+            data.KeyGeometry.TryGetValue(storageKey, out KeyGeometryOverride? geometry) &&
+            geometry != null)
+        {
+            return new KeyGeometryOverride
+            {
+                RotationDegrees = Math.Clamp(geometry.RotationDegrees, 0.0, 360.0)
+            };
+        }
+
+        return new KeyGeometryOverride();
+    }
+
+    public void SetKeyGeometry(string storageKey, double rotationDegrees)
+    {
+        if (string.IsNullOrWhiteSpace(storageKey))
+        {
+            return;
+        }
+
+        LayoutKeymapData data = EnsureLayoutData(_activeLayoutKey);
+        data.KeyGeometry ??= new Dictionary<string, KeyGeometryOverride>(StringComparer.OrdinalIgnoreCase);
+        double clamped = Math.Clamp(rotationDegrees, 0.0, 360.0);
+        if (clamped <= 0.00001)
+        {
+            data.KeyGeometry.Remove(storageKey);
+            return;
+        }
+
+        data.KeyGeometry[storageKey] = new KeyGeometryOverride
+        {
+            RotationDegrees = clamped
+        };
+    }
+
     public CustomButton? FindCustomButton(int layer, string id)
     {
         if (string.IsNullOrWhiteSpace(id))
@@ -403,7 +446,8 @@ public sealed class KeymapStore
         LayoutKeymapData normalized = new()
         {
             Mappings = NormalizeMappings(source.Mappings),
-            CustomButtons = new Dictionary<int, List<CustomButton>>()
+            CustomButtons = new Dictionary<int, List<CustomButton>>(),
+            KeyGeometry = NormalizeKeyGeometry(source.KeyGeometry)
         };
 
         if (source.CustomButtons != null)
@@ -597,6 +641,37 @@ public sealed class KeymapStore
     {
         public Dictionary<int, Dictionary<string, KeyMapping>> Mappings { get; set; } = CreateEmptyMappings();
         public Dictionary<int, List<CustomButton>> CustomButtons { get; set; } = new();
+        public Dictionary<string, KeyGeometryOverride> KeyGeometry { get; set; } = new(StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, KeyGeometryOverride> NormalizeKeyGeometry(Dictionary<string, KeyGeometryOverride>? source)
+    {
+        Dictionary<string, KeyGeometryOverride> normalized = new(StringComparer.OrdinalIgnoreCase);
+        if (source == null)
+        {
+            return normalized;
+        }
+
+        foreach ((string key, KeyGeometryOverride value) in source)
+        {
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                continue;
+            }
+
+            double rotationDegrees = Math.Clamp(value?.RotationDegrees ?? 0.0, 0.0, 360.0);
+            if (rotationDegrees <= 0.00001)
+            {
+                continue;
+            }
+
+            normalized[key] = new KeyGeometryOverride
+            {
+                RotationDegrees = rotationDegrees
+            };
+        }
+
+        return normalized;
     }
 }
 
