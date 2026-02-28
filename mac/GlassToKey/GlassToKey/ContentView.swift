@@ -1175,155 +1175,158 @@ struct ContentView: View {
         let onEvenSpaceColumns: () -> Void
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 14) {
-                if !editModeEnabled {
-                    DisclosureGroup(
-                        isExpanded: $typingTuningExpanded
-                    ) {
-                        TypingTuningSectionView(
-                            tapHoldDurationMs: $tapHoldDurationMs,
-                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
-                            forceClickMinSetting: $forceClickMinSetting,
-                            forceClickCapSetting: $forceClickCapSetting,
-                            hapticStrengthSetting: $hapticStrengthSetting,
-                            typingGraceMsSetting: $typingGraceMsSetting,
-                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
-                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                            onRestoreDefaults: onRestoreDefaults
+            ScrollView(.vertical) {
+                VStack(alignment: .leading, spacing: 14) {
+                    if !editModeEnabled {
+                        DisclosureGroup(
+                            isExpanded: $typingTuningExpanded
+                        ) {
+                            TypingTuningSectionView(
+                                tapHoldDurationMs: $tapHoldDurationMs,
+                                dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                                forceClickMinSetting: $forceClickMinSetting,
+                                forceClickCapSetting: $forceClickCapSetting,
+                                hapticStrengthSetting: $hapticStrengthSetting,
+                                typingGraceMsSetting: $typingGraceMsSetting,
+                                intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
+                                intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
+                                tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                                onRestoreDefaults: onRestoreDefaults
+                            )
+                            .padding(.top, 8)
+                        } label: {
+                            Text("Typing Tuning")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
                         )
-                        .padding(.top, 8)
-                    } label: {
-                        Text("Typing Tuning")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
 
-                    DisclosureGroup(
-                        isExpanded: $gestureTuningExpanded
-                    ) {
-                        GestureTuningSectionView(
-                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
-                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
-                            twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
-                            threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
-                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
-                            outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
-                            innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
-                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
-                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
+                        DisclosureGroup(
+                            isExpanded: $gestureTuningExpanded
+                        ) {
+                            GestureTuningSectionView(
+                                twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                                threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                                twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
+                                threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
+                                fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                                outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
+                                innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
+                                fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                                fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
+                            )
+                            .padding(.top, 8)
+                        } label: {
+                            Text("Gesture Tuning")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
                         )
-                        .padding(.top, 8)
-                    } label: {
-                        Text("Gesture Tuning")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
 
-                    DisclosureGroup(
-                        isExpanded: $modeTogglesExpanded
-                    ) {
-                        ModeTogglesSectionView(
-                            autocorrectEnabled: $autocorrectEnabled,
-                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                            chordalShiftEnabled: $chordalShiftEnabled,
-                            keyboardModeEnabled: $keyboardModeEnabled,
-                            runAtStartupEnabled: $runAtStartupEnabled,
-                            autoResyncEnabled: $autoResyncEnabled
+                        DisclosureGroup(
+                            isExpanded: $modeTogglesExpanded
+                        ) {
+                            ModeTogglesSectionView(
+                                autocorrectEnabled: $autocorrectEnabled,
+                                snapRadiusPercentSetting: $snapRadiusPercentSetting,
+                                chordalShiftEnabled: $chordalShiftEnabled,
+                                keyboardModeEnabled: $keyboardModeEnabled,
+                                runAtStartupEnabled: $runAtStartupEnabled,
+                                autoResyncEnabled: $autoResyncEnabled
+                            )
+                            .padding(.top, 8)
+                        } label: {
+                            Text("Mode Toggles")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(12)
+                        .background(
+                            RoundedRectangle(cornerRadius: 12)
+                                .fill(Color.primary.opacity(0.05))
                         )
-                        .padding(.top, 8)
-                    } label: {
-                        Text("Mode Toggles")
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
                     }
-                    .padding(12)
-                    .background(
-                        RoundedRectangle(cornerRadius: 12)
-                            .fill(Color.primary.opacity(0.05))
-                    )
-                }
 
-                if editModeEnabled {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack {
-                            Text("Layout")
-                            Spacer()
-                            Picker("", selection: layoutSelection) {
-                                ForEach(TrackpadLayoutPreset.allCases) { preset in
-                                    Text(preset.displayName).tag(preset)
+                    if editModeEnabled {
+                        VStack(alignment: .leading, spacing: 12) {
+                            HStack {
+                                Text("Layout")
+                                Spacer()
+                                Picker("", selection: layoutSelection) {
+                                    ForEach(TrackpadLayoutPreset.allCases) { preset in
+                                        Text(preset.displayName).tag(preset)
+                                    }
                                 }
+                                .pickerStyle(MenuPickerStyle())
                             }
-                            .pickerStyle(MenuPickerStyle())
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
-                        )
-
-                        DisclosureGroup(
-                            isExpanded: $columnTuningExpanded
-                        ) {
-                            ColumnTuningSectionView(
-                                layoutOption: layoutOption,
-                                columnSettings: columnSettings,
-                                selection: columnSelection,
-                                editColumnIndex: $editColumnIndex,
-                                onUpdateColumn: onUpdateColumn,
-                                onAutoSplay: onAutoSplayColumns,
-                                onEvenSpacing: onEvenSpaceColumns
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.primary.opacity(0.05))
                             )
-                            .padding(.top, 8)
-                        } label: {
-                            Text("Column Tuning")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
-                        )
 
-                        DisclosureGroup(
-                            isExpanded: $keymapTuningExpanded
-                        ) {
-                            ButtonTuningSectionView(
-                                buttonSelection: buttonSelection,
-                                keySelection: keySelection,
-                                layerSelection: layerSelection,
-                                onAddCustomButton: onAddCustomButton,
-                                onRemoveCustomButton: onRemoveCustomButton,
-                                onClearTouchState: onClearTouchState,
-                                onUpdateButton: onUpdateButton,
-                                onUpdateKeyMapping: onUpdateKeyMapping,
-                                keyRotationDegrees: keyRotationDegrees,
-                                onUpdateKeyRotation: onUpdateKeyRotation
+                            DisclosureGroup(
+                                isExpanded: $columnTuningExpanded
+                            ) {
+                                ColumnTuningSectionView(
+                                    layoutOption: layoutOption,
+                                    columnSettings: columnSettings,
+                                    selection: columnSelection,
+                                    editColumnIndex: $editColumnIndex,
+                                    onUpdateColumn: onUpdateColumn,
+                                    onAutoSplay: onAutoSplayColumns,
+                                    onEvenSpacing: onEvenSpaceColumns
+                                )
+                                .padding(.top, 8)
+                            } label: {
+                                Text("Column Tuning")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.primary.opacity(0.05))
                             )
-                            .padding(.top, 8)
-                        } label: {
-                            Text("Keymap Tuning")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
+
+                            DisclosureGroup(
+                                isExpanded: $keymapTuningExpanded
+                            ) {
+                                ButtonTuningSectionView(
+                                    buttonSelection: buttonSelection,
+                                    keySelection: keySelection,
+                                    layerSelection: layerSelection,
+                                    onAddCustomButton: onAddCustomButton,
+                                    onRemoveCustomButton: onRemoveCustomButton,
+                                    onClearTouchState: onClearTouchState,
+                                    onUpdateButton: onUpdateButton,
+                                    onUpdateKeyMapping: onUpdateKeyMapping,
+                                    keyRotationDegrees: keyRotationDegrees,
+                                    onUpdateKeyRotation: onUpdateKeyRotation
+                                )
+                                .padding(.top, 8)
+                            } label: {
+                                Text("Keymap Tuning")
+                                    .font(.subheadline)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .padding(12)
+                            .background(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .fill(Color.primary.opacity(0.05))
+                            )
                         }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
-                        )
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(width: 420)
         }
