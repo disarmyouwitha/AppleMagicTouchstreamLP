@@ -98,7 +98,7 @@ Notes:
 
 
 ## Files Created at Runtime
-- `%LOCALAPPDATA%\\GlassToKey\\settings.json`: device selections + active layer.
+- `<app-folder>\\settings.json`: device selections + active layer.
 - `%LOCALAPPDATA%\\GlassToKey\\keymap.json`: layered keymap overrides.
 - `%LOCALAPPDATA%\\GlassToKey\\runtime-errors.log`: guarded runtime exception log (raw input/device context + stack traces).
 - `.atpcap` records embed side hints (`left`/`right`/`unknown`) and decoder profile (`official`/`opensource`) metadata for deterministic replay routing.

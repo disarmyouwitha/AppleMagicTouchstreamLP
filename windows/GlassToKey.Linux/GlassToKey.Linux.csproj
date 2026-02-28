@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <EnableSharedPortReferences>false</EnableSharedPortReferences>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
+    <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
+    <ProjectReference Include="..\GlassToKey.Platform.Linux\GlassToKey.Platform.Linux.csproj" />
+  </ItemGroup>
+</Project>

@@ -12,7 +12,11 @@ You may need to install the driver for both USB and for Bluetooth! (For each App
 
 Download the .zip file, right-click the `.INF` files and click `Install`
 
-<img src="screenshots/">
+<img src="screenshots/VITO.png" style="width:600px">
+
+For me, personally, I also need to make these adjustments using the driver's Control Panel:
+
+<img src="screenshots/VITO_PANEL.png" style="width:600px">
 
 ~DRAFT~
 
@@ -55,8 +59,3 @@ Download the .zip file, right-click the `.INF` files and click `Install`
 ### Bluetooth:
 - You can basically follow the steps above, but you are looking for a Hardware ID that starts with `BTHENUM\{00001124`
 - And you will install the `.INF` from `MagicTrackpad2_Precision_Drivers\ApplePrecisionTrackpadBluetooth`!
-
-
-## If my guide was not clear enough, I apoloigize.
-Hopefully you can follow the instructions from here:
-- https://github.com/vitoplantamura/MagicTrackpad2ForWindows/issues/30
