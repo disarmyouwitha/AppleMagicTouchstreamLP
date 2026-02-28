@@ -2,8 +2,7 @@
 Consolidating GlassToKey and GlassToKeyForWindows into 1 repo with a more descriptive name! 
 
 ## Mac: **(Packaged with .APP)**
-- Built on top of the wonderful:
-- https://github.com/Kyome22/OpenMultitouchSupport
+- Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
 
 *The app will ask for elevated Accessibility permissions on first run*
 
