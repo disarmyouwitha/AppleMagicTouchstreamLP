@@ -12,7 +12,11 @@ You may need to install the driver for both USB and for Bluetooth! (For each App
 
 Download the .zip file, right-click the `.INF` files and click `Install`
 
-<img src="screenshots/">
+<img src="screenshots/VITO.png">
+
+For me, personally, I also need to make these adjustments using the driver's Control Panel:
+
+<img src="screenshots/VITO_PANEL.png">
 
 ~DRAFT~
 
