@@ -9,6 +9,7 @@ You may need to install the driver for both USB and for Bluetooth! (For each App
 ## (Option1: Simple install) Download the Opensource drivers:
 - https://github.com/vitoplantamura/MagicTrackpad2ForWindows/releases/tag/v2.0
 - **Force Min and Force Max settings will not apply when using the Opensource drivers.**
+- **Windows11 only (for now)**
 
 Download the .zip file, right-click the `.INF` files and click `Install`
 
