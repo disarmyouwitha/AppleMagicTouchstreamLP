@@ -170,9 +170,7 @@ public sealed class UserSettings
 
     public static string GetSettingsPath()
     {
-        string root = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        string dir = Path.Combine(root, "GlassToKey");
-        return Path.Combine(dir, "settings.json");
+        return Path.Combine(AppContext.BaseDirectory, "settings.json");
     }
 
     public static UserSettings Load()

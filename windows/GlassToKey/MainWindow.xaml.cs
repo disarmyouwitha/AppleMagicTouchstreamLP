@@ -597,6 +597,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.AutocorrectMaxEditDistance = 2;
         AutocorrectBlacklistBox.Text = _settings.AutocorrectBlacklistCsv ?? string.Empty;
         AutocorrectOverridesBox.Text = _settings.AutocorrectOverridesCsv ?? string.Empty;
+        UpdateAutocorrectStatusVisibility();
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         HoldRepeatModeCheck.IsChecked = _settings.HoldRepeatEnabled;
         bool startupEnabled = StartupRegistration.IsEnabled();
@@ -911,6 +912,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        UpdateAutocorrectStatusVisibility();
         ApplySettingsFromUi();
     }
 
@@ -4450,6 +4452,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _lastAutocorrectUiWordHistory = wordHistory;
             AutocorrectWordHistoryValueText.Text = wordHistory;
         }
+    }
+
+    private void UpdateAutocorrectStatusVisibility()
+    {
+        AutocorrectStatusBorder.Visibility = AutocorrectModeCheck.IsChecked == true
+            ? Visibility.Visible
+            : Visibility.Collapsed;
     }
 
     private static int SnapshotContactCount(TouchState state)
