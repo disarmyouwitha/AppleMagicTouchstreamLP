@@ -59,8 +59,3 @@ For me, personally, I also need to make these adjustments using the driver's Con
 ### Bluetooth:
 - You can basically follow the steps above, but you are looking for a Hardware ID that starts with `BTHENUM\{00001124`
 - And you will install the `.INF` from `MagicTrackpad2_Precision_Drivers\ApplePrecisionTrackpadBluetooth`!
-
-
-## If my guide was not clear enough, I apoloigize.
-Hopefully you can follow the instructions from here:
-- https://github.com/vitoplantamura/MagicTrackpad2ForWindows/issues/30
