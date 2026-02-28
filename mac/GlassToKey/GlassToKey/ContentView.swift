@@ -1337,27 +1337,103 @@ struct ContentView: View {
     }
 
     private struct VerticalScrollViewConfigurator: NSViewRepresentable {
-        func makeNSView(context: Context) -> NSView {
-            let view = NSView(frame: .zero)
-            DispatchQueue.main.async {
-                configureScrollView(from: view)
-            }
-            return view
+        func makeNSView(context: Context) -> ScrollViewConfiguratorNSView {
+            ScrollViewConfiguratorNSView(frame: .zero)
         }
 
-        func updateNSView(_ nsView: NSView, context: Context) {
-            DispatchQueue.main.async {
-                configureScrollView(from: nsView)
+        func updateNSView(_ nsView: ScrollViewConfiguratorNSView, context: Context) {
+            nsView.refreshScrollViewConfiguration()
+        }
+    }
+
+    private final class ScrollViewConfiguratorNSView: NSView {
+        private var documentFrameObserver: NSObjectProtocol?
+        private var clipBoundsObserver: NSObjectProtocol?
+        private weak var observedScrollView: NSScrollView?
+
+        override func viewWillMove(toSuperview newSuperview: NSView?) {
+            if newSuperview == nil {
+                removeObservers()
+                observedScrollView = nil
             }
+            super.viewWillMove(toSuperview: newSuperview)
         }
 
-        @MainActor
-        private func configureScrollView(from view: NSView) {
-            guard let scrollView = view.enclosingScrollView else { return }
+        override func viewDidMoveToSuperview() {
+            super.viewDidMoveToSuperview()
+            refreshScrollViewConfiguration()
+        }
+
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            refreshScrollViewConfiguration()
+        }
+
+        override func layout() {
+            super.layout()
+            refreshScrollViewConfiguration()
+        }
+
+        func refreshScrollViewConfiguration() {
+            guard let scrollView = enclosingScrollView else {
+                removeObservers()
+                observedScrollView = nil
+                return
+            }
+
+            if observedScrollView !== scrollView {
+                observeScrollView(scrollView)
+            }
+
+            let documentHeight = scrollView.documentView?.frame.height ?? 0
+            let viewportHeight = scrollView.contentView.bounds.height
+            let hasVerticalOverflow = documentHeight > viewportHeight + 1
+
             scrollView.hasVerticalScroller = true
-            scrollView.autohidesScrollers = false
             scrollView.scrollerStyle = .legacy
+            scrollView.autohidesScrollers = false
+            scrollView.verticalScroller?.isHidden = !hasVerticalOverflow
             scrollView.drawsBackground = false
+        }
+
+        private func observeScrollView(_ scrollView: NSScrollView) {
+            removeObservers()
+            observedScrollView = scrollView
+
+            if let documentView = scrollView.documentView {
+                documentView.postsFrameChangedNotifications = true
+                documentFrameObserver = NotificationCenter.default.addObserver(
+                    forName: NSView.frameDidChangeNotification,
+                    object: documentView,
+                    queue: .main
+                ) { [weak self] _ in
+                    Task { @MainActor [weak self] in
+                        self?.refreshScrollViewConfiguration()
+                    }
+                }
+            }
+
+            scrollView.contentView.postsBoundsChangedNotifications = true
+            clipBoundsObserver = NotificationCenter.default.addObserver(
+                forName: NSView.boundsDidChangeNotification,
+                object: scrollView.contentView,
+                queue: .main
+            ) { [weak self] _ in
+                Task { @MainActor [weak self] in
+                    self?.refreshScrollViewConfiguration()
+                }
+            }
+        }
+
+        private func removeObservers() {
+            if let documentFrameObserver {
+                NotificationCenter.default.removeObserver(documentFrameObserver)
+                self.documentFrameObserver = nil
+            }
+            if let clipBoundsObserver {
+                NotificationCenter.default.removeObserver(clipBoundsObserver)
+                self.clipBoundsObserver = nil
+            }
         }
     }
 

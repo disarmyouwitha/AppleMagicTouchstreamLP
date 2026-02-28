@@ -316,8 +316,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return true
         }
 
-        peerInstances.min(by: { $0.processIdentifier < $1.processIdentifier })?
-            .activate(options: [.activateIgnoringOtherApps])
+        let existingInstance = peerInstances.min(by: { $0.processIdentifier < $1.processIdentifier })
+        existingInstance?.activate(options: [.activateIgnoringOtherApps])
+        presentAlreadyRunningAlert()
         isTerminatingApp = true
         NSApp.terminate(nil)
         return false
@@ -347,6 +348,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
         return runningPeerInstances(bundleIdentifier: bundleIdentifier).isEmpty
+    }
+
+    private func presentAlreadyRunningAlert() {
+        NSApp.activate(ignoringOtherApps: true)
+        let alert = NSAlert()
+        alert.alertStyle = .informational
+        alert.messageText = "GlassToKey is already running"
+        alert.informativeText = "This extra instance will close so only one copy stays active."
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 
     private func initializeRunAtStartupPreference() {
