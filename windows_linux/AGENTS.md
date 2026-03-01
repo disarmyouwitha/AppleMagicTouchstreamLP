@@ -13,13 +13,13 @@
 ## Current State
 - `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
-- `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an initial evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, a `uinput` readiness probe, and an initial `LinuxUinputDispatcher` that creates a virtual keyboard/mouse device and injects key/button events.
-- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`, and shared project references are enabled by default.
+- `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `show-config`, `init-config`, `print-udev-rules`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads.
 
 ## What To Build
 - For Windows app work, target `GlassToKey/GlassToKey.csproj`.
 - For shared extraction work, target `GlassToKey.Core/GlassToKey.Core.csproj`.
-- For Linux backend work, target `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj` and `GlassToKey.Linux/GlassToKey.Linux.csproj`, but do not assume there is runnable Linux behavior yet.
+- For Linux backend work, target `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj` and `GlassToKey.Linux/GlassToKey.Linux.csproj`. There is now runnable Linux behavior, but it is still an engineering host rather than a packaged end-user app.
 
 ## Build Commands
 - Windows app build:
@@ -40,6 +40,12 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- probe-axes /dev/input/eventN`
 - Linux uinput readiness probe:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- probe-uinput`
+- Linux host config display:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- show-config`
+- Linux host config init:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- init-config`
+- Linux packaged permission rule output:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- print-udev-rules`
 - Linux uinput smoke test:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- uinput-smoke A B Enter`
 - Linux runtime watch:
@@ -63,12 +69,17 @@
 - Keep `GlassToKey.Core/` free of WPF, WinForms, Raw Input, `SendInput`, `evdev`, and `uinput`.
 - Linux work should consume platform-neutral models or semantics, not Windows virtual-key assumptions.
 - `DispatchKeyResolver.cs` is a known split point because Linux needs semantic actions or evdev key codes rather than Windows VK mappings. The current engine/dispatch path now carries `DispatchSemanticAction` metadata alongside Windows VK fields, so new Linux output work should build on that semantic payload instead of adding more VK-only assumptions.
-- For hot paths, prefer precomputed code tables and fixed-size state arrays. The initial Linux `uinput` dispatcher follows the Windows pump model with fixed repeat slots and a fast VK-to-evdev translation table on dispatch.
+- For hot paths, prefer precomputed code tables and fixed-size state arrays. The Linux `uinput` dispatcher now resolves semantic codes to evdev codes first and tracks repeat/modifier state by resolved Linux key code in the pump loop.
 - Linux evdev reality on the current Ubuntu hardware: Apple trackpads can expose Type B multitouch slot events and parallel legacy absolute events on the same node. Do not assume slot-only traffic.
 - `EVIOCGABS` works on the real device and currently reports `slot 0..15`, `X -3678..3934`, `Y -2478..2587`, and pressure `0..253` on both tested trackpad families here. Linux code should normalize coordinates by subtracting axis minima, yielding the expected spans `MaxX=7612` and `MaxY=5065`. It may still fail inside the sandboxed coding environment even when normal event reads succeed. Treat that as a sandbox artifact first, not immediately as a driver limitation.
 - When Apple exposes multiple event interfaces for one physical trackpad, prefer the `-if01-event-mouse` node. On the tested Lightning trackpad, `event22` (`if01`) carried the real multitouch stream while `event21` was inactive during touch capture.
 - Over Bluetooth, `/dev/input/by-id` is not present for the tested Apple trackpads. Use the device `uniq` value as the stable-id fallback there.
 - The tested Bluetooth nodes were `/dev/input/event10` (older trackpad) and `/dev/input/event13` (USB-C trackpad). Both validated with the same `EVIOCGABS` ranges and the same normalized frame path as USB.
+- The Linux host now uses an XDG-backed settings file for stable-id device selection. `show-config` was validated with `XDG_CONFIG_HOME=/tmp/...` and resolved the Bluetooth trackpads by `uniq`.
+- Linux and Windows are now allowed to ship different bundled default keymaps as long as they keep the shared keymap schema and action vocabulary intact. `GlassToKey.Linux/GLASSTOKEY_DEFAULT_KEYMAP.json` is now the Linux host default.
+- The Linux `run-engine` command has now been validated end-to-end on the host: evdev input -> shared engine host -> dispatch pump -> `uinput` output into a real focused app.
+- `print-udev-rules` now emits a targeted packaging template for the currently detected Apple trackpad vendor/product pairs plus `/dev/uinput`.
+- Dispatch tracing for `run-engine` is optional diagnostic tooling, not a product requirement. It can help debug bindings or timing issues, but future `.atpcap` capture remains the better long-form artifact for deeper offline analysis.
 
 ## Key Files
 - `GlassToKey/TouchRuntimeService.cs`: current Windows hot path and runtime host.

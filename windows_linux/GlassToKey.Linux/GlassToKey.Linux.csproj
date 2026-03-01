@@ -12,7 +12,7 @@
     <ProjectReference Include="..\GlassToKey.Platform.Linux\GlassToKey.Platform.Linux.csproj" />
   </ItemGroup>
   <ItemGroup>
-    <None Include="..\GlassToKey\GLASSTOKEY_DEFAULT_KEYMAP.json" Link="GLASSTOKEY_DEFAULT_KEYMAP.json">
+    <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>

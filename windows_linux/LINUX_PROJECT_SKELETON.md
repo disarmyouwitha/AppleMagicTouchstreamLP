@@ -343,8 +343,11 @@ Goal:
 Current repo status:
 
 - `GlassToKey.Core` now links the shared input/dispatch primitives (`InputFrame`, `PtpReport`, `ForceNormalizer`, `ButtonEdgeTracker`, `DispatchModels`, `IInputDispatcher`, `TrackpadSide`)
-- `GlassToKey.Platform.Linux` now contains an initial `LinuxMtFrameAssembler` for evdev slot-to-`InputFrame` translation
-- the engine, layout system, keymap store, and semantic action split are still pending
+- `GlassToKey.Platform.Linux` now contains a working evdev path, `uinput` dispatcher, and runtime service
+- the shared engine/layout/keymap/runtime-host path now builds on Linux and has been validated end-to-end through `run-engine`
+- the Linux output path now resolves semantic key/modifier codes before falling back to Windows VK compatibility
+- the Linux host now has XDG-backed settings, stable-id device selection, generated `udev` rule output, and its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`
+- the remaining big cleanup is broad semantic coverage for every platform-specific action label and stronger Linux-side replay/self-test coverage
 
 ## Phase 3: engine extraction
 

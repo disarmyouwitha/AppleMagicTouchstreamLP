@@ -37,34 +37,34 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
             switch (dispatchEvent.Kind)
             {
                 case DispatchEventKind.KeyTap:
-                    HandleKeyTap(dispatchEvent.VirtualKey);
+                    HandleKeyTap(dispatchEvent);
                     break;
                 case DispatchEventKind.KeyDown:
-                    HandleKeyDown(dispatchEvent.VirtualKey, dispatchEvent.RepeatToken, dispatchEvent.Flags, dispatchEvent.TimestampTicks);
+                    HandleKeyDown(dispatchEvent);
                     break;
                 case DispatchEventKind.KeyUp:
-                    HandleKeyUp(dispatchEvent.VirtualKey, dispatchEvent.RepeatToken);
+                    HandleKeyUp(dispatchEvent);
                     break;
                 case DispatchEventKind.ModifierDown:
-                    HandleModifierDown(dispatchEvent.VirtualKey);
+                    HandleModifierDown(dispatchEvent);
                     break;
                 case DispatchEventKind.ModifierUp:
-                    HandleModifierUp(dispatchEvent.VirtualKey);
+                    HandleModifierUp(dispatchEvent);
                     break;
                 case DispatchEventKind.MouseButtonClick:
-                    if (LinuxKeyCodeMapper.TryMapMouseButton(dispatchEvent.MouseButton, out ushort clickButton))
+                    if (TryResolveMouseButtonCode(dispatchEvent, out ushort clickButton))
                     {
                         _device.EmitClick(clickButton);
                     }
                     break;
                 case DispatchEventKind.MouseButtonDown:
-                    if (LinuxKeyCodeMapper.TryMapMouseButton(dispatchEvent.MouseButton, out ushort downButton))
+                    if (TryResolveMouseButtonCode(dispatchEvent, out ushort downButton))
                     {
                         _device.EmitKey(downButton, isDown: true);
                     }
                     break;
                 case DispatchEventKind.MouseButtonUp:
-                    if (LinuxKeyCodeMapper.TryMapMouseButton(dispatchEvent.MouseButton, out ushort upButton))
+                    if (TryResolveMouseButtonCode(dispatchEvent, out ushort upButton))
                     {
                         _device.EmitKey(upButton, isDown: false);
                     }
@@ -90,9 +90,9 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
                     continue;
                 }
 
-                if (TrySendKey(entry.VirtualKey, isDown: false))
+                if (TrySendKeyCode(entry.KeyCode, isDown: false))
                 {
-                    TrySendKey(entry.VirtualKey, isDown: true);
+                    TrySendKeyCode(entry.KeyCode, isDown: true);
                 }
 
                 entry.NextTick = nowTicks + _repeatIntervalTicks;
@@ -114,12 +114,12 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
                 return;
             }
 
-            for (int virtualKey = 0; virtualKey < _keyDown.Length; virtualKey++)
+            for (int keyCode = 0; keyCode < _keyDown.Length; keyCode++)
             {
-                if (_keyDown[virtualKey])
+                if (_keyDown[keyCode])
                 {
-                    TrySendKey((ushort)virtualKey, isDown: false);
-                    _keyDown[virtualKey] = false;
+                    TrySendKeyCode((ushort)keyCode, isDown: false);
+                    _keyDown[keyCode] = false;
                 }
             }
 
@@ -131,89 +131,98 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         _device.Dispose();
     }
 
-    private void HandleKeyTap(ushort virtualKey)
+    private void HandleKeyTap(in DispatchEvent dispatchEvent)
     {
-        if (!LinuxKeyCodeMapper.TryMapKey(virtualKey, out ushort keyCode))
+        if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode))
         {
             return;
         }
 
-        _device.EmitKey(keyCode, isDown: true);
-        _device.EmitKey(keyCode, isDown: false);
+        TrySendKeyCode(keyCode, isDown: true);
+        TrySendKeyCode(keyCode, isDown: false);
     }
 
-    private void HandleKeyDown(ushort virtualKey, ulong repeatToken, DispatchEventFlags flags, long timestampTicks)
+    private void HandleKeyDown(in DispatchEvent dispatchEvent)
     {
-        if (!TrySendKey(virtualKey, isDown: true))
+        if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode) ||
+            !TrySendKeyCode(keyCode, isDown: true))
         {
             return;
         }
 
-        if ((flags & DispatchEventFlags.Repeatable) != 0 && repeatToken != 0)
+        if ((dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 && dispatchEvent.RepeatToken != 0)
         {
-            ScheduleRepeat(repeatToken, virtualKey, timestampTicks);
-        }
-    }
-
-    private void HandleKeyUp(ushort virtualKey, ulong repeatToken)
-    {
-        if (repeatToken != 0)
-        {
-            CancelRepeat(repeatToken);
-        }
-
-        if ((uint)virtualKey < (uint)_keyDown.Length && !_keyDown[virtualKey])
-        {
-            return;
-        }
-
-        if (TrySendKey(virtualKey, isDown: false) && (uint)virtualKey < (uint)_keyDown.Length)
-        {
-            _keyDown[virtualKey] = false;
+            ScheduleRepeat(dispatchEvent.RepeatToken, keyCode, dispatchEvent.TimestampTicks);
         }
     }
 
-    private void HandleModifierDown(ushort virtualKey)
+    private void HandleKeyUp(in DispatchEvent dispatchEvent)
     {
-        if ((uint)virtualKey >= (uint)_modifierRefCounts.Length)
+        if (dispatchEvent.RepeatToken != 0)
+        {
+            CancelRepeat(dispatchEvent.RepeatToken);
+        }
+
+        if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode))
         {
             return;
         }
 
-        _modifierRefCounts[virtualKey]++;
-        if (_modifierRefCounts[virtualKey] != 1)
+        if ((uint)keyCode < (uint)_keyDown.Length && !_keyDown[keyCode])
         {
             return;
         }
 
-        if (TrySendKey(virtualKey, isDown: true))
+        if (TrySendKeyCode(keyCode, isDown: false) && (uint)keyCode < (uint)_keyDown.Length)
         {
-            _keyDown[virtualKey] = true;
+            _keyDown[keyCode] = false;
         }
     }
 
-    private void HandleModifierUp(ushort virtualKey)
+    private void HandleModifierDown(in DispatchEvent dispatchEvent)
     {
-        if ((uint)virtualKey >= (uint)_modifierRefCounts.Length || _modifierRefCounts[virtualKey] <= 0)
+        if (!TryResolveModifierKeyCode(dispatchEvent, out ushort keyCode) ||
+            (uint)keyCode >= (uint)_modifierRefCounts.Length)
         {
             return;
         }
 
-        _modifierRefCounts[virtualKey]--;
-        if (_modifierRefCounts[virtualKey] != 0)
+        _modifierRefCounts[keyCode]++;
+        if (_modifierRefCounts[keyCode] != 1)
         {
             return;
         }
 
-        if (TrySendKey(virtualKey, isDown: false))
+        if (TrySendKeyCode(keyCode, isDown: true))
         {
-            _keyDown[virtualKey] = false;
+            _keyDown[keyCode] = true;
         }
     }
 
-    private bool TrySendKey(ushort virtualKey, bool isDown)
+    private void HandleModifierUp(in DispatchEvent dispatchEvent)
     {
-        if (!LinuxKeyCodeMapper.TryMapKey(virtualKey, out ushort keyCode))
+        if (!TryResolveModifierKeyCode(dispatchEvent, out ushort keyCode) ||
+            (uint)keyCode >= (uint)_modifierRefCounts.Length ||
+            _modifierRefCounts[keyCode] <= 0)
+        {
+            return;
+        }
+
+        _modifierRefCounts[keyCode]--;
+        if (_modifierRefCounts[keyCode] != 0)
+        {
+            return;
+        }
+
+        if (TrySendKeyCode(keyCode, isDown: false))
+        {
+            _keyDown[keyCode] = false;
+        }
+    }
+
+    private bool TrySendKeyCode(ushort keyCode, bool isDown)
+    {
+        if (keyCode == 0)
         {
             return false;
         }
@@ -222,7 +231,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         return true;
     }
 
-    private void ScheduleRepeat(ulong token, ushort virtualKey, long timestampTicks)
+    private void ScheduleRepeat(ulong token, ushort keyCode, long timestampTicks)
     {
         for (int index = 0; index < _repeatEntries.Length; index++)
         {
@@ -232,7 +241,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
                 continue;
             }
 
-            entry.VirtualKey = virtualKey;
+            entry.KeyCode = keyCode;
             entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
             return;
         }
@@ -247,7 +256,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
 
             entry.Active = true;
             entry.Token = token;
-            entry.VirtualKey = virtualKey;
+            entry.KeyCode = keyCode;
             entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
             return;
         }
@@ -270,11 +279,44 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         return (long)(milliseconds * Stopwatch.Frequency / 1000.0);
     }
 
+    private static bool TryResolveKeyCode(in DispatchEvent dispatchEvent, out ushort keyCode)
+    {
+        if (LinuxKeyCodeMapper.TryMapSemanticCode(dispatchEvent.SemanticAction.PrimaryCode, out keyCode))
+        {
+            return true;
+        }
+
+        return LinuxKeyCodeMapper.TryMapKey(dispatchEvent.VirtualKey, out keyCode);
+    }
+
+    private static bool TryResolveModifierKeyCode(in DispatchEvent dispatchEvent, out ushort keyCode)
+    {
+        DispatchSemanticCode semanticCode =
+            dispatchEvent.SemanticAction.Kind == DispatchSemanticKind.KeyChord
+                ? dispatchEvent.SemanticAction.SecondaryCode
+                : dispatchEvent.SemanticAction.PrimaryCode;
+        if (LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out keyCode))
+        {
+            return true;
+        }
+
+        return LinuxKeyCodeMapper.TryMapKey(dispatchEvent.VirtualKey, out keyCode);
+    }
+
+    private static bool TryResolveMouseButtonCode(in DispatchEvent dispatchEvent, out ushort buttonCode)
+    {
+        DispatchMouseButton mouseButton =
+            dispatchEvent.SemanticAction.MouseButton != DispatchMouseButton.None
+                ? dispatchEvent.SemanticAction.MouseButton
+                : dispatchEvent.MouseButton;
+        return LinuxKeyCodeMapper.TryMapMouseButton(mouseButton, out buttonCode);
+    }
+
     private struct RepeatEntry
     {
         public bool Active;
         public ulong Token;
-        public ushort VirtualKey;
+        public ushort KeyCode;
         public long NextTick;
     }
 }

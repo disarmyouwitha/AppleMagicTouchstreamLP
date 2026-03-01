@@ -17,6 +17,7 @@
     <Compile Include="..\GlassToKey\Core\Input\ForceNormalizer.cs" Link="Input\ForceNormalizer.cs" />
     <Compile Include="..\GlassToKey\Core\Input\ButtonEdgeTracker.cs" Link="Input\ButtonEdgeTracker.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchModels.cs" Link="Dispatch\DispatchModels.cs" />
+    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchSemanticResolver.cs" Link="Dispatch\DispatchSemanticResolver.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchKeyResolver.cs" Link="Dispatch\DispatchKeyResolver.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventQueue.cs" Link="Dispatch\DispatchEventQueue.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventPump.cs" Link="Dispatch\DispatchEventPump.cs" />

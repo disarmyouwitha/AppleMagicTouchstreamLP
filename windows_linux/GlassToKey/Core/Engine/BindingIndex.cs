@@ -277,15 +277,19 @@ internal static class EngineActionResolver
             resolved.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("ChordShift", StringComparison.OrdinalIgnoreCase))
         {
-            return CreateAction(EngineActionKind.Modifier, resolved, virtualKey: 0x10);
+            return CreateAction(
+                EngineActionKind.Modifier,
+                resolved,
+                virtualKey: 0x10,
+                semanticPrimaryCode: DispatchSemanticCode.Shift);
         }
 
-        if (TryParseModifierChord(resolved, "Ctrl+", 0x11, out EngineKeyAction chord))
+        if (TryParseModifierChord(resolved, "Ctrl+", 0x11, DispatchSemanticCode.Ctrl, out EngineKeyAction chord))
         {
             return chord;
         }
 
-        if (TryParseModifierChord(resolved, "Win+", 0x5B, out EngineKeyAction winChord))
+        if (TryParseModifierChord(resolved, "Win+", 0x5B, DispatchSemanticCode.LeftMeta, out EngineKeyAction winChord))
         {
             return winChord;
         }
@@ -296,7 +300,9 @@ internal static class EngineActionResolver
                 EngineActionKind.KeyChord,
                 resolved,
                 virtualKey: 0xBE,
-                modifierVirtualKey: 0x5B);
+                modifierVirtualKey: 0x5B,
+                semanticPrimaryCode: DispatchSemanticCode.Dot,
+                semanticSecondaryCode: DispatchSemanticCode.LeftMeta);
         }
 
         if (resolved.Equals("VOICE", StringComparison.OrdinalIgnoreCase))
@@ -305,7 +311,9 @@ internal static class EngineActionResolver
                 EngineActionKind.KeyChord,
                 resolved,
                 virtualKey: 0x48,
-                modifierVirtualKey: 0x5B);
+                modifierVirtualKey: 0x5B,
+                semanticPrimaryCode: DispatchSemanticCode.H,
+                semanticSecondaryCode: DispatchSemanticCode.LeftMeta);
         }
 
         if (TryParseShiftChord(resolved, out EngineKeyAction shiftChord))
@@ -315,14 +323,24 @@ internal static class EngineActionResolver
 
         if (DispatchKeyResolver.TryResolveModifierVirtualKey(resolved, out ushort modifierKey))
         {
-            return CreateAction(EngineActionKind.Modifier, resolved, virtualKey: modifierKey);
+            DispatchSemanticResolver.TryResolveModifierCode(resolved, out DispatchSemanticCode modifierCode);
+            return CreateAction(
+                EngineActionKind.Modifier,
+                resolved,
+                virtualKey: modifierKey,
+                semanticPrimaryCode: modifierCode);
         }
 
         if (IsContinuousActionLabel(resolved))
         {
             if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort continuousVk))
             {
-                return CreateAction(EngineActionKind.Continuous, resolved, virtualKey: continuousVk);
+                DispatchSemanticResolver.TryResolveKeyCode(resolved, out DispatchSemanticCode continuousCode);
+                return CreateAction(
+                    EngineActionKind.Continuous,
+                    resolved,
+                    virtualKey: continuousVk,
+                    semanticPrimaryCode: continuousCode);
             }
 
             return CreateAction(EngineActionKind.Continuous, resolved);
@@ -337,12 +355,21 @@ internal static class EngineActionResolver
             resolved.Equals("—", StringComparison.Ordinal))
         {
             // Best-effort alias: emit OEM minus key.
-            return CreateAction(EngineActionKind.Key, resolved, virtualKey: 0xBD);
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: 0xBD,
+                semanticPrimaryCode: DispatchSemanticCode.Minus);
         }
 
         if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort virtualKey))
         {
-            return CreateAction(EngineActionKind.Key, resolved, virtualKey: virtualKey);
+            DispatchSemanticResolver.TryResolveKeyCode(resolved, out DispatchSemanticCode keyCode);
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: virtualKey,
+                semanticPrimaryCode: keyCode);
         }
 
         return CreateAction(EngineActionKind.Key, resolved);
@@ -359,7 +386,12 @@ internal static class EngineActionResolver
                label.Equals("Down", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryParseModifierChord(string text, string prefix, ushort modifierVirtualKey, out EngineKeyAction action)
+    private static bool TryParseModifierChord(
+        string text,
+        string prefix,
+        ushort modifierVirtualKey,
+        DispatchSemanticCode modifierSemanticCode,
+        out EngineKeyAction action)
     {
         action = EngineKeyAction.None;
         if (!text.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
@@ -373,6 +405,8 @@ internal static class EngineActionResolver
             return false;
         }
 
+        DispatchSemanticResolver.TryResolveKeyCode(token, out DispatchSemanticCode primaryCode);
+
         action = new EngineKeyAction(
             EngineActionKind.KeyChord,
             text,
@@ -380,7 +414,12 @@ internal static class EngineActionResolver
             VirtualKey: keyVk,
             MouseButton: DispatchMouseButton.None,
             ModifierVirtualKey: modifierVirtualKey,
-            SemanticAction: CreateSemanticAction(EngineActionKind.KeyChord, text));
+            SemanticAction: CreateSemanticAction(
+                EngineActionKind.KeyChord,
+                text,
+                primaryCode,
+                modifierSemanticCode,
+                DispatchMouseButton.None));
         return true;
     }
 
@@ -418,6 +457,8 @@ internal static class EngineActionResolver
             return false;
         }
 
+        DispatchSemanticResolver.TryResolveShiftChordPrimary(text, out DispatchSemanticCode primaryCode);
+
         action = new EngineKeyAction(
             EngineActionKind.KeyChord,
             text,
@@ -425,7 +466,12 @@ internal static class EngineActionResolver
             VirtualKey: vk,
             MouseButton: DispatchMouseButton.None,
             ModifierVirtualKey: 0x10,
-            SemanticAction: CreateSemanticAction(EngineActionKind.KeyChord, text));
+            SemanticAction: CreateSemanticAction(
+                EngineActionKind.KeyChord,
+                text,
+                primaryCode,
+                DispatchSemanticCode.Shift,
+                DispatchMouseButton.None));
         return true;
     }
 
@@ -464,7 +510,9 @@ internal static class EngineActionResolver
         int layerTarget = 0,
         ushort virtualKey = 0,
         DispatchMouseButton mouseButton = DispatchMouseButton.None,
-        ushort modifierVirtualKey = 0)
+        ushort modifierVirtualKey = 0,
+        DispatchSemanticCode semanticPrimaryCode = DispatchSemanticCode.None,
+        DispatchSemanticCode semanticSecondaryCode = DispatchSemanticCode.None)
     {
         return new EngineKeyAction(
             kind,
@@ -473,10 +521,15 @@ internal static class EngineActionResolver
             virtualKey,
             mouseButton,
             modifierVirtualKey,
-            CreateSemanticAction(kind, label));
+            CreateSemanticAction(kind, label, semanticPrimaryCode, semanticSecondaryCode, mouseButton));
     }
 
-    private static DispatchSemanticAction CreateSemanticAction(EngineActionKind kind, string label)
+    private static DispatchSemanticAction CreateSemanticAction(
+        EngineActionKind kind,
+        string label,
+        DispatchSemanticCode primaryCode,
+        DispatchSemanticCode secondaryCode,
+        DispatchMouseButton mouseButton)
     {
         DispatchSemanticKind semanticKind = kind switch
         {
@@ -492,6 +545,6 @@ internal static class EngineActionResolver
             _ => DispatchSemanticKind.None
         };
 
-        return new DispatchSemanticAction(semanticKind, label);
+        return new DispatchSemanticAction(semanticKind, label, primaryCode, secondaryCode, mouseButton);
     }
 }

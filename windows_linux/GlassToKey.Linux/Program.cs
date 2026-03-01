@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Threading;
+using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Models;
@@ -44,6 +45,21 @@ internal static class Program
         if (string.Equals(args[0], "probe-uinput", StringComparison.OrdinalIgnoreCase))
         {
             return ProbeUinput();
+        }
+
+        if (string.Equals(args[0], "show-config", StringComparison.OrdinalIgnoreCase))
+        {
+            return ShowConfig();
+        }
+
+        if (string.Equals(args[0], "init-config", StringComparison.OrdinalIgnoreCase))
+        {
+            return InitConfig();
+        }
+
+        if (string.Equals(args[0], "print-udev-rules", StringComparison.OrdinalIgnoreCase))
+        {
+            return PrintUdevRules();
         }
 
         if (string.Equals(args[0], "uinput-smoke", StringComparison.OrdinalIgnoreCase))
@@ -100,6 +116,9 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
+        Console.WriteLine("  GlassToKey.Linux show-config");
+        Console.WriteLine("  GlassToKey.Linux init-config");
+        Console.WriteLine("  GlassToKey.Linux print-udev-rules");
         Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
@@ -259,6 +278,49 @@ internal static class Program
         return status.IsReady ? 0 : 1;
     }
 
+    private static int ShowConfig()
+    {
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+
+        Console.WriteLine("Linux host config");
+        Console.WriteLine($"  SettingsPath: {configuration.SettingsPath}");
+        Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
+        Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
+        Console.WriteLine($"  LeftTrackpadStableId: {configuration.Settings.LeftTrackpadStableId ?? "(auto)"}");
+        Console.WriteLine($"  RightTrackpadStableId: {configuration.Settings.RightTrackpadStableId ?? "(auto)"}");
+        Console.WriteLine($"  DevicesDetected: {configuration.Devices.Count}");
+        Console.WriteLine($"  BindingsResolved: {configuration.Bindings.Count}");
+        for (int index = 0; index < configuration.Bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = configuration.Bindings[index];
+            Console.WriteLine($"    {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}] stable={binding.Device.StableId}");
+        }
+
+        for (int index = 0; index < configuration.Warnings.Count; index++)
+        {
+            Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
+        }
+
+        return 0;
+    }
+
+    private static int InitConfig()
+    {
+        LinuxAppRuntime appRuntime = new();
+        string path = appRuntime.InitializeSettings();
+        Console.WriteLine($"Initialized Linux host settings at {path}");
+        return 0;
+    }
+
+    private static int PrintUdevRules()
+    {
+        LinuxTrackpadEnumerator enumerator = new();
+        IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
+        Console.Write(LinuxUdevRuleTemplate.BuildRules(devices));
+        return 0;
+    }
+
     private static int SmokeUinput(string[] args)
     {
         string[] tokens = args.Length >= 2 ? args[1..] : ["A"];
@@ -266,7 +328,7 @@ internal static class Program
         for (int index = 0; index < tokens.Length; index++)
         {
             string token = tokens[index];
-            if (!TryResolveSmokeVirtualKey(token, out ushort virtualKey, out string description))
+            if (!TryResolveSmokeKey(token, out ushort virtualKey, out DispatchSemanticCode semanticCode, out string description))
             {
                 Console.Error.WriteLine($"Unsupported smoke token '{token}'.");
                 Console.Error.WriteLine("Supported examples: A, Enter, Space, Backspace, Left, Right, Up, Down, 0x41");
@@ -282,7 +344,7 @@ internal static class Program
                 Flags: DispatchEventFlags.None,
                 Side: TrackpadSide.Left,
                 DispatchLabel: description,
-                SemanticAction: new DispatchSemanticAction(DispatchSemanticKind.Key, description));
+                SemanticAction: new DispatchSemanticAction(DispatchSemanticKind.Key, description, semanticCode));
             dispatcher.Dispatch(in dispatchEvent);
             dispatcher.Tick(Stopwatch.GetTimestamp());
             Thread.Sleep(index == tokens.Length - 1 ? 120 : 60);
@@ -292,9 +354,14 @@ internal static class Program
         return 0;
     }
 
-    private static bool TryResolveSmokeVirtualKey(string token, out ushort virtualKey, out string description)
+    private static bool TryResolveSmokeKey(
+        string token,
+        out ushort virtualKey,
+        out DispatchSemanticCode semanticCode,
+        out string description)
     {
         virtualKey = 0;
+        semanticCode = DispatchSemanticCode.None;
         description = string.Empty;
         if (string.IsNullOrWhiteSpace(token))
         {
@@ -308,6 +375,7 @@ internal static class Program
             if (ch >= 'a' && ch <= 'z')
             {
                 virtualKey = (ushort)(ch - 'a' + 0x41);
+                semanticCode = (DispatchSemanticCode)((int)DispatchSemanticCode.A + (ch - 'a'));
                 description = ch.ToString().ToUpperInvariant();
                 return true;
             }
@@ -315,6 +383,7 @@ internal static class Program
             if (ch >= 'A' && ch <= 'Z')
             {
                 virtualKey = (ushort)(ch - 'A' + 0x41);
+                semanticCode = (DispatchSemanticCode)((int)DispatchSemanticCode.A + (ch - 'A'));
                 description = ch.ToString();
                 return true;
             }
@@ -322,6 +391,7 @@ internal static class Program
             if (ch >= '0' && ch <= '9')
             {
                 virtualKey = (ushort)(ch - '0' + 0x30);
+                semanticCode = (DispatchSemanticCode)((int)DispatchSemanticCode.Digit0 + (ch - '0'));
                 description = ch.ToString();
                 return true;
             }
@@ -339,41 +409,50 @@ internal static class Program
         {
             case "SPACE":
                 virtualKey = 0x20;
+                semanticCode = DispatchSemanticCode.Space;
                 description = "Space";
                 return true;
             case "ENTER":
             case "RET":
                 virtualKey = 0x0D;
+                semanticCode = DispatchSemanticCode.Enter;
                 description = "Enter";
                 return true;
             case "TAB":
                 virtualKey = 0x09;
+                semanticCode = DispatchSemanticCode.Tab;
                 description = "Tab";
                 return true;
             case "ESC":
             case "ESCAPE":
                 virtualKey = 0x1B;
+                semanticCode = DispatchSemanticCode.Escape;
                 description = "Escape";
                 return true;
             case "BACK":
             case "BACKSPACE":
                 virtualKey = 0x08;
+                semanticCode = DispatchSemanticCode.Backspace;
                 description = "Backspace";
                 return true;
             case "LEFT":
                 virtualKey = 0x25;
+                semanticCode = DispatchSemanticCode.Left;
                 description = "Left";
                 return true;
             case "UP":
                 virtualKey = 0x26;
+                semanticCode = DispatchSemanticCode.Up;
                 description = "Up";
                 return true;
             case "RIGHT":
                 virtualKey = 0x27;
+                semanticCode = DispatchSemanticCode.Right;
                 description = "Right";
                 return true;
             case "DOWN":
                 virtualKey = 0x28;
+                semanticCode = DispatchSemanticCode.Down;
                 description = "Down";
                 return true;
             default:
@@ -392,23 +471,29 @@ internal static class Program
             return 1;
         }
 
-        LinuxTrackpadEnumerator enumerator = new();
-        IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
-        if (devices.Count == 0)
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        if (configuration.Bindings.Count == 0)
         {
             Console.Error.WriteLine("No trackpads available for runtime watch.");
             return 1;
         }
 
-        List<LinuxTrackpadBinding> bindings = BuildDefaultBindings(devices);
+        List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
         LinuxInputRuntimeService runtime = new();
         Console.WriteLine($"Watching runtime for {seconds:0.##}s on {bindings.Count} trackpad(s).");
+        Console.WriteLine($"  Settings: {configuration.SettingsPath}");
         for (int index = 0; index < bindings.Count; index++)
         {
             LinuxTrackpadBinding binding = bindings[index];
             Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
+        }
+
+        for (int index = 0; index < configuration.Warnings.Count; index++)
+        {
+            Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
         }
 
         ConsoleTrackpadFrameTarget target = new();
@@ -427,45 +512,37 @@ internal static class Program
             return 1;
         }
 
-        LinuxTrackpadEnumerator enumerator = new();
-        IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
-        if (devices.Count == 0)
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        if (configuration.Bindings.Count == 0)
         {
             Console.Error.WriteLine("No trackpads available for engine run.");
             return 1;
         }
 
-        List<LinuxTrackpadBinding> bindings = BuildDefaultBindings(devices);
+        List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
         using LinuxUinputDispatcher dispatcher = new();
-        using TouchProcessorRuntimeHost engine = new(dispatcher);
+        using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset);
         LinuxInputRuntimeService runtime = new();
 
         Console.WriteLine($"Running engine for {seconds:0.##}s on {bindings.Count} trackpad(s).");
+        Console.WriteLine($"  Settings: {configuration.SettingsPath}");
+        Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
+        Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
         for (int index = 0; index < bindings.Count; index++)
         {
             LinuxTrackpadBinding binding = bindings[index];
             Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
         }
 
+        for (int index = 0; index < configuration.Warnings.Count; index++)
+        {
+            Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
+        }
+
         await runtime.RunAsync(bindings, engine, cts.Token).ConfigureAwait(false);
         return 0;
-    }
-
-    private static List<LinuxTrackpadBinding> BuildDefaultBindings(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
-    {
-        List<LinuxTrackpadBinding> bindings = [];
-        if (devices.Count >= 1)
-        {
-            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Left, devices[0]));
-        }
-
-        if (devices.Count >= 2)
-        {
-            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Right, devices[1]));
-        }
-
-        return bindings;
     }
 
     private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget

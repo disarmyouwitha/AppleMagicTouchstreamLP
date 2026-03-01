@@ -254,7 +254,8 @@ Current repo status:
 - the shared dispatch model now carries `DispatchSemanticAction` metadata alongside Windows VK fields
 - `EngineKeyAction` now preserves semantic identity through dispatch generation instead of relying on VKs alone
 - Windows still uses the existing VK-based output path, but Linux output work now has a semantic payload to target
-- the first Linux `uinput` dispatcher now exists and can emit a smoke-test key through a virtual device on this host
+- the Linux dispatcher now maps semantic codes to evdev output before falling back to VK compatibility
+- the Linux `uinput` dispatcher now exists and can emit key/button output through a virtual device on this host
 
 ### Step 3: add a Linux runtime backend
 
@@ -285,6 +286,10 @@ Current repo status:
 - `LinuxInputRuntimeService` can now stream frames either to a Linux-specific observer or directly into the shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam
 - `GlassToKey.Linux` exposes `probe-uinput` to validate `/dev/uinput` presence and rw access separately from evdev capture
 - `GlassToKey.Linux uinput-smoke A` now validates basic virtual key injection through the Linux dispatcher path
+- `GlassToKey.Linux run-engine 10` has now been validated end-to-end on the host: evdev input -> shared engine host -> dispatch pump -> `uinput` output into a focused desktop app
+- `GlassToKey.Linux` now also has an XDG-backed runtime/config layer with stable-id device selection, layout preset resolution, optional keymap-path override, and generated `udev` rule output
+- `GlassToKey.Linux` now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, so Linux defaults can diverge from Windows without forking the shared keymap schema
+- this means the Linux work is past proof-of-life and into real runtime integration, even though packaging, config UI, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
 
@@ -319,6 +324,12 @@ Exit criteria:
 - confirmed event stream contains enough data to feed `InputFrame`
 - confirmed `uinput` can inject keystrokes recognized by both X11 and Wayland sessions
 
+Current status on the tested Ubuntu 24.04 host:
+
+- achieved
+- both tested Apple Magic Trackpads produced usable evdev traffic over USB and Bluetooth
+- `uinput-smoke` and `run-engine` both produced real visible text in a focused desktop app
+
 Estimated effort:
 
 - 1 to 3 days
@@ -337,6 +348,18 @@ Exit criteria:
 
 - engine compiles on Linux with `dotnet build`
 - deterministic replay/self-tests still pass
+
+Current status:
+
+- partially achieved
+- the shared engine/layout/keymap/runtime-host path now builds on Linux and can run live through `run-engine`
+- deterministic replay/self-tests still need to be formalized on the Linux side
+
+## Note on tracing vs capture
+
+Optional dispatch tracing for `run-engine` would be useful as a targeted debug tool when a binding or output path misbehaves, but it is not required for the product path.
+
+For deeper analysis, `.atpcap`-style capture remains the more valuable long-form diagnostic artifact because it can be replayed offline without burdening the normal hot path.
 
 Estimated effort:
 
