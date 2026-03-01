@@ -112,6 +112,8 @@ internal sealed class LinuxAtpCapCaptureWriter : IDisposable
         BinaryPrimitives.WriteInt64LittleEndian(span.Slice(12, 8), BitConverter.DoubleToInt64Bits(Math.Max(0.0, timestampSeconds)));
         BinaryPrimitives.WriteUInt64LittleEndian(span.Slice(20, 8), deviceNumericId);
         BinaryPrimitives.WriteUInt16LittleEndian(span.Slice(28, 2), (ushort)contactCount);
+        span[30] = snapshot.Frame.IsButtonPressed ? AtpCapV3Payload.FrameFlagButtonClicked : (byte)0;
+        span[31] = 0;
 
         int offset = AtpCapV3Payload.FrameHeaderSize;
         for (int index = 0; index < contactCount; index++)

@@ -14,7 +14,7 @@
 - `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
 - `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
-- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes, and the checked-in install script now supports wrapper-vs-service install decisions with better post-install guidance.
 
 ## What To Build
 - For Windows app work, target `GlassToKey/GlassToKey.csproj`.
@@ -56,6 +56,10 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- replay-atpcap /tmp/capture.atpcap /tmp/replay-trace.json`
 - Linux `.atpcap` summary:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- summarize-atpcap /tmp/capture.atpcap`
+- Linux `.atpcap` fixture write:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- write-atpcap-fixture /tmp/capture.atpcap /tmp/capture.fixture.json`
+- Linux `.atpcap` fixture check:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- check-atpcap-fixture /tmp/capture.atpcap /tmp/capture.fixture.json /tmp/replay-trace.json`
 - Linux uinput smoke test:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- uinput-smoke A B Enter`
 - Linux runtime watch:
@@ -99,7 +103,8 @@
 - The repo now carries checked-in Linux publish profiles for framework-dependent and self-contained `linux-x64` publishes. Packaging is underway, but `.deb`/installer work is still not implemented.
 - `packaging/linux/` now contains the first checked-in Linux install artifacts: `90-glasstokey.rules`, `install.sh`, and a packaging README.
 - Linux now has a first `.atpcap` capture/replay path based on version 3 normalized frame captures, plus a `doctor` command for post-install evdev/`uinput`/config health checks.
-- Current Linux `.atpcap` captures preserve normalized contact frames for replay and trace analysis, but they do not yet preserve physical click state in the replay payload.
+- Linux `.atpcap` version 3 capture now preserves physical click state in the frame header flags while staying in the shared normalized v3 payload shape.
+- Linux now also has fixture generation and fixture checking commands so `.atpcap` captures can be regression-checked, not just replayed.
 - Dispatch tracing for `run-engine` is optional diagnostic tooling, not a product requirement. It can help debug bindings or timing issues, but future `.atpcap` capture remains the better long-form artifact for deeper offline analysis.
 
 ## Key Files

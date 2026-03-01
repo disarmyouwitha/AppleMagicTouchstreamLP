@@ -102,6 +102,16 @@ internal static class Program
             return SummarizeAtpCap(args);
         }
 
+        if (string.Equals(args[0], "write-atpcap-fixture", StringComparison.OrdinalIgnoreCase))
+        {
+            return WriteAtpCapFixture(args);
+        }
+
+        if (string.Equals(args[0], "check-atpcap-fixture", StringComparison.OrdinalIgnoreCase))
+        {
+            return CheckAtpCapFixture(args);
+        }
+
         if (string.Equals(args[0], "uinput-smoke", StringComparison.OrdinalIgnoreCase))
         {
             return SmokeUinput(args);
@@ -167,6 +177,8 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux capture-atpcap [output-path] [seconds]");
         Console.WriteLine("  GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
         Console.WriteLine("  GlassToKey.Linux summarize-atpcap [capture-path]");
+        Console.WriteLine("  GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
+        Console.WriteLine("  GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
         Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
@@ -499,6 +511,64 @@ internal static class Program
         if (result.Success)
         {
             Console.WriteLine(result.Summary);
+            return 0;
+        }
+
+        Console.Error.WriteLine(result.Summary);
+        return 1;
+    }
+
+    private static int WriteAtpCapFixture(string[] args)
+    {
+        if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+        {
+            Console.Error.WriteLine("Usage: GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
+            return 1;
+        }
+
+        string capturePath = Path.GetFullPath(args[1]);
+        string fixturePath = args.Length >= 3 && !string.IsNullOrWhiteSpace(args[2])
+            ? Path.GetFullPath(args[2])
+            : Path.ChangeExtension(capturePath, ".fixture.json");
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadReplayConfiguration();
+        LinuxAtpCapFixtureWriteResult result = LinuxAtpCapFixtureRunner.WriteFixture(capturePath, fixturePath, configuration);
+        if (result.Success)
+        {
+            Console.WriteLine(result.Summary);
+            return 0;
+        }
+
+        Console.Error.WriteLine(result.Summary);
+        return 1;
+    }
+
+    private static int CheckAtpCapFixture(string[] args)
+    {
+        if (args.Length < 3 || string.IsNullOrWhiteSpace(args[1]) || string.IsNullOrWhiteSpace(args[2]))
+        {
+            Console.Error.WriteLine("Usage: GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
+            return 1;
+        }
+
+        string capturePath = Path.GetFullPath(args[1]);
+        string fixturePath = Path.GetFullPath(args[2]);
+        string? traceOutputPath = args.Length >= 4 && !string.IsNullOrWhiteSpace(args[3])
+            ? Path.GetFullPath(args[3])
+            : null;
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadReplayConfiguration();
+        LinuxAtpCapFixtureCheckResult result = LinuxAtpCapFixtureRunner.CheckFixture(capturePath, fixturePath, configuration, traceOutputPath);
+        if (result.Success)
+        {
+            Console.WriteLine(result.Summary);
+            if (!string.IsNullOrWhiteSpace(traceOutputPath))
+            {
+                Console.WriteLine($"Replay trace written: {traceOutputPath}");
+            }
+
             return 0;
         }
 

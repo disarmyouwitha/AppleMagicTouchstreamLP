@@ -11,6 +11,7 @@ internal readonly record struct LinuxAtpCapReplayResult(
     bool Success,
     string CapturePath,
     FrameMetricsSnapshot Metrics,
+    ulong CaptureFingerprint,
     ulong DispatchFingerprint,
     int DispatchEventCount,
     int IntentTransitionCount,
@@ -35,7 +36,7 @@ internal static class LinuxAtpCapReplayRunner
         using InputCaptureReader reader = new(fullPath);
         if (reader.HeaderVersion != InputCaptureFile.Version3)
         {
-            return new LinuxAtpCapReplayResult(false, fullPath, metrics.CreateSnapshot(), 0, 0, 0, $"Replay '{fullPath}': only capture version 3 is supported on Linux right now.");
+            return new LinuxAtpCapReplayResult(false, fullPath, metrics.CreateSnapshot(), 0, 0, 0, 0, $"Replay '{fullPath}': only capture version 3 is supported on Linux right now.");
         }
 
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(configuration.Keymap, configuration.LayoutPreset);
@@ -47,6 +48,7 @@ internal static class LinuxAtpCapReplayRunner
         bool hasBaseQpc = false;
         AtpCapV3Compatibility compatibility = AtpCapV3Compatibility.None;
         LinuxReplaySideMapper sideMapper = new();
+        ulong captureFingerprint = 14695981039346656037UL;
 
         while (reader.TryReadNext(out CaptureRecord record))
         {
@@ -84,6 +86,7 @@ internal static class LinuxAtpCapReplayRunner
             }
 
             TrackpadSide side = sideMapper.Resolve(record.DeviceIndex, record.DeviceHash, AtpCapV3Payload.NormalizeSideHint(record.SideHint, compatibility));
+            captureFingerprint = Fingerprint(captureFingerprint, record, in mapped, side);
             long relativeQpc = record.ArrivalQpcTicks - baseQpcTicks;
             long engineTicks = (long)Math.Round(relativeQpc * (double)Stopwatch.Frequency / reader.HeaderQpcFrequency);
             long started = Stopwatch.GetTimestamp();
@@ -117,8 +120,8 @@ internal static class LinuxAtpCapReplayRunner
 
         string summary = string.Create(
             CultureInfo.InvariantCulture,
-            $"Replay '{fullPath}': dispatchTrace=0x{dispatchFingerprint:X16}, dispatchEvents={dispatchCount}, intentTransitions={transitionCount}, metrics={snapshot.ToSummary()}");
-        return new LinuxAtpCapReplayResult(true, fullPath, snapshot, dispatchFingerprint, dispatchCount, transitionCount, summary);
+            $"Replay '{fullPath}': captureTrace=0x{captureFingerprint:X16}, dispatchTrace=0x{dispatchFingerprint:X16}, dispatchEvents={dispatchCount}, intentTransitions={transitionCount}, metrics={snapshot.ToSummary()}");
+        return new LinuxAtpCapReplayResult(true, fullPath, snapshot, captureFingerprint, dispatchFingerprint, dispatchCount, transitionCount, summary);
     }
 
     public static LinuxAtpCapSummaryResult Summarize(string capturePath)
@@ -129,9 +132,14 @@ internal static class LinuxAtpCapReplayRunner
         int frameRecords = 0;
         int parsedFrames = 0;
         int maxContacts = 0;
+        int buttonPressedFrames = 0;
+        int buttonDownEdges = 0;
+        int buttonUpEdges = 0;
         long firstArrival = 0;
         long lastArrival = 0;
         bool hasArrival = false;
+        bool previousButtonPressed = false;
+        bool hasPreviousButton = false;
         HashSet<string> devices = new(StringComparer.OrdinalIgnoreCase);
 
         while (reader.TryReadNext(out CaptureRecord record))
@@ -158,6 +166,26 @@ internal static class LinuxAtpCapReplayRunner
             {
                 parsedFrames++;
                 maxContacts = Math.Max(maxContacts, frame.ContactCount);
+                bool buttonPressed = (frame.Flags & AtpCapV3Payload.FrameFlagButtonClicked) != 0;
+                if (buttonPressed)
+                {
+                    buttonPressedFrames++;
+                }
+
+                if (hasPreviousButton)
+                {
+                    if (!previousButtonPressed && buttonPressed)
+                    {
+                        buttonDownEdges++;
+                    }
+                    else if (previousButtonPressed && !buttonPressed)
+                    {
+                        buttonUpEdges++;
+                    }
+                }
+
+                previousButtonPressed = buttonPressed;
+                hasPreviousButton = true;
             }
         }
 
@@ -167,7 +195,7 @@ internal static class LinuxAtpCapReplayRunner
 
         string summary = string.Create(
             CultureInfo.InvariantCulture,
-            $"Capture '{fullPath}': version={reader.HeaderVersion}, meta={metaRecords}, frames={frameRecords}, parsedFrames={parsedFrames}, devices={devices.Count}, duration_s={durationSeconds:F3}, maxContacts={maxContacts}");
+            $"Capture '{fullPath}': version={reader.HeaderVersion}, meta={metaRecords}, frames={frameRecords}, parsedFrames={parsedFrames}, devices={devices.Count}, duration_s={durationSeconds:F3}, maxContacts={maxContacts}, buttonPressedFrames={buttonPressedFrames}, buttonDownEdges={buttonDownEdges}, buttonUpEdges={buttonUpEdges}");
         return new LinuxAtpCapSummaryResult(true, summary);
     }
 
@@ -210,6 +238,28 @@ internal static class LinuxAtpCapReplayRunner
         hash ^= value;
         hash *= 1099511628211UL;
         return hash;
+    }
+
+    private static ulong Fingerprint(ulong seed, CaptureRecord record, in InputFrame frame, TrackpadSide side)
+    {
+        seed = Mix(seed, (ulong)record.DeviceHash);
+        seed = Mix(seed, (ulong)record.DeviceIndex);
+        seed = Mix(seed, (ulong)side);
+        seed = Mix(seed, frame.ReportId);
+        seed = Mix(seed, frame.ScanTime);
+        seed = Mix(seed, frame.ContactCount);
+        seed = Mix(seed, frame.IsButtonClicked);
+        int count = frame.GetClampedContactCount();
+        for (int index = 0; index < count; index++)
+        {
+            ContactFrame contact = frame.GetContact(index);
+            seed = Mix(seed, contact.Flags);
+            seed = Mix(seed, contact.Id);
+            seed = Mix(seed, contact.X);
+            seed = Mix(seed, contact.Y);
+        }
+
+        return seed;
     }
 
     private sealed class LinuxReplaySideMapper

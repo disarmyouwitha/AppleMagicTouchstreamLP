@@ -247,6 +247,7 @@ internal static class LinuxSelfTestRunner
     {
         string tempRoot = Path.Combine(Path.GetTempPath(), $"glasstokey-linux-selftest-{Guid.NewGuid():N}");
         string capturePath = Path.Combine(tempRoot, "synthetic.atpcap");
+        string fixturePath = Path.Combine(tempRoot, "synthetic.fixture.json");
         string tracePath = Path.Combine(tempRoot, "synthetic-trace.json");
 
         try
@@ -270,31 +271,11 @@ internal static class LinuxSelfTestRunner
 
             using (LinuxAtpCapCaptureWriter writer = new(capturePath))
             {
-                InputFrame active = new()
+                InputFrame baseline = new()
                 {
                     ArrivalQpcTicks = 1_000,
                     ReportId = 0xEE,
                     ScanTime = 1,
-                    ContactCount = 1,
-                    IsButtonClicked = 0
-                };
-                active.SetContact(0, new ContactFrame(1, 1200, 800, 0x03, Pressure: 64, Phase: 0, HasForceData: false));
-                writer.WriteFrame(new LinuxRuntimeFrame(
-                    binding,
-                    new LinuxEvdevFrameSnapshot(
-                        DeviceNode: device.DeviceNode,
-                        MinX: -3678,
-                        MinY: -2478,
-                        MaxX: 7612,
-                        MaxY: 5065,
-                        FrameSequence: 1,
-                        Frame: active)));
-
-                InputFrame released = new()
-                {
-                    ArrivalQpcTicks = 2_000,
-                    ReportId = 0xEE,
-                    ScanTime = 2,
                     ContactCount = 0,
                     IsButtonClicked = 0
                 };
@@ -306,14 +287,57 @@ internal static class LinuxSelfTestRunner
                         MinY: -2478,
                         MaxX: 7612,
                         MaxY: 5065,
+                        FrameSequence: 1,
+                        Frame: baseline)));
+
+                InputFrame active = new()
+                {
+                    ArrivalQpcTicks = 2_000,
+                    ReportId = 0xEE,
+                    ScanTime = 2,
+                    ContactCount = 1,
+                    IsButtonClicked = 1
+                };
+                active.SetContact(0, new ContactFrame(1, 1200, 800, 0x03, Pressure: 64, Phase: 0, HasForceData: false));
+                writer.WriteFrame(new LinuxRuntimeFrame(
+                    binding,
+                    new LinuxEvdevFrameSnapshot(
+                        DeviceNode: device.DeviceNode,
+                        MinX: -3678,
+                        MinY: -2478,
+                        MaxX: 7612,
+                        MaxY: 5065,
                         FrameSequence: 2,
+                        Frame: active)));
+
+                InputFrame released = new()
+                {
+                    ArrivalQpcTicks = 3_000,
+                    ReportId = 0xEE,
+                    ScanTime = 3,
+                    ContactCount = 0,
+                    IsButtonClicked = 0
+                };
+                writer.WriteFrame(new LinuxRuntimeFrame(
+                    binding,
+                    new LinuxEvdevFrameSnapshot(
+                        DeviceNode: device.DeviceNode,
+                        MinX: -3678,
+                        MinY: -2478,
+                        MaxX: 7612,
+                        MaxY: 5065,
+                        FrameSequence: 3,
                         Frame: released)));
             }
 
             LinuxAtpCapSummaryResult summary = LinuxAtpCapReplayRunner.Summarize(capturePath);
-            if (!summary.Success || !summary.Summary.Contains("frames=2", StringComparison.Ordinal))
+            if (!summary.Success ||
+                !summary.Summary.Contains("frames=3", StringComparison.Ordinal) ||
+                !summary.Summary.Contains("buttonPressedFrames=1", StringComparison.Ordinal) ||
+                !summary.Summary.Contains("buttonDownEdges=1", StringComparison.Ordinal) ||
+                !summary.Summary.Contains("buttonUpEdges=1", StringComparison.Ordinal))
             {
-                failure = "Synthetic Linux .atpcap summary failed.";
+                failure = $"Synthetic Linux .atpcap summary failed: {summary.Summary}";
                 return false;
             }
 
@@ -325,15 +349,35 @@ internal static class LinuxSelfTestRunner
                 return false;
             }
 
-            if (replay.Metrics.FramesSeen < 3 || replay.Metrics.FramesParsed < 2 || replay.Metrics.FramesDispatched < 2)
+            if (replay.Metrics.FramesSeen < 4 || replay.Metrics.FramesParsed < 3 || replay.Metrics.FramesDispatched < 3)
             {
                 failure = "Synthetic Linux .atpcap replay metrics were incomplete.";
+                return false;
+            }
+
+            if (replay.CaptureFingerprint == 0 || replay.DispatchFingerprint == 0)
+            {
+                failure = "Synthetic Linux .atpcap replay fingerprints were not populated.";
                 return false;
             }
 
             if (!File.Exists(tracePath))
             {
                 failure = "Synthetic Linux replay trace was not created.";
+                return false;
+            }
+
+            LinuxAtpCapFixtureWriteResult fixtureWrite = LinuxAtpCapFixtureRunner.WriteFixture(capturePath, fixturePath, configuration);
+            if (!fixtureWrite.Success || !File.Exists(fixturePath))
+            {
+                failure = $"Synthetic Linux fixture generation failed: {fixtureWrite.Summary}";
+                return false;
+            }
+
+            LinuxAtpCapFixtureCheckResult fixtureCheck = LinuxAtpCapFixtureRunner.CheckFixture(capturePath, fixturePath, configuration, traceOutputPath: null);
+            if (!fixtureCheck.Success)
+            {
+                failure = $"Synthetic Linux fixture check failed: {fixtureCheck.Summary}";
                 return false;
             }
 

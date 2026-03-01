@@ -292,8 +292,9 @@ Current repo status:
 - `GlassToKey.Linux` now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, so Linux defaults can diverge from Windows without forking the shared keymap schema
 - `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks the current semantic-to-evdev mapping surface without touching the runtime hot path
 - `GlassToKey.Linux` now also checks in publish profiles for framework-dependent and self-contained `linux-x64` publishes
-- `GlassToKey.Linux` now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, and `replay-atpcap` for packaging checks and offline diagnostics
-- the repo now also carries first Linux install artifacts in `packaging/linux/`
+- `GlassToKey.Linux` now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, `replay-atpcap`, `write-atpcap-fixture`, and `check-atpcap-fixture` for packaging checks and offline diagnostics
+- the repo now also carries Linux install artifacts in `packaging/linux/`, and the install script now supports wrapper-vs-service install decisions with explicit post-install guidance
+- Linux `.atpcap` version 3 capture now preserves physical click state in shared frame-header flags, so replay fidelity is closer to the live path
 - this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging-and-diagnostics territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
@@ -436,8 +437,8 @@ Exit criteria:
 Current status:
 
 - active, early
-- users can now select devices through the current CLI/XDG settings path, type through the live engine path, validate permissions/runtime state through `doctor`, and record/replay normalized Linux `.atpcap` diagnostics
-- GUI-based selection/remapping, unplug/replug polish, richer replay fidelity, and packaged install flow still need work
+- users can now select devices through the current CLI/XDG settings path, type through the live engine path, validate permissions/runtime state through `doctor`, record/replay normalized Linux `.atpcap` diagnostics, and regression-check those captures with fixture files
+- GUI-based selection/remapping, unplug/replug polish, and packaged install flow still need work
 
 Estimated effort:
 
@@ -581,14 +582,14 @@ This packaging/permissions work is mandatory for a real Ubuntu release.
 - key injection through `uinput`
 - reusing layout/keymap logic
 - replay/self-test reuse
-- normalized Linux `.atpcap` frame capture and offline summary/replay
+- normalized Linux `.atpcap` frame capture, offline summary/replay, and fixture-based regression checks
 
 ### Medium risk
 
 - dual-trackpad device management
 - semantic key mapping parity
 - media/brightness/system key behavior across desktops
-- replay fidelity for click/button-state-sensitive workflows
+- replay fidelity beyond current normalized/contact/button state, such as future force/click nuance if needed
 
 ### High risk
 

@@ -29,6 +29,7 @@ internal readonly record struct AtpCapV3Frame(
     double TimestampSeconds,
     ulong DeviceNumericId,
     ushort ContactCount,
+    byte Flags,
     AtpCapV3Contact[] Contacts);
 
 internal readonly record struct AtpCapV3Compatibility(
@@ -44,6 +45,7 @@ internal static class AtpCapV3Payload
     public const byte FrameReportId = 0x52; // low byte of RFV3 marker
     public const int FrameHeaderSize = 32;
     public const int ContactSize = 40;
+    public const byte FrameFlagButtonClicked = 0x01;
 
     public static bool TryParseMeta(ReadOnlySpan<byte> payload, out AtpCapV3Meta meta)
     {
@@ -109,6 +111,7 @@ internal static class AtpCapV3Payload
         double timestampSeconds = BitConverter.Int64BitsToDouble(BinaryPrimitives.ReadInt64LittleEndian(payload.Slice(12, 8)));
         ulong deviceNumericId = BinaryPrimitives.ReadUInt64LittleEndian(payload.Slice(20, 8));
         ushort contactCount = BinaryPrimitives.ReadUInt16LittleEndian(payload.Slice(28, 2));
+        byte flags = payload[30];
 
         int expectedLength = FrameHeaderSize + (contactCount * ContactSize);
         if (payload.Length != expectedLength)
@@ -139,6 +142,7 @@ internal static class AtpCapV3Payload
             TimestampSeconds: timestampSeconds,
             DeviceNumericId: deviceNumericId,
             ContactCount: contactCount,
+            Flags: flags,
             Contacts: contacts);
         return true;
     }
@@ -171,7 +175,7 @@ internal static class AtpCapV3Payload
             ReportId = FrameReportId,
             ScanTime = (ushort)(frame.Sequence & 0xFFFF),
             ContactCount = (byte)count,
-            IsButtonClicked = 0
+            IsButtonClicked = (frame.Flags & FrameFlagButtonClicked) != 0 ? (byte)1 : (byte)0
         };
 
         for (int i = 0; i < count; i++)

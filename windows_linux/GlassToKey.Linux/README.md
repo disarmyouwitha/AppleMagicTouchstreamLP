@@ -21,6 +21,8 @@ Current CLI/runtime features:
 - `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
 - `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
 - `replay-atpcap` replays a Linux `.atpcap` capture through the shared engine path and can emit a replay trace JSON
+- `write-atpcap-fixture` writes a replay expectation fixture from an existing Linux `.atpcap` capture
+- `check-atpcap-fixture` replays a Linux `.atpcap` capture and validates it against an expectation fixture
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
@@ -47,11 +49,13 @@ Packaging notes:
 - self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*` and `/dev/uinput`
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
-- `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the first checked-in install artifacts
+- `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the checked-in install artifacts
+- `packaging/linux/install.sh` now supports wrapper-vs-service install decisions and prints explicit post-install commands for `doctor`, `init-config`, `show-config`, and `run-engine`
 
-Current diagnostics limitation:
+Current diagnostics status:
 
-- Linux `.atpcap` version 3 capture currently preserves normalized contact frames for replay, summary, and trace analysis
-- it does not yet preserve physical click state in the replay payload, so offline replay is useful for typing/gesture diagnostics but not full click-parity validation
+- Linux `.atpcap` version 3 capture now preserves normalized contact frames and physical click state for replay, summary, and trace analysis
+- `summarize-atpcap` now reports button-pressed and button-edge counts
+- fixture generation/check commands now make Linux `.atpcap` captures useful for regression checking, not just manual replay
 
 This project should remain thin. Most logic belongs in the shared core or the Linux platform backend.
