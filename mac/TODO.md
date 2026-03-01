@@ -20,6 +20,8 @@
 - sometimes tap-click types letters (Lifting fingers after tap)
 
 # Release Build:
+cd ~/Documents/AppleMagicTouchstreamLP/mac
 ./release
 /usr/bin/ditto ~/Documents/AppleMagicTouchstreamLP/mac/release-output/1.0.0-1/GlassToKey-1.0.0.dmg /Users/nap/Downloads/
 # tccutil reset All ink.ranna.glasstokey
+# defaults delete ink.ranna.glasstokey

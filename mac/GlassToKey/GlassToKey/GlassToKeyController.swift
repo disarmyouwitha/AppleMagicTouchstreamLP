@@ -42,15 +42,121 @@ enum GlassToKeySettings {
 @MainActor
 final class GlassToKeyController: ObservableObject {
     private struct BundledKeymapProfile: Decodable {
+        let leftDeviceID: String
+        let rightDeviceID: String
+        let layoutPreset: String
+        let autoResyncMissingTrackpads: Bool
+        let tapHoldDurationMs: Double
+        let dragCancelDistance: Double
+        let forceClickMin: Double?
+        let forceClickCap: Double
+        let hapticStrength: Double
+        let typingGraceMs: Double
+        let intentMoveThresholdMm: Double
+        let intentVelocityThresholdMmPerSec: Double
+        let autocorrectEnabled: Bool
+        let tapClickCadenceMs: Double
+        let snapRadiusPercent: Double
+        let chordalShiftEnabled: Bool
+        let keyboardModeEnabled: Bool
+        let twoFingerTapGestureAction: String?
+        let threeFingerTapGestureAction: String?
+        let twoFingerHoldGestureAction: String?
+        let threeFingerHoldGestureAction: String?
+        let fourFingerHoldGestureAction: String?
+        let outerCornersHoldGestureAction: String?
+        let innerCornersHoldGestureAction: String?
+        let fiveFingerSwipeLeftGestureAction: String?
+        let fiveFingerSwipeRightGestureAction: String?
+        let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
+        let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
         let keyGeometryByLayout: LayoutKeyGeometryOverrides?
     }
+
+    private static let portableBundledDefaultKeys: [String] = [
+        GlassToKeyDefaultsKeys.layoutPreset,
+        GlassToKeyDefaultsKeys.autoResyncMissingTrackpads,
+        GlassToKeyDefaultsKeys.tapHoldDuration,
+        GlassToKeyDefaultsKeys.dragCancelDistance,
+        GlassToKeyDefaultsKeys.forceClickMin,
+        GlassToKeyDefaultsKeys.forceClickCap,
+        GlassToKeyDefaultsKeys.hapticStrength,
+        GlassToKeyDefaultsKeys.typingGraceMs,
+        GlassToKeyDefaultsKeys.intentMoveThresholdMm,
+        GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec,
+        GlassToKeyDefaultsKeys.autocorrectEnabled,
+        GlassToKeyDefaultsKeys.tapClickCadenceMs,
+        GlassToKeyDefaultsKeys.snapRadiusPercent,
+        GlassToKeyDefaultsKeys.chordalShiftEnabled,
+        GlassToKeyDefaultsKeys.keyboardModeEnabled,
+        GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
+        GlassToKeyDefaultsKeys.threeFingerTapGestureAction,
+        GlassToKeyDefaultsKeys.twoFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.threeFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.fourFingerHoldGestureAction,
+        GlassToKeyDefaultsKeys.outerCornersHoldGestureAction,
+        GlassToKeyDefaultsKeys.innerCornersHoldGestureAction,
+        GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction,
+        GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction,
+        GlassToKeyDefaultsKeys.columnSettings,
+        GlassToKeyDefaultsKeys.customButtons,
+        GlassToKeyDefaultsKeys.keyMappings,
+        GlassToKeyDefaultsKeys.keyGeometry
+    ]
 
     let viewModel: ContentViewModel
     private var isRunning = false
 
     init(viewModel: ContentViewModel = ContentViewModel()) {
         self.viewModel = viewModel
+    }
+
+    static func seedBundledDefaultsIfNeeded(defaults: UserDefaults = .standard) {
+        guard !hasPortableBundledDefaults(defaults: defaults) else { return }
+        guard let profile = bundledDefaultProfile() else { return }
+
+        defaults.set(profile.layoutPreset, forKey: GlassToKeyDefaultsKeys.layoutPreset)
+        defaults.set(profile.autoResyncMissingTrackpads, forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads)
+        defaults.set(profile.tapHoldDurationMs, forKey: GlassToKeyDefaultsKeys.tapHoldDuration)
+        defaults.set(profile.dragCancelDistance, forKey: GlassToKeyDefaultsKeys.dragCancelDistance)
+        if let forceClickMin = profile.forceClickMin {
+            defaults.set(forceClickMin, forKey: GlassToKeyDefaultsKeys.forceClickMin)
+        }
+        defaults.set(profile.forceClickCap, forKey: GlassToKeyDefaultsKeys.forceClickCap)
+        defaults.set(profile.hapticStrength, forKey: GlassToKeyDefaultsKeys.hapticStrength)
+        defaults.set(profile.typingGraceMs, forKey: GlassToKeyDefaultsKeys.typingGraceMs)
+        defaults.set(profile.intentMoveThresholdMm, forKey: GlassToKeyDefaultsKeys.intentMoveThresholdMm)
+        defaults.set(profile.intentVelocityThresholdMmPerSec, forKey: GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec)
+        defaults.set(profile.autocorrectEnabled, forKey: GlassToKeyDefaultsKeys.autocorrectEnabled)
+        defaults.set(profile.tapClickCadenceMs, forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs)
+        defaults.set(profile.snapRadiusPercent, forKey: GlassToKeyDefaultsKeys.snapRadiusPercent)
+        defaults.set(profile.chordalShiftEnabled, forKey: GlassToKeyDefaultsKeys.chordalShiftEnabled)
+        defaults.set(profile.keyboardModeEnabled, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
+        defaults.set(profile.twoFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
+        defaults.set(profile.threeFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
+        defaults.set(profile.twoFingerHoldGestureAction, forKey: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction)
+        defaults.set(profile.threeFingerHoldGestureAction, forKey: GlassToKeyDefaultsKeys.threeFingerHoldGestureAction)
+        defaults.set(profile.fourFingerHoldGestureAction, forKey: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction)
+        defaults.set(profile.outerCornersHoldGestureAction, forKey: GlassToKeyDefaultsKeys.outerCornersHoldGestureAction)
+        defaults.set(profile.innerCornersHoldGestureAction, forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction)
+        defaults.set(profile.fiveFingerSwipeLeftGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
+        defaults.set(profile.fiveFingerSwipeRightGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
+
+        if let encodedColumns = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) {
+            defaults.set(encodedColumns, forKey: GlassToKeyDefaultsKeys.columnSettings)
+        }
+        if let encodedButtons = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) {
+            defaults.set(encodedButtons, forKey: GlassToKeyDefaultsKeys.customButtons)
+        }
+        if let keyMappings = profile.keyMappingsByLayout,
+           let encodedMappings = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(keyMappings)) {
+            defaults.set(encodedMappings, forKey: GlassToKeyDefaultsKeys.keyMappings)
+        }
+        if let keyGeometry = profile.keyGeometryByLayout,
+           let encodedGeometry = KeyGeometryStore.encode(KeyGeometryStore.normalized(keyGeometry)) {
+            defaults.set(encodedGeometry, forKey: GlassToKeyDefaultsKeys.keyGeometry)
+        }
     }
 
     func start() {
@@ -95,6 +201,26 @@ final class GlassToKeyController: ObservableObject {
 
     var isATPReplayActive: Bool {
         viewModel.isATPReplayActive
+    }
+
+    private static func hasPortableBundledDefaults(defaults: UserDefaults) -> Bool {
+        for key in portableBundledDefaultKeys {
+            if defaults.object(forKey: key) != nil {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func bundledDefaultProfile() -> BundledKeymapProfile? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(BundledKeymapProfile.self, from: data)
     }
 
     private func configureFromDefaults() {
@@ -209,16 +335,7 @@ final class GlassToKeyController: ObservableObject {
     }
 
     private func bundledDefaultKeyMappings() -> LayoutLayeredKeyMappings? {
-        guard let url = Bundle.main.url(
-            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
-            withExtension: "json"
-        ) else {
-            return nil
-        }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        guard let profile = try? JSONDecoder().decode(BundledKeymapProfile.self, from: data) else {
-            return nil
-        }
+        guard let profile = Self.bundledDefaultProfile() else { return nil }
         if let byLayout = profile.keyMappingsByLayout {
             return KeyActionMappingStore.normalized(byLayout)
         }
@@ -238,16 +355,7 @@ final class GlassToKeyController: ObservableObject {
     }
 
     private func bundledDefaultKeyGeometry() -> LayoutKeyGeometryOverrides? {
-        guard let url = Bundle.main.url(
-            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
-            withExtension: "json"
-        ) else {
-            return nil
-        }
-        guard let data = try? Data(contentsOf: url) else { return nil }
-        guard let profile = try? JSONDecoder().decode(BundledKeymapProfile.self, from: data) else {
-            return nil
-        }
+        guard let profile = Self.bundledDefaultProfile() else { return nil }
         if let byLayout = profile.keyGeometryByLayout {
             return KeyGeometryStore.normalized(byLayout)
         }

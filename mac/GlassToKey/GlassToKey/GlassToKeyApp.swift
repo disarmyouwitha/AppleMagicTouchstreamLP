@@ -78,6 +78,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         guard enforceSingleInstancePolicyAtLaunch() else { return }
+        GlassToKeyController.seedBundledDefaultsIfNeeded()
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
         controller.start()
