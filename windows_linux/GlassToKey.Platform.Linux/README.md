@@ -1,13 +1,22 @@
 # GlassToKey.Platform.Linux
 
-Scaffold-only project for the future Linux systems backend.
+Linux systems backend in progress.
 
-Planned responsibilities:
+Current responsibilities:
 
 - enumerate Magic Trackpad devices from Linux input nodes
-- assemble multitouch frames from evdev Type B slots
+- prefer the Apple `if01` event interface when multiple nodes map to one physical device
+- probe real evdev axis metadata through `EVIOCGABS`
+- capture raw evdev events for device validation
+- assemble multitouch frames from evdev Type B slots and observed legacy absolute fallback fields
 - expose Linux device capabilities and stable IDs
+- stream normalized `InputFrame` data through a runtime service/sink seam
 - inject keyboard and mouse output through `uinput`
 - surface Linux-specific diagnostics and permission checks
+
+Current caveats:
+
+- On the current Ubuntu 24.04 setup, Apple Magic Trackpads expose usable evdev traffic and can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node.
+- `EVIOCGABS` works on the host devices and reports real axis ranges. It may still be denied inside the sandboxed coding environment, so validation in this environment may require escalation rather than product-side fallback logic.
 
 This project should not contain gesture behavior or layout logic. Those belong in `GlassToKey.Core`.

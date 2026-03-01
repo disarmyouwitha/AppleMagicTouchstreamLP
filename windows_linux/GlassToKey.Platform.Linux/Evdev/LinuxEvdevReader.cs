@@ -17,6 +17,13 @@ public sealed class LinuxEvdevReader
     private const ushort EventTypeAbsolute = 0x03;
     private const ushort SyncReport = 0x00;
     private const ushort ButtonLeft = 0x110;
+    private const ushort ButtonToolFinger = 0x145;
+    private const ushort ButtonTouch = 0x14a;
+    private const ushort AbsX = 0x00;
+    private const ushort AbsY = 0x01;
+    private const ushort AbsPressure = 0x18;
+    private const ushort AbsMtTouchMajor = 0x30;
+    private const ushort AbsMtTouchMinor = 0x31;
     private const ushort AbsMtSlot = 0x2f;
     private const ushort AbsMtPositionX = 0x35;
     private const ushort AbsMtPositionY = 0x36;
@@ -30,6 +37,14 @@ public sealed class LinuxEvdevReader
 
         using var handle = File.OpenHandle(deviceNode, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         return GetAxisInfo(handle, axisCode);
+    }
+
+    public LinuxTrackpadAxisProfile GetAxisProfile(string deviceNode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceNode);
+
+        using var handle = File.OpenHandle(deviceNode, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+        return GetAxisProfile(handle);
     }
 
     public async Task<IReadOnlyList<string>> ReadRawEventsAsync(
@@ -104,37 +119,39 @@ public sealed class LinuxEvdevReader
             throw new ArgumentOutOfRangeException(nameof(maxFrames));
         }
 
-        using SafeFileHandle handle = OpenNonBlockingHandle(deviceNode);
-        int slotCount = 16;
-        ushort maxX = ushort.MaxValue;
-        ushort maxY = ushort.MaxValue;
-
-        TryGetAxisMaximum(handle, AbsMtSlot, out LinuxInputAxisInfo? slotAxis);
-        TryGetAxisMaximum(handle, AbsMtPositionX, out LinuxInputAxisInfo? xAxis);
-        TryGetAxisMaximum(handle, AbsMtPositionY, out LinuxInputAxisInfo? yAxis);
-
-        if (slotAxis != null)
-        {
-            slotCount = Math.Max(1, slotAxis.Maximum - slotAxis.Minimum + 1);
-        }
-
-        if (xAxis != null)
-        {
-            maxX = ClampAxisMaximum(xAxis.Maximum);
-        }
-
-        if (yAxis != null)
-        {
-            maxY = ClampAxisMaximum(yAxis.Maximum);
-        }
-
-        LinuxMtFrameAssembler assembler = new(slotCount, maxX, maxY);
-
         List<LinuxEvdevFrameSnapshot> frames = [];
-        byte[] buffer = new byte[InputEvent.Size];
         long deadlineTimestamp = Stopwatch.GetTimestamp() + (long)(duration.TotalSeconds * Stopwatch.Frequency);
+        await StreamFramesAsync(
+            deviceNode,
+            snapshot =>
+            {
+                if (frames.Count >= maxFrames || Stopwatch.GetTimestamp() >= deadlineTimestamp)
+                {
+                    return ValueTask.FromResult(false);
+                }
 
-        while (frames.Count < maxFrames && !cancellationToken.IsCancellationRequested && Stopwatch.GetTimestamp() < deadlineTimestamp)
+                frames.Add(snapshot);
+                return ValueTask.FromResult(frames.Count < maxFrames && Stopwatch.GetTimestamp() < deadlineTimestamp);
+            },
+            cancellationToken).ConfigureAwait(false);
+
+        return frames;
+    }
+
+    public async Task StreamFramesAsync(
+        string deviceNode,
+        Func<LinuxEvdevFrameSnapshot, ValueTask<bool>> onFrame,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(deviceNode);
+        ArgumentNullException.ThrowIfNull(onFrame);
+
+        using SafeFileHandle handle = OpenNonBlockingHandle(deviceNode);
+        LinuxTrackpadAxisProfile axisProfile = GetAxisProfile(handle);
+        LinuxMtFrameAssembler assembler = new(axisProfile.SlotCount, axisProfile.MaxX, axisProfile.MaxY);
+        byte[] buffer = new byte[InputEvent.Size];
+
+        while (!cancellationToken.IsCancellationRequested)
         {
             nint bytesRead;
             try
@@ -151,7 +168,15 @@ public sealed class LinuxEvdevReader
                 int error = Marshal.GetLastWin32Error();
                 if (error == ErrnoTryAgain)
                 {
-                    await Task.Delay(8, cancellationToken).ConfigureAwait(false);
+                    try
+                    {
+                        await Task.Delay(8, cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
                     continue;
                 }
 
@@ -160,7 +185,15 @@ public sealed class LinuxEvdevReader
 
             if (bytesRead == 0)
             {
-                await Task.Delay(8, cancellationToken).ConfigureAwait(false);
+                try
+                {
+                    await Task.Delay(8, cancellationToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    break;
+                }
+
                 continue;
             }
 
@@ -170,31 +203,42 @@ public sealed class LinuxEvdevReader
             }
 
             InputEvent inputEvent = MemoryMarshal.Read<InputEvent>(buffer);
-            if (ApplyEvent(assembler, in inputEvent))
+            if (!ApplyEvent(assembler, axisProfile, in inputEvent))
             {
-                frames.Add(new LinuxEvdevFrameSnapshot(
-                    DeviceNode: deviceNode,
-                    MaxX: maxX,
-                    MaxY: maxY,
-                    FrameSequence: assembler.FrameSequence,
-                    Frame: assembler.CommitFrame(ToStopwatchTicks(inputEvent))));
+                continue;
+            }
+
+            LinuxEvdevFrameSnapshot snapshot = new(
+                DeviceNode: deviceNode,
+                MinX: axisProfile.MinX,
+                MinY: axisProfile.MinY,
+                MaxX: axisProfile.MaxX,
+                MaxY: axisProfile.MaxY,
+                FrameSequence: assembler.FrameSequence,
+                Frame: assembler.CommitFrame(ToStopwatchTicks(inputEvent)));
+            bool shouldContinue = await onFrame(snapshot).ConfigureAwait(false);
+            if (!shouldContinue)
+            {
+                break;
             }
         }
-
-        return frames;
     }
 
-    private static bool ApplyEvent(LinuxMtFrameAssembler assembler, in InputEvent inputEvent)
+    private static bool ApplyEvent(LinuxMtFrameAssembler assembler, LinuxTrackpadAxisProfile axisProfile, in InputEvent inputEvent)
     {
         switch (inputEvent.Type)
         {
             case EventTypeAbsolute:
-                ApplyAbsoluteEvent(assembler, inputEvent.Code, inputEvent.Value);
+                ApplyAbsoluteEvent(assembler, axisProfile, inputEvent.Code, inputEvent.Value);
                 return false;
             case EventTypeKey:
                 if (inputEvent.Code == ButtonLeft)
                 {
                     assembler.SetButtonPressed(inputEvent.Value != 0);
+                }
+                else if (inputEvent.Code == ButtonTouch || inputEvent.Code == ButtonToolFinger)
+                {
+                    assembler.SetLegacyTouchActive(inputEvent.Value != 0);
                 }
 
                 return false;
@@ -205,10 +249,25 @@ public sealed class LinuxEvdevReader
         }
     }
 
-    private static void ApplyAbsoluteEvent(LinuxMtFrameAssembler assembler, ushort code, int value)
+    private static void ApplyAbsoluteEvent(LinuxMtFrameAssembler assembler, LinuxTrackpadAxisProfile axisProfile, ushort code, int value)
     {
         switch (code)
         {
+            case AbsX:
+                assembler.SetLegacyPositionX(axisProfile.NormalizeX(value));
+                break;
+            case AbsY:
+                assembler.SetLegacyPositionY(axisProfile.NormalizeY(value));
+                break;
+            case AbsPressure:
+                assembler.SetLegacyPressure(value);
+                break;
+            case AbsMtTouchMajor:
+                assembler.SetLegacyTouchMajor(value);
+                break;
+            case AbsMtTouchMinor:
+                assembler.SetLegacyTouchMinor(value);
+                break;
             case AbsMtSlot:
                 assembler.SelectSlot(value);
                 break;
@@ -216,10 +275,10 @@ public sealed class LinuxEvdevReader
                 assembler.SetTrackingId(value);
                 break;
             case AbsMtPositionX:
-                assembler.SetPositionX(value);
+                assembler.SetPositionX(axisProfile.NormalizeX(value));
                 break;
             case AbsMtPositionY:
-                assembler.SetPositionY(value);
+                assembler.SetPositionY(axisProfile.NormalizeY(value));
                 break;
             case AbsMtPressure:
                 assembler.SetPressure(value);
@@ -242,17 +301,42 @@ public sealed class LinuxEvdevReader
         return new LinuxInputAxisInfo(absInfo.Value, absInfo.Minimum, absInfo.Maximum, absInfo.Fuzz, absInfo.Flat, absInfo.Resolution);
     }
 
-    private static bool TryGetAxisMaximum(SafeFileHandle handle, ushort axisCode, out LinuxInputAxisInfo? axisInfo)
+    private static LinuxTrackpadAxisProfile GetAxisProfile(SafeFileHandle handle)
+    {
+        LinuxInputAxisInfo? slotAxis = TryGetAxisInfo(handle, AbsMtSlot);
+        LinuxInputAxisInfo? mtX = TryGetAxisInfo(handle, AbsMtPositionX);
+        LinuxInputAxisInfo? mtY = TryGetAxisInfo(handle, AbsMtPositionY);
+        LinuxInputAxisInfo? legacyX = TryGetAxisInfo(handle, AbsX);
+        LinuxInputAxisInfo? legacyY = TryGetAxisInfo(handle, AbsY);
+        LinuxInputAxisInfo? mtPressure = TryGetAxisInfo(handle, AbsMtPressure);
+        LinuxInputAxisInfo? legacyPressure = TryGetAxisInfo(handle, AbsPressure);
+
+        LinuxInputAxisInfo? xAxis = mtX ?? legacyX;
+        LinuxInputAxisInfo? yAxis = mtY ?? legacyY;
+        LinuxInputAxisInfo? pressureAxis = mtPressure ?? legacyPressure;
+        if (xAxis == null || yAxis == null)
+        {
+            throw new IOException("Trackpad device does not expose usable X/Y absolute axes.");
+        }
+
+        return new LinuxTrackpadAxisProfile(
+            Slot: slotAxis,
+            X: xAxis,
+            Y: yAxis,
+            Pressure: pressureAxis,
+            UsesMtPositionAxes: mtX != null && mtY != null,
+            UsesLegacyPositionAxes: mtX == null || mtY == null);
+    }
+
+    private static LinuxInputAxisInfo? TryGetAxisInfo(SafeFileHandle handle, ushort axisCode)
     {
         try
         {
-            axisInfo = GetAxisInfo(handle, axisCode);
-            return true;
+            return GetAxisInfo(handle, axisCode);
         }
         catch
         {
-            axisInfo = null;
-            return false;
+            return null;
         }
     }
 
@@ -265,16 +349,6 @@ public sealed class LinuxEvdevReader
         }
 
         return new SafeFileHandle((IntPtr)fd, ownsHandle: true);
-    }
-
-    private static ushort ClampAxisMaximum(int maximum)
-    {
-        if (maximum <= 0)
-        {
-            return ushort.MaxValue;
-        }
-
-        return (ushort)Math.Min(maximum, ushort.MaxValue);
     }
 
     private static long ToStopwatchTicks(InputEvent inputEvent)

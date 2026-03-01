@@ -21,7 +21,7 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
     public IReadOnlyList<LinuxInputDeviceDescriptor> EnumerateDevices()
     {
         Dictionary<string, string> stableIdsByDeviceNode = BuildStableIdsByDeviceNode();
-        List<LinuxInputDeviceDescriptor> devices = [];
+        List<LinuxInputDeviceDescriptor> candidates = [];
 
         foreach (string eventPath in Directory.EnumerateDirectories("/sys/class/input", "event*"))
         {
@@ -56,20 +56,26 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
             }
 
             string stableId = ResolveStableId(deviceNode, stableIdsByDeviceNode, sysfsDevicePath, displayName);
+            string uniqueId = ReadTrimmed(Path.Combine(sysfsDevicePath, "uniq"));
+            string physicalPath = ReadTrimmed(Path.Combine(sysfsDevicePath, "phys"));
             (bool canOpenEventStream, string accessError) = ProbeEventAccess(deviceNode);
-            devices.Add(new LinuxInputDeviceDescriptor(
+            candidates.Add(new LinuxInputDeviceDescriptor(
                 DeviceNode: deviceNode,
                 StableId: stableId,
+                UniqueId: uniqueId,
+                PhysicalPath: physicalPath,
                 DisplayName: displayName,
                 VendorId: ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "vendor")),
                 ProductId: ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "product")),
                 SupportsMultitouch: supportsMultitouch,
                 SupportsPressure: supportsPressure,
                 SupportsButtonClick: supportsButtonClick,
+                IsPreferredInterface: IsPreferredStableId(stableId),
                 CanOpenEventStream: canOpenEventStream,
                 AccessError: accessError));
         }
 
+        List<LinuxInputDeviceDescriptor> devices = SelectPreferredCandidates(candidates);
         devices.Sort(static (left, right) =>
         {
             int byName = string.Compare(left.DisplayName, right.DisplayName, StringComparison.OrdinalIgnoreCase);
@@ -82,6 +88,70 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
         });
 
         return devices;
+    }
+
+    private static List<LinuxInputDeviceDescriptor> SelectPreferredCandidates(IReadOnlyList<LinuxInputDeviceDescriptor> candidates)
+    {
+        Dictionary<string, LinuxInputDeviceDescriptor> chosenByPhysicalDevice = new(StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < candidates.Count; index++)
+        {
+            LinuxInputDeviceDescriptor candidate = candidates[index];
+            string key = BuildPhysicalDeviceKey(candidate);
+            if (!chosenByPhysicalDevice.TryGetValue(key, out LinuxInputDeviceDescriptor? current) ||
+                ComparePreference(candidate, current) < 0)
+            {
+                chosenByPhysicalDevice[key] = candidate;
+            }
+        }
+
+        return chosenByPhysicalDevice.Values.ToList();
+    }
+
+    private static string BuildPhysicalDeviceKey(LinuxInputDeviceDescriptor device)
+    {
+        if (!string.IsNullOrWhiteSpace(device.UniqueId))
+        {
+            return $"{device.VendorId:x4}:{device.ProductId:x4}:uniq:{device.UniqueId}";
+        }
+
+        if (!string.IsNullOrWhiteSpace(device.PhysicalPath))
+        {
+            return $"{device.VendorId:x4}:{device.ProductId:x4}:phys:{device.PhysicalPath}";
+        }
+
+        return $"{device.VendorId:x4}:{device.ProductId:x4}:name:{device.DisplayName}";
+    }
+
+    private static int ComparePreference(LinuxInputDeviceDescriptor left, LinuxInputDeviceDescriptor right)
+    {
+        int leftRank = GetPreferenceRank(left);
+        int rightRank = GetPreferenceRank(right);
+        if (leftRank != rightRank)
+        {
+            return leftRank.CompareTo(rightRank);
+        }
+
+        return string.Compare(left.DeviceNode, right.DeviceNode, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static int GetPreferenceRank(LinuxInputDeviceDescriptor device)
+    {
+        if (device.IsPreferredInterface)
+        {
+            return 0;
+        }
+
+        if (device.CanOpenEventStream)
+        {
+            return 10;
+        }
+
+        return 20;
+    }
+
+    private static bool IsPreferredStableId(string stableId)
+    {
+        return stableId.Contains("-if01-event-mouse", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, string> BuildStableIdsByDeviceNode()

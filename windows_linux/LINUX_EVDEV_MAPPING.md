@@ -13,20 +13,33 @@ The mapping is designed for:
 
 ## Source event model
 
-The Linux multitouch stack exposes Type B slot protocol events. The important event types for GlassToKey are:
+Preferred model:
+
+- Type B slot protocol events
+
+Observed on current Ubuntu 24.04 Apple hardware:
+
+- Type B slot protocol events
+- parallel legacy absolute fields on the same device node
+
+The important event types for GlassToKey are:
 
 - `EV_ABS`
+  - `ABS_X`
+  - `ABS_Y`
+  - `ABS_PRESSURE`
   - `ABS_MT_SLOT`
   - `ABS_MT_TRACKING_ID`
+  - `ABS_MT_TOUCH_MAJOR`
+  - `ABS_MT_TOUCH_MINOR`
   - `ABS_MT_POSITION_X`
   - `ABS_MT_POSITION_Y`
   - `ABS_MT_PRESSURE`
   - `ABS_MT_ORIENTATION`
-  - optional `ABS_MT_TOUCH_MAJOR`
-  - optional `ABS_MT_TOUCH_MINOR`
 - `EV_KEY`
   - `BTN_LEFT`
-  - optional `BTN_TOUCH`
+  - `BTN_TOUCH`
+  - optional `BTN_TOOL_FINGER`
 - `EV_SYN`
   - `SYN_REPORT`
 
@@ -35,6 +48,11 @@ The Linux docs describe:
 - Type B multitouch slot updates
 - `ABS_MT_TRACKING_ID = -1` meaning slot released
 - `SYN_REPORT` as the frame boundary
+
+Practical note:
+
+- do not assume every useful Apple trackpad frame will be reconstructable from slots alone
+- if slot traffic is absent or incomplete, fall back to a single-contact path using `ABS_X`, `ABS_Y`, `ABS_PRESSURE`, `ABS_MT_TOUCH_MAJOR`, `ABS_MT_TOUCH_MINOR`, `BTN_TOUCH`, and `BTN_TOOL_FINGER`
 
 ## Existing GlassToKey frame model
 
@@ -197,6 +215,19 @@ Action:
 - snapshot all active slots into one `InputFrame`
 - enqueue/post that frame into the existing engine pipeline
 
+### Legacy absolute fallback
+
+Meaning:
+
+- some Apple devices expose enough non-slot absolute state to build a useful single-contact frame even when slot reconstruction is unavailable or incomplete
+
+Action:
+
+- track `ABS_X`, `ABS_Y`, and `ABS_PRESSURE`
+- treat `BTN_TOUCH` and `BTN_TOOL_FINGER` as activity hints
+- optionally use `ABS_MT_TOUCH_MAJOR` and `ABS_MT_TOUCH_MINOR` as additional contact-presence hints
+- on `SYN_REPORT`, if no slot-based contacts are active but legacy absolute state indicates an active touch, emit one synthetic contact
+
 ## Exact field mapping
 
 ## `InputFrame.ArrivalQpcTicks`
@@ -271,6 +302,7 @@ Reason:
 - deterministic
 - stable under the Linux Type B slot model
 - avoids reshuffling contacts between frames
+- leaves room for a legacy single-contact fallback when slot data is not usable
 
 ## `ContactFrame.Id`
 
@@ -311,6 +343,12 @@ Pass:
 - `maxY = device abs maximum from `EVIOCGABS(ABS_MT_POSITION_Y)``
 
 Do not invert Y unless real-device testing proves the Linux coordinate system is reversed relative to the existing layout assumptions.
+
+Current real-device note:
+
+- both connected Apple trackpads on Ubuntu 24.04 produced coherent contact movement from the raw evdev stream
+- current tested ranges are `X -3678..3934` and `Y -2478..2587`, so Linux should normalize by subtracting axis minima and pass spans `MaxX=7612` and `MaxY=5065`
+- `EVIOCGABS` may still need an escalated validation path when the sandbox blocks the ioctl even though the host kernel supports it
 
 ## `ContactFrame.Flags`
 

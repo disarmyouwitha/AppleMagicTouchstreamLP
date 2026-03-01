@@ -7,11 +7,13 @@ public sealed class LinuxMtFrameAssembler
 {
     public const byte SyntheticReportId = 0xEE;
     private const byte ActiveContactFlags = 0x03;
+    private const int LegacyContactId = 1;
 
     private LinuxMtSlotState[] _slots;
     private readonly long _openTimestampTicks;
     private int _currentSlot;
     private bool _buttonPressed;
+    private LegacyContactState _legacyContact;
 
     public LinuxMtFrameAssembler(int slotCount, ushort maxX, ushort maxY)
     {
@@ -43,6 +45,7 @@ public sealed class LinuxMtFrameAssembler
         Array.Clear(_slots, 0, _slots.Length);
         _currentSlot = 0;
         _buttonPressed = false;
+        _legacyContact = default;
         FrameSequence = 0;
         LastOverflowContactCount = 0;
         TotalOverflowContactCount = 0;
@@ -101,6 +104,62 @@ public sealed class LinuxMtFrameAssembler
         _buttonPressed = isPressed;
     }
 
+    public void SetLegacyPositionX(int xRaw)
+    {
+        _legacyContact.XRaw = xRaw;
+        _legacyContact.SeenThisFrame = true;
+    }
+
+    public void SetLegacyPositionY(int yRaw)
+    {
+        _legacyContact.YRaw = yRaw;
+        _legacyContact.SeenThisFrame = true;
+    }
+
+    public void SetLegacyPressure(int pressureRaw)
+    {
+        _legacyContact.PressureRaw = pressureRaw;
+        if (pressureRaw > 0)
+        {
+            _legacyContact.IsActive = true;
+        }
+
+        _legacyContact.SeenThisFrame = true;
+    }
+
+    public void SetLegacyTouchMajor(int touchMajorRaw)
+    {
+        _legacyContact.TouchMajorRaw = touchMajorRaw;
+        if (touchMajorRaw > 0)
+        {
+            _legacyContact.IsActive = true;
+        }
+
+        _legacyContact.SeenThisFrame = true;
+    }
+
+    public void SetLegacyTouchMinor(int touchMinorRaw)
+    {
+        _legacyContact.TouchMinorRaw = touchMinorRaw;
+        if (touchMinorRaw > 0)
+        {
+            _legacyContact.IsActive = true;
+        }
+
+        _legacyContact.SeenThisFrame = true;
+    }
+
+    public void SetLegacyTouchActive(bool isActive)
+    {
+        _legacyContact.IsActive = isActive;
+        if (!isActive)
+        {
+            _legacyContact.TouchMajorRaw = 0;
+            _legacyContact.TouchMinorRaw = 0;
+            _legacyContact.PressureRaw = 0;
+        }
+    }
+
     public InputFrame CommitFrame()
     {
         long nowTicks = Stopwatch.GetTimestamp();
@@ -137,9 +196,17 @@ public sealed class LinuxMtFrameAssembler
             emitted++;
         }
 
+        if (active == 0 && TryCreateLegacyContact(out ContactFrame legacyContact))
+        {
+            frame.SetContact(0, legacyContact);
+            emitted = 1;
+            active = 1;
+        }
+
         frame.ContactCount = (byte)Math.Min(active, InputFrame.MaxContacts);
         LastOverflowContactCount = Math.Max(0, active - InputFrame.MaxContacts);
         TotalOverflowContactCount += LastOverflowContactCount;
+        FinalizeLegacyFrameState();
         FrameSequence++;
         return frame;
     }
@@ -163,6 +230,56 @@ public sealed class LinuxMtFrameAssembler
         long elapsedTicks = Math.Max(0, timestampTicks - _openTimestampTicks);
         long elapsedMilliseconds = (elapsedTicks * 1000L) / Stopwatch.Frequency;
         return unchecked((ushort)elapsedMilliseconds);
+    }
+
+    private bool TryCreateLegacyContact(out ContactFrame contact)
+    {
+        bool isActive =
+            _legacyContact.IsActive ||
+            _legacyContact.PressureRaw > 0 ||
+            _legacyContact.TouchMajorRaw > 0 ||
+            _legacyContact.TouchMinorRaw > 0 ||
+            _legacyContact.SeenThisFrame;
+        if (!isActive)
+        {
+            contact = default;
+            return false;
+        }
+
+        byte pressure = (byte)Math.Clamp(_legacyContact.PressureRaw, byte.MinValue, byte.MaxValue);
+        contact = new ContactFrame(
+            Id: LegacyContactId,
+            X: (ushort)Math.Clamp(_legacyContact.XRaw, 0, MaxX),
+            Y: (ushort)Math.Clamp(_legacyContact.YRaw, 0, MaxY),
+            Flags: ActiveContactFlags,
+            Pressure: pressure,
+            Phase: 0,
+            HasForceData: false);
+        return true;
+    }
+
+    private void FinalizeLegacyFrameState()
+    {
+        if (!_legacyContact.SeenThisFrame &&
+            !_legacyContact.IsActive &&
+            _legacyContact.PressureRaw <= 0 &&
+            _legacyContact.TouchMajorRaw <= 0 &&
+            _legacyContact.TouchMinorRaw <= 0)
+        {
+            _legacyContact = default;
+            return;
+        }
+
+        if (!_legacyContact.IsActive &&
+            _legacyContact.PressureRaw <= 0 &&
+            _legacyContact.TouchMajorRaw <= 0 &&
+            _legacyContact.TouchMinorRaw <= 0)
+        {
+            _legacyContact = default;
+            return;
+        }
+
+        _legacyContact.SeenThisFrame = false;
     }
 
     private void EnsureSlotCapacity(int slot)
@@ -189,5 +306,16 @@ public sealed class LinuxMtFrameAssembler
         public int YRaw;
         public int PressureRaw;
         public int OrientationRaw;
+    }
+
+    private struct LegacyContactState
+    {
+        public bool IsActive;
+        public bool SeenThisFrame;
+        public int XRaw;
+        public int YRaw;
+        public int PressureRaw;
+        public int TouchMajorRaw;
+        public int TouchMinorRaw;
     }
 }
