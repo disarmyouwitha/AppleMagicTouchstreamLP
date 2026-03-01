@@ -54,6 +54,18 @@ load_config() {
 resolve_notary_args() {
     NOTARY_ARGS=()
 
+    if [[ -n "${NOTARY_KEYCHAIN_PROFILE:-}" ]]; then
+        NOTARY_ARGS=(
+            --keychain-profile "$NOTARY_KEYCHAIN_PROFILE"
+        )
+        if [[ -n "${NOTARY_KEYCHAIN_PATH:-}" ]]; then
+            NOTARY_ARGS+=(
+                --keychain "$NOTARY_KEYCHAIN_PATH"
+            )
+        fi
+        return
+    fi
+
     if [[ -n "${APPLE_ID:-}" || -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
         : "${APPLE_ID:?APPLE_ID is required for Apple ID auth}"
         : "${APPLE_APP_SPECIFIC_PASSWORD:?APPLE_APP_SPECIFIC_PASSWORD is required for Apple ID auth}"
@@ -235,7 +247,7 @@ gatekeeper_assess() {
     log_step "Running Gatekeeper assessment"
     spctl --assess --type execute --verbose=4 "$APP_PATH"
     if [[ -n "${FINAL_DMG_PATH:-}" ]]; then
-        spctl --assess --type open --verbose=4 "$FINAL_DMG_PATH"
+        spctl --assess --type open --context context:primary-signature --verbose=4 "$FINAL_DMG_PATH"
     fi
     log_pass "Gatekeeper checks passed"
 }
@@ -261,6 +273,13 @@ create_dmg() {
     return 1
 }
 
+sign_dmg() {
+    log_step "Signing DMG container"
+    codesign --force --timestamp --sign "$DEVELOPER_ID_APPLICATION_CERT" "$FINAL_DMG_PATH"
+    codesign --verify --strict --verbose=2 "$FINAL_DMG_PATH"
+    log_pass "DMG signing verified"
+}
+
 create_zip_fallback() {
     local version_dir="$RELEASE_ROOT/$MARKETING_VERSION-$BUILD_NUMBER"
     FINAL_ZIP_PATH="$version_dir/$APP_NAME-$MARKETING_VERSION.zip"
@@ -269,6 +288,15 @@ create_zip_fallback() {
     log_step "Creating ZIP fallback artifact"
     ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$FINAL_ZIP_PATH"
     log_pass "ZIP created at $FINAL_ZIP_PATH"
+}
+
+create_app_notary_zip() {
+    APP_NOTARY_ZIP_PATH="$RELEASE_ROOT/$APP_NAME-$MARKETING_VERSION-$BUILD_NUMBER-notarization.zip"
+    log_step "Creating app ZIP for notarization submission"
+    mkdir -p "$RELEASE_ROOT"
+    rm -f "$APP_NOTARY_ZIP_PATH"
+    ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$APP_NOTARY_ZIP_PATH"
+    log_pass "App notarization ZIP created at $APP_NOTARY_ZIP_PATH"
 }
 
 main() {
@@ -280,10 +308,12 @@ main() {
     verify_universal_binary
     sign_nested_code
     sign_app
-    notarize "$APP_PATH" "app bundle"
+    create_app_notary_zip
+    notarize "$APP_NOTARY_ZIP_PATH" "app bundle ZIP"
     staple_and_validate "$APP_PATH" "app bundle"
 
     if create_dmg; then
+        sign_dmg
         notarize "$FINAL_DMG_PATH" "DMG"
         staple_and_validate "$FINAL_DMG_PATH" "DMG"
     else
