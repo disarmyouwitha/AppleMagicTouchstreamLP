@@ -191,10 +191,17 @@ Reason: the platform work is in input/output and permissions, not in drawing con
 Use stable Linux device identity from:
 
 - `/dev/input/by-id/*`
+- device `uniq` when `/dev/input/by-id/*` is not present, which was the case for the tested Bluetooth Apple trackpads
 - udev properties for vendor/product
 - device name and phys path as fallback
 
 Do not key device selection off ephemeral `/dev/input/eventN` numbers.
+
+Observed on current Ubuntu 24.04 hardware:
+
+- USB Apple trackpads exposed stable `/dev/input/by-id/*` links
+- Bluetooth Apple trackpads did not expose `/dev/input/by-id/*` links
+- both transports exposed the same multitouch axis ranges and worked with the same normalized evdev frame path
 
 ## Proposed refactor in this repo
 

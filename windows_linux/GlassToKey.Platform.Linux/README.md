@@ -18,5 +18,7 @@ Current caveats:
 
 - On the current Ubuntu 24.04 setup, Apple Magic Trackpads expose usable evdev traffic and can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node.
 - `EVIOCGABS` works on the host devices and reports real axis ranges. It may still be denied inside the sandboxed coding environment, so validation in this environment may require escalation rather than product-side fallback logic.
+- Over Bluetooth, Apple trackpads on this machine do not show up under `/dev/input/by-id`; the backend should fall back to `uniq` for stable identity.
+- The validated Bluetooth event nodes used the same axis ranges and normalized frame path as USB, so the Linux backend should keep one transport-agnostic evdev pipeline.
 
 This project should not contain gesture behavior or layout logic. Those belong in `GlassToKey.Core`.

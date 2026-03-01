@@ -60,6 +60,8 @@
 - Linux evdev reality on the current Ubuntu hardware: Apple trackpads can expose Type B multitouch slot events and parallel legacy absolute events on the same node. Do not assume slot-only traffic.
 - `EVIOCGABS` works on the real device and currently reports `slot 0..15`, `X -3678..3934`, `Y -2478..2587`, and pressure `0..253` on both tested trackpad families here. Linux code should normalize coordinates by subtracting axis minima, yielding the expected spans `MaxX=7612` and `MaxY=5065`. It may still fail inside the sandboxed coding environment even when normal event reads succeed. Treat that as a sandbox artifact first, not immediately as a driver limitation.
 - When Apple exposes multiple event interfaces for one physical trackpad, prefer the `-if01-event-mouse` node. On the tested Lightning trackpad, `event22` (`if01`) carried the real multitouch stream while `event21` was inactive during touch capture.
+- Over Bluetooth, `/dev/input/by-id` is not present for the tested Apple trackpads. Use the device `uniq` value as the stable-id fallback there.
+- The tested Bluetooth nodes were `/dev/input/event10` (older trackpad) and `/dev/input/event13` (USB-C trackpad). Both validated with the same `EVIOCGABS` ranges and the same normalized frame path as USB.
 
 ## Key Files
 - `GlassToKey/TouchRuntimeService.cs`: current Windows hot path and runtime host.

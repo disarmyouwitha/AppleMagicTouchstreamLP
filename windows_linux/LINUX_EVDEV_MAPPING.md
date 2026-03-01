@@ -107,6 +107,7 @@ Each selected Linux trackpad should be opened as a separate evdev device.
 Use stable identity from:
 
 - `/dev/input/by-id/*` if available
+- device `uniq` when `/dev/input/by-id/*` is absent, which was the case for the tested Bluetooth trackpads
 - udev properties for vendor/product
 - device name plus physical path as fallback
 
@@ -349,6 +350,8 @@ Current real-device note:
 - both connected Apple trackpads on Ubuntu 24.04 produced coherent contact movement from the raw evdev stream
 - current tested ranges are `X -3678..3934` and `Y -2478..2587`, so Linux should normalize by subtracting axis minima and pass spans `MaxX=7612` and `MaxY=5065`
 - `EVIOCGABS` may still need an escalated validation path when the sandbox blocks the ioctl even though the host kernel supports it
+- the same ranges and normalized frame path were validated over both USB and Bluetooth on the tested Apple trackpads
+- Bluetooth transport did not provide `/dev/input/by-id` symlinks on this machine, so stable identity fell back to `uniq`
 
 ## `ContactFrame.Flags`
 
