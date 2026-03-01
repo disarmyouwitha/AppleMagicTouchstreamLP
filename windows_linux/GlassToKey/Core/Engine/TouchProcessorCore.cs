@@ -907,7 +907,8 @@ internal sealed class TouchProcessorCore
                 RepeatToken: 0,
                 LastForceNorm: forceNorm,
                 PeakForceNorm: forceNorm,
-                DispatchDownLabel: string.Empty);
+                DispatchDownLabel: string.Empty,
+                DispatchDownSemanticAction: DispatchSemanticAction.None);
             _touchStates.Set(touchKey, offKey);
             return;
         }
@@ -936,7 +937,8 @@ internal sealed class TouchProcessorCore
             RepeatToken: 0,
             LastForceNorm: forceNorm,
             PeakForceNorm: forceNorm,
-            DispatchDownLabel: string.Empty);
+            DispatchDownLabel: string.Empty,
+            DispatchDownSemanticAction: DispatchSemanticAction.None);
 
         _touchStates.Set(touchKey, next);
         if (next.MomentaryLayerTarget >= 0)
@@ -1368,8 +1370,9 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride,
-                    forceNorm))
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.ModifierDown;
@@ -1378,6 +1381,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = 0;
                     state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
                 }
                 break;
             case EngineActionKind.Continuous:
@@ -1401,8 +1405,9 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride,
-                    forceNorm))
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
@@ -1411,6 +1416,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
                 }
                 break;
             case EngineActionKind.KeyChord:
@@ -1432,8 +1438,9 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride,
-                    forceNorm))
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
                 {
                     return;
                 }
@@ -1453,8 +1460,9 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     timestampTicks,
                     dispatchLabel: action.Label,
-                    allowTypingDisabledOverride,
-                    forceNorm))
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
                 {
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
@@ -1463,6 +1471,7 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
                 }
                 else
                 {
@@ -1475,8 +1484,9 @@ internal sealed class TouchProcessorCore
                         state.Side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                 }
                 break;
             default:
@@ -1570,7 +1580,8 @@ internal sealed class TouchProcessorCore
                     DispatchEventFlags.None,
                     state.Side,
                     timestampTicks,
-                    dispatchLabel: state.DispatchDownLabel);
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
                 break;
             case DispatchEventKind.KeyDown:
                 EnqueueDispatchEvent(
@@ -1581,7 +1592,8 @@ internal sealed class TouchProcessorCore
                     DispatchEventFlags.None,
                     state.Side,
                     timestampTicks,
-                    dispatchLabel: state.DispatchDownLabel);
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
                 if (state.DispatchDownModifierVirtualKey != 0)
                 {
                     EnqueueDispatchEvent(
@@ -1592,7 +1604,8 @@ internal sealed class TouchProcessorCore
                         DispatchEventFlags.None,
                         state.Side,
                         timestampTicks,
-                        dispatchLabel: state.DispatchDownLabel);
+                        dispatchLabel: state.DispatchDownLabel,
+                        semanticAction: state.DispatchDownSemanticAction);
                 }
                 break;
             case DispatchEventKind.MouseButtonDown:
@@ -1604,7 +1617,8 @@ internal sealed class TouchProcessorCore
                     DispatchEventFlags.None,
                     state.Side,
                     timestampTicks,
-                    dispatchLabel: state.DispatchDownLabel);
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
                 break;
             default:
                 break;
@@ -1617,6 +1631,7 @@ internal sealed class TouchProcessorCore
         state.DispatchDownMouseButton = DispatchMouseButton.None;
         state.RepeatToken = 0;
         state.DispatchDownLabel = string.Empty;
+        state.DispatchDownSemanticAction = DispatchSemanticAction.None;
     }
 
     private void ApplyReleaseAction(
@@ -1660,8 +1675,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                 }
                 break;
             case EngineActionKind.Modifier:
@@ -1680,8 +1696,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.VirtualKey,
@@ -1691,8 +1708,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                 }
                 break;
             case EngineActionKind.MouseButton:
@@ -1714,6 +1732,7 @@ internal sealed class TouchProcessorCore
                             side,
                             timestampTicks,
                             dispatchLabel: action.Label,
+                            semanticAction: action.SemanticAction,
                             forceNorm: forceNorm);
                     }
                 }
@@ -1730,8 +1749,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.KeyTap,
                         action.VirtualKey,
@@ -1743,8 +1763,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                     EnqueueDispatchEvent(
                         DispatchEventKind.ModifierUp,
                         action.ModifierVirtualKey,
@@ -1754,8 +1775,9 @@ internal sealed class TouchProcessorCore
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
-                        allowTypingDisabledOverride,
-                        forceNorm);
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
                 }
                 break;
             default:
@@ -1901,6 +1923,7 @@ internal sealed class TouchProcessorCore
         TrackpadSide side,
         long timestampTicks,
         string dispatchLabel = "",
+        DispatchSemanticAction semanticAction = default,
         bool allowTypingDisabledOverride = false,
         int forceNorm = -1)
     {
@@ -2000,7 +2023,8 @@ internal sealed class TouchProcessorCore
             repeatToken,
             flags,
             side,
-            normalizedDispatchLabel);
+            normalizedDispatchLabel,
+            semanticAction);
         _dispatchRingHead = (_dispatchRingHead + 1) % _dispatchRing.Length;
         _dispatchRingCount++;
         _dispatchEnqueued++;
@@ -2686,12 +2710,14 @@ internal sealed class TouchProcessorCore
                 gesture.Side,
                 nowTicks,
                 dispatchLabel: holdAction.Label,
+                semanticAction: holdAction.SemanticAction,
                 allowTypingDisabledOverride: true))
             {
                 gesture.DispatchDownSent = true;
                 gesture.DispatchDownVirtualKey = holdAction.VirtualKey;
                 gesture.RepeatToken = repeatToken;
                 gesture.DispatchDownLabel = holdAction.Label;
+                gesture.DispatchDownSemanticAction = holdAction.SemanticAction;
             }
         }
         else
@@ -2719,12 +2745,14 @@ internal sealed class TouchProcessorCore
             gesture.Side,
             nowTicks,
             dispatchLabel: gesture.DispatchDownLabel,
+            semanticAction: gesture.DispatchDownSemanticAction,
             allowTypingDisabledOverride: true);
 
         gesture.DispatchDownSent = false;
         gesture.DispatchDownVirtualKey = 0;
         gesture.RepeatToken = 0;
         gesture.DispatchDownLabel = string.Empty;
+        gesture.DispatchDownSemanticAction = DispatchSemanticAction.None;
     }
 
     private static ulong BuildMultiFingerHoldRepeatToken(TrackpadSide side, int requiredContactCount)
@@ -4106,7 +4134,8 @@ internal sealed class TouchProcessorCore
             DispatchEventFlags.None,
             side: TrackpadSide.Left,
             timestampTicks,
-            dispatchLabel: "ChordShift"))
+            dispatchLabel: "ChordShift",
+            semanticAction: new DispatchSemanticAction(DispatchSemanticKind.Modifier, "ChordShift")))
         {
             _chordShiftKeyDown = shouldBeDown;
             RecordDiagnostic(
@@ -4498,7 +4527,8 @@ internal sealed class TouchProcessorCore
             ulong RepeatToken,
             int LastForceNorm,
             int PeakForceNorm,
-            string DispatchDownLabel)
+            string DispatchDownLabel,
+            DispatchSemanticAction DispatchDownSemanticAction)
         {
             this.Side = Side;
             this.BindingIndex = BindingIndex;
@@ -4522,6 +4552,7 @@ internal sealed class TouchProcessorCore
             this.LastForceNorm = LastForceNorm;
             this.PeakForceNorm = PeakForceNorm;
             this.DispatchDownLabel = DispatchDownLabel;
+            this.DispatchDownSemanticAction = DispatchDownSemanticAction;
         }
 
         public TrackpadSide Side;
@@ -4546,6 +4577,7 @@ internal sealed class TouchProcessorCore
         public int LastForceNorm;
         public int PeakForceNorm;
         public string DispatchDownLabel;
+        public DispatchSemanticAction DispatchDownSemanticAction;
     }
 
     private struct MultiFingerHoldGesture
@@ -4564,6 +4596,7 @@ internal sealed class TouchProcessorCore
             this.DispatchDownVirtualKey = 0;
             this.RepeatToken = 0;
             this.DispatchDownLabel = string.Empty;
+            this.DispatchDownSemanticAction = DispatchSemanticAction.None;
         }
 
         public bool Active;
@@ -4574,6 +4607,7 @@ internal sealed class TouchProcessorCore
         public ushort DispatchDownVirtualKey;
         public ulong RepeatToken;
         public string DispatchDownLabel;
+        public DispatchSemanticAction DispatchDownSemanticAction;
     }
 
     private struct TriangleGesture

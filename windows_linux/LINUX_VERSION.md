@@ -244,10 +244,16 @@ Recommended change:
   - `SemanticKey.Enter`
   - `SemanticModifier.Shift`
   - `SemanticMouseButton.Left`
-  - `SemanticAction.BrightnessUp`
+- `SemanticAction.BrightnessUp`
 - have each platform map semantic actions to native output codes
 
 This avoids making Linux pretend that Windows VK codes are portable.
+
+Current repo status:
+
+- the shared dispatch model now carries `DispatchSemanticAction` metadata alongside Windows VK fields
+- `EngineKeyAction` now preserves semantic identity through dispatch generation instead of relying on VKs alone
+- Windows still uses the existing VK-based output path, but Linux output work now has a semantic payload to target
 
 ### Step 3: add a Linux runtime backend
 
@@ -272,6 +278,12 @@ Suggested internal pieces:
 - `LinuxInputRuntimeService`
 - `LinuxUinputDispatcher`
 - `LinuxPermissionProbe`
+
+Current repo status:
+
+- `LinuxInputRuntimeService` can now stream frames either to a Linux-specific observer or directly into the shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam
+- `GlassToKey.Linux` exposes `probe-uinput` to validate `/dev/uinput` presence and rw access separately from evdev capture
+- real `uinput` injection is still pending
 
 ### Step 4: add a Linux app host
 

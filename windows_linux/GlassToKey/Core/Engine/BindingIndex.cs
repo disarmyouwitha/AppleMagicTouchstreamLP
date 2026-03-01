@@ -246,7 +246,7 @@ internal static class EngineActionResolver
         string resolved = string.IsNullOrWhiteSpace(label) ? fallbackLabel : label.Trim();
         if (DispatchKeyResolver.TryResolveMouseButton(resolved, out DispatchMouseButton mouseButton))
         {
-            return new EngineKeyAction(EngineActionKind.MouseButton, resolved, LayerTarget: 0, VirtualKey: 0, MouseButton: mouseButton);
+            return CreateAction(EngineActionKind.MouseButton, resolved, mouseButton: mouseButton);
         }
 
         if (TryParseLayerAction(resolved, "MO(", EngineActionKind.MomentaryLayer, out EngineKeyAction momentary))
@@ -270,14 +270,14 @@ internal static class EngineActionResolver
             resolved.Equals("Typing Toggle", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("Typing Toggle (Dispatch)", StringComparison.OrdinalIgnoreCase))
         {
-            return new EngineKeyAction(EngineActionKind.TypingToggle, resolved, 0);
+            return CreateAction(EngineActionKind.TypingToggle, resolved);
         }
 
         if (resolved.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("ChordShift", StringComparison.OrdinalIgnoreCase))
         {
-            return new EngineKeyAction(EngineActionKind.Modifier, resolved, 0, 0x10);
+            return CreateAction(EngineActionKind.Modifier, resolved, virtualKey: 0x10);
         }
 
         if (TryParseModifierChord(resolved, "Ctrl+", 0x11, out EngineKeyAction chord))
@@ -292,24 +292,20 @@ internal static class EngineActionResolver
 
         if (resolved.Equals("EMOJI", StringComparison.OrdinalIgnoreCase))
         {
-            return new EngineKeyAction(
+            return CreateAction(
                 EngineActionKind.KeyChord,
                 resolved,
-                LayerTarget: 0,
-                VirtualKey: 0xBE, // .
-                MouseButton: DispatchMouseButton.None,
-                ModifierVirtualKey: 0x5B); // LWin
+                virtualKey: 0xBE,
+                modifierVirtualKey: 0x5B);
         }
 
         if (resolved.Equals("VOICE", StringComparison.OrdinalIgnoreCase))
         {
-            return new EngineKeyAction(
+            return CreateAction(
                 EngineActionKind.KeyChord,
                 resolved,
-                LayerTarget: 0,
-                VirtualKey: 0x48, // H
-                MouseButton: DispatchMouseButton.None,
-                ModifierVirtualKey: 0x5B); // LWin
+                virtualKey: 0x48,
+                modifierVirtualKey: 0x5B);
         }
 
         if (TryParseShiftChord(resolved, out EngineKeyAction shiftChord))
@@ -319,17 +315,17 @@ internal static class EngineActionResolver
 
         if (DispatchKeyResolver.TryResolveModifierVirtualKey(resolved, out ushort modifierKey))
         {
-            return new EngineKeyAction(EngineActionKind.Modifier, resolved, 0, modifierKey);
+            return CreateAction(EngineActionKind.Modifier, resolved, virtualKey: modifierKey);
         }
 
         if (IsContinuousActionLabel(resolved))
         {
             if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort continuousVk))
             {
-                return new EngineKeyAction(EngineActionKind.Continuous, resolved, 0, continuousVk);
+                return CreateAction(EngineActionKind.Continuous, resolved, virtualKey: continuousVk);
             }
 
-            return new EngineKeyAction(EngineActionKind.Continuous, resolved, 0);
+            return CreateAction(EngineActionKind.Continuous, resolved);
         }
 
         if (resolved.Equals("None", StringComparison.OrdinalIgnoreCase))
@@ -341,15 +337,15 @@ internal static class EngineActionResolver
             resolved.Equals("—", StringComparison.Ordinal))
         {
             // Best-effort alias: emit OEM minus key.
-            return new EngineKeyAction(EngineActionKind.Key, resolved, 0, 0xBD);
+            return CreateAction(EngineActionKind.Key, resolved, virtualKey: 0xBD);
         }
 
         if (DispatchKeyResolver.TryResolveVirtualKey(resolved, out ushort virtualKey))
         {
-            return new EngineKeyAction(EngineActionKind.Key, resolved, 0, virtualKey);
+            return CreateAction(EngineActionKind.Key, resolved, virtualKey: virtualKey);
         }
 
-        return new EngineKeyAction(EngineActionKind.Key, resolved, 0);
+        return CreateAction(EngineActionKind.Key, resolved);
     }
 
     private static bool IsContinuousActionLabel(string label)
@@ -383,7 +379,8 @@ internal static class EngineActionResolver
             LayerTarget: 0,
             VirtualKey: keyVk,
             MouseButton: DispatchMouseButton.None,
-            ModifierVirtualKey: modifierVirtualKey);
+            ModifierVirtualKey: modifierVirtualKey,
+            SemanticAction: CreateSemanticAction(EngineActionKind.KeyChord, text));
         return true;
     }
 
@@ -427,7 +424,8 @@ internal static class EngineActionResolver
             LayerTarget: 0,
             VirtualKey: vk,
             MouseButton: DispatchMouseButton.None,
-            ModifierVirtualKey: 0x10);
+            ModifierVirtualKey: 0x10,
+            SemanticAction: CreateSemanticAction(EngineActionKind.KeyChord, text));
         return true;
     }
 
@@ -456,7 +454,44 @@ internal static class EngineActionResolver
             return false;
         }
 
-        action = new EngineKeyAction(kind, text, Math.Clamp(layer, 0, 7));
+        action = CreateAction(kind, text, layerTarget: Math.Clamp(layer, 0, 7));
         return true;
+    }
+
+    private static EngineKeyAction CreateAction(
+        EngineActionKind kind,
+        string label,
+        int layerTarget = 0,
+        ushort virtualKey = 0,
+        DispatchMouseButton mouseButton = DispatchMouseButton.None,
+        ushort modifierVirtualKey = 0)
+    {
+        return new EngineKeyAction(
+            kind,
+            label,
+            layerTarget,
+            virtualKey,
+            mouseButton,
+            modifierVirtualKey,
+            CreateSemanticAction(kind, label));
+    }
+
+    private static DispatchSemanticAction CreateSemanticAction(EngineActionKind kind, string label)
+    {
+        DispatchSemanticKind semanticKind = kind switch
+        {
+            EngineActionKind.Key => DispatchSemanticKind.Key,
+            EngineActionKind.MomentaryLayer => DispatchSemanticKind.MomentaryLayer,
+            EngineActionKind.LayerSet => DispatchSemanticKind.LayerSet,
+            EngineActionKind.LayerToggle => DispatchSemanticKind.LayerToggle,
+            EngineActionKind.TypingToggle => DispatchSemanticKind.TypingToggle,
+            EngineActionKind.Modifier => DispatchSemanticKind.Modifier,
+            EngineActionKind.Continuous => DispatchSemanticKind.Continuous,
+            EngineActionKind.MouseButton => DispatchSemanticKind.MouseButton,
+            EngineActionKind.KeyChord => DispatchSemanticKind.KeyChord,
+            _ => DispatchSemanticKind.None
+        };
+
+        return new DispatchSemanticAction(semanticKind, label);
     }
 }

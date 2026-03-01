@@ -2,6 +2,7 @@ using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Contracts;
+using GlassToKey.Platform.Linux.Uinput;
 using GlassToKey.Platform.Linux;
 
 namespace GlassToKey.Linux;
@@ -36,6 +37,11 @@ internal static class Program
         if (string.Equals(args[0], "probe-axes", StringComparison.OrdinalIgnoreCase))
         {
             return ProbeAxes(args);
+        }
+
+        if (string.Equals(args[0], "probe-uinput", StringComparison.OrdinalIgnoreCase))
+        {
+            return ProbeUinput();
         }
 
         if (string.Equals(args[0], "watch-runtime", StringComparison.OrdinalIgnoreCase))
@@ -81,6 +87,7 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux read-frames [device-node-or-stable-id] [seconds] [max-frames]");
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
+        Console.WriteLine("  GlassToKey.Linux probe-uinput");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
     }
 
@@ -224,6 +231,20 @@ internal static class Program
         Console.WriteLine($"  {label}: min={axis.Minimum} max={axis.Maximum} value={axis.Value} res={axis.Resolution}");
     }
 
+    private static int ProbeUinput()
+    {
+        LinuxUinputPermissionProbe probe = new();
+        LinuxUinputAccessStatus status = probe.Probe();
+
+        Console.WriteLine("uinput probe");
+        Console.WriteLine($"  Node: {status.DeviceNode}");
+        Console.WriteLine($"  Present: {status.DevicePresent}");
+        Console.WriteLine($"  ReadWriteAccess: {status.CanOpenReadWrite}");
+        Console.WriteLine($"  Access: {status.AccessError}");
+        Console.WriteLine($"  Guidance: {status.Guidance}");
+        return status.IsReady ? 0 : 1;
+    }
+
     private static async Task<int> WatchRuntimeAsync(string[] args)
     {
         double seconds = args.Length >= 2 && double.TryParse(args[1], out double parsedSeconds)
@@ -256,18 +277,25 @@ internal static class Program
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
         LinuxInputRuntimeService runtime = new();
-        ConsoleRuntimeFrameSink sink = new();
         Console.WriteLine($"Watching runtime for {seconds:0.##}s on {bindings.Count} trackpad(s).");
-        await runtime.RunAsync(bindings, sink, cts.Token).ConfigureAwait(false);
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = bindings[index];
+            Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
+        }
+
+        ConsoleTrackpadFrameTarget target = new();
+        await runtime.RunAsync(bindings, target, cts.Token).ConfigureAwait(false);
         return 0;
     }
 
-    private sealed class ConsoleRuntimeFrameSink : ILinuxInputFrameSink
+    private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget
     {
-        public ValueTask OnFrameAsync(LinuxRuntimeFrame frame, CancellationToken cancellationToken)
+        public bool Post(in TrackpadFrameEnvelope frame)
         {
-            Console.WriteLine($"{frame.Binding.Side}: {frame.Binding.Device.DeviceNode} frame={frame.Snapshot.FrameSequence} contacts={frame.Snapshot.Frame.ContactCount} button={frame.Snapshot.Frame.IsButtonPressed}");
-            return ValueTask.CompletedTask;
+            Console.WriteLine(
+                $"{frame.Side}: contacts={frame.Frame.ContactCount} button={frame.Frame.IsButtonPressed} max=({frame.MaxX},{frame.MaxY}) ts={frame.TimestampTicks}");
+            return true;
         }
     }
 }

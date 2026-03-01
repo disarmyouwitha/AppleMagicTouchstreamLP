@@ -67,9 +67,13 @@ internal readonly record struct EngineKeyAction(
     int LayerTarget = 0,
     ushort VirtualKey = 0,
     DispatchMouseButton MouseButton = DispatchMouseButton.None,
-    ushort ModifierVirtualKey = 0)
+    ushort ModifierVirtualKey = 0,
+    DispatchSemanticAction SemanticAction = default)
 {
-    public static EngineKeyAction None => new(EngineActionKind.None, "None");
+    public static EngineKeyAction None => new(
+        EngineActionKind.None,
+        "None",
+        SemanticAction: new DispatchSemanticAction(DispatchSemanticKind.None, "None"));
 }
 
 internal readonly record struct EngineKeyMapping(

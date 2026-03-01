@@ -59,6 +59,7 @@ Responsibilities:
 - keymap JSON model
 - replay/test logic
 - platform-neutral action semantics
+- shared frame-target seam for posting normalized trackpad frames into the engine path
 
 This project should not know anything about:
 
@@ -83,6 +84,7 @@ Responsibilities:
 - Linux device reconnect handling
 - virtual keyboard/mouse output via `uinput`
 - Linux permission probing
+- runtime adapters that can hand normalized `InputFrame` data directly to shared core-facing targets
 
 This project should not own:
 
@@ -258,6 +260,12 @@ Suggested first namespaces:
 - `GlassToKey.Platform.Linux.Devices`
 - `GlassToKey.Platform.Linux.Evdev`
 - `GlassToKey.Platform.Linux.Uinput`
+
+Current repo status:
+
+- `DispatchModels` already carries `DispatchSemanticAction` metadata, which is the first concrete split away from Windows-only VK assumptions
+- `LinuxInputRuntimeService` already supports both a Linux observer seam and a direct shared `ITrackpadFrameTarget` seam
+- `LinuxUinputPermissionProbe` exists as the first production-oriented output/permission stub
 - `GlassToKey.Platform.Linux.Models`
 
 ## `GlassToKey.Linux`
