@@ -346,8 +346,10 @@ Current repo status:
 - `GlassToKey.Platform.Linux` now contains a working evdev path, `uinput` dispatcher, and runtime service
 - the shared engine/layout/keymap/runtime-host path now builds on Linux and has been validated end-to-end through `run-engine`
 - the Linux output path now resolves semantic key/modifier codes before falling back to Windows VK compatibility
-- the Linux host now has XDG-backed settings, stable-id device selection, generated `udev` rule output, and its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`
-- the remaining big cleanup is broad semantic coverage for every platform-specific action label and stronger Linux-side replay/self-test coverage
+- the Linux host now has XDG-backed settings, stable-id device selection, generated `udev` rule output, a Linux-specific bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and a `selftest` command that validates the bundled Linux keymap and semantic-to-evdev coverage
+- the bundled Linux keymap payload has been translated away from the remaining Windows-only defaults, and semantic coverage now includes the Linux media/brightness aliases used by that default keymap
+- the Linux host now also has checked-in publish profiles for framework-dependent and self-contained `linux-x64` publishes, so packaging work has started moving into versioned repo artifacts
+- the remaining big cleanup is broader semantic coverage beyond the currently validated label set, stronger replay/capture-based Linux diagnostics, and a packaged install flow
 
 ## Phase 3: engine extraction
 
@@ -395,6 +397,12 @@ Add:
 - XDG settings
 - diagnostics
 - packaging hooks
+
+Current status:
+
+- achieved enough to call this phase active
+- the CLI host, XDG settings, diagnostics commands, and packaging scaffolding now exist
+- the next step inside this phase is packaging polish: publish outputs, install docs, `udev` integration, and eventually a GUI
 
 ## Concrete v1 Linux file plan
 

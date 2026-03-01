@@ -256,6 +256,7 @@ Current repo status:
 - Windows still uses the existing VK-based output path, but Linux output work now has a semantic payload to target
 - the Linux dispatcher now maps semantic codes to evdev output before falling back to VK compatibility
 - the Linux `uinput` dispatcher now exists and can emit key/button output through a virtual device on this host
+- semantic coverage now includes the Linux bundled default's media and brightness aliases (`VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, `BRIGHT_DOWN`) so those actions no longer depend on VK fallback
 
 ### Step 3: add a Linux runtime backend
 
@@ -289,7 +290,9 @@ Current repo status:
 - `GlassToKey.Linux run-engine 10` has now been validated end-to-end on the host: evdev input -> shared engine host -> dispatch pump -> `uinput` output into a focused desktop app
 - `GlassToKey.Linux` now also has an XDG-backed runtime/config layer with stable-id device selection, layout preset resolution, optional keymap-path override, and generated `udev` rule output
 - `GlassToKey.Linux` now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, so Linux defaults can diverge from Windows without forking the shared keymap schema
-- this means the Linux work is past proof-of-life and into real runtime integration, even though packaging, config UI, and semantic cleanup are still in progress
+- `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks the current semantic-to-evdev mapping surface without touching the runtime hot path
+- `GlassToKey.Linux` now also checks in publish profiles for framework-dependent and self-contained `linux-x64` publishes
+- this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
 
@@ -353,7 +356,7 @@ Current status:
 
 - partially achieved
 - the shared engine/layout/keymap/runtime-host path now builds on Linux and can run live through `run-engine`
-- deterministic replay/self-tests still need to be formalized on the Linux side
+- the Linux host now has a dedicated `selftest` command for bundled keymap and semantic mapping validation, but replay/capture-driven Linux diagnostics still need to be formalized
 
 ## Note on tracing vs capture
 
@@ -427,6 +430,12 @@ Deliverables:
 Exit criteria:
 
 - user can select trackpad(s), type, remap, restart, and recover from unplug/replug
+
+Current status:
+
+- active, early
+- users can now select devices through the current CLI/XDG settings path, type through the live engine path, and validate permissions/runtime state through `show-config`, `probe-uinput`, `print-udev-rules`, and `selftest`
+- GUI-based selection/remapping, unplug/replug polish, and packaged install flow still need work
 
 Estimated effort:
 
@@ -544,6 +553,14 @@ Recommended deliverables:
 - Debian package or install script
 - udev rule file
 - post-install permission check command
+
+Current repo status:
+
+- `print-udev-rules` already emits a targeted rule template for the currently detected Apple trackpads and `/dev/uinput`
+- checked-in publish profiles now exist for:
+  - framework-dependent `linux-x64`
+  - self-contained single-file `linux-x64`
+- a real installer or `.deb` does not exist yet
 
 Example permission areas to document:
 

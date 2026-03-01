@@ -14,7 +14,7 @@
 - `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
 - `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
-- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `show-config`, `init-config`, `print-udev-rules`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes.
 
 ## What To Build
 - For Windows app work, target `GlassToKey/GlassToKey.csproj`.
@@ -46,13 +46,20 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- init-config`
 - Linux packaged permission rule output:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- print-udev-rules`
+- Linux host self-test:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- selftest`
 - Linux uinput smoke test:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- uinput-smoke A B Enter`
 - Linux runtime watch:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- watch-runtime 10`
 - Linux engine runtime:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- run-engine 10`
+- Linux framework-dependent publish:
+  - `dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxFrameworkDependent`
+- Linux self-contained publish:
+  - `dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained`
 - In the current Ubuntu 24.04 shell, the three Linux-targeted build commands above were verified.
+- Run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially. Parallel publishes can collide in shared `bin/` / `obj/` paths.
 
 ## Directory Map
 - `GlassToKey/`: Windows runtime, WPF UI, Raw Input, dispatch, replay, diagnostics, tray behavior.
@@ -61,7 +68,7 @@
 - `GlassToKey/Core/Diagnostics/`: replay, capture, raw analysis, and self-test infrastructure.
 - `GlassToKey.Core/`: future platform-neutral engine/library.
 - `GlassToKey.Platform.Linux/`: Linux device enumeration, evdev/uinput backend in progress.
-- `GlassToKey.Linux/`: Linux CLI host in progress.
+- `GlassToKey.Linux/`: Linux CLI host and early packaging/publish surface.
 - `LINUX_PROJECT_SKELETON.md`, `LINUX_VERSION.md`, `LINUX_EVDEV_MAPPING.md`: planning docs for the migration.
 
 ## Important Boundaries
@@ -77,8 +84,11 @@
 - The tested Bluetooth nodes were `/dev/input/event10` (older trackpad) and `/dev/input/event13` (USB-C trackpad). Both validated with the same `EVIOCGABS` ranges and the same normalized frame path as USB.
 - The Linux host now uses an XDG-backed settings file for stable-id device selection. `show-config` was validated with `XDG_CONFIG_HOME=/tmp/...` and resolved the Bluetooth trackpads by `uniq`.
 - Linux and Windows are now allowed to ship different bundled default keymaps as long as they keep the shared keymap schema and action vocabulary intact. `GlassToKey.Linux/GLASSTOKEY_DEFAULT_KEYMAP.json` is now the Linux host default.
+- The Linux bundled default now resolves `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` through semantic codes and Linux evdev mappings instead of depending on Windows-VK fallback.
 - The Linux `run-engine` command has now been validated end-to-end on the host: evdev input -> shared engine host -> dispatch pump -> `uinput` output into a real focused app.
 - `print-udev-rules` now emits a targeted packaging template for the currently detected Apple trackpad vendor/product pairs plus `/dev/uinput`.
+- `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks semantic-to-evdev coverage for the current Linux action surface.
+- The repo now carries checked-in Linux publish profiles for framework-dependent and self-contained `linux-x64` publishes. Packaging is underway, but `.deb`/installer work is still not implemented.
 - Dispatch tracing for `run-engine` is optional diagnostic tooling, not a product requirement. It can help debug bindings or timing issues, but future `.atpcap` capture remains the better long-form artifact for deeper offline analysis.
 
 ## Key Files

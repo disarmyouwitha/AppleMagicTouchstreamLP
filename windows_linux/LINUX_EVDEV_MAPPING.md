@@ -11,6 +11,18 @@ The mapping is designed for:
 - mainline Linux `hid-magicmouse`
 - userspace ingestion through `evdev` or `libevdev`
 
+## Current implementation status
+
+The mapping in this document is no longer just planned behavior.
+
+Current repo status on the tested Ubuntu 24.04 host:
+
+- `LinuxEvdevReader` and `LinuxMtFrameAssembler` are implemented in `GlassToKey.Platform.Linux`
+- real `EVIOCGABS` probing is implemented and validated on both tested Apple trackpad families
+- the same normalized frame path has been validated over both USB and Bluetooth
+- `run-engine` has been validated end-to-end with live typing through the shared engine and Linux `uinput` output
+- force-click parity is still intentionally deferred because Linux pressure is not equivalent to the Windows Apple force/phase path
+
 ## Source event model
 
 Preferred model:
@@ -352,6 +364,7 @@ Current real-device note:
 - `EVIOCGABS` may still need an escalated validation path when the sandbox blocks the ioctl even though the host kernel supports it
 - the same ranges and normalized frame path were validated over both USB and Bluetooth on the tested Apple trackpads
 - Bluetooth transport did not provide `/dev/input/by-id` symlinks on this machine, so stable identity fell back to `uniq`
+- this mapping is now the active Linux runtime path used by `watch-runtime` and `run-engine`
 
 ## `ContactFrame.Flags`
 

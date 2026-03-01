@@ -6,6 +6,7 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <EnableSharedPortReferences>true</EnableSharedPortReferences>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
     <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />

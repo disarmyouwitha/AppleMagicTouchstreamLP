@@ -147,6 +147,8 @@ internal static class LinuxKeyCodeMapper
         table[(int)DispatchSemanticCode.Backslash] = LinuxEvdevCodes.KeyBackslash;
         table[(int)DispatchSemanticCode.RightBrace] = LinuxEvdevCodes.KeyRightBrace;
         table[(int)DispatchSemanticCode.Apostrophe] = LinuxEvdevCodes.KeyApostrophe;
+        table[(int)DispatchSemanticCode.VolumeDown] = LinuxEvdevCodes.KeyVolumeDown;
+        table[(int)DispatchSemanticCode.VolumeUp] = LinuxEvdevCodes.KeyVolumeUp;
         table[(int)DispatchSemanticCode.BrightnessDown] = LinuxEvdevCodes.KeyBrightnessDown;
         table[(int)DispatchSemanticCode.BrightnessUp] = LinuxEvdevCodes.KeyBrightnessUp;
 
@@ -236,6 +238,8 @@ internal static class LinuxKeyCodeMapper
         table[0xA3] = LinuxEvdevCodes.KeyRightCtrl;
         table[0xA4] = LinuxEvdevCodes.KeyLeftAlt;
         table[0xA5] = LinuxEvdevCodes.KeyRightAlt;
+        table[0xAE] = LinuxEvdevCodes.KeyVolumeDown;
+        table[0xAF] = LinuxEvdevCodes.KeyVolumeUp;
 
         table[0xBA] = LinuxEvdevCodes.KeySemicolon;
         table[0xBB] = LinuxEvdevCodes.KeyEqual;

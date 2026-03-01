@@ -112,6 +112,8 @@ public enum DispatchSemanticCode : ushort
     Backslash,
     RightBrace,
     Apostrophe,
+    VolumeDown,
+    VolumeUp,
     BrightnessDown,
     BrightnessUp
 }

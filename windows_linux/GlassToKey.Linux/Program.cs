@@ -57,9 +57,29 @@ internal static class Program
             return InitConfig();
         }
 
+        if (string.Equals(args[0], "bind-left", StringComparison.OrdinalIgnoreCase))
+        {
+            return BindTrackpad(args, TrackpadSide.Left);
+        }
+
+        if (string.Equals(args[0], "bind-right", StringComparison.OrdinalIgnoreCase))
+        {
+            return BindTrackpad(args, TrackpadSide.Right);
+        }
+
+        if (string.Equals(args[0], "swap-sides", StringComparison.OrdinalIgnoreCase))
+        {
+            return SwapSides();
+        }
+
         if (string.Equals(args[0], "print-udev-rules", StringComparison.OrdinalIgnoreCase))
         {
             return PrintUdevRules();
+        }
+
+        if (string.Equals(args[0], "selftest", StringComparison.OrdinalIgnoreCase))
+        {
+            return RunSelfTest();
         }
 
         if (string.Equals(args[0], "uinput-smoke", StringComparison.OrdinalIgnoreCase))
@@ -118,7 +138,11 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
         Console.WriteLine("  GlassToKey.Linux show-config");
         Console.WriteLine("  GlassToKey.Linux init-config");
+        Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
+        Console.WriteLine("  GlassToKey.Linux bind-right [device-node-or-stable-id]");
+        Console.WriteLine("  GlassToKey.Linux swap-sides");
         Console.WriteLine("  GlassToKey.Linux print-udev-rules");
+        Console.WriteLine("  GlassToKey.Linux selftest");
         Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
@@ -313,12 +337,52 @@ internal static class Program
         return 0;
     }
 
+    private static int BindTrackpad(string[] args, TrackpadSide side)
+    {
+        if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+        {
+            Console.Error.WriteLine($"Usage: GlassToKey.Linux {(side == TrackpadSide.Left ? "bind-left" : "bind-right")} [device-node-or-stable-id]");
+            return 1;
+        }
+
+        LinuxAppRuntime appRuntime = new();
+        if (!appRuntime.TryBindTrackpad(side, args[1], out string message))
+        {
+            Console.Error.WriteLine(message);
+            return 1;
+        }
+
+        Console.WriteLine(message);
+        return 0;
+    }
+
+    private static int SwapSides()
+    {
+        LinuxAppRuntime appRuntime = new();
+        string path = appRuntime.SwapTrackpadBindings();
+        Console.WriteLine($"Swapped left/right trackpad bindings in {path}");
+        return 0;
+    }
+
     private static int PrintUdevRules()
     {
         LinuxTrackpadEnumerator enumerator = new();
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
         Console.Write(LinuxUdevRuleTemplate.BuildRules(devices));
         return 0;
+    }
+
+    private static int RunSelfTest()
+    {
+        LinuxSelfTestResult result = LinuxSelfTestRunner.Run();
+        if (result.Success)
+        {
+            Console.WriteLine(result.Message);
+            return 0;
+        }
+
+        Console.Error.WriteLine(result.Message);
+        return 1;
     }
 
     private static int SmokeUinput(string[] args)

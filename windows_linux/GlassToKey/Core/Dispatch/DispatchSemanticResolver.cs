@@ -40,7 +40,11 @@ internal static class DispatchSemanticResolver
             }
         }
 
-        switch (token.ToUpperInvariant())
+        string upperToken = token.ToUpperInvariant();
+        string compactToken = upperToken.Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal);
+
+        switch (compactToken)
         {
             case "SPACE":
                 code = DispatchSemanticCode.Space;
@@ -98,10 +102,20 @@ internal static class DispatchSemanticResolver
             case "—":
                 code = DispatchSemanticCode.Minus;
                 return true;
+            case "VOLDOWN":
+            case "VOLUMEDOWN":
+                code = DispatchSemanticCode.VolumeDown;
+                return true;
+            case "VOLUP":
+            case "VOLUMEUP":
+                code = DispatchSemanticCode.VolumeUp;
+                return true;
             case "BRIGHTNESSDOWN":
+            case "BRIGHTDOWN":
                 code = DispatchSemanticCode.BrightnessDown;
                 return true;
             case "BRIGHTNESSUP":
+            case "BRIGHTUP":
                 code = DispatchSemanticCode.BrightnessUp;
                 return true;
         }

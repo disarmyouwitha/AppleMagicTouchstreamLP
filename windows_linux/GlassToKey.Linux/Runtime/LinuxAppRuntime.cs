@@ -43,6 +43,61 @@ internal sealed class LinuxAppRuntime
         return _settingsStore.GetSettingsPath();
     }
 
+    public bool TryBindTrackpad(TrackpadSide side, string deviceToken, out string message)
+    {
+        if (string.IsNullOrWhiteSpace(deviceToken))
+        {
+            message = "Device token is empty.";
+            return false;
+        }
+
+        IReadOnlyList<LinuxInputDeviceDescriptor> devices = _enumerator.EnumerateDevices();
+        LinuxInputDeviceDescriptor? device = ResolveDevice(deviceToken, devices);
+        if (device == null)
+        {
+            message = $"No device matched '{deviceToken}'.";
+            return false;
+        }
+
+        LinuxHostSettings settings = _settingsStore.LoadOrCreateDefaults(devices);
+        switch (side)
+        {
+            case TrackpadSide.Left:
+                settings.LeftTrackpadStableId = device.StableId;
+                if (string.Equals(settings.RightTrackpadStableId, device.StableId, StringComparison.OrdinalIgnoreCase))
+                {
+                    settings.RightTrackpadStableId = null;
+                }
+
+                break;
+            case TrackpadSide.Right:
+                settings.RightTrackpadStableId = device.StableId;
+                if (string.Equals(settings.LeftTrackpadStableId, device.StableId, StringComparison.OrdinalIgnoreCase))
+                {
+                    settings.LeftTrackpadStableId = null;
+                }
+
+                break;
+            default:
+                message = $"Unsupported side '{side}'.";
+                return false;
+        }
+
+        _settingsStore.Save(settings);
+        message = $"{side} trackpad bound to '{device.DisplayName}' [{device.StableId}].";
+        return true;
+    }
+
+    public string SwapTrackpadBindings()
+    {
+        IReadOnlyList<LinuxInputDeviceDescriptor> devices = _enumerator.EnumerateDevices();
+        LinuxHostSettings settings = _settingsStore.LoadOrCreateDefaults(devices);
+        (settings.LeftTrackpadStableId, settings.RightTrackpadStableId) =
+            (settings.RightTrackpadStableId, settings.LeftTrackpadStableId);
+        _settingsStore.Save(settings);
+        return _settingsStore.GetSettingsPath();
+    }
+
     private static List<LinuxTrackpadBinding> ResolveBindings(
         LinuxHostSettings settings,
         IReadOnlyList<LinuxInputDeviceDescriptor> devices,
@@ -135,5 +190,20 @@ internal sealed class LinuxAppRuntime
         }
 
         return keymap;
+    }
+
+    private static LinuxInputDeviceDescriptor? ResolveDevice(string token, IReadOnlyList<LinuxInputDeviceDescriptor> devices)
+    {
+        for (int index = 0; index < devices.Count; index++)
+        {
+            LinuxInputDeviceDescriptor device = devices[index];
+            if (string.Equals(device.DeviceNode, token, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(device.StableId, token, StringComparison.OrdinalIgnoreCase))
+            {
+                return device;
+            }
+        }
+
+        return null;
     }
 }
