@@ -47,6 +47,11 @@ internal static class Program
             return ProbeUinput();
         }
 
+        if (string.Equals(args[0], "doctor", StringComparison.OrdinalIgnoreCase))
+        {
+            return RunDoctor();
+        }
+
         if (string.Equals(args[0], "show-config", StringComparison.OrdinalIgnoreCase))
         {
             return ShowConfig();
@@ -80,6 +85,21 @@ internal static class Program
         if (string.Equals(args[0], "selftest", StringComparison.OrdinalIgnoreCase))
         {
             return RunSelfTest();
+        }
+
+        if (string.Equals(args[0], "capture-atpcap", StringComparison.OrdinalIgnoreCase))
+        {
+            return CaptureAtpCapAsync(args).GetAwaiter().GetResult();
+        }
+
+        if (string.Equals(args[0], "replay-atpcap", StringComparison.OrdinalIgnoreCase))
+        {
+            return ReplayAtpCap(args);
+        }
+
+        if (string.Equals(args[0], "summarize-atpcap", StringComparison.OrdinalIgnoreCase))
+        {
+            return SummarizeAtpCap(args);
         }
 
         if (string.Equals(args[0], "uinput-smoke", StringComparison.OrdinalIgnoreCase))
@@ -136,6 +156,7 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
+        Console.WriteLine("  GlassToKey.Linux doctor");
         Console.WriteLine("  GlassToKey.Linux show-config");
         Console.WriteLine("  GlassToKey.Linux init-config");
         Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
@@ -143,6 +164,9 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux swap-sides");
         Console.WriteLine("  GlassToKey.Linux print-udev-rules");
         Console.WriteLine("  GlassToKey.Linux selftest");
+        Console.WriteLine("  GlassToKey.Linux capture-atpcap [output-path] [seconds]");
+        Console.WriteLine("  GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
+        Console.WriteLine("  GlassToKey.Linux summarize-atpcap [capture-path]");
         Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
@@ -302,6 +326,13 @@ internal static class Program
         return status.IsReady ? 0 : 1;
     }
 
+    private static int RunDoctor()
+    {
+        LinuxDoctorResult result = LinuxDoctorRunner.Run();
+        Console.Write(result.Report);
+        return result.Success ? 0 : 1;
+    }
+
     private static int ShowConfig()
     {
         LinuxAppRuntime appRuntime = new();
@@ -382,6 +413,96 @@ internal static class Program
         }
 
         Console.Error.WriteLine(result.Message);
+        return 1;
+    }
+
+    private static async Task<int> CaptureAtpCapAsync(string[] args)
+    {
+        string outputPath = args.Length >= 2 && !string.IsNullOrWhiteSpace(args[1])
+            ? Path.GetFullPath(args[1])
+            : Path.GetFullPath($"capture-{DateTime.UtcNow:yyyyMMdd-HHmmss}.atpcap");
+        double seconds = args.Length >= 3 && double.TryParse(args[2], out double parsedSeconds)
+            ? parsedSeconds
+            : 10.0;
+        if (seconds <= 0)
+        {
+            Console.Error.WriteLine("Duration must be positive.");
+            return 1;
+        }
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        if (configuration.Bindings.Count == 0)
+        {
+            Console.Error.WriteLine("No trackpads available for capture.");
+            return 1;
+        }
+
+        List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
+        using LinuxAtpCapCaptureWriter writer = new(outputPath);
+        LinuxInputRuntimeService runtime = new();
+
+        Console.WriteLine($"Capturing .atpcap for {seconds:0.##}s to {outputPath}");
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = bindings[index];
+            Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
+        }
+
+        CaptureFrameSink sink = new(writer);
+        await runtime.RunAsync(bindings, sink, cts.Token).ConfigureAwait(false);
+        Console.WriteLine($"Capture written: {outputPath}");
+        return 0;
+    }
+
+    private static int ReplayAtpCap(string[] args)
+    {
+        if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+        {
+            Console.Error.WriteLine("Usage: GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
+            return 1;
+        }
+
+        string capturePath = Path.GetFullPath(args[1]);
+        string? traceOutputPath = args.Length >= 3 && !string.IsNullOrWhiteSpace(args[2])
+            ? Path.GetFullPath(args[2])
+            : null;
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadReplayConfiguration();
+        LinuxAtpCapReplayResult result = LinuxAtpCapReplayRunner.Replay(capturePath, configuration, traceOutputPath);
+        if (result.Success)
+        {
+            Console.WriteLine(result.Summary);
+            if (!string.IsNullOrWhiteSpace(traceOutputPath))
+            {
+                Console.WriteLine($"Replay trace written: {traceOutputPath}");
+            }
+
+            return 0;
+        }
+
+        Console.Error.WriteLine(result.Summary);
+        return 1;
+    }
+
+    private static int SummarizeAtpCap(string[] args)
+    {
+        if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+        {
+            Console.Error.WriteLine("Usage: GlassToKey.Linux summarize-atpcap [capture-path]");
+            return 1;
+        }
+
+        LinuxAtpCapSummaryResult result = LinuxAtpCapReplayRunner.Summarize(args[1]);
+        if (result.Success)
+        {
+            Console.WriteLine(result.Summary);
+            return 0;
+        }
+
+        Console.Error.WriteLine(result.Summary);
         return 1;
     }
 
@@ -616,6 +737,23 @@ internal static class Program
             Console.WriteLine(
                 $"{frame.Side}: contacts={frame.Frame.ContactCount} button={frame.Frame.IsButtonPressed} max=({frame.MaxX},{frame.MaxY}) ts={frame.TimestampTicks}");
             return true;
+        }
+    }
+
+    private sealed class CaptureFrameSink : ILinuxInputFrameSink
+    {
+        private readonly LinuxAtpCapCaptureWriter _writer;
+
+        public CaptureFrameSink(LinuxAtpCapCaptureWriter writer)
+        {
+            _writer = writer;
+        }
+
+        public ValueTask OnFrameAsync(LinuxRuntimeFrame frame, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            _writer.WriteFrame(in frame);
+            return ValueTask.CompletedTask;
         }
     }
 }

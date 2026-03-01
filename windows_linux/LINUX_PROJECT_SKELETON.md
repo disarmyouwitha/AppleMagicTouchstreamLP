@@ -349,7 +349,8 @@ Current repo status:
 - the Linux host now has XDG-backed settings, stable-id device selection, generated `udev` rule output, a Linux-specific bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and a `selftest` command that validates the bundled Linux keymap and semantic-to-evdev coverage
 - the bundled Linux keymap payload has been translated away from the remaining Windows-only defaults, and semantic coverage now includes the Linux media/brightness aliases used by that default keymap
 - the Linux host now also has checked-in publish profiles for framework-dependent and self-contained `linux-x64` publishes, so packaging work has started moving into versioned repo artifacts
-- the remaining big cleanup is broader semantic coverage beyond the currently validated label set, stronger replay/capture-based Linux diagnostics, and a packaged install flow
+- `doctor`, normalized Linux `.atpcap` capture/replay/summary commands, and checked-in install artifacts under `packaging/linux/` now exist
+- the remaining big cleanup is broader semantic coverage beyond the currently validated label set, richer replay/capture fidelity, and a packaged install flow
 
 ## Phase 3: engine extraction
 
@@ -401,8 +402,8 @@ Add:
 Current status:
 
 - achieved enough to call this phase active
-- the CLI host, XDG settings, diagnostics commands, and packaging scaffolding now exist
-- the next step inside this phase is packaging polish: publish outputs, install docs, `udev` integration, and eventually a GUI
+- the CLI host, XDG settings, diagnostics commands, `.atpcap` capture/replay scaffolding, and packaging artifacts now exist
+- the next step inside this phase is packaging polish: install validation, launcher/service decisions, better replay fidelity, and eventually a GUI
 
 ## Concrete v1 Linux file plan
 

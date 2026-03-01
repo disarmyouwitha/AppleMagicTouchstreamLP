@@ -36,6 +36,28 @@ internal sealed class LinuxAppRuntime
             devices);
     }
 
+    public LinuxRuntimeConfiguration LoadReplayConfiguration()
+    {
+        LinuxHostSettings settings = _settingsStore.Load();
+        if (string.IsNullOrWhiteSpace(settings.LayoutPresetName))
+        {
+            settings.LayoutPresetName = TrackpadLayoutPreset.SixByThree.Name;
+        }
+
+        List<string> warnings = [];
+        KeymapStore keymap = LoadKeymap(settings, warnings);
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName);
+
+        return new LinuxRuntimeConfiguration(
+            _settingsStore.GetSettingsPath(),
+            settings,
+            preset,
+            keymap,
+            Array.Empty<LinuxTrackpadBinding>(),
+            warnings,
+            Array.Empty<LinuxInputDeviceDescriptor>());
+    }
+
     public string InitializeSettings()
     {
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = _enumerator.EnumerateDevices();

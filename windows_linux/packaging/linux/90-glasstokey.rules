@@ -1,0 +1,9 @@
+# /etc/udev/rules.d/90-glasstokey.rules
+# Grant the active desktop user access to supported Apple Magic Trackpad event nodes
+# and the GlassToKey virtual uinput device.
+
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product}=="0265", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product}=="0324", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0265", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0324", TAG+="uaccess"
+KERNEL=="uinput", MODE="0660", TAG+="uaccess"

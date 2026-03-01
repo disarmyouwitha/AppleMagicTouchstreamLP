@@ -292,7 +292,9 @@ Current repo status:
 - `GlassToKey.Linux` now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, so Linux defaults can diverge from Windows without forking the shared keymap schema
 - `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks the current semantic-to-evdev mapping surface without touching the runtime hot path
 - `GlassToKey.Linux` now also checks in publish profiles for framework-dependent and self-contained `linux-x64` publishes
-- this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
+- `GlassToKey.Linux` now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, and `replay-atpcap` for packaging checks and offline diagnostics
+- the repo now also carries first Linux install artifacts in `packaging/linux/`
+- this means the Linux work is past proof-of-life and into real runtime integration. It is now in early usable-alpha/packaging-and-diagnostics territory, even though GUI, packaged install flow, and semantic cleanup are still in progress
 
 ### Step 4: add a Linux app host
 
@@ -434,8 +436,8 @@ Exit criteria:
 Current status:
 
 - active, early
-- users can now select devices through the current CLI/XDG settings path, type through the live engine path, and validate permissions/runtime state through `show-config`, `probe-uinput`, `print-udev-rules`, and `selftest`
-- GUI-based selection/remapping, unplug/replug polish, and packaged install flow still need work
+- users can now select devices through the current CLI/XDG settings path, type through the live engine path, validate permissions/runtime state through `doctor`, and record/replay normalized Linux `.atpcap` diagnostics
+- GUI-based selection/remapping, unplug/replug polish, richer replay fidelity, and packaged install flow still need work
 
 Estimated effort:
 
@@ -560,6 +562,7 @@ Current repo status:
 - checked-in publish profiles now exist for:
   - framework-dependent `linux-x64`
   - self-contained single-file `linux-x64`
+- `packaging/linux/90-glasstokey.rules` and `packaging/linux/install.sh` are now checked in as the first install artifacts
 - a real installer or `.deb` does not exist yet
 
 Example permission areas to document:
@@ -578,12 +581,14 @@ This packaging/permissions work is mandatory for a real Ubuntu release.
 - key injection through `uinput`
 - reusing layout/keymap logic
 - replay/self-test reuse
+- normalized Linux `.atpcap` frame capture and offline summary/replay
 
 ### Medium risk
 
 - dual-trackpad device management
 - semantic key mapping parity
 - media/brightness/system key behavior across desktops
+- replay fidelity for click/button-state-sensitive workflows
 
 ### High risk
 

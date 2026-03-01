@@ -1,4 +1,6 @@
 using System.Text.Json;
+using GlassToKey.Linux.Runtime;
+using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
 namespace GlassToKey.Linux;
@@ -34,6 +36,11 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateSemanticAliases(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateAtpCapRoundTrip(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -234,6 +241,123 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static bool ValidateAtpCapRoundTrip(out string failure)
+    {
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"glasstokey-linux-selftest-{Guid.NewGuid():N}");
+        string capturePath = Path.Combine(tempRoot, "synthetic.atpcap");
+        string tracePath = Path.Combine(tempRoot, "synthetic-trace.json");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            LinuxInputDeviceDescriptor device = new(
+                DeviceNode: "/dev/input/event-selftest",
+                StableId: "selftest-left",
+                UniqueId: "selftest-left",
+                PhysicalPath: "selftest-phys",
+                DisplayName: "SelfTest Trackpad",
+                VendorId: 0x05ac,
+                ProductId: 0x0324,
+                SupportsMultitouch: true,
+                SupportsPressure: true,
+                SupportsButtonClick: true,
+                IsPreferredInterface: true,
+                CanOpenEventStream: true,
+                AccessError: "ok");
+            LinuxTrackpadBinding binding = new(TrackpadSide.Left, device);
+
+            using (LinuxAtpCapCaptureWriter writer = new(capturePath))
+            {
+                InputFrame active = new()
+                {
+                    ArrivalQpcTicks = 1_000,
+                    ReportId = 0xEE,
+                    ScanTime = 1,
+                    ContactCount = 1,
+                    IsButtonClicked = 0
+                };
+                active.SetContact(0, new ContactFrame(1, 1200, 800, 0x03, Pressure: 64, Phase: 0, HasForceData: false));
+                writer.WriteFrame(new LinuxRuntimeFrame(
+                    binding,
+                    new LinuxEvdevFrameSnapshot(
+                        DeviceNode: device.DeviceNode,
+                        MinX: -3678,
+                        MinY: -2478,
+                        MaxX: 7612,
+                        MaxY: 5065,
+                        FrameSequence: 1,
+                        Frame: active)));
+
+                InputFrame released = new()
+                {
+                    ArrivalQpcTicks = 2_000,
+                    ReportId = 0xEE,
+                    ScanTime = 2,
+                    ContactCount = 0,
+                    IsButtonClicked = 0
+                };
+                writer.WriteFrame(new LinuxRuntimeFrame(
+                    binding,
+                    new LinuxEvdevFrameSnapshot(
+                        DeviceNode: device.DeviceNode,
+                        MinX: -3678,
+                        MinY: -2478,
+                        MaxX: 7612,
+                        MaxY: 5065,
+                        FrameSequence: 2,
+                        Frame: released)));
+            }
+
+            LinuxAtpCapSummaryResult summary = LinuxAtpCapReplayRunner.Summarize(capturePath);
+            if (!summary.Success || !summary.Summary.Contains("frames=2", StringComparison.Ordinal))
+            {
+                failure = "Synthetic Linux .atpcap summary failed.";
+                return false;
+            }
+
+            LinuxRuntimeConfiguration configuration = new LinuxAppRuntime().LoadReplayConfiguration();
+            LinuxAtpCapReplayResult replay = LinuxAtpCapReplayRunner.Replay(capturePath, configuration, tracePath);
+            if (!replay.Success)
+            {
+                failure = "Synthetic Linux .atpcap replay failed.";
+                return false;
+            }
+
+            if (replay.Metrics.FramesSeen < 3 || replay.Metrics.FramesParsed < 2 || replay.Metrics.FramesDispatched < 2)
+            {
+                failure = "Synthetic Linux .atpcap replay metrics were incomplete.";
+                return false;
+            }
+
+            if (!File.Exists(tracePath))
+            {
+                failure = "Synthetic Linux replay trace was not created.";
+                return false;
+            }
+
+            failure = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            failure = $"Synthetic Linux .atpcap round-trip failed: {ex.Message}";
+            return false;
+        }
+        finally
+        {
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+            }
+        }
     }
 
     private static bool CanResolveLinuxKey(DispatchSemanticCode semanticCode, ushort virtualKey)

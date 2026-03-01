@@ -18,10 +18,20 @@ internal static class InputCaptureFile
 
     public static void WriteHeader(Stream stream)
     {
+        WriteHeader(stream, CurrentWriteVersion, System.Diagnostics.Stopwatch.Frequency);
+    }
+
+    public static void WriteHeader(Stream stream, int version, long qpcFrequency)
+    {
+        if (!IsSupportedReadVersion(version))
+        {
+            throw new ArgumentOutOfRangeException(nameof(version), $"Capture version {version} is unsupported.");
+        }
+
         Span<byte> header = stackalloc byte[HeaderSize];
         s_magic.CopyTo(header);
-        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), CurrentWriteVersion);
-        BinaryPrimitives.WriteInt64LittleEndian(header.Slice(12, 8), System.Diagnostics.Stopwatch.Frequency);
+        BinaryPrimitives.WriteInt32LittleEndian(header.Slice(8, 4), version);
+        BinaryPrimitives.WriteInt64LittleEndian(header.Slice(12, 8), qpcFrequency);
         stream.Write(header);
     }
 

@@ -21,6 +21,7 @@ Current repo status on the tested Ubuntu 24.04 host:
 - real `EVIOCGABS` probing is implemented and validated on both tested Apple trackpad families
 - the same normalized frame path has been validated over both USB and Bluetooth
 - `run-engine` has been validated end-to-end with live typing through the shared engine and Linux `uinput` output
+- Linux `.atpcap` capture now writes normalized version 3 frame captures for offline summary/replay diagnostics
 - force-click parity is still intentionally deferred because Linux pressure is not equivalent to the Windows Apple force/phase path
 
 ## Source event model
@@ -365,6 +366,7 @@ Current real-device note:
 - the same ranges and normalized frame path were validated over both USB and Bluetooth on the tested Apple trackpads
 - Bluetooth transport did not provide `/dev/input/by-id` symlinks on this machine, so stable identity fell back to `uniq`
 - this mapping is now the active Linux runtime path used by `watch-runtime` and `run-engine`
+- the same normalized frame data is now also the source for Linux `.atpcap` version 3 capture
 
 ## `ContactFrame.Flags`
 
@@ -431,6 +433,11 @@ Consequence:
 
 - force-click gestures should be disabled on Linux v1
 - corner-force gestures should also be disabled on Linux v1
+
+Current capture note:
+
+- the current Linux `.atpcap` version 3 capture path preserves normalized contact frames for replay, summary, and trace analysis
+- it does not yet preserve `InputFrame.IsButtonClicked`, because the current v3 replay payload shape does not carry that field
 
 Future option:
 

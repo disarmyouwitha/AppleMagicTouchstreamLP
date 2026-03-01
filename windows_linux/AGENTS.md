@@ -14,7 +14,7 @@
 - `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
 - `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
-- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes.
 
 ## What To Build
 - For Windows app work, target `GlassToKey/GlassToKey.csproj`.
@@ -40,6 +40,8 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- probe-axes /dev/input/eventN`
 - Linux uinput readiness probe:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- probe-uinput`
+- Linux doctor:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- doctor`
 - Linux host config display:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- show-config`
 - Linux host config init:
@@ -48,6 +50,12 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- print-udev-rules`
 - Linux host self-test:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- selftest`
+- Linux `.atpcap` capture:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- capture-atpcap /tmp/capture.atpcap 10`
+- Linux `.atpcap` replay:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- replay-atpcap /tmp/capture.atpcap /tmp/replay-trace.json`
+- Linux `.atpcap` summary:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- summarize-atpcap /tmp/capture.atpcap`
 - Linux uinput smoke test:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- uinput-smoke A B Enter`
 - Linux runtime watch:
@@ -89,6 +97,9 @@
 - `print-udev-rules` now emits a targeted packaging template for the currently detected Apple trackpad vendor/product pairs plus `/dev/uinput`.
 - `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks semantic-to-evdev coverage for the current Linux action surface.
 - The repo now carries checked-in Linux publish profiles for framework-dependent and self-contained `linux-x64` publishes. Packaging is underway, but `.deb`/installer work is still not implemented.
+- `packaging/linux/` now contains the first checked-in Linux install artifacts: `90-glasstokey.rules`, `install.sh`, and a packaging README.
+- Linux now has a first `.atpcap` capture/replay path based on version 3 normalized frame captures, plus a `doctor` command for post-install evdev/`uinput`/config health checks.
+- Current Linux `.atpcap` captures preserve normalized contact frames for replay and trace analysis, but they do not yet preserve physical click state in the replay payload.
 - Dispatch tracing for `run-engine` is optional diagnostic tooling, not a product requirement. It can help debug bindings or timing issues, but future `.atpcap` capture remains the better long-form artifact for deeper offline analysis.
 
 ## Key Files

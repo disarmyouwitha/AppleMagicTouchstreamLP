@@ -15,8 +15,12 @@ Current CLI/runtime features:
 
 - `show-config` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
 - `init-config` writes default Linux host settings using detected stable IDs
+- `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
+- `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
+- `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
+- `replay-atpcap` replays a Linux `.atpcap` capture through the shared engine path and can emit a replay trace JSON
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
@@ -28,7 +32,7 @@ Current phase:
 
 - early Phase 4 usable alpha
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
-- packaging and self-contained publish are now started, but GUI, polished install flow, and packaged end-user distribution are still in progress
+- packaging, doctor, and offline `.atpcap` diagnostics are now started, but GUI, polished install flow, and packaged end-user distribution are still in progress
 
 Publish commands:
 
@@ -43,5 +47,11 @@ Packaging notes:
 - self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*` and `/dev/uinput`
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
+- `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the first checked-in install artifacts
+
+Current diagnostics limitation:
+
+- Linux `.atpcap` version 3 capture currently preserves normalized contact frames for replay, summary, and trace analysis
+- it does not yet preserve physical click state in the replay payload, so offline replay is useful for typing/gesture diagnostics but not full click-parity validation
 
 This project should remain thin. Most logic belongs in the shared core or the Linux platform backend.
