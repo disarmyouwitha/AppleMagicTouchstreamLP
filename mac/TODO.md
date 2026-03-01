@@ -1,6 +1,9 @@
 ## TODO
+- Sign up for developer account so i can sign my app for release??
 - sometimes Mixed mode ignores taps for typing? frustrating when starting to type having to hit the key multiple times to start typing mode.
+- I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
 ^ tip switch like on windows?
+^ capture
 ---
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??

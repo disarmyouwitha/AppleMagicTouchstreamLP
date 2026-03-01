@@ -1,327 +1,306 @@
 #!/usr/bin/env bash
 
-# GitHub Release Script for Swift Package Manager
-# This script builds the XCFramework, creates a GitHub release, and updates Package.swift
+set -euo pipefail
 
-set -e  # Exit on any error
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+CONFIG_FILE="${1:-$SCRIPT_DIR/release-config.env}"
 
-# Configuration - UPDATE THESE VALUES
-GITHUB_USERNAME="krishkrosh"        # Replace with your GitHub username
-REPO_NAME="OpenMultitouchSupport"            # Replace with your repository name
-RELEASE_VERSION=""                     # Will be prompted or passed as argument
+PROJECT_PATH="GlassToKey/GlassToKey.xcodeproj"
+SCHEME="GlassToKey"
+CONFIGURATION="Release"
+TEAM_ID="N9XQZJR4EP"
+APP_NAME="GlassToKey"
+EXECUTABLE_NAME="GlassToKey"
+EXPECTED_BUNDLE_ID="ink.ranna.glasstokey"
+ENTITLEMENTS_PATH="GlassToKey/GlassToKey/GlassToKey.entitlements"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m' # No Color
+DERIVED_DATA_PATH="$SCRIPT_DIR/release-output/DerivedData"
+RELEASE_ROOT="$SCRIPT_DIR/release-output"
 
-# Helper functions
-log_info() {
-    echo -e "${BLUE}ℹ️  $1${NC}"
+log_step() {
+    printf '[STEP] %s\n' "$1"
 }
 
-log_success() {
-    echo -e "${GREEN}✅ $1${NC}"
+log_pass() {
+    printf '[PASS] %s\n' "$1"
 }
 
-log_warning() {
-    echo -e "${YELLOW}⚠️  $1${NC}"
+log_warn() {
+    printf '[WARN] %s\n' "$1"
 }
 
-log_error() {
-    echo -e "${RED}❌ $1${NC}"
+log_fail() {
+    printf '[FAIL] %s\n' "$1" >&2
+    exit 1
 }
 
-# Check if required tools are installed
-check_dependencies() {
-    log_info "Checking dependencies..."
-    
-    if ! command -v gh &> /dev/null; then
-        log_error "GitHub CLI (gh) is not installed. Install it with: brew install gh"
-        exit 1
+require_tool() {
+    command -v "$1" >/dev/null 2>&1 || log_fail "Required tool not found: $1"
+}
+
+load_config() {
+    if [[ ! -f "$CONFIG_FILE" ]]; then
+        log_fail "Missing config file: $CONFIG_FILE (start from release-config.env.template)"
     fi
-    
-    if ! command -v git &> /dev/null; then
-        log_error "Git is not installed"
-        exit 1
-    fi
-    
-    if ! command -v swift &> /dev/null; then
-        log_error "Swift is not installed"
-        exit 1
-    fi
-    
-    # Check if logged into GitHub CLI
-    if ! gh auth status &> /dev/null; then
-        log_error "Not logged into GitHub CLI. Run: gh auth login"
-        exit 1
-    fi
-    
-    log_success "All dependencies are available"
+
+    # shellcheck disable=SC1090
+    source "$CONFIG_FILE"
+
+    : "${MARKETING_VERSION:?MARKETING_VERSION is required}"
+    : "${BUILD_NUMBER:?BUILD_NUMBER is required}"
+    : "${DEVELOPER_ID_APPLICATION_CERT:?DEVELOPER_ID_APPLICATION_CERT is required}"
 }
 
-# Get version from user input or command line argument
-get_version() {
-    if [ -n "$1" ]; then
-        RELEASE_VERSION="$1"
-    else
-        echo -n "Enter the release version (e.g., 1.0.0): "
-        read RELEASE_VERSION
+resolve_notary_args() {
+    NOTARY_ARGS=()
+
+    if [[ -n "${APPLE_ID:-}" || -n "${APPLE_APP_SPECIFIC_PASSWORD:-}" ]]; then
+        : "${APPLE_ID:?APPLE_ID is required for Apple ID auth}"
+        : "${APPLE_APP_SPECIFIC_PASSWORD:?APPLE_APP_SPECIFIC_PASSWORD is required for Apple ID auth}"
+        : "${APPLE_TEAM_ID:?APPLE_TEAM_ID is required for Apple ID auth}"
+        NOTARY_ARGS=(
+            --apple-id "$APPLE_ID"
+            --password "$APPLE_APP_SPECIFIC_PASSWORD"
+            --team-id "$APPLE_TEAM_ID"
+        )
+        return
     fi
-    
-    if [ -z "$RELEASE_VERSION" ]; then
-        log_error "Version is required"
-        exit 1
+
+    if [[ -n "${NOTARY_API_KEY_PATH:-}" || -n "${NOTARY_API_KEY_ID:-}" || -n "${NOTARY_API_ISSUER:-}" ]]; then
+        : "${NOTARY_API_KEY_PATH:?NOTARY_API_KEY_PATH is required for API key auth}"
+        : "${NOTARY_API_KEY_ID:?NOTARY_API_KEY_ID is required for API key auth}"
+        : "${NOTARY_API_ISSUER:?NOTARY_API_ISSUER is required for API key auth}"
+        NOTARY_ARGS=(
+            --key "$NOTARY_API_KEY_PATH"
+            --key-id "$NOTARY_API_KEY_ID"
+            --issuer "$NOTARY_API_ISSUER"
+        )
+        return
     fi
-    
-    # Add 'v' prefix if not present
-    if [[ ! $RELEASE_VERSION =~ ^v ]]; then
-        RELEASE_VERSION="v${RELEASE_VERSION}"
-    fi
-    
-    log_info "Release version: $RELEASE_VERSION"
+
+    log_fail "No notarization credentials configured. Set Apple ID or App Store Connect API key values in $CONFIG_FILE."
 }
 
-# Update configuration from git remote
-update_config_from_git() {
-    local remote_url=$(git config --get remote.origin.url)
-    
-    if [[ $remote_url =~ github\.com[:/]([^/]+)/([^/]+)(\.git)?$ ]]; then
-        GITHUB_USERNAME="${BASH_REMATCH[1]}"
-        REPO_NAME="${BASH_REMATCH[2]%.git}"
-        log_info "Auto-detected GitHub repo: $GITHUB_USERNAME/$REPO_NAME"
-    else
-        log_warning "Could not auto-detect GitHub repository from git remote"
-        echo -n "Enter GitHub username: "
-        read GITHUB_USERNAME
-        echo -n "Enter repository name: "
-        read REPO_NAME
+preflight() {
+    log_step "Checking local release prerequisites"
+    require_tool xcodebuild
+    require_tool codesign
+    require_tool xcrun
+    require_tool hdiutil
+    require_tool ditto
+    require_tool lipo
+    require_tool spctl
+    require_tool security
+    require_tool /usr/libexec/PlistBuddy
+
+    local identities
+    identities="$(security find-identity -v -p codesigning || true)"
+    if ! grep -Fq "\"$DEVELOPER_ID_APPLICATION_CERT\"" <<<"$identities"; then
+        printf '%s\n' "$identities"
+        log_fail "Developer ID Application certificate not found in the keychain: $DEVELOPER_ID_APPLICATION_CERT"
     fi
-}
 
-# Build the XCFramework
-build_framework() {
-    log_info "Building XCFramework..."
-    
-    # Clear caches and build
-    ./build_framework.sh --release
-    
-    if [ ! -f "OpenMultitouchSupportXCF.xcframework.zip" ]; then
-        log_error "XCFramework build failed - zip file not found"
-        exit 1
+    if [[ ! -f "$SCRIPT_DIR/$PROJECT_PATH/project.pbxproj" ]]; then
+        log_fail "Project not found: $PROJECT_PATH"
     fi
-    
-    log_success "XCFramework built successfully"
-}
 
-# Update Package.swift with release information
-update_package_swift() {
-    local checksum=$(swift package compute-checksum OpenMultitouchSupportXCF.xcframework.zip)
-    local url="https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/releases/download/${RELEASE_VERSION}/OpenMultitouchSupportXCF.xcframework.zip"
-    
-    log_info "Updating Package.swift..."
-    log_info "URL: $url"
-    log_info "Checksum: $checksum"
-    
-    # Check if template exists, otherwise use current Package.swift
-    log_info "Using Package.swift.template"
-    source_file="Package.swift.template"
-    
-    # Create a temporary Package.swift for release
-    sed -e "s|YOUR_USERNAME|${GITHUB_USERNAME}|g" \
-        -e "s|YOUR_REPO_NAME|${REPO_NAME}|g" \
-        -e "s|VERSION|${RELEASE_VERSION}|g" \
-        -e "s|CHECKSUM_PLACEHOLDER|${checksum}|g" \
-        "$source_file" > Package.swift.release
-    
-    log_success "Package.swift updated for release"
-}
-
-# Create GitHub release
-create_github_release() {
-    log_info "Creating GitHub release..."
-    
-    # Create release notes
-    local release_notes="## OpenMultitouchSupport ${RELEASE_VERSION}
-
-### Changes
-- XCFramework build for macOS
-- Swift Package Manager support
-
-### Installation
-Add this package to your project using Swift Package Manager:
-
-\`\`\`
-https://github.com/${GITHUB_USERNAME}/${REPO_NAME}
-\`\`\`
-
-### Checksum
-\`$(swift package compute-checksum OpenMultitouchSupportXCF.xcframework.zip)\`"
-    
-    # Create the release
-    gh release create "$RELEASE_VERSION" \
-        "OpenMultitouchSupportXCF.xcframework.zip" \
-        --title "OpenMultitouchSupport $RELEASE_VERSION" \
-        --notes "$release_notes"
-    
-    log_success "GitHub release created: $RELEASE_VERSION"
-}
-
-# Commit and push the updated Package.swift
-update_repository() {
-    log_info "Updating repository with release Package.swift..."
-    
-    # Replace Package.swift with release version
-    cp Package.swift.release Package.swift
-    rm Package.swift.release
-    
-    # Commit and push
-    git add Package.swift
-    git commit -m "Update Package.swift for release $RELEASE_VERSION"
-    git push origin main
-    
-    log_success "Repository updated"
-}
-
-# Revert Package.swift to development version
-revert_to_development() {
-    log_info "Reverting Package.swift to development version..."
-    
-    # Revert to local development version
-    git checkout HEAD~1 -- Package.swift
-    
-    # Update for local development
-    sed -i.bak 's|url: "https://github.com/.*/releases/download/.*/OpenMultitouchSupportXCF.xcframework.zip",|path: "OpenMultitouchSupportXCF.xcframework.zip"|g; /checksum:/d' Package.swift
-    rm Package.swift.bak
-    
-    git add Package.swift
-    git commit -m "Revert Package.swift to development version"
-    git push origin main
-    
-    log_success "Reverted to development version"
-}
-
-# Test function to verify update_package_swift works
-test_update_package_swift() {
-    log_info "Testing update_package_swift function..."
-    
-    # Set test values
-    GITHUB_USERNAME="krishkrosh"
-    REPO_NAME="OpenMultitouchSupport"
-    RELEASE_VERSION="v1.0.9-test"
-    
-    # Create a dummy zip file for checksum calculation
-    echo "dummy content for testing" > dummy.zip
-    
-    # Override checksum calculation for testing
-    local checksum="abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890"
-    local url="https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/releases/download/${RELEASE_VERSION}/OpenMultitouchSupportXCF.xcframework.zip"
-    
-    log_info "Test parameters:"
-    log_info "URL: $url"
-    log_info "Checksum: $checksum"
-    
-    # Check if template exists, otherwise use current Package.swift
-    if [ -f "Package.swift.template" ]; then
-        log_info "Using Package.swift.template"
-        source_file="Package.swift.template"
-    else
-        log_warning "Package.swift.template not found, using current Package.swift"
-        source_file="Package.swift"
+    if [[ ! -f "$SCRIPT_DIR/$ENTITLEMENTS_PATH" ]]; then
+        log_fail "Entitlements file not found: $ENTITLEMENTS_PATH"
     fi
-    
-    # Create a test Package.swift
-    sed -e "s|YOUR_USERNAME|${GITHUB_USERNAME}|g" \
-        -e "s|YOUR_REPO_NAME|${REPO_NAME}|g" \
-        -e "s|VERSION|${RELEASE_VERSION}|g" \
-        -e "s|CHECKSUM_PLACEHOLDER|${checksum}|g" \
-        "$source_file" > Package.swift.test
-    
-    log_success "Test Package.swift created as Package.swift.test"
-    echo ""
-    echo "Generated content:"
-    echo "=================="
-    cat Package.swift.test
-    echo "=================="
-    echo ""
-    
-    # Verify the replacements worked
-    if grep -q "YOUR_USERNAME\|YOUR_REPO_NAME\|VERSION\|CHECKSUM_PLACEHOLDER" Package.swift.test; then
-        log_error "Some placeholders were not replaced!"
-        grep "YOUR_USERNAME\|YOUR_REPO_NAME\|VERSION\|CHECKSUM_PLACEHOLDER" Package.swift.test
-    else
-        log_success "All placeholders were successfully replaced!"
-    fi
-    
-    # Cleanup
-    rm -f dummy.zip
-    echo -n "Remove test file Package.swift.test? (y/N): "
-    read cleanup_choice
-    if [[ $cleanup_choice =~ ^[Yy]$ ]]; then
-        rm Package.swift.test
-        log_info "Test file removed"
-    else
-        log_info "Test file kept as Package.swift.test"
-    fi
+
+    log_pass "Local prerequisites look sane"
 }
 
-# Main execution
+build_release() {
+    log_step "Building unsigned Release app"
+    rm -rf "$DERIVED_DATA_PATH"
+    xcodebuild \
+        -project "$PROJECT_PATH" \
+        -scheme "$SCHEME" \
+        -configuration "$CONFIGURATION" \
+        -destination 'platform=macOS' \
+        -derivedDataPath "$DERIVED_DATA_PATH" \
+        clean build \
+        DEVELOPMENT_TEAM="$TEAM_ID" \
+        PRODUCT_BUNDLE_IDENTIFIER="$EXPECTED_BUNDLE_ID" \
+        MARKETING_VERSION="$MARKETING_VERSION" \
+        CURRENT_PROJECT_VERSION="$BUILD_NUMBER" \
+        ARCHS="arm64 x86_64" \
+        ONLY_ACTIVE_ARCH=NO \
+        CODE_SIGNING_ALLOWED=NO \
+        CODE_SIGNING_REQUIRED=NO \
+        CODE_SIGN_IDENTITY="" \
+        ENABLE_HARDENED_RUNTIME=YES
+
+    APP_PATH="$DERIVED_DATA_PATH/Build/Products/$CONFIGURATION/$APP_NAME.app"
+    [[ -d "$APP_PATH" ]] || log_fail "Built app not found: $APP_PATH"
+    APP_EXECUTABLE="$APP_PATH/Contents/MacOS/$EXECUTABLE_NAME"
+    [[ -f "$APP_EXECUTABLE" ]] || log_fail "Built executable not found: $APP_EXECUTABLE"
+
+    log_pass "Release build completed"
+}
+
+verify_bundle_metadata() {
+    log_step "Verifying bundle metadata"
+    local bundle_id
+    local short_version
+    local build_version
+    local executable_name
+
+    bundle_id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$APP_PATH/Contents/Info.plist")"
+    short_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP_PATH/Contents/Info.plist")"
+    build_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleVersion' "$APP_PATH/Contents/Info.plist")"
+    executable_name="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleExecutable' "$APP_PATH/Contents/Info.plist")"
+
+    [[ "$bundle_id" == "$EXPECTED_BUNDLE_ID" ]] || log_fail "Unexpected bundle ID: $bundle_id"
+    [[ "$short_version" == "$MARKETING_VERSION" ]] || log_fail "Unexpected marketing version: $short_version"
+    [[ "$build_version" == "$BUILD_NUMBER" ]] || log_fail "Unexpected build number: $build_version"
+    [[ "$executable_name" == "$EXECUTABLE_NAME" ]] || log_fail "Unexpected executable name: $executable_name"
+
+    log_pass "Bundle metadata matches the release config"
+}
+
+verify_universal_binary() {
+    log_step "Verifying universal app binary"
+    local archs
+    archs="$(lipo -archs "$APP_EXECUTABLE")"
+
+    [[ "$archs" == *"arm64"* ]] || log_fail "Universal binary is missing arm64: $archs"
+    [[ "$archs" == *"x86_64"* ]] || log_fail "Universal binary is missing x86_64: $archs"
+
+    log_pass "Universal binary contains arm64 and x86_64"
+}
+
+collect_nested_code() {
+    mapfile -t NESTED_CODE_OBJECTS < <(
+        find "$APP_PATH/Contents" \
+            \( -name '*.app' -o -name '*.appex' -o -name '*.xpc' -o -name '*.framework' -o -name '*.dylib' -o -name '*.bundle' \) \
+            -print \
+            | awk -F/ '{ print NF ":" $0 }' \
+            | sort -rn \
+            | cut -d: -f2-
+    )
+}
+
+sign_nested_code() {
+    log_step "Signing nested frameworks and helper code"
+    collect_nested_code
+    if [[ "${#NESTED_CODE_OBJECTS[@]}" -eq 0 ]]; then
+        log_warn "No nested code objects found under $APP_PATH"
+        return
+    fi
+
+    local code_path
+    for code_path in "${NESTED_CODE_OBJECTS[@]}"; do
+        codesign --force --timestamp --sign "$DEVELOPER_ID_APPLICATION_CERT" "$code_path"
+        codesign --verify --strict --verbose=2 "$code_path"
+    done
+
+    log_pass "Nested code signing verified"
+}
+
+sign_app() {
+    log_step "Signing app bundle with hardened runtime"
+    xattr -cr "$APP_PATH" || true
+    codesign \
+        --force \
+        --timestamp \
+        --options runtime \
+        --entitlements "$ENTITLEMENTS_PATH" \
+        --sign "$DEVELOPER_ID_APPLICATION_CERT" \
+        "$APP_PATH"
+
+    codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+    log_pass "App signing verified"
+}
+
+notarize() {
+    local artifact_path="$1"
+    local label="$2"
+    log_step "Submitting $label for notarization"
+    xcrun notarytool submit "$artifact_path" --wait "${NOTARY_ARGS[@]}"
+    log_pass "$label notarization accepted"
+}
+
+staple_and_validate() {
+    local artifact_path="$1"
+    local label="$2"
+    log_step "Stapling notarization ticket to $label"
+    xcrun stapler staple "$artifact_path"
+    xcrun stapler validate "$artifact_path"
+    log_pass "$label staple validation succeeded"
+}
+
+gatekeeper_assess() {
+    log_step "Running Gatekeeper assessment"
+    spctl --assess --type execute --verbose=4 "$APP_PATH"
+    if [[ -n "${FINAL_DMG_PATH:-}" ]]; then
+        spctl --assess --type open --verbose=4 "$FINAL_DMG_PATH"
+    fi
+    log_pass "Gatekeeper checks passed"
+}
+
+create_dmg() {
+    local version_dir="$RELEASE_ROOT/$MARKETING_VERSION-$BUILD_NUMBER"
+    local dmg_staging="$version_dir/dmg-root"
+    FINAL_DMG_PATH="$version_dir/$APP_NAME-$MARKETING_VERSION.dmg"
+
+    log_step "Creating DMG artifact"
+    rm -rf "$version_dir"
+    mkdir -p "$dmg_staging"
+    ditto "$APP_PATH" "$dmg_staging/$APP_NAME.app"
+    ln -s /Applications "$dmg_staging/Applications"
+
+    if hdiutil create -volname "$APP_NAME" -srcfolder "$dmg_staging" -ov -format UDZO "$FINAL_DMG_PATH"; then
+        log_pass "DMG created at $FINAL_DMG_PATH"
+        return 0
+    fi
+
+    log_warn "DMG creation failed, switching to ZIP fallback"
+    FINAL_DMG_PATH=""
+    return 1
+}
+
+create_zip_fallback() {
+    local version_dir="$RELEASE_ROOT/$MARKETING_VERSION-$BUILD_NUMBER"
+    FINAL_ZIP_PATH="$version_dir/$APP_NAME-$MARKETING_VERSION.zip"
+
+    mkdir -p "$version_dir"
+    log_step "Creating ZIP fallback artifact"
+    ditto -c -k --sequesterRsrc --keepParent "$APP_PATH" "$FINAL_ZIP_PATH"
+    log_pass "ZIP created at $FINAL_ZIP_PATH"
+}
+
 main() {
-    echo "🚀 GitHub Release Script for OpenMultitouchSupport"
-    echo "=================================================="
-    
-    check_dependencies
-    update_config_from_git
-    get_version "$1"
-    
-    log_info "Starting release process for version $RELEASE_VERSION"
-    
-    # Build framework
-    build_framework
-    
-    # Update Package.swift for release
-    update_package_swift
-    
-    # Create GitHub release
-    create_github_release
-    
-    # Update repository with release Package.swift
-    update_repository
-    
-    # Optional: Revert to development version (NOT RECOMMENDED for SPM)
-    log_warning "IMPORTANT: For Swift Package Manager to work, keep the release version in GitHub!"
-    log_warning "Only revert if you understand this breaks SPM for other developers."
-    echo -n "Do you want to revert Package.swift to development version? (y/N): "
-    read revert_choice
-    if [[ $revert_choice =~ ^[Yy]$ ]]; then
-        log_warning "This will break Swift Package Manager for other developers!"
-        echo -n "Are you sure? (y/N): "
-        read confirm_choice
-        if [[ $confirm_choice =~ ^[Yy]$ ]]; then
-            revert_to_development
-        else
-            log_info "Keeping release version (recommended)"
-        fi
+    load_config
+    resolve_notary_args
+    preflight
+    build_release
+    verify_bundle_metadata
+    verify_universal_binary
+    sign_nested_code
+    sign_app
+    notarize "$APP_PATH" "app bundle"
+    staple_and_validate "$APP_PATH" "app bundle"
+
+    if create_dmg; then
+        notarize "$FINAL_DMG_PATH" "DMG"
+        staple_and_validate "$FINAL_DMG_PATH" "DMG"
     else
-        log_success "Keeping release version (recommended for SPM)"
+        create_zip_fallback
     fi
-    
-    echo ""
-    log_success "Release complete! 🎉"
-    echo ""
-    echo "Next steps:"
-    echo "1. Other developers can now add your package using:"
-    echo "   https://github.com/${GITHUB_USERNAME}/${REPO_NAME}"
-    echo "2. The release is available at:"
-    echo "   https://github.com/${GITHUB_USERNAME}/${REPO_NAME}/releases/tag/${RELEASE_VERSION}"
+
+    gatekeeper_assess
+
+    printf '\n'
+    log_pass "Release pipeline completed"
+    printf 'Version: %s (%s)\n' "$MARKETING_VERSION" "$BUILD_NUMBER"
+    printf 'App: %s\n' "$APP_PATH"
+    if [[ -n "${FINAL_DMG_PATH:-}" ]]; then
+        printf 'Artifact: %s\n' "$FINAL_DMG_PATH"
+    else
+        printf 'Artifact: %s\n' "$FINAL_ZIP_PATH"
+    fi
 }
 
-# Check for test flag
-if [[ "$1" == "--test" || "$1" == "test" ]]; then
-    test_update_package_swift
-else
-    # Run main function with all arguments
-    main "$@"
-fi
+main "$@"
