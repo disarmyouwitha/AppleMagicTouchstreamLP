@@ -17,13 +17,16 @@ public sealed class LinuxRuntimeOwner
 
     private readonly LinuxAppRuntime _appRuntime;
     private readonly LinuxInputRuntimeService _runtime;
+    private readonly LinuxRuntimeStateStore _stateStore;
 
     public LinuxRuntimeOwner(
         LinuxAppRuntime? appRuntime = null,
-        LinuxInputRuntimeService? runtime = null)
+        LinuxInputRuntimeService? runtime = null,
+        LinuxRuntimeStateStore? stateStore = null)
     {
         _appRuntime = appRuntime ?? new LinuxAppRuntime();
         _runtime = runtime ?? new LinuxInputRuntimeService();
+        _stateStore = stateStore ?? new LinuxRuntimeStateStore();
     }
 
     public async Task RunAsync(
@@ -38,6 +41,7 @@ public sealed class LinuxRuntimeOwner
 
         try
         {
+            PersistStoppedState();
             while (!cancellationToken.IsCancellationRequested)
             {
                 if (session == null)
@@ -73,6 +77,11 @@ public sealed class LinuxRuntimeOwner
                     await pollTask.ConfigureAwait(false);
                 }
 
+                if (session != null)
+                {
+                    PersistRunningState(session);
+                }
+
                 LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration();
                 string updatedSignature = BuildSettingsSignature(updated.Settings);
                 if (updatedSignature == settingsSignature)
@@ -106,6 +115,8 @@ public sealed class LinuxRuntimeOwner
                 await session.StopAsync().ConfigureAwait(false);
                 session.Dispose();
             }
+
+            PersistStoppedState();
         }
     }
 
@@ -161,6 +172,31 @@ public sealed class LinuxRuntimeOwner
         return JsonSerializer.Serialize(normalized, SignatureSerializerOptions);
     }
 
+    private void PersistRunningState(RuntimeSession session)
+    {
+        if (!session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            return;
+        }
+
+        _stateStore.Save(new LinuxRuntimeStateSnapshot(
+            IsRunning: true,
+            TypingEnabled: snapshot.TypingEnabled,
+            KeyboardModeEnabled: snapshot.KeyboardModeEnabled,
+            ActiveLayer: snapshot.ActiveLayer,
+            UpdatedUtc: DateTimeOffset.UtcNow));
+    }
+
+    private void PersistStoppedState()
+    {
+        _stateStore.Save(new LinuxRuntimeStateSnapshot(
+            IsRunning: false,
+            TypingEnabled: false,
+            KeyboardModeEnabled: false,
+            ActiveLayer: 0,
+            UpdatedUtc: DateTimeOffset.UtcNow));
+    }
+
     private sealed class RuntimeSession : IDisposable
     {
         private readonly CancellationTokenSource _cts;
@@ -181,6 +217,11 @@ public sealed class LinuxRuntimeOwner
         }
 
         public Task RunTask { get; }
+
+        public bool TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot)
+        {
+            return _engine.TryGetSnapshot(out snapshot);
+        }
 
         public async Task StopAsync()
         {

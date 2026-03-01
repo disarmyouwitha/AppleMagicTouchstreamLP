@@ -36,6 +36,25 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         return _actor.Post(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
     }
 
+    public bool TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot)
+    {
+        if (_disposed)
+        {
+            snapshot = default;
+            return false;
+        }
+
+        TouchProcessorSnapshot engineSnapshot = _actor.Snapshot();
+        snapshot = new TouchProcessorRuntimeSnapshot(
+            ActiveLayer: engineSnapshot.ActiveLayer,
+            TypingEnabled: engineSnapshot.TypingEnabled,
+            KeyboardModeEnabled: engineSnapshot.KeyboardModeEnabled,
+            ContactCount: engineSnapshot.ContactCount,
+            LeftContacts: engineSnapshot.LeftContacts,
+            RightContacts: engineSnapshot.RightContacts);
+        return true;
+    }
+
     public void Dispose()
     {
         if (_disposed)

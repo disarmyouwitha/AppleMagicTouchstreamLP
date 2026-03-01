@@ -17,6 +17,11 @@
           <TextBlock Text="Device binding and config for the tray-owned Linux runtime"
                      FontSize="14"
                      Foreground="#D9C7B5" />
+          <TextBlock x:Name="RuntimeTypingStatusText"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="#F7F2EA"
+                     Text="Typing: checking runtime..." />
         </StackPanel>
         <StackPanel Grid.Column="1"
                     Orientation="Horizontal"

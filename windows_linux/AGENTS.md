@@ -105,6 +105,9 @@
 - Keep Windows-only code in `GlassToKey/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
 - Keep `GlassToKey.Core/` free of WPF, WinForms, Raw Input, `SendInput`, `evdev`, and `uinput`.
 - Prefer moving shared engine, layout, keymap, touch-config, and runtime-profile behavior into `GlassToKey.Core/` when the dependency boundary permits it, instead of creating parallel Linux-specific implementations.
+- Shared code should be physically moved into `GlassToKey.Core/`; do not treat linked source files back into `GlassToKey/` as an acceptable steady state.
+- During the Linux/shared-core buildout, Windows may remain the source of truth for behavior, but extracted shared code should still be moved into `GlassToKey.Core/` rather than linked back to `GlassToKey/`.
+- The Windows rewrite to consume `GlassToKey.Core/` is a later migration step after Linux and shared-core extraction are complete.
 - When Linux exposes a missing abstraction, first ask whether it should be extracted into `GlassToKey.Core/` before adding more logic to `GlassToKey.Linux.Host/`, `GlassToKey.Linux.Gui/`, or `GlassToKey.Platform.Linux/`.
 - Linux work should consume platform-neutral models or semantics, not Windows virtual-key assumptions.
 - `DispatchKeyResolver.cs` is a known split point because Linux needs semantic actions or evdev key codes rather than Windows VK mappings. The current engine/dispatch path now carries `DispatchSemanticAction` metadata alongside Windows VK fields, so new Linux output work should build on that semantic payload instead of adding more VK-only assumptions.

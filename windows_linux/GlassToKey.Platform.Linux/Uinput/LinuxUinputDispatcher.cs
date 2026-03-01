@@ -1,10 +1,9 @@
-using System.Diagnostics;
-
 namespace GlassToKey.Platform.Linux.Uinput;
 
 public sealed class LinuxUinputDispatcher : IInputDispatcher
 {
     private readonly LinuxUinputDevice _device;
+    private readonly DispatchRepeatProfile _repeatProfile;
     private readonly int[] _modifierRefCounts = new int[256];
     private readonly bool[] _keyDown = new bool[256];
     private readonly RepeatEntry[] _repeatEntries = new RepeatEntry[64];
@@ -19,10 +18,16 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
     }
 
     internal LinuxUinputDispatcher(LinuxUinputDevice device)
+        : this(device, DispatchRepeatProfile.Default)
+    {
+    }
+
+    internal LinuxUinputDispatcher(LinuxUinputDevice device, DispatchRepeatProfile repeatProfile)
     {
         _device = device;
-        _repeatInitialDelayTicks = MsToTicks(275);
-        _repeatIntervalTicks = MsToTicks(33);
+        _repeatProfile = repeatProfile;
+        _repeatInitialDelayTicks = _repeatProfile.GetInitialDelayTicks();
+        _repeatIntervalTicks = _repeatProfile.GetIntervalTicks();
     }
 
     public void Dispatch(in DispatchEvent dispatchEvent)
@@ -90,10 +95,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
                     continue;
                 }
 
-                if (TrySendKeyCode(entry.KeyCode, isDown: false))
-                {
-                    TrySendKeyCode(entry.KeyCode, isDown: true);
-                }
+                HandleRepeatKeyDown(entry.KeyCode);
 
                 entry.NextTick = nowTicks + _repeatIntervalTicks;
             }
@@ -297,9 +299,19 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         }
     }
 
-    private static long MsToTicks(double milliseconds)
+    private void HandleRepeatKeyDown(ushort keyCode)
     {
-        return (long)(milliseconds * Stopwatch.Frequency / 1000.0);
+        if (keyCode == 0)
+        {
+            return;
+        }
+
+        if ((uint)keyCode < (uint)_keyDown.Length && !_keyDown[keyCode])
+        {
+            return;
+        }
+
+        TrySendKeyCode(keyCode, isDown: true);
     }
 
     private static bool TryResolveKeyCode(in DispatchEvent dispatchEvent, out ushort keyCode)

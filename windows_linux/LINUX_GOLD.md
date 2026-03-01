@@ -220,6 +220,16 @@ Current repo note:
   - move toward a thinner dedicated tray/controller surface
   - keep the full config UI on-demand
 
+### Recorded design decision
+
+The shared-code migration direction is now explicitly decided:
+
+- shared code should be physically moved into `GlassToKey.Core`
+- `GlassToKey.Core` should become the canonical source location for shared engine/layout/keymap/runtime code
+- linked-source references back into `GlassToKey/` are transitional debt, not an acceptable end state
+- Windows can remain the source of truth during the Linux/shared-core buildout, but shared code should still be moved into `GlassToKey.Core` as it is extracted
+- Linux work should not solve shared problems by pointing back into `GlassToKey/` or by creating new Linux-only duplicates when the logic belongs in `Core`
+
 ### Target dependency direction
 
 The desired dependency graph is:
@@ -240,6 +250,7 @@ GlassToKey.Windows               GlassToKey.Linux  GlassToKey.Linux.Gui
 Rules:
 
 - `GlassToKey.Core` is the only shared logic layer.
+- `GlassToKey.Core` should own shared source files directly rather than linking back to `GlassToKey/` as a permanent architecture.
 - Platform layers depend on `Core`, never on each other.
 - Host layers depend on `Core` plus one platform layer.
 - Top-level apps depend on host layers, not on deep internals.
@@ -269,6 +280,7 @@ The current Windows project is still more monolithic than the target shape.
 
 The architecture is not considered complete until:
 
+- shared source files live in `GlassToKey.Core` instead of being linked out of `GlassToKey/`
 - Windows consumes the shared engine path through `GlassToKey.Core`
 - Windows-specific runtime/device code is split cleanly into a Windows platform layer
 - Windows host/runtime composition is separated from pure platform plumbing
@@ -278,7 +290,8 @@ The architecture is not considered complete until:
 
 - Keep Windows-only code in `GlassToKey/`.
 - Keep shared engine/runtime seams in `GlassToKey.Core/`.
-- Prefer extracting shared layout, keymap, touch-config, and runtime-profile logic into `GlassToKey.Core/` instead of rebuilding similar logic separately in Linux host, GUI, or platform code.
+- Prefer physically moving shared layout, keymap, touch-config, and runtime-profile logic into `GlassToKey.Core/` instead of rebuilding similar logic separately in Linux host, GUI, or platform code.
+- Do not treat linked source files back into `GlassToKey/` as an acceptable steady state for shared code.
 - Keep Linux gesture ingestion and `uinput` output in `GlassToKey.Platform.Linux/`.
 - Keep Linux settings/runtime composition in `GlassToKey.Linux.Host/`.
 - Keep Linux CLI/GUI hosts thin.
@@ -461,10 +474,12 @@ The live path works. The next gap is broader validation under the ways users wil
 The Linux path works, but shared extraction is still only partially complete in repo structure and shared semantics still coexist with Windows-VK compatibility.
 
 - [ ] Continue moving shared engine/layout/keymap/runtime pieces toward `GlassToKey.Core`
+- [ ] Remove the linked-source bridge from `GlassToKey.Core` back into `GlassToKey/` for shared code
 - [ ] Keep `GlassToKey.Core` dependency-clean and Linux/Windows consumable
 - [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
 - [ ] Decide how much replay/self-test infrastructure should live directly in `GlassToKey.Core` versus remain host-owned
 - [ ] Keep Windows behavior unchanged while that cleanup proceeds
+- [ ] After Linux and shared-core extraction are complete, rewrite Windows to consume `GlassToKey.Core` as the canonical shared implementation
 
 ### 5. Linux v1 parity decisions still deferred
 

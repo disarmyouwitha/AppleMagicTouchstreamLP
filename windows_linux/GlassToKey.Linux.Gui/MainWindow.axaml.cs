@@ -22,7 +22,9 @@ public partial class MainWindow : Window
     private const double KeyHeightMm = 17.0;
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxRuntimeServiceController _runtimeController = new();
+    private readonly LinuxRuntimeStateStore _runtimeStateStore = new();
     private readonly LinuxInputPreviewController _previewController = new();
+    private readonly DispatcherTimer _runtimeStatusTimer;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeyLayout _rightRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
     private KeymapStore _renderedKeymap = KeymapStore.LoadBundledDefault();
@@ -33,6 +35,7 @@ public partial class MainWindow : Window
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly TextBlock _runtimeTypingStatusText;
     private readonly TextBlock _leftPreviewText;
     private readonly TextBlock _rightPreviewText;
     private readonly Canvas _leftPreviewCanvas;
@@ -41,6 +44,7 @@ public partial class MainWindow : Window
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
+    private bool _runtimeStatusRefreshPending;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "Live input preview is stopped.",
@@ -57,16 +61,24 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _runtimeTypingStatusText = RequireControl<TextBlock>("RuntimeTypingStatusText");
         _leftPreviewText = RequireControl<TextBlock>("LeftPreviewText");
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
+        _runtimeStatusTimer = new DispatcherTimer
+        {
+            Interval = TimeSpan.FromMilliseconds(400)
+        };
+        _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
         _previewController.SnapshotChanged += OnPreviewSnapshotChanged;
         Closing += OnWindowClosing;
         Opened += OnWindowOpened;
         WireEvents();
         LoadScreen();
         ApplyPreviewSnapshot(_previewSnapshot);
+        _runtimeStatusTimer.Start();
+        _ = RefreshRuntimeStatusAsync();
     }
 
     private void InitializeComponent()
@@ -278,6 +290,7 @@ public partial class MainWindow : Window
     public async Task RequestExitAsync()
     {
         _runtimeOwnedByTray = false;
+        _runtimeStatusTimer.Stop();
         await StopRuntimeAsync();
         _allowExit = true;
         if (!Dispatcher.UIThread.CheckAccess())
@@ -439,12 +452,14 @@ public partial class MainWindow : Window
     {
         LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StartAsync();
         HandleRuntimeControlSnapshot(snapshot, "Start Runtime");
+        await RefreshRuntimeStatusAsync();
     }
 
     private async Task StopRuntimeAsync()
     {
         LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.StopAsync();
         HandleRuntimeControlSnapshot(snapshot, "Stop Runtime");
+        await RefreshRuntimeStatusAsync();
     }
 
     private void OnWindowClosing(object? sender, WindowClosingEventArgs e)
@@ -465,6 +480,7 @@ public partial class MainWindow : Window
     private void OnWindowOpened(object? sender, EventArgs e)
     {
         EnsurePreviewActive();
+        _ = RefreshRuntimeStatusAsync();
     }
 
     public void EnsurePreviewActive()
@@ -473,6 +489,77 @@ public partial class MainWindow : Window
         {
             return;
         }
+    }
+
+    private async void OnRuntimeStatusTimerTick(object? sender, EventArgs e)
+    {
+        await RefreshRuntimeStatusAsync();
+    }
+
+    private async Task RefreshRuntimeStatusAsync()
+    {
+        if (_runtimeStatusRefreshPending)
+        {
+            return;
+        }
+
+        _runtimeStatusRefreshPending = true;
+        try
+        {
+            LinuxRuntimeServiceSnapshot serviceSnapshot = await _runtimeController.RefreshAsync();
+            LinuxRuntimeStateSnapshot? runtimeState = _runtimeStateStore.Load();
+            ApplyRuntimeStatus(serviceSnapshot, runtimeState);
+        }
+        finally
+        {
+            _runtimeStatusRefreshPending = false;
+        }
+    }
+
+    private void ApplyRuntimeStatus(
+        LinuxRuntimeServiceSnapshot serviceSnapshot,
+        LinuxRuntimeStateSnapshot? runtimeState)
+    {
+        string text;
+        Color color;
+        bool runtimeFresh = runtimeState != null &&
+                            runtimeState.IsRunning &&
+                            DateTimeOffset.UtcNow - runtimeState.UpdatedUtc <= TimeSpan.FromSeconds(3);
+
+        if (serviceSnapshot.Status == LinuxRuntimeServiceStatus.Running && runtimeFresh)
+        {
+            text = runtimeState!.TypingEnabled
+                ? "Typing: on"
+                : "Typing: off";
+            color = runtimeState.TypingEnabled
+                ? Color.Parse("#CFECCB")
+                : Color.Parse("#FFD1C2");
+        }
+        else if (serviceSnapshot.Status == LinuxRuntimeServiceStatus.Running)
+        {
+            text = "Typing: syncing runtime...";
+            color = Color.Parse("#F7F2EA");
+        }
+        else if (serviceSnapshot.Status is LinuxRuntimeServiceStatus.Starting or LinuxRuntimeServiceStatus.Stopping)
+        {
+            text = serviceSnapshot.Status == LinuxRuntimeServiceStatus.Starting
+                ? "Typing: runtime starting..."
+                : "Typing: runtime stopping...";
+            color = Color.Parse("#F7F2EA");
+        }
+        else if (!serviceSnapshot.IsInstalled)
+        {
+            text = "Typing: runtime unavailable";
+            color = Color.Parse("#FFD1C2");
+        }
+        else
+        {
+            text = "Typing: runtime stopped";
+            color = Color.Parse("#D9C7B5");
+        }
+
+        _runtimeTypingStatusText.Text = text;
+        _runtimeTypingStatusText.Foreground = new SolidColorBrush(color);
     }
 
     private void ShowNoticeDialog(string title, string message)
