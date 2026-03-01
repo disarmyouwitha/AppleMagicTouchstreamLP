@@ -99,7 +99,10 @@ public sealed class LinuxInputRuntimeService
                     snapshot.MaxX,
                     snapshot.MaxY,
                     snapshot.Frame.ArrivalQpcTicks);
-                return ValueTask.FromResult(target.Post(in envelope));
+                // A live target may drop frames under backpressure. That should not be
+                // treated as an evdev disconnect because the device stream is still valid.
+                target.Post(in envelope);
+                return ValueTask.FromResult(!token.IsCancellationRequested);
             },
             cancellationToken).ConfigureAwait(false);
     }

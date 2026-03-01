@@ -51,6 +51,7 @@ public partial class App : Application
         if (_mainWindow != null)
         {
             _mainWindow.RequestExit();
+            return;
         }
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

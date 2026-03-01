@@ -55,6 +55,17 @@
           <StackPanel Spacing="12">
             <TextBlock Classes="section" Text="Runtime" />
 
+            <StackPanel Orientation="Horizontal" Spacing="10">
+              <Button x:Name="StartRuntimeButton" Classes="action" Content="Start Runtime" />
+              <Button x:Name="StopRuntimeButton" Content="Stop Runtime" />
+            </StackPanel>
+            <TextBlock x:Name="RuntimeSummaryText"
+                       TextWrapping="Wrap"
+                       Foreground="#23303A" />
+            <TextBlock x:Name="RuntimeBindingsText"
+                       TextWrapping="Wrap"
+                       Foreground="#5A4032" />
+
             <TextBlock Text="Layout preset" />
             <ComboBox x:Name="LayoutPresetCombo" MinWidth="240" />
 

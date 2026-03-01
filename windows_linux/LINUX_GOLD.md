@@ -64,6 +64,175 @@ Current target assumptions:
 - `packaging/linux/`
 - checked-in `udev` rule template, install script, and Debian package skeleton
 
+## Target Final Architecture
+
+This section describes the intended end state after the migration and cleanup work is complete.
+
+The important distinction is:
+
+- the current repo is still in a transitional state
+- the target architecture is the shape we should be steering changes toward
+
+### Design principles
+
+- Shared product behavior lives once in a platform-neutral core.
+- Platform-specific input/output/device code lives in platform layers.
+- Host/runtime composition lives in host layers.
+- Shipped apps stay thin and mostly provide entry points, packaging, and UI shells.
+- A shared gesture or layout change should affect every platform that consumes the shared core unless a platform layer intentionally diverges.
+
+### Target layers
+
+#### 1. Shared core
+
+- `GlassToKey.Core`
+- owns:
+  - touch engine
+  - gesture logic
+  - input/contact/frame model
+  - layout generation
+  - keymap model and parsing
+  - dispatch model
+  - platform-neutral semantic actions
+  - replay/test logic that is truly platform-neutral
+  - shared runtime seam used by all platforms
+- must not depend on:
+  - WPF
+  - WinForms
+  - Avalonia
+  - Raw Input
+  - `SendInput`
+  - `evdev`
+  - `uinput`
+  - XDG/platform settings
+  - tray/startup/service code
+
+#### 2. Windows platform layer
+
+- target shape: `GlassToKey.Platform.Windows`
+- owns:
+  - Raw Input ingestion
+  - Windows-native output injection such as `SendInput`
+  - click suppression / keyboard-mode plumbing
+  - Windows haptics
+  - Windows-only device/runtime glue
+- must not own:
+  - gesture behavior
+  - layout rules
+  - keymap semantics
+  - app shell/tray/startup configuration policy
+
+#### 3. Linux platform layer
+
+- `GlassToKey.Platform.Linux`
+- owns:
+  - evdev enumeration and identity
+  - frame assembly
+  - reconnect supervision
+  - `uinput` output
+  - Linux-native permission probing
+  - Linux-only device/runtime glue
+- must not own:
+  - gesture behavior
+  - layout rules
+  - keymap semantics
+  - host/UI policy
+
+#### 4. Windows host layer
+
+- target shape: `GlassToKey.Windows.Host`
+- owns:
+  - Windows runtime composition
+  - Windows settings/config composition
+  - tray/startup behavior
+  - diagnostics wiring
+  - host-side policy around runtime lifecycle
+- depends on:
+  - `GlassToKey.Core`
+  - `GlassToKey.Platform.Windows`
+
+#### 5. Linux host layer
+
+- `GlassToKey.Linux.Host`
+- owns:
+  - XDG-backed settings/config composition
+  - Linux runtime composition
+  - doctor/host-side diagnostics
+  - host-side policy around runtime lifecycle
+- depends on:
+  - `GlassToKey.Core`
+  - `GlassToKey.Platform.Linux`
+
+#### 6. Thin shipped apps
+
+- Windows desktop app:
+  - target shape: `GlassToKey.Windows` or the current `GlassToKey` renamed later
+- Linux runtime app:
+  - `GlassToKey.Linux`
+- Linux GUI app:
+  - `GlassToKey.Linux.Gui` if it remains a separately shipped executable
+
+These top-level apps should stay thin:
+
+- parse startup arguments
+- bootstrap the relevant host layer
+- provide platform UI shell entry points
+- package/publish the final app
+
+### Target dependency direction
+
+The desired dependency graph is:
+
+```text
+GlassToKey.Core
+  ^
+  |
+GlassToKey.Platform.Windows      GlassToKey.Platform.Linux
+  ^                              ^
+  |                              |
+GlassToKey.Windows.Host          GlassToKey.Linux.Host
+  ^                              ^              ^
+  |                              |              |
+GlassToKey.Windows               GlassToKey.Linux  GlassToKey.Linux.Gui
+```
+
+Rules:
+
+- `GlassToKey.Core` is the only shared logic layer.
+- Platform layers depend on `Core`, never on each other.
+- Host layers depend on `Core` plus one platform layer.
+- Top-level apps depend on host layers, not on deep internals.
+- Windows and Linux should consume the same shared engine path through `Core`.
+
+### Target build model
+
+Once the architecture is in the intended final state, daily builds should be simple:
+
+- Windows app build:
+  - build the Windows top-level app project
+- Linux runtime build:
+  - build the Linux top-level app project
+- Linux GUI build:
+  - build the Linux GUI top-level app project only if that GUI remains a separate shipped binary
+
+Internal dependency projects should build automatically through project references.
+
+That means:
+
+- developers should not need to manually build `Core`, `Platform.Windows`, `Platform.Linux`, `Windows.Host`, or `Linux.Host` as part of normal app workflows
+- those projects exist for code organization, reuse, and testability, not as the primary operator-facing build targets
+
+### Migration implication
+
+The current Windows project is still more monolithic than the target shape.
+
+The architecture is not considered complete until:
+
+- Windows consumes the shared engine path through `GlassToKey.Core`
+- Windows-specific runtime/device code is split cleanly into a Windows platform layer
+- Windows host/runtime composition is separated from pure platform plumbing
+- a shared gesture change in `GlassToKey.Core` is automatically picked up by both Windows and Linux builds
+
 ## Architectural Boundaries
 
 - Keep Windows-only code in `GlassToKey/`.

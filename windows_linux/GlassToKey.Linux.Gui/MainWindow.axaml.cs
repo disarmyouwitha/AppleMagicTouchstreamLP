@@ -4,6 +4,7 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using GlassToKey.Linux;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
@@ -14,11 +15,14 @@ namespace GlassToKey.Linux.Gui;
 public partial class MainWindow : Window
 {
     private readonly LinuxAppRuntime _runtime = new();
+    private readonly LinuxEngineRuntimeController _runtimeController = new();
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
     private readonly TextBox _keymapPathBox;
     private readonly TextBlock _keymapStatusText;
+    private readonly TextBlock _runtimeSummaryText;
+    private readonly TextBlock _runtimeBindingsText;
     private readonly TextBlock _settingsPathText;
     private readonly TextBlock _resolvedBindingsText;
     private readonly TextBlock _warningsText;
@@ -34,14 +38,18 @@ public partial class MainWindow : Window
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
         _keymapPathBox = RequireControl<TextBox>("KeymapPathBox");
         _keymapStatusText = RequireControl<TextBlock>("KeymapStatusText");
+        _runtimeSummaryText = RequireControl<TextBlock>("RuntimeSummaryText");
+        _runtimeBindingsText = RequireControl<TextBlock>("RuntimeBindingsText");
         _settingsPathText = RequireControl<TextBlock>("SettingsPathText");
         _resolvedBindingsText = RequireControl<TextBlock>("ResolvedBindingsText");
         _warningsText = RequireControl<TextBlock>("WarningsText");
         _statusText = RequireControl<TextBlock>("StatusText");
         _doctorReportBox = RequireControl<TextBox>("DoctorReportBox");
+        _runtimeController.SnapshotChanged += OnRuntimeSnapshotChanged;
         Closing += OnWindowClosing;
         WireEvents();
         LoadScreen();
+        ApplyRuntimeSnapshot(_runtimeController.Snapshot);
     }
 
     private void InitializeComponent()
@@ -53,6 +61,8 @@ public partial class MainWindow : Window
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
         RequireControl<Button>("SwapSidesButton").Click += OnSwapSidesClick;
+        RequireControl<Button>("StartRuntimeButton").Click += OnStartRuntimeClick;
+        RequireControl<Button>("StopRuntimeButton").Click += OnStopRuntimeClick;
         RequireControl<Button>("SaveSettingsButton").Click += OnSaveSettingsClick;
         RequireControl<Button>("InitializeDefaultsButton").Click += OnInitializeDefaultsClick;
         RequireControl<Button>("BrowseKeymapButton").Click += OnBrowseKeymapClick;
@@ -84,6 +94,11 @@ public partial class MainWindow : Window
             ? "No current warnings."
             : string.Join(Environment.NewLine, configuration.Warnings);
         _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s). Save writes directly to the XDG-backed Linux settings file.";
+        if (_runtimeController.Snapshot.IsActive)
+        {
+            _statusText.Text += " Restart the runtime to apply setting changes.";
+        }
+
         if (string.IsNullOrWhiteSpace(_doctorReportBox.Text))
         {
             _doctorReportBox.Text = "Run Doctor to validate evdev, uinput, bundled keymap, and current device bindings.";
@@ -167,6 +182,23 @@ public partial class MainWindow : Window
         RunDoctorFromStatusArea();
     }
 
+    private void OnStartRuntimeClick(object? sender, RoutedEventArgs e)
+    {
+        if (_runtimeController.TryStart(duration: null, out string message))
+        {
+            _statusText.Text = message;
+            return;
+        }
+
+        _statusText.Text = message;
+    }
+
+    private async void OnStopRuntimeClick(object? sender, RoutedEventArgs e)
+    {
+        _statusText.Text = "Stopping Linux runtime.";
+        await _runtimeController.StopAsync();
+    }
+
     public void RunDoctorFromStatusArea()
     {
         LinuxDoctorResult result = LinuxDoctorRunner.Run();
@@ -184,7 +216,13 @@ public partial class MainWindow : Window
 
     public void RequestExit()
     {
+        RequestExitAsync();
+    }
+
+    private async void RequestExitAsync()
+    {
         _allowExit = true;
+        await _runtimeController.StopAsync();
         Close();
     }
 
@@ -286,6 +324,7 @@ public partial class MainWindow : Window
     {
         if (_allowExit)
         {
+            _runtimeController.Dispose();
             return;
         }
 
@@ -294,6 +333,26 @@ public partial class MainWindow : Window
             e.Cancel = true;
             HideToStatusArea();
         }
+    }
+
+    private void OnRuntimeSnapshotChanged(LinuxEngineRuntimeSnapshot snapshot)
+    {
+        Dispatcher.UIThread.Post(() => ApplyRuntimeSnapshot(snapshot));
+    }
+
+    private void ApplyRuntimeSnapshot(LinuxEngineRuntimeSnapshot snapshot)
+    {
+        _runtimeSummaryText.Text = snapshot.Failure is null
+            ? $"Runtime: {snapshot.Status}. {snapshot.Message}"
+            : $"Runtime: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
+        _runtimeBindingsText.Text = snapshot.BindingStates.Count == 0
+            ? "No live runtime binding updates yet."
+            : string.Join(
+                Environment.NewLine,
+                snapshot.BindingStates.Select(static state => $"{state.Side}: {state.Status} [{state.DeviceNode ?? "no-node"}] {state.Message}"));
+
+        RequireControl<Button>("StartRuntimeButton").IsEnabled = !snapshot.IsActive;
+        RequireControl<Button>("StopRuntimeButton").IsEnabled = snapshot.IsActive;
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)

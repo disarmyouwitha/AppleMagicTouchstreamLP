@@ -766,13 +766,16 @@ internal static class Program
 
     private static async Task<int> RunEngineAsync(string[] args)
     {
-        double seconds = args.Length >= 2 && double.TryParse(args[1], out double parsedSeconds)
-            ? parsedSeconds
-            : 10.0;
-        if (seconds <= 0)
+        TimeSpan? duration = null;
+        if (args.Length >= 2)
         {
-            Console.Error.WriteLine("Duration must be positive.");
-            return 1;
+            if (!double.TryParse(args[1], out double parsedSeconds) || parsedSeconds <= 0)
+            {
+                Console.Error.WriteLine("Duration must be positive.");
+                return 1;
+            }
+
+            duration = TimeSpan.FromSeconds(parsedSeconds);
         }
 
         LinuxAppRuntime appRuntime = new();
@@ -784,7 +787,9 @@ internal static class Program
         }
 
         List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
-        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
+        using CancellationTokenSource cts = duration.HasValue
+            ? new CancellationTokenSource(duration.Value)
+            : new CancellationTokenSource();
         using LinuxUinputDispatcher dispatcher = new();
         using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset);
         LinuxInputRuntimeService runtime = new();
@@ -793,7 +798,9 @@ internal static class Program
             Observer = new ConsoleRuntimeObserver()
         };
 
-        Console.WriteLine($"Running engine for {seconds:0.##}s on {bindings.Count} trackpad(s).");
+        Console.WriteLine(duration.HasValue
+            ? $"Running engine for {duration.Value.TotalSeconds:0.##}s on {bindings.Count} trackpad(s)."
+            : $"Running engine until interrupted on {bindings.Count} trackpad(s).");
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
         Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
         Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
