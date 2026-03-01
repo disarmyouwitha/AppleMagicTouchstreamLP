@@ -15,7 +15,7 @@
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
 - `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, runtime-side stable-id rebind/reconnect supervision for unplug/replug churn, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
 - `GlassToKey.Linux.Host/` now carries the reusable Linux XDG settings/config/runtime layer plus the `doctor` runner so the CLI and GUI can share one host surface without the GUI referencing the CLI executable project.
-- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override through `GlassToKey.Linux.Host`. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes, and the checked-in install script now supports wrapper-vs-service install decisions with better post-install guidance.
+- `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override through `GlassToKey.Linux.Host`. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes, and the checked-in install script now supports wrapper-vs-service install decisions with better post-install guidance.
 - `GlassToKey.Linux.Gui/` now exists as an early Avalonia control shell on top of the same XDG-backed Linux host settings used by the CLI. It now supports device assignment, preset selection, keymap browse/clear, an in-app `doctor` report, and a first Ubuntu top-bar/tray shell through Avalonia `TrayIcon`. GUI publish now works both framework-dependent and self-contained.
 
 ## What To Build
@@ -50,6 +50,12 @@
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- show-config`
 - Linux host config init:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- init-config`
+- Linux host bind left:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- bind-left [device-node-or-stable-id]`
+- Linux host bind right:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- bind-right [device-node-or-stable-id]`
+- Linux host swap sides:
+  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- swap-sides`
 - Linux packaged permission rule output:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- print-udev-rules`
 - Linux host self-test:
@@ -93,7 +99,7 @@
 - `GlassToKey.Linux.Host/`: shared Linux host/config/runtime and doctor layer used by both CLI and GUI.
 - `GlassToKey.Linux/`: Linux CLI host and early packaging/publish surface.
 - `GlassToKey.Linux.Gui/`: early Linux GUI control shell for device binding, keymap selection, and diagnostics.
-- `LINUX_PROJECT_SKELETON.md`, `LINUX_VERSION.md`, `LINUX_EVDEV_MAPPING.md`: planning docs for the migration.
+- `LINUX_GOLD.md`: canonical Linux implementation, validation, and remaining-work document.
 
 ## Important Boundaries
 - Keep Windows-only code in `GlassToKey/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
@@ -133,7 +139,7 @@
 
 ## Working Rules
 - Preserve current Windows behavior while extracting shared code.
-- Be explicit about implemented code versus design docs. The Linux markdown files describe the intended shape, not a finished port.
+- Treat `LINUX_GOLD.md` as the Linux source of truth for current state, validated behavior, and remaining work.
 - Treat touch processing as latency-sensitive. Avoid allocations, logging, and file I/O on hot paths.
 - If device probing needs an unsandboxed `ioctl` or other direct host access to resolve Linux behavior, request escalation instead of assuming the kernel or driver is broken.
 - The current sandbox can still block `EVIOCGABS` during live `watch-runtime` validation even when the same command works on the host. Treat that as an environment validation issue, not a product requirement for fallback logic.
@@ -141,4 +147,4 @@
 - If the user asks to "build" from this folder without more detail, prefer the target most relevant to the touched code:
   - `GlassToKey/GlassToKey.csproj` for current app behavior
   - one of the Linux/shared projects if the change is confined there
-- Keep this file aligned with `GlassToKey/AGENTS.md` when Windows workflows or architecture shift.
+- Keep this file aligned with `GlassToKey/AGENTS.md` and `LINUX_GOLD.md` when workflows or architecture shift.

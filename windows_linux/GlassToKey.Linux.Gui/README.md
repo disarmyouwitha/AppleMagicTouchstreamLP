@@ -2,6 +2,8 @@
 
 Early Linux GUI control shell.
 
+For the canonical Linux status, validated host findings, and remaining-work checklist, use `../LINUX_GOLD.md`.
+
 Current scope:
 
 - load the XDG-backed Linux host settings from the shared `GlassToKey.Linux.Host` library

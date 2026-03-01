@@ -1,15 +1,22 @@
 # GlassToKey.Core
 
-Scaffold-only project for the future shared GlassToKey engine.
+Shared Linux-facing core seam/library for the GlassToKey engine path.
 
-Planned responsibilities:
+Current status:
+
+- this project is no longer scaffold-only
+- it currently exposes the shared frame-target seam and `TouchProcessorRuntimeHost`
+- the Linux host uses it to drive the shared engine/runtime path on Linux
+
+Responsibilities:
 
 - input/contact models
-- touch processor engine
-- gesture logic
-- layout generation
-- keymap model
-- replay/test logic
+- shared runtime/dispatch seams
+- touch processor engine extraction
+- gesture logic extraction
+- layout generation extraction
+- keymap model extraction
+- replay/test logic that can remain platform-neutral
 - platform-neutral semantic actions
 
 This project should remain free of:
@@ -22,4 +29,4 @@ This project should remain free of:
 - `evdev`
 - tray/startup UI code
 
-First extraction targets are documented in `../LINUX_PROJECT_SKELETON.md`.
+Canonical Linux status and remaining work are documented in `../LINUX_GOLD.md`.

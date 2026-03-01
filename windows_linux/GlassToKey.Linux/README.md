@@ -2,7 +2,9 @@
 
 Minimal Linux app host.
 
-Planned responsibilities:
+For the canonical Linux status, validated host findings, and remaining-work checklist, use `../LINUX_GOLD.md`.
+
+Responsibilities:
 
 - process entry point
 - settings/config under XDG paths via the shared `GlassToKey.Linux.Host` library
@@ -17,6 +19,7 @@ Current CLI/runtime features:
 - `init-config` writes default Linux host settings using detected stable IDs
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
+- `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
 - `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
 - `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
@@ -36,9 +39,9 @@ Current CLI/runtime features:
 
 Current phase:
 
-- early Phase 4 usable alpha
+- early usable alpha
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
-- packaging, doctor, offline `.atpcap` diagnostics, and a first GUI/device-picker shell are now started, but polished install flow and full end-user GUI/runtime distribution are still in progress
+- packaging and GUI productization are the main remaining gaps
 
 Publish commands:
 

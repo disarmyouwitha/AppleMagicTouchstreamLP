@@ -2,6 +2,8 @@
 
 Linux systems backend in progress.
 
+For the canonical Linux status, validated host findings, and remaining-work checklist, use `../LINUX_GOLD.md`.
+
 Current responsibilities:
 
 - enumerate Magic Trackpad devices from Linux input nodes
