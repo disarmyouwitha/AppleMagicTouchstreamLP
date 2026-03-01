@@ -23,6 +23,9 @@ public partial class MainWindow : Window
     private readonly LinuxRuntimeServiceController _runtimeController = new();
     private readonly LinuxInputPreviewController _previewController = new();
     private readonly DispatcherTimer _runtimeStatusTimer;
+    private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
+    private KeyLayout _rightRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
+    private KeymapStore _renderedKeymap = KeymapStore.LoadBundledDefault();
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
@@ -468,10 +471,10 @@ public partial class MainWindow : Window
 
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
-        _leftPreviewText.Text = BuildPreviewDetails(left);
-        _rightPreviewText.Text = BuildPreviewDetails(right);
-        RenderPreviewCanvas(_leftPreviewCanvas, left, "#D05A2A");
-        RenderPreviewCanvas(_rightPreviewCanvas, right, "#246A73");
+        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left);
+        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right);
+        RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, "#D05A2A");
+        RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, "#246A73");
 
         RequireControl<Button>("StartPreviewButton").IsEnabled = !snapshot.IsActive;
         RequireControl<Button>("StopPreviewButton").IsEnabled = snapshot.IsActive;
@@ -525,7 +528,7 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state)
+    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state, KeyLayout layout, KeymapStore keymap, TrackpadSide side)
     {
         if (state == null)
         {
@@ -547,12 +550,23 @@ public partial class MainWindow : Window
         {
             LinuxInputPreviewContact contact = state.Contacts[0];
             lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure}");
+            string[] hits = ResolveTouchedLabels(state, layout, keymap, side);
+            if (hits.Length > 0)
+            {
+                lines.Add($"Touched keys: {string.Join(", ", hits)}");
+            }
         }
 
         return string.Join(Environment.NewLine, lines);
     }
 
-    private static void RenderPreviewCanvas(Canvas canvas, LinuxInputPreviewTrackpadState? state, string accentHex)
+    private static void RenderPreviewCanvas(
+        Canvas canvas,
+        LinuxInputPreviewTrackpadState? state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side,
+        string accentHex)
     {
         canvas.Children.Clear();
 
@@ -567,6 +581,8 @@ public partial class MainWindow : Window
             Stroke = new SolidColorBrush(Color.Parse("#D9C7B5")),
             StrokeThickness = 1
         });
+
+        RenderPreviewKeymapOverlay(canvas, layout, keymap, side, width, height, accentHex);
 
         if (state == null)
         {
@@ -652,8 +668,104 @@ public partial class MainWindow : Window
             configuration.Keymap,
             mirrored: false);
 
+        _leftRenderedLayout = leftLayout;
+        _rightRenderedLayout = rightLayout;
+        _renderedKeymap = configuration.Keymap;
+
         RenderKeymapCanvas(_leftKeymapCanvas, leftLayout, configuration.Keymap, TrackpadSide.Left, "#D05A2A");
         RenderKeymapCanvas(_rightKeymapCanvas, rightLayout, configuration.Keymap, TrackpadSide.Right, "#246A73");
+    }
+
+    private static void RenderPreviewKeymapOverlay(
+        Canvas canvas,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side,
+        double width,
+        double height,
+        string accentHex)
+    {
+        if (layout.Rects.Length == 0)
+        {
+            return;
+        }
+
+        Color accent = Color.Parse(accentHex);
+        for (int row = 0; row < layout.Rects.Length; row++)
+        {
+            for (int col = 0; col < layout.Rects[row].Length; col++)
+            {
+                NormalizedRect rect = layout.Rects[row][col];
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                string label = keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]).Primary.Label;
+
+                Border keyBorder = new()
+                {
+                    Width = Math.Max(22, rect.Width * width),
+                    Height = Math.Max(20, rect.Height * height),
+                    Background = new SolidColorBrush(accent, 0.08),
+                    BorderBrush = new SolidColorBrush(accent, 0.25),
+                    BorderThickness = new Thickness(1),
+                    CornerRadius = new CornerRadius(8),
+                    Child = new TextBlock
+                    {
+                        Text = label,
+                        Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
+                        FontSize = 11,
+                        FontWeight = FontWeight.SemiBold,
+                        TextAlignment = TextAlignment.Center,
+                        TextWrapping = TextWrapping.Wrap,
+                        MaxWidth = Math.Max(18, rect.Width * width - 8),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                    },
+                    RenderTransformOrigin = RelativePoint.Center
+                };
+                if (Math.Abs(rect.RotationDegrees) >= 0.00001)
+                {
+                    keyBorder.RenderTransform = new RotateTransform(rect.RotationDegrees);
+                }
+
+                canvas.Children.Add(keyBorder);
+                Canvas.SetLeft(keyBorder, rect.X * width);
+                Canvas.SetTop(keyBorder, rect.Y * height);
+            }
+        }
+    }
+
+    private static string[] ResolveTouchedLabels(
+        LinuxInputPreviewTrackpadState state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side)
+    {
+        if (layout.HitGeometries.Length == 0 || state.Contacts.Count == 0 || state.MaxX == 0 || state.MaxY == 0)
+        {
+            return Array.Empty<string>();
+        }
+
+        HashSet<string> labels = new(StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            double x = contact.X / (double)state.MaxX;
+            double y = contact.Y / (double)state.MaxY;
+            for (int row = 0; row < layout.HitGeometries.Length; row++)
+            {
+                for (int col = 0; col < layout.HitGeometries[row].Length; col++)
+                {
+                    if (!layout.HitGeometries[row][col].Contains(x, y))
+                    {
+                        continue;
+                    }
+
+                    string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                    labels.Add(keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]).Primary.Label);
+                }
+            }
+        }
+
+        return labels.Count == 0 ? Array.Empty<string>() : [.. labels];
     }
 
     private static void RenderKeymapCanvas(
