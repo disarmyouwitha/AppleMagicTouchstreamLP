@@ -53,5 +53,10 @@
       <Setter Property="CornerRadius" Value="10" />
       <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
+    <Style Selector="Button.headerAction:pointerover">
+      <Setter Property="Background" Value="#E07845" />
+      <Setter Property="Foreground" Value="#FFF9F1" />
+      <Setter Property="BorderBrush" Value="#FFF9F1" />
+    </Style>
   </Application.Styles>
 </Application>

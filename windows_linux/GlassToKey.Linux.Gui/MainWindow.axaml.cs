@@ -40,6 +40,7 @@ public partial class MainWindow : Window
     private bool _runtimeRefreshPending;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
+    private bool _settingsApplyPending;
     private LinuxRuntimeServiceSnapshot _runtimeSnapshot = new(
         LinuxRuntimeServiceStatus.Unavailable,
         "glasstokey-linux.service",
@@ -116,11 +117,7 @@ public partial class MainWindow : Window
         RenderKeymapPreview(configuration);
         ApplyPreviewSnapshot(_previewSnapshot);
 
-        _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s). Changes save directly to the XDG-backed Linux settings file.";
-        if (_runtimeSnapshot.Status is LinuxRuntimeServiceStatus.Running or LinuxRuntimeServiceStatus.Starting)
-        {
-            _statusText.Text += " Restart the runtime service to apply setting changes.";
-        }
+        _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s).";
 
         _loadingScreen = false;
     }
@@ -136,24 +133,40 @@ public partial class MainWindow : Window
         LoadScreen($"Swapped left/right bindings in {path}.");
     }
 
-    private void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
         if (_loadingScreen)
         {
             return;
         }
 
-        SaveLiveSettings("Saved Linux host settings.");
+        await SaveLiveSettingsAsync().ConfigureAwait(false);
     }
 
-    private void SaveLiveSettings(string statusPrefix)
+    private async Task SaveLiveSettingsAsync()
     {
+        if (_settingsApplyPending)
+        {
+            return;
+        }
+
+        _settingsApplyPending = true;
         LinuxHostSettings settings = _runtime.LoadSettings();
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
         string path = _runtime.SaveSettings(settings);
-        LoadScreen($"{statusPrefix} {path}");
+        string statusMessage = $"Applied settings from {path}.";
+        try
+        {
+            await RestartRuntimeForConfigChangeAsync().ConfigureAwait(false);
+        }
+        finally
+        {
+            _settingsApplyPending = false;
+        }
+
+        LoadScreen(statusMessage);
     }
 
     private async void OnImportSettingsClick(object? sender, RoutedEventArgs e)
@@ -188,7 +201,13 @@ public partial class MainWindow : Window
             return;
         }
 
-        TryImportSettings(localPath, out string message);
+        if (!TryImportSettings(localPath, out string message))
+        {
+            _statusText.Text = message;
+            return;
+        }
+
+        await RestartRuntimeForConfigChangeAsync().ConfigureAwait(false);
         LoadScreen(message);
     }
 
@@ -233,7 +252,7 @@ public partial class MainWindow : Window
 
     public void HideToStatusArea()
     {
-        _statusText.Text = "Window hidden. The tray stays alive and keeps the Linux runtime owned outside the config UI.";
+        _statusText.Text = "Window hidden.";
         _ = _previewController.StopAsync();
         Hide();
     }
@@ -247,6 +266,16 @@ public partial class MainWindow : Window
 
         _runtimeOwnedByTray = true;
         _ = StartRuntimeAsync();
+    }
+
+    private async Task RestartRuntimeForConfigChangeAsync()
+    {
+        LinuxRuntimeServiceSnapshot snapshot = await _runtimeController.RestartAsync().ConfigureAwait(false);
+        ApplyRuntimeSnapshot(snapshot);
+        if (snapshot.Failure is not null)
+        {
+            _statusText.Text = $"Runtime restart failed: {snapshot.Failure}";
+        }
     }
 
     public async Task RequestExitAsync()

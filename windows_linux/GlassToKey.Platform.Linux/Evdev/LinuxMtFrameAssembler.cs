@@ -154,6 +154,8 @@ public sealed class LinuxMtFrameAssembler
         _legacyContact.IsActive = isActive;
         if (!isActive)
         {
+            Array.Clear(_slots, 0, _slots.Length);
+            _currentSlot = 0;
             _legacyContact.TouchMajorRaw = 0;
             _legacyContact.TouchMinorRaw = 0;
             _legacyContact.PressureRaw = 0;
