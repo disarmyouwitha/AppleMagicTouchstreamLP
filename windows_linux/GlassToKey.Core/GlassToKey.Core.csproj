@@ -7,11 +7,24 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="..\GlassToKey\GridKeyPosition.cs" Link="Layout\GridKeyPosition.cs" />
+    <Compile Include="..\GlassToKey\KeyLayout.cs" Link="Layout\KeyLayout.cs" />
+    <Compile Include="..\GlassToKey\LayoutBuilder.cs" Link="Layout\LayoutBuilder.cs" />
+    <Compile Include="..\GlassToKey\TrackpadLayoutPreset.cs" Link="Layout\TrackpadLayoutPreset.cs" />
+    <Compile Include="..\GlassToKey\ColumnLayoutSettings.cs" Link="Layout\ColumnLayoutSettings.cs" />
+    <Compile Include="..\GlassToKey\KeymapStore.cs" Link="Keymap\KeymapStore.cs" />
     <Compile Include="..\GlassToKey\PtpReport.cs" Link="Input\PtpReport.cs" />
     <Compile Include="..\GlassToKey\Core\Input\InputFrame.cs" Link="Input\InputFrame.cs" />
     <Compile Include="..\GlassToKey\Core\Input\ForceNormalizer.cs" Link="Input\ForceNormalizer.cs" />
     <Compile Include="..\GlassToKey\Core\Input\ButtonEdgeTracker.cs" Link="Input\ButtonEdgeTracker.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchModels.cs" Link="Dispatch\DispatchModels.cs" />
+    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchKeyResolver.cs" Link="Dispatch\DispatchKeyResolver.cs" />
+    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventQueue.cs" Link="Dispatch\DispatchEventQueue.cs" />
+    <Compile Include="..\GlassToKey\Core\Dispatch\DispatchEventPump.cs" Link="Dispatch\DispatchEventPump.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\IInputDispatcher.cs" Link="Dispatch\IInputDispatcher.cs" />
+    <Compile Include="..\GlassToKey\Core\Engine\TouchTable.cs" Link="Engine\TouchTable.cs" />
+    <Compile Include="..\GlassToKey\Core\Engine\EngineModels.cs" Link="Engine\EngineModels.cs" />
+    <Compile Include="..\GlassToKey\Core\Engine\BindingIndex.cs" Link="Engine\BindingIndex.cs" />
+    <Compile Include="..\GlassToKey\Core\Engine\TouchProcessorCore.cs" Link="Engine\TouchProcessorCore.cs" />
+    <Compile Include="..\GlassToKey\Core\Engine\TouchProcessorFactory.cs" Link="Engine\TouchProcessorFactory.cs" />
   </ItemGroup>
 </Project>

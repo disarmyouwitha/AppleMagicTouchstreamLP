@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Threading;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Models;
@@ -44,9 +46,19 @@ internal static class Program
             return ProbeUinput();
         }
 
+        if (string.Equals(args[0], "uinput-smoke", StringComparison.OrdinalIgnoreCase))
+        {
+            return SmokeUinput(args);
+        }
+
         if (string.Equals(args[0], "watch-runtime", StringComparison.OrdinalIgnoreCase))
         {
             return WatchRuntimeAsync(args).GetAwaiter().GetResult();
+        }
+
+        if (string.Equals(args[0], "run-engine", StringComparison.OrdinalIgnoreCase))
+        {
+            return RunEngineAsync(args).GetAwaiter().GetResult();
         }
 
         Console.Error.WriteLine($"Unknown command '{args[0]}'.");
@@ -88,7 +100,9 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
+        Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
         Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
+        Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
     }
 
     private static async Task<int> ReadFramesAsync(string[] args)
@@ -245,6 +259,128 @@ internal static class Program
         return status.IsReady ? 0 : 1;
     }
 
+    private static int SmokeUinput(string[] args)
+    {
+        string[] tokens = args.Length >= 2 ? args[1..] : ["A"];
+        using LinuxUinputDispatcher dispatcher = new();
+        for (int index = 0; index < tokens.Length; index++)
+        {
+            string token = tokens[index];
+            if (!TryResolveSmokeVirtualKey(token, out ushort virtualKey, out string description))
+            {
+                Console.Error.WriteLine($"Unsupported smoke token '{token}'.");
+                Console.Error.WriteLine("Supported examples: A, Enter, Space, Backspace, Left, Right, Up, Down, 0x41");
+                return 1;
+            }
+
+            DispatchEvent dispatchEvent = new(
+                TimestampTicks: Stopwatch.GetTimestamp(),
+                Kind: DispatchEventKind.KeyTap,
+                VirtualKey: virtualKey,
+                MouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                Flags: DispatchEventFlags.None,
+                Side: TrackpadSide.Left,
+                DispatchLabel: description,
+                SemanticAction: new DispatchSemanticAction(DispatchSemanticKind.Key, description));
+            dispatcher.Dispatch(in dispatchEvent);
+            dispatcher.Tick(Stopwatch.GetTimestamp());
+            Thread.Sleep(index == tokens.Length - 1 ? 120 : 60);
+            Console.WriteLine($"Injected '{description}' through uinput.");
+        }
+
+        return 0;
+    }
+
+    private static bool TryResolveSmokeVirtualKey(string token, out ushort virtualKey, out string description)
+    {
+        virtualKey = 0;
+        description = string.Empty;
+        if (string.IsNullOrWhiteSpace(token))
+        {
+            return false;
+        }
+
+        string trimmed = token.Trim();
+        if (trimmed.Length == 1)
+        {
+            char ch = trimmed[0];
+            if (ch >= 'a' && ch <= 'z')
+            {
+                virtualKey = (ushort)(ch - 'a' + 0x41);
+                description = ch.ToString().ToUpperInvariant();
+                return true;
+            }
+
+            if (ch >= 'A' && ch <= 'Z')
+            {
+                virtualKey = (ushort)(ch - 'A' + 0x41);
+                description = ch.ToString();
+                return true;
+            }
+
+            if (ch >= '0' && ch <= '9')
+            {
+                virtualKey = (ushort)(ch - '0' + 0x30);
+                description = ch.ToString();
+                return true;
+            }
+        }
+
+        if ((trimmed.StartsWith("0x", StringComparison.OrdinalIgnoreCase) &&
+             ushort.TryParse(trimmed.AsSpan(2), System.Globalization.NumberStyles.HexNumber, null, out virtualKey)) ||
+            ushort.TryParse(trimmed, out virtualKey))
+        {
+            description = $"0x{virtualKey:x}";
+            return true;
+        }
+
+        switch (trimmed.ToUpperInvariant())
+        {
+            case "SPACE":
+                virtualKey = 0x20;
+                description = "Space";
+                return true;
+            case "ENTER":
+            case "RET":
+                virtualKey = 0x0D;
+                description = "Enter";
+                return true;
+            case "TAB":
+                virtualKey = 0x09;
+                description = "Tab";
+                return true;
+            case "ESC":
+            case "ESCAPE":
+                virtualKey = 0x1B;
+                description = "Escape";
+                return true;
+            case "BACK":
+            case "BACKSPACE":
+                virtualKey = 0x08;
+                description = "Backspace";
+                return true;
+            case "LEFT":
+                virtualKey = 0x25;
+                description = "Left";
+                return true;
+            case "UP":
+                virtualKey = 0x26;
+                description = "Up";
+                return true;
+            case "RIGHT":
+                virtualKey = 0x27;
+                description = "Right";
+                return true;
+            case "DOWN":
+                virtualKey = 0x28;
+                description = "Down";
+                return true;
+            default:
+                return false;
+        }
+    }
+
     private static async Task<int> WatchRuntimeAsync(string[] args)
     {
         double seconds = args.Length >= 2 && double.TryParse(args[1], out double parsedSeconds)
@@ -264,16 +400,7 @@ internal static class Program
             return 1;
         }
 
-        List<LinuxTrackpadBinding> bindings = [];
-        if (devices.Count >= 1)
-        {
-            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Left, devices[0]));
-        }
-
-        if (devices.Count >= 2)
-        {
-            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Right, devices[1]));
-        }
+        List<LinuxTrackpadBinding> bindings = BuildDefaultBindings(devices);
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
         LinuxInputRuntimeService runtime = new();
@@ -287,6 +414,58 @@ internal static class Program
         ConsoleTrackpadFrameTarget target = new();
         await runtime.RunAsync(bindings, target, cts.Token).ConfigureAwait(false);
         return 0;
+    }
+
+    private static async Task<int> RunEngineAsync(string[] args)
+    {
+        double seconds = args.Length >= 2 && double.TryParse(args[1], out double parsedSeconds)
+            ? parsedSeconds
+            : 10.0;
+        if (seconds <= 0)
+        {
+            Console.Error.WriteLine("Duration must be positive.");
+            return 1;
+        }
+
+        LinuxTrackpadEnumerator enumerator = new();
+        IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
+        if (devices.Count == 0)
+        {
+            Console.Error.WriteLine("No trackpads available for engine run.");
+            return 1;
+        }
+
+        List<LinuxTrackpadBinding> bindings = BuildDefaultBindings(devices);
+        using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
+        using LinuxUinputDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost engine = new(dispatcher);
+        LinuxInputRuntimeService runtime = new();
+
+        Console.WriteLine($"Running engine for {seconds:0.##}s on {bindings.Count} trackpad(s).");
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = bindings[index];
+            Console.WriteLine($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
+        }
+
+        await runtime.RunAsync(bindings, engine, cts.Token).ConfigureAwait(false);
+        return 0;
+    }
+
+    private static List<LinuxTrackpadBinding> BuildDefaultBindings(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
+    {
+        List<LinuxTrackpadBinding> bindings = [];
+        if (devices.Count >= 1)
+        {
+            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Left, devices[0]));
+        }
+
+        if (devices.Count >= 2)
+        {
+            bindings.Add(new LinuxTrackpadBinding(TrackpadSide.Right, devices[1]));
+        }
+
+        return bindings;
     }
 
     private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget

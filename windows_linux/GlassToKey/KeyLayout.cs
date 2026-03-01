@@ -1,5 +1,4 @@
 using System;
-using System.Windows;
 
 namespace GlassToKey;
 
@@ -77,7 +76,7 @@ public readonly record struct KeyHitGeometry(
         double cos = Math.Cos(radians);
         double sin = Math.Sin(radians);
 
-        Point[] corners =
+        GeometryPoint[] corners =
         {
             RotateCorner(-halfWidth, -halfHeight, centerX, centerY, cos, -sin),
             RotateCorner(halfWidth, -halfHeight, centerX, centerY, cos, -sin),
@@ -91,7 +90,7 @@ public readonly record struct KeyHitGeometry(
         double maxY = double.NegativeInfinity;
         for (int i = 0; i < corners.Length; i++)
         {
-            Point point = corners[i];
+            GeometryPoint point = corners[i];
             minX = Math.Min(minX, point.X);
             maxX = Math.Max(maxX, point.X);
             minY = Math.Min(minY, point.Y);
@@ -129,7 +128,7 @@ public readonly record struct KeyHitGeometry(
             (translatedX * Sin) + (translatedY * Cos));
     }
 
-    private static Point RotateCorner(double localX, double localY, double centerX, double centerY, double cos, double sin)
+    private static GeometryPoint RotateCorner(double localX, double localY, double centerX, double centerY, double cos, double sin)
     {
         return new(
             centerX + (localX * cos) - (localY * sin),
@@ -137,7 +136,9 @@ public readonly record struct KeyHitGeometry(
     }
 }
 
-public readonly record struct NormalizedRect(double X, double Y, double Width, double Height)
+internal readonly record struct GeometryPoint(double X, double Y);
+
+public readonly partial record struct NormalizedRect(double X, double Y, double Width, double Height)
 {
     public double CenterX => X + (Width * 0.5);
     public double CenterY => Y + (Height * 0.5);
@@ -158,44 +159,6 @@ public readonly record struct NormalizedRect(double X, double Y, double Width, d
         double rotatedX = (localX * cos) - (localY * sin);
         double rotatedY = (localX * sin) + (localY * cos);
         return Math.Abs(rotatedX) <= Width * 0.5 && Math.Abs(rotatedY) <= Height * 0.5;
-    }
-
-    public Rect ToRect(Rect bounds)
-    {
-        return new Rect(
-            bounds.Left + X * bounds.Width,
-            bounds.Top + Y * bounds.Height,
-            Width * bounds.Width,
-            Height * bounds.Height
-        );
-    }
-
-    public Rect ToBoundsRect(Rect bounds)
-    {
-        if (Math.Abs(RotationDegrees) < 0.00001)
-        {
-            return ToRect(bounds);
-        }
-
-        Point[] points = GetCorners();
-        double minX = double.PositiveInfinity;
-        double maxX = double.NegativeInfinity;
-        double minY = double.PositiveInfinity;
-        double maxY = double.NegativeInfinity;
-        for (int i = 0; i < points.Length; i++)
-        {
-            Point point = points[i];
-            minX = Math.Min(minX, point.X);
-            maxX = Math.Max(maxX, point.X);
-            minY = Math.Min(minY, point.Y);
-            maxY = Math.Max(maxY, point.Y);
-        }
-
-        return new Rect(
-            bounds.Left + minX * bounds.Width,
-            bounds.Top + minY * bounds.Height,
-            (maxX - minX) * bounds.Width,
-            (maxY - minY) * bounds.Height);
     }
 
     public NormalizedRect RotateAround(double pivotX, double pivotY, double rotationDegrees)
@@ -281,11 +244,11 @@ public readonly record struct NormalizedRect(double X, double Y, double Width, d
         }
     }
 
-    private Point[] GetCorners()
+    private GeometryPoint[] GetCorners()
     {
         double halfWidth = Width * 0.5;
         double halfHeight = Height * 0.5;
-        Point[] corners =
+        GeometryPoint[] corners =
         {
             new(CenterX - halfWidth, CenterY - halfHeight),
             new(CenterX + halfWidth, CenterY - halfHeight),
@@ -305,7 +268,7 @@ public readonly record struct NormalizedRect(double X, double Y, double Width, d
         {
             double localX = corners[i].X - CenterX;
             double localY = corners[i].Y - CenterY;
-            corners[i] = new Point(
+            corners[i] = new GeometryPoint(
                 CenterX + (localX * cos) - (localY * sin),
                 CenterY + (localX * sin) + (localY * cos));
         }
@@ -324,14 +287,14 @@ public readonly record struct NormalizedRect(double X, double Y, double Width, d
             return;
         }
 
-        Point[] points = GetCorners();
+        GeometryPoint[] points = GetCorners();
         minX = double.PositiveInfinity;
         maxX = double.NegativeInfinity;
         minY = double.PositiveInfinity;
         maxY = double.NegativeInfinity;
         for (int i = 0; i < points.Length; i++)
         {
-            Point point = points[i];
+            GeometryPoint point = points[i];
             minX = Math.Min(minX, point.X);
             maxX = Math.Max(maxX, point.X);
             minY = Math.Min(minY, point.Y);

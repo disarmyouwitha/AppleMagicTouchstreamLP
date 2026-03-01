@@ -254,6 +254,7 @@ Current repo status:
 - the shared dispatch model now carries `DispatchSemanticAction` metadata alongside Windows VK fields
 - `EngineKeyAction` now preserves semantic identity through dispatch generation instead of relying on VKs alone
 - Windows still uses the existing VK-based output path, but Linux output work now has a semantic payload to target
+- the first Linux `uinput` dispatcher now exists and can emit a smoke-test key through a virtual device on this host
 
 ### Step 3: add a Linux runtime backend
 
@@ -283,7 +284,7 @@ Current repo status:
 
 - `LinuxInputRuntimeService` can now stream frames either to a Linux-specific observer or directly into the shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam
 - `GlassToKey.Linux` exposes `probe-uinput` to validate `/dev/uinput` presence and rw access separately from evdev capture
-- real `uinput` injection is still pending
+- `GlassToKey.Linux uinput-smoke A` now validates basic virtual key injection through the Linux dispatcher path
 
 ### Step 4: add a Linux app host
 

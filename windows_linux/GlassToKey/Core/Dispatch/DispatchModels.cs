@@ -2,7 +2,7 @@ using System;
 
 namespace GlassToKey;
 
-internal enum DispatchEventKind : byte
+public enum DispatchEventKind : byte
 {
     None = 0,
     KeyTap = 1,
@@ -15,7 +15,7 @@ internal enum DispatchEventKind : byte
     MouseButtonUp = 8
 }
 
-internal enum DispatchMouseButton : byte
+public enum DispatchMouseButton : byte
 {
     None = 0,
     Left = 1,
@@ -24,7 +24,7 @@ internal enum DispatchMouseButton : byte
 }
 
 [Flags]
-internal enum DispatchSemanticKind : ushort
+public enum DispatchSemanticKind : ushort
 {
     None = 0,
     Key = 1 << 0,
@@ -39,21 +39,21 @@ internal enum DispatchSemanticKind : ushort
 }
 
 [Flags]
-internal enum DispatchEventFlags : byte
+public enum DispatchEventFlags : byte
 {
     None = 0,
     Repeatable = 1,
     Haptic = 2
 }
 
-internal readonly record struct DispatchSemanticAction(
+public readonly record struct DispatchSemanticAction(
     DispatchSemanticKind Kind,
     string Label)
 {
     public static DispatchSemanticAction None => new(DispatchSemanticKind.None, string.Empty);
 }
 
-internal readonly record struct DispatchEvent(
+public readonly record struct DispatchEvent(
     long TimestampTicks,
     DispatchEventKind Kind,
     ushort VirtualKey,
