@@ -18,4 +18,27 @@ internal static class TouchProcessorFactory
         core.SetPersistentLayer(0);
         return core;
     }
+
+    public static TouchProcessorCore CreateConfigured(
+        KeymapStore keymap,
+        UserSettings settings,
+        TrackpadLayoutPreset? preset = null)
+    {
+        ArgumentNullException.ThrowIfNull(keymap);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        UserSettings profile = settings.Clone();
+        profile.NormalizeRanges();
+        TrackpadLayoutPreset layoutPreset = preset ?? TrackpadLayoutPreset.ResolveByNameOrDefault(profile.LayoutPresetName);
+        profile.LayoutPresetName = layoutPreset.Name;
+        keymap.SetActiveLayout(layoutPreset.Name);
+
+        ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(profile, layoutPreset);
+        RuntimeConfigurationFactory.BuildLayouts(profile, keymap, layoutPreset, columns, out KeyLayout left, out KeyLayout right);
+        TouchProcessorConfig config = RuntimeConfigurationFactory.BuildTouchConfig(profile);
+
+        TouchProcessorCore core = new(left, right, keymap, config);
+        core.SetPersistentLayer(Math.Clamp(profile.ActiveLayer, 0, 7));
+        return core;
+    }
 }

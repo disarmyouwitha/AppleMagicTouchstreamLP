@@ -11,6 +11,9 @@
     <Compile Include="..\GlassToKey\LayoutBuilder.cs" Link="Layout\LayoutBuilder.cs" />
     <Compile Include="..\GlassToKey\TrackpadLayoutPreset.cs" Link="Layout\TrackpadLayoutPreset.cs" />
     <Compile Include="..\GlassToKey\ColumnLayoutSettings.cs" Link="Layout\ColumnLayoutSettings.cs" />
+    <Compile Include="..\GlassToKey\RuntimeConfigurationFactory.cs" Link="Runtime\RuntimeConfigurationFactory.cs" />
+    <Compile Include="..\GlassToKey\TrackpadDecoderProfile.cs" Link="Runtime\TrackpadDecoderProfile.cs" />
+    <Compile Include="..\GlassToKey\UserSettings.cs" Link="Runtime\UserSettings.cs" />
     <Compile Include="..\GlassToKey\KeymapStore.cs" Link="Keymap\KeymapStore.cs" />
     <Compile Include="..\GlassToKey\PtpReport.cs" Link="Input\PtpReport.cs" />
     <Compile Include="..\GlassToKey\Core\Input\InputFrame.cs" Link="Input\InputFrame.cs" />

@@ -21,14 +21,16 @@ public sealed class LinuxAppRuntime
     {
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = _enumerator.EnumerateDevices();
         LinuxHostSettings settings = _settingsStore.LoadOrCreateDefaults(devices);
+        UserSettings sharedProfile = settings.GetSharedProfile();
         List<string> warnings = [];
         List<LinuxTrackpadBinding> bindings = ResolveBindings(settings, devices, warnings);
         KeymapStore keymap = LoadKeymap(settings, warnings);
-        TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName);
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(sharedProfile.LayoutPresetName);
 
         return new LinuxRuntimeConfiguration(
             _settingsStore.GetSettingsPath(),
             settings,
+            sharedProfile,
             preset,
             keymap,
             bindings,
@@ -44,13 +46,15 @@ public sealed class LinuxAppRuntime
             settings.LayoutPresetName = TrackpadLayoutPreset.SixByThree.Name;
         }
 
+        UserSettings sharedProfile = settings.GetSharedProfile();
         List<string> warnings = [];
         KeymapStore keymap = LoadKeymap(settings, warnings);
-        TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(settings.LayoutPresetName);
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(sharedProfile.LayoutPresetName);
 
         return new LinuxRuntimeConfiguration(
             _settingsStore.GetSettingsPath(),
             settings,
+            sharedProfile,
             preset,
             keymap,
             Array.Empty<LinuxTrackpadBinding>(),

@@ -10,12 +10,15 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
     public TouchProcessorRuntimeHost(
         IInputDispatcher dispatcher,
         KeymapStore? keymap = null,
-        TrackpadLayoutPreset? preset = null)
+        TrackpadLayoutPreset? preset = null,
+        UserSettings? settings = null)
     {
         ArgumentNullException.ThrowIfNull(dispatcher);
 
         KeymapStore resolvedKeymap = keymap ?? KeymapStore.LoadBundledDefault();
-        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(resolvedKeymap, preset);
+        TouchProcessorCore core = settings == null
+            ? TouchProcessorFactory.CreateDefault(resolvedKeymap, preset)
+            : TouchProcessorFactory.CreateConfigured(resolvedKeymap, settings, preset);
         _dispatchQueue = new DispatchEventQueue();
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
         _actor.SetHapticsOnKeyDispatchEnabled(false);

@@ -80,6 +80,8 @@ The important distinction is:
 - Host/runtime composition lives in host layers.
 - Shipped apps stay thin and mostly provide entry points, packaging, and UI shells.
 - A shared gesture or layout change should affect every platform that consumes the shared core unless a platform layer intentionally diverges.
+- When Linux uncovers missing shared behavior or settings/layout/runtime plumbing, prefer moving that logic into `GlassToKey.Core` when the dependency boundary allows it rather than building a second Linux-only implementation.
+- Reimplementation in Linux host/platform layers is the fallback only when the code is genuinely platform-specific or extracting it would force platform dependencies into `Core`.
 
 ### Target layers
 
@@ -275,6 +277,7 @@ The architecture is not considered complete until:
 
 - Keep Windows-only code in `GlassToKey/`.
 - Keep shared engine/runtime seams in `GlassToKey.Core/`.
+- Prefer extracting shared layout, keymap, touch-config, and runtime-profile logic into `GlassToKey.Core/` instead of rebuilding similar logic separately in Linux host, GUI, or platform code.
 - Keep Linux gesture ingestion and `uinput` output in `GlassToKey.Platform.Linux/`.
 - Keep Linux settings/runtime composition in `GlassToKey.Linux.Host/`.
 - Keep Linux CLI/GUI hosts thin.

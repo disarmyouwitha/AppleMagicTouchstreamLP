@@ -39,7 +39,7 @@ internal static class LinuxAtpCapReplayRunner
             return new LinuxAtpCapReplayResult(false, fullPath, metrics.CreateSnapshot(), 0, 0, 0, 0, $"Replay '{fullPath}': only capture version 3 is supported on Linux right now.");
         }
 
-        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(configuration.Keymap, configuration.LayoutPreset);
+        TouchProcessorCore core = TouchProcessorFactory.CreateConfigured(configuration.Keymap, configuration.SharedProfile, configuration.LayoutPreset);
         using DispatchEventQueue dispatchQueue = new(capacity: 131072);
         using TouchProcessorActor actor = new(core, dispatchQueue: dispatchQueue);
         actor.SetDiagnosticsEnabled(!string.IsNullOrWhiteSpace(traceOutputPath));

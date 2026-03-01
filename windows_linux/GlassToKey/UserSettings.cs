@@ -209,6 +209,13 @@ public sealed class UserSettings
         }
     }
 
+    public static UserSettings LoadBundledDefaultsOrDefault()
+    {
+        return TryLoadBundledDefaults(out UserSettings bundledDefaults)
+            ? bundledDefaults
+            : new UserSettings();
+    }
+
     public void Save()
     {
         try

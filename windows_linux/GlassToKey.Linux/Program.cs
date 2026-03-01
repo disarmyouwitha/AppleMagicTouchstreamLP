@@ -791,7 +791,7 @@ internal static class Program
             ? new CancellationTokenSource(duration.Value)
             : new CancellationTokenSource();
         using LinuxUinputDispatcher dispatcher = new();
-        using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset);
+        using TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
         LinuxInputRuntimeService runtime = new();
         LinuxInputRuntimeOptions options = new()
         {

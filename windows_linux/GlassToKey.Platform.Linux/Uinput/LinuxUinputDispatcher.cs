@@ -144,8 +144,24 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
 
     private void HandleKeyDown(in DispatchEvent dispatchEvent)
     {
-        if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode) ||
-            !TrySendKeyCode(keyCode, isDown: true))
+        if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode))
+        {
+            return;
+        }
+
+        if ((uint)keyCode < (uint)_keyDown.Length)
+        {
+            if (!_keyDown[keyCode])
+            {
+                if (!TrySendKeyCode(keyCode, isDown: true))
+                {
+                    return;
+                }
+
+                _keyDown[keyCode] = true;
+            }
+        }
+        else if (!TrySendKeyCode(keyCode, isDown: true))
         {
             return;
         }
@@ -168,15 +184,22 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
             return;
         }
 
-        if ((uint)keyCode < (uint)_keyDown.Length && !_keyDown[keyCode])
+        if ((uint)keyCode < (uint)_keyDown.Length)
         {
+            if (!_keyDown[keyCode])
+            {
+                return;
+            }
+
+            if (TrySendKeyCode(keyCode, isDown: false))
+            {
+                _keyDown[keyCode] = false;
+            }
+
             return;
         }
 
-        if (TrySendKeyCode(keyCode, isDown: false) && (uint)keyCode < (uint)_keyDown.Length)
-        {
-            _keyDown[keyCode] = false;
-        }
+        TrySendKeyCode(keyCode, isDown: false);
     }
 
     private void HandleModifierDown(in DispatchEvent dispatchEvent)

@@ -648,25 +648,16 @@ public partial class MainWindow : Window
 
     private void RenderKeymapPreview(LinuxRuntimeConfiguration configuration)
     {
-        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(configuration.LayoutPreset.Columns);
-        KeyLayout leftLayout = LayoutBuilder.BuildLayout(
-            configuration.LayoutPreset,
-            TrackpadWidthMm,
-            TrackpadHeightMm,
-            KeyWidthMm,
-            KeyHeightMm,
-            columns,
+        ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
+            configuration.SharedProfile,
+            configuration.LayoutPreset);
+        RuntimeConfigurationFactory.BuildLayouts(
+            configuration.SharedProfile,
             configuration.Keymap,
-            mirrored: true);
-        KeyLayout rightLayout = LayoutBuilder.BuildLayout(
             configuration.LayoutPreset,
-            TrackpadWidthMm,
-            TrackpadHeightMm,
-            KeyWidthMm,
-            KeyHeightMm,
             columns,
-            configuration.Keymap,
-            mirrored: false);
+            out KeyLayout leftLayout,
+            out KeyLayout rightLayout);
 
         _leftRenderedLayout = leftLayout;
         _rightRenderedLayout = rightLayout;
@@ -731,6 +722,37 @@ public partial class MainWindow : Window
                 Canvas.SetTop(keyBorder, rect.Y * height);
             }
         }
+
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(0, side);
+        for (int index = 0; index < customButtons.Count; index++)
+        {
+            CustomButton button = customButtons[index];
+            Border customBorder = new()
+            {
+                Width = Math.Max(24, button.Rect.Width * width),
+                Height = Math.Max(20, button.Rect.Height * height),
+                Background = new SolidColorBrush(Color.Parse("#E07845"), 0.20),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E07845"), 0.65),
+                BorderThickness = new Thickness(1.5),
+                CornerRadius = new CornerRadius(10),
+                Child = new TextBlock
+                {
+                    Text = button.Primary?.Label ?? "None",
+                    Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
+                    FontSize = 11,
+                    FontWeight = FontWeight.SemiBold,
+                    TextAlignment = TextAlignment.Center,
+                    TextWrapping = TextWrapping.Wrap,
+                    MaxWidth = Math.Max(18, button.Rect.Width * width - 8),
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+                }
+            };
+
+            canvas.Children.Add(customBorder);
+            Canvas.SetLeft(customBorder, button.Rect.X * width);
+            Canvas.SetTop(customBorder, button.Rect.Y * height);
+        }
     }
 
     private static string[] ResolveTouchedLabels(
@@ -761,6 +783,22 @@ public partial class MainWindow : Window
 
                     string storageKey = GridKeyPosition.StorageKey(side, row, col);
                     labels.Add(keymap.ResolveMapping(0, storageKey, layout.Labels[row][col]).Primary.Label);
+                }
+            }
+        }
+
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(0, side);
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            double x = contact.X / (double)state.MaxX;
+            double y = contact.Y / (double)state.MaxY;
+            for (int buttonIndex = 0; buttonIndex < customButtons.Count; buttonIndex++)
+            {
+                CustomButton button = customButtons[buttonIndex];
+                if (button.Rect.Contains(x, y))
+                {
+                    labels.Add(button.Primary?.Label ?? "None");
                 }
             }
         }

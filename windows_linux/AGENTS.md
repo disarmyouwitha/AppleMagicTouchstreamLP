@@ -104,6 +104,8 @@
 ## Important Boundaries
 - Keep Windows-only code in `GlassToKey/`: WPF, WinForms, Raw Input, `SendInput`, click suppression, tray/startup UI, Windows haptics.
 - Keep `GlassToKey.Core/` free of WPF, WinForms, Raw Input, `SendInput`, `evdev`, and `uinput`.
+- Prefer moving shared engine, layout, keymap, touch-config, and runtime-profile behavior into `GlassToKey.Core/` when the dependency boundary permits it, instead of creating parallel Linux-specific implementations.
+- When Linux exposes a missing abstraction, first ask whether it should be extracted into `GlassToKey.Core/` before adding more logic to `GlassToKey.Linux.Host/`, `GlassToKey.Linux.Gui/`, or `GlassToKey.Platform.Linux/`.
 - Linux work should consume platform-neutral models or semantics, not Windows virtual-key assumptions.
 - `DispatchKeyResolver.cs` is a known split point because Linux needs semantic actions or evdev key codes rather than Windows VK mappings. The current engine/dispatch path now carries `DispatchSemanticAction` metadata alongside Windows VK fields, so new Linux output work should build on that semantic payload instead of adding more VK-only assumptions.
 - For hot paths, prefer precomputed code tables and fixed-size state arrays. The Linux `uinput` dispatcher now resolves semantic codes to evdev codes first and tracks repeat/modifier state by resolved Linux key code in the pump loop.
@@ -139,6 +141,7 @@
 
 ## Working Rules
 - Preserve current Windows behavior while extracting shared code.
+- Prefer extraction to `GlassToKey.Core/` over Linux-only reimplementation when the code is truly shared or should become shared under the target architecture.
 - Treat `LINUX_GOLD.md` as the Linux source of truth for current state, validated behavior, and remaining work.
 - Treat touch processing as latency-sensitive. Avoid allocations, logging, and file I/O on hot paths.
 - If device probing needs an unsandboxed `ioctl` or other direct host access to resolve Linux behavior, request escalation instead of assuming the kernel or driver is broken.

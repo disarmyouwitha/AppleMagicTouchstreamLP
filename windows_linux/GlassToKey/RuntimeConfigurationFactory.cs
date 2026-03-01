@@ -3,7 +3,7 @@ using System.Collections.Generic;
 
 namespace GlassToKey;
 
-internal static class RuntimeConfigurationFactory
+public static class RuntimeConfigurationFactory
 {
     // Apple Magic Trackpad 2 dimensions (Apple tech specs): 16.00 cm x 11.49 cm.
     public const double TrackpadWidthMm = 160.0;
@@ -16,7 +16,7 @@ internal static class RuntimeConfigurationFactory
     public const ushort DefaultMaxX = 7612;
     public const ushort DefaultMaxY = 5065;
 
-    public static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
+    internal static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
     {
         bool chordShiftEnabled = IsChordShiftGestureAction(settings.FourFingerHoldAction);
 

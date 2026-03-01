@@ -107,35 +107,37 @@
                        TextWrapping="Wrap"
                        Foreground="#23303A" />
 
-            <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Left Trackpad"
-                           FontWeight="SemiBold"
-                           Foreground="#5A4032" />
-                <Canvas x:Name="LeftPreviewCanvas"
-                        Width="600"
-                        Height="360"
-                        Background="#FFF9F1" />
-                <TextBlock x:Name="LeftPreviewText"
-                           TextWrapping="Wrap"
-                           Foreground="#5A4032" />
-              </StackPanel>
-            </Border>
+            <Grid ColumnDefinitions="*,*">
+              <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Left Trackpad"
+                             FontWeight="SemiBold"
+                             Foreground="#5A4032" />
+                  <Canvas x:Name="LeftPreviewCanvas"
+                          Width="520"
+                          Height="312"
+                          Background="#FFF9F1" />
+                  <TextBlock x:Name="LeftPreviewText"
+                             TextWrapping="Wrap"
+                             Foreground="#5A4032" />
+                </StackPanel>
+              </Border>
 
-            <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Right Trackpad"
-                           FontWeight="SemiBold"
-                           Foreground="#5A4032" />
-                <Canvas x:Name="RightPreviewCanvas"
-                        Width="600"
-                        Height="360"
-                        Background="#FFF9F1" />
-                <TextBlock x:Name="RightPreviewText"
-                           TextWrapping="Wrap"
-                           Foreground="#5A4032" />
-              </StackPanel>
-            </Border>
+              <Border Grid.Column="1" Margin="12,0,0,0" Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                <StackPanel Spacing="8">
+                  <TextBlock Text="Right Trackpad"
+                             FontWeight="SemiBold"
+                             Foreground="#5A4032" />
+                  <Canvas x:Name="RightPreviewCanvas"
+                          Width="520"
+                          Height="312"
+                          Background="#FFF9F1" />
+                  <TextBlock x:Name="RightPreviewText"
+                             TextWrapping="Wrap"
+                             Foreground="#5A4032" />
+                </StackPanel>
+              </Border>
+            </Grid>
           </StackPanel>
         </Border>
 

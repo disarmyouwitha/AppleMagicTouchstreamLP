@@ -25,18 +25,28 @@ public sealed class LinuxSettingsStore
         string path = GetSettingsPath();
         if (!File.Exists(path))
         {
-            return new LinuxHostSettings();
+            LinuxHostSettings defaults = new();
+            defaults.Normalize();
+            return defaults;
         }
 
         try
         {
             string json = File.ReadAllText(path);
             LinuxHostSettings? settings = JsonSerializer.Deserialize<LinuxHostSettings>(json, SerializerOptions);
-            return settings ?? new LinuxHostSettings();
+            LinuxHostSettings resolved = settings ?? new LinuxHostSettings();
+            if (resolved.Normalize())
+            {
+                Save(resolved);
+            }
+
+            return resolved;
         }
         catch
         {
-            return new LinuxHostSettings();
+            LinuxHostSettings defaults = new();
+            defaults.Normalize();
+            return defaults;
         }
     }
 
@@ -98,6 +108,8 @@ public sealed class LinuxSettingsStore
             settings.LayoutPresetName = TrackpadLayoutPreset.SixByThree.Name;
             changed = true;
         }
+
+        changed |= settings.Normalize();
 
         return changed;
     }
