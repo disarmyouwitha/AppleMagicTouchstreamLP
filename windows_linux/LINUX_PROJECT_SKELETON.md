@@ -352,6 +352,7 @@ Current repo status:
 - `doctor`, normalized Linux `.atpcap` capture/replay/summary commands, fixture generation/check commands, and checked-in install artifacts under `packaging/linux/` now exist
 - Linux `.atpcap` version 3 capture now preserves physical click state in the shared frame-header flags, so replay fidelity is better aligned with the live path
 - the Linux runtime now also supervises stable-id rebinds across device-node churn, the semantic surface is broader, and the repo now has both a first Debian package skeleton and a starting GUI/device-picker project
+- the repo now also has a reusable `GlassToKey.Linux.Host` library so the CLI and GUI share one Linux host/config/runtime layer, and the GUI can publish self-contained cleanly
 - the remaining big cleanup is unplug/replug live validation, more GUI surface, and a fuller packaged end-user flow
 
 ## Phase 3: engine extraction
@@ -404,7 +405,7 @@ Add:
 Current status:
 
 - achieved enough to call this phase active
-- the CLI host, XDG settings, diagnostics commands, `.atpcap` capture/replay scaffolding, and packaging artifacts now exist
+- the CLI host, shared `GlassToKey.Linux.Host` library, XDG settings, diagnostics commands, `.atpcap` capture/replay scaffolding, and packaging artifacts now exist
 - the next step inside this phase is packaging polish and operator-facing product work: install validation, packaged distribution, unplug/replug live validation, and expanding the starting GUI shell
 
 ## Concrete v1 Linux file plan

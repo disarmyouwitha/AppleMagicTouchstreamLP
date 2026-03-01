@@ -197,7 +197,14 @@ public sealed class LinuxInputRuntimeService
             return;
         }
 
-        await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await Task.Delay(delay, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            // Normal shutdown path for timed runs and process exit.
+        }
     }
 
     private static void Report(

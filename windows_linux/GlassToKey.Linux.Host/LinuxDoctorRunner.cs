@@ -5,9 +5,9 @@ using GlassToKey.Platform.Linux.Uinput;
 
 namespace GlassToKey.Linux;
 
-internal readonly record struct LinuxDoctorResult(bool Success, string Report);
+public readonly record struct LinuxDoctorResult(bool Success, string Report);
 
-internal static class LinuxDoctorRunner
+public static class LinuxDoctorRunner
 {
     public static LinuxDoctorResult Run()
     {

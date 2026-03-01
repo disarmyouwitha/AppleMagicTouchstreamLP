@@ -5,7 +5,7 @@ Minimal Linux app host.
 Planned responsibilities:
 
 - process entry point
-- settings/config under XDG paths
+- settings/config under XDG paths via the shared `GlassToKey.Linux.Host` library
 - Linux runtime startup/shutdown
 - device selection UI or CLI
 - wiring `GlassToKey.Core` to `GlassToKey.Platform.Linux`
@@ -28,6 +28,7 @@ Current CLI/runtime features:
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
+- the CLI now consumes the shared `GlassToKey.Linux.Host` library instead of carrying its own private copy of the Linux settings/runtime layer
 - checked-in publish profiles now cover:
   - framework-dependent `linux-x64`
   - self-contained single-file `linux-x64`

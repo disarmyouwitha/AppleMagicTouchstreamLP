@@ -10,7 +10,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\GlassToKey.Linux\GlassToKey.Linux.csproj" />
+    <ProjectReference Include="..\GlassToKey.Linux.Host\GlassToKey.Linux.Host.csproj" />
   </ItemGroup>
 
   <ItemGroup>
@@ -18,5 +18,11 @@
     <PackageReference Include="Avalonia.Desktop" Version="11.1.5" />
     <PackageReference Include="Avalonia.Themes.Fluent" Version="11.1.5" />
     <PackageReference Include="Avalonia.Fonts.Inter" Version="11.1.5" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\GlassToKey.Linux\GLASSTOKEY_DEFAULT_KEYMAP.json" Link="GLASSTOKEY_DEFAULT_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

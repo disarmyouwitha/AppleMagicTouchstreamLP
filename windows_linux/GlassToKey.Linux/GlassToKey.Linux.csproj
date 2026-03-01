@@ -11,6 +11,7 @@
   <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
     <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
     <ProjectReference Include="..\GlassToKey.Platform.Linux\GlassToKey.Platform.Linux.csproj" />
+    <ProjectReference Include="..\GlassToKey.Linux.Host\GlassToKey.Linux.Host.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Compile Include="..\GlassToKey\Core\Diagnostics\InputCaptureFile.cs" Link="Diagnostics\InputCaptureFile.cs" />
