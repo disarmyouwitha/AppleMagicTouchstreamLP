@@ -44,5 +44,14 @@
       <Setter Property="Padding" Value="14,10" />
       <Setter Property="CornerRadius" Value="10" />
     </Style>
+    <Style Selector="Button.headerAction">
+      <Setter Property="Background" Value="#FFF9F1" />
+      <Setter Property="Foreground" Value="#11161B" />
+      <Setter Property="BorderBrush" Value="#11161B" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="Padding" Value="14,10" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
   </Application.Styles>
 </Application>

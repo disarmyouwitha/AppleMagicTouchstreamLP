@@ -1,10 +1,10 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="GlassToKey.Linux.Gui.MainWindow"
-        Width="1320"
-        Height="980"
-        MinWidth="1180"
-        MinHeight="860"
+        Width="2640"
+        Height="1960"
+        MinWidth="1800"
+        MinHeight="1100"
         Title="GlassToKey Linux Control">
   <Grid RowDefinitions="Auto,*">
     <Border Background="#23303A" Padding="24,18">
@@ -18,15 +18,13 @@
                      FontSize="14"
                      Foreground="#D9C7B5" />
         </StackPanel>
-        <Border Background="#E07845"
-                CornerRadius="12"
-                Padding="14,8"
-                VerticalAlignment="Center">
-          <TextBlock x:Name="PhaseBadgeText"
-                     Text="Phase 4 / 6"
-                     FontWeight="SemiBold"
-                     Foreground="#FFF7F0" />
-        </Border>
+        <StackPanel Grid.Column="1"
+                    Orientation="Horizontal"
+                    Spacing="10"
+                    VerticalAlignment="Center">
+          <Button x:Name="ImportSettingsButton" Classes="headerAction" Content="Import Settings" />
+          <Button x:Name="ExportSettingsButton" Classes="headerAction" Content="Export Settings" />
+        </StackPanel>
       </Grid>
     </Border>
 
@@ -55,117 +53,81 @@
           </StackPanel>
         </Border>
 
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Settings" />
+        <Grid ColumnDefinitions="2.35*,1*">
+          <Border Classes="panel">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="section" Text="Live Input Preview" />
+              <TextBlock Text="Reads evdev directly so you can inspect contact motion against the active loaded keymap while the tray-owned runtime stays off the GUI hotpath."
+                         TextWrapping="Wrap"
+                         Foreground="#5A4032" />
 
-            <TextBlock Text="Layout preset" />
-            <ComboBox x:Name="LayoutPresetCombo" MinWidth="240" />
+              <TextBlock x:Name="PreviewSummaryText"
+                         TextWrapping="Wrap"
+                         Foreground="#23303A" />
 
-            <TextBlock Text="Keymap path" Margin="0,8,0,0" />
-            <TextBox x:Name="KeymapPathBox" Watermark="Use bundled Linux default when empty" />
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <Button x:Name="BrowseKeymapButton" Content="Browse Keymap" />
-              <Button x:Name="ClearKeymapButton" Content="Use Bundled Default" />
-            </StackPanel>
-            <TextBlock x:Name="KeymapStatusText"
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
+              <Grid ColumnDefinitions="*,*">
+                <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Left Trackpad"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <Canvas x:Name="LeftPreviewCanvas"
+                            Width="700"
+                            Height="420"
+                            Background="#FFF9F1" />
+                    <TextBlock x:Name="LeftPreviewText"
+                               TextWrapping="Wrap"
+                               Foreground="#5A4032" />
+                  </StackPanel>
+                </Border>
 
-            <TextBlock x:Name="SettingsPathText"
-                       Margin="0,10,0,0"
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
+                <Border Grid.Column="1" Margin="12,0,0,0" Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Right Trackpad"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <Canvas x:Name="RightPreviewCanvas"
+                            Width="700"
+                            Height="420"
+                            Background="#FFF9F1" />
+                    <TextBlock x:Name="RightPreviewText"
+                               TextWrapping="Wrap"
+                               Foreground="#5A4032" />
+                  </StackPanel>
+                </Border>
+              </Grid>
 
-            <TextBlock x:Name="RuntimeSummaryText"
-                       TextWrapping="Wrap"
-                       Foreground="#23303A" />
-            <TextBlock x:Name="RuntimeBindingsText"
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
-
-            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
-              <Button x:Name="SaveSettingsButton" Classes="action" Content="Save Settings" />
-              <Button x:Name="InitializeDefaultsButton" Content="Init Defaults" />
-            </StackPanel>
-          </StackPanel>
-        </Border>
-
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Live Input Preview" />
-            <TextBlock Text="Reads evdev directly so you can inspect contact motion against the active loaded keymap while the tray-owned runtime stays off the GUI hotpath."
-                       TextWrapping="Wrap"
-                       Foreground="#5A4032" />
-
-            <StackPanel Orientation="Horizontal" Spacing="10">
-              <Button x:Name="StartPreviewButton" Classes="action" Content="Start Preview" />
-              <Button x:Name="StopPreviewButton" Content="Stop Preview" />
-            </StackPanel>
-
-            <TextBlock x:Name="PreviewSummaryText"
-                       TextWrapping="Wrap"
-                       Foreground="#23303A" />
-
-            <Grid ColumnDefinitions="*,*">
-              <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Left Trackpad"
-                             FontWeight="SemiBold"
-                             Foreground="#5A4032" />
-                  <Canvas x:Name="LeftPreviewCanvas"
-                          Width="520"
-                          Height="312"
-                          Background="#FFF9F1" />
-                  <TextBlock x:Name="LeftPreviewText"
-                             TextWrapping="Wrap"
-                             Foreground="#5A4032" />
+              <Border Background="#0C0F12"
+                      BorderBrush="#2B2F33"
+                      BorderThickness="1"
+                      CornerRadius="12"
+                      Padding="12,10"
+                      Margin="0,8,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Typing Test"
+                             Foreground="#8B949E"
+                             FontSize="12" />
+                  <TextBox x:Name="TypingTestBox"
+                           Height="80"
+                           AcceptsReturn="True"
+                           TextWrapping="Wrap" />
                 </StackPanel>
               </Border>
+            </StackPanel>
+          </Border>
 
-              <Border Grid.Column="1" Margin="12,0,0,0" Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
-                <StackPanel Spacing="8">
-                  <TextBlock Text="Right Trackpad"
-                             FontWeight="SemiBold"
-                             Foreground="#5A4032" />
-                  <Canvas x:Name="RightPreviewCanvas"
-                          Width="520"
-                          Height="312"
-                          Background="#FFF9F1" />
-                  <TextBlock x:Name="RightPreviewText"
-                             TextWrapping="Wrap"
-                             Foreground="#5A4032" />
-                </StackPanel>
-              </Border>
-            </Grid>
+          <Border Grid.Column="1" Classes="panel" Margin="18,0,0,0">
+            <StackPanel Spacing="12">
+              <TextBlock Classes="section" Text="Settings" />
+              <TextBlock Text="Layout preset" />
+              <ComboBox x:Name="LayoutPresetCombo" MinWidth="260" />
+            </StackPanel>
+          </Border>
+        </Grid>
 
-            <Border Background="#0C0F12"
-                    BorderBrush="#2B2F33"
-                    BorderThickness="1"
-                    CornerRadius="12"
-                    Padding="12,10"
-                    Margin="0,8,0,0">
-              <StackPanel Spacing="6">
-                <TextBlock Text="Typing Test"
-                           Foreground="#8B949E"
-                           FontSize="12" />
-                <TextBox x:Name="TypingTestBox"
-                         Height="54"
-                         AcceptsReturn="True"
-                         TextWrapping="Wrap" />
-              </StackPanel>
-            </Border>
-          </StackPanel>
-        </Border>
-
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Status" />
-            <TextBlock x:Name="StatusText"
-                       TextWrapping="Wrap"
-                       Foreground="#23303A" />
-          </StackPanel>
-        </Border>
+        <TextBlock x:Name="StatusText"
+                   TextWrapping="Wrap"
+                   Foreground="#23303A" />
       </StackPanel>
     </ScrollViewer>
   </Grid>

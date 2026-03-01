@@ -7,6 +7,7 @@ using Avalonia.Controls.Shapes;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.Media;
+using System.Text.Json;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Models;
@@ -29,20 +30,16 @@ public partial class MainWindow : Window
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
-    private readonly TextBox _keymapPathBox;
-    private readonly TextBlock _keymapStatusText;
-    private readonly TextBlock _runtimeSummaryText;
-    private readonly TextBlock _runtimeBindingsText;
     private readonly TextBlock _previewSummaryText;
     private readonly TextBlock _leftPreviewText;
     private readonly TextBlock _rightPreviewText;
-    private readonly TextBlock _settingsPathText;
     private readonly TextBlock _statusText;
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
     private bool _allowExit;
     private bool _runtimeRefreshPending;
     private bool _runtimeOwnedByTray;
+    private bool _loadingScreen;
     private LinuxRuntimeServiceSnapshot _runtimeSnapshot = new(
         LinuxRuntimeServiceStatus.Unavailable,
         "glasstokey-linux.service",
@@ -62,14 +59,9 @@ public partial class MainWindow : Window
         _leftDeviceCombo = RequireControl<ComboBox>("LeftDeviceCombo");
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
-        _keymapPathBox = RequireControl<TextBox>("KeymapPathBox");
-        _keymapStatusText = RequireControl<TextBlock>("KeymapStatusText");
-        _runtimeSummaryText = RequireControl<TextBlock>("RuntimeSummaryText");
-        _runtimeBindingsText = RequireControl<TextBlock>("RuntimeBindingsText");
         _previewSummaryText = RequireControl<TextBlock>("PreviewSummaryText");
         _leftPreviewText = RequireControl<TextBlock>("LeftPreviewText");
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
-        _settingsPathText = RequireControl<TextBlock>("SettingsPathText");
         _statusText = RequireControl<TextBlock>("StatusText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
@@ -80,6 +72,7 @@ public partial class MainWindow : Window
         _runtimeStatusTimer.Tick += OnRuntimeStatusTimerTick;
         _previewController.SnapshotChanged += OnPreviewSnapshotChanged;
         Closing += OnWindowClosing;
+        Opened += OnWindowOpened;
         WireEvents();
         LoadScreen();
         ApplyRuntimeSnapshot(_runtimeSnapshot);
@@ -97,16 +90,16 @@ public partial class MainWindow : Window
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
         RequireControl<Button>("SwapSidesButton").Click += OnSwapSidesClick;
-        RequireControl<Button>("StartPreviewButton").Click += OnStartPreviewClick;
-        RequireControl<Button>("StopPreviewButton").Click += OnStopPreviewClick;
-        RequireControl<Button>("SaveSettingsButton").Click += OnSaveSettingsClick;
-        RequireControl<Button>("InitializeDefaultsButton").Click += OnInitializeDefaultsClick;
-        RequireControl<Button>("BrowseKeymapButton").Click += OnBrowseKeymapClick;
-        RequireControl<Button>("ClearKeymapButton").Click += OnClearKeymapClick;
+        RequireControl<Button>("ImportSettingsButton").Click += OnImportSettingsClick;
+        RequireControl<Button>("ExportSettingsButton").Click += OnExportSettingsClick;
+        _leftDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _rightDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _layoutPresetCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
     }
 
     private void LoadScreen(string? statusOverride = null)
     {
+        _loadingScreen = true;
         LinuxRuntimeConfiguration configuration = _runtime.LoadConfiguration();
         LinuxHostSettings settings = configuration.Settings;
 
@@ -120,16 +113,16 @@ public partial class MainWindow : Window
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
-        _keymapPathBox.Text = settings.KeymapPath ?? string.Empty;
-        _keymapStatusText.Text = BuildKeymapStatusText(settings.KeymapPath);
         RenderKeymapPreview(configuration);
+        ApplyPreviewSnapshot(_previewSnapshot);
 
-        _settingsPathText.Text = $"Settings: {configuration.SettingsPath}";
-        _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s). Save writes directly to the XDG-backed Linux settings file.";
+        _statusText.Text = statusOverride ?? $"Detected {configuration.Devices.Count} candidate trackpad(s). Changes save directly to the XDG-backed Linux settings file.";
         if (_runtimeSnapshot.Status is LinuxRuntimeServiceStatus.Running or LinuxRuntimeServiceStatus.Starting)
         {
             _statusText.Text += " Restart the runtime service to apply setting changes.";
         }
+
+        _loadingScreen = false;
     }
 
     private void OnRefreshDevicesClick(object? sender, RoutedEventArgs e)
@@ -143,24 +136,27 @@ public partial class MainWindow : Window
         LoadScreen($"Swapped left/right bindings in {path}.");
     }
 
-    private void OnSaveSettingsClick(object? sender, RoutedEventArgs e)
+    private void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        SaveLiveSettings("Saved Linux host settings.");
+    }
+
+    private void SaveLiveSettings(string statusPrefix)
     {
         LinuxHostSettings settings = _runtime.LoadSettings();
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
-        settings.KeymapPath = string.IsNullOrWhiteSpace(_keymapPathBox.Text) ? null : _keymapPathBox.Text.Trim();
         string path = _runtime.SaveSettings(settings);
-        LoadScreen($"Saved Linux host settings to {path}.");
+        LoadScreen($"{statusPrefix} {path}");
     }
 
-    private void OnInitializeDefaultsClick(object? sender, RoutedEventArgs e)
-    {
-        string path = _runtime.InitializeSettings();
-        LoadScreen($"Initialized Linux host settings at {path}.");
-    }
-
-    private async void OnBrowseKeymapClick(object? sender, RoutedEventArgs e)
+    private async void OnImportSettingsClick(object? sender, RoutedEventArgs e)
     {
         if (!StorageProvider.CanOpen)
         {
@@ -170,7 +166,7 @@ public partial class MainWindow : Window
 
         IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
         {
-            Title = "Select a GlassToKey keymap JSON file",
+            Title = "Import GlassToKey Linux settings",
             AllowMultiple = false,
             FileTypeFilter =
             [
@@ -181,44 +177,49 @@ public partial class MainWindow : Window
 
         if (files.Count == 0)
         {
-            _statusText.Text = "Keymap selection canceled.";
+            _statusText.Text = "Settings import canceled.";
             return;
         }
 
         string? localPath = files[0].TryGetLocalPath();
         if (string.IsNullOrWhiteSpace(localPath))
         {
-            _statusText.Text = "The selected keymap could not be resolved to a local file path.";
+            _statusText.Text = "The selected settings file could not be resolved to a local file path.";
             return;
         }
 
-        _keymapPathBox.Text = localPath;
-        _keymapStatusText.Text = BuildKeymapStatusText(localPath);
-        _statusText.Text = "Selected a custom keymap. Save Settings to apply it to the Linux runtime.";
+        TryImportSettings(localPath, out string message);
+        LoadScreen(message);
     }
 
-    private void OnClearKeymapClick(object? sender, RoutedEventArgs e)
+    private async void OnExportSettingsClick(object? sender, RoutedEventArgs e)
     {
-        _keymapPathBox.Text = string.Empty;
-        _keymapStatusText.Text = BuildKeymapStatusText(null);
-        _statusText.Text = "Cleared the custom keymap path. Save Settings to return to the bundled Linux default.";
-    }
-
-    private void OnStartPreviewClick(object? sender, RoutedEventArgs e)
-    {
-        if (_previewController.TryStart(out string message))
+        if (!StorageProvider.CanSave)
         {
-            _statusText.Text = message;
+            _statusText.Text = "This Linux GUI session cannot open a save picker on the current platform backend.";
             return;
         }
 
-        _statusText.Text = message;
-    }
+        IStorageFile? file = await StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export GlassToKey Linux settings",
+            SuggestedFileName = $"GlassToKey-linux-settings-{DateTime.Now:yyyyMMdd-HHmmss}.json",
+            DefaultExtension = "json",
+            FileTypeChoices =
+            [
+                new FilePickerFileType("JSON") { Patterns = ["*.json"] }
+            ]
+        });
 
-    private async void OnStopPreviewClick(object? sender, RoutedEventArgs e)
-    {
-        _statusText.Text = "Stopping live input preview.";
-        await _previewController.StopAsync().ConfigureAwait(false);
+        string? localPath = file?.TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            _statusText.Text = "Settings export canceled.";
+            return;
+        }
+
+        TryExportSettings(localPath, out string message);
+        _statusText.Text = message;
     }
 
     public void RunDoctorFromStatusArea()
@@ -233,6 +234,7 @@ public partial class MainWindow : Window
     public void HideToStatusArea()
     {
         _statusText.Text = "Window hidden. The tray stays alive and keeps the Linux runtime owned outside the config UI.";
+        _ = _previewController.StopAsync();
         Hide();
     }
 
@@ -317,16 +319,52 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private static string BuildKeymapStatusText(string? keymapPath)
+    private bool TryImportSettings(string path, out string message)
     {
-        if (string.IsNullOrWhiteSpace(keymapPath))
+        try
         {
-            return "Keymap source: bundled Linux default.";
-        }
+            string json = File.ReadAllText(path);
+            LinuxHostSettings? imported = JsonSerializer.Deserialize<LinuxHostSettings>(json, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+            });
+            if (imported == null)
+            {
+                message = $"Failed to import settings from '{path}'.";
+                return false;
+            }
 
-        return File.Exists(keymapPath)
-            ? $"Keymap source: custom file '{keymapPath}'."
-            : $"Keymap source: missing custom file '{keymapPath}'.";
+            imported.Normalize();
+            string savedPath = _runtime.SaveSettings(imported);
+            message = $"Imported Linux settings from '{path}' into {savedPath}.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Failed to import settings from '{path}': {ex.Message}";
+            return false;
+        }
+    }
+
+    private bool TryExportSettings(string path, out string message)
+    {
+        try
+        {
+            LinuxHostSettings settings = _runtime.LoadSettings();
+            string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            });
+            File.WriteAllText(path, json);
+            message = $"Exported Linux settings to '{path}'.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Failed to export settings to '{path}': {ex.Message}";
+            return false;
+        }
     }
 
     private T RequireControl<T>(string name) where T : Control
@@ -384,6 +422,27 @@ public partial class MainWindow : Window
             e.Cancel = true;
             HideToStatusArea();
         }
+    }
+
+    private void OnWindowOpened(object? sender, EventArgs e)
+    {
+        EnsurePreviewActive();
+    }
+
+    public void EnsurePreviewActive()
+    {
+        if (_previewController.TryStart(out string message))
+        {
+            _statusText.Text = message;
+            return;
+        }
+
+        if (_previewSnapshot.Status == LinuxInputPreviewStatus.Running)
+        {
+            return;
+        }
+
+        _statusText.Text = message;
     }
 
     private void ShowDoctorReportWindow(LinuxDoctorResult result)
@@ -456,10 +515,10 @@ public partial class MainWindow : Window
         }
 
         _runtimeSnapshot = snapshot;
-        _runtimeSummaryText.Text = snapshot.Failure is null
-            ? $"Runtime owner: {snapshot.Status}. {snapshot.Message}"
-            : $"Runtime owner: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
-        _runtimeBindingsText.Text = BuildRuntimeServiceText(snapshot);
+        if (snapshot.Failure is not null)
+        {
+            _statusText.Text = $"Runtime owner: {snapshot.Status}. {snapshot.Message} Failure: {snapshot.Failure}";
+        }
     }
 
     private void OnPreviewSnapshotChanged(LinuxInputPreviewSnapshot snapshot)
@@ -487,41 +546,6 @@ public partial class MainWindow : Window
         RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, "#D05A2A");
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, "#246A73");
 
-        RequireControl<Button>("StartPreviewButton").IsEnabled = !snapshot.IsActive;
-        RequireControl<Button>("StopPreviewButton").IsEnabled = snapshot.IsActive;
-    }
-
-    private static string BuildRuntimeServiceText(LinuxRuntimeServiceSnapshot snapshot)
-    {
-        List<string> lines =
-        [
-            $"Service unit: {snapshot.ServiceName}"
-        ];
-
-        if (!string.IsNullOrWhiteSpace(snapshot.UnitFileState))
-        {
-            lines.Add($"Unit file state: {snapshot.UnitFileState}");
-        }
-
-        if (!string.IsNullOrWhiteSpace(snapshot.FragmentPath))
-        {
-            lines.Add($"Unit path: {snapshot.FragmentPath}");
-        }
-
-        if (snapshot.Status == LinuxRuntimeServiceStatus.NotInstalled)
-        {
-            lines.Add("Install a user service so the tray can keep the runtime on the hotpath outside this config UI.");
-        }
-        else if (snapshot.Status == LinuxRuntimeServiceStatus.Unavailable)
-        {
-            lines.Add("The current session cannot reach systemd --user. Start the runtime from a normal desktop login.");
-        }
-        else
-        {
-            lines.Add("The tray owns the runtime service. This window stays off the hotpath.");
-        }
-
-        return string.Join(Environment.NewLine, lines);
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(

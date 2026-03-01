@@ -234,24 +234,25 @@ public sealed class LinuxMtFrameAssembler
 
     private bool TryCreateLegacyContact(out ContactFrame contact)
     {
-        bool isActive =
+        bool isTipActive =
             _legacyContact.IsActive ||
             _legacyContact.PressureRaw > 0 ||
             _legacyContact.TouchMajorRaw > 0 ||
-            _legacyContact.TouchMinorRaw > 0 ||
-            _legacyContact.SeenThisFrame;
-        if (!isActive)
+            _legacyContact.TouchMinorRaw > 0;
+        bool isPresent = isTipActive || _legacyContact.SeenThisFrame;
+        if (!isPresent)
         {
             contact = default;
             return false;
         }
 
         byte pressure = (byte)Math.Clamp(_legacyContact.PressureRaw, byte.MinValue, byte.MaxValue);
+        byte flags = isTipActive ? ActiveContactFlags : (byte)0x01;
         contact = new ContactFrame(
             Id: LegacyContactId,
             X: (ushort)Math.Clamp(_legacyContact.XRaw, 0, MaxX),
             Y: (ushort)Math.Clamp(_legacyContact.YRaw, 0, MaxY),
-            Flags: ActiveContactFlags,
+            Flags: flags,
             Pressure: pressure,
             Phase: 0,
             HasForceData: false);

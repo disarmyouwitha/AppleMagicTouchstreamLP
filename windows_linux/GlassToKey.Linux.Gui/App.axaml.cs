@@ -73,6 +73,7 @@ public partial class App : Application
         }
 
         _mainWindow.WindowState = WindowState.Normal;
+        _mainWindow.EnsurePreviewActive();
         _mainWindow.Activate();
     }
 }
