@@ -282,6 +282,33 @@ public readonly partial record struct NormalizedRect(double X, double Y, double 
         }
     }
 
+    internal GeometryPoint[] GetCorners()
+    {
+        if (Math.Abs(RotationDegrees) < 0.00001)
+        {
+            return
+            [
+                new GeometryPoint(X, Y),
+                new GeometryPoint(X + Width, Y),
+                new GeometryPoint(X + Width, Y + Height),
+                new GeometryPoint(X, Y + Height)
+            ];
+        }
+
+        double halfWidth = Width * 0.5;
+        double halfHeight = Height * 0.5;
+        double radians = RotationDegrees * Math.PI / 180.0;
+        double cos = Math.Cos(radians);
+        double sin = Math.Sin(radians);
+        return
+        [
+            RotateCorner(-halfWidth, -halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(halfWidth, -halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(halfWidth, halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(-halfWidth, halfHeight, CenterX, CenterY, cos, sin)
+        ];
+    }
+
     private static GeometryPoint RotateCorner(double localX, double localY, double centerX, double centerY, double cos, double sin)
     {
         return new(
