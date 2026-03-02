@@ -46,7 +46,16 @@ public partial class App : Application
     {
         if (_mainWindow != null)
         {
+            ShowMainWindow();
             await _mainWindow.CaptureAtpCapFromStatusAreaAsync();
+        }
+    }
+
+    private async void OnTrayStopAtpCapClick(object? sender, EventArgs e)
+    {
+        if (_mainWindow != null)
+        {
+            await _mainWindow.StopAtpCapFromStatusAreaAsync();
         }
     }
 

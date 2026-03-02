@@ -13,6 +13,7 @@
             <NativeMenuItem Header="Run Doctor" Click="OnTrayDoctorClick" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Capture .atpcap" Click="OnTrayCaptureAtpCapClick" />
+            <NativeMenuItem Header="Stop Capture" Click="OnTrayStopAtpCapClick" />
             <NativeMenuItem Header="Replay .atpcap" Click="OnTrayReplayAtpCapClick" />
             <NativeMenuItem Header="Summarize .atpcap" Click="OnTraySummarizeAtpCapClick" />
             <NativeMenuItem Header="Hide Config" Click="OnTrayHideClick" />

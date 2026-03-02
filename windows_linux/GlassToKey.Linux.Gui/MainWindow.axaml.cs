@@ -16,7 +16,6 @@ namespace GlassToKey.Linux.Gui;
 
 public partial class MainWindow : Window
 {
-    private static readonly TimeSpan TrayAtpCapCaptureDuration = TimeSpan.FromSeconds(20);
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -294,10 +293,16 @@ public partial class MainWindow : Window
             return;
         }
 
-        ShowNoticeDialog(
-            "Capture Started",
-            $"Capturing the live Linux tray runtime for {TrayAtpCapCaptureDuration.TotalSeconds:0} seconds to:\n{localPath}");
-        LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.CaptureAtpCapAsync(localPath, TrayAtpCapCaptureDuration);
+        LinuxDesktopAtpCapCaptureResult result = _desktopRuntime.StartAtpCapCapture(localPath);
+        if (!result.Success)
+        {
+            ShowNoticeDialog("Capture Failed", result.Summary);
+        }
+    }
+
+    public async Task StopAtpCapFromStatusAreaAsync()
+    {
+        LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
         ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
     }
 
@@ -328,13 +333,20 @@ public partial class MainWindow : Window
             return;
         }
 
-        LinuxRuntimeConfiguration configuration = _runtime.LoadReplayConfiguration();
-        string traceOutputPath = System.IO.Path.ChangeExtension(localPath, ".trace.json");
-        LinuxAtpCapReplayResult result = LinuxAtpCapTools.Replay(localPath, configuration, traceOutputPath);
-        string message = result.Success
-            ? $"{result.Summary}\nReplay trace written: {traceOutputPath}"
-            : result.Summary;
-        ShowNoticeDialog(result.Success ? "Replay Complete" : "Replay Failed", message);
+        try
+        {
+            LinuxRuntimeConfiguration configuration = _runtime.LoadReplayConfiguration();
+            string traceOutputPath = System.IO.Path.ChangeExtension(localPath, ".trace.json");
+            LinuxAtpCapReplayResult result = LinuxAtpCapTools.Replay(localPath, configuration, traceOutputPath);
+            string message = result.Success
+                ? $"{result.Summary}\nReplay trace written: {traceOutputPath}"
+                : result.Summary;
+            ShowNoticeDialog(result.Success ? "Replay Complete" : "Replay Failed", message);
+        }
+        catch (Exception ex)
+        {
+            ShowNoticeDialog("Replay Failed", ex.Message);
+        }
     }
 
     public async Task SummarizeAtpCapFromStatusAreaAsync()
@@ -364,12 +376,30 @@ public partial class MainWindow : Window
             return;
         }
 
-        LinuxAtpCapSummaryResult result = LinuxAtpCapTools.Summarize(localPath);
-        ShowNoticeDialog(result.Success ? "Capture Summary" : "Summary Failed", result.Summary);
+        try
+        {
+            LinuxAtpCapSummaryResult result = LinuxAtpCapTools.Summarize(localPath);
+            ShowNoticeDialog(result.Success ? "Capture Summary" : "Summary Failed", result.Summary);
+        }
+        catch (Exception ex)
+        {
+            ShowNoticeDialog("Summary Failed", ex.Message);
+        }
     }
 
     public void HideToStatusArea()
     {
+        _ = HideToStatusAreaAsync();
+    }
+
+    private async Task HideToStatusAreaAsync()
+    {
+        if (_desktopRuntime.IsCapturingAtpCap)
+        {
+            LinuxDesktopAtpCapCaptureResult result = await _desktopRuntime.StopAtpCapCaptureAsync();
+            ShowNoticeDialog(result.Success ? "Capture Complete" : "Capture Failed", result.Summary);
+        }
+
         Hide();
     }
 
@@ -388,6 +418,10 @@ public partial class MainWindow : Window
     {
         _runtimeOwnedByTray = false;
         _allowExit = true;
+        if (_desktopRuntime.IsCapturingAtpCap)
+        {
+            await _desktopRuntime.StopAtpCapCaptureAsync(canceled: true);
+        }
         _desktopRuntime.RequestStop();
         if (!Dispatcher.UIThread.CheckAccess())
         {

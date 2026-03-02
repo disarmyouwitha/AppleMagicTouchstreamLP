@@ -17,7 +17,8 @@ internal sealed class LinuxAtpCapCaptureWriter : IDisposable
 
     public LinuxAtpCapCaptureWriter(string path)
     {
-        string? directory = Path.GetDirectoryName(path);
+        Path = System.IO.Path.GetFullPath(path);
+        string? directory = System.IO.Path.GetDirectoryName(path);
         if (!string.IsNullOrWhiteSpace(directory))
         {
             Directory.CreateDirectory(directory);
@@ -28,6 +29,8 @@ internal sealed class LinuxAtpCapCaptureWriter : IDisposable
         _baseTimestampTicks = System.Diagnostics.Stopwatch.GetTimestamp();
         WriteMetaRecord();
     }
+
+    public string Path { get; }
 
     public void WriteFrame(in LinuxRuntimeFrame frame)
     {

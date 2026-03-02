@@ -73,19 +73,24 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         }
     }
 
-    public async Task<LinuxDesktopAtpCapCaptureResult> CaptureAtpCapAsync(
+    public bool IsCapturingAtpCap
+    {
+        get
+        {
+            lock (_captureGate)
+            {
+                return _captureWriter != null;
+            }
+        }
+    }
+
+    public LinuxDesktopAtpCapCaptureResult StartAtpCapCapture(
         string outputPath,
-        TimeSpan duration,
         CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(outputPath))
         {
             return new LinuxDesktopAtpCapCaptureResult(false, string.Empty, 0, "Capture path is empty.");
-        }
-
-        if (duration <= TimeSpan.Zero)
-        {
-            return new LinuxDesktopAtpCapCaptureResult(false, Path.GetFullPath(outputPath), 0, "Capture duration must be positive.");
         }
 
         lock (_gate)
@@ -96,8 +101,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             }
         }
 
-        TaskCompletionSource<LinuxDesktopAtpCapCaptureResult> completion;
-        CancellationTokenSource captureCts;
         string fullPath = Path.GetFullPath(outputPath);
         lock (_captureGate)
         {
@@ -110,24 +113,25 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             _captureWriter = new LinuxAtpCapCaptureWriter(fullPath);
             _captureCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             _captureCompletion = new TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>(TaskCreationOptions.RunContinuationsAsynchronously);
-            completion = _captureCompletion;
-            captureCts = _captureCts;
         }
 
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                await Task.Delay(duration, captureCts.Token).ConfigureAwait(false);
-                CompleteCapture(success: true, path: fullPath, failure: null);
-            }
-            catch (OperationCanceledException)
-            {
-                CompleteCapture(success: false, path: fullPath, failure: "Capture canceled.");
-            }
-        });
+        return new LinuxDesktopAtpCapCaptureResult(true, fullPath, 0, $"Capture started: {fullPath}");
+    }
 
-        return await completion.Task.ConfigureAwait(false);
+    public Task<LinuxDesktopAtpCapCaptureResult> StopAtpCapCaptureAsync(bool canceled = false)
+    {
+        TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>? completion;
+        lock (_captureGate)
+        {
+            completion = _captureCompletion;
+            if (completion == null)
+            {
+                return Task.FromResult(new LinuxDesktopAtpCapCaptureResult(false, string.Empty, 0, "No .atpcap capture is currently running."));
+            }
+        }
+
+        CompleteCapture(success: !canceled, path: null, failure: canceled ? "Capture canceled." : null);
+        return completion.Task;
     }
 
     public Task StartAsync(CancellationToken cancellationToken = default)
@@ -655,7 +659,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             writer = _captureWriter;
             captureCts = _captureCts;
             frameCount = _captureFrameCount;
-            resolvedPath = path ?? string.Empty;
+            resolvedPath = path ?? writer?.Path ?? string.Empty;
             _captureCompletion = null;
             _captureWriter = null;
             _captureCts = null;
