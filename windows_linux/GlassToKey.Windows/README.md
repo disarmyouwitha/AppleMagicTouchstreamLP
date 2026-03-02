@@ -54,7 +54,7 @@ Transitions and notes:
 
 ## Build
 ```
-dotnet build GlassToKey\GlassToKey.csproj -c Release
+dotnet build GlassToKey.Windows\GlassToKey.Windows.csproj -c Release
 ```
 
 
@@ -79,7 +79,7 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 - `--selftest`: Run deterministic local self-tests (parser, replay, intent, dispatch, toggle, chord, five-finger swipe) and exit.
 
 ### Self-Tests
-- Entry point: `Core/Diagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --selftest`).
+- Entry point: `WindowsDiagnostics/SelfTestRunner.cs` (`dotnet run --project GlassToKey.Windows\GlassToKey.Windows.csproj -c Release -- --selftest`).
 - Coverage includes parser/decoder checks, button-edge tracking, replay determinism + replay-trace validation, intent-mode transitions, dispatch behavior (snap/drag cancel/modifiers/chords), typing-toggle flows, and five-finger swipe toggle behavior.
 - Data source is primarily synthetic and deterministic: tests build `InputFrame` sequences in memory and assert emitted snapshots/events.
 - Replay self-tests also generate a temporary synthetic `.atpcap` capture on disk, then replay and validate expected fingerprints/counters.
@@ -90,11 +90,11 @@ dotnet build GlassToKey\GlassToKey.csproj -c Release
 2. Generate fixture JSON:
    - `powershell -ExecutionPolicy Bypass -File GlassToKey\fixtures\replay\New-ReplayFixture.ps1 -CapturePath GlassToKey\fixtures\replay\your_capture.atpcap -RelativeCapturePath`
 3. Validate replay against the generated fixture:
-   - `dotnet run --project GlassToKey\GlassToKey.csproj -c Release -- --replay GlassToKey\fixtures\replay\your_capture.atpcap --fixture GlassToKey\fixtures\replay\your_capture.fixture.json`
+   - `dotnet run --project GlassToKey.Windows\GlassToKey.Windows.csproj -c Release -- --replay GlassToKey.Windows\fixtures\replay\your_capture.atpcap --fixture GlassToKey.Windows\fixtures\replay\your_capture.fixture.json`
 
 Notes:
 - If `-FixturePath` is omitted, the script writes `<capture-name>.fixture.json` next to the capture.
-- Use `-ProjectPath` if `GlassToKey.csproj` is not at the default relative path.
+- Use `-ProjectPath` if `GlassToKey.Windows.csproj` is not at the default relative path.
 
 
 ## Files Created at Runtime
@@ -105,4 +105,3 @@ Notes:
 - Current capture write format version is `2` (`ATPCAP01` + v2 record headers); replay accepts both v2 and v3 captures.
 - For macOS v3 captures, replay applies compatibility normalization (OpenMT Y-axis flip + side-hint swap) before dispatch.
 - On first run (no local settings/keymap), defaults are loaded from `GLASSTOKEY_DEFAULT_KEYMAP.json` beside the executable.
-

@@ -1,3 +1,3 @@
 using System.Runtime.CompilerServices;
 
-[assembly: InternalsVisibleTo("GlassToKey.Linux")]
+[assembly: InternalsVisibleTo("GlassToKey.Windows")]

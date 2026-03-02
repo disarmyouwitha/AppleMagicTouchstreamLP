@@ -38,7 +38,7 @@ function Get-RelativePathCompat {
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
 if ([string]::IsNullOrWhiteSpace($ProjectPath)) {
-    $ProjectPath = Join-Path $scriptDir "..\..\GlassToKey.csproj"
+    $ProjectPath = Join-Path $scriptDir "..\..\GlassToKey.Windows.csproj"
 }
 $projectFull = Resolve-ExistingPath -PathValue $ProjectPath
 $captureFull = Resolve-ExistingPath -PathValue $CapturePath

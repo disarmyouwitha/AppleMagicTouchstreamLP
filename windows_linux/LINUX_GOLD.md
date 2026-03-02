@@ -26,7 +26,7 @@ Current target assumptions:
 
 ### Windows host
 
-- `GlassToKey/`
+- `GlassToKey.Windows/`
 - remains the feature-complete Windows app today
 - still owns WPF, WinForms, Raw Input, `SendInput`, click suppression, Windows haptics, and tray/startup UI
 
@@ -246,9 +246,9 @@ The shared-code migration direction is now explicitly decided:
 
 - shared code should be physically moved into `GlassToKey.Core`
 - `GlassToKey.Core` should become the canonical source location for shared engine/layout/keymap/runtime code
-- linked-source references back into `GlassToKey/` are transitional debt, not an acceptable end state
+- linked-source references back into the Windows app project are transitional debt, not an acceptable end state
 - Windows can remain the source of truth during the Linux/shared-core buildout, but shared code should still be moved into `GlassToKey.Core` as it is extracted
-- Linux work should not solve shared problems by pointing back into `GlassToKey/` or by creating new Linux-only duplicates when the logic belongs in `Core`
+- Linux work should not solve shared problems by pointing back into `GlassToKey.Windows/` or by creating new Linux-only duplicates when the logic belongs in `Core`
 
 ### Target dependency direction
 
@@ -270,7 +270,7 @@ GlassToKey.Windows               GlassToKey.Linux  GlassToKey.Linux.Gui
 Rules:
 
 - `GlassToKey.Core` is the only shared logic layer.
-- `GlassToKey.Core` should own shared source files directly rather than linking back to `GlassToKey/` as a permanent architecture.
+- `GlassToKey.Core` should own shared source files directly rather than linking back to `GlassToKey.Windows/` as a permanent architecture.
 - Platform layers depend on `Core`, never on each other.
 - Host layers depend on `Core` plus one platform layer.
 - Top-level apps depend on host layers, not on deep internals.
@@ -300,18 +300,18 @@ The current Windows project is still more monolithic than the target shape.
 
 The architecture is not considered complete until:
 
-- shared source files live in `GlassToKey.Core` instead of being linked out of `GlassToKey/`
-- Windows consumes the shared engine path through `GlassToKey.Core`
+- shared source files live in `GlassToKey.Core`
+- Windows consumes the shared engine path through `GlassToKey.Core` via a real project reference
 - Windows-specific runtime/device code is split cleanly into a Windows platform layer
 - Windows host/runtime composition is separated from pure platform plumbing
 - a shared gesture change in `GlassToKey.Core` is automatically picked up by both Windows and Linux builds
 
 ## Architectural Boundaries
 
-- Keep Windows-only code in `GlassToKey/`.
+- Keep Windows-only code in `GlassToKey.Windows/`.
 - Keep shared engine/runtime seams in `GlassToKey.Core/`.
 - Prefer physically moving shared layout, keymap, touch-config, and runtime-profile logic into `GlassToKey.Core/` instead of rebuilding similar logic separately in Linux host, GUI, or platform code.
-- Do not treat linked source files back into `GlassToKey/` as an acceptable steady state for shared code.
+- Do not treat linked source files back into `GlassToKey.Windows/` as an acceptable steady state for shared code.
 - Keep Linux gesture ingestion and `uinput` output in `GlassToKey.Platform.Linux/`.
 - Keep Linux settings/runtime composition in `GlassToKey.Linux.Host/`.
 - Keep Linux CLI/GUI hosts thin.
@@ -529,13 +529,14 @@ Recommended first extraction slice:
 - reason:
   - Windows still calls parts of the internal engine layer directly today, while the public layout/config/keymap/model layer is the lower-risk slice to move first
 
-- [ ] Continue moving shared engine/layout/keymap/runtime pieces toward `GlassToKey.Core`
-- [ ] Remove the linked-source bridge from `GlassToKey.Core` back into `GlassToKey/` for shared code
+- [x] Continue moving shared engine/layout/keymap/runtime pieces toward `GlassToKey.Core`
+- [x] Remove the linked-source bridge from the Windows app into `GlassToKey.Core` for shared code
 - [ ] Keep `GlassToKey.Core` dependency-clean and Linux/Windows consumable
 - [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
 - [ ] Decide how much replay/self-test infrastructure should live directly in `GlassToKey.Core` versus remain host-owned
 - [ ] Keep Windows behavior unchanged while that cleanup proceeds
-- [ ] After Linux and shared-core extraction are complete, rewrite Windows to consume `GlassToKey.Core` as the canonical shared implementation
+- [x] Windows now consumes `GlassToKey.Core` as the canonical shared implementation through a project reference
+- [x] Keep Windows as the single `GlassToKey.Windows` app project for now; do not split into `GlassToKey.Platform.Windows` or `GlassToKey.Windows.Host` unless a future need justifies it
 
 ### 5. Linux v1 parity decisions still deferred
 
@@ -562,7 +563,7 @@ Exit criteria:
 
 ### Milestone B: packaging closure
 
-- [ ] Validate `.deb` install, upgrade, and uninstall behavior
+- [x] Validate `.deb` install, upgrade, and uninstall behavior
 - [ ] Decide the documented default install mode for first users: tray desktop, headless service, or both
 - [ ] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, direct `run-engine` smoke tests, and optional service enablement
 - [ ] Keep a documented and validated headless launch path as part of the final packaged Linux story
@@ -575,9 +576,10 @@ Exit criteria:
 ### Milestone C: cleanup after product closure
 
 - [ ] Keep extending the Linux fixture set as regression coverage
-- [ ] Continue moving shared engine/layout/keymap/runtime pieces into `GlassToKey.Core`
-- [ ] Remove the linked-source bridge from `GlassToKey.Core` back into `GlassToKey/`
+- [x] Continue moving shared engine/layout/keymap/runtime pieces into `GlassToKey.Core`
+- [x] Remove the linked-source bridge from the Windows app into `GlassToKey.Core`
 - [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
+- [ ] Decide whether Windows stays as one top-level app project or gets split further into explicit platform/host layers
 - [ ] Only then return to deferred Linux parity work like keyboard suppression, force-click parity, or haptics
 
 ## README Follow-Ups

@@ -33,5 +33,5 @@
 ## Common Workflows
 1. **Build visualizer (Release):**
    ```powershell
-   dotnet build .\tools\GlassToKey\GlassToKey.csproj -c Release
+   dotnet build .\tools\GlassToKey.Windows\GlassToKey.Windows.csproj -c Release
    ```

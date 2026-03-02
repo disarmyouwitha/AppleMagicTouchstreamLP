@@ -160,7 +160,7 @@ Capture set:
 
 Analyze command pattern:
 ```powershell
-dotnet run --project .\GlassToKey\GlassToKey.csproj -c Release -- --raw-analyze .\captures\pressure\analysis\<name>.atpcap --raw-analyze-out .\captures\pressure\analysis\<name>.json --raw-analyze-contacts-out .\captures\pressure\analysis\<name>.csv | Tee-Object .\captures\pressure\analysis\<name>.summary.txt
+dotnet run --project .\GlassToKey.Windows\GlassToKey.Windows.csproj -c Release -- --raw-analyze .\captures\pressure\analysis\<name>.atpcap --raw-analyze-out .\captures\pressure\analysis\<name>.json --raw-analyze-contacts-out .\captures\pressure\analysis\<name>.csv | Tee-Object .\captures\pressure\analysis\<name>.summary.txt
 ```
 
 Pass/Fail thresholds:

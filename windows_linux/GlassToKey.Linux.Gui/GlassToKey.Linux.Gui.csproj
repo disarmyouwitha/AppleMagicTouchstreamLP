@@ -24,6 +24,6 @@
     <None Include="..\GlassToKey.Linux\GLASSTOKEY_DEFAULT_KEYMAP.json" Link="GLASSTOKEY_DEFAULT_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <AvaloniaResource Include="..\GlassToKey\screenshots\VITO_PANEL.png" Link="Assets/StatusIcon.png" />
+    <AvaloniaResource Include="..\GlassToKey.Windows\screenshots\VITO_PANEL.png" Link="Assets/StatusIcon.png" />
   </ItemGroup>
 </Project>

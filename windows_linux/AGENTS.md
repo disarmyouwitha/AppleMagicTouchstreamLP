@@ -6,12 +6,12 @@
 - Do not treat sibling folders such as `../mac/` as in-scope unless the user explicitly asks.
 
 ## Default Targets
-- Primary production target: `GlassToKey/GlassToKey.csproj`
+- Primary production target: `GlassToKey.Windows/GlassToKey.Windows.csproj`
 - Migration targets: `GlassToKey.Core/GlassToKey.Core.csproj`, `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj`, `GlassToKey.Linux.Host/GlassToKey.Linux.Host.csproj`, `GlassToKey.Linux/GlassToKey.Linux.csproj`
-- Current reality: the Windows app in `GlassToKey/` is the only feature-complete implementation here today.
+- Current reality: the Windows app in `GlassToKey.Windows/` is the only feature-complete implementation here today.
 
 ## Current State
-- `GlassToKey/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
+- `GlassToKey.Windows/` is the active Windows host. It targets `net10.0-windows` with WPF and WinForms enabled.
 - `GlassToKey.Core/` now includes shared input/dispatch primitives, the extracted engine/layout/keymap path, shared `.atpcap` capture payload/reader/metrics primitives, a shared `TrackpadFrameEnvelope` / `ITrackpadFrameTarget` seam, and `TouchProcessorRuntimeHost` as a public wrapper around the internal actor/dispatch pipeline.
 - `GlassToKey.Platform.Linux/` now has preferred Apple `if01` device selection, raw evdev capture, real `EVIOCGABS` axis/range probing, an evdev-to-`InputFrame` assembler, a runtime service that can stream directly into a shared frame target, runtime-side stable-id rebind/reconnect supervision for unplug/replug churn, a `LinuxUinputDispatcher`, and a semantics-first Linux key mapper that resolves semantic codes to evdev output before falling back to Windows VK compatibility.
 - `GlassToKey.Linux.Host/` now carries the reusable Linux XDG settings/config/runtime layer plus the `doctor` runner so the CLI and GUI can share one host surface without the GUI referencing the CLI executable project.
@@ -19,15 +19,15 @@
 - `GlassToKey.Linux.Gui/` now exists as an early Avalonia config surface on top of the same XDG-backed Linux host settings used by the CLI. It now supports device assignment, preset selection, settings import/export, an in-app `doctor` report, a live trackpad preview driven from the same in-process tray-owned runtime stream used for typing, and tray-level `.atpcap` capture/replay/summarize actions for debugging. `.atpcap` replay is now an in-window visualizer mode with play/pause and a time-based scrubber instead of a tray dialog-only action. The tray app now owns the default desktop runtime while the config window stays off the hotpath, and the CLI/service path remains the headless/engineering host. GUI publish now works both framework-dependent and self-contained.
 
 ## What To Build
-- For Windows app work, target `GlassToKey/GlassToKey.csproj`.
+- For Windows app work, target `GlassToKey.Windows/GlassToKey.Windows.csproj`.
 - For shared extraction work, target `GlassToKey.Core/GlassToKey.Core.csproj`.
 - For Linux backend work, target `GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj` and `GlassToKey.Linux/GlassToKey.Linux.csproj`. There is now runnable Linux behavior, but it is still an engineering host rather than a packaged end-user app.
 
 ## Build Commands
 - Windows app build:
-  - `dotnet build GlassToKey/GlassToKey.csproj -c Release`
+  - `dotnet build GlassToKey.Windows/GlassToKey.Windows.csproj -c Release`
 - Windows app self-test:
-  - `dotnet run --project GlassToKey/GlassToKey.csproj -c Release -- --selftest`
+  - `dotnet run --project GlassToKey.Windows/GlassToKey.Windows.csproj -c Release -- --selftest`
 - Shared/Linux builds:
   - `dotnet build GlassToKey.Core/GlassToKey.Core.csproj -c Release`
   - `dotnet build GlassToKey.Platform.Linux/GlassToKey.Platform.Linux.csproj -c Release`
@@ -154,6 +154,6 @@
 - The current sandbox can still block `EVIOCGABS` during live `watch-runtime` validation even when the same command works on the host. Treat that as an environment validation issue, not a product requirement for fallback logic.
 - The user has stated they will approve out-of-sandbox access when needed for Linux device validation. Still request escalation normally so the action is explicit.
 - If the user asks to "build" from this folder without more detail, prefer the target most relevant to the touched code:
-  - `GlassToKey/GlassToKey.csproj` for current app behavior
+  - `GlassToKey.Windows/GlassToKey.Windows.csproj` for current app behavior
   - one of the Linux/shared projects if the change is confined there
-- Keep this file aligned with `GlassToKey/AGENTS.md` and `LINUX_GOLD.md` when workflows or architecture shift.
+- Keep this file aligned with `GlassToKey.Windows/AGENTS.md` and `LINUX_GOLD.md` when workflows or architecture shift.
