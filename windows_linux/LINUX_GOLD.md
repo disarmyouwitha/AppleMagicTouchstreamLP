@@ -391,11 +391,13 @@ The architecture is not considered complete until:
 - [x] CLI supports `init-config`
 - [x] CLI supports `bind-left`, `bind-right`, and `swap-sides`
 - [x] CLI supports `print-udev-rules`
+- [x] CLI supports `load-keymap`
 - [x] CLI supports `selftest`
 - [x] CLI supports `read-events`
 - [x] CLI supports `read-frames`
 - [x] CLI supports `uinput-smoke`
 - [x] CLI supports `watch-runtime`
+- [x] CLI supports `start` and `stop` for background runtime ownership
 - [x] CLI supports `run-engine`
 
 ### Linux diagnostics and replay
@@ -431,6 +433,7 @@ The architecture is not considered complete until:
 - [x] Debian package build script can produce a `.deb` from current publish outputs
 - [x] wrapper install flow validated on the host
 - [x] user-service install flow validated on the host
+- [x] renamed `glasstokey` / `glasstokey-gui` wrapper flow validated on the host
 - [x] dedicated `glasstokey` group permission flow validated on the host after relogin
 - [x] packaged runtime survives reboot/session refresh with working evdev + `uinput` access
 
@@ -448,6 +451,7 @@ The architecture is not considered complete until:
 - [x] Tray now exposes `.atpcap` capture, replay, and summarize actions for desktop debugging, and replay now opens in the config visualizer with time-based playback controls
 - [x] desktop source builds now default to an in-process tray-owned runtime instead of a GUI-controlled user service
 - [x] GUI publishes self-contained cleanly
+- [x] packaged `glasstokey-gui` launcher path now reopens the config UI cleanly from an existing tray-owned instance
 
 ## Remaining Work
 
@@ -470,7 +474,7 @@ These are the highest-priority productization tasks because they determine wheth
 
 The current GUI/service split proved useful for validation, but it is no longer the target desktop shape. The next work is to pivot Linux toward the Windows/macOS model where the tray app owns the runtime and opens the config window on demand.
 
-- [ ] Manually validate the tray/top-bar path on the target Ubuntu desktop
+- [x] Manually validate the tray/top-bar path on the target Ubuntu desktop
 - [x] Implement the runtime-owner/config-UI split for the user-service path as an engineering checkpoint
 - [x] Keep the config UI off the hotpath while still surfacing current settings and service state
 - [x] Make normal config changes propagate through the runtime owner without restarting `systemd`
@@ -482,7 +486,7 @@ The current GUI/service split proved useful for validation, but it is no longer 
 - [x] Preserve the reusable CLI/service runtime host as a supported headless mode while the tray app becomes the default desktop host
 - [ ] Decide how much runtime diagnostics should live in the config UI versus remain CLI-only
 - [ ] Decide whether keymap editing is in-scope for the config UI or whether file-based custom keymaps remain the v1 story
-- [ ] Polish the packaged GUI launcher path and desktop entry behavior
+- [x] Polish the packaged GUI launcher path and desktop entry behavior enough for the current desktop packaging story
 - [ ] Keep packaged GUI validation aligned with current source behavior during iteration
 
 ### 3. Runtime validation and regression depth
@@ -498,6 +502,32 @@ The live path works. The next gap is broader validation under the ways users wil
 ### 4. Shared-core and semantic cleanup
 
 The Linux path works, but shared extraction is still only partially complete in repo structure and shared semantics still coexist with Windows-VK compatibility.
+
+Recommended first extraction slice:
+
+- physically move the public layout/config/model files that are already shared in practice and do not require Windows-only host wiring:
+  - `GridKeyPosition`
+  - `KeyLayout`
+  - `LayoutBuilder`
+  - `TrackpadLayoutPreset`
+  - `ColumnLayoutSettings`
+  - `RuntimeConfigurationFactory`
+  - `TrackpadDecoderProfile`
+  - `UserSettings`
+  - `KeymapStore`
+  - `PtpReport`
+  - `InputFrame`
+  - `ForceNormalizer`
+  - `ButtonEdgeTracker`
+- then update Windows to reference those types from `GlassToKey.Core` instead of compiling the same files locally
+- defer the internal engine/dispatch actor layer until after that first slice is stable:
+  - `TouchProcessorFactory`
+  - `TouchProcessorCore`
+  - `DispatchEventQueue`
+  - `DispatchEventPump`
+  - related internal engine/dispatch helpers
+- reason:
+  - Windows still calls parts of the internal engine layer directly today, while the public layout/config/keymap/model layer is the lower-risk slice to move first
 
 - [ ] Continue moving shared engine/layout/keymap/runtime pieces toward `GlassToKey.Core`
 - [ ] Remove the linked-source bridge from `GlassToKey.Core` back into `GlassToKey/` for shared code
@@ -520,8 +550,8 @@ These are intentionally not blocking the current packaging/productization push, 
 
 ### Milestone A: desktop product validation
 
-- [ ] Manually validate the tray/top-bar desktop path on the target Ubuntu session
-- [ ] Confirm the packaged GUI launcher and desktop entry behave the same way as the current source-level tray runtime
+- [x] Manually validate the tray/top-bar desktop path on the target Ubuntu session
+- [x] Confirm the packaged GUI launcher and desktop entry behave the same way as the current source-level tray runtime
 - [ ] Decide how much runtime diagnostics belong in the GUI versus staying CLI-only
 - [ ] Decide whether keymap editing is in-scope for the GUI or remains file-based for v1
 
