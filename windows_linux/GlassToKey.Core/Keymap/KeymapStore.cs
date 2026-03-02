@@ -223,6 +223,7 @@ public sealed class KeymapStore
                 return mapping.Primary.Label;
             }
         }
+
         return defaultLabel;
     }
 
@@ -239,6 +240,7 @@ public sealed class KeymapStore
             {
                 mapping.Primary.Label = defaultLabel;
             }
+
             return mapping;
         }
 
@@ -418,6 +420,7 @@ public sealed class KeymapStore
                 {
                     mapping.Primary.Label = "None";
                 }
+
                 target[mappingEntry.Key] = mapping;
             }
         }
@@ -674,4 +677,3 @@ public sealed class KeymapStore
         return normalized;
     }
 }
-

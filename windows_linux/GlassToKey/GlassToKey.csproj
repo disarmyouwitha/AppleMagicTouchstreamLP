@@ -21,6 +21,7 @@
     <Compile Include="..\GlassToKey.Core\Runtime\TrackpadDecoderProfile.cs" Link="TrackpadDecoderProfile.cs" />
     <Compile Include="..\GlassToKey.Core\Runtime\UserSettings.cs" Link="UserSettings.cs" />
     <Compile Include="..\GlassToKey.Core\Runtime\RuntimeConfigurationFactory.cs" Link="RuntimeConfigurationFactory.cs" />
+    <Compile Include="..\GlassToKey.Core\Keymap\KeymapStore.cs" Link="KeymapStore.cs" />
     <Compile Include="..\GlassToKey.Core\Input\PtpReport.cs" Link="PtpReport.cs" />
     <Compile Include="..\GlassToKey.Core\Input\InputFrame.cs" Link="Core\Input\InputFrame.cs" />
     <Compile Include="..\GlassToKey.Core\Input\ForceNormalizer.cs" Link="Core\Input\ForceNormalizer.cs" />

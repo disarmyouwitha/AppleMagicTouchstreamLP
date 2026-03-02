@@ -6,7 +6,6 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\GlassToKey\KeymapStore.cs" Link="Keymap\KeymapStore.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchModels.cs" Link="Dispatch\DispatchModels.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchSemanticResolver.cs" Link="Dispatch\DispatchSemanticResolver.cs" />
     <Compile Include="..\GlassToKey\Core\Dispatch\DispatchKeyResolver.cs" Link="Dispatch\DispatchKeyResolver.cs" />
