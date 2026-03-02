@@ -26,6 +26,7 @@ public sealed class LinuxAppRuntime
         List<LinuxTrackpadBinding> bindings = ResolveBindings(settings, devices, warnings);
         KeymapStore keymap = LoadKeymap(settings, warnings);
         TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(sharedProfile.LayoutPresetName);
+        keymap.SetActiveLayout(preset.Name);
 
         return new LinuxRuntimeConfiguration(
             _settingsStore.GetSettingsPath(),
@@ -50,6 +51,7 @@ public sealed class LinuxAppRuntime
         List<string> warnings = [];
         KeymapStore keymap = LoadKeymap(settings, warnings);
         TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(sharedProfile.LayoutPresetName);
+        keymap.SetActiveLayout(preset.Name);
 
         return new LinuxRuntimeConfiguration(
             _settingsStore.GetSettingsPath(),
