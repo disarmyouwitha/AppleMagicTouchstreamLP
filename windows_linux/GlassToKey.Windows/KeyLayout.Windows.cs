@@ -2,32 +2,32 @@ using System.Windows;
 
 namespace GlassToKey;
 
-public readonly partial record struct NormalizedRect
+public static class KeyLayoutWindowsExtensions
 {
-    public Rect ToRect(Rect bounds)
+    public static Rect ToRect(this NormalizedRect rect, Rect bounds)
     {
         return new Rect(
-            bounds.Left + X * bounds.Width,
-            bounds.Top + Y * bounds.Height,
-            Width * bounds.Width,
-            Height * bounds.Height);
+            bounds.Left + rect.X * bounds.Width,
+            bounds.Top + rect.Y * bounds.Height,
+            rect.Width * bounds.Width,
+            rect.Height * bounds.Height);
     }
 
-    public Rect ToBoundsRect(Rect bounds)
+    public static Rect ToBoundsRect(this NormalizedRect rect, Rect bounds)
     {
-        if (Math.Abs(RotationDegrees) < 0.00001)
+        if (Math.Abs(rect.RotationDegrees) < 0.00001)
         {
-            return ToRect(bounds);
+            return rect.ToRect(bounds);
         }
 
-        GeometryPoint[] points = GetCorners();
+        var points = rect.GetCorners();
         double minX = double.PositiveInfinity;
         double maxX = double.NegativeInfinity;
         double minY = double.PositiveInfinity;
         double maxY = double.NegativeInfinity;
         for (int i = 0; i < points.Length; i++)
         {
-            GeometryPoint point = points[i];
+            var point = points[i];
             minX = Math.Min(minX, point.X);
             maxX = Math.Max(maxX, point.X);
             minY = Math.Min(minY, point.Y);
