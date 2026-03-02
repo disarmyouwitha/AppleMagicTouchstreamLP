@@ -14,7 +14,7 @@ RULE_SOURCE="${REPO_ROOT}/packaging/linux/90-glasstokey.rules"
 CONTROL_TEMPLATE="${SCRIPT_DIR}/DEBIAN/control.in"
 POSTINST_TEMPLATE="${SCRIPT_DIR}/DEBIAN/postinst"
 PRERM_TEMPLATE="${SCRIPT_DIR}/DEBIAN/prerm"
-DESKTOP_TEMPLATE="${SCRIPT_DIR}/usr/share/applications/glasstokey-linux.desktop.in"
+DESKTOP_TEMPLATE="${SCRIPT_DIR}/usr/share/applications/glasstokey.desktop.in"
 
 usage() {
   cat <<EOF
@@ -115,13 +115,13 @@ sed \
   -e "s/@ARCH@/${ARCH}/g" \
   "${CONTROL_TEMPLATE}" > "${PACKAGE_ROOT}/DEBIAN/control"
 
-cat > "${PACKAGE_ROOT}/usr/bin/glasstokey-linux" <<'EOF'
+cat > "${PACKAGE_ROOT}/usr/bin/glasstokey" <<'EOF'
 #!/usr/bin/env bash
 exec /opt/GlassToKey.Linux/GlassToKey.Linux "$@"
 EOF
-chmod 0755 "${PACKAGE_ROOT}/usr/bin/glasstokey-linux"
+chmod 0755 "${PACKAGE_ROOT}/usr/bin/glasstokey"
 
-cat > "${PACKAGE_ROOT}/usr/lib/systemd/user/glasstokey-linux.service" <<'EOF'
+cat > "${PACKAGE_ROOT}/usr/lib/systemd/user/glasstokey.service" <<'EOF'
 [Unit]
 Description=GlassToKey Linux runtime
 After=graphical-session.target
@@ -140,12 +140,12 @@ EOF
 if [ -d "${GUI_PUBLISH_DIR}" ] && [ -f "${GUI_PUBLISH_DIR}/GlassToKey.Linux.Gui" ]; then
   mkdir -p "${PACKAGE_ROOT}/opt/GlassToKey.Linux.Gui"
   cp -a "${GUI_PUBLISH_DIR}/." "${PACKAGE_ROOT}/opt/GlassToKey.Linux.Gui/"
-  cat > "${PACKAGE_ROOT}/usr/bin/glasstokey-linux-gui" <<'EOF'
+  cat > "${PACKAGE_ROOT}/usr/bin/glasstokey-gui" <<'EOF'
 #!/usr/bin/env bash
 exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
 EOF
-  chmod 0755 "${PACKAGE_ROOT}/usr/bin/glasstokey-linux-gui"
-  sed -e "s/@GUI_EXEC@/glasstokey-linux-gui/g" "${DESKTOP_TEMPLATE}" > "${PACKAGE_ROOT}/usr/share/applications/glasstokey-linux.desktop"
+  chmod 0755 "${PACKAGE_ROOT}/usr/bin/glasstokey-gui"
+  sed -e "s/@GUI_EXEC@/glasstokey-gui/g" "${DESKTOP_TEMPLATE}" > "${PACKAGE_ROOT}/usr/share/applications/glasstokey.desktop"
 fi
 
 dpkg-deb --build --root-owner-group "${PACKAGE_ROOT}" >/dev/null

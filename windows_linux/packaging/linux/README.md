@@ -20,8 +20,8 @@ Expected workflow:
 6. Run `init-config`
 7. Run `show-config`
 8. Use `bind-left` / `bind-right` if the defaults need correction
-9. For direct CLI validation, run `glasstokey-linux run-engine` and stop it with `Ctrl+C`
-10. For desktop use, launch `glasstokey-linux-gui`; the tray app owns the default desktop runtime
+9. For direct CLI validation, run `glasstokey start` and later `glasstokey stop`
+10. For desktop use, launch `glasstokey-gui`; the tray app owns the default desktop runtime
 11. Only enable the user service if you want the optional headless/background runtime path
 
 Example:
@@ -30,7 +30,7 @@ Example:
 dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
 dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained
 sudo ./packaging/linux/install.sh --launcher-mode wrapper --service-mode user --gui-mode auto
-glasstokey-linux doctor
+glasstokey doctor
 ```
 
 Debian package example:
