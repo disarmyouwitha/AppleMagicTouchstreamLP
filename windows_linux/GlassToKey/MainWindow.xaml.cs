@@ -43,6 +43,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
     private static readonly DecoderProfileOption[] DecoderProfileOptions =
     {
+        new(null, "Auto"),
         new(TrackpadDecoderProfile.Official, "Official"),
         new(TrackpadDecoderProfile.Legacy, "Opensource")
     };
@@ -2537,14 +2538,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ComboBox combo = GetDecoderProfileComboForSide(side);
         string? devicePath = GetSelectedDevicePathForSide(side);
         bool hasDevice = !string.IsNullOrWhiteSpace(devicePath);
-        TrackpadDecoderProfile profile = TrackpadDecoderProfile.Official;
+        int selectedIndex = 0;
         if (hasDevice &&
-            _decoderProfilesByPath.TryGetValue(devicePath!, out TrackpadDecoderProfile configured))
+            TrackpadDecoderProfileResolver.TryGetConfiguredOverride(_decoderProfilesByPath, devicePath, out TrackpadDecoderProfile configured))
         {
-            profile = NormalizeConfiguredProfile(configured);
+            selectedIndex = configured == TrackpadDecoderProfile.Legacy ? 2 : 1;
         }
 
-        int selectedIndex = profile == TrackpadDecoderProfile.Legacy ? 1 : 0;
         _suppressDecoderProfileEvents = true;
         combo.SelectedIndex = selectedIndex;
         combo.IsEnabled = !IsReplayMode && hasDevice;
@@ -2582,14 +2582,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         _settings.DecoderProfilesByDevicePath ??= new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         bool changed;
-        if (option.Profile == TrackpadDecoderProfile.Legacy)
+        if (option.Profile.HasValue)
         {
+            string value = TrackpadDecoderProfileMap.ToSettingsValue(option.Profile.Value);
             changed =
                 !_settings.DecoderProfilesByDevicePath.TryGetValue(devicePath, out string? existing) ||
-                !string.Equals(existing, "legacy", StringComparison.Ordinal);
+                !string.Equals(existing, value, StringComparison.Ordinal);
             if (changed)
             {
-                _settings.DecoderProfilesByDevicePath[devicePath] = "legacy";
+                _settings.DecoderProfilesByDevicePath[devicePath] = value;
             }
         }
         else
@@ -2606,13 +2607,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
         ApplyPressurePolicyForSide(side);
-    }
-
-    private static TrackpadDecoderProfile NormalizeConfiguredProfile(TrackpadDecoderProfile profile)
-    {
-        return profile == TrackpadDecoderProfile.Legacy
-            ? TrackpadDecoderProfile.Legacy
-            : TrackpadDecoderProfile.Official;
     }
 
     private string? GetSelectedDevicePathForSide(TrackpadSide side)
@@ -2651,8 +2645,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             return;
         }
-        StartReader(_left, LeftDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Left);
-        RefreshDecoderProfileCombos();
+        ApplySelections();
         if (!IsReplayMode)
         {
             PersistSelections();
@@ -2665,8 +2658,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             return;
         }
-        StartReader(_right, RightDeviceCombo.SelectedItem as HidDeviceInfo, TrackpadSide.Right);
-        RefreshDecoderProfileCombos();
+        ApplySelections();
         if (!IsReplayMode)
         {
             PersistSelections();
@@ -2739,8 +2731,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool likelyNoPressure = true;
         if (device != null && !device.IsNone && !string.IsNullOrWhiteSpace(device.Path))
         {
-            TrackpadDecoderProfile profile = GetConfiguredDecoderProfile(device.Path!);
-            showPressureValues = profile is TrackpadDecoderProfile.Legacy or TrackpadDecoderProfile.Official;
+            showPressureValues = true;
             likelyNoPressure = IsLikelyBluetoothDevice(device);
         }
 
@@ -4077,7 +4068,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                     : CaptureSideHint.Unknown;
             try
             {
-                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName, reportSpan, snapshot.Info);
                 _captureWriter?.WriteFrame(snapshot, reportSpan, started, sideHint, decoderProfile);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, started, decoderProfile, out TrackpadDecodeResult decoded))
                 {
@@ -4180,19 +4171,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         Console.WriteLine($"[decoder] side={side} ids {TrackpadDecoderDebugFormatter.BuildContactIdSummary(payload, decoded)}");
     }
 
-    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    private TrackpadDecoderProfile ResolveDecoderProfile(
+        string deviceName,
+        ReadOnlySpan<byte> payload,
+        in RawInputDeviceInfo deviceInfo)
     {
-        return GetConfiguredDecoderProfile(deviceName);
-    }
-
-    private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
-    {
-        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
-        {
-            return NormalizeConfiguredProfile(profile);
-        }
-
-        return TrackpadDecoderProfile.Official;
+        return TrackpadDecoderProfileResolver.ResolveForPacket(_decoderProfilesByPath, deviceName, payload, in deviceInfo);
     }
 
     private void RegisterRawInputFault(
@@ -4564,7 +4548,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         public string Group { get; }
     }
 
-    private readonly record struct DecoderProfileOption(TrackpadDecoderProfile Profile, string Label)
+    private readonly record struct DecoderProfileOption(TrackpadDecoderProfile? Profile, string Label)
     {
         public override string ToString() => Label;
     }

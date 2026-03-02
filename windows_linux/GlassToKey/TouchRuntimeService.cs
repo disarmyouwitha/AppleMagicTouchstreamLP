@@ -336,7 +336,7 @@ internal sealed class TouchRuntimeService : IDisposable
             try
             {
                 long timestampTicks = Stopwatch.GetTimestamp();
-                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName);
+                TrackpadDecoderProfile decoderProfile = ResolveDecoderProfile(snapshot.DeviceName, reportSpan, snapshot.Info);
                 if (!TrackpadReportDecoder.TryDecode(reportSpan, snapshot.Info, timestampTicks, decoderProfile, out TrackpadDecodeResult decoded))
                 {
                     continue;
@@ -383,21 +383,12 @@ internal sealed class TouchRuntimeService : IDisposable
         }
     }
 
-    private TrackpadDecoderProfile ResolveDecoderProfile(string deviceName)
+    private TrackpadDecoderProfile ResolveDecoderProfile(
+        string deviceName,
+        ReadOnlySpan<byte> payload,
+        in RawInputDeviceInfo deviceInfo)
     {
-        return GetConfiguredDecoderProfile(deviceName);
-    }
-
-    private TrackpadDecoderProfile GetConfiguredDecoderProfile(string deviceName)
-    {
-        if (_decoderProfilesByPath.TryGetValue(deviceName, out TrackpadDecoderProfile profile))
-        {
-            return profile == TrackpadDecoderProfile.Legacy
-                ? TrackpadDecoderProfile.Legacy
-                : TrackpadDecoderProfile.Official;
-        }
-
-        return TrackpadDecoderProfile.Official;
+        return TrackpadDecoderProfileResolver.ResolveForPacket(_decoderProfilesByPath, deviceName, payload, in deviceInfo);
     }
 
     private void TraceDecoderSelection(

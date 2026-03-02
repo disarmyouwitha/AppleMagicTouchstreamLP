@@ -410,11 +410,7 @@ public sealed class UserSettings
                     continue;
                 }
 
-                string canonical = profile switch
-                {
-                    TrackpadDecoderProfile.Legacy => "legacy",
-                    _ => "official"
-                };
+                string canonical = TrackpadDecoderProfileMap.ToSettingsValue(profile);
 
                 if (!string.Equals(value, canonical, StringComparison.Ordinal))
                 {

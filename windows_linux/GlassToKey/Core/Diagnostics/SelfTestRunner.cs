@@ -18,6 +18,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Button edge helper tests failed: {buttonFailure}");
         }
 
+        if (!RunAutoDecoderProfileTests(out string decoderProfileFailure))
+        {
+            return new SelfTestResult(false, $"Decoder profile tests failed: {decoderProfileFailure}");
+        }
+
         if (!RunReplayTests(out string replayFailure))
         {
             return new SelfTestResult(false, $"Replay tests failed: {replayFailure}");
@@ -31,6 +36,11 @@ internal static class SelfTestRunner
         if (!RunEngineDispatchTests(out string dispatchFailure))
         {
             return new SelfTestResult(false, $"Engine dispatch tests failed: {dispatchFailure}");
+        }
+
+        if (!RunMomentaryLayerDirectionalDispatchTests(out string momentaryLayerFailure))
+        {
+            return new SelfTestResult(false, $"Momentary-layer directional tests failed: {momentaryLayerFailure}");
         }
 
         if (!RunTypingToggleDispatchResumeTests(out string typingToggleFailure))
@@ -2001,6 +2011,50 @@ internal static class SelfTestRunner
             return false;
         }
 
+        KeymapStore voiceKeymap = KeymapStore.LoadBundledDefault();
+        voiceKeymap.Mappings[0][storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "VOICE" },
+            Hold = null
+        };
+
+        TouchProcessorCore voiceCore = TouchProcessorFactory.CreateDefault(voiceKeymap);
+        using DispatchEventQueue voiceQueue = new();
+        using TouchProcessorActor voiceActor = new(voiceCore, dispatchQueue: voiceQueue);
+
+        now = 0;
+        InputFrame voiceDown = MakeFrame(contactCount: 1, id0: 45, x0: keyX, y0: keyY);
+        InputFrame voiceUp = MakeFrame(contactCount: 0);
+        voiceActor.Post(TrackpadSide.Left, in voiceDown, maxX, maxY, now);
+        now += MsToTicks(20);
+        voiceActor.Post(TrackpadSide.Left, in voiceUp, maxX, maxY, now);
+        voiceActor.WaitForIdle();
+
+        bool sawVoiceModifierDown = false;
+        bool sawVoiceKeyTap = false;
+        bool sawVoiceModifierUp = false;
+        while (voiceQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x5B)
+            {
+                sawVoiceModifierDown = true;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x48)
+            {
+                sawVoiceKeyTap = true;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x5B)
+            {
+                sawVoiceModifierUp = true;
+            }
+        }
+
+        if (!sawVoiceModifierDown || !sawVoiceKeyTap || !sawVoiceModifierUp)
+        {
+            failure = "VOICE chord dispatch sequence missing expected modifier/key events";
+            return false;
+        }
+
         // Chordal shift: 4 fingers on left should shift key taps on right.
         // Also validate stale-source timeout: if left side stops reporting, shift should clear.
         KeymapStore chordShiftKeymap = KeymapStore.LoadBundledDefault();
@@ -2151,6 +2205,208 @@ internal static class SelfTestRunner
                 dispatchEvent.VirtualKey != 0x10)
             {
                 failure = "chord-source side emitted non-shift modifier while acting as shift anchor";
+                return false;
+            }
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunAutoDecoderProfileTests(out string failure)
+    {
+        Span<byte> officialLike = stackalloc byte[PtpReport.ExpectedSize];
+        WriteOfficialUsageZeroContact(officialLike, 0, candidateId: 4, rawX: 2500, rawY: 1900, pressure: 27, phase: 2, lifecycle: 0x03);
+        officialLike[48] = 1;
+        RawInputDeviceInfo officialInfo = new(
+            VendorId: 0x05AC,
+            ProductId: RawInputInterop.ProductIdMt2UsbC,
+            UsagePage: 0x00,
+            Usage: 0x00);
+        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, officialInfo) != TrackpadDecoderProfile.Official)
+        {
+            failure = "auto decoder should prefer official for official usage 0/0 packets";
+            return false;
+        }
+
+        Span<byte> opensourceLegacyLike = stackalloc byte[PtpReport.ExpectedSize];
+        opensourceLegacyLike[0] = RawInputInterop.ReportIdMultitouch;
+        WriteContact(opensourceLegacyLike, 0, flags: 0x03, contactId: 0, x: 1600, y: 1200);
+        opensourceLegacyLike[48] = 1;
+        RawInputDeviceInfo opensourceInfo = new(
+            VendorId: 0x004C,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: 0x00,
+            Usage: 0x00);
+        if (TrackpadDecoderProfileResolver.ResolveAuto(opensourceLegacyLike, opensourceInfo) != TrackpadDecoderProfile.Legacy)
+        {
+            failure = "auto decoder should prefer legacy for legacy-shaped usage 0/0 packets";
+            return false;
+        }
+
+        RawInputDeviceInfo nativeTouchpadInfo = new(
+            VendorId: 0x05AC,
+            ProductId: RawInputInterop.ProductIdMt2,
+            UsagePage: RawInputInterop.UsagePageDigitizer,
+            Usage: RawInputInterop.UsageTouchpad);
+        if (TrackpadDecoderProfileResolver.ResolveAuto(officialLike, nativeTouchpadInfo) != TrackpadDecoderProfile.Legacy)
+        {
+            failure = "auto decoder should prefer legacy for native touchpad usage";
+            return false;
+        }
+
+        UserSettings settings = new()
+        {
+            DecoderProfilesByDevicePath = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                [@"\\?\HID#TRACKPAD_AUTO"] = "auto",
+                [@"\\?\HID#TRACKPAD_LEGACY"] = "legacy",
+                [@"\\?\HID#TRACKPAD_OFFICIAL"] = "official"
+            }
+        };
+
+        bool changed = settings.NormalizeRanges();
+        if (!changed ||
+            settings.DecoderProfilesByDevicePath == null ||
+            settings.DecoderProfilesByDevicePath.ContainsKey(@"\\?\HID#TRACKPAD_AUTO") ||
+            !settings.DecoderProfilesByDevicePath.TryGetValue(@"\\?\HID#TRACKPAD_LEGACY", out string? legacyValue) ||
+            !string.Equals(legacyValue, "legacy", StringComparison.Ordinal) ||
+            !settings.DecoderProfilesByDevicePath.TryGetValue(@"\\?\HID#TRACKPAD_OFFICIAL", out string? officialValue) ||
+            !string.Equals(officialValue, "official", StringComparison.Ordinal))
+        {
+            failure = "settings normalization should keep explicit overrides and drop auto entries";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunMomentaryLayerDirectionalDispatchTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        IReadOnlyList<CustomButton> leftLayerZeroButtons = keymap.ResolveCustomButtons(0, TrackpadSide.Left);
+        CustomButton? momentaryButton = null;
+        for (int i = 0; i < leftLayerZeroButtons.Count; i++)
+        {
+            if (string.Equals(leftLayerZeroButtons[i].Primary?.Label, "MO(1)", StringComparison.OrdinalIgnoreCase))
+            {
+                momentaryButton = leftLayerZeroButtons[i];
+                break;
+            }
+        }
+
+        if (momentaryButton == null)
+        {
+            failure = "bundled default keymap missing left-side MO(1) custom button on layer 0";
+            return false;
+        }
+
+        NormalizedRect moRect = momentaryButton.Rect;
+        NormalizedRect downRect = leftLayout.Rects[1][3];
+        ushort moX = (ushort)Math.Clamp((int)Math.Round((moRect.X + (moRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort moY = (ushort)Math.Clamp((int)Math.Round((moRect.Y + (moRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort downX = (ushort)Math.Clamp((int)Math.Round((downRect.X + (downRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort downY = (ushort)Math.Clamp((int)Math.Round((downRect.Y + (downRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        static bool RunScenario(
+            KeymapStore scenarioKeymap,
+            ushort maxX,
+            ushort maxY,
+            InputFrame[] frames,
+            out List<string> events,
+            out TouchProcessorSnapshot snapshot)
+        {
+            TouchProcessorCore core = TouchProcessorFactory.CreateDefault(scenarioKeymap);
+            using DispatchEventQueue queue = new();
+            using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+            long now = 0;
+            for (int i = 0; i < frames.Length; i++)
+            {
+                actor.Post(TrackpadSide.Left, in frames[i], maxX, maxY, now);
+                now += MsToTicks(8);
+            }
+
+            actor.WaitForIdle();
+            snapshot = actor.Snapshot();
+            events = new List<string>();
+            while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+            {
+                events.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            }
+
+            return true;
+        }
+
+        static bool HasExpectedDownSequence(List<string> events, out string reason)
+        {
+            bool sawDownKeyDown = false;
+            bool sawDownKeyUp = false;
+            for (int i = 0; i < events.Count; i++)
+            {
+                string entry = events[i];
+                if (entry.StartsWith("KeyDown:0x28:", StringComparison.Ordinal))
+                {
+                    sawDownKeyDown = true;
+                }
+                else if (entry.StartsWith("KeyUp:0x28:", StringComparison.Ordinal))
+                {
+                    sawDownKeyUp = true;
+                }
+                else if (entry.StartsWith("KeyTap:0x28:", StringComparison.Ordinal))
+                {
+                    sawDownKeyDown = true;
+                    sawDownKeyUp = true;
+                }
+
+                if (entry.Contains(":0x32:", StringComparison.Ordinal) ||
+                    entry.EndsWith(":2", StringComparison.Ordinal))
+                {
+                    reason = $"unexpected digit-2 dispatch observed ({entry})";
+                    return false;
+                }
+            }
+
+            if (!sawDownKeyDown || !sawDownKeyUp)
+            {
+                reason = $"expected Down key down/up sequence missing (events=[{string.Join(", ", events)}])";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        InputFrame allUp = MakeFrame(contactCount: 0);
+        InputFrame moOnlyDown = MakeFrame(contactCount: 1, id0: 201, x0: moX, y0: moY);
+        InputFrame moAndDown = MakeFrame(contactCount: 2, id0: 201, x0: moX, y0: moY, id1: 202, x1: downX, y1: downY);
+        InputFrame downOnly = MakeFrame(contactCount: 1, id0: 202, x0: downX, y0: downY);
+        InputFrame bothTargetFirst = MakeFrame(contactCount: 2, id0: 203, x0: downX, y0: downY, id1: 204, x1: moX, y1: moY);
+        InputFrame bothMoFirst = MakeFrame(contactCount: 2, id0: 204, x0: moX, y0: moY, id1: 203, x1: downX, y1: downY);
+
+        (string Name, InputFrame[] Frames)[] scenarios =
+        {
+            ("mo-held-then-key", new[] { moOnlyDown, moAndDown, moOnlyDown, allUp }),
+            ("mo-released-before-key", new[] { moOnlyDown, moAndDown, downOnly, allUp }),
+            ("same-frame-target-first", new[] { bothTargetFirst, bothTargetFirst, allUp }),
+            ("same-frame-mo-first", new[] { bothMoFirst, bothMoFirst, allUp })
+        };
+
+        for (int i = 0; i < scenarios.Length; i++)
+        {
+            (string name, InputFrame[] frames) = scenarios[i];
+            RunScenario(keymap, maxX, maxY, frames, out List<string> events, out TouchProcessorSnapshot snapshot);
+            if (!HasExpectedDownSequence(events, out string reason))
+            {
+                failure = $"{name} failed: {reason}; snapshot={snapshot.ToSummary()}";
                 return false;
             }
         }
