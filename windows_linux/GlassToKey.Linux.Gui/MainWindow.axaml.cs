@@ -627,50 +627,12 @@ public partial class MainWindow : Window
 
     private bool TryImportSettings(string path, out string message)
     {
-        try
-        {
-            string json = File.ReadAllText(path);
-            LinuxHostSettings? imported = JsonSerializer.Deserialize<LinuxHostSettings>(json, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase
-            });
-            if (imported == null)
-            {
-                message = $"Failed to import settings from '{path}'.";
-                return false;
-            }
-
-            imported.Normalize();
-            string savedPath = _runtime.SaveSettings(imported);
-            message = $"Imported Linux settings from '{path}' into {savedPath}.";
-            return true;
-        }
-        catch (Exception ex)
-        {
-            message = $"Failed to import settings from '{path}': {ex.Message}";
-            return false;
-        }
+        return _runtime.TryImportProfile(path, out message);
     }
 
     private bool TryExportSettings(string path, out string message)
     {
-        try
-        {
-            LinuxHostSettings settings = _runtime.LoadSettings();
-            string json = JsonSerializer.Serialize(settings, new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true
-            });
-            File.WriteAllText(path, json);
-            message = $"Exported Linux settings to '{path}'.";
-            return true;
-        }
-        catch (Exception ex)
-        {
-            message = $"Failed to export settings to '{path}': {ex.Message}";
-            return false;
-        }
+        return _runtime.TryExportProfile(path, out message);
     }
 
     private T RequireControl<T>(string name) where T : Control

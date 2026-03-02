@@ -1,6 +1,7 @@
 using GlassToKey.Linux.Config;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Models;
+using System.Text.Json;
 
 namespace GlassToKey.Linux.Runtime;
 
@@ -144,23 +145,63 @@ public sealed class LinuxAppRuntime
 
     public bool TryLoadKeymap(string keymapPath, out string message)
     {
-        if (string.IsNullOrWhiteSpace(keymapPath))
+        return TryImportProfile(keymapPath, out message);
+    }
+
+    public bool TryImportProfile(string path, out string message)
+    {
+        if (string.IsNullOrWhiteSpace(path))
         {
-            message = "Keymap path is empty.";
+            message = "Import path is empty.";
             return false;
         }
 
-        string fullPath = Path.GetFullPath(keymapPath);
+        string fullPath = Path.GetFullPath(path);
         if (!File.Exists(fullPath))
         {
-            message = $"Keymap file '{fullPath}' was not found.";
+            message = $"Import file '{fullPath}' was not found.";
             return false;
+        }
+
+        string json;
+        try
+        {
+            json = File.ReadAllText(fullPath);
+        }
+        catch (Exception ex)
+        {
+            message = $"Import file '{fullPath}' could not be read: {ex.Message}";
+            return false;
+        }
+
+        if (TryImportLinuxSettingsBundle(json, fullPath, out LinuxHostSettings importedLinuxSettings, out string? linuxBundleError))
+        {
+            importedLinuxSettings.Normalize();
+            _settingsStore.Save(importedLinuxSettings);
+            message = $"Linux profile imported from '{fullPath}'.";
+            return true;
+        }
+
+        if (TryImportWindowsSettingsBundle(json, fullPath, out LinuxHostSettings importedWindowsSettings, out string? windowsBundleError))
+        {
+            importedWindowsSettings.Normalize();
+            _settingsStore.Save(importedWindowsSettings);
+            message = $"GlassToKey settings and keymap imported from '{fullPath}'.";
+            return true;
+        }
+
+        if (TryImportDirectLinuxSettings(json, out LinuxHostSettings directSettings, out string? directSettingsError))
+        {
+            directSettings.Normalize();
+            _settingsStore.Save(directSettings);
+            message = $"Linux settings imported from '{fullPath}'.";
+            return true;
         }
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
-        if (!keymap.TryImportFromFile(fullPath, out string error))
+        if (!keymap.TryImportFromJson(json, out string error))
         {
-            message = $"Keymap '{fullPath}' could not be loaded: {error}";
+            message = $"Import '{fullPath}' could not be loaded: {linuxBundleError ?? windowsBundleError ?? directSettingsError ?? error}";
             return false;
         }
 
@@ -169,6 +210,190 @@ public sealed class LinuxAppRuntime
         _settingsStore.Save(settings);
         message = $"Linux host keymap set to '{fullPath}'.";
         return true;
+    }
+
+    public bool TryExportProfile(string path, out string message)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            message = "Export path is empty.";
+            return false;
+        }
+
+        try
+        {
+            LinuxHostSettings settings = _settingsStore.Load();
+            KeymapStore keymap = KeymapStore.LoadBundledDefault();
+            if (!string.IsNullOrWhiteSpace(settings.KeymapPath) &&
+                File.Exists(settings.KeymapPath) &&
+                !keymap.TryImportFromFile(settings.KeymapPath, out _))
+            {
+                keymap = KeymapStore.LoadBundledDefault();
+            }
+
+            LinuxSettingsBundleFile bundle = new()
+            {
+                Version = 1,
+                Settings = settings,
+                KeymapJson = keymap.SerializeToJson(writeIndented: false)
+            };
+
+            string? directory = Path.GetDirectoryName(path);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            string json = JsonSerializer.Serialize(bundle, new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true
+            });
+            File.WriteAllText(path, json);
+            message = $"Exported Linux profile to '{path}'.";
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"Failed to export Linux profile to '{path}': {ex.Message}";
+            return false;
+        }
+    }
+
+    private bool TryImportLinuxSettingsBundle(
+        string json,
+        string sourcePath,
+        out LinuxHostSettings settings,
+        out string? error)
+    {
+        settings = new LinuxHostSettings();
+        error = null;
+
+        LinuxSettingsBundleFile? bundle;
+        try
+        {
+            bundle = JsonSerializer.Deserialize<LinuxSettingsBundleFile>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
+        {
+            error = "Expected a Linux settings export with both settings and keymap data.";
+            return false;
+        }
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        if (!keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
+        {
+            error = $"Keymap section is invalid: {keymapError}";
+            return false;
+        }
+
+        string importedKeymapPath = GetImportedKeymapPath(sourcePath);
+        if (!keymap.TryExportToFile(importedKeymapPath, out string exportError))
+        {
+            error = $"Imported keymap could not be persisted: {exportError}";
+            return false;
+        }
+
+        settings = bundle.Settings;
+        settings.KeymapPath = importedKeymapPath;
+        return true;
+    }
+
+    private bool TryImportWindowsSettingsBundle(
+        string json,
+        string sourcePath,
+        out LinuxHostSettings settings,
+        out string? error)
+    {
+        settings = new LinuxHostSettings();
+        error = null;
+
+        WindowsSettingsBundleFile? bundle;
+        try
+        {
+            bundle = JsonSerializer.Deserialize<WindowsSettingsBundleFile>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+
+        if (bundle?.Settings == null || string.IsNullOrWhiteSpace(bundle.KeymapJson))
+        {
+            error = "Expected a GlassToKey settings export with both settings and keymap data.";
+            return false;
+        }
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        if (!keymap.TryImportFromJson(bundle.KeymapJson, out string keymapError))
+        {
+            error = $"Keymap section is invalid: {keymapError}";
+            return false;
+        }
+
+        string importedKeymapPath = GetImportedKeymapPath(sourcePath);
+        if (!keymap.TryExportToFile(importedKeymapPath, out string exportError))
+        {
+            error = $"Imported keymap could not be persisted: {exportError}";
+            return false;
+        }
+
+        LinuxHostSettings current = _settingsStore.Load();
+        current.SharedProfile = bundle.Settings.Clone();
+        current.LayoutPresetName = current.SharedProfile.LayoutPresetName;
+        current.KeymapPath = importedKeymapPath;
+        settings = current;
+        return true;
+    }
+
+    private bool TryImportDirectLinuxSettings(string json, out LinuxHostSettings settings, out string? error)
+    {
+        error = null;
+        settings = new LinuxHostSettings();
+
+        try
+        {
+            LinuxHostSettings? imported = JsonSerializer.Deserialize<LinuxHostSettings>(
+                json,
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (imported == null)
+            {
+                error = "Linux settings JSON did not deserialize.";
+                return false;
+            }
+
+            settings = imported;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
+    private string GetImportedKeymapPath(string sourcePath)
+    {
+        string settingsPath = _settingsStore.GetSettingsPath();
+        string settingsDirectory = Path.GetDirectoryName(settingsPath) ?? AppContext.BaseDirectory;
+        string fileName = Path.GetFileNameWithoutExtension(sourcePath);
+        if (string.IsNullOrWhiteSpace(fileName))
+        {
+            fileName = "imported";
+        }
+
+        return Path.Combine(settingsDirectory, $"{fileName}.keymap.json");
     }
 
     private static List<LinuxTrackpadBinding> ResolveBindings(
@@ -279,5 +504,19 @@ public sealed class LinuxAppRuntime
         }
 
         return null;
+    }
+
+    private sealed class LinuxSettingsBundleFile
+    {
+        public int Version { get; set; } = 1;
+        public LinuxHostSettings Settings { get; set; } = new();
+        public string KeymapJson { get; set; } = string.Empty;
+    }
+
+    private sealed class WindowsSettingsBundleFile
+    {
+        public int Version { get; set; } = 1;
+        public UserSettings Settings { get; set; } = new();
+        public string KeymapJson { get; set; } = string.Empty;
     }
 }

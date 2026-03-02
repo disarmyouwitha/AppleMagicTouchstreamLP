@@ -187,7 +187,7 @@ public sealed class KeymapStore
     public bool TryImportFromJson(string json, out string error)
     {
         error = string.Empty;
-        if (!TryCreateFromJson(json, allowEmpty: false, out KeymapStore imported))
+        if (!TryCreateFromImportJson(json, out KeymapStore imported))
         {
             error = "Invalid keymap JSON format.";
             return false;
@@ -574,7 +574,7 @@ public sealed class KeymapStore
         }
     }
 
-    private static bool TryCreateFromBundledDefaultJson(string json, out KeymapStore store)
+    private static bool TryCreateFromImportJson(string json, out KeymapStore store)
     {
         if (TryCreateFromJson(json, allowEmpty: false, out store))
         {
@@ -605,6 +605,11 @@ public sealed class KeymapStore
             store = CreateEmptyStore();
             return false;
         }
+    }
+
+    private static bool TryCreateFromBundledDefaultJson(string json, out KeymapStore store)
+    {
+        return TryCreateFromImportJson(json, out store);
     }
 
     private static double ClampRange(double value, double min, double max)
