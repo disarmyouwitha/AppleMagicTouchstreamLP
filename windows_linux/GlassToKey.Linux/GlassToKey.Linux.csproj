@@ -5,10 +5,17 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
-    <EnableSharedPortReferences>false</EnableSharedPortReferences>
+    <EnableSharedPortReferences>true</EnableSharedPortReferences>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
   </PropertyGroup>
   <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
     <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
     <ProjectReference Include="..\GlassToKey.Platform.Linux\GlassToKey.Platform.Linux.csproj" />
+    <ProjectReference Include="..\GlassToKey.Linux.Host\GlassToKey.Linux.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

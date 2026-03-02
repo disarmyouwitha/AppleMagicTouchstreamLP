@@ -1,0 +1,11 @@
+Package: @PACKAGE_NAME@
+Version: @PACKAGE_VERSION@
+Section: utils
+Priority: optional
+Architecture: @ARCH@
+Maintainer: GlassToKey
+Depends: libevdev2, udev
+Description: GlassToKey Linux runtime and device picker
+ GlassToKey turns Apple Magic Trackpads into keyboard input on Linux.
+ This package installs the Linux runtime, udev permissions, user service unit,
+ and optional GUI launcher when the GUI publish output is included.

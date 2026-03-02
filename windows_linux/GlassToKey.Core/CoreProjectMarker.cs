@@ -2,5 +2,5 @@ namespace GlassToKey.Core;
 
 public static class CoreProjectMarker
 {
-    public const string Status = "Scaffold only. Shared engine extraction not started.";
+    public const string Status = "Initial shared input/dispatch extraction started. Engine extraction is still pending.";
 }

@@ -1,0 +1,7 @@
+[Desktop Entry]
+Type=Application
+Name=GlassToKey Linux
+Comment=Configure GlassToKey Linux trackpad bindings
+Exec=@GUI_EXEC@
+Terminal=false
+Categories=Utility;

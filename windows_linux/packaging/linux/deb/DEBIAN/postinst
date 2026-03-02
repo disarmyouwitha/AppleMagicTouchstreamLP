@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -eu
+
+if ! getent group glasstokey >/dev/null 2>&1; then
+  groupadd --system glasstokey || true
+fi
+
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm control --reload-rules || true
+  udevadm trigger || true
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload || true
+fi
+
+cat <<'EOF'
+GlassToKey Linux install complete.
+
+Recommended next steps:
+  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
+  2. Add the desktop user to the 'glasstokey' group:
+     sudo usermod -aG glasstokey $USER
+  3. Log out and back in so the new group membership applies.
+  4. Run 'glasstokey doctor'
+  5. Run 'glasstokey init-config' if this is the first install
+  6. Run 'glasstokey show-config --print' and verify left/right device bindings
+  7. Run 'glasstokey start' to launch the background runtime
+  8. Run 'glasstokey stop' to stop the background runtime
+  9. Run 'glasstokey run-engine 10' for a direct foreground smoke test when needed
+
+Optional user service:
+  systemctl --user daemon-reload
+  systemctl --user enable --now glasstokey.service
+
+Optional GUI:
+  glasstokey-gui
+EOF
