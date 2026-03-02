@@ -26,6 +26,9 @@
     <Compile Include="..\GlassToKey.Core\Input\InputFrame.cs" Link="Core\Input\InputFrame.cs" />
     <Compile Include="..\GlassToKey.Core\Input\ForceNormalizer.cs" Link="Core\Input\ForceNormalizer.cs" />
     <Compile Include="..\GlassToKey.Core\Input\ButtonEdgeTracker.cs" Link="Core\Input\ButtonEdgeTracker.cs" />
+    <Compile Include="..\GlassToKey.Core\Diagnostics\InputCaptureFile.cs" Link="Core\Diagnostics\InputCaptureFile.cs" />
+    <Compile Include="..\GlassToKey.Core\Diagnostics\FrameMetrics.cs" Link="Core\Diagnostics\FrameMetrics.cs" />
+    <Compile Include="..\GlassToKey.Core\Diagnostics\AtpCapV3Payload.cs" Link="Core\Diagnostics\AtpCapV3Payload.cs" />
     <Compile Include="..\GlassToKey.Core\Dispatch\DispatchModels.cs" Link="Core\Dispatch\DispatchModels.cs" />
     <Compile Include="..\GlassToKey.Core\Dispatch\DispatchSemanticResolver.cs" Link="Core\Dispatch\DispatchSemanticResolver.cs" />
     <Compile Include="..\GlassToKey.Core\Dispatch\DispatchKeyResolver.cs" Link="Core\Dispatch\DispatchKeyResolver.cs" />
