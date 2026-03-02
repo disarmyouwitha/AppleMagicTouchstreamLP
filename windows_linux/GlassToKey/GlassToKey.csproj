@@ -13,7 +13,11 @@
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
+    <Compile Include="..\GlassToKey.Core\Layout\GridKeyPosition.cs" Link="GridKeyPosition.cs" />
+    <Compile Include="..\GlassToKey.Core\Layout\KeyLayout.cs" Link="KeyLayout.Windows.cs" />
+    <Compile Include="..\GlassToKey.Core\Layout\TrackpadLayoutPreset.cs" Link="TrackpadLayoutPreset.cs" />
+    <Compile Include="..\GlassToKey.Core\Layout\ColumnLayoutSettings.cs" Link="ColumnLayoutSettings.cs" />
+    <Compile Include="..\GlassToKey.Core\Layout\LayoutBuilder.cs" Link="LayoutBuilder.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
