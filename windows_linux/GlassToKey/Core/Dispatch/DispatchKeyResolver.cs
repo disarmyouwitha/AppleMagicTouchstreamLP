@@ -113,21 +113,13 @@ internal static class DispatchKeyResolver
             return true;
         }
 
-        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LeftWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LMeta", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LeftMeta", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("Meta", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RightWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RMeta", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RightMeta", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5C;
             return true;

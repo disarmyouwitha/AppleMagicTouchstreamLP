@@ -2011,47 +2011,47 @@ internal static class SelfTestRunner
             return false;
         }
 
-        KeymapStore winChordKeymap = KeymapStore.LoadBundledDefault();
-        winChordKeymap.Mappings[0][storageKey] = new KeyMapping
+        KeymapStore voiceKeymap = KeymapStore.LoadBundledDefault();
+        voiceKeymap.Mappings[0][storageKey] = new KeyMapping
         {
-            Primary = new KeyAction { Label = "Win+H" },
+            Primary = new KeyAction { Label = "VOICE" },
             Hold = null
         };
 
-        TouchProcessorCore winChordCore = TouchProcessorFactory.CreateDefault(winChordKeymap);
-        using DispatchEventQueue winChordQueue = new();
-        using TouchProcessorActor winChordActor = new(winChordCore, dispatchQueue: winChordQueue);
+        TouchProcessorCore voiceCore = TouchProcessorFactory.CreateDefault(voiceKeymap);
+        using DispatchEventQueue voiceQueue = new();
+        using TouchProcessorActor voiceActor = new(voiceCore, dispatchQueue: voiceQueue);
 
         now = 0;
-        InputFrame winChordDown = MakeFrame(contactCount: 1, id0: 45, x0: keyX, y0: keyY);
-        InputFrame winChordUp = MakeFrame(contactCount: 0);
-        winChordActor.Post(TrackpadSide.Left, in winChordDown, maxX, maxY, now);
+        InputFrame voiceDown = MakeFrame(contactCount: 1, id0: 45, x0: keyX, y0: keyY);
+        InputFrame voiceUp = MakeFrame(contactCount: 0);
+        voiceActor.Post(TrackpadSide.Left, in voiceDown, maxX, maxY, now);
         now += MsToTicks(20);
-        winChordActor.Post(TrackpadSide.Left, in winChordUp, maxX, maxY, now);
-        winChordActor.WaitForIdle();
+        voiceActor.Post(TrackpadSide.Left, in voiceUp, maxX, maxY, now);
+        voiceActor.WaitForIdle();
 
-        bool sawWinChordModifierDown = false;
-        bool sawWinChordKeyTap = false;
-        bool sawWinChordModifierUp = false;
-        while (winChordQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        bool sawVoiceModifierDown = false;
+        bool sawVoiceKeyTap = false;
+        bool sawVoiceModifierUp = false;
+        while (voiceQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
             if (dispatchEvent.Kind == DispatchEventKind.ModifierDown && dispatchEvent.VirtualKey == 0x5B)
             {
-                sawWinChordModifierDown = true;
+                sawVoiceModifierDown = true;
             }
             else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x48)
             {
-                sawWinChordKeyTap = true;
+                sawVoiceKeyTap = true;
             }
             else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp && dispatchEvent.VirtualKey == 0x5B)
             {
-                sawWinChordModifierUp = true;
+                sawVoiceModifierUp = true;
             }
         }
 
-        if (!sawWinChordModifierDown || !sawWinChordKeyTap || !sawWinChordModifierUp)
+        if (!sawVoiceModifierDown || !sawVoiceKeyTap || !sawVoiceModifierUp)
         {
-            failure = "Win+H chord dispatch sequence missing expected modifier/key events";
+            failure = "VOICE chord dispatch sequence missing expected modifier/key events";
             return false;
         }
 
