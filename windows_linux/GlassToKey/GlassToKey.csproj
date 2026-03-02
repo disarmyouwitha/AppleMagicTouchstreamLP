@@ -13,6 +13,9 @@
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
+  </ItemGroup>
+  <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>

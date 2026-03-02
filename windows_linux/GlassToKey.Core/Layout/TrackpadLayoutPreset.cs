@@ -222,18 +222,9 @@ public sealed class TrackpadLayoutPreset
             return SixByThree;
         }
 
-        string trimmed = name.Trim();
-        if (string.Equals(trimmed, "Mobile QWERTY", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(trimmed, "mobile-qwerty", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(trimmed, "mobile_qwerty", StringComparison.OrdinalIgnoreCase))
-        {
-            return Mobile;
-        }
-
         for (int i = 0; i < All.Length; i++)
         {
-            if (string.Equals(All[i].Name, trimmed, StringComparison.OrdinalIgnoreCase) ||
-                string.Equals(All[i].DisplayName, trimmed, StringComparison.OrdinalIgnoreCase))
+            if (string.Equals(All[i].Name, name, StringComparison.OrdinalIgnoreCase))
             {
                 return All[i];
             }
@@ -242,20 +233,21 @@ public sealed class TrackpadLayoutPreset
         return SixByThree;
     }
 
-    private static string[][] Mirror(string[][] labels)
+    private static string[][] Mirror(string[][] input)
     {
-        string[][] output = new string[labels.Length][];
-        for (int r = 0; r < labels.Length; r++)
+        string[][] result = new string[input.Length][];
+        for (int row = 0; row < input.Length; row++)
         {
-            string[] row = labels[r];
-            string[] mirrored = new string[row.Length];
-            for (int c = 0; c < row.Length; c++)
+            string[] src = input[row];
+            string[] dst = new string[src.Length];
+            for (int col = 0; col < src.Length; col++)
             {
-                mirrored[c] = row[row.Length - 1 - c];
+                dst[col] = src[src.Length - 1 - col];
             }
-            output[r] = mirrored;
+            result[row] = dst;
         }
-        return output;
+
+        return result;
     }
 }
 

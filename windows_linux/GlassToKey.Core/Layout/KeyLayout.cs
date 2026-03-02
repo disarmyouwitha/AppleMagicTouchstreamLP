@@ -244,38 +244,6 @@ public readonly partial record struct NormalizedRect(double X, double Y, double 
         }
     }
 
-    private GeometryPoint[] GetCorners()
-    {
-        double halfWidth = Width * 0.5;
-        double halfHeight = Height * 0.5;
-        GeometryPoint[] corners =
-        {
-            new(CenterX - halfWidth, CenterY - halfHeight),
-            new(CenterX + halfWidth, CenterY - halfHeight),
-            new(CenterX + halfWidth, CenterY + halfHeight),
-            new(CenterX - halfWidth, CenterY + halfHeight)
-        };
-
-        if (Math.Abs(RotationDegrees) < 0.00001)
-        {
-            return corners;
-        }
-
-        double radians = RotationDegrees * Math.PI / 180.0;
-        double cos = Math.Cos(radians);
-        double sin = Math.Sin(radians);
-        for (int i = 0; i < corners.Length; i++)
-        {
-            double localX = corners[i].X - CenterX;
-            double localY = corners[i].Y - CenterY;
-            corners[i] = new GeometryPoint(
-                CenterX + (localX * cos) - (localY * sin),
-                CenterY + (localX * sin) + (localY * cos));
-        }
-
-        return corners;
-    }
-
     private void GetBounds(out double minX, out double maxX, out double minY, out double maxY)
     {
         if (Math.Abs(RotationDegrees) < 0.00001)
@@ -287,19 +255,38 @@ public readonly partial record struct NormalizedRect(double X, double Y, double 
             return;
         }
 
-        GeometryPoint[] points = GetCorners();
+        double halfWidth = Width * 0.5;
+        double halfHeight = Height * 0.5;
+        double radians = RotationDegrees * Math.PI / 180.0;
+        double cos = Math.Cos(radians);
+        double sin = Math.Sin(radians);
+        GeometryPoint[] corners =
+        {
+            RotateCorner(-halfWidth, -halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(halfWidth, -halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(halfWidth, halfHeight, CenterX, CenterY, cos, sin),
+            RotateCorner(-halfWidth, halfHeight, CenterX, CenterY, cos, sin)
+        };
+
         minX = double.PositiveInfinity;
         maxX = double.NegativeInfinity;
         minY = double.PositiveInfinity;
         maxY = double.NegativeInfinity;
-        for (int i = 0; i < points.Length; i++)
+        for (int i = 0; i < corners.Length; i++)
         {
-            GeometryPoint point = points[i];
+            GeometryPoint point = corners[i];
             minX = Math.Min(minX, point.X);
             maxX = Math.Max(maxX, point.X);
             minY = Math.Min(minY, point.Y);
             maxY = Math.Max(maxY, point.Y);
         }
+    }
+
+    private static GeometryPoint RotateCorner(double localX, double localY, double centerX, double centerY, double cos, double sin)
+    {
+        return new(
+            centerX + (localX * cos) - (localY * sin),
+            centerY + (localX * sin) + (localY * cos));
     }
 
     private static double NormalizeDegrees(double value)

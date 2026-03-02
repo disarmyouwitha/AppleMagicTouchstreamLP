@@ -6,11 +6,6 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="..\GlassToKey\GridKeyPosition.cs" Link="Layout\GridKeyPosition.cs" />
-    <Compile Include="..\GlassToKey\KeyLayout.cs" Link="Layout\KeyLayout.cs" />
-    <Compile Include="..\GlassToKey\LayoutBuilder.cs" Link="Layout\LayoutBuilder.cs" />
-    <Compile Include="..\GlassToKey\TrackpadLayoutPreset.cs" Link="Layout\TrackpadLayoutPreset.cs" />
-    <Compile Include="..\GlassToKey\ColumnLayoutSettings.cs" Link="Layout\ColumnLayoutSettings.cs" />
     <Compile Include="..\GlassToKey\RuntimeConfigurationFactory.cs" Link="Runtime\RuntimeConfigurationFactory.cs" />
     <Compile Include="..\GlassToKey\TrackpadDecoderProfile.cs" Link="Runtime\TrackpadDecoderProfile.cs" />
     <Compile Include="..\GlassToKey\UserSettings.cs" Link="Runtime\UserSettings.cs" />
