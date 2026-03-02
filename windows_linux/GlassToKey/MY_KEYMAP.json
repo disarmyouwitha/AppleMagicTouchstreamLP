@@ -41,7 +41,7 @@
     "FourFingerHoldAction": "Chordal Shift",
     "ThreeFingerClickAction": "None",
     "FourFingerClickAction": "None",
-    "OuterCornersAction": "Win\u002BH",
+    "OuterCornersAction": "VOICE",
     "InnerCornersAction": "None",
     "TopLeftTriangleAction": "None",
     "TopRightTriangleAction": "None",
