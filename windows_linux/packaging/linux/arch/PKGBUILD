@@ -12,7 +12,7 @@ makedepends=('dotnet-sdk')
 install=glasstokey-linux.install
 options=('!strip')
 source=(
-  "90-glasstokey.rules::../90-glasstokey.rules"
+  "90-glasstokey.rules"
   "glasstokey.service"
   "glasstokey.desktop"
   "glasstokey.sysusers"
@@ -49,6 +49,7 @@ package() {
   install -Dm644 "${srcdir}/glasstokey.service" "${pkgdir}/usr/lib/systemd/user/glasstokey.service"
   install -Dm644 "${srcdir}/glasstokey.desktop" "${pkgdir}/usr/share/applications/glasstokey.desktop"
   install -Dm644 "${srcdir}/glasstokey.sysusers" "${pkgdir}/usr/lib/sysusers.d/glasstokey.conf"
+  install -d "${pkgdir}/usr/bin"
 
   cat > "${pkgdir}/usr/bin/glasstokey" <<'EOF'
 #!/usr/bin/env bash
