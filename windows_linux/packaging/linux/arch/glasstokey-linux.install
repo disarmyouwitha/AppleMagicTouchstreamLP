@@ -1,0 +1,52 @@
+post_install() {
+  _glasstokey_post_message
+}
+
+post_upgrade() {
+  _glasstokey_post_message
+}
+
+post_remove() {
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+  fi
+
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules >/dev/null 2>&1 || true
+    udevadm trigger >/dev/null 2>&1 || true
+  fi
+}
+
+_glasstokey_post_message() {
+  if command -v systemd-sysusers >/dev/null 2>&1; then
+    systemd-sysusers /usr/lib/sysusers.d/glasstokey.conf >/dev/null 2>&1 || true
+  fi
+
+  if command -v udevadm >/dev/null 2>&1; then
+    udevadm control --reload-rules >/dev/null 2>&1 || true
+    udevadm trigger >/dev/null 2>&1 || true
+  fi
+
+  if command -v systemctl >/dev/null 2>&1; then
+    systemctl daemon-reload >/dev/null 2>&1 || true
+  fi
+
+  cat <<'EOF'
+GlassToKey Linux Arch package install complete.
+
+Recommended next steps:
+  1. Add your desktop user to the 'glasstokey' group:
+     sudo usermod -aG glasstokey $USER
+  2. Log out and back in so group membership applies.
+  3. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
+  4. Run 'glasstokey doctor'
+  5. Run 'glasstokey init-config' if this is the first install
+  6. Run 'glasstokey show-config --print' and verify left/right bindings
+  7. Run 'glasstokey start' then 'glasstokey stop' for headless runtime checks
+  8. Run 'glasstokey-gui' for tray-owned desktop runtime checks
+
+Optional user service:
+  systemctl --user daemon-reload
+  systemctl --user enable --now glasstokey.service
+EOF
+}

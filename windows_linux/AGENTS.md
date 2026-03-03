@@ -17,6 +17,7 @@
 - `GlassToKey.Linux.Host/` now carries the reusable Linux XDG settings/config/runtime layer plus the `doctor` runner so the CLI and GUI can share one host surface without the GUI referencing the CLI executable project.
 - `GlassToKey.Linux/` is now a minimal CLI host. `Program.cs` supports `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`, `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`, `selftest`, `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`, `uinput-smoke`, `read-events`, `read-frames`, `watch-runtime`, and `run-engine`. It now uses an XDG-backed settings file for stable-id device selection, layout preset selection, and optional keymap-path override through `GlassToKey.Linux.Host`. The Linux host also now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json` instead of copying the Windows default, and the embedded bundled `KeymapJson` has been translated so Linux no longer ships Windows-only `EMOJI`, `LWin`, or `Win+H` defaults by accident. `run-engine` has been validated end-to-end on the current Ubuntu 24.04 host with both tested Apple Magic Trackpads, and the runtime owner now reloads updated settings in-process instead of requiring the GUI to restart `systemd` for layout/binding changes. Checked-in publish profiles now cover framework-dependent and self-contained `linux-x64` publishes, and the checked-in install script now supports wrapper-vs-service install decisions with better post-install guidance.
 - `GlassToKey.Linux.Gui/` now exists as an early Avalonia config surface on top of the same XDG-backed Linux host settings used by the CLI. It now supports device assignment, preset selection, settings import/export, an in-app `doctor` report, a live trackpad preview driven from the same in-process tray-owned runtime stream used for typing, and tray-level `.atpcap` capture/replay/summarize actions for debugging. `.atpcap` replay is now an in-window visualizer mode with play/pause and a time-based scrubber instead of a tray dialog-only action. The tray app now owns the default desktop runtime while the config window stays off the hotpath, and the CLI/service path remains the headless/engineering host. GUI publish now works both framework-dependent and self-contained.
+- `packaging/linux/arch/` now carries a first local Arch `PKGBUILD` skeleton with pacman install hooks, user-service unit, desktop entry, and sysusers group definition; real Arch host validation is still pending.
 
 ## What To Build
 - For Windows app work, target `GlassToKey.Windows/GlassToKey.Windows.csproj`.
@@ -86,6 +87,10 @@
   - `dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained`
 - Linux Debian skeleton build:
   - `bash packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
+- Linux Arch local package build:
+  - `sudo pacman -S --needed base-devel dotnet-sdk`
+  - `cd packaging/linux/arch`
+  - `makepkg -f`
 - In the current Ubuntu 24.04 shell, the three Linux-targeted build commands above were verified.
 - Run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially. Parallel publishes can collide in shared `bin/` / `obj/` paths.
 
@@ -127,7 +132,7 @@
 - `GlassToKey.Linux selftest` now validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and checks semantic-to-evdev coverage for the current Linux action surface.
 - The repo now carries checked-in Linux publish profiles for framework-dependent and self-contained `linux-x64` publishes, plus a first Debian package skeleton.
 - The repo now also carries self-contained GUI publish support and a reusable `GlassToKey.Linux.Host` library so CLI and GUI share one Linux host/config surface.
-- `packaging/linux/` now contains checked-in Linux install artifacts, plus a first Debian package skeleton under `packaging/linux/deb/`.
+- `packaging/linux/` now contains checked-in Linux install artifacts, plus first Debian and Arch package skeletons under `packaging/linux/deb/` and `packaging/linux/arch/`.
 - Linux now has a first `.atpcap` capture/replay path based on version 3 normalized frame captures, plus a `doctor` command for post-install evdev/`uinput`/config health checks.
 - Linux `.atpcap` version 3 capture now preserves physical click state in the frame header flags while staying in the shared normalized v3 payload shape.
 - Linux now also has fixture generation and fixture checking commands so `.atpcap` captures can be regression-checked, not just replayed.

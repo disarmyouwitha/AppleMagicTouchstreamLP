@@ -46,7 +46,7 @@ Current phase:
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
 - tray-desktop packaging is the default user story
 - direct headless CLI operation remains supported through `glasstokey start` / `glasstokey stop`
-- Arch packaging/install validation is the next distro-expansion checkpoint
+- local Arch `PKGBUILD` scaffolding now exists under `packaging/linux/arch`; real Arch packaging/install validation is the next distro-expansion checkpoint
 
 Quick start:
 
