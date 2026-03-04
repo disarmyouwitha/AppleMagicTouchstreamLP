@@ -164,6 +164,7 @@ public sealed class LinuxRuntimeOwner
             Version = settings.Version,
             LayoutPresetName = settings.LayoutPresetName,
             KeymapPath = settings.KeymapPath,
+            KeymapRevision = settings.KeymapRevision,
             LeftTrackpadStableId = settings.LeftTrackpadStableId,
             RightTrackpadStableId = settings.RightTrackpadStableId,
             SharedProfile = settings.SharedProfile?.Clone() ?? UserSettings.LoadBundledDefaultsOrDefault()

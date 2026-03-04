@@ -143,6 +143,33 @@ public sealed class LinuxAppRuntime
         return _settingsStore.GetSettingsPath();
     }
 
+    public bool TrySaveKeymap(KeymapStore keymap, out string keymapPath, out string message)
+    {
+        keymapPath = string.Empty;
+        if (keymap == null)
+        {
+            message = "Keymap payload is missing.";
+            return false;
+        }
+
+        LinuxHostSettings settings = _settingsStore.Load();
+        string targetPath = ResolveWritableKeymapPath(settings);
+        if (!keymap.TryExportToFile(targetPath, out string exportError))
+        {
+            message = $"Failed to persist Linux keymap to '{targetPath}': {exportError}";
+            return false;
+        }
+
+        settings.KeymapPath = targetPath;
+        settings.KeymapRevision = NextKeymapRevision(settings.KeymapRevision);
+        settings.Normalize();
+        _settingsStore.Save(settings);
+
+        keymapPath = targetPath;
+        message = $"Linux host keymap saved to '{targetPath}'.";
+        return true;
+    }
+
     public bool TryLoadKeymap(string keymapPath, out string message)
     {
         return TryImportProfile(keymapPath, out message);
@@ -194,6 +221,7 @@ public sealed class LinuxAppRuntime
 
         LinuxHostSettings settings = _settingsStore.Load();
         settings.KeymapPath = fullPath;
+        settings.KeymapRevision = NextKeymapRevision(settings.KeymapRevision);
         _settingsStore.Save(settings);
         message = $"Linux host keymap set to '{fullPath}'.";
         return true;
@@ -293,8 +321,26 @@ public sealed class LinuxAppRuntime
         current.SharedProfile = bundle.Settings.Clone();
         current.LayoutPresetName = current.SharedProfile.LayoutPresetName;
         current.KeymapPath = importedKeymapPath;
+        current.KeymapRevision = NextKeymapRevision(current.KeymapRevision);
         settings = current;
         return true;
+    }
+
+    private string ResolveWritableKeymapPath(LinuxHostSettings settings)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.KeymapPath))
+        {
+            return Path.GetFullPath(settings.KeymapPath);
+        }
+
+        string settingsPath = _settingsStore.GetSettingsPath();
+        string settingsDirectory = Path.GetDirectoryName(settingsPath) ?? AppContext.BaseDirectory;
+        return Path.Combine(settingsDirectory, "keymap.json");
+    }
+
+    private static int NextKeymapRevision(int current)
+    {
+        return current == int.MaxValue ? 1 : current + 1;
     }
 
     private string GetImportedKeymapPath(string sourcePath)
