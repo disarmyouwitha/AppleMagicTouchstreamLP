@@ -14,8 +14,6 @@
 
 ## Linux:
 - Thanks to the Linux community, support for this device is already included in the mainline Linux kernel.
-- To install .NET Runtime:
-> sudo apt-get install -y dotnet-runtime-10.0
 
 <hr>
 
