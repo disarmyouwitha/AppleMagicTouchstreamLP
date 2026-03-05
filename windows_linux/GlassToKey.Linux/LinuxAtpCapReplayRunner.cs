@@ -42,7 +42,6 @@ internal static class LinuxAtpCapReplayRunner
         TouchProcessorCore core = TouchProcessorFactory.CreateConfigured(configuration.Keymap, configuration.SharedProfile, configuration.LayoutPreset);
         using DispatchEventQueue dispatchQueue = new(capacity: 131072);
         using TouchProcessorActor actor = new(core, dispatchQueue: dispatchQueue);
-        actor.SetDiagnosticsEnabled(!string.IsNullOrWhiteSpace(traceOutputPath));
 
         long baseQpcTicks = 0;
         bool hasBaseQpc = false;
@@ -115,7 +114,7 @@ internal static class LinuxAtpCapReplayRunner
         FrameMetricsSnapshot snapshot = metrics.CreateSnapshot();
         if (!string.IsNullOrWhiteSpace(traceOutputPath))
         {
-            WriteTrace(traceOutputPath!, fullPath, snapshot, dispatchEvents?.ToArray() ?? Array.Empty<DispatchEvent>(), transitions.AsSpan(0, transitionCount).ToArray(), actor);
+            WriteTrace(traceOutputPath!, fullPath, snapshot, dispatchEvents?.ToArray() ?? Array.Empty<DispatchEvent>(), transitions.AsSpan(0, transitionCount).ToArray());
         }
 
         string summary = string.Create(
@@ -204,8 +203,7 @@ internal static class LinuxAtpCapReplayRunner
         string capturePath,
         in FrameMetricsSnapshot metrics,
         DispatchEvent[] dispatchEvents,
-        IntentTransition[] transitions,
-        TouchProcessorActor actor)
+        IntentTransition[] transitions)
     {
         string? directory = Path.GetDirectoryName(outputPath);
         if (!string.IsNullOrWhiteSpace(directory))
@@ -213,16 +211,13 @@ internal static class LinuxAtpCapReplayRunner
             Directory.CreateDirectory(directory);
         }
 
-        EngineDiagnosticEvent[] diagnostics = new EngineDiagnosticEvent[8192];
-        int diagnosticCount = actor.CopyDiagnostics(diagnostics);
         LinuxReplayTraceDump dump = new()
         {
             CapturePath = capturePath,
             GeneratedUtc = DateTime.UtcNow,
             Metrics = metrics,
             DispatchEvents = dispatchEvents,
-            IntentTransitions = transitions,
-            EngineDiagnostics = diagnostics.AsSpan(0, diagnosticCount).ToArray()
+            IntentTransitions = transitions
         };
 
         JsonSerializerOptions options = new()
@@ -293,6 +288,5 @@ internal static class LinuxAtpCapReplayRunner
         public FrameMetricsSnapshot Metrics { get; set; }
         public DispatchEvent[] DispatchEvents { get; set; } = Array.Empty<DispatchEvent>();
         public IntentTransition[] IntentTransitions { get; set; } = Array.Empty<IntentTransition>();
-        public EngineDiagnosticEvent[] EngineDiagnostics { get; set; } = Array.Empty<EngineDiagnosticEvent>();
     }
 }

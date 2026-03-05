@@ -25,6 +25,20 @@ makepkg -f
 sudo pacman -U ./glasstokey-linux-0.1.0-1-x86_64.pkg.tar.zst
 ```
 
+Docker build (no Arch host required):
+
+```bash
+./packaging/linux/arch/build-in-docker.sh
+```
+
+Expected package output:
+
+- `packaging/linux/arch/glasstokey-linux-<pkgver>-<pkgrel>-x86_64.pkg.tar.zst`
+
+Container note:
+
+- `pacman` inside the container may print a systemd key/signing hook warning; this is expected and is harmless for this local build flow.
+
 Lifecycle validation checklist:
 
 1. Install:

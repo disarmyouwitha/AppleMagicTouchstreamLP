@@ -302,10 +302,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
 
     public void OnBindingStateChanged(LinuxRuntimeBindingState state)
     {
-        LinuxRuntimeDiagnosticsLog.Write(
-            "tray-runtime",
-            $"[{state.Side}] {state.Status}: {state.StableId} ({state.DeviceNode ?? "no-node"}) - {state.Message}");
-
         lock (_gate)
         {
             LinuxInputPreviewTrackpadState current = _trackpads.TryGetValue(state.Side, out LinuxInputPreviewTrackpadState? existing)
@@ -352,11 +348,9 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private async Task RunOwnerAsync(CancellationToken cancellationToken)
     {
         LinuxRuntimeConfiguration configuration = _appRuntime.LoadConfiguration();
-        LinuxRuntimeDiagnosticsMonitor diagnostics = new("tray-runtime");
         string settingsSignature = BuildSettingsSignature(configuration.Settings);
         RuntimeSession? localSession = null;
         bool waitingForBindings = false;
-        TouchProcessorTraceEvent[] diagnosticEvents = new TouchProcessorTraceEvent[2048];
 
         try
         {
@@ -368,7 +362,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     {
                         if (!waitingForBindings)
                         {
-                            diagnostics.EmitLifecycle("Tray runtime is waiting for trackpad bindings.");
                             ResetTrackpads(configuration.Bindings);
                             PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
                                 LinuxDesktopRuntimeStatus.WaitingForBindings,
@@ -385,8 +378,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     else
                     {
                         localSession = StartSession(configuration, cancellationToken);
-                        diagnostics.Reset();
-                        diagnostics.EmitLifecycle("Tray runtime session started.");
                         waitingForBindings = false;
                         PublishPreviewSnapshot(LinuxInputPreviewStatus.Running, "The Linux tray runtime is streaming evdev frames.", failure: null);
                         if (localSession.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot startSnapshot))
@@ -438,8 +429,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                         {
                             endedSession.Dispose();
                         }
-                        diagnostics.Reset();
-                        diagnostics.EmitLifecycle(failure == null ? message : $"{message} failure={failure}");
 
                         PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
                             LinuxDesktopRuntimeStatus.Faulted,
@@ -468,15 +457,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     await pollTask.ConfigureAwait(false);
                 }
 
-                if (localSession != null && localSession.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot runtimeSnapshot))
-                {
-                    diagnostics.Observe(in runtimeSnapshot);
-                    while (localSession.Engine.DrainTraceEvents(diagnosticEvents) is int drained && drained > 0)
-                    {
-                        diagnostics.ObserveEngineDiagnostics(diagnosticEvents.AsSpan(0, drained));
-                    }
-                }
-
                 LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration();
                 string updatedSignature = BuildSettingsSignature(updated.Settings);
                 if (updatedSignature == settingsSignature)
@@ -497,8 +477,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 await completedSession.StopAsync().ConfigureAwait(false);
                 completedSession.Dispose();
                 localSession = null;
-                diagnostics.Reset();
-                diagnostics.EmitLifecycle("Tray runtime session reloading after settings change.");
                 lock (_gate)
                 {
                     if (ReferenceEquals(_session, completedSession))
@@ -523,7 +501,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 Message: "The Linux tray runtime faulted.",
                 Failure: ex.Message));
             PublishPreviewSnapshot(LinuxInputPreviewStatus.Faulted, "The Linux tray runtime faulted.", ex.Message);
-            diagnostics.EmitLifecycle($"Tray runtime owner faulted ({ex.GetType().Name}): {ex.Message}");
         }
         finally
         {
@@ -532,8 +509,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 await localSession.StopAsync().ConfigureAwait(false);
                 localSession.Dispose();
             }
-            diagnostics.Reset();
-            diagnostics.EmitLifecycle("Tray runtime owner stopped.");
 
             lock (_gate)
             {
@@ -558,7 +533,6 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         LinuxUinputDispatcher dispatcher = new();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
-        engine.SetDiagnosticsEnabled(true);
         ResetTrackpads(configuration.Bindings);
         LinuxInputRuntimeOptions options = new()
         {

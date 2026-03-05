@@ -105,8 +105,6 @@ internal sealed class TouchProcessorCore
     private int _lastOnKeyRightContacts;
     private bool _lastChordSuppressedLeft;
     private bool _lastChordSuppressedRight;
-    private long _lastRawLeftUpdateTicks = -1;
-    private long _lastRawRightUpdateTicks = -1;
     private long _lastFourPlusLeftTicks = -1;
     private long _lastFourPlusRightTicks = -1;
     private long _lastFivePlusLeftTicks = -1;
@@ -114,7 +112,6 @@ internal sealed class TouchProcessorCore
 
     private long _framesProcessed;
     private long _queueDrops;
-    private long _staleTouchExpirations;
     private long _releaseDroppedTotal;
     private long _releaseDroppedGesturePriority;
     private long _lastReleaseDroppedTicks;
@@ -385,8 +382,6 @@ internal sealed class TouchProcessorCore
         _lastOnKeyRightContacts = 0;
         _lastChordSuppressedLeft = false;
         _lastChordSuppressedRight = false;
-        _lastRawLeftUpdateTicks = -1;
-        _lastRawRightUpdateTicks = -1;
         _lastFourPlusLeftTicks = -1;
         _lastFourPlusRightTicks = -1;
         _lastFivePlusLeftTicks = -1;
@@ -398,7 +393,6 @@ internal sealed class TouchProcessorCore
         _dispatchRingCount = 0;
         _dispatchDrops = 0;
         _dispatchEnqueued = 0;
-        _staleTouchExpirations = 0;
         _releaseDroppedTotal = 0;
         _releaseDroppedGesturePriority = 0;
         _lastReleaseDroppedTicks = 0;
@@ -442,9 +436,6 @@ internal sealed class TouchProcessorCore
         CaptureClockAnchor(timestampTicks);
         _framesProcessed++;
         EnsureBindingIndexes();
-        RefreshStaleRawContactCounts(timestampTicks);
-        ExpireStaleTouchState(timestampTicks);
-        EnsureBindingIndexes();
         BindingIndex sideIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
         int contactCountInFrame = frame.GetClampedContactCount();
         int tipContactsInFrame = 0;
@@ -466,7 +457,6 @@ internal sealed class TouchProcessorCore
         {
             _lastFrameLeftContacts = contactCountInFrame;
             _lastRawLeftContacts = tipContactsInFrame;
-            _lastRawLeftUpdateTicks = timestampTicks;
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusLeftTicks = timestampTicks;
@@ -480,7 +470,6 @@ internal sealed class TouchProcessorCore
         {
             _lastFrameRightContacts = contactCountInFrame;
             _lastRawRightContacts = tipContactsInFrame;
-            _lastRawRightUpdateTicks = timestampTicks;
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusRightTicks = timestampTicks;
@@ -719,7 +708,7 @@ internal sealed class TouchProcessorCore
             ChordShiftRight: _chordShiftRight,
             FramesProcessed: _framesProcessed,
             QueueDrops: _queueDrops,
-            StaleTouchExpirations: _staleTouchExpirations,
+            StaleTouchExpirations: 0,
             ReleaseDroppedTotal: _releaseDroppedTotal,
             ReleaseDroppedGesturePriority: _releaseDroppedGesturePriority,
             LastReleaseDroppedTicks: _lastReleaseDroppedTicks,
@@ -4120,92 +4109,6 @@ internal sealed class TouchProcessorCore
                 rightContacts,
                 "latched");
         }
-    }
-
-    private void RefreshStaleRawContactCounts(long nowTicks)
-    {
-        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
-        if (staleTicks <= 0)
-        {
-            return;
-        }
-
-        if (_lastRawLeftContacts > 0 &&
-            _lastRawLeftUpdateTicks >= 0 &&
-            (nowTicks - _lastRawLeftUpdateTicks) > staleTicks)
-        {
-            _lastRawLeftContacts = 0;
-        }
-
-        if (_lastRawRightContacts > 0 &&
-            _lastRawRightUpdateTicks >= 0 &&
-            (nowTicks - _lastRawRightUpdateTicks) > staleTicks)
-        {
-            _lastRawRightContacts = 0;
-        }
-    }
-
-    private void ExpireStaleTouchState(long nowTicks)
-    {
-        if (_touchStates.Count == 0)
-        {
-            return;
-        }
-
-        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
-        if (staleTicks <= 0)
-        {
-            return;
-        }
-
-        int removalCount = 0;
-        for (int i = 0; i < _touchStates.Capacity; i++)
-        {
-            if (!_touchStates.IsOccupiedAt(i))
-            {
-                continue;
-            }
-
-            ulong key = _touchStates.KeyAt(i);
-            TrackpadSide touchSide = TouchSideFromKey(key);
-            if (!IsTouchSideStale(touchSide, nowTicks, staleTicks))
-            {
-                continue;
-            }
-
-            if (_intentTouches.TryGetValue(key, out IntentTouchInfo intent) &&
-                (nowTicks - intent.LastTicks) <= staleTicks)
-            {
-                continue;
-            }
-
-            if (removalCount < _removalBuffer.Length)
-            {
-                _removalBuffer[removalCount++] = key;
-            }
-        }
-
-        for (int i = 0; i < removalCount; i++)
-        {
-            ulong key = _removalBuffer[i];
-            if (_touchStates.TryGetValue(key, out TouchBindingState state))
-            {
-                RecordReleaseDropped(state.Side, EngineKeyAction.None, nowTicks, "stale_touch_timeout");
-            }
-
-            _intentTouches.Remove(key, out _);
-            HandleRelease(key, nowTicks);
-            _staleTouchExpirations++;
-        }
-    }
-
-    private bool IsTouchSideStale(TrackpadSide side, long nowTicks, long staleTicks)
-    {
-        int rawContacts = side == TrackpadSide.Left ? _lastRawLeftContacts : _lastRawRightContacts;
-        long lastUpdateTicks = side == TrackpadSide.Left ? _lastRawLeftUpdateTicks : _lastRawRightUpdateTicks;
-        return rawContacts == 0 &&
-               lastUpdateTicks >= 0 &&
-               (nowTicks - lastUpdateTicks) > staleTicks;
     }
 
     private bool IsChordSourceSide(TrackpadSide side)

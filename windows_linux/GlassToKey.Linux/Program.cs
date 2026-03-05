@@ -847,7 +847,6 @@ internal static class Program
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
         Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
         Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
-        Console.WriteLine($"  DiagnosticsLog: {LinuxRuntimeDiagnosticsLog.GetPath()}");
         for (int index = 0; index < configuration.Bindings.Count; index++)
         {
             LinuxTrackpadBinding binding = configuration.Bindings[index];

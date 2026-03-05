@@ -6,7 +6,6 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
     private readonly DispatchEventQueue _dispatchQueue;
     private readonly DispatchEventPump _dispatchPump;
     private readonly TouchProcessorActor _actor;
-    private readonly EngineDiagnosticEvent[] _diagnosticDrainBuffer = new EngineDiagnosticEvent[2048];
     private bool _disposed;
 
     public TouchProcessorRuntimeHost(
@@ -123,78 +122,6 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         return TryGetSnapshot(out snapshot);
-    }
-
-    public void SetDiagnosticsEnabled(bool enabled)
-    {
-        if (_disposed)
-        {
-            return;
-        }
-
-        _actor.SetDiagnosticsEnabled(enabled);
-    }
-
-    public int DrainTraceEvents(Span<TouchProcessorTraceEvent> destination)
-    {
-        if (_disposed)
-        {
-            return 0;
-        }
-
-        int written = 0;
-        while (written < destination.Length)
-        {
-            int request = Math.Min(destination.Length - written, _diagnosticDrainBuffer.Length);
-            int drained = _actor.DrainDiagnostics(_diagnosticDrainBuffer.AsSpan(0, request));
-            if (drained <= 0)
-            {
-                break;
-            }
-
-            for (int i = 0; i < drained && written < destination.Length; i++)
-            {
-                EngineDiagnosticEvent evt = _diagnosticDrainBuffer[i];
-                destination[written++] = new TouchProcessorTraceEvent(
-                    TimestampTicks: evt.TimestampTicks,
-                    Kind: MapTraceEventKind(evt.Kind),
-                    Side: evt.Side,
-                    IntentMode: evt.IntentMode.ToString(),
-                    DispatchKind: evt.DispatchKind,
-                    VirtualKey: evt.VirtualKey,
-                    MouseButton: evt.MouseButton,
-                    TypingEnabled: evt.TypingEnabled,
-                    ContactCount: evt.ContactCount,
-                    TipContactCount: evt.TipContactCount,
-                    LeftRawContacts: evt.LeftRawContacts,
-                    RightRawContacts: evt.RightRawContacts,
-                    DispatchLabel: evt.DispatchLabel,
-                    Reason: evt.Reason);
-            }
-
-            if (drained < request)
-            {
-                break;
-            }
-        }
-
-        return written;
-    }
-
-    private static TouchProcessorTraceEventKind MapTraceEventKind(EngineDiagnosticEventKind kind)
-    {
-        return kind switch
-        {
-            EngineDiagnosticEventKind.Frame => TouchProcessorTraceEventKind.Frame,
-            EngineDiagnosticEventKind.DispatchEnqueued => TouchProcessorTraceEventKind.DispatchEnqueued,
-            EngineDiagnosticEventKind.DispatchSuppressed => TouchProcessorTraceEventKind.DispatchSuppressed,
-            EngineDiagnosticEventKind.TypingToggle => TouchProcessorTraceEventKind.TypingToggle,
-            EngineDiagnosticEventKind.FiveFingerState => TouchProcessorTraceEventKind.FiveFingerState,
-            EngineDiagnosticEventKind.ChordShiftState => TouchProcessorTraceEventKind.ChordShiftState,
-            EngineDiagnosticEventKind.IntentTransition => TouchProcessorTraceEventKind.IntentTransition,
-            EngineDiagnosticEventKind.ReleaseDropped => TouchProcessorTraceEventKind.ReleaseDropped,
-            _ => TouchProcessorTraceEventKind.Other
-        };
     }
 
     public void Dispose()

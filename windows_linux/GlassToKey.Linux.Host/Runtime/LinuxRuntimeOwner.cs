@@ -35,12 +35,11 @@ public sealed class LinuxRuntimeOwner
         Action<string>? logger = null,
         CancellationToken cancellationToken = default)
     {
+        _ = logger;
         LinuxRuntimeConfiguration configuration = _appRuntime.LoadConfiguration();
-        LinuxRuntimeDiagnosticsMonitor diagnostics = new("runtime-owner", logger);
         string settingsSignature = BuildSettingsSignature(configuration.Settings);
         RuntimeSession? session = null;
         bool waitingForBindingsLogged = false;
-        TouchProcessorTraceEvent[] diagnosticEvents = new TouchProcessorTraceEvent[2048];
 
         try
         {
@@ -53,16 +52,13 @@ public sealed class LinuxRuntimeOwner
                     {
                         if (!waitingForBindingsLogged)
                         {
-                            diagnostics.EmitLifecycle("Runtime owner is waiting for trackpad bindings.");
                             waitingForBindingsLogged = true;
                         }
                     }
                     else
                     {
                         session = StartSession(configuration, observer, cancellationToken);
-                        diagnostics.Reset();
                         waitingForBindingsLogged = false;
-                        LogConfiguration(diagnostics, configuration, isReload: false);
                     }
                 }
 
@@ -77,7 +73,6 @@ public sealed class LinuxRuntimeOwner
                         try
                         {
                             await completedSession.RunTask.ConfigureAwait(false);
-                            diagnostics.EmitLifecycle("Runtime session stopped unexpectedly; restarting.");
                         }
                         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
                         {
@@ -85,13 +80,12 @@ public sealed class LinuxRuntimeOwner
                         }
                         catch (Exception ex)
                         {
-                            diagnostics.EmitLifecycle($"Runtime session faulted ({ex.GetType().Name}): {ex.Message}. Restarting.");
+                            _ = ex;
                         }
                         finally
                         {
                             completedSession.Dispose();
                         }
-                        diagnostics.Reset();
 
                         try
                         {
@@ -113,11 +107,6 @@ public sealed class LinuxRuntimeOwner
                 if (session != null && session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
                 {
                     PersistRunningState(snapshot);
-                    diagnostics.Observe(in snapshot);
-                    while (session.DrainDiagnostics(diagnosticEvents) is int drained && drained > 0)
-                    {
-                        diagnostics.ObserveEngineDiagnostics(diagnosticEvents.AsSpan(0, drained));
-                    }
                 }
 
                 LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration();
@@ -130,7 +119,6 @@ public sealed class LinuxRuntimeOwner
 
                 settingsSignature = updatedSignature;
                 configuration = updated;
-                LogConfiguration(diagnostics, configuration, isReload: true);
 
                 if (session == null)
                 {
@@ -140,7 +128,6 @@ public sealed class LinuxRuntimeOwner
                 await session.StopAsync().ConfigureAwait(false);
                 session.Dispose();
                 session = null;
-                diagnostics.Reset();
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -154,7 +141,6 @@ public sealed class LinuxRuntimeOwner
                 await session.StopAsync().ConfigureAwait(false);
                 session.Dispose();
             }
-            diagnostics.Reset();
 
             PersistStoppedState();
         }
@@ -168,31 +154,12 @@ public sealed class LinuxRuntimeOwner
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         LinuxUinputDispatcher dispatcher = new();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
-        engine.SetDiagnosticsEnabled(true);
         LinuxInputRuntimeOptions options = new()
         {
-            Observer = new DiagnosticsRuntimeObserver(observer)
+            Observer = observer
         };
         Task runTask = _runtime.RunAsync([.. configuration.Bindings], engine, options, sessionCts.Token);
         return new RuntimeSession(sessionCts, dispatcher, engine, runTask);
-    }
-
-    private static void LogConfiguration(LinuxRuntimeDiagnosticsMonitor diagnostics, LinuxRuntimeConfiguration configuration, bool isReload)
-    {
-        string action = isReload ? "Reloaded" : "Loaded";
-        diagnostics.EmitLifecycle($"{action} runtime config: layout={configuration.LayoutPreset.Name}, keymap={configuration.Settings.KeymapPath ?? "(bundled default)"}, bindings={configuration.Bindings.Count}.");
-        diagnostics.EmitLifecycle(
-            $"  Profile: typingEnabled={configuration.SharedProfile.TypingEnabled}, keyboardModeEnabled={configuration.SharedProfile.KeyboardModeEnabled}, chordShiftEnabled={configuration.SharedProfile.ChordShiftEnabled}, fourFingerHoldAction={configuration.SharedProfile.FourFingerHoldAction}");
-        for (int index = 0; index < configuration.Bindings.Count; index++)
-        {
-            LinuxTrackpadBinding binding = configuration.Bindings[index];
-            diagnostics.EmitLifecycle($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
-        }
-
-        for (int index = 0; index < configuration.Warnings.Count; index++)
-        {
-            diagnostics.EmitLifecycle($"  Warning: {configuration.Warnings[index]}");
-        }
     }
 
     private static string BuildSettingsSignature(LinuxHostSettings settings)
@@ -257,11 +224,6 @@ public sealed class LinuxRuntimeOwner
             return _engine.TryGetSnapshot(out snapshot);
         }
 
-        public int DrainDiagnostics(Span<TouchProcessorTraceEvent> destination)
-        {
-            return _engine.DrainTraceEvents(destination);
-        }
-
         public async Task StopAsync()
         {
             if (_disposed || _cts.IsCancellationRequested)
@@ -294,21 +256,4 @@ public sealed class LinuxRuntimeOwner
         }
     }
 
-    private sealed class DiagnosticsRuntimeObserver : ILinuxRuntimeObserver
-    {
-        private readonly ILinuxRuntimeObserver? _innerObserver;
-
-        public DiagnosticsRuntimeObserver(ILinuxRuntimeObserver? innerObserver)
-        {
-            _innerObserver = innerObserver;
-        }
-
-        public void OnBindingStateChanged(LinuxRuntimeBindingState state)
-        {
-            LinuxRuntimeDiagnosticsLog.Write(
-                "runtime-owner",
-                $"[{state.Side}] {state.Status}: {state.StableId} ({state.DeviceNode ?? "no-node"}) - {state.Message}");
-            _innerObserver?.OnBindingStateChanged(state);
-        }
-    }
 }
