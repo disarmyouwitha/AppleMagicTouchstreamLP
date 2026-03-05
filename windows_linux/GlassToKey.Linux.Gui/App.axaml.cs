@@ -29,7 +29,10 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             _mainWindow = new MainWindow(LinuxDesktopRuntimeEnvironment.SharedController);
             _mainWindow.CaptureStateChanged += OnMainWindowCaptureStateChanged;
-            _mainWindow.BeginTrayRuntimeOwnership();
+            if (Program.OwnsRuntime)
+            {
+                _mainWindow.BeginTrayRuntimeOwnership();
+            }
             UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
             StartActivationPolling();
             if (!Program.StartHidden)

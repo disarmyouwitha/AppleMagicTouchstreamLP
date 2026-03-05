@@ -11,12 +11,18 @@ internal static class Program
 {
     private static Mutex? _singleInstanceMutex;
     public static bool StartHidden { get; private set; }
+    public static bool OwnsRuntime { get; private set; } = true;
 
     [STAThread]
     public static void Main(string[] args)
     {
-        string[] forwardedArgs = ParseStartupArguments(args, out bool backgroundRequested, out bool showRequested);
+        string[] forwardedArgs = ParseStartupArguments(
+            args,
+            out bool backgroundRequested,
+            out bool showRequested,
+            out bool noRuntimeRequested);
         StartHidden = backgroundRequested && !showRequested;
+        OwnsRuntime = !noRuntimeRequested;
 
         _singleInstanceMutex = new Mutex(initiallyOwned: true, "GlassToKey.Linux.Gui.TrayHost", out bool createdNew);
         if (!createdNew)
@@ -31,7 +37,18 @@ internal static class Program
             return;
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(forwardedArgs, ShutdownMode.OnExplicitShutdown);
+        LinuxGuiHostController hostController = new();
+        hostController.RegisterCurrentProcess(OwnsRuntime);
+        try
+        {
+            BuildAvaloniaApp().StartWithClassicDesktopLifetime(forwardedArgs, ShutdownMode.OnExplicitShutdown);
+        }
+        finally
+        {
+            hostController.UnregisterCurrentProcess();
+            _singleInstanceMutex?.Dispose();
+            _singleInstanceMutex = null;
+        }
     }
 
     public static AppBuilder BuildAvaloniaApp()
@@ -42,10 +59,15 @@ internal static class Program
             .LogToTrace();
     }
 
-    private static string[] ParseStartupArguments(string[] args, out bool backgroundRequested, out bool showRequested)
+    private static string[] ParseStartupArguments(
+        string[] args,
+        out bool backgroundRequested,
+        out bool showRequested,
+        out bool noRuntimeRequested)
     {
         backgroundRequested = false;
         showRequested = false;
+        noRuntimeRequested = false;
         List<string> forwarded = new(args.Length);
 
         for (int index = 0; index < args.Length; index++)
@@ -65,6 +87,13 @@ internal static class Program
 
             if (string.Equals(argument, "--foreground", StringComparison.OrdinalIgnoreCase))
             {
+                continue;
+            }
+
+            if (string.Equals(argument, "--no-runtime", StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(argument, "--config-only", StringComparison.OrdinalIgnoreCase))
+            {
+                noRuntimeRequested = true;
                 continue;
             }
 
