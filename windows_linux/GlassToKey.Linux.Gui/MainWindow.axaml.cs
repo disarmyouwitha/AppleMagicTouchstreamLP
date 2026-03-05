@@ -89,6 +89,8 @@ public partial class MainWindow : Window
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
     private LinuxAtpCapReplayVisualData? _replayData;
+    private string _leftStickyTouchedKeys = "Touched keys: (none)";
+    private string _rightStickyTouchedKeys = "Touched keys: (none)";
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "The Linux tray runtime is stopped.",
@@ -2167,8 +2169,8 @@ public partial class MainWindow : Window
         int activeLayer = Math.Clamp(GetSelectedLayer(), 0, 7);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
-        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer);
-        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer);
+        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
+        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, ref _rightStickyTouchedKeys);
         RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, "#D05A2A");
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
     }
@@ -2188,41 +2190,27 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state, KeyLayout layout, KeymapStore keymap, TrackpadSide side, int activeLayer)
+    private static string BuildPreviewDetails(
+        LinuxInputPreviewTrackpadState? state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side,
+        int activeLayer,
+        ref string stickyTouchedKeys)
     {
         if (state == null)
         {
-            return "No bound trackpad on this side.";
+            stickyTouchedKeys = "Touched keys: (none)";
+            return stickyTouchedKeys;
         }
 
-        LinuxInputPreviewContact[] visibleContacts = GetVisibleContacts(state);
-        LinuxInputPreviewContact[] activeContacts = GetTipContacts(state);
-        int activeTipContacts = activeContacts.Length;
-
-        List<string> lines =
-        [
-            $"Binding: {state.BindingStatus}",
-            $"Node: {state.DeviceNode ?? "no-node"}",
-            $"Frame: {state.FrameSequence}",
-            $"Layer: {activeLayer}",
-            $"Contacts: {visibleContacts.Length} ({activeTipContacts} active tip)",
-            $"Button: {(state.IsButtonPressed ? "down" : "up")}",
-            $"Range: {state.MaxX} x {state.MaxY}",
-            state.BindingMessage
-        ];
-
-        if (visibleContacts.Length > 0)
+        string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
+        if (hits.Length > 0)
         {
-            LinuxInputPreviewContact contact = visibleContacts[0];
-            lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure} tip={(contact.TipSwitch ? "down" : "up")}");
-            string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
-            if (hits.Length > 0)
-            {
-                lines.Add($"Touched keys: {string.Join(", ", hits)}");
-            }
+            stickyTouchedKeys = $"Touched keys: {string.Join(", ", hits)}";
         }
 
-        return string.Join(Environment.NewLine, lines);
+        return stickyTouchedKeys;
     }
 
     private void RenderPreviewCanvas(

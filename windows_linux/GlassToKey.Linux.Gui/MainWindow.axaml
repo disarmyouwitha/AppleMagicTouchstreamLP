@@ -98,7 +98,7 @@
                                Foreground="#5A4032" />
                     <Canvas x:Name="LeftPreviewCanvas"
                             Width="700"
-                            Height="420"
+                            Height="252"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="LeftPreviewText"
                                TextWrapping="Wrap"
@@ -113,7 +113,7 @@
                                Foreground="#5A4032" />
                     <Canvas x:Name="RightPreviewCanvas"
                             Width="700"
-                            Height="420"
+                            Height="252"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="RightPreviewText"
                                TextWrapping="Wrap"

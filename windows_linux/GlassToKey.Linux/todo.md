@@ -1,0 +1,1 @@
+So I noticed that glasstokey-gui does not run in the background. When you launch the "GUI" with this command you are really launching the Tray process that should RUN ENTIRELY IN THE BACKGROUND. Not like "nohup glasstokey-gui &" Like legitimately at startup it should run in the background. if this is a service in linux, I dont know the terminology but this needs to be resolved.
