@@ -26,12 +26,17 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             _mainWindow = new MainWindow(LinuxDesktopRuntimeEnvironment.SharedController);
             _mainWindow.CaptureStateChanged += OnMainWindowCaptureStateChanged;
-            desktop.MainWindow = _mainWindow;
             _mainWindow.BeginTrayRuntimeOwnership();
             UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
             StartActivationPolling();
+            if (!Program.StartHidden)
+            {
+                desktop.MainWindow = _mainWindow;
+                ShowMainWindow();
+            }
         }
 
         base.OnFrameworkInitializationCompleted();
@@ -94,6 +99,11 @@ public partial class App : Application
         if (_mainWindow == null)
         {
             return;
+        }
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop && desktop.MainWindow != _mainWindow)
+        {
+            desktop.MainWindow = _mainWindow;
         }
 
         if (!_mainWindow.IsVisible)

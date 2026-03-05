@@ -18,6 +18,8 @@ post_remove() {
 }
 
 _glasstokey_post_message() {
+  _glasstokey_remove_legacy_local_gui_wrapper
+
   if command -v systemd-sysusers >/dev/null 2>&1; then
     systemd-sysusers /usr/lib/sysusers.d/glasstokey.conf >/dev/null 2>&1 || true
   fi
@@ -43,10 +45,24 @@ Recommended next steps:
   5. Run 'glasstokey init-config' if this is the first install
   6. Run 'glasstokey show-config --print' and verify left/right bindings
   7. Run 'glasstokey start' then 'glasstokey stop' for headless runtime checks
-  8. Run 'glasstokey-gui' for tray-owned desktop runtime checks
+  8. Run 'glasstokey-gui' to start the tray host in background
+  9. Run 'glasstokey-gui --show' to open the config window
 
 Optional user service:
   systemctl --user daemon-reload
   systemctl --user enable --now glasstokey.service
 EOF
+}
+
+_glasstokey_remove_legacy_local_gui_wrapper() {
+  local local_wrapper="/usr/local/bin/glasstokey-gui"
+  if [[ ! -f "${local_wrapper}" ]]; then
+    return
+  fi
+
+  if grep -Fq 'exec "/opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui" "$@"' "${local_wrapper}" ||
+     grep -Fq 'exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"' "${local_wrapper}" ||
+     grep -Fq 'GlassToKey compatibility shim for legacy /usr/local PATH precedence.' "${local_wrapper}"; then
+    rm -f "${local_wrapper}" >/dev/null 2>&1 || true
+  fi
 }

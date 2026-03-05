@@ -464,8 +464,8 @@ These are the highest-priority productization tasks because they determine wheth
 - [x] Confirm reconnect behavior for packaged Bluetooth trackpads after node churn, not just in a dev shell
 - [x] Confirm packaged `/dev/uinput` access and evdev access both survive reboot/login/logout cycles
 - [x] Validate the checked-in `90-glasstokey.rules` against the currently supported Apple vendor/product pairs on the host and in packaged installs
-- [x] Validate wrapper-only install flow from `packaging/linux/install.sh`
-- [x] Validate user-service install flow from `packaging/linux/install.sh`
+- [x] Validate package-manager install flow (`.deb`) including user-service availability
+- [x] Validate package-manager install flow (Arch package skeleton) including user-service availability
 - [x] Validate `.deb` install, upgrade, and uninstall behavior
 - [x] Decide the documented default install story: tray desktop by default, with `glasstokey start` / `glasstokey stop` as the documented headless path
 - [x] Tighten post-install guidance once the real packaged flow is proven on host

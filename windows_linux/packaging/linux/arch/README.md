@@ -47,7 +47,8 @@ Lifecycle validation checklist:
    - `glasstokey init-config`
    - `glasstokey show-config --print`
    - `glasstokey start` then `glasstokey stop`
-   - `glasstokey-gui`
+   - `glasstokey-gui` (starts tray host in background)
+   - `glasstokey-gui --show` (opens config window)
 2. Upgrade:
    - increment `pkgrel` in `PKGBUILD`
    - rebuild with `makepkg -f`

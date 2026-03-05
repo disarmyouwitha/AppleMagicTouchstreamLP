@@ -59,7 +59,25 @@ EOF
 
   cat > "${pkgdir}/usr/bin/glasstokey-gui" <<'EOF'
 #!/usr/bin/env bash
-exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
+set -eu
+
+START_MODE="--background"
+
+if [ "${1:-}" = "--foreground" ]; then
+  shift
+  exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
+fi
+
+if [ "${1:-}" = "--show" ]; then
+  START_MODE="--show"
+  shift
+fi
+
+if command -v setsid >/dev/null 2>&1; then
+  setsid /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+else
+  /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+fi
 EOF
   chmod 0755 "${pkgdir}/usr/bin/glasstokey-gui"
 }

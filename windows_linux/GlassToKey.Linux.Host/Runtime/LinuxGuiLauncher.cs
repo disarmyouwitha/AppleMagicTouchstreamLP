@@ -46,6 +46,7 @@ public static class LinuxGuiLauncher
             Process.Start(new ProcessStartInfo
             {
                 FileName = candidate,
+                ArgumentList = { "--show" },
                 UseShellExecute = false
             });
             return true;

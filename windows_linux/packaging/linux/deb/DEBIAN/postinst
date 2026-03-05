@@ -1,6 +1,19 @@
 #!/usr/bin/env bash
 set -eu
 
+remove_legacy_local_gui_wrapper() {
+  local local_wrapper="/usr/local/bin/glasstokey-gui"
+  if [ ! -f "${local_wrapper}" ]; then
+    return
+  fi
+
+  if grep -Fq 'exec "/opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui" "$@"' "${local_wrapper}" ||
+     grep -Fq 'exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"' "${local_wrapper}" ||
+     grep -Fq 'GlassToKey compatibility shim for legacy /usr/local PATH precedence.' "${local_wrapper}"; then
+    rm -f "${local_wrapper}" || true
+  fi
+}
+
 if ! getent group glasstokey >/dev/null 2>&1; then
   groupadd --system glasstokey || true
 fi
@@ -13,6 +26,8 @@ fi
 if command -v systemctl >/dev/null 2>&1; then
   systemctl daemon-reload || true
 fi
+
+remove_legacy_local_gui_wrapper
 
 cat <<'EOF'
 GlassToKey Linux install complete.
@@ -34,5 +49,6 @@ Optional user service:
   systemctl --user enable --now glasstokey.service
 
 Optional GUI:
-  glasstokey-gui
+  glasstokey-gui            # start tray host in background
+  glasstokey-gui --show     # open config window
 EOF

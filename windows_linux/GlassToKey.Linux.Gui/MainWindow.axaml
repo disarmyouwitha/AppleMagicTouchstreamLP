@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="GlassToKey.Linux.Gui.MainWindow"
         Width="2640"
-        Height="1960"
+        Height="1376"
         MinWidth="1800"
-        MinHeight="1100"
+        MinHeight="660"
         Title="GlassToKey Linux Control">
   <Grid RowDefinitions="Auto,*">
     <Border Background="#23303A" Padding="24,18">
@@ -98,7 +98,7 @@
                                Foreground="#5A4032" />
                     <Canvas x:Name="LeftPreviewCanvas"
                             Width="700"
-                            Height="252"
+                            Height="420"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="LeftPreviewText"
                                TextWrapping="Wrap"
@@ -113,7 +113,7 @@
                                Foreground="#5A4032" />
                     <Canvas x:Name="RightPreviewCanvas"
                             Width="700"
-                            Height="252"
+                            Height="420"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="RightPreviewText"
                                TextWrapping="Wrap"
