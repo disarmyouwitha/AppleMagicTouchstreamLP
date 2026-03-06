@@ -1,0 +1,9 @@
+# /etc/udev/rules.d/90-glasstokey.rules
+# Grant the glasstokey access group ownership of supported Apple Magic Trackpad event
+# nodes and the GlassToKey virtual uinput device. Keep uaccess as an additive desktop hint.
+
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product}=="0265", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0265", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+KERNEL=="uinput", GROUP="glasstokey", MODE="0660", TAG+="uaccess"

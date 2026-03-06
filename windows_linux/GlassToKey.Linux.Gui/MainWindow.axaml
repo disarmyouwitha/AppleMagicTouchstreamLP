@@ -2,9 +2,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         x:Class="GlassToKey.Linux.Gui.MainWindow"
         Width="2640"
-        Height="1960"
+        Height="1376"
         MinWidth="1800"
-        MinHeight="1100"
+        MinHeight="660"
         Title="GlassToKey Linux Control">
   <Grid RowDefinitions="Auto,*">
     <Border Background="#23303A" Padding="24,18">
@@ -184,6 +184,89 @@
                           Grid.Column="1"
                           Margin="10,8,0,0"
                           MinWidth="220" />
+              </Grid>
+              <Separator Margin="0,6,0,2" />
+              <TextBlock Text="Keymap Editing"
+                         FontWeight="SemiBold" />
+              <TextBlock Text="Click a key or custom button on the preview to edit."
+                         TextWrapping="Wrap"
+                         Foreground="#6A4533" />
+              <Grid ColumnDefinitions="Auto,*,Auto"
+                    RowDefinitions="Auto">
+                <TextBlock Text="Layer"
+                           VerticalAlignment="Center" />
+                <ComboBox x:Name="KeymapLayerCombo"
+                          Grid.Column="1"
+                          Margin="10,0,10,0"
+                          MinWidth="110" />
+                <Button x:Name="KeymapClearSelectionButton"
+                        Grid.Column="2"
+                        Content="Clear" />
+              </Grid>
+              <TextBlock x:Name="KeymapSelectionText"
+                         TextWrapping="Wrap"
+                         Foreground="#5A4032"
+                         Text="Selection: none" />
+              <TextBlock Text="Primary Action" />
+              <ComboBox x:Name="KeymapPrimaryCombo" />
+              <TextBlock Text="Hold Action (optional)" />
+              <ComboBox x:Name="KeymapHoldCombo" />
+              <Grid ColumnDefinitions="Auto,*"
+                    RowDefinitions="Auto">
+                <TextBlock Text="Key Rotation (deg)"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="KeyRotationBox"
+                         Grid.Column="1"
+                         Margin="10,0,0,0" />
+              </Grid>
+              <TextBlock Text="Custom Buttons"
+                         FontWeight="SemiBold"
+                         Margin="0,6,0,0" />
+              <Grid ColumnDefinitions="*,*"
+                    RowDefinitions="Auto,Auto">
+                <Button x:Name="CustomButtonAddLeftButton"
+                        Content="Add Left" />
+                <Button x:Name="CustomButtonAddRightButton"
+                        Grid.Column="1"
+                        Margin="8,0,0,0"
+                        Content="Add Right" />
+                <Button x:Name="CustomButtonDeleteButton"
+                        Grid.Row="1"
+                        Grid.ColumnSpan="2"
+                        Margin="0,8,0,0"
+                        Content="Delete Selected" />
+              </Grid>
+              <Grid ColumnDefinitions="Auto,*"
+                    RowDefinitions="Auto,Auto,Auto,Auto">
+                <TextBlock Text="X (%)"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="CustomButtonXBox"
+                         Grid.Column="1"
+                         Margin="10,0,0,0" />
+                <TextBlock Grid.Row="1"
+                           Margin="0,8,0,0"
+                           Text="Y (%)"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="CustomButtonYBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Margin="10,8,0,0" />
+                <TextBlock Grid.Row="2"
+                           Margin="0,8,0,0"
+                           Text="Width (%)"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="CustomButtonWidthBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Margin="10,8,0,0" />
+                <TextBlock Grid.Row="3"
+                           Margin="0,8,0,0"
+                           Text="Height (%)"
+                           VerticalAlignment="Center" />
+                <TextBox x:Name="CustomButtonHeightBox"
+                         Grid.Row="3"
+                         Grid.Column="1"
+                         Margin="10,8,0,0" />
               </Grid>
             </StackPanel>
           </Border>

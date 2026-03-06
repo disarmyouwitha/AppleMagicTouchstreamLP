@@ -49,43 +49,51 @@ internal struct TouchTable<TValue> where TValue : struct
 
     public ref TValue GetOrAddValueRef(ulong key, out bool exists)
     {
-        EnsureCapacity(_count + 1);
-        int mask = _keys.Length - 1;
-        int index = HashIndex(key, mask);
-        int firstTombstone = -1;
         while (true)
         {
-            byte state = _states[index];
-            if (state == SlotEmpty)
+            EnsureCapacity(_count + 1);
+            int mask = _keys.Length - 1;
+            int index = HashIndex(key, mask);
+            int firstTombstone = -1;
+            int capacity = _states.Length;
+            for (int probe = 0; probe < capacity; probe++)
             {
-                int insertIndex = firstTombstone >= 0 ? firstTombstone : index;
-                _keys[insertIndex] = key;
-                _values[insertIndex] = default;
-                _states[insertIndex] = SlotOccupied;
-                _count++;
-                if (firstTombstone >= 0)
+                byte state = _states[index];
+                if (state == SlotEmpty)
                 {
-                    _tombstones--;
+                    int insertIndex = firstTombstone >= 0 ? firstTombstone : index;
+                    _keys[insertIndex] = key;
+                    _values[insertIndex] = default;
+                    _states[insertIndex] = SlotOccupied;
+                    _count++;
+                    if (firstTombstone >= 0)
+                    {
+                        _tombstones--;
+                    }
+
+                    exists = false;
+                    return ref _values[insertIndex];
                 }
 
-                exists = false;
-                return ref _values[insertIndex];
-            }
-
-            if (state == SlotOccupied)
-            {
-                if (_keys[index] == key)
+                if (state == SlotOccupied)
                 {
-                    exists = true;
-                    return ref _values[index];
+                    if (_keys[index] == key)
+                    {
+                        exists = true;
+                        return ref _values[index];
+                    }
                 }
-            }
-            else if (firstTombstone < 0)
-            {
-                firstTombstone = index;
+                else if (firstTombstone < 0)
+                {
+                    firstTombstone = index;
+                }
+
+                index = (index + 1) & mask;
             }
 
-            index = (index + 1) & mask;
+            // The table should always have at least one empty slot after EnsureCapacity.
+            // If not, recover by growing and retrying instead of spinning forever.
+            Rehash(_keys.Length * 2);
         }
     }
 
@@ -150,7 +158,7 @@ internal struct TouchTable<TValue> where TValue : struct
 
         int mask = _keys.Length - 1;
         int index = HashIndex(key, mask);
-        while (true)
+        for (int probe = 0; probe < _states.Length; probe++)
         {
             byte state = _states[index];
             if (state == SlotEmpty)
@@ -165,6 +173,9 @@ internal struct TouchTable<TValue> where TValue : struct
 
             index = (index + 1) & mask;
         }
+
+        // Defensive fallback: probing exhausted all slots without an empty marker.
+        return -1;
     }
 
     private void EnsureCapacity(int desiredCount)
@@ -176,12 +187,19 @@ internal struct TouchTable<TValue> where TValue : struct
             return;
         }
 
-        if (desiredCount * 2 < capacity && (desiredCount + _tombstones) * 2 < capacity)
+        // Grow when true occupancy approaches 50% load to keep probing short.
+        if (desiredCount * 2 >= capacity)
         {
+            Rehash(capacity * 2);
             return;
         }
 
-        Rehash(capacity * 2);
+        // If occupancy is low but tombstones have accumulated, compact in-place
+        // instead of growing unboundedly due churn-heavy workloads.
+        if ((desiredCount + _tombstones) * 2 >= capacity)
+        {
+            Rehash(capacity);
+        }
     }
 
     private void Rehash(int newCapacity)

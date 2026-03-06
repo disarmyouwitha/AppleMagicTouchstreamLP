@@ -5,10 +5,12 @@ using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Controls.Shapes;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using Avalonia.Threading;
 using Avalonia.Media;
 using System.Diagnostics;
+using System.Globalization;
 using System.Text.Json;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
@@ -22,6 +24,7 @@ public partial class MainWindow : Window
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
     private const double KeyHeightMm = 17.0;
+    private const double MinCustomButtonPercent = 5.0;
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxDesktopRuntimeController _desktopRuntime;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
@@ -34,6 +37,19 @@ public partial class MainWindow : Window
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly ComboBox _keymapLayerCombo;
+    private readonly ComboBox _keymapPrimaryCombo;
+    private readonly ComboBox _keymapHoldCombo;
+    private readonly Button _keymapClearSelectionButton;
+    private readonly TextBlock _keymapSelectionText;
+    private readonly TextBox _keyRotationBox;
+    private readonly Button _customButtonAddLeftButton;
+    private readonly Button _customButtonAddRightButton;
+    private readonly Button _customButtonDeleteButton;
+    private readonly TextBox _customButtonXBox;
+    private readonly TextBox _customButtonYBox;
+    private readonly TextBox _customButtonWidthBox;
+    private readonly TextBox _customButtonHeightBox;
     private readonly Border _noticeOverlay;
     private readonly TextBlock _noticeTitleText;
     private readonly TextBlock _noticeMessageText;
@@ -50,13 +66,22 @@ public partial class MainWindow : Window
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
     private readonly DispatcherTimer _replayTimer;
+    private readonly List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
+    private readonly HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
     private bool _allowExit;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
     private bool _settingsApplyPending;
     private bool _hideInProgress;
+    private bool _suppressKeymapEditorEvents;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
+    private bool _hasSelectedKey;
+    private bool _hasSelectedCustomButton;
+    private TrackpadSide _selectedKeySide = TrackpadSide.Left;
+    private int _selectedKeyRow = -1;
+    private int _selectedKeyColumn = -1;
+    private string? _selectedCustomButtonId;
     private bool _replayRunning;
     private bool _replayCompleted;
     private int _replayFrameIndex;
@@ -64,6 +89,8 @@ public partial class MainWindow : Window
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
     private LinuxAtpCapReplayVisualData? _replayData;
+    private string _leftStickyTouchedKeys = "Touched keys: (none)";
+    private string _rightStickyTouchedKeys = "Touched keys: (none)";
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "The Linux tray runtime is stopped.",
@@ -88,6 +115,19 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
+        _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
+        _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
+        _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
+        _keymapSelectionText = RequireControl<TextBlock>("KeymapSelectionText");
+        _keyRotationBox = RequireControl<TextBox>("KeyRotationBox");
+        _customButtonAddLeftButton = RequireControl<Button>("CustomButtonAddLeftButton");
+        _customButtonAddRightButton = RequireControl<Button>("CustomButtonAddRightButton");
+        _customButtonDeleteButton = RequireControl<Button>("CustomButtonDeleteButton");
+        _customButtonXBox = RequireControl<TextBox>("CustomButtonXBox");
+        _customButtonYBox = RequireControl<TextBox>("CustomButtonYBox");
+        _customButtonWidthBox = RequireControl<TextBox>("CustomButtonWidthBox");
+        _customButtonHeightBox = RequireControl<TextBox>("CustomButtonHeightBox");
         _noticeOverlay = RequireControl<Border>("NoticeOverlay");
         _noticeTitleText = RequireControl<TextBlock>("NoticeTitleText");
         _noticeMessageText = RequireControl<TextBlock>("NoticeMessageText");
@@ -135,12 +175,33 @@ public partial class MainWindow : Window
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _leftPreviewCanvas.PointerPressed += OnLeftPreviewPointerPressed;
+        _rightPreviewCanvas.PointerPressed += OnRightPreviewPointerPressed;
+        _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
+        _keymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        _keymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        _keymapClearSelectionButton.Click += OnKeymapClearSelectionClick;
+        _keyRotationBox.LostFocus += OnKeyGeometryCommitted;
+        _keyRotationBox.KeyDown += OnKeyGeometryKeyDown;
+        _customButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
+        _customButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
+        _customButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
+        _customButtonXBox.LostFocus += OnCustomButtonGeometryCommitted;
+        _customButtonYBox.LostFocus += OnCustomButtonGeometryCommitted;
+        _customButtonWidthBox.LostFocus += OnCustomButtonGeometryCommitted;
+        _customButtonHeightBox.LostFocus += OnCustomButtonGeometryCommitted;
+        _customButtonXBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        _customButtonYBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        _customButtonWidthBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        _customButtonHeightBox.KeyDown += OnCustomButtonGeometryKeyDown;
+        KeyDown += OnWindowKeyDown;
         _noticeCloseButton.Click += (_, _) => HideNoticeDialog();
         _replayToggleButton.Click += OnReplayToggleClick;
         _replayCloseButton.Click += OnReplayCloseClick;
         _replaySpeedCombo.SelectionChanged += OnReplaySpeedChanged;
         _replayTimelineSlider.PropertyChanged += OnReplayTimelinePropertyChanged;
         _replayTimer.Tick += OnReplayTick;
+        InitializeKeymapEditorControls();
         InitializeReplayControls();
     }
 
@@ -191,6 +252,18 @@ public partial class MainWindow : Window
         _fiveFingerSwipeUpCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeUpAction, "None");
         _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
+        ReloadKeymapActionChoices(configuration.Keymap);
+        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, 7);
+        List<LayerChoice> layerChoices = BuildLayerChoices();
+        _suppressKeymapEditorEvents = true;
+        _keymapLayerCombo.ItemsSource = layerChoices;
+        _keymapLayerCombo.SelectedItem =
+            SelectLayerChoice(layerChoices, GetSelectedLayer()) ??
+            SelectLayerChoice(layerChoices, fallbackLayer) ??
+            layerChoices[0];
+        _suppressKeymapEditorEvents = false;
+        EnsureSelectedKeyStillValid();
+        RefreshKeymapEditor();
         if (IsReplayMode)
         {
             ReloadReplayMode(configuration);
@@ -254,6 +327,937 @@ public partial class MainWindow : Window
         }
 
         return Task.CompletedTask;
+    }
+
+    private void InitializeKeymapEditorControls()
+    {
+        for (int index = 0; index < _keyActionChoices.Count; index++)
+        {
+            _keyActionChoiceLookup.Add(_keyActionChoices[index].Value);
+        }
+
+        _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
+        _keymapHoldCombo.ItemsSource = _keyActionChoices;
+        _keymapSelectionText.Text = "Selection: none";
+        _keymapPrimaryCombo.IsEnabled = false;
+        _keymapHoldCombo.IsEnabled = false;
+        _keyRotationBox.IsEnabled = false;
+        _customButtonDeleteButton.IsEnabled = false;
+        SetCustomButtonGeometryEditorEnabled(false);
+        ClearCustomButtonGeometryEditorValues();
+    }
+
+    private void ReloadKeymapActionChoices(KeymapStore keymap)
+    {
+        string? previousPrimary = (_keymapPrimaryCombo.SelectedItem as KeyActionChoice)?.Value;
+        string? previousHold = (_keymapHoldCombo.SelectedItem as KeyActionChoice)?.Value;
+
+        _keyActionChoices.Clear();
+        _keyActionChoiceLookup.Clear();
+        List<KeyActionChoice> defaults = BuildKeyActionChoices();
+        for (int index = 0; index < defaults.Count; index++)
+        {
+            _keyActionChoices.Add(defaults[index]);
+            _keyActionChoiceLookup.Add(defaults[index].Value);
+        }
+
+        foreach (KeyValuePair<int, Dictionary<string, KeyMapping>> layer in keymap.Mappings)
+        {
+            foreach (KeyValuePair<string, KeyMapping> mappingEntry in layer.Value)
+            {
+                EnsureActionChoice(mappingEntry.Value?.Primary?.Label);
+                EnsureActionChoice(mappingEntry.Value?.Hold?.Label);
+            }
+        }
+
+        foreach (KeyValuePair<int, List<CustomButton>> customButtonsByLayer in keymap.CustomButtons)
+        {
+            for (int index = 0; index < customButtonsByLayer.Value.Count; index++)
+            {
+                CustomButton button = customButtonsByLayer.Value[index];
+                EnsureActionChoice(button.Primary?.Label);
+                EnsureActionChoice(button.Hold?.Label);
+            }
+        }
+
+        _suppressKeymapEditorEvents = true;
+        _keymapPrimaryCombo.ItemsSource = null;
+        _keymapHoldCombo.ItemsSource = null;
+        _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
+        _keymapHoldCombo.ItemsSource = _keyActionChoices;
+        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary ?? "None");
+        SetActionComboSelection(_keymapHoldCombo, previousHold ?? "None");
+        _suppressKeymapEditorEvents = false;
+    }
+
+    private void EnsureActionChoice(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return;
+        }
+
+        string value = action.Trim();
+        if (!_keyActionChoiceLookup.Add(value))
+        {
+            return;
+        }
+
+        _keyActionChoices.Add(new KeyActionChoice(value, value));
+    }
+
+    private static List<KeyActionChoice> BuildKeyActionChoices()
+    {
+        List<KeyActionChoice> options = [];
+        AddKeyActionChoice(options, "None");
+        AddKeyActionChoice(options, "Left Click");
+        AddKeyActionChoice(options, "Double Click");
+        AddKeyActionChoice(options, "Right Click");
+        AddKeyActionChoice(options, "Middle Click");
+
+        for (char ch = 'A'; ch <= 'Z'; ch++)
+        {
+            AddKeyActionChoice(options, ch.ToString());
+        }
+
+        for (char ch = '0'; ch <= '9'; ch++)
+        {
+            AddKeyActionChoice(options, ch.ToString());
+        }
+
+        string[] navigationAndEditing =
+        {
+            "Space",
+            "Tab",
+            "Enter",
+            "Ret",
+            "Backspace",
+            "Back",
+            "Escape",
+            "Delete",
+            "Insert",
+            "Home",
+            "End",
+            "PageUp",
+            "PageDown",
+            "Left",
+            "Right",
+            "Up",
+            "Down"
+        };
+        for (int i = 0; i < navigationAndEditing.Length; i++)
+        {
+            AddKeyActionChoice(options, navigationAndEditing[i]);
+        }
+
+        string[] modifiersAndModes =
+        {
+            "Shift",
+            "Chordal Shift",
+            "Ctrl",
+            "Alt",
+            "LWin",
+            "RWin",
+            "Typing Toggle",
+            "TT"
+        };
+        for (int i = 0; i < modifiersAndModes.Length; i++)
+        {
+            AddKeyActionChoice(options, modifiersAndModes[i]);
+        }
+
+        string[] symbols =
+        {
+            "!",
+            "@",
+            "#",
+            "$",
+            "%",
+            "^",
+            "&",
+            "*",
+            "(",
+            ")",
+            "~",
+            ";",
+            ":",
+            "'",
+            "\"",
+            ",",
+            "<",
+            ".",
+            ">",
+            "/",
+            "?",
+            "\\",
+            "|",
+            "[",
+            "{",
+            "]",
+            "}",
+            "-",
+            "_",
+            "+",
+            "EmDash",
+            "=",
+            "`"
+        };
+        for (int i = 0; i < symbols.Length; i++)
+        {
+            AddKeyActionChoice(options, symbols[i]);
+        }
+
+        for (int i = 1; i <= 12; i++)
+        {
+            AddKeyActionChoice(options, $"F{i}");
+        }
+
+        string[] systemAndMedia =
+        {
+            "EMOJI",
+            "VOICE",
+            "VOL_UP",
+            "VOL_DOWN",
+            "BRIGHT_UP",
+            "BRIGHT_DOWN"
+        };
+        for (int i = 0; i < systemAndMedia.Length; i++)
+        {
+            AddKeyActionChoice(options, systemAndMedia[i]);
+        }
+
+        string[] shortcuts =
+        {
+            "Ctrl+C",
+            "Ctrl+V",
+            "Ctrl+F",
+            "Ctrl+X",
+            "Ctrl+S",
+            "Ctrl+A",
+            "Ctrl+Z",
+            "Ctrl+."
+        };
+        for (int i = 0; i < shortcuts.Length; i++)
+        {
+            AddKeyActionChoice(options, shortcuts[i]);
+        }
+
+        AddKeyActionChoice(options, "TO(0)");
+        for (int layer = 1; layer <= 7; layer++)
+        {
+            AddKeyActionChoice(options, $"MO({layer})");
+            AddKeyActionChoice(options, $"TO({layer})");
+            AddKeyActionChoice(options, $"TG({layer})");
+        }
+
+        return options;
+    }
+
+    private static void AddKeyActionChoice(List<KeyActionChoice> choices, string value)
+    {
+        choices.Add(new KeyActionChoice(value, value));
+    }
+
+    private static List<LayerChoice> BuildLayerChoices()
+    {
+        List<LayerChoice> layers = [];
+        for (int layer = 0; layer <= 7; layer++)
+        {
+            layers.Add(new LayerChoice($"Layer {layer}", layer));
+        }
+
+        return layers;
+    }
+
+    private static LayerChoice? SelectLayerChoice(IEnumerable<LayerChoice> choices, int layer)
+    {
+        foreach (LayerChoice choice in choices)
+        {
+            if (choice.Layer == layer)
+            {
+                return choice;
+            }
+        }
+
+        return null;
+    }
+
+    private int GetSelectedLayer()
+    {
+        if (_keymapLayerCombo.SelectedItem is LayerChoice choice)
+        {
+            return Math.Clamp(choice.Layer, 0, 7);
+        }
+
+        return 0;
+    }
+
+    private void OnKeymapLayerSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressKeymapEditorEvents || _loadingScreen)
+        {
+            return;
+        }
+
+        EnsureSelectedKeyStillValid();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void OnKeymapActionSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressKeymapEditorEvents || _loadingScreen || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedKeymapOverride();
+    }
+
+    private void OnKeymapClearSelectionClick(object? sender, RoutedEventArgs e)
+    {
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void OnLeftPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        HandleSurfaceKeymapSelection(TrackpadSide.Left, _leftPreviewCanvas, _leftRenderedLayout, e);
+    }
+
+    private void OnRightPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
+    {
+        HandleSurfaceKeymapSelection(TrackpadSide.Right, _rightPreviewCanvas, _rightRenderedLayout, e);
+    }
+
+    private void HandleSurfaceKeymapSelection(TrackpadSide side, Canvas surface, KeyLayout layout, PointerPressedEventArgs e)
+    {
+        if (IsReplayMode || !e.GetCurrentPoint(surface).Properties.IsLeftButtonPressed)
+        {
+            return;
+        }
+
+        Point point = e.GetPosition(surface);
+        IReadOnlyList<CustomButton> customButtons = _renderedKeymap.ResolveCustomButtons(GetSelectedLayer(), side);
+        if (!TryHitSelectionAtPoint(layout, customButtons, point, surface.Bounds.Width, surface.Bounds.Height, out int row, out int column, out string? customButtonId))
+        {
+            ClearSelectionForEditing();
+            RefreshKeymapEditor();
+            ApplyPreviewSnapshot(_previewSnapshot);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(customButtonId))
+        {
+            SelectCustomButtonForEditing(side, customButtonId);
+        }
+        else
+        {
+            SelectKeyForEditing(side, row, column);
+        }
+
+        e.Handled = true;
+    }
+
+    private static bool TryHitSelectionAtPoint(
+        KeyLayout layout,
+        IReadOnlyList<CustomButton> customButtons,
+        Point point,
+        double surfaceWidth,
+        double surfaceHeight,
+        out int row,
+        out int column,
+        out string? customButtonId)
+    {
+        row = -1;
+        column = -1;
+        customButtonId = null;
+        if (surfaceWidth <= 1 || surfaceHeight <= 1)
+        {
+            return false;
+        }
+
+        double xNorm = point.X / surfaceWidth;
+        double yNorm = point.Y / surfaceHeight;
+        if (xNorm < 0 || xNorm > 1 || yNorm < 0 || yNorm > 1)
+        {
+            return false;
+        }
+
+        double bestCustomArea = double.PositiveInfinity;
+        for (int index = 0; index < customButtons.Count; index++)
+        {
+            CustomButton button = customButtons[index];
+            if (!button.Rect.Contains(xNorm, yNorm))
+            {
+                continue;
+            }
+
+            if (button.Rect.Area < bestCustomArea)
+            {
+                bestCustomArea = button.Rect.Area;
+                customButtonId = button.Id;
+            }
+        }
+
+        if (!string.IsNullOrWhiteSpace(customButtonId))
+        {
+            return true;
+        }
+
+        double bestScore = double.NegativeInfinity;
+        double bestArea = double.PositiveInfinity;
+        for (int r = 0; r < layout.HitGeometries.Length; r++)
+        {
+            KeyHitGeometry[] rowGeometries = layout.HitGeometries[r];
+            for (int c = 0; c < rowGeometries.Length; c++)
+            {
+                KeyHitGeometry geometry = rowGeometries[c];
+                if (!geometry.Contains(xNorm, yNorm))
+                {
+                    continue;
+                }
+
+                double score = geometry.DistanceToEdge(xNorm, yNorm);
+                if (score > bestScore || (Math.Abs(score - bestScore) <= 0.000001 && geometry.Area < bestArea))
+                {
+                    bestScore = score;
+                    bestArea = geometry.Area;
+                    row = r;
+                    column = c;
+                }
+            }
+        }
+
+        return row >= 0 && column >= 0;
+    }
+
+    private void SelectKeyForEditing(TrackpadSide side, int row, int column)
+    {
+        _hasSelectedKey = true;
+        _hasSelectedCustomButton = false;
+        _selectedCustomButtonId = null;
+        _selectedKeySide = side;
+        _selectedKeyRow = row;
+        _selectedKeyColumn = column;
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void SelectCustomButtonForEditing(TrackpadSide side, string buttonId)
+    {
+        _hasSelectedKey = false;
+        _hasSelectedCustomButton = true;
+        _selectedCustomButtonId = buttonId;
+        _selectedKeySide = side;
+        _selectedKeyRow = -1;
+        _selectedKeyColumn = -1;
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void ClearSelectionForEditing()
+    {
+        _hasSelectedKey = false;
+        _hasSelectedCustomButton = false;
+        _selectedCustomButtonId = null;
+        _selectedKeySide = TrackpadSide.Left;
+        _selectedKeyRow = -1;
+        _selectedKeyColumn = -1;
+    }
+
+    private void EnsureSelectedKeyStillValid()
+    {
+        if (!_hasSelectedKey && !_hasSelectedCustomButton)
+        {
+            return;
+        }
+
+        if (_hasSelectedCustomButton)
+        {
+            if (string.IsNullOrWhiteSpace(_selectedCustomButtonId) ||
+                _renderedKeymap.FindCustomButton(GetSelectedLayer(), _selectedCustomButtonId) == null)
+            {
+                ClearSelectionForEditing();
+            }
+
+            return;
+        }
+
+        KeyLayout layout = _selectedKeySide == TrackpadSide.Left ? _leftRenderedLayout : _rightRenderedLayout;
+        if (_selectedKeyRow < 0 ||
+            _selectedKeyRow >= layout.Rects.Length ||
+            _selectedKeyColumn < 0 ||
+            (_selectedKeyRow < layout.Rects.Length && _selectedKeyColumn >= layout.Rects[_selectedKeyRow].Length))
+        {
+            ClearSelectionForEditing();
+        }
+    }
+
+    private void RefreshKeymapEditor()
+    {
+        _suppressKeymapEditorEvents = true;
+        if (IsReplayMode)
+        {
+            _keymapSelectionText.Text = "Selection: replay mode (editing disabled)";
+            _keymapPrimaryCombo.IsEnabled = false;
+            _keymapHoldCombo.IsEnabled = false;
+            _customButtonDeleteButton.IsEnabled = false;
+            _keyRotationBox.IsEnabled = false;
+            _keymapClearSelectionButton.IsEnabled = false;
+            _customButtonAddLeftButton.IsEnabled = false;
+            _customButtonAddRightButton.IsEnabled = false;
+            SetCustomButtonGeometryEditorEnabled(false);
+            _suppressKeymapEditorEvents = false;
+            return;
+        }
+
+        _keymapClearSelectionButton.IsEnabled = true;
+        _customButtonAddLeftButton.IsEnabled = true;
+        _customButtonAddRightButton.IsEnabled = true;
+        if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            _keymapSelectionText.Text = $"Selection: custom button ({_selectedKeySide})";
+            _keymapPrimaryCombo.IsEnabled = true;
+            _keymapHoldCombo.IsEnabled = true;
+            _customButtonDeleteButton.IsEnabled = true;
+            _keyRotationBox.IsEnabled = false;
+            SetCustomButtonGeometryEditorEnabled(true);
+
+            string buttonPrimary = string.IsNullOrWhiteSpace(selectedButton!.Primary?.Label) ? "None" : selectedButton.Primary.Label;
+            string buttonHold = selectedButton.Hold?.Label ?? "None";
+            EnsureActionChoice(buttonPrimary);
+            EnsureActionChoice(buttonHold);
+            SetActionComboSelection(_keymapPrimaryCombo, buttonPrimary);
+            SetActionComboSelection(_keymapHoldCombo, buttonHold);
+            _customButtonXBox.Text = FormatNumber(selectedButton.Rect.X * 100.0);
+            _customButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
+            _customButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
+            _customButtonHeightBox.Text = FormatNumber(selectedButton.Rect.Height * 100.0);
+            _keyRotationBox.Text = string.Empty;
+            _suppressKeymapEditorEvents = false;
+            return;
+        }
+
+        if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
+        {
+            _keymapSelectionText.Text = "Selection: none";
+            _keymapPrimaryCombo.IsEnabled = false;
+            _keymapHoldCombo.IsEnabled = false;
+            _customButtonDeleteButton.IsEnabled = false;
+            _keyRotationBox.IsEnabled = false;
+            SetCustomButtonGeometryEditorEnabled(false);
+            SetActionComboSelection(_keymapPrimaryCombo, "None");
+            SetActionComboSelection(_keymapHoldCombo, "None");
+            ClearCustomButtonGeometryEditorValues();
+            _keyRotationBox.Text = string.Empty;
+            _suppressKeymapEditorEvents = false;
+            return;
+        }
+
+        KeyLayout layout = side == TrackpadSide.Left ? _leftRenderedLayout : _rightRenderedLayout;
+        if (row < 0 || row >= layout.Labels.Length || column < 0 || column >= layout.Labels[row].Length)
+        {
+            ClearSelectionForEditing();
+            _keymapSelectionText.Text = "Selection: none";
+            _suppressKeymapEditorEvents = false;
+            return;
+        }
+
+        _keymapSelectionText.Text = $"Selection: {side} r{row + 1} c{column + 1}";
+        _keymapPrimaryCombo.IsEnabled = true;
+        _keymapHoldCombo.IsEnabled = true;
+        _customButtonDeleteButton.IsEnabled = false;
+        _keyRotationBox.IsEnabled = true;
+        SetCustomButtonGeometryEditorEnabled(false);
+        ClearCustomButtonGeometryEditorValues();
+        string defaultLabel = layout.Labels[row][column];
+        string storageKey = GridKeyPosition.StorageKey(side, row, column);
+        KeyMapping mapping = _renderedKeymap.ResolveMapping(GetSelectedLayer(), storageKey, defaultLabel);
+        string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label) ? defaultLabel : mapping.Primary.Label;
+        string hold = mapping.Hold?.Label ?? "None";
+        EnsureActionChoice(primary);
+        EnsureActionChoice(hold);
+        SetActionComboSelection(_keymapPrimaryCombo, primary);
+        SetActionComboSelection(_keymapHoldCombo, hold);
+        _keyRotationBox.Text = FormatNumber(_renderedKeymap.ResolveKeyGeometry(storageKey).RotationDegrees);
+        _suppressKeymapEditorEvents = false;
+    }
+
+    private void SetActionComboSelection(ComboBox combo, string value)
+    {
+        KeyActionChoice? choice = SelectKeyActionChoice(_keyActionChoices, value);
+        if (choice != null)
+        {
+            combo.SelectedItem = choice;
+            return;
+        }
+
+        combo.SelectedItem = SelectKeyActionChoice(_keyActionChoices, "None");
+    }
+
+    private static KeyActionChoice? SelectKeyActionChoice(IEnumerable<KeyActionChoice> choices, string? value)
+    {
+        string target = string.IsNullOrWhiteSpace(value) ? "None" : value.Trim();
+        foreach (KeyActionChoice choice in choices)
+        {
+            if (string.Equals(choice.Value, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return choice;
+            }
+        }
+
+        return null;
+    }
+
+    private bool TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column)
+    {
+        side = _selectedKeySide;
+        row = _selectedKeyRow;
+        column = _selectedKeyColumn;
+        if (!_hasSelectedKey || _hasSelectedCustomButton)
+        {
+            return false;
+        }
+
+        return row >= 0 && column >= 0;
+    }
+
+    private bool TryGetSelectedCustomButton(out TrackpadSide side, out CustomButton? button)
+    {
+        side = _selectedKeySide;
+        button = null;
+        if (!_hasSelectedCustomButton || string.IsNullOrWhiteSpace(_selectedCustomButtonId))
+        {
+            return false;
+        }
+
+        button = _renderedKeymap.FindCustomButton(GetSelectedLayer(), _selectedCustomButtonId);
+        return button != null;
+    }
+
+    private void SetCustomButtonGeometryEditorEnabled(bool enabled)
+    {
+        _customButtonXBox.IsEnabled = enabled;
+        _customButtonYBox.IsEnabled = enabled;
+        _customButtonWidthBox.IsEnabled = enabled;
+        _customButtonHeightBox.IsEnabled = enabled;
+    }
+
+    private void ClearCustomButtonGeometryEditorValues()
+    {
+        _customButtonXBox.Text = string.Empty;
+        _customButtonYBox.Text = string.Empty;
+        _customButtonWidthBox.Text = string.Empty;
+        _customButtonHeightBox.Text = string.Empty;
+    }
+
+    private void OnKeyGeometryCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedKeyGeometryFromUi();
+    }
+
+    private void OnKeyGeometryKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedKeyGeometryFromUi();
+        e.Handled = true;
+    }
+
+    private void ApplySelectedKeymapOverride()
+    {
+        int layer = GetSelectedLayer();
+        string selectedPrimary = ReadActionSelection(_keymapPrimaryCombo, "None");
+        string selectedHold = ReadActionSelection(_keymapHoldCombo, "None");
+        string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
+
+        EnsureActionChoice(selectedPrimary);
+        if (hold != null)
+        {
+            EnsureActionChoice(hold);
+        }
+
+        if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            selectedButton!.Primary ??= new KeyAction();
+            selectedButton.Primary.Label = selectedPrimary;
+            selectedButton.Hold = hold == null ? null : new KeyAction { Label = hold };
+            selectedButton.Layer = layer;
+
+            if (!TryPersistEditedKeymap(out string error))
+            {
+                ShowNoticeDialog("Keymap Save Failed", error);
+                return;
+            }
+
+            RefreshKeymapEditor();
+            ApplyPreviewSnapshot(_previewSnapshot);
+            return;
+        }
+
+        if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
+        {
+            return;
+        }
+
+        string storageKey = GridKeyPosition.StorageKey(side, row, column);
+
+        if (!_renderedKeymap.Mappings.TryGetValue(layer, out Dictionary<string, KeyMapping>? layerMap))
+        {
+            layerMap = new Dictionary<string, KeyMapping>();
+            _renderedKeymap.Mappings[layer] = layerMap;
+        }
+
+        layerMap[storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = selectedPrimary },
+            Hold = hold == null ? null : new KeyAction { Label = hold }
+        };
+
+        if (!TryPersistEditedKeymap(out string saveError))
+        {
+            ShowNoticeDialog("Keymap Save Failed", saveError);
+            return;
+        }
+
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void ApplySelectedKeyGeometryFromUi()
+    {
+        if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column) || _hasSelectedCustomButton)
+        {
+            return;
+        }
+
+        string storageKey = GridKeyPosition.StorageKey(side, row, column);
+        double currentRotation = _renderedKeymap.ResolveKeyGeometry(storageKey).RotationDegrees;
+        double nextRotation = Math.Clamp(ReadDouble(_keyRotationBox, currentRotation), 0.0, 360.0);
+        _renderedKeymap.SetKeyGeometry(storageKey, nextRotation);
+        if (!TryPersistEditedKeymap(out string error))
+        {
+            ShowNoticeDialog("Keymap Save Failed", error);
+            return;
+        }
+
+        RenderLayoutsFromCurrentKeymap();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void OnCustomButtonAddLeftClicked(object? sender, RoutedEventArgs e)
+    {
+        AddCustomButton(TrackpadSide.Left);
+    }
+
+    private void OnCustomButtonAddRightClicked(object? sender, RoutedEventArgs e)
+    {
+        AddCustomButton(TrackpadSide.Right);
+    }
+
+    private void AddCustomButton(TrackpadSide side)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        int layer = GetSelectedLayer();
+        List<CustomButton> buttons = _renderedKeymap.GetOrCreateCustomButtons(layer);
+        CustomButton button = new()
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            Side = side,
+            Rect = KeymapStore.ClampCustomButtonRect(new NormalizedRect(0.41, 0.43, 0.18, 0.14)),
+            Primary = new KeyAction { Label = "Space" },
+            Hold = null,
+            Layer = layer
+        };
+        buttons.Add(button);
+
+        if (!TryPersistEditedKeymap(out string error))
+        {
+            buttons.Remove(button);
+            ShowNoticeDialog("Keymap Save Failed", error);
+            return;
+        }
+
+        SelectCustomButtonForEditing(side, button.Id);
+    }
+
+    private void OnCustomButtonDeleteClicked(object? sender, RoutedEventArgs e)
+    {
+        if (IsReplayMode || !TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            return;
+        }
+
+        int layer = GetSelectedLayer();
+        if (!_renderedKeymap.RemoveCustomButton(layer, selectedButton!.Id))
+        {
+            return;
+        }
+
+        if (!TryPersistEditedKeymap(out string error))
+        {
+            ShowNoticeDialog("Keymap Save Failed", error);
+            return;
+        }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void OnCustomButtonGeometryCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedCustomButtonGeometryFromUi();
+    }
+
+    private void OnCustomButtonGeometryKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedCustomButtonGeometryFromUi();
+        e.Handled = true;
+    }
+
+    private void OnWindowKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape || (!_hasSelectedKey && !_hasSelectedCustomButton))
+        {
+            return;
+        }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+        e.Handled = true;
+    }
+
+    private void ApplySelectedCustomButtonGeometryFromUi()
+    {
+        if (!TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
+        {
+            return;
+        }
+
+        double xPercent = ReadDouble(_customButtonXBox, selectedButton!.Rect.X * 100.0);
+        double yPercent = ReadDouble(_customButtonYBox, selectedButton.Rect.Y * 100.0);
+        double widthPercent = ReadDouble(_customButtonWidthBox, selectedButton.Rect.Width * 100.0);
+        double heightPercent = ReadDouble(_customButtonHeightBox, selectedButton.Rect.Height * 100.0);
+
+        double width = Math.Clamp(widthPercent / 100.0, MinCustomButtonPercent / 100.0, 1.0);
+        double height = Math.Clamp(heightPercent / 100.0, MinCustomButtonPercent / 100.0, 1.0);
+        double x = Math.Clamp(xPercent / 100.0, 0.0, 1.0 - width);
+        double y = Math.Clamp(yPercent / 100.0, 0.0, 1.0 - height);
+
+        selectedButton.Rect = KeymapStore.ClampCustomButtonRect(new NormalizedRect(x, y, width, height));
+        selectedButton.Layer = GetSelectedLayer();
+
+        if (!TryPersistEditedKeymap(out string error))
+        {
+            ShowNoticeDialog("Keymap Save Failed", error);
+            return;
+        }
+
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private bool TryPersistEditedKeymap(out string error)
+    {
+        ReloadKeymapActionChoices(_renderedKeymap);
+        if (!_runtime.TrySaveKeymap(_renderedKeymap, out _, out string message))
+        {
+            error = message;
+            return false;
+        }
+
+        error = string.Empty;
+        return true;
+    }
+
+    private void RenderLayoutsFromCurrentKeymap()
+    {
+        TrackpadLayoutPreset preset = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name is string name
+            ? TrackpadLayoutPreset.ResolveByNameOrDefault(name)
+            : TrackpadLayoutPreset.SixByThree;
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+        _renderedKeymap.SetActiveLayout(preset.Name);
+        ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
+            profile,
+            preset);
+        RuntimeConfigurationFactory.BuildLayouts(
+            profile,
+            _renderedKeymap,
+            preset,
+            columns,
+            out KeyLayout leftLayout,
+            out KeyLayout rightLayout);
+        _leftRenderedLayout = leftLayout;
+        _rightRenderedLayout = rightLayout;
+    }
+
+    private static string ReadActionSelection(ComboBox combo, string fallback)
+    {
+        if (combo.SelectedItem is KeyActionChoice choice && !string.IsNullOrWhiteSpace(choice.Value))
+        {
+            return choice.Value;
+        }
+
+        if (!string.IsNullOrWhiteSpace(combo.SelectedItem?.ToString()))
+        {
+            return combo.SelectedItem!.ToString()!;
+        }
+
+        if (combo.SelectedItem is string raw && !string.IsNullOrWhiteSpace(raw))
+        {
+            return raw;
+        }
+
+        return fallback;
+    }
+
+    private static double ReadDouble(TextBox box, double fallback)
+    {
+        string text = box.Text ?? string.Empty;
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed))
+        {
+            return parsed;
+        }
+
+        if (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out parsed))
+        {
+            return parsed;
+        }
+
+        return fallback;
+    }
+
+    private static string FormatNumber(double value)
+    {
+        return value.ToString("0.##", CultureInfo.InvariantCulture);
     }
 
     private async void OnImportSettingsClick(object? sender, RoutedEventArgs e)
@@ -735,6 +1739,7 @@ public partial class MainWindow : Window
         _replayPanel.IsVisible = true;
         _replayToggleButton.Content = "Play";
         UpdateReplayControls();
+        RefreshKeymapEditor();
         ApplyReplayVisualState();
         Activate();
     }
@@ -775,6 +1780,7 @@ public partial class MainWindow : Window
         _replayCompleted = false;
         _replayPanel.IsVisible = false;
         UpdateReplayControls();
+        RefreshKeymapEditor();
         ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
     }
@@ -1160,16 +2166,13 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = IsReplayMode
-            ? Math.Clamp(GetCurrentReplayFrame()?.RuntimeSnapshot.ActiveLayer ?? 0, 0, 7)
-            : Math.Clamp(_desktopRuntime.RuntimeSnapshot.ActiveLayer, 0, 7);
+        int activeLayer = Math.Clamp(GetSelectedLayer(), 0, 7);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
-        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer);
-        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer);
+        _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
+        _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, ref _rightStickyTouchedKeys);
         RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, "#D05A2A");
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
-
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(
@@ -1187,44 +2190,30 @@ public partial class MainWindow : Window
         return null;
     }
 
-    private static string BuildPreviewDetails(LinuxInputPreviewTrackpadState? state, KeyLayout layout, KeymapStore keymap, TrackpadSide side, int activeLayer)
+    private static string BuildPreviewDetails(
+        LinuxInputPreviewTrackpadState? state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        TrackpadSide side,
+        int activeLayer,
+        ref string stickyTouchedKeys)
     {
         if (state == null)
         {
-            return "No bound trackpad on this side.";
+            stickyTouchedKeys = "Touched keys: (none)";
+            return stickyTouchedKeys;
         }
 
-        LinuxInputPreviewContact[] visibleContacts = GetVisibleContacts(state);
-        LinuxInputPreviewContact[] activeContacts = GetTipContacts(state);
-        int activeTipContacts = activeContacts.Length;
-
-        List<string> lines =
-        [
-            $"Binding: {state.BindingStatus}",
-            $"Node: {state.DeviceNode ?? "no-node"}",
-            $"Frame: {state.FrameSequence}",
-            $"Layer: {activeLayer}",
-            $"Contacts: {visibleContacts.Length} ({activeTipContacts} active tip)",
-            $"Button: {(state.IsButtonPressed ? "down" : "up")}",
-            $"Range: {state.MaxX} x {state.MaxY}",
-            state.BindingMessage
-        ];
-
-        if (visibleContacts.Length > 0)
+        string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
+        if (hits.Length > 0)
         {
-            LinuxInputPreviewContact contact = visibleContacts[0];
-            lines.Add($"First contact: id {contact.Id} @ ({contact.X},{contact.Y}) pressure {contact.Pressure} tip={(contact.TipSwitch ? "down" : "up")}");
-            string[] hits = ResolveTouchedLabels(state, layout, keymap, side, activeLayer);
-            if (hits.Length > 0)
-            {
-                lines.Add($"Touched keys: {string.Join(", ", hits)}");
-            }
+            stickyTouchedKeys = $"Touched keys: {string.Join(", ", hits)}";
         }
 
-        return string.Join(Environment.NewLine, lines);
+        return stickyTouchedKeys;
     }
 
-    private static void RenderPreviewCanvas(
+    private void RenderPreviewCanvas(
         Canvas canvas,
         LinuxInputPreviewTrackpadState? state,
         KeyLayout layout,
@@ -1251,9 +2240,6 @@ public partial class MainWindow : Window
         LinuxInputPreviewContact[] visibleContacts = state == null
             ? Array.Empty<LinuxInputPreviewContact>()
             : GetVisibleContacts(state);
-        LinuxInputPreviewContact[] activeContacts = state == null
-            ? Array.Empty<LinuxInputPreviewContact>()
-            : GetTipContacts(state);
 
         if (state == null)
         {
@@ -1373,9 +2359,10 @@ public partial class MainWindow : Window
         _leftRenderedLayout = leftLayout;
         _rightRenderedLayout = rightLayout;
         _renderedKeymap = configuration.Keymap;
+        _renderedKeymap.SetActiveLayout(configuration.LayoutPreset.Name);
     }
 
-    private static void RenderPreviewKeymapOverlay(
+    private void RenderPreviewKeymapOverlay(
         Canvas canvas,
         KeyLayout layout,
         KeymapStore keymap,
@@ -1398,14 +2385,21 @@ public partial class MainWindow : Window
                 NormalizedRect rect = layout.Rects[row][col];
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
                 string label = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label;
+                bool selected = _hasSelectedKey &&
+                                !_hasSelectedCustomButton &&
+                                _selectedKeySide == side &&
+                                _selectedKeyRow == row &&
+                                _selectedKeyColumn == col;
 
                 Border keyBorder = new()
                 {
                     Width = Math.Max(22, rect.Width * width),
                     Height = Math.Max(20, rect.Height * height),
-                    Background = new SolidColorBrush(accent, 0.08),
-                    BorderBrush = new SolidColorBrush(accent, 0.25),
-                    BorderThickness = new Thickness(1),
+                    Background = new SolidColorBrush(accent, selected ? 0.22 : 0.08),
+                    BorderBrush = selected
+                        ? new SolidColorBrush(Color.Parse("#E07845"), 0.90)
+                        : new SolidColorBrush(accent, 0.25),
+                    BorderThickness = new Thickness(selected ? 2.5 : 1),
                     CornerRadius = new CornerRadius(8),
                     Child = new TextBlock
                     {
@@ -1436,13 +2430,16 @@ public partial class MainWindow : Window
         for (int index = 0; index < customButtons.Count; index++)
         {
             CustomButton button = customButtons[index];
+            bool selected = _hasSelectedCustomButton &&
+                            _selectedKeySide == side &&
+                            string.Equals(_selectedCustomButtonId, button.Id, StringComparison.Ordinal);
             Border customBorder = new()
             {
                 Width = Math.Max(24, button.Rect.Width * width),
                 Height = Math.Max(20, button.Rect.Height * height),
-                Background = new SolidColorBrush(Color.Parse("#E07845"), 0.20),
-                BorderBrush = new SolidColorBrush(Color.Parse("#E07845"), 0.65),
-                BorderThickness = new Thickness(1.5),
+                Background = new SolidColorBrush(Color.Parse("#E07845"), selected ? 0.30 : 0.20),
+                BorderBrush = new SolidColorBrush(Color.Parse("#E07845"), selected ? 0.95 : 0.65),
+                BorderThickness = new Thickness(selected ? 3.0 : 1.5),
                 CornerRadius = new CornerRadius(10),
                 Child = new TextBlock
                 {
@@ -1543,6 +2540,22 @@ public partial class MainWindow : Window
     }
 
     private sealed record GestureActionChoice(string Label, string Value)
+    {
+        public override string ToString()
+        {
+            return Label;
+        }
+    }
+
+    private sealed record LayerChoice(string Label, int Layer)
+    {
+        public override string ToString()
+        {
+            return Label;
+        }
+    }
+
+    private sealed record KeyActionChoice(string Label, string Value)
     {
         public override string ToString()
         {

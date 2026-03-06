@@ -2,6 +2,6 @@
 Type=Application
 Name=GlassToKey Linux
 Comment=Configure GlassToKey Linux trackpad bindings
-Exec=@GUI_EXEC@ --show
+Exec=glasstokey-gui --show
 Terminal=false
 Categories=Utility;

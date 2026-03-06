@@ -1,6 +1,9 @@
 namespace GlassToKey.Platform.Linux.Uinput;
 
-public sealed class LinuxUinputDispatcher : IInputDispatcher
+using System.Diagnostics;
+using System.Threading;
+
+public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider
 {
     private readonly LinuxUinputDevice _device;
     private readonly DispatchRepeatProfile _repeatProfile;
@@ -10,6 +13,12 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
     private readonly object _gate = new();
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
+    private long _dispatchCalls;
+    private long _tickCalls;
+    private long _sendFailures;
+    private long _lastDispatchTicks;
+    private long _lastTickTicks;
+    private string _lastErrorMessage = string.Empty;
     private bool _disposed;
 
     public LinuxUinputDispatcher()
@@ -37,6 +46,10 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
             return;
         }
 
+        long nowTicks = Stopwatch.GetTimestamp();
+        Interlocked.Increment(ref _dispatchCalls);
+        Volatile.Write(ref _lastDispatchTicks, nowTicks);
+
         lock (_gate)
         {
             switch (dispatchEvent.Kind)
@@ -59,19 +72,19 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
                 case DispatchEventKind.MouseButtonClick:
                     if (TryResolveMouseButtonCode(dispatchEvent, out ushort clickButton))
                     {
-                        _device.EmitClick(clickButton);
+                        TryEmitClick(clickButton);
                     }
                     break;
                 case DispatchEventKind.MouseButtonDown:
                     if (TryResolveMouseButtonCode(dispatchEvent, out ushort downButton))
                     {
-                        _device.EmitKey(downButton, isDown: true);
+                        TryEmitKey(downButton, isDown: true);
                     }
                     break;
                 case DispatchEventKind.MouseButtonUp:
                     if (TryResolveMouseButtonCode(dispatchEvent, out ushort upButton))
                     {
-                        _device.EmitKey(upButton, isDown: false);
+                        TryEmitKey(upButton, isDown: false);
                     }
                     break;
             }
@@ -84,6 +97,9 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         {
             return;
         }
+
+        Interlocked.Increment(ref _tickCalls);
+        Volatile.Write(ref _lastTickTicks, nowTicks);
 
         lock (_gate)
         {
@@ -131,6 +147,39 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         }
 
         _device.Dispose();
+    }
+
+    public bool TryGetDiagnostics(out InputDispatcherDiagnostics diagnostics)
+    {
+        if (_disposed)
+        {
+            diagnostics = new InputDispatcherDiagnostics(
+                DispatchCalls: Interlocked.Read(ref _dispatchCalls),
+                TickCalls: Interlocked.Read(ref _tickCalls),
+                SendFailures: Interlocked.Read(ref _sendFailures),
+                ActiveRepeats: 0,
+                KeysDown: 0,
+                ActiveModifiers: 0,
+                LastDispatchTicks: Volatile.Read(ref _lastDispatchTicks),
+                LastTickTicks: Volatile.Read(ref _lastTickTicks),
+                LastErrorMessage: Volatile.Read(ref _lastErrorMessage) ?? string.Empty);
+            return true;
+        }
+
+        lock (_gate)
+        {
+            diagnostics = new InputDispatcherDiagnostics(
+                DispatchCalls: Interlocked.Read(ref _dispatchCalls),
+                TickCalls: Interlocked.Read(ref _tickCalls),
+                SendFailures: Interlocked.Read(ref _sendFailures),
+                ActiveRepeats: CountActiveRepeatsLocked(),
+                KeysDown: CountKeysDownLocked(),
+                ActiveModifiers: CountActiveModifiersLocked(),
+                LastDispatchTicks: Volatile.Read(ref _lastDispatchTicks),
+                LastTickTicks: Volatile.Read(ref _lastTickTicks),
+                LastErrorMessage: Volatile.Read(ref _lastErrorMessage) ?? string.Empty);
+            return true;
+        }
     }
 
     private void HandleKeyTap(in DispatchEvent dispatchEvent)
@@ -252,8 +301,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
             return false;
         }
 
-        _device.EmitKey(keyCode, isDown);
-        return true;
+        return TryEmitKey(keyCode, isDown);
     }
 
     private void ScheduleRepeat(ulong token, ushort keyCode, long timestampTicks)
@@ -312,6 +360,82 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher
         }
 
         TrySendKeyCode(keyCode, isDown: true);
+    }
+
+    private bool TryEmitKey(ushort keyCode, bool isDown)
+    {
+        try
+        {
+            _device.EmitKey(keyCode, isDown);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            RecordSendFailure(ex);
+            return false;
+        }
+    }
+
+    private bool TryEmitClick(ushort buttonCode)
+    {
+        try
+        {
+            _device.EmitClick(buttonCode);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            RecordSendFailure(ex);
+            return false;
+        }
+    }
+
+    private void RecordSendFailure(Exception ex)
+    {
+        Interlocked.Increment(ref _sendFailures);
+        Volatile.Write(ref _lastErrorMessage, $"{ex.GetType().Name}: {ex.Message}");
+    }
+
+    private int CountActiveRepeatsLocked()
+    {
+        int count = 0;
+        for (int index = 0; index < _repeatEntries.Length; index++)
+        {
+            if (_repeatEntries[index].Active)
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private int CountKeysDownLocked()
+    {
+        int count = 0;
+        for (int index = 0; index < _keyDown.Length; index++)
+        {
+            if (_keyDown[index])
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private int CountActiveModifiersLocked()
+    {
+        int count = 0;
+        for (int index = 0; index < _modifierRefCounts.Length; index++)
+        {
+            if (_modifierRefCounts[index] > 0)
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static bool TryResolveKeyCode(in DispatchEvent dispatchEvent, out ushort keyCode)

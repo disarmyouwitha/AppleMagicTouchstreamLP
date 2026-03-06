@@ -117,11 +117,28 @@ internal readonly record struct TouchProcessorSnapshot(
     int ContactCount,
     int LeftContacts,
     int RightContacts,
+    int LastFrameLeftContacts,
+    int LastFrameRightContacts,
+    int LastRawLeftContacts,
+    int LastRawRightContacts,
+    int LastOnKeyLeftContacts,
+    int LastOnKeyRightContacts,
+    bool LastChordSuppressedLeft,
+    bool LastChordSuppressedRight,
+    int TouchStateCount,
+    int IntentTouchStateCount,
+    bool GesturePriorityLeft,
+    bool GesturePriorityRight,
     bool FiveFingerSwipeTriggered,
     bool ChordShiftLeft,
     bool ChordShiftRight,
     long FramesProcessed,
     long QueueDrops,
+    long StaleTouchExpirations,
+    long ReleaseDroppedTotal,
+    long ReleaseDroppedGesturePriority,
+    long LastReleaseDroppedTicks,
+    string LastReleaseDroppedReason,
     long DispatchEnqueued,
     long DispatchSuppressedTypingDisabled,
     long DispatchSuppressedRingFull,
@@ -134,7 +151,7 @@ internal readonly record struct TouchProcessorSnapshot(
     {
         return string.Create(
             CultureInfo.InvariantCulture,
-            $"intent={IntentMode}, layer={ActiveLayer}, mo={MomentaryLayerActive}, typing={TypingEnabled}, contacts={ContactCount} (L={LeftContacts}, R={RightContacts}), frames={FramesProcessed}, drops={QueueDrops}, dispatch={DispatchEnqueued} (suppressed:{DispatchSuppressedTypingDisabled}, ring:{DispatchSuppressedRingFull}), snap={SnapAccepted}/{SnapAttempts}, trace=0x{IntentTraceFingerprint:X16}");
+            $"intent={IntentMode}, layer={ActiveLayer}, mo={MomentaryLayerActive}, typing={TypingEnabled}, contacts={ContactCount} (L={LeftContacts}, R={RightContacts}), frameContacts=({LastFrameLeftContacts},{LastFrameRightContacts}), rawTips=({LastRawLeftContacts},{LastRawRightContacts}), onKey=({LastOnKeyLeftContacts},{LastOnKeyRightContacts}), chordSuppressed=({LastChordSuppressedLeft},{LastChordSuppressedRight}), states=({TouchStateCount},{IntentTouchStateCount}), gesturePriority=({GesturePriorityLeft},{GesturePriorityRight}), frames={FramesProcessed}, drops={QueueDrops}, stale={StaleTouchExpirations}, releaseDrops={ReleaseDroppedTotal}/{ReleaseDroppedGesturePriority}, dispatch={DispatchEnqueued} (suppressed:{DispatchSuppressedTypingDisabled}, ring:{DispatchSuppressedRingFull}), snap={SnapAccepted}/{SnapAttempts}, trace=0x{IntentTraceFingerprint:X16}");
     }
 }
 

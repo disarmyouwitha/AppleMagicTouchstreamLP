@@ -24,3 +24,9 @@ bin/
 obj/
 build/
 intermediate/
+
+# Linux packaging outputs
+windows_linux/packaging/linux/deb/out/
+windows_linux/packaging/linux/arch/*.pkg.tar.zst
+windows_linux/packaging/linux/arch/pkg/
+windows_linux/packaging/linux/arch/src/

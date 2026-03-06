@@ -142,7 +142,25 @@ if [ -d "${GUI_PUBLISH_DIR}" ] && [ -f "${GUI_PUBLISH_DIR}/GlassToKey.Linux.Gui"
   cp -a "${GUI_PUBLISH_DIR}/." "${PACKAGE_ROOT}/opt/GlassToKey.Linux.Gui/"
   cat > "${PACKAGE_ROOT}/usr/bin/glasstokey-gui" <<'EOF'
 #!/usr/bin/env bash
-exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
+set -eu
+
+START_MODE="--background"
+
+if [ "${1:-}" = "--foreground" ]; then
+  shift
+  exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
+fi
+
+if [ "${1:-}" = "--show" ]; then
+  START_MODE="--show"
+  shift
+fi
+
+if command -v setsid >/dev/null 2>&1; then
+  setsid /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+else
+  /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+fi
 EOF
   chmod 0755 "${PACKAGE_ROOT}/usr/bin/glasstokey-gui"
   sed -e "s/@GUI_EXEC@/glasstokey-gui/g" "${DESKTOP_TEMPLATE}" > "${PACKAGE_ROOT}/usr/share/applications/glasstokey.desktop"

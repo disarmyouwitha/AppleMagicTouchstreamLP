@@ -17,6 +17,7 @@ public sealed class LinuxEvdevReader
     private const ushort EventTypeKey = 0x01;
     private const ushort EventTypeAbsolute = 0x03;
     private const ushort SyncReport = 0x00;
+    private const ushort SyncDropped = 0x03;
     private const ushort ButtonLeft = 0x110;
     private const ushort ButtonToolFinger = 0x145;
     private const ushort ButtonTouch = 0x14a;
@@ -237,6 +238,11 @@ public sealed class LinuxEvdevReader
             }
 
             InputEvent inputEvent = MemoryMarshal.Read<InputEvent>(buffer);
+            if (inputEvent.Type == EventTypeSync && inputEvent.Code == SyncDropped)
+            {
+                throw new IOException($"evdev reported SYN_DROPPED on '{deviceNode}'; rebinding stream.");
+            }
+
             if (ShouldArmPendingReleaseFlush(in inputEvent))
             {
                 pendingRelease.Pending = true;

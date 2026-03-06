@@ -5,6 +5,7 @@ public sealed class LinuxHostSettings
     public int Version { get; set; } = 2;
     public string LayoutPresetName { get; set; } = TrackpadLayoutPreset.SixByThree.Name;
     public string? KeymapPath { get; set; }
+    public int KeymapRevision { get; set; }
     public string? LeftTrackpadStableId { get; set; }
     public string? RightTrackpadStableId { get; set; }
     public UserSettings SharedProfile { get; set; } = UserSettings.LoadBundledDefaultsOrDefault();
@@ -43,6 +44,13 @@ public sealed class LinuxHostSettings
         if (!string.Equals(LayoutPresetName, normalizedLayout, StringComparison.Ordinal))
         {
             LayoutPresetName = normalizedLayout;
+            changed = true;
+        }
+
+        int normalizedKeymapRevision = Math.Max(0, KeymapRevision);
+        if (normalizedKeymapRevision != KeymapRevision)
+        {
+            KeymapRevision = normalizedKeymapRevision;
             changed = true;
         }
 

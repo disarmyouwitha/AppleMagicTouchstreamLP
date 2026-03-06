@@ -19,7 +19,12 @@ internal static class Program
             return RunBackgroundAsync().GetAwaiter().GetResult();
         }
 
-        if (args.Length == 0 || string.Equals(args[0], "list-devices", StringComparison.OrdinalIgnoreCase))
+        if (args.Length == 0)
+        {
+            return LaunchTrayHost();
+        }
+
+        if (string.Equals(args[0], "list-devices", StringComparison.OrdinalIgnoreCase))
         {
             return ListDevices();
         }
@@ -181,13 +186,14 @@ internal static class Program
     private static void PrintUsage()
     {
         Console.WriteLine("Usage:");
+        Console.WriteLine("  GlassToKey.Linux              (graphical: launch tray host)");
         Console.WriteLine("  GlassToKey.Linux list-devices");
         Console.WriteLine("  GlassToKey.Linux read-frames [device-node-or-stable-id] [seconds] [max-frames]");
         Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
         Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux probe-uinput");
         Console.WriteLine("  GlassToKey.Linux doctor");
-        Console.WriteLine("  GlassToKey.Linux show-config [--print]");
+        Console.WriteLine("  GlassToKey.Linux show-config [--print|--cli|--no-runtime]");
         Console.WriteLine("  GlassToKey.Linux init-config");
         Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
         Console.WriteLine("  GlassToKey.Linux bind-right [device-node-or-stable-id]");
@@ -205,6 +211,24 @@ internal static class Program
         Console.WriteLine("  GlassToKey.Linux start");
         Console.WriteLine("  GlassToKey.Linux stop");
         Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
+    }
+
+    private static int LaunchTrayHost()
+    {
+        if (!LinuxGuiLauncher.IsGraphicalSession())
+        {
+            Console.Error.WriteLine("No graphical session detected. Use 'glasstokey start' for headless mode.");
+            return 1;
+        }
+
+        if (LinuxGuiLauncher.TryLaunchTray())
+        {
+            Console.WriteLine("Launching GlassToKey tray host.");
+            return 0;
+        }
+
+        Console.Error.WriteLine("Could not launch GlassToKey tray host.");
+        return 1;
     }
 
     private static string? GetCommand(string[] args)
@@ -378,10 +402,24 @@ internal static class Program
         bool forceConsole = args.Any(arg =>
             string.Equals(arg, "--print", StringComparison.OrdinalIgnoreCase) ||
             string.Equals(arg, "--cli", StringComparison.OrdinalIgnoreCase));
-        if (!forceConsole && LinuxGuiLauncher.IsGraphicalSession() && LinuxGuiLauncher.TryLaunch())
+        bool noRuntimeRequested = args.Any(arg =>
+            string.Equals(arg, "--no-runtime", StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(arg, "--config-only", StringComparison.OrdinalIgnoreCase));
+        if (!forceConsole && LinuxGuiLauncher.IsGraphicalSession())
         {
-            Console.WriteLine("Launching GlassToKey config UI.");
-            return 0;
+            LinuxGuiHostController trayController = new();
+            LinuxGuiHostStatus trayStatus = trayController.Query();
+            LinuxBackgroundRuntimeController backgroundController = new();
+            LinuxBackgroundRuntimeStatus backgroundStatus = backgroundController.Query();
+
+            bool noRuntime = noRuntimeRequested || (!trayStatus.IsRunning && backgroundStatus.IsRunning);
+            if (LinuxGuiLauncher.TryShowConfig(noRuntime))
+            {
+                Console.WriteLine(noRuntime
+                    ? "Opening GlassToKey config UI (config-only, runtime unchanged)."
+                    : "Opening GlassToKey config UI.");
+                return 0;
+            }
         }
 
         LinuxAppRuntime appRuntime = new();
@@ -864,6 +902,19 @@ internal static class Program
 
     private static async Task<int> StartBackgroundRuntimeAsync()
     {
+        LinuxGuiHostController trayController = new();
+        LinuxGuiHostStatus trayStatus = trayController.Query();
+        if (trayStatus.IsRunning && trayStatus.OwnsRuntime)
+        {
+            Console.WriteLine("GlassToKey is already running in the tray.");
+            if (trayStatus.ProcessId.HasValue)
+            {
+                Console.WriteLine($"  Tray PID: {trayStatus.ProcessId.Value}");
+            }
+
+            return 0;
+        }
+
         LinuxBackgroundRuntimeController controller = new();
         LinuxBackgroundRuntimeStatus status = await controller.StartAsync().ConfigureAwait(false);
         Console.WriteLine(status.Message);
@@ -877,10 +928,48 @@ internal static class Program
 
     private static async Task<int> StopBackgroundRuntimeAsync()
     {
-        LinuxBackgroundRuntimeController controller = new();
-        LinuxBackgroundRuntimeStatus status = await controller.StopAsync().ConfigureAwait(false);
-        Console.WriteLine(status.Message);
-        return status.IsRunning ? 1 : 0;
+        LinuxBackgroundRuntimeController backgroundController = new();
+        LinuxGuiHostController trayController = new();
+
+        LinuxBackgroundRuntimeStatus currentBackground = backgroundController.Query();
+        LinuxGuiHostStatus currentTray = trayController.Query();
+        if (!currentBackground.IsRunning && !currentTray.IsRunning)
+        {
+            Console.WriteLine("GlassToKey is not running.");
+            return 0;
+        }
+
+        bool success = true;
+
+        if (currentBackground.IsRunning)
+        {
+            LinuxBackgroundRuntimeStatus backgroundStatus = await backgroundController.StopAsync().ConfigureAwait(false);
+            Console.WriteLine(backgroundStatus.Message);
+            if (backgroundStatus.IsRunning)
+            {
+                success = false;
+            }
+        }
+        else
+        {
+            Console.WriteLine("The background runtime is not running.");
+        }
+
+        if (currentTray.IsRunning)
+        {
+            LinuxGuiHostStatus trayStatus = await trayController.StopAsync().ConfigureAwait(false);
+            Console.WriteLine(trayStatus.Message);
+            if (trayStatus.IsRunning)
+            {
+                success = false;
+            }
+        }
+        else
+        {
+            Console.WriteLine("The tray host is not running.");
+        }
+
+        return success ? 0 : 1;
     }
 
     private static async Task<int> RunBackgroundAsync()

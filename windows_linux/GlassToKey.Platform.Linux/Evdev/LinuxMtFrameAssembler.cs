@@ -229,6 +229,14 @@ public sealed class LinuxMtFrameAssembler
             _legacyContact.PressureRaw > 0 ||
             _legacyContact.TouchMajorRaw > 0 ||
             _legacyContact.TouchMinorRaw > 0;
+        bool hasLegacyFrameActivity = _legacyContact.SeenThisFrame;
+        if (!isTipActive && hasLegacyFrameActivity)
+        {
+            // Some devices briefly stop setting tip/pressure bits while still streaming legacy
+            // position updates for an active finger. Treat that as tip-active to avoid stalls.
+            isTipActive = true;
+        }
+
         bool isPresent = isTipActive || _legacyContact.SeenThisFrame;
         if (!isPresent)
         {

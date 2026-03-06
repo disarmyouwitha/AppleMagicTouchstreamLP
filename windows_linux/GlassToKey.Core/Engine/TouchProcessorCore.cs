@@ -51,9 +51,9 @@ internal sealed class TouchProcessorCore
     private int _transitionRingHead;
     private int _transitionRingCount;
 
-    private readonly TouchTable<IntentTouchInfo> _intentTouches = new(32);
-    private readonly TouchTable<TouchBindingState> _touchStates = new(32);
-    private readonly TouchTable<int> _momentaryLayerTouches = new(16);
+    private TouchTable<IntentTouchInfo> _intentTouches = new(32);
+    private TouchTable<TouchBindingState> _touchStates = new(32);
+    private TouchTable<int> _momentaryLayerTouches = new(16);
     private readonly ulong[] _removalBuffer = new ulong[32];
 
     private KeyLayout _leftLayout;
@@ -97,10 +97,14 @@ internal sealed class TouchProcessorCore
     private bool _threePlusGestureSuppressRight;
     private CornerHoldGesture _cornerHoldGestureLeft;
     private CornerHoldGesture _cornerHoldGestureRight;
+    private int _lastFrameLeftContacts;
+    private int _lastFrameRightContacts;
     private int _lastRawLeftContacts;
     private int _lastRawRightContacts;
-    private long _lastRawLeftUpdateTicks = -1;
-    private long _lastRawRightUpdateTicks = -1;
+    private int _lastOnKeyLeftContacts;
+    private int _lastOnKeyRightContacts;
+    private bool _lastChordSuppressedLeft;
+    private bool _lastChordSuppressedRight;
     private long _lastFourPlusLeftTicks = -1;
     private long _lastFourPlusRightTicks = -1;
     private long _lastFivePlusLeftTicks = -1;
@@ -108,6 +112,10 @@ internal sealed class TouchProcessorCore
 
     private long _framesProcessed;
     private long _queueDrops;
+    private long _releaseDroppedTotal;
+    private long _releaseDroppedGesturePriority;
+    private long _lastReleaseDroppedTicks;
+    private string _lastReleaseDroppedReason = string.Empty;
     private long _snapAttempts;
     private long _snapAccepted;
     private long _snapRejected;
@@ -316,6 +324,29 @@ internal sealed class TouchProcessorCore
         return count;
     }
 
+    public int DrainDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        int count = Math.Min(destination.Length, _diagnosticRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_diagnosticRingHead - _diagnosticRingCount + _diagnosticRing.Length) % _diagnosticRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _diagnosticRing[(start + i) % _diagnosticRing.Length];
+        }
+
+        _diagnosticRingCount -= count;
+        if (_diagnosticRingCount == 0)
+        {
+            _diagnosticRingHead = 0;
+        }
+
+        return count;
+    }
+
     public void ResetState()
     {
         _intentTouches.RemoveAll();
@@ -343,10 +374,14 @@ internal sealed class TouchProcessorCore
         _threePlusGestureSuppressRight = false;
         _cornerHoldGestureLeft = default;
         _cornerHoldGestureRight = default;
+        _lastFrameLeftContacts = 0;
+        _lastFrameRightContacts = 0;
         _lastRawLeftContacts = 0;
         _lastRawRightContacts = 0;
-        _lastRawLeftUpdateTicks = -1;
-        _lastRawRightUpdateTicks = -1;
+        _lastOnKeyLeftContacts = 0;
+        _lastOnKeyRightContacts = 0;
+        _lastChordSuppressedLeft = false;
+        _lastChordSuppressedRight = false;
         _lastFourPlusLeftTicks = -1;
         _lastFourPlusRightTicks = -1;
         _lastFivePlusLeftTicks = -1;
@@ -358,6 +393,10 @@ internal sealed class TouchProcessorCore
         _dispatchRingCount = 0;
         _dispatchDrops = 0;
         _dispatchEnqueued = 0;
+        _releaseDroppedTotal = 0;
+        _releaseDroppedGesturePriority = 0;
+        _lastReleaseDroppedTicks = 0;
+        _lastReleaseDroppedReason = string.Empty;
         _dispatchSuppressedTypingDisabled = 0;
         _dispatchSuppressedRingFull = 0;
         _twoFingerHoldGesture = default;
@@ -398,7 +437,6 @@ internal sealed class TouchProcessorCore
         _framesProcessed++;
         EnsureBindingIndexes();
         BindingIndex sideIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
-        RefreshStaleRawContactCounts(timestampTicks);
         int contactCountInFrame = frame.GetClampedContactCount();
         int tipContactsInFrame = 0;
         int frameTipMaxForceNorm = 0;
@@ -417,8 +455,8 @@ internal sealed class TouchProcessorCore
 
         if (side == TrackpadSide.Left)
         {
+            _lastFrameLeftContacts = contactCountInFrame;
             _lastRawLeftContacts = tipContactsInFrame;
-            _lastRawLeftUpdateTicks = timestampTicks;
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusLeftTicks = timestampTicks;
@@ -430,8 +468,8 @@ internal sealed class TouchProcessorCore
         }
         else
         {
+            _lastFrameRightContacts = contactCountInFrame;
             _lastRawRightContacts = tipContactsInFrame;
-            _lastRawRightUpdateTicks = timestampTicks;
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusRightTicks = timestampTicks;
@@ -466,31 +504,12 @@ internal sealed class TouchProcessorCore
         int singleTipForceNorm = 0;
         bool singleTipKeyboardAnchor = false;
         int singleTipSnapshotCount = 0;
+        int onKeyTipContactsInFrame = 0;
         bool suppressSideForChordSource = IsChordSourceSide(side);
         if (suppressSideForChordSource)
         {
             ClearTouchesForChordSourceSide(side, timestampTicks);
         }
-        RecordDiagnostic(
-            timestampTicks,
-            EngineDiagnosticEventKind.Frame,
-            side,
-            _intentMode,
-            DispatchEventKind.None,
-            DispatchSuppressReason.None,
-            TypingToggleSource.Api,
-            0,
-            DispatchMouseButton.None,
-            _typingEnabled,
-            suppressSideForChordSource,
-            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Active : _fiveFingerSwipeRight.Active,
-            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Triggered : _fiveFingerSwipeRight.Triggered,
-            contactCountInFrame,
-            tipContactsInFrame,
-            _lastRawLeftContacts,
-            _lastRawRightContacts,
-            "frame_start");
-
         for (int i = 0; i < contactCountInFrame; i++)
         {
             ContactFrame contact = frame.GetContact(i);
@@ -515,6 +534,11 @@ internal sealed class TouchProcessorCore
 
             EngineBindingHit hit = sideIndex.HitTest(xNorm, yNorm);
             bool onKey = hit.Found;
+            if (onKey)
+            {
+                onKeyTipContactsInFrame++;
+            }
+
             bool keyboardAnchor = false;
             if (onKey)
             {
@@ -562,12 +586,51 @@ internal sealed class TouchProcessorCore
                 timestampTicks);
         }
         hasSingleTipSnapshot = singleTipSnapshotCount == 1;
+        if (side == TrackpadSide.Left)
+        {
+            _lastOnKeyLeftContacts = onKeyTipContactsInFrame;
+            _lastChordSuppressedLeft = suppressSideForChordSource;
+        }
+        else
+        {
+            _lastOnKeyRightContacts = onKeyTipContactsInFrame;
+            _lastChordSuppressedRight = suppressSideForChordSource;
+        }
 
         RemoveStaleTouchesForSide(side, frameKeys.Slice(0, frameKeyCount), timestampTicks);
         if (tipContactsInFrame == 0 && !HasActiveTouchStateForSide(side))
         {
             SetThreePlusGestureSuppress(side, enabled: false);
         }
+
+        string frameReason = "frame_end";
+        if (_diagnosticsEnabled)
+        {
+            int occupiedTouchStates = CountOccupiedTouchStates();
+            int occupiedIntentTouches = CountOccupiedIntentTouches();
+            frameReason =
+                $"frame_end onKey={onKeyTipContactsInFrame} frameKeys={frameKeyCount} states={_touchStates.Count}/{_intentTouches.Count} occ={occupiedTouchStates}/{occupiedIntentTouches}";
+        }
+
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.Frame,
+            side,
+            _intentMode,
+            DispatchEventKind.None,
+            DispatchSuppressReason.None,
+            TypingToggleSource.Api,
+            0,
+            DispatchMouseButton.None,
+            _typingEnabled,
+            suppressSideForChordSource,
+            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Active : _fiveFingerSwipeRight.Active,
+            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Triggered : _fiveFingerSwipeRight.Triggered,
+            contactCountInFrame,
+            tipContactsInFrame,
+            _lastRawLeftContacts,
+            _lastRawRightContacts,
+            frameReason);
 
         IntentAggregate aggregate = BuildIntentAggregate();
         if (tipContactsInFrame > 0)
@@ -628,11 +691,28 @@ internal sealed class TouchProcessorCore
             ContactCount: aggregate.ContactCount,
             LeftContacts: aggregate.LeftContacts,
             RightContacts: aggregate.RightContacts,
+            LastFrameLeftContacts: _lastFrameLeftContacts,
+            LastFrameRightContacts: _lastFrameRightContacts,
+            LastRawLeftContacts: _lastRawLeftContacts,
+            LastRawRightContacts: _lastRawRightContacts,
+            LastOnKeyLeftContacts: _lastOnKeyLeftContacts,
+            LastOnKeyRightContacts: _lastOnKeyRightContacts,
+            LastChordSuppressedLeft: _lastChordSuppressedLeft,
+            LastChordSuppressedRight: _lastChordSuppressedRight,
+            TouchStateCount: _touchStates.Count,
+            IntentTouchStateCount: _intentTouches.Count,
+            GesturePriorityLeft: IsGestureDispatchPriorityActive(TrackpadSide.Left),
+            GesturePriorityRight: IsGestureDispatchPriorityActive(TrackpadSide.Right),
             FiveFingerSwipeTriggered: _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
             ChordShiftLeft: _chordShiftLeft,
             ChordShiftRight: _chordShiftRight,
             FramesProcessed: _framesProcessed,
             QueueDrops: _queueDrops,
+            StaleTouchExpirations: 0,
+            ReleaseDroppedTotal: _releaseDroppedTotal,
+            ReleaseDroppedGesturePriority: _releaseDroppedGesturePriority,
+            LastReleaseDroppedTicks: _lastReleaseDroppedTicks,
+            LastReleaseDroppedReason: _lastReleaseDroppedReason,
             DispatchEnqueued: _dispatchEnqueued,
             DispatchSuppressedTypingDisabled: _dispatchSuppressedTypingDisabled,
             DispatchSuppressedRingFull: _dispatchSuppressedRingFull,
@@ -794,11 +874,11 @@ internal sealed class TouchProcessorCore
             existing.PeakForceNorm = Math.Max(existing.PeakForceNorm, forceNorm);
             if (!existing.DispatchDownSent &&
                 hit.Found &&
-                IsMomentaryLayerActive() &&
-                (existing.BindingIndex < 0 || existing.BindingLayer != _activeLayer))
+                (existing.BindingIndex < 0 ||
+                 (IsMomentaryLayerActive() && existing.BindingLayer != _activeLayer)))
             {
-                // If a touch started while bindings were still on the previous layer, allow it to
-                // rebind once MO() is active so same-side layer keys can recover without lift/re-touch.
+                // Allow a live touch to recover from an off-key start, and allow layer rebinding
+                // once MO() is active so same-side layer keys can recover without lift/re-touch.
                 BindingIndex rebindIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                 EngineKeyBinding rebound = rebindIndex.Bindings[hit.BindingIndex];
                 existing.BindingIndex = hit.BindingIndex;
@@ -1133,6 +1213,14 @@ internal sealed class TouchProcessorCore
 
     private void RecordReleaseDropped(TrackpadSide side, EngineKeyAction action, long timestampTicks, string reason)
     {
+        _releaseDroppedTotal++;
+        if (string.Equals(reason, "gesture_priority_active", StringComparison.Ordinal))
+        {
+            _releaseDroppedGesturePriority++;
+        }
+
+        _lastReleaseDroppedTicks = timestampTicks;
+        _lastReleaseDroppedReason = reason ?? string.Empty;
         RecordDiagnostic(
             timestampTicks,
             EngineDiagnosticEventKind.ReleaseDropped,
@@ -1151,7 +1239,7 @@ internal sealed class TouchProcessorCore
             0,
             _lastRawLeftContacts,
             _lastRawRightContacts,
-            reason,
+            reason ?? string.Empty,
             dispatchLabel: action.Label);
     }
 
@@ -4023,29 +4111,6 @@ internal sealed class TouchProcessorCore
         }
     }
 
-    private void RefreshStaleRawContactCounts(long nowTicks)
-    {
-        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
-        if (staleTicks <= 0)
-        {
-            return;
-        }
-
-        if (_lastRawLeftContacts > 0 &&
-            _lastRawLeftUpdateTicks >= 0 &&
-            (nowTicks - _lastRawLeftUpdateTicks) > staleTicks)
-        {
-            _lastRawLeftContacts = 0;
-        }
-
-        if (_lastRawRightContacts > 0 &&
-            _lastRawRightUpdateTicks >= 0 &&
-            (nowTicks - _lastRawRightUpdateTicks) > staleTicks)
-        {
-            _lastRawRightContacts = 0;
-        }
-    }
-
     private bool IsChordSourceSide(TrackpadSide side)
     {
         // Reserve 5-finger contact sets for swipe gestures (typing toggle),
@@ -4381,6 +4446,34 @@ internal sealed class TouchProcessorCore
         }
 
         return false;
+    }
+
+    private int CountOccupiedTouchStates()
+    {
+        int count = 0;
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (_touchStates.IsOccupiedAt(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private int CountOccupiedIntentTouches()
+    {
+        int count = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (_intentTouches.IsOccupiedAt(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
     }
 
     private static double SafeNormalize(ushort value, ushort max)
@@ -4979,6 +5072,14 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             return _core.CopyDiagnostics(destination);
+        }
+    }
+
+    public int DrainDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        lock (_coreGate)
+        {
+            return _core.DrainDiagnostics(destination);
         }
     }
 

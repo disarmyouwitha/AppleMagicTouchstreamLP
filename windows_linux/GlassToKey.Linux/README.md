@@ -46,7 +46,7 @@ Current phase:
 - the live Linux typing path is working on the tested Ubuntu 24.04 host
 - tray-desktop packaging is the default user story
 - direct headless CLI operation remains supported through `glasstokey start` / `glasstokey stop`
-- Arch packaging/install validation is the next distro-expansion checkpoint
+- local Arch `PKGBUILD` scaffolding now exists under `packaging/linux/arch`; real Arch packaging/install validation is the next distro-expansion checkpoint
 
 Quick start:
 
@@ -63,7 +63,7 @@ Quick start:
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`
 - stop the background CLI runtime with `glasstokey stop`
-- the documented default desktop path is `glasstokey-gui`; the tray app owns the runtime in normal desktop use
+- the documented default desktop path is `glasstokey-gui`; it starts the tray host in background, and `glasstokey-gui --show` opens the config window on demand
 - profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
 - if you installed the optional headless user service, control it with:
@@ -86,9 +86,8 @@ Packaging notes:
 - on the current Ubuntu host, `uaccess` tags alone were not sufficient to guarantee user ACLs on recreated Bluetooth trackpad nodes, so the packaged permission strategy now prefers the dedicated `glasstokey` group model
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
-- `packaging/linux/install.sh` and `packaging/linux/90-glasstokey.rules` are the checked-in install artifacts
+- `packaging/linux/90-glasstokey.rules` plus package-manager installs (`.deb` and Arch package) are the supported install artifacts
 - `packaging/linux/deb/build-deb.sh` now produces a first Debian package skeleton from the current publish outputs
-- `packaging/linux/install.sh` now supports wrapper-vs-service install decisions and prints explicit post-install commands for `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, and `run-engine`
 
 Current diagnostics status:
 

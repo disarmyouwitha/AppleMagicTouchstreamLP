@@ -340,7 +340,7 @@ The architecture is not considered complete until:
   - `/dev/uinput` and matched `/dev/input/event*` nodes came up as `root:glasstokey`
   - `doctor` reported `Summary: ok` after session refresh
   - stable-id bindings survived event-node renumbering across reboot/reconnect
-- The checked-in wrapper install flow and user-service flow were both validated on the host.
+- The checked-in package-manager install flow and user-service flow were validated on the host.
 - The Linux user service now runs `run-engine` until interrupted rather than timing out after 10 seconds.
 - Packaged reconnect validation is now proven on the host for both:
   - Bluetooth power off/on churn
@@ -427,13 +427,12 @@ The architecture is not considered complete until:
 - [x] checked-in framework-dependent GUI publish profile exists
 - [x] checked-in self-contained GUI publish profile exists
 - [x] checked-in `udev` rules template exists
-- [x] checked-in install script exists
-- [x] install script supports wrapper-vs-service decisions
 - [x] Debian package skeleton exists
+- [x] Arch local `PKGBUILD` skeleton exists
 - [x] Debian package build script can produce a `.deb` from current publish outputs
-- [x] wrapper install flow validated on the host
-- [x] user-service install flow validated on the host
-- [x] renamed `glasstokey` / `glasstokey-gui` wrapper flow validated on the host
+- [x] package-manager install flow validated on the host
+- [x] user-service flow validated on the host
+- [x] packaged `glasstokey` / `glasstokey-gui` launcher flow validated on the host
 - [x] dedicated `glasstokey` group permission flow validated on the host after relogin
 - [x] packaged runtime survives reboot/session refresh with working evdev + `uinput` access
 
@@ -463,13 +462,13 @@ These are the highest-priority productization tasks because they determine wheth
 - [x] Confirm reconnect behavior for packaged Bluetooth trackpads after node churn, not just in a dev shell
 - [x] Confirm packaged `/dev/uinput` access and evdev access both survive reboot/login/logout cycles
 - [x] Validate the checked-in `90-glasstokey.rules` against the currently supported Apple vendor/product pairs on the host and in packaged installs
-- [x] Validate wrapper-only install flow from `packaging/linux/install.sh`
-- [x] Validate user-service install flow from `packaging/linux/install.sh`
+- [x] Validate package-manager install flow (`.deb`) including user-service availability
+- [x] Validate package-manager install flow (Arch package skeleton) including user-service availability
 - [x] Validate `.deb` install, upgrade, and uninstall behavior
 - [x] Decide the documented default install story: tray desktop by default, with `glasstokey start` / `glasstokey stop` as the documented headless path
 - [x] Tighten post-install guidance once the real packaged flow is proven on host
 - [x] Keep a documented and validated headless launch path as part of the final packaged Linux story
-- [ ] Validate the same install/runtime story on Arch packaging or an equivalent Arch test environment
+- [ ] Validate the checked-in Arch `PKGBUILD` install/runtime story on a real Arch test environment
 
 ### 2. GUI/product surface
 
@@ -568,7 +567,7 @@ Exit criteria:
 - [x] Decide the documented default install mode for first users: tray desktop by default, with CLI `start` / `stop` documented for headless runs
 - [x] Tighten post-install guidance around `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, direct `run-engine` smoke tests, and optional service enablement
 - [x] Keep a documented and validated headless launch path as part of the final packaged Linux story
-- [ ] Validate and document the first Arch install/package flow
+- [ ] Validate and document the first Arch install/package flow from `packaging/linux/arch/`
 
 Exit criteria:
 
@@ -614,6 +613,12 @@ Run overlapping builds/publishes for the same project graph sequentially.
 ### Linux package build
 
 - `bash packaging/linux/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
+
+### Arch local package build
+
+- `sudo pacman -S --needed base-devel dotnet-sdk`
+- `cd packaging/linux/arch`
+- `makepkg -f`
 
 ## Doc Rule
 

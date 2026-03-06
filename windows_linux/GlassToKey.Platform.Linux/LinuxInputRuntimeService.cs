@@ -172,6 +172,17 @@ public sealed class LinuxInputRuntimeService
             {
                 Report(options.Observer, ref lastReported, binding.Side, stableId, currentDevice.DeviceNode, LinuxRuntimeBindingStatus.Faulted, ex.Message);
             }
+            catch (Exception ex)
+            {
+                Report(
+                    options.Observer,
+                    ref lastReported,
+                    binding.Side,
+                    stableId,
+                    currentDevice.DeviceNode,
+                    LinuxRuntimeBindingStatus.Faulted,
+                    $"{ex.GetType().Name}: {ex.Message}");
+            }
 
             await DelayReconnectAsync(options.ReconnectDelay, cancellationToken).ConfigureAwait(false);
         }

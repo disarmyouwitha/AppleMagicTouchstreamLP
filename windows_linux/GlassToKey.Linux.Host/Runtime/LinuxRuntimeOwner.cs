@@ -10,6 +10,7 @@ namespace GlassToKey.Linux.Runtime;
 public sealed class LinuxRuntimeOwner
 {
     private static readonly TimeSpan SettingsPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan SessionRestartDelay = TimeSpan.FromMilliseconds(500);
     private static readonly JsonSerializerOptions SignatureSerializerOptions = new()
     {
         PropertyNamingPolicy = JsonNamingPolicy.CamelCase
@@ -34,6 +35,7 @@ public sealed class LinuxRuntimeOwner
         Action<string>? logger = null,
         CancellationToken cancellationToken = default)
     {
+        _ = logger;
         LinuxRuntimeConfiguration configuration = _appRuntime.LoadConfiguration();
         string settingsSignature = BuildSettingsSignature(configuration.Settings);
         RuntimeSession? session = null;
@@ -50,7 +52,6 @@ public sealed class LinuxRuntimeOwner
                     {
                         if (!waitingForBindingsLogged)
                         {
-                            logger?.Invoke("Runtime owner is waiting for trackpad bindings.");
                             waitingForBindingsLogged = true;
                         }
                     }
@@ -58,7 +59,6 @@ public sealed class LinuxRuntimeOwner
                     {
                         session = StartSession(configuration, observer, cancellationToken);
                         waitingForBindingsLogged = false;
-                        LogConfiguration(logger, configuration, isReload: false);
                     }
                 }
 
@@ -68,8 +68,35 @@ public sealed class LinuxRuntimeOwner
                     Task completed = await Task.WhenAny(session.RunTask, pollTask).ConfigureAwait(false);
                     if (completed == session.RunTask)
                     {
-                        await session.RunTask.ConfigureAwait(false);
-                        break;
+                        RuntimeSession completedSession = session;
+                        session = null;
+                        try
+                        {
+                            await completedSession.RunTask.ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            _ = ex;
+                        }
+                        finally
+                        {
+                            completedSession.Dispose();
+                        }
+
+                        try
+                        {
+                            await Task.Delay(SessionRestartDelay, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        continue;
                     }
                 }
                 else
@@ -77,9 +104,9 @@ public sealed class LinuxRuntimeOwner
                     await pollTask.ConfigureAwait(false);
                 }
 
-                if (session != null)
+                if (session != null && session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
                 {
-                    PersistRunningState(session);
+                    PersistRunningState(snapshot);
                 }
 
                 LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration();
@@ -92,7 +119,6 @@ public sealed class LinuxRuntimeOwner
 
                 settingsSignature = updatedSignature;
                 configuration = updated;
-                LogConfiguration(logger, configuration, isReload: true);
 
                 if (session == null)
                 {
@@ -136,27 +162,6 @@ public sealed class LinuxRuntimeOwner
         return new RuntimeSession(sessionCts, dispatcher, engine, runTask);
     }
 
-    private static void LogConfiguration(Action<string>? logger, LinuxRuntimeConfiguration configuration, bool isReload)
-    {
-        if (logger == null)
-        {
-            return;
-        }
-
-        string action = isReload ? "Reloaded" : "Loaded";
-        logger($"{action} runtime config: layout={configuration.LayoutPreset.Name}, keymap={configuration.Settings.KeymapPath ?? "(bundled default)"}, bindings={configuration.Bindings.Count}.");
-        for (int index = 0; index < configuration.Bindings.Count; index++)
-        {
-            LinuxTrackpadBinding binding = configuration.Bindings[index];
-            logger($"  {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}]");
-        }
-
-        for (int index = 0; index < configuration.Warnings.Count; index++)
-        {
-            logger($"  Warning: {configuration.Warnings[index]}");
-        }
-    }
-
     private static string BuildSettingsSignature(LinuxHostSettings settings)
     {
         LinuxHostSettings normalized = new()
@@ -164,6 +169,7 @@ public sealed class LinuxRuntimeOwner
             Version = settings.Version,
             LayoutPresetName = settings.LayoutPresetName,
             KeymapPath = settings.KeymapPath,
+            KeymapRevision = settings.KeymapRevision,
             LeftTrackpadStableId = settings.LeftTrackpadStableId,
             RightTrackpadStableId = settings.RightTrackpadStableId,
             SharedProfile = settings.SharedProfile?.Clone() ?? UserSettings.LoadBundledDefaultsOrDefault()
@@ -172,13 +178,8 @@ public sealed class LinuxRuntimeOwner
         return JsonSerializer.Serialize(normalized, SignatureSerializerOptions);
     }
 
-    private void PersistRunningState(RuntimeSession session)
+    private void PersistRunningState(in TouchProcessorRuntimeSnapshot snapshot)
     {
-        if (!session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
-        {
-            return;
-        }
-
         _stateStore.Save(new LinuxRuntimeStateSnapshot(
             IsRunning: true,
             TypingEnabled: snapshot.TypingEnabled,
@@ -254,4 +255,5 @@ public sealed class LinuxRuntimeOwner
             _cts.Dispose();
         }
     }
+
 }

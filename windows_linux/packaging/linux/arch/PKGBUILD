@@ -1,0 +1,83 @@
+# Maintainer: GlassToKey
+
+pkgname=glasstokey-linux
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="Apple Magic Trackpad to keyboard runtime for Linux (CLI + tray GUI)"
+arch=('x86_64')
+url="https://github.com/OpenAdaptAI/AppleMagicTouchstreamLP"
+license=('custom')
+depends=('libevdev' 'systemd')
+makedepends=('dotnet-sdk')
+install=glasstokey-linux.install
+options=('!strip')
+source=(
+  "90-glasstokey.rules"
+  "glasstokey.service"
+  "glasstokey.desktop"
+  "glasstokey.sysusers"
+)
+sha256sums=('SKIP' 'SKIP' 'SKIP' 'SKIP')
+
+_repo_root="${startdir}/../../.."
+_cli_publish_dir="${_repo_root}/GlassToKey.Linux/bin/Release/net10.0/publish/linux-x64-self-contained"
+_gui_publish_dir="${_repo_root}/GlassToKey.Linux.Gui/bin/Release/net10.0/publish/linux-x64-self-contained"
+
+build() {
+  cd "${_repo_root}"
+  dotnet publish GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -p:PublishProfile=LinuxSelfContained
+  dotnet publish GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj -c Release -p:PublishProfile=LinuxGuiSelfContained
+}
+
+package() {
+  if [[ ! -f "${_cli_publish_dir}/GlassToKey.Linux" ]]; then
+    echo "Missing CLI publish output at ${_cli_publish_dir}" >&2
+    return 1
+  fi
+
+  if [[ ! -f "${_gui_publish_dir}/GlassToKey.Linux.Gui" ]]; then
+    echo "Missing GUI publish output at ${_gui_publish_dir}" >&2
+    return 1
+  fi
+
+  install -d "${pkgdir}/opt/GlassToKey.Linux"
+  install -d "${pkgdir}/opt/GlassToKey.Linux.Gui"
+  cp -a "${_cli_publish_dir}/." "${pkgdir}/opt/GlassToKey.Linux/"
+  cp -a "${_gui_publish_dir}/." "${pkgdir}/opt/GlassToKey.Linux.Gui/"
+
+  install -Dm644 "${srcdir}/90-glasstokey.rules" "${pkgdir}/usr/lib/udev/rules.d/90-glasstokey.rules"
+  install -Dm644 "${srcdir}/glasstokey.service" "${pkgdir}/usr/lib/systemd/user/glasstokey.service"
+  install -Dm644 "${srcdir}/glasstokey.desktop" "${pkgdir}/usr/share/applications/glasstokey.desktop"
+  install -Dm644 "${srcdir}/glasstokey.sysusers" "${pkgdir}/usr/lib/sysusers.d/glasstokey.conf"
+  install -d "${pkgdir}/usr/bin"
+
+  cat > "${pkgdir}/usr/bin/glasstokey" <<'EOF'
+#!/usr/bin/env bash
+exec /opt/GlassToKey.Linux/GlassToKey.Linux "$@"
+EOF
+  chmod 0755 "${pkgdir}/usr/bin/glasstokey"
+
+  cat > "${pkgdir}/usr/bin/glasstokey-gui" <<'EOF'
+#!/usr/bin/env bash
+set -eu
+
+START_MODE="--background"
+
+if [ "${1:-}" = "--foreground" ]; then
+  shift
+  exec /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "$@"
+fi
+
+if [ "${1:-}" = "--show" ]; then
+  START_MODE="--show"
+  shift
+fi
+
+if command -v setsid >/dev/null 2>&1; then
+  setsid /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+else
+  /opt/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui "${START_MODE}" "$@" </dev/null >/dev/null 2>&1 &
+fi
+EOF
+  chmod 0755 "${pkgdir}/usr/bin/glasstokey-gui"
+}

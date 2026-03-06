@@ -11,6 +11,7 @@ namespace GlassToKey.Linux.Runtime;
 public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFrameSink, ILinuxRuntimeObserver
 {
     private static readonly TimeSpan SettingsPollInterval = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan SessionRestartDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan PreviewPublishInterval = TimeSpan.FromMilliseconds(33);
     private const int RuntimeSnapshotSyncTimeoutMs = 4;
     private static readonly JsonSerializerOptions SignatureSerializerOptions = new()
@@ -399,8 +400,56 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     Task completed = await Task.WhenAny(localSession.RunTask, pollTask).ConfigureAwait(false);
                     if (completed == localSession.RunTask)
                     {
-                        await localSession.RunTask.ConfigureAwait(false);
-                        throw new InvalidOperationException("The tray-owned Linux runtime stopped unexpectedly.");
+                        RuntimeSession endedSession = localSession;
+                        localSession = null;
+                        lock (_gate)
+                        {
+                            if (ReferenceEquals(_session, endedSession))
+                            {
+                                _session = null;
+                            }
+                        }
+
+                        string message = "The tray-owned Linux runtime session stopped unexpectedly; restarting.";
+                        string? failure = null;
+                        try
+                        {
+                            await endedSession.RunTask.ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+                        catch (Exception ex)
+                        {
+                            failure = ex.Message;
+                            message = $"The tray-owned Linux runtime faulted ({ex.GetType().Name}); restarting.";
+                        }
+                        finally
+                        {
+                            endedSession.Dispose();
+                        }
+
+                        PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
+                            LinuxDesktopRuntimeStatus.Faulted,
+                            TypingEnabled: false,
+                            KeyboardModeEnabled: false,
+                            ActiveLayer: 0,
+                            UpdatedUtc: DateTimeOffset.UtcNow,
+                            Message: message,
+                            Failure: failure));
+                        PublishPreviewSnapshot(LinuxInputPreviewStatus.Faulted, message, failure);
+
+                        try
+                        {
+                            await Task.Delay(SessionRestartDelay, cancellationToken).ConfigureAwait(false);
+                        }
+                        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                        {
+                            break;
+                        }
+
+                        continue;
                     }
                 }
                 else
@@ -633,6 +682,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             Version = settings.Version,
             LayoutPresetName = settings.LayoutPresetName,
             KeymapPath = settings.KeymapPath,
+            KeymapRevision = settings.KeymapRevision,
             LeftTrackpadStableId = settings.LeftTrackpadStableId,
             RightTrackpadStableId = settings.RightTrackpadStableId,
             SharedProfile = settings.SharedProfile?.Clone() ?? UserSettings.LoadBundledDefaultsOrDefault()
