@@ -16,6 +16,8 @@
   <ItemGroup>
     <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
   </ItemGroup>
 </Project>
