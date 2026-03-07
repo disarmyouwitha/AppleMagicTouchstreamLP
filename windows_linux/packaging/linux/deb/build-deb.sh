@@ -10,6 +10,7 @@ ARCH="amd64"
 CLI_PUBLISH_DIR="${REPO_ROOT}/GlassToKey.Linux/bin/Release/net10.0/publish/linux-x64-self-contained"
 GUI_PUBLISH_DIR="${REPO_ROOT}/GlassToKey.Linux.Gui/bin/Release/net10.0/publish/linux-x64-self-contained"
 OUTPUT_DIR="${SCRIPT_DIR}/out"
+SKIP_PUBLISH="no"
 RULE_SOURCE="${REPO_ROOT}/packaging/linux/90-glasstokey.rules"
 CONTROL_TEMPLATE="${SCRIPT_DIR}/DEBIAN/control.in"
 POSTINST_TEMPLATE="${SCRIPT_DIR}/DEBIAN/postinst"
@@ -28,6 +29,7 @@ Options:
   --cli-publish-dir <path>      Self-contained CLI publish output.
   --gui-publish-dir <path>      Optional GUI publish output. If absent, GUI launcher is skipped.
   --output-dir <path>           Directory for built .deb output.
+  --skip-publish                Skip running dotnet publish before packaging.
   --help                        Show this help.
 EOF
 }
@@ -58,6 +60,10 @@ while [ "$#" -gt 0 ]; do
       OUTPUT_DIR="$2"
       shift 2
       ;;
+    --skip-publish)
+      SKIP_PUBLISH="yes"
+      shift 1
+      ;;
     --help|-h)
       usage
       exit 0
@@ -73,6 +79,16 @@ done
 if ! command -v dpkg-deb >/dev/null 2>&1; then
   echo "dpkg-deb is required to build the Debian package." >&2
   exit 1
+fi
+
+if [ "${SKIP_PUBLISH}" != "yes" ]; then
+  if ! command -v dotnet >/dev/null 2>&1; then
+    echo "dotnet is required to publish before packaging. Use --skip-publish to bypass this step." >&2
+    exit 1
+  fi
+
+  dotnet publish "${REPO_ROOT}/GlassToKey.Linux/GlassToKey.Linux.csproj" -c Release -p:PublishProfile=LinuxSelfContained
+  dotnet publish "${REPO_ROOT}/GlassToKey.Linux.Gui/GlassToKey.Linux.Gui.csproj" -c Release -p:PublishProfile=LinuxGuiSelfContained
 fi
 
 if [ ! -d "${CLI_PUBLISH_DIR}" ] || [ ! -f "${CLI_PUBLISH_DIR}/GlassToKey.Linux" ]; then
