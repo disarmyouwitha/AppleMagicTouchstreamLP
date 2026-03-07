@@ -507,11 +507,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
     {
-        return new AutocorrectOptions(
-            MaxEditDistance: settings.AutocorrectMaxEditDistance,
-            DryRunEnabled: settings.AutocorrectDryRunEnabled,
-            BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
-            OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
+        return AutocorrectOptions.FromSettings(settings);
     }
 
     private readonly record struct RuntimeRoute(string? DevicePath)

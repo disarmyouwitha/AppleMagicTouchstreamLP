@@ -22,8 +22,5 @@
     <None Update="MY_KEYMAP.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="ThirdParty\SymSpell\frequency_dictionary_en_82_765.txt">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
   </ItemGroup>
 </Project>

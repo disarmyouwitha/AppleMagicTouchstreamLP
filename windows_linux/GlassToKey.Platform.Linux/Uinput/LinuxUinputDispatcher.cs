@@ -3,10 +3,11 @@ namespace GlassToKey.Platform.Linux.Uinput;
 using System.Diagnostics;
 using System.Threading;
 
-public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider
+public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController
 {
     private readonly LinuxUinputDevice _device;
     private readonly DispatchRepeatProfile _repeatProfile;
+    private readonly AutocorrectSession _autocorrect = new();
     private readonly int[] _modifierRefCounts = new int[256];
     private readonly bool[] _keyDown = new bool[256];
     private readonly RepeatEntry[] _repeatEntries = new RepeatEntry[64];
@@ -70,12 +71,14 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                     HandleModifierUp(dispatchEvent);
                     break;
                 case DispatchEventKind.MouseButtonClick:
+                    _autocorrect.NotifyPointerActivity();
                     if (TryResolveMouseButtonCode(dispatchEvent, out ushort clickButton))
                     {
                         TryEmitClick(clickButton);
                     }
                     break;
                 case DispatchEventKind.MouseButtonDown:
+                    _autocorrect.NotifyPointerActivity();
                     if (TryResolveMouseButtonCode(dispatchEvent, out ushort downButton))
                     {
                         TryEmitKey(downButton, isDown: true);
@@ -111,7 +114,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                     continue;
                 }
 
-                HandleRepeatKeyDown(entry.KeyCode);
+                HandleRepeatKeyDown(entry.KeyCode, entry.SemanticAction);
 
                 entry.NextTick = nowTicks + _repeatIntervalTicks;
             }
@@ -143,10 +146,51 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
             Array.Clear(_modifierRefCounts, 0, _modifierRefCounts.Length);
             Array.Clear(_repeatEntries, 0, _repeatEntries.Length);
+            _autocorrect.Dispose();
             _disposed = true;
         }
 
         _device.Dispose();
+    }
+
+    public void SetAutocorrectEnabled(bool enabled)
+    {
+        lock (_gate)
+        {
+            _autocorrect.SetEnabled(enabled);
+        }
+    }
+
+    public void ConfigureAutocorrectOptions(AutocorrectOptions options)
+    {
+        lock (_gate)
+        {
+            _autocorrect.Configure(options);
+        }
+    }
+
+    public void NotifyPointerActivity()
+    {
+        lock (_gate)
+        {
+            _autocorrect.NotifyPointerActivity();
+        }
+    }
+
+    public void ForceAutocorrectReset(string reason)
+    {
+        lock (_gate)
+        {
+            _autocorrect.ForceReset(reason);
+        }
+    }
+
+    public AutocorrectStatusSnapshot GetAutocorrectStatus()
+    {
+        lock (_gate)
+        {
+            return _autocorrect.GetStatus();
+        }
     }
 
     public bool TryGetDiagnostics(out InputDispatcherDiagnostics diagnostics)
@@ -184,6 +228,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
     private void HandleKeyTap(in DispatchEvent dispatchEvent)
     {
+        ProcessAutocorrectKeyInput(dispatchEvent);
         if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode))
         {
             return;
@@ -195,6 +240,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
     private void HandleKeyDown(in DispatchEvent dispatchEvent)
     {
+        ProcessAutocorrectKeyInput(dispatchEvent);
         if (!TryResolveKeyCode(dispatchEvent, out ushort keyCode))
         {
             return;
@@ -219,7 +265,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
         if ((dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 && dispatchEvent.RepeatToken != 0)
         {
-            ScheduleRepeat(dispatchEvent.RepeatToken, keyCode, dispatchEvent.TimestampTicks);
+            ScheduleRepeat(dispatchEvent.RepeatToken, keyCode, dispatchEvent.TimestampTicks, dispatchEvent.SemanticAction);
         }
     }
 
@@ -267,6 +313,11 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             return;
         }
 
+        if (AutocorrectDispatchKeyAnalyzer.IsShortcutModifier(dispatchEvent.SemanticAction.PrimaryCode))
+        {
+            _autocorrect.ForceReset("shortcut_modifier_down");
+        }
+
         if (TrySendKeyCode(keyCode, isDown: true))
         {
             _keyDown[keyCode] = true;
@@ -304,7 +355,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         return TryEmitKey(keyCode, isDown);
     }
 
-    private void ScheduleRepeat(ulong token, ushort keyCode, long timestampTicks)
+    private void ScheduleRepeat(ulong token, ushort keyCode, long timestampTicks, DispatchSemanticAction semanticAction)
     {
         for (int index = 0; index < _repeatEntries.Length; index++)
         {
@@ -315,6 +366,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             }
 
             entry.KeyCode = keyCode;
+            entry.SemanticAction = semanticAction;
             entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
             return;
         }
@@ -330,6 +382,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             entry.Active = true;
             entry.Token = token;
             entry.KeyCode = keyCode;
+            entry.SemanticAction = semanticAction;
             entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
             return;
         }
@@ -347,12 +400,23 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         }
     }
 
-    private void HandleRepeatKeyDown(ushort keyCode)
+    private void HandleRepeatKeyDown(ushort keyCode, DispatchSemanticAction semanticAction)
     {
         if (keyCode == 0)
         {
             return;
         }
+
+        ProcessAutocorrectKeyInput(new DispatchEvent(
+            TimestampTicks: 0,
+            Kind: DispatchEventKind.KeyDown,
+            VirtualKey: 0,
+            MouseButton: DispatchMouseButton.None,
+            RepeatToken: 0,
+            Flags: DispatchEventFlags.None,
+            Side: TrackpadSide.Left,
+            DispatchLabel: string.Empty,
+            SemanticAction: semanticAction));
 
         if ((uint)keyCode < (uint)_keyDown.Length && !_keyDown[keyCode])
         {
@@ -360,6 +424,114 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         }
 
         TrySendKeyCode(keyCode, isDown: true);
+    }
+
+    private void ProcessAutocorrectKeyInput(in DispatchEvent dispatchEvent)
+    {
+        if (!_autocorrect.GetStatus().Enabled)
+        {
+            _autocorrect.ForceReset("disabled");
+            return;
+        }
+
+        if (HasShortcutModifierDown())
+        {
+            _autocorrect.NotifyShortcutBypass();
+            return;
+        }
+
+        if (AutocorrectDispatchKeyAnalyzer.IsBackspace(dispatchEvent))
+        {
+            _autocorrect.TrackBackspace();
+            return;
+        }
+
+        if (AutocorrectDispatchKeyAnalyzer.TryResolveLetter(dispatchEvent, IsShiftModifierDown(), out char letter))
+        {
+            _autocorrect.TrackLetter(letter);
+            return;
+        }
+
+        if (AutocorrectDispatchKeyAnalyzer.IsWordBoundary(dispatchEvent))
+        {
+            ApplyAutocorrectForWordBoundary();
+            return;
+        }
+
+        _autocorrect.NotifyNonWordKey();
+    }
+
+    private void ApplyAutocorrectForWordBoundary()
+    {
+        if (!_autocorrect.TryCompleteWord(out AutocorrectReplacement replacement) ||
+            !LinuxKeyCodeMapper.TryMapSemanticCode(DispatchSemanticCode.Backspace, out ushort backspaceCode))
+        {
+            return;
+        }
+
+        for (int index = 0; index < replacement.BackspaceCount; index++)
+        {
+            TryEmitKey(backspaceCode, isDown: true);
+            TryEmitKey(backspaceCode, isDown: false);
+        }
+
+        for (int index = 0; index < replacement.ReplacementText.Length; index++)
+        {
+            if (!AutocorrectDispatchKeyAnalyzer.TryResolveReplacementLetter(
+                    replacement.ReplacementText[index],
+                    out DispatchSemanticCode semanticCode,
+                    out bool requiresShift) ||
+                !LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out ushort keyCode))
+            {
+                continue;
+            }
+
+            bool shiftAlreadyDown = IsShiftModifierDown();
+            if (requiresShift &&
+                !shiftAlreadyDown &&
+                LinuxKeyCodeMapper.TryMapSemanticCode(DispatchSemanticCode.Shift, out ushort shiftCode))
+            {
+                TryEmitKey(shiftCode, isDown: true);
+                TryEmitKey(keyCode, isDown: true);
+                TryEmitKey(keyCode, isDown: false);
+                TryEmitKey(shiftCode, isDown: false);
+                continue;
+            }
+
+            TryEmitKey(keyCode, isDown: true);
+            TryEmitKey(keyCode, isDown: false);
+        }
+    }
+
+    private bool HasShortcutModifierDown()
+    {
+        return IsModifierDown(DispatchSemanticCode.Ctrl) ||
+               IsModifierDown(DispatchSemanticCode.LeftCtrl) ||
+               IsModifierDown(DispatchSemanticCode.RightCtrl) ||
+               IsModifierDown(DispatchSemanticCode.Alt) ||
+               IsModifierDown(DispatchSemanticCode.LeftAlt) ||
+               IsModifierDown(DispatchSemanticCode.RightAlt) ||
+               IsModifierDown(DispatchSemanticCode.Meta) ||
+               IsModifierDown(DispatchSemanticCode.LeftMeta) ||
+               IsModifierDown(DispatchSemanticCode.RightMeta);
+    }
+
+    private bool IsShiftModifierDown()
+    {
+        return IsModifierDown(DispatchSemanticCode.Shift) ||
+               IsModifierDown(DispatchSemanticCode.LeftShift) ||
+               IsModifierDown(DispatchSemanticCode.RightShift);
+    }
+
+    private bool IsModifierDown(DispatchSemanticCode semanticCode)
+    {
+        if (!LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out ushort keyCode) ||
+            (uint)keyCode >= (uint)_modifierRefCounts.Length)
+        {
+            return false;
+        }
+
+        return _modifierRefCounts[keyCode] > 0;
     }
 
     private bool TryEmitKey(ushort keyCode, bool isDown)
@@ -476,6 +648,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         public bool Active;
         public ulong Token;
         public ushort KeyCode;
+        public DispatchSemanticAction SemanticAction;
         public long NextTick;
     }
 }

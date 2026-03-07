@@ -1471,11 +1471,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
     {
-        return new AutocorrectOptions(
-            MaxEditDistance: 2,
-            DryRunEnabled: settings.AutocorrectDryRunEnabled,
-            BlacklistCsv: settings.AutocorrectBlacklistCsv ?? string.Empty,
-            OverridesCsv: settings.AutocorrectOverridesCsv ?? string.Empty);
+        return AutocorrectOptions.FromSettings(settings);
     }
 
     private static string NormalizeMultilineText(string? text)

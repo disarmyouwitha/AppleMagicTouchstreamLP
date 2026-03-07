@@ -25,6 +25,10 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
         _actor.SetHapticsOnKeyDispatchEnabled(false);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
+        if (settings != null)
+        {
+            ConfigureDispatcherAutocorrect(dispatcher, settings);
+        }
     }
 
     public bool Post(in TrackpadFrameEnvelope frame)
@@ -159,6 +163,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);
+        ConfigureDispatcherAutocorrect(_dispatcher, profile);
     }
 
     public void Dispose()
@@ -172,5 +177,16 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.Dispose();
         _dispatchPump.Dispose();
         _dispatchQueue.Dispose();
+    }
+
+    private static void ConfigureDispatcherAutocorrect(IInputDispatcher dispatcher, UserSettings settings)
+    {
+        if (dispatcher is not IAutocorrectController autocorrectController)
+        {
+            return;
+        }
+
+        autocorrectController.ConfigureAutocorrectOptions(AutocorrectOptions.FromSettings(settings));
+        autocorrectController.SetAutocorrectEnabled(settings.AutocorrectEnabled);
     }
 }
