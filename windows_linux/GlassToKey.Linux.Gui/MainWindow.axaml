@@ -223,11 +223,15 @@
                 <Grid Margin="0,10,0,0"
                       HorizontalAlignment="Stretch"
                       ColumnDefinitions="*,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                   <TextBlock Grid.ColumnSpan="2"
                              Text="Click a key or custom button on the preview to edit."
                              TextWrapping="Wrap"
                              Foreground="#6A4533" />
+                  <TextBlock x:Name="KeymapSelectionText"
+                             Grid.ColumnSpan="2"
+                             IsVisible="False"
+                             Text="Selection: none" />
 
                   <TextBlock Grid.Row="1"
                              Text="Layer"
@@ -245,41 +249,37 @@
                   </Grid>
 
                   <TextBlock Grid.Row="2"
-                             Text="Selection"
-                             VerticalAlignment="Top" />
-                  <TextBlock x:Name="KeymapSelectionText"
-                             Grid.Row="2"
-                             Grid.Column="1"
-                             Margin="12,0,0,0"
-                             TextWrapping="Wrap"
-                             Foreground="#5A4032"
-                             Text="Selection: none" />
-
-                  <TextBlock Grid.Row="3"
                              Text="Primary Action"
+                             Margin="0,8,0,0"
                              VerticalAlignment="Center" />
                   <ComboBox x:Name="KeymapPrimaryCombo"
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+
+                  <TextBlock Grid.Row="3"
+                             Text="Hold Action (optional)"
+                             Margin="0,8,0,0"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="KeymapHoldCombo"
                             Grid.Row="3"
                             Grid.Column="1"
-                            Margin="12,0,0,0"
+                            Margin="12,8,0,0"
                             HorizontalAlignment="Stretch" />
 
                   <TextBlock Grid.Row="4"
-                             Text="Hold Action (optional)"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="KeymapHoldCombo"
-                            Grid.Row="4"
-                            Grid.Column="1"
-                            Margin="12,0,0,0"
-                            HorizontalAlignment="Stretch" />
-
-                  <TextBlock Grid.Row="5"
                              Text="Key Rotation (deg)"
+                             Margin="0,8,0,0"
                              VerticalAlignment="Center" />
                   <TextBox x:Name="KeyRotationBox"
-                           Grid.Row="5"
+                           Grid.Row="4"
                            Grid.Column="1"
-                           Margin="12,0,0,0" />
+                           Margin="12,8,0,0" />
+
+                  <Separator Grid.Row="5"
+                             Grid.ColumnSpan="2"
+                             Margin="0,8,0,2" />
 
                   <TextBlock Grid.Row="6"
                              Text="Custom Buttons"
@@ -288,51 +288,61 @@
                         Grid.Column="1"
                         Margin="12,0,0,0"
                         ColumnDefinitions="*,*"
-                        RowDefinitions="Auto,Auto">
+                        RowDefinitions="Auto">
                     <Button x:Name="CustomButtonAddLeftButton"
                             Content="Add Left" />
                     <Button x:Name="CustomButtonAddRightButton"
                             Grid.Column="1"
                             Margin="8,0,0,0"
                             Content="Add Right" />
-                    <Button x:Name="CustomButtonDeleteButton"
-                            Grid.Row="1"
-                            Grid.ColumnSpan="2"
-                            Margin="0,8,0,0"
-                            Content="Delete Selected" />
                   </Grid>
 
-                  <TextBlock Grid.Row="7"
-                             Text="Custom X (%)"
-                             VerticalAlignment="Center" />
-                  <TextBox x:Name="CustomButtonXBox"
-                           Grid.Row="7"
-                           Grid.Column="1"
-                           Margin="12,0,0,0" />
+                  <Grid x:Name="CustomButtonGeometryGrid"
+                        Grid.Row="7"
+                        Grid.ColumnSpan="2"
+                        Margin="0,8,0,0"
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto">
+                    <TextBlock Text="Custom X (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonXBox"
+                             Grid.Column="1"
+                             Margin="12,0,0,0" />
 
-                  <TextBlock Grid.Row="8"
-                             Text="Custom Y (%)"
-                             VerticalAlignment="Center" />
-                  <TextBox x:Name="CustomButtonYBox"
-                           Grid.Row="8"
-                           Grid.Column="1"
-                           Margin="12,0,0,0" />
+                    <TextBlock Grid.Row="1"
+                               Margin="0,8,0,0"
+                               Text="Custom Y (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonYBox"
+                             Grid.Row="1"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
 
-                  <TextBlock Grid.Row="9"
-                             Text="Custom Width (%)"
-                             VerticalAlignment="Center" />
-                  <TextBox x:Name="CustomButtonWidthBox"
-                           Grid.Row="9"
-                           Grid.Column="1"
-                           Margin="12,0,0,0" />
+                    <TextBlock Grid.Row="2"
+                               Margin="0,8,0,0"
+                               Text="Custom Width (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonWidthBox"
+                             Grid.Row="2"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
 
-                  <TextBlock Grid.Row="10"
-                             Text="Custom Height (%)"
-                             VerticalAlignment="Center" />
-                  <TextBox x:Name="CustomButtonHeightBox"
-                           Grid.Row="10"
-                           Grid.Column="1"
-                           Margin="12,0,0,0" />
+                    <TextBlock Grid.Row="3"
+                               Margin="0,8,0,0"
+                               Text="Custom Height (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonHeightBox"
+                             Grid.Row="3"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
+                  </Grid>
+
+                  <Button x:Name="CustomButtonDeleteButton"
+                          Grid.Row="8"
+                          Grid.ColumnSpan="2"
+                          Margin="0,10,0,0"
+                          HorizontalAlignment="Stretch"
+                          Content="Delete Selected" />
                 </Grid>
               </Expander>
             </StackPanel>

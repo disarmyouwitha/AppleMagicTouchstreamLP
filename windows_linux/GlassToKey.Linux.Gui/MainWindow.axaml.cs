@@ -20,6 +20,7 @@ namespace GlassToKey.Linux.Gui;
 
 public partial class MainWindow : Window
 {
+    private const int MaxSupportedLayer = 3;
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -46,6 +47,7 @@ public partial class MainWindow : Window
     private readonly Button _customButtonAddLeftButton;
     private readonly Button _customButtonAddRightButton;
     private readonly Button _customButtonDeleteButton;
+    private readonly Grid _customButtonGeometryGrid;
     private readonly TextBox _customButtonXBox;
     private readonly TextBox _customButtonYBox;
     private readonly TextBox _customButtonWidthBox;
@@ -124,6 +126,7 @@ public partial class MainWindow : Window
         _customButtonAddLeftButton = RequireControl<Button>("CustomButtonAddLeftButton");
         _customButtonAddRightButton = RequireControl<Button>("CustomButtonAddRightButton");
         _customButtonDeleteButton = RequireControl<Button>("CustomButtonDeleteButton");
+        _customButtonGeometryGrid = RequireControl<Grid>("CustomButtonGeometryGrid");
         _customButtonXBox = RequireControl<TextBox>("CustomButtonXBox");
         _customButtonYBox = RequireControl<TextBox>("CustomButtonYBox");
         _customButtonWidthBox = RequireControl<TextBox>("CustomButtonWidthBox");
@@ -252,7 +255,7 @@ public partial class MainWindow : Window
         _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
         ReloadKeymapActionChoices(configuration.Keymap);
-        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, 7);
+        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, MaxSupportedLayer);
         List<LayerChoice> layerChoices = BuildLayerChoices();
         _suppressKeymapEditorEvents = true;
         _keymapLayerCombo.ItemsSource = layerChoices;
@@ -391,6 +394,11 @@ public partial class MainWindow : Window
         }
 
         string value = action.Trim();
+        if (IsUnsupportedLayerActionChoice(value))
+        {
+            return;
+        }
+
         if (!_keyActionChoiceLookup.Add(value))
         {
             return;
@@ -536,7 +544,7 @@ public partial class MainWindow : Window
         }
 
         AddKeyActionChoice(options, "TO(0)");
-        for (int layer = 1; layer <= 7; layer++)
+        for (int layer = 1; layer <= MaxSupportedLayer; layer++)
         {
             AddKeyActionChoice(options, $"MO({layer})");
             AddKeyActionChoice(options, $"TO({layer})");
@@ -551,10 +559,43 @@ public partial class MainWindow : Window
         choices.Add(new KeyActionChoice(value, value));
     }
 
+    private static bool IsUnsupportedLayerActionChoice(string value)
+    {
+        if (!TryParseLayerActionChoice(value, out int layer))
+        {
+            return false;
+        }
+
+        return layer < 0 || layer > MaxSupportedLayer;
+    }
+
+    private static bool TryParseLayerActionChoice(string value, out int layer)
+    {
+        layer = -1;
+        if (value.Length < 5 || value[^1] != ')')
+        {
+            return false;
+        }
+
+        string prefix = value.Substring(0, 3);
+        if (!string.Equals(prefix, "MO(", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(prefix, "TO(", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(prefix, "TG(", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return int.TryParse(
+            value.AsSpan(3, value.Length - 4),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out layer);
+    }
+
     private static List<LayerChoice> BuildLayerChoices()
     {
         List<LayerChoice> layers = [];
-        for (int layer = 0; layer <= 7; layer++)
+        for (int layer = 0; layer <= MaxSupportedLayer; layer++)
         {
             layers.Add(new LayerChoice($"Layer {layer}", layer));
         }
@@ -579,7 +620,7 @@ public partial class MainWindow : Window
     {
         if (_keymapLayerCombo.SelectedItem is LayerChoice choice)
         {
-            return Math.Clamp(choice.Layer, 0, 7);
+            return Math.Clamp(choice.Layer, 0, MaxSupportedLayer);
         }
 
         return 0;
@@ -932,6 +973,8 @@ public partial class MainWindow : Window
 
     private void SetCustomButtonGeometryEditorEnabled(bool enabled)
     {
+        _customButtonGeometryGrid.IsVisible = enabled;
+        _customButtonDeleteButton.IsVisible = enabled;
         _customButtonXBox.IsEnabled = enabled;
         _customButtonYBox.IsEnabled = enabled;
         _customButtonWidthBox.IsEnabled = enabled;
@@ -2159,7 +2202,7 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = Math.Clamp(GetSelectedLayer(), 0, 7);
+        int activeLayer = Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
