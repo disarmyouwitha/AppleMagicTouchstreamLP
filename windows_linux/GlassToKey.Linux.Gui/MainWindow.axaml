@@ -72,8 +72,7 @@
       <StackPanel Spacing="18">
         <Border Classes="panel">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Trackpads" />
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+            <Grid ColumnDefinitions="*,*,Auto">
               <StackPanel Spacing="8">
                 <TextBlock Text="Left trackpad" />
                 <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
@@ -82,12 +81,13 @@
                 <TextBlock Text="Right trackpad" />
                 <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
               </StackPanel>
+              <Button x:Name="RefreshDevicesButton"
+                      Grid.Column="2"
+                      Margin="16,28,0,0"
+                      VerticalAlignment="Top"
+                      Classes="action"
+                      Content="Refresh Devices" />
             </Grid>
-
-            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
-              <Button x:Name="RefreshDevicesButton" Classes="action" Content="Refresh Devices" />
-              <Button x:Name="SwapSidesButton" Content="Swap Sides" />
-            </StackPanel>
           </StackPanel>
         </Border>
 
@@ -160,15 +160,20 @@
           </Border>
 
           <Border Grid.Column="1" Classes="panel" Margin="18,0,0,0">
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="12"
+                        HorizontalAlignment="Stretch">
               <TextBlock Classes="section" Text="Settings" />
               <TextBlock Text="Layout preset" />
               <ComboBox x:Name="LayoutPresetCombo" MinWidth="260" />
               <Separator Margin="0,6,0,2" />
-              <Expander Header="5-finger swipe" IsExpanded="True">
+              <Expander Header="5-finger swipe"
+                        IsExpanded="True"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
                 <Grid ColumnDefinitions="Auto,*"
                       RowDefinitions="Auto,Auto,Auto,Auto"
-                      Margin="0,10,0,0">
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Stretch">
                   <TextBlock Text="Left"
                              VerticalAlignment="Center" />
                   <ComboBox x:Name="FiveFingerSwipeLeftCombo"
@@ -205,8 +210,13 @@
                 </Grid>
               </Expander>
               <Separator Margin="0,6,0,2" />
-              <Expander Header="Keymap Editing" IsExpanded="True">
-                <StackPanel Spacing="10" Margin="0,10,0,0">
+              <Expander Header="Keymap Editing"
+                        IsExpanded="True"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <StackPanel Spacing="10"
+                            Margin="0,10,0,0"
+                            HorizontalAlignment="Stretch">
                   <TextBlock Text="Click a key or custom button on the preview to edit."
                              TextWrapping="Wrap"
                              Foreground="#6A4533" />

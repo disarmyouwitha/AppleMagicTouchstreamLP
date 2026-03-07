@@ -165,7 +165,6 @@ public partial class MainWindow : Window
     private void WireEvents()
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
-        RequireControl<Button>("SwapSidesButton").Click += OnSwapSidesClick;
         RequireControl<Button>("ImportSettingsButton").Click += OnImportSettingsClick;
         RequireControl<Button>("ExportSettingsButton").Click += OnExportSettingsClick;
         _leftDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
@@ -278,12 +277,6 @@ public partial class MainWindow : Window
 
     private void OnRefreshDevicesClick(object? sender, RoutedEventArgs e)
     {
-        LoadScreen();
-    }
-
-    private void OnSwapSidesClick(object? sender, RoutedEventArgs e)
-    {
-        _runtime.SwapTrackpadBindings();
         LoadScreen();
     }
 
