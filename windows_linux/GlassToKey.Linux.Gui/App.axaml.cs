@@ -9,18 +9,37 @@ using GlassToKey.Linux.Runtime;
 
 namespace GlassToKey.Linux.Gui;
 
+internal enum LinuxTrayModeIndicator : byte
+{
+    Unknown = 0,
+    Mouse = 1,
+    Mixed = 2,
+    Keyboard = 3,
+    LayerActive = 4
+}
+
 public partial class App : Application
 {
+    private readonly LinuxDesktopRuntimeController _desktopRuntime = LinuxDesktopRuntimeEnvironment.SharedController;
+    private readonly WindowIcon _iconUnknown = TrayModeIconFactory.CreateUnknown();
+    private readonly WindowIcon _iconMouse = TrayModeIconFactory.CreateMouse();
+    private readonly WindowIcon _iconMixed = TrayModeIconFactory.CreateMixed();
+    private readonly WindowIcon _iconKeyboard = TrayModeIconFactory.CreateKeyboard();
+    private readonly WindowIcon _iconLayerActive = TrayModeIconFactory.CreateLayerActive();
     private MainWindow? _mainWindow;
+    private TrayIcon? _trayIcon;
     private NativeMenuItem? _captureAtpCapMenuItem;
     private NativeMenuItem? _replayAtpCapMenuItem;
     private readonly LinuxGuiActivationSignalStore _activationSignalStore = new();
     private DispatcherTimer? _activationTimer;
+    private LinuxTrayModeIndicator _currentModeIndicator = LinuxTrayModeIndicator.Unknown;
+    private bool _hasAppliedTrayModeIndicator;
 
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
         ResolveTrayMenuItems();
+        ApplyTrayModeIndicator(_desktopRuntime.RuntimeSnapshot);
     }
 
     public override void OnFrameworkInitializationCompleted()
@@ -28,8 +47,9 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            _mainWindow = new MainWindow(LinuxDesktopRuntimeEnvironment.SharedController);
+            _mainWindow = new MainWindow(_desktopRuntime);
             _mainWindow.CaptureStateChanged += OnMainWindowCaptureStateChanged;
+            _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
             if (Program.OwnsRuntime)
             {
                 _mainWindow.BeginTrayRuntimeOwnership();
@@ -144,7 +164,7 @@ public partial class App : Application
 
     private void ResolveTrayMenuItems()
     {
-        if (_captureAtpCapMenuItem != null && _replayAtpCapMenuItem != null)
+        if (_trayIcon != null && _captureAtpCapMenuItem != null && _replayAtpCapMenuItem != null)
         {
             return;
         }
@@ -155,11 +175,79 @@ public partial class App : Application
             return;
         }
 
+        _trayIcon = trayIcon;
         _captureAtpCapMenuItem = menu.Items.OfType<NativeMenuItem>().FirstOrDefault(item =>
             string.Equals(item.Header?.ToString(), "Capture .atpcap", StringComparison.Ordinal) ||
             string.Equals(item.Header?.ToString(), "Stop Capture", StringComparison.Ordinal));
         _replayAtpCapMenuItem = menu.Items.OfType<NativeMenuItem>().FirstOrDefault(item =>
             string.Equals(item.Header?.ToString(), "Replay .atpcap", StringComparison.Ordinal));
+    }
+
+    private void OnRuntimeSnapshotChanged(LinuxDesktopRuntimeSnapshot snapshot)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyTrayModeIndicator(snapshot));
+            return;
+        }
+
+        ApplyTrayModeIndicator(snapshot);
+    }
+
+    private void ApplyTrayModeIndicator(LinuxDesktopRuntimeSnapshot snapshot)
+    {
+        ResolveTrayMenuItems();
+        if (_trayIcon == null)
+        {
+            return;
+        }
+
+        LinuxTrayModeIndicator mode = ToModeIndicator(snapshot);
+        if (_hasAppliedTrayModeIndicator && _currentModeIndicator == mode)
+        {
+            return;
+        }
+
+        _hasAppliedTrayModeIndicator = true;
+        _currentModeIndicator = mode;
+        _trayIcon.Icon = mode switch
+        {
+            LinuxTrayModeIndicator.Mouse => _iconMouse,
+            LinuxTrayModeIndicator.Mixed => _iconMixed,
+            LinuxTrayModeIndicator.Keyboard => _iconKeyboard,
+            LinuxTrayModeIndicator.LayerActive => _iconLayerActive,
+            _ => _iconUnknown
+        };
+        _trayIcon.ToolTipText = mode switch
+        {
+            LinuxTrayModeIndicator.Mouse => "GlassToKey Linux (Mouse)",
+            LinuxTrayModeIndicator.Mixed => "GlassToKey Linux (Mixed)",
+            LinuxTrayModeIndicator.Keyboard => "GlassToKey Linux (Keyboard)",
+            LinuxTrayModeIndicator.LayerActive => "GlassToKey Linux (Layer Active)",
+            _ => "GlassToKey Linux (Unknown)"
+        };
+    }
+
+    private static LinuxTrayModeIndicator ToModeIndicator(LinuxDesktopRuntimeSnapshot snapshot)
+    {
+        if (snapshot.Status != LinuxDesktopRuntimeStatus.Running)
+        {
+            return LinuxTrayModeIndicator.Unknown;
+        }
+
+        if (snapshot.ActiveLayer > 0)
+        {
+            return LinuxTrayModeIndicator.LayerActive;
+        }
+
+        if (!snapshot.TypingEnabled)
+        {
+            return LinuxTrayModeIndicator.Mouse;
+        }
+
+        return snapshot.KeyboardModeEnabled
+            ? LinuxTrayModeIndicator.Keyboard
+            : LinuxTrayModeIndicator.Mixed;
     }
 
     private void StartActivationPolling()

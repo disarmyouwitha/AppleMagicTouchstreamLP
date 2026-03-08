@@ -1,14 +1,13 @@
 # TODO:
-- I would like you to implement Tray icons that change depending on the status: Circle indicator Green (mixed mode) Red (Mouse Mode), Like in Windows. 
-
-- Keyboard/Mouse mode doesn't capture clicks from trackpads and eat them and send them to the nether realm~
+[0] Keyboard/Mouse mode doesn't change the circle between Purple / Red it's still Green / Red
+[1] Keyboard/Mouse mode doesn't capture clicks from trackpads and eat them and send them to the nether realm~
 
 # GUI
-- In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
-
 - BRIGHT_UP, BRIGHT_DOWN doesn't work on Linux. I think we need a Linux specific implementation. 
 
 - Adjust FOrce min / force max slider to max out at 255 ON LINUX ONLY (maybe prod more.. are we not getting force phases from Linux like we are for WIndows? Why is `f:255` the max in the visualizer?)
+
+- In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
 
 # Autocorrect
 - Turning off Autocorrect should unload it from memory
