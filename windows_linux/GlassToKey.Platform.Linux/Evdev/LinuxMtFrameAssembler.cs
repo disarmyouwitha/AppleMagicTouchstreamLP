@@ -10,6 +10,7 @@ public sealed class LinuxMtFrameAssembler
     private const int LegacyContactId = 1;
 
     private LinuxMtSlotState[] _slots;
+    private readonly bool _allowLegacyPositionOnlyFallback;
     private readonly long _openTimestampTicks;
     private readonly bool _hasLegacyPressureData;
     private readonly bool _hasMtPressureData;
@@ -17,7 +18,13 @@ public sealed class LinuxMtFrameAssembler
     private bool _buttonPressed;
     private LegacyContactState _legacyContact;
 
-    public LinuxMtFrameAssembler(int slotCount, ushort maxX, ushort maxY, bool hasMtPressureData, bool hasLegacyPressureData)
+    public LinuxMtFrameAssembler(
+        int slotCount,
+        ushort maxX,
+        ushort maxY,
+        bool hasMtPressureData,
+        bool hasLegacyPressureData,
+        bool allowLegacyPositionOnlyFallback)
     {
         if (slotCount <= 0)
         {
@@ -30,6 +37,7 @@ public sealed class LinuxMtFrameAssembler
         _openTimestampTicks = Stopwatch.GetTimestamp();
         _hasMtPressureData = hasMtPressureData;
         _hasLegacyPressureData = hasLegacyPressureData;
+        _allowLegacyPositionOnlyFallback = allowLegacyPositionOnlyFallback;
     }
 
     public ushort MaxX { get; }
@@ -236,14 +244,16 @@ public sealed class LinuxMtFrameAssembler
             _legacyContact.TouchMajorRaw > 0 ||
             _legacyContact.TouchMinorRaw > 0;
         bool hasLegacyFrameActivity = _legacyContact.SeenThisFrame;
-        if (!isTipActive && hasLegacyFrameActivity)
+        if (!isTipActive &&
+            _allowLegacyPositionOnlyFallback &&
+            hasLegacyFrameActivity)
         {
             // Some devices briefly stop setting tip/pressure bits while still streaming legacy
             // position updates for an active finger. Treat that as tip-active to avoid stalls.
             isTipActive = true;
         }
 
-        bool isPresent = isTipActive || _legacyContact.SeenThisFrame;
+        bool isPresent = isTipActive || (_allowLegacyPositionOnlyFallback && _legacyContact.SeenThisFrame);
         if (!isPresent)
         {
             contact = default;

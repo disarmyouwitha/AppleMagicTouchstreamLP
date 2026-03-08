@@ -61,6 +61,11 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateMtLegacyFallbackDoesNotCreateGhostTouch(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         return new LinuxSelfTestResult(true, "Linux self-tests passed.");
     }
 
@@ -597,7 +602,13 @@ internal static class LinuxSelfTestRunner
 
     private static bool ValidateLinuxAssemblerForceData(out string failure)
     {
-        LinuxMtFrameAssembler assembler = new(slotCount: 1, maxX: 1000, maxY: 1000, hasMtPressureData: true, hasLegacyPressureData: true);
+        LinuxMtFrameAssembler assembler = new(
+            slotCount: 1,
+            maxX: 1000,
+            maxY: 1000,
+            hasMtPressureData: true,
+            hasLegacyPressureData: true,
+            allowLegacyPositionOnlyFallback: false);
         assembler.SelectSlot(0);
         assembler.SetTrackingId(7);
         assembler.SetPositionX(320);
@@ -634,6 +645,44 @@ internal static class LinuxSelfTestRunner
         if (!legacyContact.HasForceData || legacyContact.Pressure8 != 144 || legacyContact.ForceNorm <= 0)
         {
             failure = "Linux legacy assembler did not preserve force-capable pressure data.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateMtLegacyFallbackDoesNotCreateGhostTouch(out string failure)
+    {
+        LinuxMtFrameAssembler mtAssembler = new(
+            slotCount: 1,
+            maxX: 1000,
+            maxY: 1000,
+            hasMtPressureData: false,
+            hasLegacyPressureData: false,
+            allowLegacyPositionOnlyFallback: false);
+        mtAssembler.SetLegacyPositionX(180);
+        mtAssembler.SetLegacyPositionY(240);
+        InputFrame mtFrame = mtAssembler.CommitFrame(timestampTicks: 1);
+        if (mtFrame.GetClampedContactCount() != 0)
+        {
+            failure = "MT-backed Linux stream should not synthesize a live contact from position-only legacy updates.";
+            return false;
+        }
+
+        LinuxMtFrameAssembler legacyAssembler = new(
+            slotCount: 1,
+            maxX: 1000,
+            maxY: 1000,
+            hasMtPressureData: false,
+            hasLegacyPressureData: false,
+            allowLegacyPositionOnlyFallback: true);
+        legacyAssembler.SetLegacyPositionX(180);
+        legacyAssembler.SetLegacyPositionY(240);
+        InputFrame legacyFrame = legacyAssembler.CommitFrame(timestampTicks: 2);
+        if (legacyFrame.GetClampedContactCount() != 1 || !legacyFrame.GetContact(0).TipSwitch)
+        {
+            failure = "Legacy-only Linux fallback lost its coordinate-only contact behavior.";
             return false;
         }
 

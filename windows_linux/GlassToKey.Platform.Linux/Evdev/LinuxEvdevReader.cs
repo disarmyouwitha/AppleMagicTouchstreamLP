@@ -155,7 +155,8 @@ public sealed class LinuxEvdevReader
             axisProfile.MaxX,
             axisProfile.MaxY,
             axisProfile.SupportsMtPressure,
-            axisProfile.SupportsLegacyPressure);
+            axisProfile.SupportsLegacyPressure,
+            allowLegacyPositionOnlyFallback: !axisProfile.UsesMtPositionAxes);
         byte[] buffer = new byte[InputEvent.Size];
         PendingReleaseState pendingRelease = new();
 
