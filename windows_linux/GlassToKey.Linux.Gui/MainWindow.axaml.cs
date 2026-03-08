@@ -3372,7 +3372,7 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = ResolveVisualizerLayer();
+        int activeLayer = ResolveVisualizerLayer(snapshot);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
@@ -3381,24 +3381,145 @@ public partial class MainWindow : Window
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
     }
 
-    private int ResolveVisualizerLayer()
+    private int ResolveVisualizerLayer(LinuxInputPreviewSnapshot snapshot)
     {
+        int selectedLayer = Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
+
         if (IsReplayMode)
         {
             LinuxAtpCapReplayVisualFrame? frame = GetCurrentReplayFrame();
             if (frame.HasValue)
             {
-                return Math.Clamp(frame.Value.RuntimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+                return ResolveVisualizerLayer(
+                    frame.Value.PreviewSnapshot,
+                    frame.Value.RuntimeSnapshot,
+                    selectedLayer);
             }
         }
 
-        LinuxDesktopRuntimeSnapshot runtimeSnapshot = _desktopRuntime.RuntimeSnapshot;
-        if (runtimeSnapshot.IsRunning)
+        return ResolveVisualizerLayer(snapshot, _desktopRuntime.RuntimeSnapshot, selectedLayer);
+    }
+
+    private int ResolveVisualizerLayer(
+        LinuxInputPreviewSnapshot snapshot,
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot,
+        int selectedLayer)
+    {
+        if (HasPressedLayerOverride(snapshot, selectedLayer))
         {
             return Math.Clamp(runtimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
         }
 
-        return Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
+        return selectedLayer;
+    }
+
+    private bool HasPressedLayerOverride(LinuxInputPreviewSnapshot snapshot, int layer)
+    {
+        for (int index = 0; index < snapshot.Trackpads.Count; index++)
+        {
+            LinuxInputPreviewTrackpadState state = snapshot.Trackpads[index];
+            KeyLayout layout = state.Side == TrackpadSide.Left ? _leftRenderedLayout : _rightRenderedLayout;
+            if (HasPressedLayerOverride(state, layout, _renderedKeymap, layer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasPressedLayerOverride(
+        LinuxInputPreviewTrackpadState state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        int layer)
+    {
+        if (state.Contacts.Count == 0 || state.MaxX == 0 || state.MaxY == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            double x = contact.X / (double)state.MaxX;
+            double y = contact.Y / (double)state.MaxY;
+            if (TryResolveLayerOverrideFromGridKey(state.Side, layout, keymap, layer, x, y, out _) ||
+                TryResolveLayerOverrideFromCustomButton(state.Side, keymap, layer, x, y, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveLayerOverrideFromGridKey(
+        TrackpadSide side,
+        KeyLayout layout,
+        KeymapStore keymap,
+        int layer,
+        double x,
+        double y,
+        out int targetLayer)
+    {
+        targetLayer = 0;
+        if (layout.HitGeometries.Length == 0)
+        {
+            return false;
+        }
+
+        for (int row = 0; row < layout.HitGeometries.Length; row++)
+        {
+            for (int col = 0; col < layout.HitGeometries[row].Length; col++)
+            {
+                if (!layout.HitGeometries[row][col].Contains(x, y))
+                {
+                    continue;
+                }
+
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyMapping mapping = keymap.ResolveMapping(layer, storageKey, layout.Labels[row][col]);
+                if (TryParseLayerActionChoice(mapping.Primary.Label, out targetLayer))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveLayerOverrideFromCustomButton(
+        TrackpadSide side,
+        KeymapStore keymap,
+        int layer,
+        double x,
+        double y,
+        out int targetLayer)
+    {
+        targetLayer = 0;
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
+        for (int index = 0; index < customButtons.Count; index++)
+        {
+            CustomButton button = customButtons[index];
+            if (!button.Rect.Contains(x, y))
+            {
+                continue;
+            }
+
+            if (TryParseLayerActionChoice(button.Primary.Label, out targetLayer))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(
