@@ -382,6 +382,11 @@ public sealed class UserSettings
             changed = true;
         }
 
+        if (GestureBindingCatalog.NormalizeSettings(this))
+        {
+            changed = true;
+        }
+
         return changed;
     }
 

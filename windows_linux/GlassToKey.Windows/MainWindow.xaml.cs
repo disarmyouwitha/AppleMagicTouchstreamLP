@@ -843,12 +843,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SyncDerivedGestureToggleSettings()
     {
-        _settings.ChordShiftEnabled = IsChordShiftGestureAction(_settings.FourFingerHoldAction);
-    }
-
-    private static bool IsChordShiftGestureAction(string? action)
-    {
-        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
+        _settings.ChordShiftEnabled = GestureBindingCatalog.UsesChordShift(_settings);
     }
 
     private void HookTuningAutoApplyHandlers()

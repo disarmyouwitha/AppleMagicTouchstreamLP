@@ -13,6 +13,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private static readonly TimeSpan SettingsPollInterval = TimeSpan.FromMilliseconds(250);
     private static readonly TimeSpan SessionRestartDelay = TimeSpan.FromMilliseconds(500);
     private static readonly TimeSpan PreviewPublishInterval = TimeSpan.FromMilliseconds(33);
+    private static readonly TimeSpan AutocorrectStatusRefreshInterval = TimeSpan.FromMilliseconds(150);
     private const int RuntimeSnapshotSyncTimeoutMs = 4;
     private static readonly JsonSerializerOptions SignatureSerializerOptions = new()
     {
@@ -30,9 +31,12 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>? _captureCompletion;
     private RuntimeSession? _session;
     private long _lastPreviewPublishTicks;
+    private long _lastAutocorrectStatusRefreshTicks;
     private int _captureFrameCount;
     private bool _disposed;
+    private bool _hasAutocorrectStatusSnapshot;
     private LinuxAtpCapCaptureWriter? _captureWriter;
+    private AutocorrectStatusSnapshot _autocorrectStatusSnapshot;
     private LinuxDesktopRuntimeSnapshot _runtimeSnapshot = LinuxDesktopRuntimeSnapshot.Stopped;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
@@ -83,6 +87,21 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 return _captureWriter != null;
             }
         }
+    }
+
+    public bool TryGetAutocorrectStatus(out AutocorrectStatusSnapshot snapshot)
+    {
+        lock (_gate)
+        {
+            if (_hasAutocorrectStatusSnapshot)
+            {
+                snapshot = _autocorrectStatusSnapshot;
+                return true;
+            }
+        }
+
+        snapshot = default;
+        return false;
     }
 
     public LinuxDesktopAtpCapCaptureResult StartAtpCapCapture(
@@ -289,6 +308,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             : session.Engine.TryGetSnapshot(out snapshot);
         if (snapshotReady)
         {
+            RefreshAutocorrectStatusCacheIfDue(session);
             PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
                 LinuxDesktopRuntimeStatus.Running,
                 snapshot.TypingEnabled,
@@ -378,6 +398,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     else
                     {
                         localSession = StartSession(configuration, cancellationToken);
+                        RefreshAutocorrectStatusCache(localSession, force: true);
                         waitingForBindings = false;
                         PublishPreviewSnapshot(LinuxInputPreviewStatus.Running, "The Linux tray runtime is streaming evdev frames.", failure: null);
                         if (localSession.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot startSnapshot))
@@ -409,6 +430,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                                 _session = null;
                             }
                         }
+                        ClearAutocorrectStatusCache();
 
                         string message = "The tray-owned Linux runtime session stopped unexpectedly; restarting.";
                         string? failure = null;
@@ -500,6 +522,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                         _session = null;
                     }
                 }
+                ClearAutocorrectStatusCache();
             }
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
@@ -534,6 +557,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 _ownerCts = null;
                 _trackpads.Clear();
             }
+            ClearAutocorrectStatusCache();
 
             PublishRuntimeSnapshot(LinuxDesktopRuntimeSnapshot.Stopped with
             {
@@ -728,6 +752,60 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
+    private void RefreshAutocorrectStatusCacheIfDue(RuntimeSession session)
+    {
+        long nowTicks = Environment.TickCount64;
+        bool shouldRefresh;
+        lock (_gate)
+        {
+            shouldRefresh = nowTicks - _lastAutocorrectStatusRefreshTicks >= AutocorrectStatusRefreshInterval.TotalMilliseconds;
+        }
+
+        if (!shouldRefresh)
+        {
+            return;
+        }
+
+        RefreshAutocorrectStatusCache(session, force: false);
+    }
+
+    private void RefreshAutocorrectStatusCache(RuntimeSession session, bool force)
+    {
+        if (!force)
+        {
+            long nowTicks = Environment.TickCount64;
+            lock (_gate)
+            {
+                if (nowTicks - _lastAutocorrectStatusRefreshTicks < AutocorrectStatusRefreshInterval.TotalMilliseconds)
+                {
+                    return;
+                }
+            }
+        }
+
+        if (!session.TryGetAutocorrectStatus(out AutocorrectStatusSnapshot snapshot))
+        {
+            return;
+        }
+
+        lock (_gate)
+        {
+            _autocorrectStatusSnapshot = snapshot;
+            _hasAutocorrectStatusSnapshot = true;
+            _lastAutocorrectStatusRefreshTicks = Environment.TickCount64;
+        }
+    }
+
+    private void ClearAutocorrectStatusCache()
+    {
+        lock (_gate)
+        {
+            _autocorrectStatusSnapshot = default;
+            _hasAutocorrectStatusSnapshot = false;
+            _lastAutocorrectStatusRefreshTicks = 0;
+        }
+    }
+
     private void CompleteCapture(bool success, string? path, string? failure)
     {
         TaskCompletionSource<LinuxDesktopAtpCapCaptureResult>? completion;
@@ -790,6 +868,18 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         public TouchProcessorRuntimeHost Engine { get; }
 
         public Task RunTask { get; }
+
+        public bool TryGetAutocorrectStatus(out AutocorrectStatusSnapshot snapshot)
+        {
+            if (_disposed)
+            {
+                snapshot = default;
+                return false;
+            }
+
+            snapshot = _dispatcher.GetAutocorrectStatus();
+            return true;
+        }
 
         public async Task StopAsync()
         {
