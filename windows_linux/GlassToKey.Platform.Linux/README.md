@@ -11,7 +11,7 @@ Current responsibilities:
 - probe real evdev axis metadata through `EVIOCGABS`
 - capture raw evdev events for device validation
 - support normalized Linux `.atpcap` frame capture for offline replay-oriented diagnostics via the Linux host
-- assemble multitouch frames from evdev Type B slots and observed legacy absolute fallback fields
+- assemble multitouch frames from evdev Type B slot events only
 - expose Linux device capabilities and stable IDs
 - stream normalized `InputFrame` data through a runtime service/sink seam or directly into the shared `TrackpadFrameEnvelope` target
 - supervise trackpad streams by stable ID so runtime rebind after unplug/replug is possible without restarting the process
@@ -23,8 +23,9 @@ Current responsibilities:
 
 Current caveats:
 
-- On the current Ubuntu 24.04 setup, Apple Magic Trackpads expose usable evdev traffic and can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node.
+- On the current Ubuntu 24.04 setup, Apple Magic Trackpads can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node. The Linux backend now ignores the legacy compatibility events and treats the MT slot stream as authoritative.
 - `EVIOCGABS` works on the host devices and reports real axis ranges. It may still be denied inside the sandboxed coding environment, so validation in this environment may require escalation rather than product-side fallback logic.
+- Binding now fails fast if the selected evdev node does not expose `ABS_MT_SLOT` and `ABS_MT_POSITION_X/Y`. Wrong-node recovery should happen through device selection, not Linux-side fallback synthesis.
 - The current Linux CLI exposes `probe-uinput` so packaging/permission work can be validated separately from evdev capture.
 - The current Linux CLI also exposes `uinput-smoke` for a focused-app sanity check of the virtual input path.
 - The current Linux CLI also exposes `run-engine`, and that path has now been validated end-to-end on the host with real Apple Magic Trackpads over both USB and Bluetooth.

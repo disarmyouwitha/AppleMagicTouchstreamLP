@@ -163,7 +163,7 @@ internal static class Program
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
         if (devices.Count == 0)
         {
-            Console.WriteLine("No multitouch trackpad candidates found.");
+            Console.WriteLine("No supported Apple Magic Trackpad multitouch event nodes found.");
             return 0;
         }
 

@@ -1,8 +1,7 @@
 # TODO:
+- Before the trackpad visualizer was tracked to the Layer drop-down in the GUI, but didn't flip when MO(1) was pressed. You changed this to track the live state. Neither one of these is 100% correct. I want the visualizer to track based on the Layer selected in the dropdown UNLESS a layer key is pressed, which can override was is displayed.
 
-[1] When clicking on a letter I am getting dispatch on tap and on release. (double dispatch)
-
-[2] Sometimes touches get stuck in the visualizer / runtime and don't lift when I lift my fingers. This causes a problem when I hit "space" later it will dispatch the ghost key
+- Haptics support in Linux?
 
 - In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
 

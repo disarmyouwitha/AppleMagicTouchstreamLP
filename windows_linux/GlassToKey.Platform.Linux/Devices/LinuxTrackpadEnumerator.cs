@@ -52,7 +52,7 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
                 HasBit(properties, InputPropButtonPad) ||
                 displayName.Contains("trackpad", StringComparison.OrdinalIgnoreCase);
 
-            if (!IsMagicTrackpadCandidate(displayName) || !supportsMultitouch || !pointerLike)
+            if (!IsMagicTrackpadCandidateName(displayName) || !supportsMultitouch || !pointerLike)
             {
                 continue;
             }
@@ -156,7 +156,7 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
         return stableId.Contains("-if01-event-mouse", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool IsMagicTrackpadCandidate(string displayName)
+    internal static bool IsMagicTrackpadCandidateName(string displayName)
     {
         return displayName.Contains("Magic Trackpad", StringComparison.OrdinalIgnoreCase);
     }

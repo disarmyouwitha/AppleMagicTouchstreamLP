@@ -320,7 +320,7 @@ The architecture is not considered complete until:
 
 ## Validated Host Findings
 
-- Apple trackpads can expose Type B multitouch slots and parallel legacy absolute fields on the same evdev node.
+- Apple trackpads can expose Type B multitouch slots and parallel legacy absolute fields on the same evdev node, but the product path now treats the MT slot stream as authoritative and ignores the legacy compatibility fields.
 - Prefer the Apple `if01` `-event-mouse` node when multiple event nodes represent one physical trackpad.
 - Real `EVIOCGABS` probing works on the host and should be used instead of hardcoded Windows ranges.
 - The tested host reported:
@@ -353,7 +353,7 @@ The architecture is not considered complete until:
   - `usb-trackpad`
 - Sandbox caveat:
   - `EVIOCGABS` can fail inside the coding sandbox even when it works on the real host
-  - treat that as an environment validation issue first, not product-side evidence that fallback logic is required
+  - treat that as an environment validation issue first, not product-side evidence that fallback logic is required or should be reintroduced
 
 ## Current Implemented Status
 
@@ -373,7 +373,7 @@ The architecture is not considered complete until:
 - [x] raw evdev event capture exists
 - [x] evdev-to-`InputFrame` assembly exists
 - [x] normalized coordinate path validated on host
-- [x] legacy absolute fallback path is accounted for
+- [x] legacy absolute fallback path removed; MT slot stream is authoritative
 - [x] runtime-side stable-id rebind/reconnect supervision exists
 - [x] `LinuxUinputDispatcher` exists
 - [x] semantic-first Linux mapping resolves semantic codes before Windows-VK fallback

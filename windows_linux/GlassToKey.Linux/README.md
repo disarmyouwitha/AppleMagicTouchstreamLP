@@ -18,6 +18,7 @@ Current CLI/runtime features:
 - `show-config` opens the config GUI in graphical sessions when available, and `show-config --print` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
 - `init-config` writes default Linux host settings using detected stable IDs
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
+- `list-devices` and runtime binding only target authoritative Apple Magic Trackpad multitouch nodes; wrong evdev nodes should be fixed by rebinding, not by Linux-side fallback logic
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback

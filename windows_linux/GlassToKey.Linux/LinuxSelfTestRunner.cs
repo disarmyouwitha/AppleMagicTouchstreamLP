@@ -1,5 +1,6 @@
 using System.Text.Json;
 using GlassToKey.Linux.Runtime;
+using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
@@ -61,6 +62,11 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateMagicTrackpadSelectionHeuristic(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         return new LinuxSelfTestResult(true, "Linux self-tests passed.");
     }
 
@@ -78,18 +84,11 @@ internal static class LinuxSelfTestRunner
 
         try
         {
-            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
-            if (!document.RootElement.TryGetProperty("KeymapJson", out JsonElement keymapJsonElement) ||
-                keymapJsonElement.ValueKind != JsonValueKind.String)
-            {
-                failure = "Bundled Linux keymap is missing KeymapJson.";
-                return false;
-            }
-
-            string? keymapJson = keymapJsonElement.GetString();
+            string bundledJson = File.ReadAllText(path);
+            string keymapJson = ExtractBundledKeymapJsonOrSelf(bundledJson);
             if (string.IsNullOrWhiteSpace(keymapJson))
             {
-                failure = "Bundled Linux keymap KeymapJson is empty.";
+                failure = "Bundled Linux keymap payload is empty.";
                 return false;
             }
 
@@ -117,6 +116,41 @@ internal static class LinuxSelfTestRunner
             failure = $"Bundled Linux keymap parse failed: {ex.Message}";
             return false;
         }
+    }
+
+    private static string ExtractBundledKeymapJsonOrSelf(string bundledJson)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(bundledJson);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                TryGetPropertyIgnoreCase(document.RootElement, "KeymapJson", out JsonElement keymapJsonElement) &&
+                keymapJsonElement.ValueKind == JsonValueKind.String)
+            {
+                return keymapJsonElement.GetString() ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Let the normal keymap import path surface the parse error.
+        }
+
+        return bundledJson;
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static bool ValidateBundledTranslations(KeymapStore.KeymapFileModel keymap, out string failure)
@@ -619,6 +653,26 @@ internal static class LinuxSelfTestRunner
         if (!mtContact.HasForceData || mtContact.Pressure8 != 192 || mtContact.ForceNorm <= 0)
         {
             failure = "Linux multitouch assembler did not preserve force-capable pressure data.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateMagicTrackpadSelectionHeuristic(out string failure)
+    {
+        if (!LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Apple Inc. Magic Trackpad") ||
+            !LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Apple Inc. Magic Trackpad USB-C"))
+        {
+            failure = "Magic Trackpad enumeration heuristic no longer recognizes the validated Apple Bluetooth/USB names.";
+            return false;
+        }
+
+        if (LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Logitech M720 Triathlon") ||
+            LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("JLabs Augur Mouse"))
+        {
+            failure = "Magic Trackpad enumeration heuristic started matching non-trackpad devices.";
             return false;
         }
 

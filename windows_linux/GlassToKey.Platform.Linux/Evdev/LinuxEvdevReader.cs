@@ -9,7 +9,6 @@ namespace GlassToKey.Platform.Linux.Evdev;
 
 public sealed class LinuxEvdevReader
 {
-    private static readonly long PendingReleaseFlushDelayTicks = (long)(Stopwatch.Frequency * 0.012);
     private const int OpenReadOnly = 0x0000;
     private const int OpenNonBlocking = 0x0800;
     private const int ErrnoTryAgain = 11;
@@ -149,7 +148,6 @@ public sealed class LinuxEvdevReader
             axisProfile.MaxY,
             axisProfile.SupportsPressure);
         byte[] buffer = new byte[InputEvent.Size];
-        PendingReleaseState pendingRelease = new();
 
         while (!cancellationToken.IsCancellationRequested)
         {
@@ -168,22 +166,6 @@ public sealed class LinuxEvdevReader
                 int error = Marshal.GetLastWin32Error();
                 if (error == ErrnoTryAgain)
                 {
-                    if (pendingRelease.Pending &&
-                        await TryFlushPendingReleaseAsync(
-                            assembler,
-                            axisProfile,
-                            deviceNode,
-                            onFrame,
-                            pendingRelease).ConfigureAwait(false) is { Flushed: true } releaseResult)
-                    {
-                        if (!releaseResult.ShouldContinue)
-                        {
-                            break;
-                        }
-
-                        continue;
-                    }
-
                     try
                     {
                         await Task.Delay(8, cancellationToken).ConfigureAwait(false);
@@ -201,22 +183,6 @@ public sealed class LinuxEvdevReader
 
             if (bytesRead == 0)
             {
-                if (pendingRelease.Pending &&
-                    await TryFlushPendingReleaseAsync(
-                        assembler,
-                        axisProfile,
-                        deviceNode,
-                        onFrame,
-                        pendingRelease).ConfigureAwait(false) is { Flushed: true } releaseResult)
-                {
-                    if (!releaseResult.ShouldContinue)
-                    {
-                        break;
-                    }
-
-                    continue;
-                }
-
                 try
                 {
                     await Task.Delay(8, cancellationToken).ConfigureAwait(false);
@@ -240,12 +206,6 @@ public sealed class LinuxEvdevReader
                 throw new IOException($"evdev reported SYN_DROPPED on '{deviceNode}'; rebinding stream.");
             }
 
-            if (ShouldArmPendingReleaseFlush(in inputEvent))
-            {
-                pendingRelease.Pending = true;
-                pendingRelease.DeadlineTicks = Stopwatch.GetTimestamp() + PendingReleaseFlushDelayTicks;
-            }
-
             if (!ApplyEvent(assembler, axisProfile, in inputEvent))
             {
                 continue;
@@ -259,8 +219,6 @@ public sealed class LinuxEvdevReader
                 MaxY: axisProfile.MaxY,
                 FrameSequence: assembler.FrameSequence,
                 Frame: assembler.CommitFrame(ToStopwatchTicks(inputEvent)));
-            pendingRelease.Pending = false;
-            pendingRelease.DeadlineTicks = 0;
             bool shouldContinue = await onFrame(snapshot).ConfigureAwait(false);
             if (!shouldContinue)
             {
@@ -312,54 +270,6 @@ public sealed class LinuxEvdevReader
                 assembler.SetOrientation(value);
                 break;
         }
-    }
-
-    private static bool ShouldArmPendingReleaseFlush(in InputEvent inputEvent)
-    {
-        return inputEvent.Type == EventTypeAbsolute &&
-               inputEvent.Code == AbsMtTrackingId &&
-               inputEvent.Value < 0;
-    }
-
-    private static async ValueTask<PendingReleaseFlushResult> TryFlushPendingReleaseAsync(
-        LinuxMtFrameAssembler assembler,
-        LinuxTrackpadAxisProfile axisProfile,
-        string deviceNode,
-        Func<LinuxEvdevFrameSnapshot, ValueTask<bool>> onFrame,
-        PendingReleaseState pendingRelease)
-    {
-        if (!pendingRelease.Pending || Stopwatch.GetTimestamp() < pendingRelease.DeadlineTicks)
-        {
-            return new PendingReleaseFlushResult(false, true);
-        }
-
-        if (assembler.IsButtonPressed)
-        {
-            return new PendingReleaseFlushResult(false, true);
-        }
-
-        LinuxEvdevFrameSnapshot snapshot = new(
-            DeviceNode: deviceNode,
-            MinX: axisProfile.MinX,
-            MinY: axisProfile.MinY,
-            MaxX: axisProfile.MaxX,
-            MaxY: axisProfile.MaxY,
-            FrameSequence: assembler.FrameSequence,
-            Frame: assembler.CommitFrame(Stopwatch.GetTimestamp()));
-        pendingRelease.Pending = false;
-        pendingRelease.DeadlineTicks = 0;
-        return new PendingReleaseFlushResult(
-            Flushed: true,
-            ShouldContinue: await onFrame(snapshot).ConfigureAwait(false));
-    }
-
-    private readonly record struct PendingReleaseFlushResult(bool Flushed, bool ShouldContinue);
-
-    private sealed class PendingReleaseState
-    {
-        public bool Pending { get; set; }
-
-        public long DeadlineTicks { get; set; }
     }
 
     private static LinuxInputAxisInfo GetAxisInfo(SafeFileHandle handle, ushort axisCode)
