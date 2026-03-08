@@ -11,6 +11,7 @@ internal static class Program
 {
     private static Mutex? _singleInstanceMutex;
     public static bool StartHidden { get; private set; }
+    public static bool ShowRequested { get; private set; }
     public static bool OwnsRuntime { get; private set; } = true;
 
     [STAThread]
@@ -22,6 +23,7 @@ internal static class Program
             out bool showRequested,
             out bool noRuntimeRequested);
         StartHidden = backgroundRequested && !showRequested;
+        ShowRequested = showRequested;
         OwnsRuntime = !noRuntimeRequested;
 
         _singleInstanceMutex = new Mutex(initiallyOwned: true, "GlassToKey.Linux.Gui.TrayHost", out bool createdNew);

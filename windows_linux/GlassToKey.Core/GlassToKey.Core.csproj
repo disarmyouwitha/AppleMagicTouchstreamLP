@@ -5,4 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="ThirdParty/SymSpell/frequency_dictionary_en_82_765.txt"
+                      LogicalName="GlassToKey.SymSpell.frequency_dictionary_en_82_765.txt" />
+  </ItemGroup>
 </Project>

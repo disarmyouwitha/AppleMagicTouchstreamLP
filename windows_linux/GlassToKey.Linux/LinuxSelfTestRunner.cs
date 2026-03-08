@@ -40,6 +40,11 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateSharedAutocorrect(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         if (!ValidateAtpCapRoundTrip(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
@@ -193,6 +198,68 @@ internal static class LinuxSelfTestRunner
         return true;
     }
 
+    private static bool ValidateSharedAutocorrect(out string failure)
+    {
+        using AutocorrectSession session = new(new FakeAutocorrectLexicon(("teh", "the"), ("woudl", "would")));
+        session.Configure(new AutocorrectOptions(
+            MaxEditDistance: 2,
+            DryRunEnabled: false,
+            BlacklistCsv: "dontfix",
+            OverridesCsv: "adress->address"));
+        session.SetEnabled(true);
+
+        session.TrackLetter('t');
+        session.TrackLetter('e');
+        session.TrackLetter('h');
+        if (!session.TryCompleteWord(out AutocorrectReplacement replacement) ||
+            replacement.BackspaceCount != 3 ||
+            !string.Equals(replacement.ReplacementText, "the", StringComparison.Ordinal))
+        {
+            failure = "Shared autocorrect did not produce the expected SymSpell replacement.";
+            return false;
+        }
+
+        AutocorrectStatusSnapshot status = session.GetStatus();
+        if (status.CorrectedCount != 1 || !string.Equals(status.SkipReason, "corrected", StringComparison.Ordinal))
+        {
+            failure = "Shared autocorrect correction counters/status did not update after a replacement.";
+            return false;
+        }
+
+        session.TrackLetter('a');
+        session.TrackLetter('d');
+        session.TrackLetter('r');
+        session.TrackLetter('e');
+        session.TrackLetter('s');
+        session.TrackLetter('s');
+        if (!session.TryCompleteWord(out replacement) ||
+            !string.Equals(replacement.ReplacementText, "address", StringComparison.Ordinal))
+        {
+            failure = "Shared autocorrect override mapping did not win over dictionary resolution.";
+            return false;
+        }
+
+        session.TrackLetter('d');
+        session.TrackLetter('o');
+        session.TrackLetter('n');
+        session.TrackLetter('t');
+        if (session.TryCompleteWord(out _))
+        {
+            failure = "Shared autocorrect should not replace blacklisted words.";
+            return false;
+        }
+
+        status = session.GetStatus();
+        if (status.CorrectedCount != 2 || status.SkippedCount == 0)
+        {
+            failure = "Shared autocorrect skip/correct counters were not updated as expected.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
     private static bool ValidateResolvedAction(string label, EngineKeyAction action, out string failure)
     {
         if (action.Kind == EngineActionKind.None)
@@ -253,6 +320,38 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private sealed class FakeAutocorrectLexicon : AutocorrectSession.IAutocorrectLexicon
+    {
+        private readonly Dictionary<string, string> _corrections;
+
+        public FakeAutocorrectLexicon(params (string Typed, string Corrected)[] pairs)
+        {
+            _corrections = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (int index = 0; index < pairs.Length; index++)
+            {
+                (string typed, string corrected) = pairs[index];
+                _corrections[typed] = corrected;
+            }
+        }
+
+        public bool EnsureLoaded()
+        {
+            return true;
+        }
+
+        public string? ResolveCorrection(string typedLower, int maxEditDistance)
+        {
+            _ = maxEditDistance;
+            return _corrections.TryGetValue(typedLower, out string? corrected)
+                ? corrected
+                : null;
+        }
+
+        public void Unload()
+        {
+        }
     }
 
     private static bool ValidateAtpCapRoundTrip(out string failure)

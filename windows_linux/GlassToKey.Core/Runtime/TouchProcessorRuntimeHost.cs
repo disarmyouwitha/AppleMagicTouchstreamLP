@@ -25,6 +25,10 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
         _actor.SetHapticsOnKeyDispatchEnabled(false);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
+        if (settings != null)
+        {
+            ConfigureDispatcherAutocorrect(dispatcher, settings);
+        }
     }
 
     public bool Post(in TrackpadFrameEnvelope frame)
@@ -124,6 +128,44 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         return TryGetSnapshot(out snapshot);
     }
 
+    public void Reconfigure(
+        KeymapStore keymap,
+        TrackpadLayoutPreset preset,
+        UserSettings settings)
+    {
+        ObjectDisposedException.ThrowIf(_disposed, this);
+        ArgumentNullException.ThrowIfNull(keymap);
+        ArgumentNullException.ThrowIfNull(preset);
+        ArgumentNullException.ThrowIfNull(settings);
+
+        UserSettings profile = settings.Clone();
+        profile.NormalizeRanges();
+        profile.LayoutPresetName = preset.Name;
+        keymap.SetActiveLayout(preset.Name);
+
+        ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(profile, preset);
+        RuntimeConfigurationFactory.BuildLayouts(profile, keymap, preset, columns, out KeyLayout leftLayout, out KeyLayout rightLayout);
+
+        int activeLayer = Math.Clamp(profile.ActiveLayer, 0, 7);
+        bool typingEnabled = profile.TypingEnabled;
+        bool keyboardModeEnabled = profile.KeyboardModeEnabled;
+        if (TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            activeLayer = Math.Clamp(snapshot.ActiveLayer, 0, 7);
+            typingEnabled = snapshot.TypingEnabled;
+            keyboardModeEnabled = snapshot.KeyboardModeEnabled;
+        }
+
+        _actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(profile));
+        _actor.SetTypingEnabled(typingEnabled);
+        _actor.SetKeyboardModeEnabled(keyboardModeEnabled);
+        _actor.SetAllowMouseTakeover(profile.AllowMouseTakeover);
+        _actor.ConfigureLayouts(leftLayout, rightLayout);
+        _actor.ConfigureKeymap(keymap);
+        _actor.SetPersistentLayer(activeLayer);
+        ConfigureDispatcherAutocorrect(_dispatcher, profile);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -135,5 +177,16 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.Dispose();
         _dispatchPump.Dispose();
         _dispatchQueue.Dispose();
+    }
+
+    private static void ConfigureDispatcherAutocorrect(IInputDispatcher dispatcher, UserSettings settings)
+    {
+        if (dispatcher is not IAutocorrectController autocorrectController)
+        {
+            return;
+        }
+
+        autocorrectController.ConfigureAutocorrectOptions(AutocorrectOptions.FromSettings(settings));
+        autocorrectController.SetAutocorrectEnabled(settings.AutocorrectEnabled);
     }
 }

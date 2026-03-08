@@ -117,14 +117,29 @@ public sealed class LinuxRuntimeOwner
                     continue;
                 }
 
-                settingsSignature = updatedSignature;
-                configuration = updated;
-
                 if (session == null)
+                {
+                    configuration = updated;
+                    settingsSignature = updatedSignature;
+                    continue;
+                }
+
+                if (LinuxRuntimeConfigurationComparer.HaveEquivalentBindings(configuration.Bindings, updated.Bindings))
+                {
+                    session.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
+                    configuration = updated;
+                    settingsSignature = updatedSignature;
+                    continue;
+                }
+
+                if (session.TryGetSnapshot(out TouchProcessorRuntimeSnapshot pendingSnapshot) &&
+                    HasActiveContacts(pendingSnapshot))
                 {
                     continue;
                 }
 
+                configuration = updated;
+                settingsSignature = updatedSignature;
                 await session.StopAsync().ConfigureAwait(false);
                 session.Dispose();
                 session = null;
@@ -198,6 +213,16 @@ public sealed class LinuxRuntimeOwner
             UpdatedUtc: DateTimeOffset.UtcNow));
     }
 
+    private static bool HasActiveContacts(in TouchProcessorRuntimeSnapshot snapshot)
+    {
+        return snapshot.LeftContacts > 0 ||
+               snapshot.RightContacts > 0 ||
+               snapshot.LastFrameLeftContacts > 0 ||
+               snapshot.LastFrameRightContacts > 0 ||
+               snapshot.LastRawLeftContacts > 0 ||
+               snapshot.LastRawRightContacts > 0;
+    }
+
     private sealed class RuntimeSession : IDisposable
     {
         private readonly CancellationTokenSource _cts;
@@ -216,6 +241,8 @@ public sealed class LinuxRuntimeOwner
             _engine = engine;
             RunTask = runTask;
         }
+
+        public TouchProcessorRuntimeHost Engine => _engine;
 
         public Task RunTask { get; }
 

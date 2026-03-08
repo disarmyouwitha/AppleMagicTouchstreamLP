@@ -465,14 +465,30 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                     continue;
                 }
 
-                settingsSignature = updatedSignature;
-                configuration = updated;
-                ResetTrackpads(configuration.Bindings);
                 if (localSession == null)
+                {
+                    configuration = updated;
+                    settingsSignature = updatedSignature;
+                    ResetTrackpads(configuration.Bindings);
+                    continue;
+                }
+
+                if (LinuxRuntimeConfigurationComparer.HaveEquivalentBindings(configuration.Bindings, updated.Bindings))
+                {
+                    localSession.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
+                    configuration = updated;
+                    settingsSignature = updatedSignature;
+                    continue;
+                }
+
+                if (HasActiveTrackpadContacts())
                 {
                     continue;
                 }
 
+                configuration = updated;
+                settingsSignature = updatedSignature;
+                ResetTrackpads(configuration.Bindings);
                 RuntimeSession completedSession = localSession;
                 await completedSession.StopAsync().ConfigureAwait(false);
                 completedSession.Dispose();
@@ -673,6 +689,22 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         }
 
         return count;
+    }
+
+    private bool HasActiveTrackpadContacts()
+    {
+        lock (_gate)
+        {
+            foreach (LinuxInputPreviewTrackpadState trackpad in _trackpads.Values)
+            {
+                if (trackpad.ContactCount > 0 || CountTipContacts(trackpad.Contacts) > 0)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
     }
 
     private static string BuildSettingsSignature(LinuxHostSettings settings)

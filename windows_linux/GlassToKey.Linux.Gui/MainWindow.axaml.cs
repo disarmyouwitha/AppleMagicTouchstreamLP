@@ -20,6 +20,7 @@ namespace GlassToKey.Linux.Gui;
 
 public partial class MainWindow : Window
 {
+    private const int MaxSupportedLayer = 3;
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -33,19 +34,35 @@ public partial class MainWindow : Window
     private readonly ComboBox _leftDeviceCombo;
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
+    private readonly ComboBox _columnLayoutColumnCombo;
     private readonly ComboBox _fiveFingerSwipeLeftCombo;
     private readonly ComboBox _fiveFingerSwipeRightCombo;
     private readonly ComboBox _fiveFingerSwipeUpCombo;
     private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly Expander _keymapTuningExpander;
     private readonly ComboBox _keymapLayerCombo;
     private readonly ComboBox _keymapPrimaryCombo;
     private readonly ComboBox _keymapHoldCombo;
+    private readonly CheckBox _keyboardModeCheck;
+    private readonly CheckBox _runAtStartupCheck;
+    private readonly CheckBox _startInTrayOnLaunchCheck;
+    private readonly CheckBox _snapRadiusModeCheck;
+    private readonly CheckBox _holdRepeatModeCheck;
+    private readonly CheckBox _autocorrectModeCheck;
     private readonly Button _keymapClearSelectionButton;
+    private readonly Button _columnAutoSplayButton;
+    private readonly Button _columnEvenSpaceButton;
     private readonly TextBlock _keymapSelectionText;
+    private readonly TextBox _columnScaleBox;
+    private readonly TextBox _keyPaddingBox;
+    private readonly TextBox _columnOffsetXBox;
+    private readonly TextBox _columnOffsetYBox;
+    private readonly TextBox _columnRotationBox;
     private readonly TextBox _keyRotationBox;
     private readonly Button _customButtonAddLeftButton;
     private readonly Button _customButtonAddRightButton;
     private readonly Button _customButtonDeleteButton;
+    private readonly Grid _customButtonGeometryGrid;
     private readonly TextBox _customButtonXBox;
     private readonly TextBox _customButtonYBox;
     private readonly TextBox _customButtonWidthBox;
@@ -73,6 +90,7 @@ public partial class MainWindow : Window
     private bool _loadingScreen;
     private bool _settingsApplyPending;
     private bool _hideInProgress;
+    private bool _suppressColumnLayoutEvents;
     private bool _suppressKeymapEditorEvents;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
@@ -89,6 +107,7 @@ public partial class MainWindow : Window
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
     private LinuxAtpCapReplayVisualData? _replayData;
+    private ColumnLayoutSettings[] _columnSettings = Array.Empty<ColumnLayoutSettings>();
     private string _leftStickyTouchedKeys = "Touched keys: (none)";
     private string _rightStickyTouchedKeys = "Touched keys: (none)";
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
@@ -111,19 +130,35 @@ public partial class MainWindow : Window
         _leftDeviceCombo = RequireControl<ComboBox>("LeftDeviceCombo");
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
+        _columnLayoutColumnCombo = RequireControl<ComboBox>("ColumnLayoutColumnCombo");
         _fiveFingerSwipeLeftCombo = RequireControl<ComboBox>("FiveFingerSwipeLeftCombo");
         _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
         _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
         _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _keymapTuningExpander = RequireControl<Expander>("KeymapTuningExpander");
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
         _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
+        _keyboardModeCheck = RequireControl<CheckBox>("KeyboardModeCheck");
+        _runAtStartupCheck = RequireControl<CheckBox>("RunAtStartupCheck");
+        _startInTrayOnLaunchCheck = RequireControl<CheckBox>("StartInTrayOnLaunchCheck");
+        _snapRadiusModeCheck = RequireControl<CheckBox>("SnapRadiusModeCheck");
+        _holdRepeatModeCheck = RequireControl<CheckBox>("HoldRepeatModeCheck");
+        _autocorrectModeCheck = RequireControl<CheckBox>("AutocorrectModeCheck");
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
+        _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
+        _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
         _keymapSelectionText = RequireControl<TextBlock>("KeymapSelectionText");
+        _columnScaleBox = RequireControl<TextBox>("ColumnScaleBox");
+        _keyPaddingBox = RequireControl<TextBox>("KeyPaddingBox");
+        _columnOffsetXBox = RequireControl<TextBox>("ColumnOffsetXBox");
+        _columnOffsetYBox = RequireControl<TextBox>("ColumnOffsetYBox");
+        _columnRotationBox = RequireControl<TextBox>("ColumnRotationBox");
         _keyRotationBox = RequireControl<TextBox>("KeyRotationBox");
         _customButtonAddLeftButton = RequireControl<Button>("CustomButtonAddLeftButton");
         _customButtonAddRightButton = RequireControl<Button>("CustomButtonAddRightButton");
         _customButtonDeleteButton = RequireControl<Button>("CustomButtonDeleteButton");
+        _customButtonGeometryGrid = RequireControl<Grid>("CustomButtonGeometryGrid");
         _customButtonXBox = RequireControl<TextBox>("CustomButtonXBox");
         _customButtonYBox = RequireControl<TextBox>("CustomButtonYBox");
         _customButtonWidthBox = RequireControl<TextBox>("CustomButtonWidthBox");
@@ -165,16 +200,34 @@ public partial class MainWindow : Window
     private void WireEvents()
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
-        RequireControl<Button>("SwapSidesButton").Click += OnSwapSidesClick;
         RequireControl<Button>("ImportSettingsButton").Click += OnImportSettingsClick;
         RequireControl<Button>("ExportSettingsButton").Click += OnExportSettingsClick;
         _leftDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _rightDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _layoutPresetCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _columnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         _fiveFingerSwipeLeftCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        _keyboardModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _runAtStartupCheck.IsCheckedChanged += OnModeToggleChanged;
+        _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
+        _snapRadiusModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _holdRepeatModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _autocorrectModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
+        _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
+        _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
+        _columnOffsetYBox.LostFocus += OnColumnLayoutCommitted;
+        _columnRotationBox.LostFocus += OnColumnLayoutCommitted;
+        _columnScaleBox.KeyDown += OnColumnLayoutKeyDown;
+        _keyPaddingBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnOffsetXBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnOffsetYBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnRotationBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnAutoSplayButton.Click += OnColumnAutoSplayClick;
+        _columnEvenSpaceButton.Click += OnColumnEvenSpaceClick;
         _leftPreviewCanvas.PointerPressed += OnLeftPreviewPointerPressed;
         _rightPreviewCanvas.PointerPressed += OnRightPreviewPointerPressed;
         _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
@@ -241,19 +294,16 @@ public partial class MainWindow : Window
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
+        ApplyModeToggleControls(settings.GetSharedProfile());
 
-        List<GestureActionChoice> gestureChoices = BuildGestureActionChoices();
-        _fiveFingerSwipeLeftCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeRightCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeUpCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeDownCombo.ItemsSource = gestureChoices;
-        _fiveFingerSwipeLeftCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeLeftAction, "Typing Toggle");
-        _fiveFingerSwipeRightCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeRightAction, "Typing Toggle");
-        _fiveFingerSwipeUpCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeUpAction, "None");
-        _fiveFingerSwipeDownCombo.SelectedItem = SelectGestureActionChoice(gestureChoices, settings.SharedProfile.FiveFingerSwipeDownAction, "None");
         RenderKeymapPreview(configuration);
-        ReloadKeymapActionChoices(configuration.Keymap);
-        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, 7);
+        RefreshColumnLayoutEditor();
+        ReloadKeymapActionChoices(configuration.Keymap, EnumerateGestureActions(settings.SharedProfile));
+        SetActionComboSelection(_fiveFingerSwipeLeftCombo, settings.SharedProfile.FiveFingerSwipeLeftAction ?? "Typing Toggle");
+        SetActionComboSelection(_fiveFingerSwipeRightCombo, settings.SharedProfile.FiveFingerSwipeRightAction ?? "Typing Toggle");
+        SetActionComboSelection(_fiveFingerSwipeUpCombo, settings.SharedProfile.FiveFingerSwipeUpAction ?? "None");
+        SetActionComboSelection(_fiveFingerSwipeDownCombo, settings.SharedProfile.FiveFingerSwipeDownAction ?? "None");
+        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, MaxSupportedLayer);
         List<LayerChoice> layerChoices = BuildLayerChoices();
         _suppressKeymapEditorEvents = true;
         _keymapLayerCombo.ItemsSource = layerChoices;
@@ -281,13 +331,17 @@ public partial class MainWindow : Window
         LoadScreen();
     }
 
-    private void OnSwapSidesClick(object? sender, RoutedEventArgs e)
+    private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
     {
-        _runtime.SwapTrackpadBindings();
-        LoadScreen();
+        if (_loadingScreen || _suppressKeymapEditorEvents)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
     }
 
-    private async void OnLiveSettingsSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    private async void OnModeToggleChanged(object? sender, RoutedEventArgs e)
     {
         if (_loadingScreen)
         {
@@ -306,15 +360,43 @@ public partial class MainWindow : Window
 
         _settingsApplyPending = true;
         LinuxHostSettings settings = _runtime.LoadSettings();
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
         settings.LeftTrackpadStableId = (_leftDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
         settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
-        settings.SharedProfile.FiveFingerSwipeLeftAction = (_fiveFingerSwipeLeftCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
-        settings.SharedProfile.FiveFingerSwipeRightAction = (_fiveFingerSwipeRightCombo.SelectedItem as GestureActionChoice)?.Value ?? "Typing Toggle";
-        settings.SharedProfile.FiveFingerSwipeUpAction = (_fiveFingerSwipeUpCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
-        settings.SharedProfile.FiveFingerSwipeDownAction = (_fiveFingerSwipeDownCombo.SelectedItem as GestureActionChoice)?.Value ?? "None";
-        settings.SharedProfile.TypingEnabled = true;
+        settings.SharedProfile.FiveFingerSwipeLeftAction = ReadActionSelection(_fiveFingerSwipeLeftCombo, "Typing Toggle");
+        settings.SharedProfile.FiveFingerSwipeRightAction = ReadActionSelection(_fiveFingerSwipeRightCombo, "Typing Toggle");
+        settings.SharedProfile.FiveFingerSwipeUpAction = ReadActionSelection(_fiveFingerSwipeUpCombo, "None");
+        settings.SharedProfile.FiveFingerSwipeDownAction = ReadActionSelection(_fiveFingerSwipeDownCombo, "None");
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeLeftAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeRightAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeUpAction);
+        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeDownAction);
+        settings.SharedProfile.KeyboardModeEnabled = _keyboardModeCheck.IsChecked == true;
+        settings.SharedProfile.AutocorrectEnabled = _autocorrectModeCheck.IsChecked == true;
+        settings.SharedProfile.AutocorrectDryRunEnabled = false;
+        settings.SharedProfile.AutocorrectMaxEditDistance = 2;
+        settings.SharedProfile.SnapRadiusPercent = _snapRadiusModeCheck.IsChecked == true
+            ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
+            : 0.0;
+        settings.SharedProfile.HoldRepeatEnabled = _holdRepeatModeCheck.IsChecked == true;
+        settings.SharedProfile.StartInTrayOnLaunch = _startInTrayOnLaunchCheck.IsChecked == true;
+
+        bool startupRequested = _runAtStartupCheck.IsChecked == true;
+        bool startupEnabled = LinuxStartupRegistration.IsEnabled();
+        if (startupRequested != startupEnabled &&
+            !LinuxStartupRegistration.TrySetEnabled(startupRequested, out string? startupError))
+        {
+            ShowNoticeDialog(
+                "Startup Registration",
+                $"Failed to update Linux startup registration.\n{startupError}");
+            LoadScreen();
+            _settingsApplyPending = false;
+            return Task.CompletedTask;
+        }
+
+        settings.SharedProfile.RunAtStartup = startupRequested;
         try
         {
             settings.Normalize();
@@ -329,15 +411,423 @@ public partial class MainWindow : Window
         return Task.CompletedTask;
     }
 
+    private void ApplyModeToggleControls(UserSettings profile)
+    {
+        _keyboardModeCheck.IsChecked = profile.KeyboardModeEnabled;
+        _autocorrectModeCheck.IsChecked = profile.AutocorrectEnabled;
+        _snapRadiusModeCheck.IsChecked = profile.SnapRadiusPercent > 0.0;
+        _holdRepeatModeCheck.IsChecked = profile.HoldRepeatEnabled;
+        _startInTrayOnLaunchCheck.IsChecked = profile.StartInTrayOnLaunch;
+        bool startupEnabled = LinuxStartupRegistration.IsEnabled();
+        profile.RunAtStartup = startupEnabled;
+        _runAtStartupCheck.IsChecked = startupEnabled;
+    }
+
+    private TrackpadLayoutPreset GetSelectedPreset()
+    {
+        return (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name is string name
+            ? TrackpadLayoutPreset.ResolveByNameOrDefault(name)
+            : TrackpadLayoutPreset.SixByThree;
+    }
+
+    private void OnColumnLayoutSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingScreen || _suppressColumnLayoutEvents)
+        {
+            return;
+        }
+
+        RefreshColumnLayoutFields();
+    }
+
+    private void OnColumnLayoutCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen || _suppressColumnLayoutEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        SaveColumnLayoutEdits();
+    }
+
+    private void OnColumnLayoutKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _loadingScreen || _suppressColumnLayoutEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        SaveColumnLayoutEdits();
+        e.Handled = true;
+    }
+
+    private void OnColumnAutoSplayClick(object? sender, RoutedEventArgs e)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        if (!preset.AllowsColumnSettings || !ColumnLayoutTuning.IsAutoSplaySupported(preset))
+        {
+            ShowNoticeDialog("Auto Splay", "Auto Splay currently supports 6-column layouts plus 5x3 and 5x4.");
+            return;
+        }
+
+        if (!TryCaptureAutoSplayTouches(out ColumnAutoSplayTouch[] touches, out string captureError))
+        {
+            ShowNoticeDialog("Auto Splay", captureError);
+            return;
+        }
+
+        if (!ColumnLayoutTuning.TryApplyAutoSplay(preset, _rightRenderedLayout, _columnSettings, touches, out string applyError))
+        {
+            ShowNoticeDialog("Auto Splay", applyError);
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings();
+    }
+
+    private void OnColumnEvenSpaceClick(object? sender, RoutedEventArgs e)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        if (!ColumnLayoutTuning.TryApplyEvenColumnSpacing(preset, _rightRenderedLayout, _columnSettings, out string error))
+        {
+            ShowNoticeDialog("Even Space", error);
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings();
+    }
+
+    private void RefreshColumnLayoutEditor()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+        double keyPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset);
+        bool allowsColumnSettings = preset.AllowsColumnSettings && !IsReplayMode;
+
+        _suppressColumnLayoutEvents = true;
+        _keyPaddingBox.IsEnabled = !IsReplayMode;
+        _columnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
+        _columnScaleBox.IsEnabled = allowsColumnSettings;
+        _columnOffsetXBox.IsEnabled = allowsColumnSettings;
+        _columnOffsetYBox.IsEnabled = allowsColumnSettings;
+        _columnRotationBox.IsEnabled = allowsColumnSettings;
+        _columnAutoSplayButton.IsEnabled = allowsColumnSettings && ColumnLayoutTuning.IsAutoSplaySupported(preset);
+        _columnEvenSpaceButton.IsEnabled = allowsColumnSettings && preset.Columns >= 3;
+        _keyPaddingBox.Text = FormatNumber(keyPadding);
+
+        int previous = _columnLayoutColumnCombo.SelectedIndex;
+        List<string> columnChoices = [];
+        for (int col = 0; col < preset.Columns; col++)
+        {
+            columnChoices.Add($"Column {col + 1}");
+        }
+
+        _columnLayoutColumnCombo.ItemsSource = columnChoices;
+        if (preset.Columns > 0)
+        {
+            if (previous < 0 || previous >= preset.Columns)
+            {
+                previous = 0;
+            }
+
+            _columnLayoutColumnCombo.SelectedIndex = previous;
+        }
+        else
+        {
+            _columnLayoutColumnCombo.SelectedIndex = -1;
+        }
+
+        _suppressColumnLayoutEvents = false;
+        RefreshColumnLayoutFields();
+    }
+
+    private void RefreshColumnLayoutFields()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+
+        _suppressColumnLayoutEvents = true;
+        _keyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset));
+
+        if (!preset.AllowsColumnSettings)
+        {
+            _columnScaleBox.Text = FormatNumber(preset.FixedKeyScale * 100.0);
+            ToolTip.SetTip(_columnScaleBox, "Fixed layout scale.");
+            _columnOffsetXBox.Text = "0";
+            _columnOffsetYBox.Text = "0";
+            _columnRotationBox.Text = "0";
+            ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+            _suppressColumnLayoutEvents = false;
+            return;
+        }
+
+        int col = _columnLayoutColumnCombo.SelectedIndex;
+        if (col < 0 || col >= _columnSettings.Length)
+        {
+            _columnScaleBox.Text = "100";
+            ToolTip.SetTip(_columnScaleBox, null);
+            _columnOffsetXBox.Text = "0";
+            _columnOffsetYBox.Text = "0";
+            _columnRotationBox.Text = "0";
+            ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+            _suppressColumnLayoutEvents = false;
+            return;
+        }
+
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
+        ColumnLayoutSettings column = _columnSettings[col];
+        _columnScaleBox.Text = FormatNumber(column.Scale * 100.0);
+        ToolTip.SetTip(
+            _columnScaleBox,
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScale * 100.0)}% (based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).");
+        _columnOffsetXBox.Text = FormatNumber(column.OffsetXPercent);
+        _columnOffsetYBox.Text = FormatNumber(column.OffsetYPercent);
+        _columnRotationBox.Text = FormatNumber(column.RotationDegrees);
+        ToolTip.SetTip(_columnRotationBox, "Rotation range: 0° - 360°.");
+        _suppressColumnLayoutEvents = false;
+    }
+
+    private void SaveColumnLayoutEdits()
+    {
+        TrackpadLayoutPreset preset = GetSelectedPreset();
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        settings.LayoutPresetName = preset.Name;
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
+        settings.SharedProfile.LayoutPresetName = preset.Name;
+
+        if (!ApplyColumnLayoutFromUi(settings.SharedProfile, preset))
+        {
+            RefreshColumnLayoutFields();
+            return;
+        }
+
+        SaveColumnLayoutStateToSettings(settings, preset);
+    }
+
+    private bool ApplyColumnLayoutFromUi(UserSettings profile, TrackpadLayoutPreset preset)
+    {
+        bool changed = false;
+        double previousPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset);
+        double nextPadding = Math.Clamp(ReadDouble(_keyPaddingBox, previousPadding), 0.0, 90.0);
+        if (Math.Abs(nextPadding - previousPadding) > 0.00001)
+        {
+            RuntimeConfigurationFactory.SaveKeyPaddingForPreset(profile, preset, nextPadding);
+            changed = true;
+        }
+
+        _keyPaddingBox.Text = FormatNumber(RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(profile, preset));
+
+        if (!preset.AllowsColumnSettings)
+        {
+            return changed;
+        }
+
+        int selectedColumn = _columnLayoutColumnCombo.SelectedIndex;
+        if (selectedColumn < 0 || selectedColumn >= _columnSettings.Length)
+        {
+            return changed;
+        }
+
+        ColumnLayoutSettings target = _columnSettings[selectedColumn];
+        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
+        double nextScalePercent = ReadDouble(_columnScaleBox, target.Scale * 100.0);
+        double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
+        double nextOffsetX = ReadDouble(_columnOffsetXBox, target.OffsetXPercent);
+        double nextOffsetY = ReadDouble(_columnOffsetYBox, target.OffsetYPercent);
+        double nextRotation = Math.Clamp(ReadDouble(_columnRotationBox, target.RotationDegrees), 0.0, 360.0);
+
+        if (Math.Abs(nextScale - target.Scale) > 0.00001)
+        {
+            target.Scale = nextScale;
+            changed = true;
+        }
+
+        if (Math.Abs(nextOffsetX - target.OffsetXPercent) > 0.00001)
+        {
+            target.OffsetXPercent = nextOffsetX;
+            changed = true;
+        }
+
+        if (Math.Abs(nextOffsetY - target.OffsetYPercent) > 0.00001)
+        {
+            target.OffsetYPercent = nextOffsetY;
+            changed = true;
+        }
+
+        if (Math.Abs(nextRotation - target.RotationDegrees) > 0.00001)
+        {
+            target.RotationDegrees = nextRotation;
+            changed = true;
+        }
+
+        _columnScaleBox.Text = FormatNumber(target.Scale * 100.0);
+        _columnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
+        _columnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
+        _columnRotationBox.Text = FormatNumber(target.RotationDegrees);
+        return changed;
+    }
+
+    private void SaveColumnLayoutStateToSettings()
+    {
+        SaveColumnLayoutStateToSettings(_runtime.LoadSettings(), GetSelectedPreset());
+    }
+
+    private void SaveColumnLayoutStateToSettings(LinuxHostSettings settings, TrackpadLayoutPreset preset)
+    {
+        settings.LayoutPresetName = preset.Name;
+        settings.SharedProfile ??= UserSettings.LoadBundledDefaultsOrDefault();
+        settings.SharedProfile.LayoutPresetName = preset.Name;
+        RuntimeConfigurationFactory.SaveColumnSettingsForPreset(settings.SharedProfile, preset, _columnSettings);
+        settings.Normalize();
+        _runtime.SaveSettings(settings);
+        RenderLayoutsFromCurrentKeymap();
+        EnsureSelectedKeyStillValid();
+        RefreshColumnLayoutEditor();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private bool TryCaptureAutoSplayTouches(out ColumnAutoSplayTouch[] touches, out string error)
+    {
+        touches = Array.Empty<ColumnAutoSplayTouch>();
+        LinuxInputPreviewTrackpadState? left = FindPreviewTrackpadState(TrackpadSide.Left);
+        LinuxInputPreviewTrackpadState? right = FindPreviewTrackpadState(TrackpadSide.Right);
+
+        Span<ColumnAutoSplayTouch> leftTouches = stackalloc ColumnAutoSplayTouch[InputFrame.MaxContacts];
+        Span<ColumnAutoSplayTouch> rightTouches = stackalloc ColumnAutoSplayTouch[InputFrame.MaxContacts];
+        int leftCount = SnapshotAutoSplayTouches(left, leftTouches);
+        int rightCount = SnapshotAutoSplayTouches(right, rightTouches);
+
+        bool leftReady = leftCount >= ColumnLayoutTuning.AutoSplayTouchCount;
+        bool rightReady = rightCount >= ColumnLayoutTuning.AutoSplayTouchCount;
+        if (leftReady && rightReady)
+        {
+            error = "Detected 4+ touches on both sides. Keep touches on only one side and retry.";
+            return false;
+        }
+
+        if (!leftReady && !rightReady)
+        {
+            error = leftCount == 0 && rightCount == 0
+                ? "Place at least 4 fingertips on one side, then click Auto Splay."
+                : $"Auto Splay needs at least 4 touches on one side (left: {leftCount}, right: {rightCount}).";
+            return false;
+        }
+
+        TrackpadSide sourceSide = leftReady ? TrackpadSide.Left : TrackpadSide.Right;
+        Span<ColumnAutoSplayTouch> source = leftReady ? leftTouches : rightTouches;
+        int sourceCount = leftReady ? leftCount : rightCount;
+        int skipIndex = IndexOfLowestAutoSplayTouch(source, sourceCount);
+        touches = new ColumnAutoSplayTouch[ColumnLayoutTuning.AutoSplayTouchCount];
+        for (int i = 0, written = 0; i < sourceCount && written < ColumnLayoutTuning.AutoSplayTouchCount; i++)
+        {
+            if (i == skipIndex)
+            {
+                continue;
+            }
+
+            ColumnAutoSplayTouch touch = source[i];
+            double canonicalX = sourceSide == TrackpadSide.Left ? 1.0 - touch.XNorm : touch.XNorm;
+            touches[written++] = new ColumnAutoSplayTouch(canonicalX, touch.YNorm);
+        }
+
+        Array.Sort(touches, static (a, b) =>
+        {
+            int byX = a.XNorm.CompareTo(b.XNorm);
+            return byX != 0 ? byX : a.YNorm.CompareTo(b.YNorm);
+        });
+
+        error = string.Empty;
+        return true;
+    }
+
+    private static int IndexOfLowestAutoSplayTouch(Span<ColumnAutoSplayTouch> touches, int count)
+    {
+        if (count <= ColumnLayoutTuning.AutoSplayTouchCount)
+        {
+            return -1;
+        }
+
+        int index = 0;
+        for (int i = 1; i < count; i++)
+        {
+            if (touches[i].YNorm > touches[index].YNorm)
+            {
+                index = i;
+            }
+        }
+
+        return index;
+    }
+
+    private int SnapshotAutoSplayTouches(LinuxInputPreviewTrackpadState? state, Span<ColumnAutoSplayTouch> destination)
+    {
+        if (state == null || destination.Length == 0 || state.Contacts.Count == 0)
+        {
+            return 0;
+        }
+
+        ushort maxX = state.MaxX == 0 ? RuntimeConfigurationFactory.DefaultMaxX : state.MaxX;
+        ushort maxY = state.MaxY == 0 ? RuntimeConfigurationFactory.DefaultMaxY : state.MaxY;
+        int written = 0;
+        for (int index = 0; index < state.Contacts.Count && written < destination.Length; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            destination[written++] = new ColumnAutoSplayTouch(
+                Math.Clamp(contact.X / (double)maxX, 0.0, 1.0),
+                Math.Clamp(contact.Y / (double)maxY, 0.0, 1.0));
+        }
+
+        return written;
+    }
+
+    private LinuxInputPreviewTrackpadState? FindPreviewTrackpadState(TrackpadSide side)
+    {
+        for (int index = 0; index < _previewSnapshot.Trackpads.Count; index++)
+        {
+            LinuxInputPreviewTrackpadState trackpad = _previewSnapshot.Trackpads[index];
+            if (trackpad.Side == side)
+            {
+                return trackpad;
+            }
+        }
+
+        return null;
+    }
+
     private void InitializeKeymapEditorControls()
     {
         for (int index = 0; index < _keyActionChoices.Count; index++)
         {
-            _keyActionChoiceLookup.Add(_keyActionChoices[index].Value);
+            if (!_keyActionChoices[index].IsSeparator)
+            {
+                _keyActionChoiceLookup.Add(_keyActionChoices[index].Value);
+            }
         }
 
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
         _keymapSelectionText.Text = "Selection: none";
         _keymapPrimaryCombo.IsEnabled = false;
         _keymapHoldCombo.IsEnabled = false;
@@ -347,10 +837,14 @@ public partial class MainWindow : Window
         ClearCustomButtonGeometryEditorValues();
     }
 
-    private void ReloadKeymapActionChoices(KeymapStore keymap)
+    private void ReloadKeymapActionChoices(KeymapStore keymap, IEnumerable<string>? additionalActions = null)
     {
-        string? previousPrimary = (_keymapPrimaryCombo.SelectedItem as KeyActionChoice)?.Value;
-        string? previousHold = (_keymapHoldCombo.SelectedItem as KeyActionChoice)?.Value;
+        string previousPrimary = ReadSelectedActionValue(_keymapPrimaryCombo, "None");
+        string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
+        string previousSwipeLeft = ReadSelectedActionValue(_fiveFingerSwipeLeftCombo, "Typing Toggle");
+        string previousSwipeRight = ReadSelectedActionValue(_fiveFingerSwipeRightCombo, "Typing Toggle");
+        string previousSwipeUp = ReadSelectedActionValue(_fiveFingerSwipeUpCombo, "None");
+        string previousSwipeDown = ReadSelectedActionValue(_fiveFingerSwipeDownCombo, "None");
 
         _keyActionChoices.Clear();
         _keyActionChoiceLookup.Clear();
@@ -358,7 +852,10 @@ public partial class MainWindow : Window
         for (int index = 0; index < defaults.Count; index++)
         {
             _keyActionChoices.Add(defaults[index]);
-            _keyActionChoiceLookup.Add(defaults[index].Value);
+            if (!defaults[index].IsSeparator)
+            {
+                _keyActionChoiceLookup.Add(defaults[index].Value);
+            }
         }
 
         foreach (KeyValuePair<int, Dictionary<string, KeyMapping>> layer in keymap.Mappings)
@@ -380,13 +877,33 @@ public partial class MainWindow : Window
             }
         }
 
+        if (additionalActions != null)
+        {
+            foreach (string action in additionalActions)
+            {
+                EnsureActionChoice(action);
+            }
+        }
+
         _suppressKeymapEditorEvents = true;
         _keymapPrimaryCombo.ItemsSource = null;
         _keymapHoldCombo.ItemsSource = null;
+        _fiveFingerSwipeLeftCombo.ItemsSource = null;
+        _fiveFingerSwipeRightCombo.ItemsSource = null;
+        _fiveFingerSwipeUpCombo.ItemsSource = null;
+        _fiveFingerSwipeDownCombo.ItemsSource = null;
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
-        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary ?? "None");
-        SetActionComboSelection(_keymapHoldCombo, previousHold ?? "None");
+        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
+        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
+        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
+        SetActionComboSelection(_keymapHoldCombo, previousHold);
+        SetActionComboSelection(_fiveFingerSwipeLeftCombo, previousSwipeLeft);
+        SetActionComboSelection(_fiveFingerSwipeRightCombo, previousSwipeRight);
+        SetActionComboSelection(_fiveFingerSwipeUpCombo, previousSwipeUp);
+        SetActionComboSelection(_fiveFingerSwipeDownCombo, previousSwipeDown);
         _suppressKeymapEditorEvents = false;
     }
 
@@ -398,33 +915,42 @@ public partial class MainWindow : Window
         }
 
         string value = action.Trim();
+        if (IsUnsupportedLayerActionChoice(value))
+        {
+            return;
+        }
+
         if (!_keyActionChoiceLookup.Add(value))
         {
             return;
         }
 
-        _keyActionChoices.Add(new KeyActionChoice(value, value));
+        _keyActionChoices.Add(KeyActionChoice.Action(value));
     }
 
     private static List<KeyActionChoice> BuildKeyActionChoices()
     {
         List<KeyActionChoice> options = [];
+        AddActionSection(options, "Core");
         AddKeyActionChoice(options, "None");
         AddKeyActionChoice(options, "Left Click");
         AddKeyActionChoice(options, "Double Click");
         AddKeyActionChoice(options, "Right Click");
         AddKeyActionChoice(options, "Middle Click");
 
+        AddActionSection(options, "Letters A-Z");
         for (char ch = 'A'; ch <= 'Z'; ch++)
         {
             AddKeyActionChoice(options, ch.ToString());
         }
 
+        AddActionSection(options, "Digits 0-9");
         for (char ch = '0'; ch <= '9'; ch++)
         {
             AddKeyActionChoice(options, ch.ToString());
         }
 
+        AddActionSection(options, "Navigation and Editing");
         string[] navigationAndEditing =
         {
             "Space",
@@ -450,6 +976,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, navigationAndEditing[i]);
         }
 
+        AddActionSection(options, "Modifiers and Modes");
         string[] modifiersAndModes =
         {
             "Shift",
@@ -466,6 +993,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, modifiersAndModes[i]);
         }
 
+        AddActionSection(options, "Symbols");
         string[] symbols =
         {
             "!",
@@ -507,11 +1035,13 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, symbols[i]);
         }
 
+        AddActionSection(options, "Function Keys");
         for (int i = 1; i <= 12; i++)
         {
             AddKeyActionChoice(options, $"F{i}");
         }
 
+        AddActionSection(options, "System and Media");
         string[] systemAndMedia =
         {
             "EMOJI",
@@ -526,6 +1056,7 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, systemAndMedia[i]);
         }
 
+        AddActionSection(options, "Shortcuts");
         string[] shortcuts =
         {
             "Ctrl+C",
@@ -542,8 +1073,9 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, shortcuts[i]);
         }
 
+        AddActionSection(options, "Layer Controls");
         AddKeyActionChoice(options, "TO(0)");
-        for (int layer = 1; layer <= 7; layer++)
+        for (int layer = 1; layer <= MaxSupportedLayer; layer++)
         {
             AddKeyActionChoice(options, $"MO({layer})");
             AddKeyActionChoice(options, $"TO({layer})");
@@ -555,13 +1087,59 @@ public partial class MainWindow : Window
 
     private static void AddKeyActionChoice(List<KeyActionChoice> choices, string value)
     {
-        choices.Add(new KeyActionChoice(value, value));
+        choices.Add(KeyActionChoice.Action(value));
+    }
+
+    private static void AddActionSection(List<KeyActionChoice> choices, string title)
+    {
+        choices.Add(KeyActionChoice.Section(title));
+    }
+
+    private static bool IsUnsupportedLayerActionChoice(string value)
+    {
+        if (!TryParseLayerActionChoice(value, out int layer))
+        {
+            return false;
+        }
+
+        return layer < 0 || layer > MaxSupportedLayer;
+    }
+
+    private static bool TryParseLayerActionChoice(string value, out int layer)
+    {
+        layer = -1;
+        if (value.Length < 5 || value[^1] != ')')
+        {
+            return false;
+        }
+
+        string prefix = value.Substring(0, 3);
+        if (!string.Equals(prefix, "MO(", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(prefix, "TO(", StringComparison.OrdinalIgnoreCase) &&
+            !string.Equals(prefix, "TG(", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return int.TryParse(
+            value.AsSpan(3, value.Length - 4),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out layer);
+    }
+
+    private static IEnumerable<string> EnumerateGestureActions(UserSettings profile)
+    {
+        yield return profile.FiveFingerSwipeLeftAction ?? "Typing Toggle";
+        yield return profile.FiveFingerSwipeRightAction ?? "Typing Toggle";
+        yield return profile.FiveFingerSwipeUpAction ?? "None";
+        yield return profile.FiveFingerSwipeDownAction ?? "None";
     }
 
     private static List<LayerChoice> BuildLayerChoices()
     {
         List<LayerChoice> layers = [];
-        for (int layer = 0; layer <= 7; layer++)
+        for (int layer = 0; layer <= MaxSupportedLayer; layer++)
         {
             layers.Add(new LayerChoice($"Layer {layer}", layer));
         }
@@ -586,7 +1164,7 @@ public partial class MainWindow : Window
     {
         if (_keymapLayerCombo.SelectedItem is LayerChoice choice)
         {
-            return Math.Clamp(choice.Layer, 0, 7);
+            return Math.Clamp(choice.Layer, 0, MaxSupportedLayer);
         }
 
         return 0;
@@ -743,6 +1321,7 @@ public partial class MainWindow : Window
         _selectedKeyColumn = column;
         RefreshKeymapEditor();
         ApplyPreviewSnapshot(_previewSnapshot);
+        RevealKeymapEditorAndFocusPrimaryAction();
     }
 
     private void SelectCustomButtonForEditing(TrackpadSide side, string buttonId)
@@ -755,6 +1334,23 @@ public partial class MainWindow : Window
         _selectedKeyColumn = -1;
         RefreshKeymapEditor();
         ApplyPreviewSnapshot(_previewSnapshot);
+        RevealKeymapEditorAndFocusPrimaryAction();
+    }
+
+    private void RevealKeymapEditorAndFocusPrimaryAction()
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        _keymapTuningExpander.IsExpanded = true;
+        Dispatcher.UIThread.Post(
+            () =>
+            {
+                _keymapPrimaryCombo.Focus();
+            },
+            DispatcherPriority.Input);
     }
 
     private void ClearSelectionForEditing()
@@ -902,6 +1498,11 @@ public partial class MainWindow : Window
         string target = string.IsNullOrWhiteSpace(value) ? "None" : value.Trim();
         foreach (KeyActionChoice choice in choices)
         {
+            if (choice.IsSeparator)
+            {
+                continue;
+            }
+
             if (string.Equals(choice.Value, target, StringComparison.OrdinalIgnoreCase))
             {
                 return choice;
@@ -939,6 +1540,8 @@ public partial class MainWindow : Window
 
     private void SetCustomButtonGeometryEditorEnabled(bool enabled)
     {
+        _customButtonGeometryGrid.IsVisible = enabled;
+        _customButtonDeleteButton.IsVisible = enabled;
         _customButtonXBox.IsEnabled = enabled;
         _customButtonYBox.IsEnabled = enabled;
         _customButtonWidthBox.IsEnabled = enabled;
@@ -1208,6 +1811,7 @@ public partial class MainWindow : Window
         ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
             profile,
             preset);
+        _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columns);
         RuntimeConfigurationFactory.BuildLayouts(
             profile,
             _renderedKeymap,
@@ -1219,11 +1823,29 @@ public partial class MainWindow : Window
         _rightRenderedLayout = rightLayout;
     }
 
-    private static string ReadActionSelection(ComboBox combo, string fallback)
+    private string ReadActionSelection(ComboBox combo, string fallback)
     {
-        if (combo.SelectedItem is KeyActionChoice choice && !string.IsNullOrWhiteSpace(choice.Value))
+        string resolved = ReadSelectedActionValue(combo, fallback);
+        if (combo.SelectedItem is KeyActionChoice choice && choice.IsSeparator)
+        {
+            SetActionComboSelection(combo, fallback);
+        }
+
+        return resolved;
+    }
+
+    private static string ReadSelectedActionValue(ComboBox combo, string fallback)
+    {
+        if (combo.SelectedItem is KeyActionChoice choice &&
+            !choice.IsSeparator &&
+            !string.IsNullOrWhiteSpace(choice.Value))
         {
             return choice.Value;
+        }
+
+        if (combo.SelectedItem is KeyActionChoice separatorChoice && separatorChoice.IsSeparator)
+        {
+            return fallback;
         }
 
         if (!string.IsNullOrWhiteSpace(combo.SelectedItem?.ToString()))
@@ -1576,16 +2198,6 @@ public partial class MainWindow : Window
         return choices;
     }
 
-    private static List<GestureActionChoice> BuildGestureActionChoices()
-    {
-        return
-        [
-            new GestureActionChoice("None", "None"),
-            new GestureActionChoice("Typing Toggle", "Typing Toggle"),
-            new GestureActionChoice("Chordal Shift", "Chordal Shift")
-        ];
-    }
-
     private static DeviceChoice? SelectDeviceChoice(IEnumerable<DeviceChoice> choices, string? stableId)
     {
         foreach (DeviceChoice choice in choices)
@@ -1610,23 +2222,6 @@ public partial class MainWindow : Window
         }
 
         return null;
-    }
-
-    private static GestureActionChoice SelectGestureActionChoice(
-        IEnumerable<GestureActionChoice> choices,
-        string? action,
-        string fallback)
-    {
-        string resolved = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
-        foreach (GestureActionChoice choice in choices)
-        {
-            if (string.Equals(choice.Value, resolved, StringComparison.OrdinalIgnoreCase))
-            {
-                return choice;
-            }
-        }
-
-        return new GestureActionChoice(resolved, resolved);
     }
 
     private bool TryImportSettings(string path, out string message)
@@ -1739,6 +2334,7 @@ public partial class MainWindow : Window
         _replayPanel.IsVisible = true;
         _replayToggleButton.Content = "Play";
         UpdateReplayControls();
+        RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
         ApplyReplayVisualState();
         Activate();
@@ -1780,6 +2376,7 @@ public partial class MainWindow : Window
         _replayCompleted = false;
         _replayPanel.IsVisible = false;
         UpdateReplayControls();
+        RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
         ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
@@ -2166,13 +2763,33 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = Math.Clamp(GetSelectedLayer(), 0, 7);
+        int activeLayer = ResolveVisualizerLayer();
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
         _rightPreviewText.Text = BuildPreviewDetails(right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, ref _rightStickyTouchedKeys);
         RenderPreviewCanvas(_leftPreviewCanvas, left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, "#D05A2A");
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
+    }
+
+    private int ResolveVisualizerLayer()
+    {
+        if (IsReplayMode)
+        {
+            LinuxAtpCapReplayVisualFrame? frame = GetCurrentReplayFrame();
+            if (frame.HasValue)
+            {
+                return Math.Clamp(frame.Value.RuntimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+            }
+        }
+
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot = _desktopRuntime.RuntimeSnapshot;
+        if (runtimeSnapshot.IsRunning)
+        {
+            return Math.Clamp(runtimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+        }
+
+        return Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(
@@ -2255,11 +2872,14 @@ public partial class MainWindow : Window
 
         if (visibleContacts.Length == 0)
         {
+            if (state.BindingStatus == LinuxRuntimeBindingStatus.Streaming)
+            {
+                return;
+            }
+
             canvas.Children.Add(new TextBlock
             {
-                Text = state.BindingStatus == LinuxRuntimeBindingStatus.Streaming
-                    ? "Touch the trackpad to see contacts."
-                    : state.BindingMessage,
+                Text = state.BindingMessage,
                 Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
                 Width = width - 24,
                 TextWrapping = TextWrapping.Wrap
@@ -2348,6 +2968,7 @@ public partial class MainWindow : Window
         ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(
             configuration.SharedProfile,
             configuration.LayoutPreset);
+        _columnSettings = RuntimeConfigurationFactory.CloneColumnSettings(columns);
         RuntimeConfigurationFactory.BuildLayouts(
             configuration.SharedProfile,
             configuration.Keymap,
@@ -2384,7 +3005,8 @@ public partial class MainWindow : Window
             {
                 NormalizedRect rect = layout.Rects[row][col];
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                string label = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label;
+                KeyMapping mapping = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]);
+                string label = BuildKeymapDisplayLabel(mapping, layout.Labels[row][col], separator: "\n");
                 bool selected = _hasSelectedKey &&
                                 !_hasSelectedCustomButton &&
                                 _selectedKeySide == side &&
@@ -2443,7 +3065,7 @@ public partial class MainWindow : Window
                 CornerRadius = new CornerRadius(10),
                 Child = new TextBlock
                 {
-                    Text = button.Primary?.Label ?? "None",
+                    Text = BuildCustomButtonDisplayLabel(button, separator: "\n"),
                     Foreground = new SolidColorBrush(Color.Parse("#6A4533")),
                     FontSize = 11,
                     FontWeight = FontWeight.SemiBold,
@@ -2494,7 +3116,8 @@ public partial class MainWindow : Window
                     }
 
                     string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                    labels.Add(keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]).Primary.Label);
+                    KeyMapping mapping = keymap.ResolveMapping(activeLayer, storageKey, layout.Labels[row][col]);
+                    labels.Add(BuildKeymapDisplayLabel(mapping, layout.Labels[row][col], separator: " / "));
                 }
             }
         }
@@ -2515,12 +3138,34 @@ public partial class MainWindow : Window
                 CustomButton button = customButtons[buttonIndex];
                 if (button.Rect.Contains(x, y))
                 {
-                    labels.Add(button.Primary?.Label ?? "None");
+                    labels.Add(BuildCustomButtonDisplayLabel(button, separator: " / "));
                 }
             }
         }
 
         return labels.Count == 0 ? Array.Empty<string>() : [.. labels];
+    }
+
+    private static string BuildKeymapDisplayLabel(KeyMapping mapping, string defaultLabel, string separator)
+    {
+        string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label) ? defaultLabel : mapping.Primary.Label;
+        return BuildPrimaryHoldDisplayLabel(primary, mapping.Hold?.Label, separator);
+    }
+
+    private static string BuildCustomButtonDisplayLabel(CustomButton button, string separator)
+    {
+        string primary = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
+        return BuildPrimaryHoldDisplayLabel(primary, button.Hold?.Label, separator);
+    }
+
+    private static string BuildPrimaryHoldDisplayLabel(string primary, string? hold, string separator)
+    {
+        if (string.IsNullOrWhiteSpace(hold))
+        {
+            return primary;
+        }
+
+        return $"{primary}{separator}{hold}";
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)
@@ -2539,14 +3184,6 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed record GestureActionChoice(string Label, string Value)
-    {
-        public override string ToString()
-        {
-            return Label;
-        }
-    }
-
     private sealed record LayerChoice(string Label, int Layer)
     {
         public override string ToString()
@@ -2555,8 +3192,19 @@ public partial class MainWindow : Window
         }
     }
 
-    private sealed record KeyActionChoice(string Label, string Value)
+    private sealed record KeyActionChoice(string Label, string Value, bool IsSeparator)
     {
+        public static KeyActionChoice Action(string value)
+        {
+            return new KeyActionChoice(value, value, IsSeparator: false);
+        }
+
+        public static KeyActionChoice Section(string title)
+        {
+            string key = title.Replace(' ', '_');
+            return new KeyActionChoice($"--- {title} ---", $"__section__{key}", IsSeparator: true);
+        }
+
         public override string ToString()
         {
             return Label;

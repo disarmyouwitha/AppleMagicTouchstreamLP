@@ -4,6 +4,7 @@ using Avalonia.Controls;
 using Avalonia.Markup.Xaml;
 using Avalonia.Threading;
 using System.Linq;
+using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
 
 namespace GlassToKey.Linux.Gui;
@@ -35,7 +36,10 @@ public partial class App : Application
             }
             UpdateTrayCaptureState(_mainWindow.IsCapturingAtpCap);
             StartActivationPolling();
-            if (!Program.StartHidden)
+            LinuxHostSettings settings = new LinuxAppRuntime().LoadSettings();
+            bool startHiddenFromSettings = settings.GetSharedProfile().StartInTrayOnLaunch;
+            bool startHidden = Program.StartHidden || (!Program.ShowRequested && startHiddenFromSettings);
+            if (!startHidden)
             {
                 desktop.MainWindow = _mainWindow;
                 ShowMainWindow();

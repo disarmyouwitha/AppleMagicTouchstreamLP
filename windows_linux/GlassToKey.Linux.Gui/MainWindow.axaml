@@ -6,6 +6,10 @@
         MinWidth="1800"
         MinHeight="660"
         Title="GlassToKey Linux Control">
+  <Window.Resources>
+    <x:Double x:Key="TrackpadPreviewInnerWidth">700</x:Double>
+    <x:Double x:Key="TrackpadPreviewInnerHeight">420</x:Double>
+  </Window.Resources>
   <Grid RowDefinitions="Auto,*">
     <Border Background="#23303A" Padding="24,18">
       <Grid ColumnDefinitions="*,Auto">
@@ -68,8 +72,7 @@
       <StackPanel Spacing="18">
         <Border Classes="panel">
           <StackPanel Spacing="12">
-            <TextBlock Classes="section" Text="Trackpads" />
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto">
+            <Grid ColumnDefinitions="*,*,Auto">
               <StackPanel Spacing="8">
                 <TextBlock Text="Left trackpad" />
                 <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
@@ -78,27 +81,34 @@
                 <TextBlock Text="Right trackpad" />
                 <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
               </StackPanel>
+              <Button x:Name="RefreshDevicesButton"
+                      Grid.Column="2"
+                      Margin="16,28,0,0"
+                      VerticalAlignment="Top"
+                      Classes="action"
+                      Content="Refresh Devices" />
             </Grid>
-
-            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,12,0,0">
-              <Button x:Name="RefreshDevicesButton" Classes="action" Content="Refresh Devices" />
-              <Button x:Name="SwapSidesButton" Content="Swap Sides" />
-            </StackPanel>
           </StackPanel>
         </Border>
 
-        <Grid ColumnDefinitions="2.35*,1*">
+        <Grid ColumnDefinitions="2.8*,0.9*">
           <Border Classes="panel">
             <StackPanel Spacing="12">
               <Grid ColumnDefinitions="*,*">
-                <Border Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                <Border Background="#FFF3E6"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10"
+                        MinWidth="{StaticResource TrackpadPreviewInnerWidth}">
                   <StackPanel Spacing="8">
                     <TextBlock Text="Left Trackpad"
                                FontWeight="SemiBold"
                                Foreground="#5A4032" />
                     <Canvas x:Name="LeftPreviewCanvas"
-                            Width="700"
-                            Height="420"
+                            Width="{StaticResource TrackpadPreviewInnerWidth}"
+                            MinWidth="{StaticResource TrackpadPreviewInnerWidth}"
+                            Height="{StaticResource TrackpadPreviewInnerHeight}"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="LeftPreviewText"
                                TextWrapping="Wrap"
@@ -106,14 +116,22 @@
                   </StackPanel>
                 </Border>
 
-                <Border Grid.Column="1" Margin="12,0,0,0" Background="#FFF3E6" BorderBrush="#D9C7B5" BorderThickness="1" CornerRadius="12" Padding="10">
+                <Border Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Background="#FFF3E6"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10"
+                        MinWidth="{StaticResource TrackpadPreviewInnerWidth}">
                   <StackPanel Spacing="8">
                     <TextBlock Text="Right Trackpad"
                                FontWeight="SemiBold"
                                Foreground="#5A4032" />
                     <Canvas x:Name="RightPreviewCanvas"
-                            Width="700"
-                            Height="420"
+                            Width="{StaticResource TrackpadPreviewInnerWidth}"
+                            MinWidth="{StaticResource TrackpadPreviewInnerWidth}"
+                            Height="{StaticResource TrackpadPreviewInnerHeight}"
                             Background="#FFF9F1" />
                     <TextBlock x:Name="RightPreviewText"
                                TextWrapping="Wrap"
@@ -142,132 +160,307 @@
           </Border>
 
           <Border Grid.Column="1" Classes="panel" Margin="18,0,0,0">
-            <StackPanel Spacing="12">
+            <StackPanel Spacing="12"
+                        HorizontalAlignment="Stretch">
               <TextBlock Classes="section" Text="Settings" />
-              <TextBlock Text="Layout preset" />
-              <ComboBox x:Name="LayoutPresetCombo" MinWidth="260" />
-              <Separator Margin="0,6,0,2" />
-              <TextBlock Text="5-finger swipe"
-                         FontWeight="SemiBold" />
-              <Grid ColumnDefinitions="Auto,*"
-                    RowDefinitions="Auto,Auto,Auto,Auto">
-                <TextBlock Text="Left"
+              <Grid ColumnDefinitions="*,*">
+                <TextBlock Text="Layout preset"
                            VerticalAlignment="Center" />
-                <ComboBox x:Name="FiveFingerSwipeLeftCombo"
+                <ComboBox x:Name="LayoutPresetCombo"
                           Grid.Column="1"
-                          Margin="10,0,0,0"
-                          MinWidth="220" />
-                <TextBlock Grid.Row="1"
-                           Margin="0,8,0,0"
-                           Text="Right"
-                           VerticalAlignment="Center" />
-                <ComboBox x:Name="FiveFingerSwipeRightCombo"
-                          Grid.Row="1"
-                          Grid.Column="1"
-                          Margin="10,8,0,0"
-                          MinWidth="220" />
-                <TextBlock Grid.Row="2"
-                           Margin="0,8,0,0"
-                           Text="Up"
-                           VerticalAlignment="Center" />
-                <ComboBox x:Name="FiveFingerSwipeUpCombo"
-                          Grid.Row="2"
-                          Grid.Column="1"
-                          Margin="10,8,0,0"
-                          MinWidth="220" />
-                <TextBlock Grid.Row="3"
-                           Margin="0,8,0,0"
-                           Text="Down"
-                           VerticalAlignment="Center" />
-                <ComboBox x:Name="FiveFingerSwipeDownCombo"
-                          Grid.Row="3"
-                          Grid.Column="1"
-                          Margin="10,8,0,0"
-                          MinWidth="220" />
+                          Margin="12,0,0,0"
+                          HorizontalAlignment="Stretch" />
               </Grid>
               <Separator Margin="0,6,0,2" />
-              <TextBlock Text="Keymap Editing"
-                         FontWeight="SemiBold" />
-              <TextBlock Text="Click a key or custom button on the preview to edit."
-                         TextWrapping="Wrap"
-                         Foreground="#6A4533" />
-              <Grid ColumnDefinitions="Auto,*,Auto"
-                    RowDefinitions="Auto">
-                <TextBlock Text="Layer"
-                           VerticalAlignment="Center" />
-                <ComboBox x:Name="KeymapLayerCombo"
-                          Grid.Column="1"
-                          Margin="10,0,10,0"
-                          MinWidth="110" />
-                <Button x:Name="KeymapClearSelectionButton"
-                        Grid.Column="2"
-                        Content="Clear" />
-              </Grid>
-              <TextBlock x:Name="KeymapSelectionText"
-                         TextWrapping="Wrap"
-                         Foreground="#5A4032"
-                         Text="Selection: none" />
-              <TextBlock Text="Primary Action" />
-              <ComboBox x:Name="KeymapPrimaryCombo" />
-              <TextBlock Text="Hold Action (optional)" />
-              <ComboBox x:Name="KeymapHoldCombo" />
-              <Grid ColumnDefinitions="Auto,*"
-                    RowDefinitions="Auto">
-                <TextBlock Text="Key Rotation (deg)"
-                           VerticalAlignment="Center" />
-                <TextBox x:Name="KeyRotationBox"
-                         Grid.Column="1"
-                         Margin="10,0,0,0" />
-              </Grid>
-              <TextBlock Text="Custom Buttons"
-                         FontWeight="SemiBold"
-                         Margin="0,6,0,0" />
-              <Grid ColumnDefinitions="*,*"
-                    RowDefinitions="Auto,Auto">
-                <Button x:Name="CustomButtonAddLeftButton"
-                        Content="Add Left" />
-                <Button x:Name="CustomButtonAddRightButton"
+              <Expander x:Name="KeymapTuningExpander"
+                        Header="Keymap Tuning"
+                        IsExpanded="False"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <Grid Margin="0,10,0,0"
+                      HorizontalAlignment="Stretch"
+                      ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock x:Name="KeymapSelectionText"
+                             Grid.ColumnSpan="2"
+                             IsVisible="False"
+                             Text="Selection: none" />
+
+                  <TextBlock Grid.Row="1"
+                             Text="Layer"
+                             VerticalAlignment="Center" />
+                  <Grid Grid.Row="1"
                         Grid.Column="1"
-                        Margin="8,0,0,0"
-                        Content="Add Right" />
-                <Button x:Name="CustomButtonDeleteButton"
-                        Grid.Row="1"
+                        Margin="12,0,0,0"
+                        ColumnDefinitions="*,Auto">
+                    <ComboBox x:Name="KeymapLayerCombo"
+                              MinWidth="110" />
+                    <Button x:Name="KeymapClearSelectionButton"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Content="Clear" />
+                  </Grid>
+
+                  <TextBlock Grid.Row="2"
+                             Text="Primary Action"
+                             Margin="0,8,0,0"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="KeymapPrimaryCombo"
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+
+                  <TextBlock Grid.Row="3"
+                             Text="Hold Action (optional)"
+                             Margin="0,8,0,0"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="KeymapHoldCombo"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+
+                  <TextBlock Grid.Row="4"
+                             Text="Key Rotation (deg)"
+                             Margin="0,8,0,0"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyRotationBox"
+                           Grid.Row="4"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <Separator Grid.Row="5"
+                             Grid.ColumnSpan="2"
+                             Margin="0,8,0,2" />
+
+                  <TextBlock Grid.Row="6"
+                             Text="Custom Buttons"
+                             VerticalAlignment="Top" />
+                  <Grid Grid.Row="6"
+                        Grid.Column="1"
+                        Margin="12,0,0,0"
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto">
+                    <Button x:Name="CustomButtonAddLeftButton"
+                            Content="Add Left" />
+                    <Button x:Name="CustomButtonAddRightButton"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Content="Add Right" />
+                  </Grid>
+
+                  <Grid x:Name="CustomButtonGeometryGrid"
+                        Grid.Row="7"
                         Grid.ColumnSpan="2"
                         Margin="0,8,0,0"
-                        Content="Delete Selected" />
-              </Grid>
-              <Grid ColumnDefinitions="Auto,*"
-                    RowDefinitions="Auto,Auto,Auto,Auto">
-                <TextBlock Text="X (%)"
-                           VerticalAlignment="Center" />
-                <TextBox x:Name="CustomButtonXBox"
-                         Grid.Column="1"
-                         Margin="10,0,0,0" />
-                <TextBlock Grid.Row="1"
-                           Margin="0,8,0,0"
-                           Text="Y (%)"
-                           VerticalAlignment="Center" />
-                <TextBox x:Name="CustomButtonYBox"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Margin="10,8,0,0" />
-                <TextBlock Grid.Row="2"
-                           Margin="0,8,0,0"
-                           Text="Width (%)"
-                           VerticalAlignment="Center" />
-                <TextBox x:Name="CustomButtonWidthBox"
-                         Grid.Row="2"
-                         Grid.Column="1"
-                         Margin="10,8,0,0" />
-                <TextBlock Grid.Row="3"
-                           Margin="0,8,0,0"
-                           Text="Height (%)"
-                           VerticalAlignment="Center" />
-                <TextBox x:Name="CustomButtonHeightBox"
-                         Grid.Row="3"
-                         Grid.Column="1"
-                         Margin="10,8,0,0" />
-              </Grid>
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto">
+                    <TextBlock Text="Custom X (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonXBox"
+                             Grid.Column="1"
+                             Margin="12,0,0,0" />
+
+                    <TextBlock Grid.Row="1"
+                               Margin="0,8,0,0"
+                               Text="Custom Y (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonYBox"
+                             Grid.Row="1"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
+
+                    <TextBlock Grid.Row="2"
+                               Margin="0,8,0,0"
+                               Text="Custom Width (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonWidthBox"
+                             Grid.Row="2"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
+
+                    <TextBlock Grid.Row="3"
+                               Margin="0,8,0,0"
+                               Text="Custom Height (%)"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="CustomButtonHeightBox"
+                             Grid.Row="3"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
+                  </Grid>
+
+                  <Button x:Name="CustomButtonDeleteButton"
+                          Grid.Row="8"
+                          Grid.ColumnSpan="2"
+                          Margin="0,10,0,0"
+                          HorizontalAlignment="Stretch"
+                          Content="Delete Selected" />
+                </Grid>
+              </Expander>
+              <Separator Margin="0,6,0,2" />
+              <Expander Header="Column Tuning"
+                        IsExpanded="False"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <Grid Margin="0,10,0,0"
+                      HorizontalAlignment="Stretch"
+                      ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                  <TextBlock Grid.Row="0"
+                             Margin="0,8,0,0"
+                             Text="Edit Column"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="ColumnLayoutColumnCombo"
+                            Grid.Row="0"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+
+                  <TextBlock Grid.Row="1"
+                             Margin="0,8,0,0"
+                             Text="Column Scale (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleBox"
+                           Grid.Row="1"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="2"
+                             Margin="0,8,0,0"
+                             Text="Column Spacing (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyPaddingBox"
+                           Grid.Row="2"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="3"
+                             Margin="0,8,0,0"
+                             Text="Column X (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetXBox"
+                           Grid.Row="3"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="4"
+                             Margin="0,8,0,0"
+                             Text="Column Y (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetYBox"
+                           Grid.Row="4"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="5"
+                             Margin="0,8,0,0"
+                             Text="Rotation (0-360 deg)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnRotationBox"
+                           Grid.Row="5"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <Grid Grid.Row="6"
+                        Grid.ColumnSpan="2"
+                        Margin="0,10,0,0"
+                        ColumnDefinitions="*,*">
+                    <Button x:Name="ColumnAutoSplayButton"
+                            Content="Auto Splay (4+ Fingers)" />
+                    <Button x:Name="ColumnEvenSpaceButton"
+                            Grid.Column="1"
+                            Margin="8,0,0,0"
+                            Content="e v e n s p a c e" />
+                  </Grid>
+                </Grid>
+              </Expander>
+              <Separator Margin="0,6,0,2" />
+              <Expander Header="5-finger gesture"
+                        IsExpanded="True"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <Grid ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto"
+                      Margin="0,10,0,0"
+                      HorizontalAlignment="Stretch">
+                  <TextBlock Text="Left"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeLeftCombo"
+                            Grid.Column="1"
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
+                  <TextBlock Grid.Row="1"
+                             Margin="0,8,0,0"
+                             Text="Right"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeRightCombo"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+                  <TextBlock Grid.Row="2"
+                             Margin="0,8,0,0"
+                             Text="Up"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeUpCombo"
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+                  <TextBlock Grid.Row="3"
+                             Margin="0,8,0,0"
+                             Text="Down"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="FiveFingerSwipeDownCombo"
+                            Grid.Row="3"
+                            Grid.Column="1"
+                            Margin="12,8,0,0"
+                            HorizontalAlignment="Stretch" />
+                </Grid>
+              </Expander>
+              <Separator Margin="0,6,0,2" />
+              <Expander Header="Mode Toggles"
+                        IsExpanded="True"
+                        HorizontalAlignment="Stretch"
+                        HorizontalContentAlignment="Stretch">
+                <Grid Margin="0,10,0,0"
+                      ColumnDefinitions="*,*"
+                      RowDefinitions="Auto,Auto,Auto,Auto">
+                  <CheckBox x:Name="KeyboardModeCheck"
+                            Content="Keyboard/Mouse" />
+                  <CheckBox x:Name="RunAtStartupCheck"
+                            Grid.Row="1"
+                            Margin="0,8,0,0"
+                            Content="Run at Linux startup" />
+                  <CheckBox x:Name="StartInTrayOnLaunchCheck"
+                            Grid.Row="2"
+                            Margin="0,8,0,0"
+                            Content="Start in tray on launch" />
+                  <CheckBox x:Name="SnapRadiusModeCheck"
+                            Grid.Column="1"
+                            Margin="16,0,0,0"
+                            Content="Snap Radius" />
+                  <CheckBox x:Name="HoldRepeatModeCheck"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Margin="16,8,0,0"
+                            Content="Hold Repeat" />
+                  <CheckBox x:Name="AutocorrectModeCheck"
+                            Grid.Row="2"
+                            Grid.Column="1"
+                            Margin="16,8,0,0"
+                            Content="Autocorrect" />
+                  <TextBlock x:Name="AutocorrectModeHintText"
+                             Grid.Row="3"
+                             Grid.ColumnSpan="2"
+                             Margin="0,10,0,0"
+                             FontSize="11"
+                             Foreground="#6C757D"
+                             TextWrapping="Wrap"
+                             Text="Autocorrect is stored in the shared profile for parity with Windows, but the current Linux runtime does not apply it yet." />
+                </Grid>
+              </Expander>
             </StackPanel>
           </Border>
         </Grid>

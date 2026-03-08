@@ -1,67 +1,67 @@
 {
-  "Version": 1,
-  "Settings": {
-    "LeftDevicePath": null,
-    "RightDevicePath": null,
-    "ActiveLayer": 0,
-    "LayoutPresetName": "6x3",
-    "DecoderProfilesByDevicePath": {},
-    "VisualizerEnabled": true,
-    "KeyboardModeEnabled": false,
-    "AutocorrectEnabled": true,
-    "AutocorrectMaxEditDistance": 2,
-    "AutocorrectDryRunEnabled": false,
-    "AutocorrectBlacklistCsv": "",
-    "AutocorrectOverridesCsv": "",
-    "AllowMouseTakeover": true,
-    "ChordShiftEnabled": true,
-    "TypingEnabled": true,
-    "RunAtStartup": false,
-    "StartInTrayOnLaunch": false,
-    "HoldRepeatEnabled": false,
-    "FiveFingerSwipeLeftAction": "Typing Toggle",
-    "FiveFingerSwipeRightAction": "Typing Toggle",
-    "FiveFingerSwipeUpAction": "None",
-    "FiveFingerSwipeDownAction": "None",
-    "ThreeFingerSwipeLeftAction": "None",
-    "ThreeFingerSwipeRightAction": "None",
-    "ThreeFingerSwipeUpAction": "None",
-    "ThreeFingerSwipeDownAction": "None",
-    "FourFingerSwipeLeftAction": "None",
-    "FourFingerSwipeRightAction": "None",
-    "FourFingerSwipeUpAction": "None",
-    "FourFingerSwipeDownAction": "None",
-    "TwoFingerHoldAction": "Left Click",
-    "ThreeFingerHoldAction": "Right Click",
-    "FourFingerHoldAction": "Chordal Shift",
-    "ThreeFingerClickAction": "None",
-    "FourFingerClickAction": "None",
-    "OuterCornersAction": "None",
-    "InnerCornersAction": "None",
-    "TopLeftTriangleAction": "None",
-    "TopRightTriangleAction": "None",
-    "BottomLeftTriangleAction": "None",
-    "BottomRightTriangleAction": "None",
-    "ForceClick1Action": "None",
-    "ForceClick2Action": "None",
-    "ForceClick3Action": "None",
-    "UpperLeftCornerClickAction": "None",
-    "UpperRightCornerClickAction": "None",
-    "LowerLeftCornerClickAction": "None",
-    "LowerRightCornerClickAction": "None",
-    "HapticsEnabled": true,
-    "HapticsStrength": 158790,
-    "HapticsMinIntervalMs": 20,
-    "HoldDurationMs": 220,
-    "DragCancelMm": 3,
-    "TypingGraceMs": 600,
-    "IntentMoveMm": 3,
-    "IntentVelocityMmPerSec": 30,
-    "SnapRadiusPercent": 200,
-    "SnapAmbiguityRatio": 1.15,
-    "KeyBufferMs": 20,
-    "KeyPaddingPercent": 10,
-    "KeyPaddingPercentByLayout": {
+  "version": 1,
+  "settings": {
+    "leftDevicePath": null,
+    "rightDevicePath": null,
+    "activeLayer": 0,
+    "layoutPresetName": "6x3",
+    "decoderProfilesByDevicePath": {},
+    "visualizerEnabled": true,
+    "keyboardModeEnabled": false,
+    "autocorrectEnabled": true,
+    "autocorrectMaxEditDistance": 2,
+    "autocorrectDryRunEnabled": false,
+    "autocorrectBlacklistCsv": "",
+    "autocorrectOverridesCsv": "",
+    "allowMouseTakeover": true,
+    "chordShiftEnabled": true,
+    "typingEnabled": true,
+    "runAtStartup": false,
+    "startInTrayOnLaunch": false,
+    "holdRepeatEnabled": false,
+    "fiveFingerSwipeLeftAction": "Typing Toggle",
+    "fiveFingerSwipeRightAction": "Typing Toggle",
+    "fiveFingerSwipeUpAction": "None",
+    "fiveFingerSwipeDownAction": "None",
+    "threeFingerSwipeLeftAction": "None",
+    "threeFingerSwipeRightAction": "None",
+    "threeFingerSwipeUpAction": "None",
+    "threeFingerSwipeDownAction": "None",
+    "fourFingerSwipeLeftAction": "None",
+    "fourFingerSwipeRightAction": "None",
+    "fourFingerSwipeUpAction": "None",
+    "fourFingerSwipeDownAction": "None",
+    "twoFingerHoldAction": "Left Click",
+    "threeFingerHoldAction": "Right Click",
+    "fourFingerHoldAction": "Chordal Shift",
+    "threeFingerClickAction": "None",
+    "fourFingerClickAction": "None",
+    "outerCornersAction": "None",
+    "innerCornersAction": "None",
+    "topLeftTriangleAction": "None",
+    "topRightTriangleAction": "None",
+    "bottomLeftTriangleAction": "None",
+    "bottomRightTriangleAction": "None",
+    "forceClick1Action": "None",
+    "forceClick2Action": "None",
+    "forceClick3Action": "None",
+    "upperLeftCornerClickAction": "None",
+    "upperRightCornerClickAction": "None",
+    "lowerLeftCornerClickAction": "None",
+    "lowerRightCornerClickAction": "None",
+    "hapticsEnabled": true,
+    "hapticsStrength": 158790,
+    "hapticsMinIntervalMs": 20,
+    "holdDurationMs": 220,
+    "dragCancelMm": 3,
+    "typingGraceMs": 600,
+    "intentMoveMm": 3,
+    "intentVelocityMmPerSec": 30,
+    "snapRadiusPercent": 200,
+    "snapAmbiguityRatio": 1.15,
+    "keyBufferMs": 20,
+    "keyPaddingPercent": 10,
+    "keyPaddingPercentByLayout": {
       "6x3": 10,
       "6x4": 0,
       "5x3": 10,
@@ -70,325 +70,375 @@
       "mobile-ortho-12x4": 10,
       "mobile": 10
     },
-    "ForceMin": 15,
-    "ForceCap": 128,
-    "ColumnSettingsByLayout": {
+    "forceMin": 15,
+    "forceCap": 128,
+    "columnSettingsByLayout": {
       "6x3": [
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -10,
-          "OffsetYPercent": -6,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -10,
+          "offsetYPercent": -6,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -6.8,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -6.8,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -3.5999999999999996,
-          "OffsetYPercent": -10,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -3.5999999999999996,
+          "offsetYPercent": -10,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -0.40000000000000036,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -0.40000000000000036,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": 2.8,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": 2.8,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": 6,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": 6,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ],
       "Blank": [],
       "6x4": [
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -6,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -6,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -10,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -10,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ],
       "5x3": [
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -10,
-          "OffsetYPercent": -6,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -10,
+          "offsetYPercent": -6,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -6.8,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -6.8,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -3.6,
-          "OffsetYPercent": -10,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -3.6,
+          "offsetYPercent": -10,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": -0.4,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": -0.4,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1.15,
-          "OffsetXPercent": 2.8,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1.15,
+          "offsetXPercent": 2.8,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ],
       "5x4": [
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -6,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -6,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -10,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -10,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": -7,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": -7,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 1,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 1,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ],
       "mobile": [
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0,
-          "OffsetYPercent": 0,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0,
+          "offsetYPercent": 0,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ],
       "mobile-ortho-12x4": [
         {
-          "Scale": 0.75,
-          "OffsetXPercent": -3.5,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": -3.5,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": -2.7272727272727257,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": -2.7272727272727257,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": -1.9545454545454541,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": -1.9545454545454541,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": -1.1818181818181763,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": -1.1818181818181763,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": -0.4090909090909012,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": -0.4090909090909012,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 0.3636363636363794,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 0.3636363636363794,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 1.136363636363637,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 1.136363636363637,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 1.9090909090909176,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 1.9090909090909176,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 2.681818181818198,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 2.681818181818198,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 3.4545454545454675,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 3.4545454545454675,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 4.227272727272741,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 4.227272727272741,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         },
         {
-          "Scale": 0.75,
-          "OffsetXPercent": 5,
-          "OffsetYPercent": 19,
-          "RowSpacingPercent": 0
+          "scale": 0.75,
+          "offsetXPercent": 5,
+          "offsetYPercent": 19,
+          "rowSpacingPercent": 0,
+          "rotationDegrees": 0
         }
       ]
     },
-    "ColumnSettings": [
+    "columnSettings": [
       {
-        "Scale": 1.15,
-        "OffsetXPercent": -10,
-        "OffsetYPercent": -6,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": -10,
+        "offsetYPercent": -6,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       },
       {
-        "Scale": 1.15,
-        "OffsetXPercent": -6.8,
-        "OffsetYPercent": -7,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": -6.8,
+        "offsetYPercent": -7,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       },
       {
-        "Scale": 1.15,
-        "OffsetXPercent": -3.5999999999999996,
-        "OffsetYPercent": -10,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": -3.5999999999999996,
+        "offsetYPercent": -10,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       },
       {
-        "Scale": 1.15,
-        "OffsetXPercent": -0.40000000000000036,
-        "OffsetYPercent": -7,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": -0.40000000000000036,
+        "offsetYPercent": -7,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       },
       {
-        "Scale": 1.15,
-        "OffsetXPercent": 2.8,
-        "OffsetYPercent": 0,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": 2.8,
+        "offsetYPercent": 0,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       },
       {
-        "Scale": 1.15,
-        "OffsetXPercent": 6,
-        "OffsetYPercent": 0,
-        "RowSpacingPercent": 0
+        "scale": 1.15,
+        "offsetXPercent": 6,
+        "offsetYPercent": 0,
+        "rowSpacingPercent": 0,
+        "rotationDegrees": 0
       }
     ]
   },
-  "KeymapJson": "{\"Version\":2,\"Layouts\":{\"6x3\":{\"Mappings\":{\"0\":{\"left:0:0\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":null},\"left:0:4\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":null},\"left:0:5\":{\"Primary\":{\"Label\":\"Tab\"},\"Hold\":{\"Label\":\"Escape\"}},\"left:1:0\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":null},\"left:1:4\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":null},\"left:1:5\":{\"Primary\":{\"Label\":\"Shift\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":null},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":{\"Label\":\"Ctrl+.\"}},\"right:0:0\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"K\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"L\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\",\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:2:5\":{\"Primary\":{\"Label\":\"?\"},\"Hold\":{\"Label\":\"?\"}},\"right:0:5\":{\"Primary\":{\"Label\":\"Delete\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"/\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\";\"},\"Hold\":null}},\"1\":{\"left:0:0\":{\"Primary\":{\"Label\":\"VOL_UP\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"VOL_DOWN\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"Up\"},\"Hold\":null},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:5\":{\"Primary\":{\"Label\":\"Escape\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"BRIGHT_UP\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"BRIGHT_DOWN\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"Right\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"Down\"},\"Hold\":null},\"left:1:4\":{\"Primary\":{\"Label\":\"Left\"},\"Hold\":null},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:5\":{\"Primary\":{\"Label\":\"Ctrl+.\"},\"Hold\":null},\"right:0:0\":{\"Primary\":{\"Label\":\"+\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:5\":{\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"EmDash\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"6\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"=\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null}},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[{\"Id\":\"default-right-0\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"default-left-0\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Back\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"default-left-1\",\"Side\":0,\"Rect\":{\"X\":0.5,\"Y\":0.7389033942558747,\"Width\":0.25,\"Height\":0.2610966057441253},\"Primary\":{\"Label\":\"MO(1)\"},\"Hold\":null,\"Layer\":0}],\"1\":[{\"Id\":\"default-layer1-right-space\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"default-layer1-left-space\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"default-layer1-right-zero\",\"Side\":1,\"Rect\":{\"X\":0.3,\"Y\":0.67,\"Width\":0.27,\"Height\":0.2},\"Primary\":{\"Label\":\"0\"},\"Hold\":null,\"Layer\":1}]}},\"Blank\":{\"Mappings\":{\"0\":{},\"1\":{},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[]}},\"6x4\":{\"Mappings\":{\"0\":{\"left:0:4\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"left:0:0\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"left:1:4\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":null},\"left:3:0\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":null},\"left:3:1\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":null},\"left:3:2\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":null},\"left:3:4\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":null},\"left:3:3\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":null},\"left:0:5\":{\"Primary\":{\"Label\":\"Escape\"},\"Hold\":null},\"left:1:5\":{\"Primary\":{\"Label\":\"Tab\"},\"Hold\":null},\"left:3:5\":{\"Primary\":{\"Label\":\"Ctrl+.\"},\"Hold\":null},\"left:2:5\":{\"Primary\":{\"Label\":\"Shift\"},\"Hold\":null},\"right:3:5\":{\"Primary\":{\"Label\":\"?\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":null}},\"1\":{\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"Up\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"Left\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"Down\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"Right\"},\"Hold\":null},\"left:2:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:3:1\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"right:3:2\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"right:3:3\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"6\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"9\"},\"Hold\":null},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:2:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:3:5\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:3:4\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"+\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"-\"},\"Hold\":null},\"right:3:0\":{\"Primary\":{\"Label\":\"=\"},\"Hold\":null}},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[{\"Id\":\"15c47b9380094352abf3a18b39058d1e\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"8646be2cc88a4a30b5caf1233d5fb8bc\",\"Side\":0,\"Rect\":{\"X\":0.49,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"MO(1)\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"effc768025ea4c55af7651f3d5925141\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":0}],\"1\":[{\"Id\":\"98486a9808dc438abfb5cc849fc63fa7\",\"Side\":1,\"Rect\":{\"X\":0.32,\"Y\":0.7,\"Width\":0.25,\"Height\":0.15},\"Primary\":{\"Label\":\"0\"},\"Hold\":null,\"Layer\":1}]}},\"5x3\":{\"Mappings\":{\"0\":{\"left:0:4\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":{\"Label\":\"[\"}},\"left:0:3\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":{\"Label\":\"]\"}},\"left:0:1\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":{\"Label\":\"}\"}},\"left:0:0\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":{\"Label\":\"'\"}},\"left:0:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":{\"Label\":\"{\"}},\"left:1:4\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":{\"Label\":\"Ctrl+A\"}},\"left:1:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":{\"Label\":\")\"}},\"left:1:2\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":{\"Label\":\"(\"}},\"left:1:0\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":{\"Label\":\"\\\"\"}},\"left:2:4\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":{\"Label\":\"Ctrl+Z\"}},\"left:2:3\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":{\"Label\":\"Ctrl+X\"}},\"left:2:2\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":{\"Label\":\"Ctrl+C\"}},\"left:2:1\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":{\"Label\":\"Ctrl+V\"}},\"left:2:0\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":{\"Label\":\"`\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"Enter\"},\"Hold\":{\"Label\":\";\"}},\"right:0:0\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":{\"Label\":\"-\"}},\"right:1:0\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":{\"Label\":\"_\"}},\"right:2:0\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":{\"Label\":\"=\"}},\"right:0:1\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":{\"Label\":\"&\"}},\"right:1:1\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":{\"Label\":\"!\"}},\"right:2:1\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":{\"Label\":\"@\"}},\"right:0:2\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":{\"Label\":\"*\"}},\"right:1:2\":{\"Primary\":{\"Label\":\"K\"},\"Hold\":{\"Label\":\"#\"}},\"right:2:2\":{\"Primary\":{\"Label\":\",\"},\"Hold\":{\"Label\":\"$\"}},\"right:2:3\":{\"Primary\":{\"Label\":\".\"},\"Hold\":{\"Label\":\"^\"}},\"right:0:3\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":{\"Label\":\"Ctrl+F\"}}},\"1\":{\"right:2:0\":{\"Primary\":{\"Label\":\"=\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:4\":{\"Primary\":{\"Label\":\"Left\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"Up\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"Down\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"Right\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"6\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"9\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:0\":{\"Primary\":{\"Label\":\"+\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"-\"},\"Hold\":null}},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[{\"Id\":\"3f805d0da2794659b2ae628ac1b6f856\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"a1a019d34a314f388836b10924e3f2fd\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"ddd9e19e8d8c4c40a1d64bed25ad16f1\",\"Side\":0,\"Rect\":{\"X\":0.49,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"MO(1)\"},\"Hold\":null,\"Layer\":0}],\"1\":[{\"Id\":\"462dedf775e746b18ea07371ab0a8931\",\"Side\":1,\"Rect\":{\"X\":0.29,\"Y\":0.65,\"Width\":0.3,\"Height\":0.2},\"Primary\":{\"Label\":\"0\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"d029048f6ac14d7da55d903c967a231b\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"c75d409318b348859fbfb3fd5522af42\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.6799999999999999,\"Width\":0.25,\"Height\":0.32},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":1}]}},\"5x4\":{\"Mappings\":{\"0\":{\"left:0:4\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"left:0:0\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"right:0:0\":{\"Primary\":{\"Label\":\"6\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"8\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"9\"},\"Hold\":null},\"left:1:4\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":null},\"left:3:4\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":null},\"left:3:3\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":null},\"left:3:1\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":null},\"left:3:2\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":null},\"left:3:0\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":null},\"right:3:0\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":null},\"right:3:1\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":null},\"right:3:2\":{\"Primary\":{\"Label\":\",\"},\"Hold\":null},\"right:3:3\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:3:4\":{\"Primary\":{\"Label\":\"?\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"K\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"L\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"Enter\"},\"Hold\":{\"Label\":\";\"}},\"right:1:4\":{\"Primary\":{\"Label\":\"P\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":null}},\"1\":{\"left:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:2\":{\"Primary\":{\"Label\":\"Down\"},\"Hold\":null},\"left:2:1\":{\"Primary\":{\"Label\":\"Right\"},\"Hold\":null},\"left:3:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:2\":{\"Primary\":{\"Label\":\"Up\"},\"Hold\":null},\"left:0:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:0:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:1:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"+\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"-\"},\"Hold\":null},\"right:3:0\":{\"Primary\":{\"Label\":\"=\"},\"Hold\":null},\"right:3:1\":{\"Primary\":{\"Label\":\"1\"},\"Hold\":null},\"right:3:3\":{\"Primary\":{\"Label\":\"3\"},\"Hold\":null},\"right:3:2\":{\"Primary\":{\"Label\":\"2\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"4\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"5\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"6\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"7\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"8\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"9\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:0:0\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:4\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:3:2\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"left:2:3\":{\"Primary\":{\"Label\":\"Left\"},\"Hold\":null}},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[{\"Id\":\"147cb693106c4063b6f1a1d9a872a2d9\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Ctrl\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"6a5af82367504921a824f65f2274fa4c\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"2f99fb991c81437092d2ff3582c4654e\",\"Side\":0,\"Rect\":{\"X\":0.49,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"MO(1)\"},\"Hold\":null,\"Layer\":0}],\"1\":[{\"Id\":\"f01f72c6bda84228bc0b9057ddc30f46\",\"Side\":1,\"Rect\":{\"X\":0.35,\"Y\":0.68,\"Width\":0.25,\"Height\":0.15},\"Primary\":{\"Label\":\"0\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"5fd49043407f4957aa762b92a8b914a0\",\"Side\":1,\"Rect\":{\"X\":0,\"Y\":0.7,\"Width\":0.25,\"Height\":0.3},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":1},{\"Id\":\"bdd9941265e24fbfb8d50d7654178298\",\"Side\":0,\"Rect\":{\"X\":0.75,\"Y\":0.7,\"Width\":0.25,\"Height\":0.3},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":1}]}},\"mobile\":{\"Mappings\":{\"0\":{\"right:0:0\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":null},\"right:0:6\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":null},\"right:0:5\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":null},\"right:0:7\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":null},\"right:0:8\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":null},\"right:0:9\":{\"Primary\":{\"Label\":\"P\"},\"Hold\":null},\"right:2:7\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":null},\"right:2:6\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":null},\"right:2:5\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"Shift\"},\"Hold\":null},\"right:1:9\":{\"Primary\":{\"Label\":\"Back\"},\"Hold\":null},\"right:2:9\":{\"Primary\":{\"Label\":\"Enter\"},\"Hold\":null}},\"1\":{},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{}},\"mobile-ortho-12x4\":{\"Mappings\":{\"0\":{\"right:0:0\":{\"Primary\":{\"Label\":\"Tab\"},\"Hold\":null},\"right:0:1\":{\"Primary\":{\"Label\":\"Q\"},\"Hold\":null},\"right:0:2\":{\"Primary\":{\"Label\":\"W\"},\"Hold\":null},\"right:0:3\":{\"Primary\":{\"Label\":\"E\"},\"Hold\":null},\"right:0:4\":{\"Primary\":{\"Label\":\"R\"},\"Hold\":null},\"right:0:5\":{\"Primary\":{\"Label\":\"T\"},\"Hold\":null},\"right:0:6\":{\"Primary\":{\"Label\":\"Y\"},\"Hold\":null},\"right:0:7\":{\"Primary\":{\"Label\":\"U\"},\"Hold\":null},\"right:0:8\":{\"Primary\":{\"Label\":\"I\"},\"Hold\":null},\"right:0:9\":{\"Primary\":{\"Label\":\"O\"},\"Hold\":null},\"right:1:0\":{\"Primary\":{\"Label\":\"Escape\"},\"Hold\":null},\"right:1:1\":{\"Primary\":{\"Label\":\"A\"},\"Hold\":null},\"right:1:2\":{\"Primary\":{\"Label\":\"S\"},\"Hold\":null},\"right:1:3\":{\"Primary\":{\"Label\":\"D\"},\"Hold\":null},\"right:1:4\":{\"Primary\":{\"Label\":\"F\"},\"Hold\":null},\"right:1:5\":{\"Primary\":{\"Label\":\"G\"},\"Hold\":null},\"right:1:6\":{\"Primary\":{\"Label\":\"H\"},\"Hold\":null},\"right:1:7\":{\"Primary\":{\"Label\":\"J\"},\"Hold\":null},\"right:1:9\":{\"Primary\":{\"Label\":\"L\"},\"Hold\":null},\"right:1:8\":{\"Primary\":{\"Label\":\"K\"},\"Hold\":null},\"right:1:10\":{\"Primary\":{\"Label\":\":\"},\"Hold\":null},\"right:1:11\":{\"Primary\":{\"Label\":\"Ret\"},\"Hold\":null},\"right:2:0\":{\"Primary\":{\"Label\":\"Shift\"},\"Hold\":null},\"right:2:1\":{\"Primary\":{\"Label\":\"Z\"},\"Hold\":null},\"right:2:2\":{\"Primary\":{\"Label\":\"X\"},\"Hold\":null},\"right:2:4\":{\"Primary\":{\"Label\":\"V\"},\"Hold\":null},\"right:2:3\":{\"Primary\":{\"Label\":\"C\"},\"Hold\":null},\"right:2:5\":{\"Primary\":{\"Label\":\"B\"},\"Hold\":null},\"right:2:6\":{\"Primary\":{\"Label\":\"N\"},\"Hold\":null},\"right:2:8\":{\"Primary\":{\"Label\":\",\"},\"Hold\":null},\"right:2:7\":{\"Primary\":{\"Label\":\"M\"},\"Hold\":null},\"right:2:9\":{\"Primary\":{\"Label\":\".\"},\"Hold\":null},\"right:0:10\":{\"Primary\":{\"Label\":\"P\"},\"Hold\":null},\"right:3:0\":{\"Primary\":{\"Label\":\"Alt\"},\"Hold\":null},\"right:3:2\":{\"Primary\":{\"Label\":\"Ctrl\"},\"Hold\":null},\"right:3:1\":{\"Primary\":{\"Label\":\"Ctrl+.\"},\"Hold\":null},\"right:3:3\":{\"Primary\":{\"Label\":\"None\"},\"Hold\":null},\"right:3:4\":{\"Primary\":{\"Label\":\"Back\"},\"Hold\":null},\"right:3:5\":{\"Primary\":{\"Label\":\"Back\"},\"Hold\":null},\"right:3:6\":{\"Primary\":{\"Label\":\"Space\"},\"Hold\":null},\"right:3:7\":{\"Primary\":{\"Label\":\"Space\"},\"Hold\":null},\"right:3:8\":{\"Primary\":{\"Label\":\"'\"},\"Hold\":null},\"right:3:9\":{\"Primary\":{\"Label\":\"Left\"},\"Hold\":null},\"right:3:10\":{\"Primary\":{\"Label\":\"Down\"},\"Hold\":null},\"right:3:11\":{\"Primary\":{\"Label\":\"Right\"},\"Hold\":null},\"right:2:10\":{\"Primary\":{\"Label\":\"Up\"},\"Hold\":null},\"right:2:11\":{\"Primary\":{\"Label\":\"?\"},\"Hold\":null},\"right:0:11\":{\"Primary\":{\"Label\":\"Back\"},\"Hold\":null}},\"1\":{},\"2\":{},\"3\":{},\"4\":{},\"5\":{},\"6\":{},\"7\":{}},\"CustomButtons\":{\"0\":[{\"Id\":\"786cbf4134f24a1fa6911d4755d3c49b\",\"Side\":1,\"Rect\":{\"X\":0.5,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Space\"},\"Hold\":null,\"Layer\":0},{\"Id\":\"f155e4ec9d254b68bcd83330589f6293\",\"Side\":1,\"Rect\":{\"X\":0.25,\"Y\":0.77,\"Width\":0.25,\"Height\":0.23},\"Primary\":{\"Label\":\"Backspace\"},\"Hold\":null,\"Layer\":0}]}}}}"
+  "keymapJson": "{\u0022Version\u0022:2,\u0022Layouts\u0022:{\u00226x3\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0027\u0022}},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022}\u0022}},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022{\u0022}},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022]\u0022}},\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022[\u0022}},\u0022left:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Tab\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Escape\u0022}},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022G\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0022\u0022}},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022F\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022)\u0022}},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022D\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022(\u0022}},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BS\u0022},\u0022Hold\u0022:null},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022A\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BA\u0022}},\u0022left:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Shift\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022,\u0022}},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BV\u0022}},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BC\u0022}},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BX\u0022}},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BZ\u0022}},\u0022left:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Y\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022U\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022I\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022H\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022J\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022K\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022L\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022M\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022,\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022?\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022?\u0022}},\u0022right:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Delete\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022/\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022;\u0022},\u0022Hold\u0022:null}},\u00221\u0022:{\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022VOL_UP\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022VOL_DOWN\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Up\u0022},\u0022Hold\u0022:null},\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Escape\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022BRIGHT_UP\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022BRIGHT_DOWN\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Right\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Down\u0022},\u0022Hold\u0022:null},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Left\u0022},\u0022Hold\u0022:null},\u0022left:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002B.\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022\\u002B\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00228\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022EmDash\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00226\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022=\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null}},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[{\u0022Id\u0022:\u0022default-right-0\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022default-left-0\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Back\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022default-left-1\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.5,\u0022Y\u0022:0.7389033942558747,\u0022Width\u0022:0.25,\u0022Height\u0022:0.2610966057441253,\u0022CenterX\u0022:0.625,\u0022CenterY\u0022:0.8694516971279374,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.06527415143603132,\u0022MinX\u0022:0.5,\u0022MaxX\u0022:0.75,\u0022MinY\u0022:0.7389033942558747,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022MO(1)\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0}],\u00221\u0022:[{\u0022Id\u0022:\u0022default-layer1-right-space\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u0022default-layer1-left-space\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u0022default-layer1-right-zero\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.3,\u0022Y\u0022:0.67,\u0022Width\u0022:0.27,\u0022Height\u0022:0.2,\u0022CenterX\u0022:0.435,\u0022CenterY\u0022:0.77,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.054000000000000006,\u0022MinX\u0022:0.3,\u0022MaxX\u0022:0.5700000000000001,\u0022MinY\u0022:0.67,\u0022MaxY\u0022:0.8700000000000001},\u0022Primary\u0022:{\u0022Label\u0022:\u00220\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1}]},\u0022KeyGeometry\u0022:{}},\u0022Blank\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{},\u00221\u0022:{},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[]},\u0022KeyGeometry\u0022:{}},\u00226x4\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022A\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022S\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022D\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022F\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022G\u0022},\u0022Hold\u0022:null},\u0022left:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:null},\u0022left:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:null},\u0022left:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:null},\u0022left:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:null},\u0022left:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:null},\u0022left:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Escape\u0022},\u0022Hold\u0022:null},\u0022left:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Tab\u0022},\u0022Hold\u0022:null},\u0022left:3:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002B.\u0022},\u0022Hold\u0022:null},\u0022left:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Shift\u0022},\u0022Hold\u0022:null},\u0022right:3:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022?\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:null}},\u00221\u0022:{\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Up\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Left\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Down\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Right\u0022},\u0022Hold\u0022:null},\u0022left:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022right:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022right:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00226\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00228\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00229\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:3:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022\\u002B\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022-\u0022},\u0022Hold\u0022:null},\u0022right:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022=\u0022},\u0022Hold\u0022:null}},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[{\u0022Id\u0022:\u002215c47b9380094352abf3a18b39058d1e\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u00228646be2cc88a4a30b5caf1233d5fb8bc\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.49,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.615,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.49,\u0022MaxX\u0022:0.74,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022MO(1)\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022effc768025ea4c55af7651f3d5925141\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0}],\u00221\u0022:[{\u0022Id\u0022:\u002298486a9808dc438abfb5cc849fc63fa7\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.32,\u0022Y\u0022:0.7,\u0022Width\u0022:0.25,\u0022Height\u0022:0.15,\u0022CenterX\u0022:0.445,\u0022CenterY\u0022:0.7749999999999999,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0375,\u0022MinX\u0022:0.32,\u0022MaxX\u0022:0.5700000000000001,\u0022MinY\u0022:0.7,\u0022MaxY\u0022:0.85},\u0022Primary\u0022:{\u0022Label\u0022:\u00220\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1}]},\u0022KeyGeometry\u0022:{}},\u00225x3\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022[\u0022}},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022]\u0022}},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022}\u0022}},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0027\u0022}},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022{\u0022}},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022A\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BA\u0022}},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022S\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022F\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022)\u0022}},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022D\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022(\u0022}},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022G\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0022\u0022}},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BZ\u0022}},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BX\u0022}},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BC\u0022}},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BV\u0022}},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0060\u0022}},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Enter\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022;\u0022}},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Y\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022-\u0022}},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022H\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022_\u0022}},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022=\u0022}},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022U\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022\\u0026\u0022}},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022J\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022!\u0022}},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022M\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022@\u0022}},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022I\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022*\u0022}},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022K\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022#\u0022}},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022,\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022$\u0022}},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022^\u0022}},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002BF\u0022}}},\u00221\u0022:{\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022=\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Left\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Up\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Down\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Right\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00226\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00228\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00229\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022\\u002B\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022-\u0022},\u0022Hold\u0022:null}},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[{\u0022Id\u0022:\u00223f805d0da2794659b2ae628ac1b6f856\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022a1a019d34a314f388836b10924e3f2fd\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022ddd9e19e8d8c4c40a1d64bed25ad16f1\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.49,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.615,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0.49,\u0022MaxX\u0022:0.74,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022MO(1)\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0}],\u00221\u0022:[{\u0022Id\u0022:\u0022462dedf775e746b18ea07371ab0a8931\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.29,\u0022Y\u0022:0.65,\u0022Width\u0022:0.3,\u0022Height\u0022:0.2,\u0022CenterX\u0022:0.43999999999999995,\u0022CenterY\u0022:0.75,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.06,\u0022MinX\u0022:0.29,\u0022MaxX\u0022:0.59,\u0022MinY\u0022:0.65,\u0022MaxY\u0022:0.8500000000000001},\u0022Primary\u0022:{\u0022Label\u0022:\u00220\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u0022d029048f6ac14d7da55d903c967a231b\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u0022c75d409318b348859fbfb3fd5522af42\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.6799999999999999,\u0022Width\u0022:0.25,\u0022Height\u0022:0.32,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.84,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.08,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.6799999999999999,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1}]},\u0022KeyGeometry\u0022:{}},\u00225x4\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00226\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00228\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00229\u0022},\u0022Hold\u0022:null},\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022A\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022S\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022D\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022F\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022G\u0022},\u0022Hold\u0022:null},\u0022left:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:null},\u0022left:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:null},\u0022left:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:null},\u0022left:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:null},\u0022left:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:null},\u0022right:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:null},\u0022right:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022M\u0022},\u0022Hold\u0022:null},\u0022right:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022,\u0022},\u0022Hold\u0022:null},\u0022right:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022?\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022H\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022J\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022K\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022L\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Enter\u0022},\u0022Hold\u0022:{\u0022Label\u0022:\u0022;\u0022}},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022P\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022I\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022U\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Y\u0022},\u0022Hold\u0022:null}},\u00221\u0022:{\u0022left:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Down\u0022},\u0022Hold\u0022:null},\u0022left:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Right\u0022},\u0022Hold\u0022:null},\u0022left:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Up\u0022},\u0022Hold\u0022:null},\u0022left:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022\\u002B\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022-\u0022},\u0022Hold\u0022:null},\u0022right:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022=\u0022},\u0022Hold\u0022:null},\u0022right:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00221\u0022},\u0022Hold\u0022:null},\u0022right:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00223\u0022},\u0022Hold\u0022:null},\u0022right:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00222\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00224\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00225\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00226\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00227\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00228\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u00229\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022left:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Left\u0022},\u0022Hold\u0022:null}},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[{\u0022Id\u0022:\u0022147cb693106c4063b6f1a1d9a872a2d9\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u00226a5af82367504921a824f65f2274fa4c\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u00222f99fb991c81437092d2ff3582c4654e\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.49,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.615,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.49,\u0022MaxX\u0022:0.74,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022MO(1)\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0}],\u00221\u0022:[{\u0022Id\u0022:\u0022f01f72c6bda84228bc0b9057ddc30f46\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.35,\u0022Y\u0022:0.68,\u0022Width\u0022:0.25,\u0022Height\u0022:0.15,\u0022CenterX\u0022:0.475,\u0022CenterY\u0022:0.755,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0375,\u0022MinX\u0022:0.35,\u0022MaxX\u0022:0.6,\u0022MinY\u0022:0.68,\u0022MaxY\u0022:0.8300000000000001},\u0022Primary\u0022:{\u0022Label\u0022:\u00220\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u00225fd49043407f4957aa762b92a8b914a0\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0,\u0022Y\u0022:0.7,\u0022Width\u0022:0.25,\u0022Height\u0022:0.3,\u0022CenterX\u0022:0.125,\u0022CenterY\u0022:0.85,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.075,\u0022MinX\u0022:0,\u0022MaxX\u0022:0.25,\u0022MinY\u0022:0.7,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1},{\u0022Id\u0022:\u0022bdd9941265e24fbfb8d50d7654178298\u0022,\u0022Side\u0022:0,\u0022Rect\u0022:{\u0022X\u0022:0.75,\u0022Y\u0022:0.7,\u0022Width\u0022:0.25,\u0022Height\u0022:0.3,\u0022CenterX\u0022:0.875,\u0022CenterY\u0022:0.85,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.075,\u0022MinX\u0022:0.75,\u0022MaxX\u0022:1,\u0022MinY\u0022:0.7,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:1}]},\u0022KeyGeometry\u0022:{}},\u0022mobile\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:null},\u0022right:0:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022U\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:null},\u0022right:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Y\u0022},\u0022Hold\u0022:null},\u0022right:0:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022I\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:null},\u0022right:0:8\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:null},\u0022right:0:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022P\u0022},\u0022Hold\u0022:null},\u0022right:2:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022M\u0022},\u0022Hold\u0022:null},\u0022right:2:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:null},\u0022right:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Shift\u0022},\u0022Hold\u0022:null},\u0022right:1:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Back\u0022},\u0022Hold\u0022:null},\u0022right:2:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Enter\u0022},\u0022Hold\u0022:null}},\u00221\u0022:{},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{},\u0022KeyGeometry\u0022:{}},\u0022mobile-ortho-12x4\u0022:{\u0022Mappings\u0022:{\u00220\u0022:{\u0022right:0:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Tab\u0022},\u0022Hold\u0022:null},\u0022right:0:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Q\u0022},\u0022Hold\u0022:null},\u0022right:0:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022W\u0022},\u0022Hold\u0022:null},\u0022right:0:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022E\u0022},\u0022Hold\u0022:null},\u0022right:0:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022R\u0022},\u0022Hold\u0022:null},\u0022right:0:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022T\u0022},\u0022Hold\u0022:null},\u0022right:0:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Y\u0022},\u0022Hold\u0022:null},\u0022right:0:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022U\u0022},\u0022Hold\u0022:null},\u0022right:0:8\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022I\u0022},\u0022Hold\u0022:null},\u0022right:0:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022O\u0022},\u0022Hold\u0022:null},\u0022right:1:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Escape\u0022},\u0022Hold\u0022:null},\u0022right:1:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022A\u0022},\u0022Hold\u0022:null},\u0022right:1:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022S\u0022},\u0022Hold\u0022:null},\u0022right:1:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022D\u0022},\u0022Hold\u0022:null},\u0022right:1:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022F\u0022},\u0022Hold\u0022:null},\u0022right:1:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022G\u0022},\u0022Hold\u0022:null},\u0022right:1:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022H\u0022},\u0022Hold\u0022:null},\u0022right:1:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022J\u0022},\u0022Hold\u0022:null},\u0022right:1:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022L\u0022},\u0022Hold\u0022:null},\u0022right:1:8\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022K\u0022},\u0022Hold\u0022:null},\u0022right:1:10\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022:\u0022},\u0022Hold\u0022:null},\u0022right:1:11\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ret\u0022},\u0022Hold\u0022:null},\u0022right:2:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Shift\u0022},\u0022Hold\u0022:null},\u0022right:2:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Z\u0022},\u0022Hold\u0022:null},\u0022right:2:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022X\u0022},\u0022Hold\u0022:null},\u0022right:2:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022V\u0022},\u0022Hold\u0022:null},\u0022right:2:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022C\u0022},\u0022Hold\u0022:null},\u0022right:2:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022B\u0022},\u0022Hold\u0022:null},\u0022right:2:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022N\u0022},\u0022Hold\u0022:null},\u0022right:2:8\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022,\u0022},\u0022Hold\u0022:null},\u0022right:2:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022M\u0022},\u0022Hold\u0022:null},\u0022right:2:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022.\u0022},\u0022Hold\u0022:null},\u0022right:0:10\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022P\u0022},\u0022Hold\u0022:null},\u0022right:3:0\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Alt\u0022},\u0022Hold\u0022:null},\u0022right:3:2\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\u0022},\u0022Hold\u0022:null},\u0022right:3:1\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Ctrl\\u002B.\u0022},\u0022Hold\u0022:null},\u0022right:3:3\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022None\u0022},\u0022Hold\u0022:null},\u0022right:3:4\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Back\u0022},\u0022Hold\u0022:null},\u0022right:3:5\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Back\u0022},\u0022Hold\u0022:null},\u0022right:3:6\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null},\u0022right:3:7\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null},\u0022right:3:8\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022\\u0027\u0022},\u0022Hold\u0022:null},\u0022right:3:9\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Left\u0022},\u0022Hold\u0022:null},\u0022right:3:10\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Down\u0022},\u0022Hold\u0022:null},\u0022right:3:11\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Right\u0022},\u0022Hold\u0022:null},\u0022right:2:10\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Up\u0022},\u0022Hold\u0022:null},\u0022right:2:11\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022?\u0022},\u0022Hold\u0022:null},\u0022right:0:11\u0022:{\u0022Primary\u0022:{\u0022Label\u0022:\u0022Back\u0022},\u0022Hold\u0022:null}},\u00221\u0022:{},\u00222\u0022:{},\u00223\u0022:{},\u00224\u0022:{},\u00225\u0022:{},\u00226\u0022:{},\u00227\u0022:{}},\u0022CustomButtons\u0022:{\u00220\u0022:[{\u0022Id\u0022:\u0022786cbf4134f24a1fa6911d4755d3c49b\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.5,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.625,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.5,\u0022MaxX\u0022:0.75,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Space\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0},{\u0022Id\u0022:\u0022f155e4ec9d254b68bcd83330589f6293\u0022,\u0022Side\u0022:1,\u0022Rect\u0022:{\u0022X\u0022:0.25,\u0022Y\u0022:0.77,\u0022Width\u0022:0.25,\u0022Height\u0022:0.23,\u0022CenterX\u0022:0.375,\u0022CenterY\u0022:0.885,\u0022RotationDegrees\u0022:0,\u0022Area\u0022:0.0575,\u0022MinX\u0022:0.25,\u0022MaxX\u0022:0.5,\u0022MinY\u0022:0.77,\u0022MaxY\u0022:1},\u0022Primary\u0022:{\u0022Label\u0022:\u0022Backspace\u0022},\u0022Hold\u0022:null,\u0022Layer\u0022:0}]},\u0022KeyGeometry\u0022:{}}}}"
 }
