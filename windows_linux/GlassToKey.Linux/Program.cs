@@ -14,6 +14,9 @@ namespace GlassToKey.Linux;
 
 internal static class Program
 {
+    private const string CliName = "glasstokey";
+    private const string GuiCliName = "glasstokey-gui";
+
     private static int Main(string[] args)
     {
         if (string.Equals(GetCommand(args), "__background-run", StringComparison.OrdinalIgnoreCase))
@@ -203,33 +206,43 @@ internal static class Program
 
     private static void PrintUsage()
     {
+        Console.WriteLine("After install:");
+        Console.WriteLine($"  1. {CliName} doctor");
+        Console.WriteLine($"  2. {CliName} init-config");
+        Console.WriteLine($"  3. {CliName} show-config");
+        Console.WriteLine($"  4. Use {CliName} bind-left / bind-right if the defaults need correction");
+        Console.WriteLine($"  5. For direct CLI validation, run {CliName} start and later {CliName} stop");
+        Console.WriteLine($"  6. For desktop use, run {GuiCliName} to start the tray host in background, then {GuiCliName} --show when you want the config window");
+        Console.WriteLine($"  7. Only enable the user service if you want the optional headless/background runtime path");
+        Console.WriteLine();
+
         Console.WriteLine("Usage:");
-        Console.WriteLine("  GlassToKey.Linux              (graphical: launch tray host)");
-        Console.WriteLine("  GlassToKey.Linux list-devices");
-        Console.WriteLine("  GlassToKey.Linux read-frames [device-node-or-stable-id] [seconds] [max-frames]");
-        Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
-        Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux probe-uinput");
-        Console.WriteLine("  GlassToKey.Linux pulse-haptics [left|right|device-node-or-stable-id] [count]");
-        Console.WriteLine("  GlassToKey.Linux doctor");
-        Console.WriteLine("  GlassToKey.Linux show-config [--print|--cli|--no-runtime]");
-        Console.WriteLine("  GlassToKey.Linux init-config");
-        Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux bind-right [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux swap-sides");
-        Console.WriteLine("  GlassToKey.Linux print-udev-rules");
-        Console.WriteLine("  GlassToKey.Linux load-keymap [path-to-keymap.json]");
-        Console.WriteLine("  GlassToKey.Linux selftest");
-        Console.WriteLine("  GlassToKey.Linux capture-atpcap [output-path] [seconds]");
-        Console.WriteLine("  GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
-        Console.WriteLine("  GlassToKey.Linux summarize-atpcap [capture-path]");
-        Console.WriteLine("  GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
-        Console.WriteLine("  GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
-        Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
-        Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
-        Console.WriteLine("  GlassToKey.Linux start");
-        Console.WriteLine("  GlassToKey.Linux stop");
-        Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
+        Console.WriteLine($"  {CliName}              (graphical: launch tray host)");
+        Console.WriteLine($"  {CliName} list-devices");
+        Console.WriteLine($"  {CliName} read-frames [device-node-or-stable-id] [seconds] [max-frames]");
+        Console.WriteLine($"  {CliName} read-events [device-node-or-stable-id] [seconds] [max-events]");
+        Console.WriteLine($"  {CliName} probe-axes [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} probe-uinput");
+        Console.WriteLine($"  {CliName} pulse-haptics [left|right|device-node-or-stable-id] [count]");
+        Console.WriteLine($"  {CliName} doctor");
+        Console.WriteLine($"  {CliName} show-config [--print|--cli|--no-runtime]");
+        Console.WriteLine($"  {CliName} init-config");
+        Console.WriteLine($"  {CliName} bind-left [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} bind-right [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} swap-sides");
+        Console.WriteLine($"  {CliName} print-udev-rules");
+        Console.WriteLine($"  {CliName} load-keymap [path-to-keymap.json]");
+        Console.WriteLine($"  {CliName} selftest");
+        Console.WriteLine($"  {CliName} capture-atpcap [output-path] [seconds]");
+        Console.WriteLine($"  {CliName} replay-atpcap [capture-path] [trace-output]");
+        Console.WriteLine($"  {CliName} summarize-atpcap [capture-path]");
+        Console.WriteLine($"  {CliName} write-atpcap-fixture [capture-path] [fixture-path]");
+        Console.WriteLine($"  {CliName} check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
+        Console.WriteLine($"  {CliName} uinput-smoke [token]");
+        Console.WriteLine($"  {CliName} watch-runtime [seconds]");
+        Console.WriteLine($"  {CliName} start");
+        Console.WriteLine($"  {CliName} stop");
+        Console.WriteLine($"  {CliName} run-engine [seconds]");
     }
 
     private static int LaunchTrayHost()
@@ -553,7 +566,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine($"Usage: GlassToKey.Linux {(side == TrackpadSide.Left ? "bind-left" : "bind-right")} [device-node-or-stable-id]");
+            Console.Error.WriteLine($"Usage: {CliName} {(side == TrackpadSide.Left ? "bind-left" : "bind-right")} [device-node-or-stable-id]");
             return 1;
         }
 
@@ -588,7 +601,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux load-keymap [path-to-keymap.json]");
+            Console.Error.WriteLine($"Usage: {CliName} load-keymap [path-to-keymap.json]");
             return 1;
         }
 
@@ -664,7 +677,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
+            Console.Error.WriteLine($"Usage: {CliName} replay-atpcap [capture-path] [trace-output]");
             return 1;
         }
 
@@ -695,7 +708,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux summarize-atpcap [capture-path]");
+            Console.Error.WriteLine($"Usage: {CliName} summarize-atpcap [capture-path]");
             return 1;
         }
 
@@ -714,7 +727,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
+            Console.Error.WriteLine($"Usage: {CliName} write-atpcap-fixture [capture-path] [fixture-path]");
             return 1;
         }
 
@@ -740,7 +753,7 @@ internal static class Program
     {
         if (args.Length < 3 || string.IsNullOrWhiteSpace(args[1]) || string.IsNullOrWhiteSpace(args[2]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
+            Console.Error.WriteLine($"Usage: {CliName} check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
             return 1;
         }
 

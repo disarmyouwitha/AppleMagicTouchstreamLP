@@ -1,10 +1,11 @@
 # TODO:
-- If the program starts in keyboard/mouse mode the circles are still green/red!
-- If I switch to keyboard mode while in mixed mode the circles doesn't immediately turn purple, only after toggling modes.
+- If the program starts in keyboard/mouse mode the circles are still green/red, and it's actually not in `keyboard/mouse` until you toggle it off/back on.. looks like it's not getting initialized correctly?
+
+- If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give control back to the mouse until I click.
 
 # HEADLESS
-- Try starting headless. 
-- Try `glasstokey` can it *just* start headless if it recognized no GUI is available?
+- Try starting headless. `glasstokey start`
+- Can it *just* start headless /w `glasstokey` if it recognized no GUI is available?
 
 # GUI
 - Can we remove the <hr> dividers between the collapsables in the right column?
