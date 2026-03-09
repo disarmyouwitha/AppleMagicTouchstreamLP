@@ -166,6 +166,7 @@
 - If device probing needs an unsandboxed `ioctl` or other direct host access to resolve Linux behavior, request escalation instead of assuming the kernel or driver is broken.
 - The current sandbox can still block `EVIOCGABS` during live `watch-runtime` validation even when the same command works on the host. Treat that as an environment validation issue, not a product requirement for fallback logic.
 - The user has stated they will approve out-of-sandbox access when needed for Linux device validation. Still request escalation normally so the action is explicit.
+- Do not create or enable persistent validation installs, user `systemd` services, or `/opt/GlassToKey.Linux.validation`-style test payloads on the host unless the user explicitly asks for that install path and lifecycle.
 - If the user asks to "build" from this folder without more detail, prefer the target most relevant to the touched code:
   - `GlassToKey.Windows/GlassToKey.Windows.csproj` for current app behavior
   - one of the Linux/shared projects if the change is confined there

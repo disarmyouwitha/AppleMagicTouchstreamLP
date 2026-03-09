@@ -2,6 +2,10 @@
 - If the program starts in keyboard/mouse mode the circles are still green/red!
 - If I switch to keyboard mode while in mixed mode the circles doesn't immediately turn purple, only after toggling modes.
 
+# HEADLESS
+- Try starting headless. 
+- Try `glasstokey` can it *just* start headless if it recognized no GUI is available?
+
 # GUI
 - Can we remove the <hr> dividers between the collapsables in the right column?
  
