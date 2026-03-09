@@ -23,6 +23,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Decoder profile tests failed: {decoderProfileFailure}");
         }
 
+        if (!RunBundledDefaultSettingsTests(out string bundledDefaultsFailure))
+        {
+            return new SelfTestResult(false, $"Bundled default settings tests failed: {bundledDefaultsFailure}");
+        }
+
         if (!RunReplayTests(out string replayFailure))
         {
             return new SelfTestResult(false, $"Replay tests failed: {replayFailure}");
@@ -2275,6 +2280,26 @@ internal static class SelfTestRunner
             !string.Equals(officialValue, "official", StringComparison.Ordinal))
         {
             failure = "settings normalization should keep explicit overrides and drop auto entries";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunBundledDefaultSettingsTests(out string failure)
+    {
+        UserSettings settings = UserSettings.LoadBundledDefaultsOrDefault();
+        if (!string.Equals(settings.TwoFingerHoldAction, "Left Click", StringComparison.Ordinal) ||
+            !string.Equals(settings.ThreeFingerHoldAction, "Right Click", StringComparison.Ordinal))
+        {
+            failure = "bundled default settings should load gesture bindings from the Settings payload";
+            return false;
+        }
+
+        if (settings.ForceMin != 0 || settings.ForceCap != 128)
+        {
+            failure = "bundled default settings should load bundled force thresholds";
             return false;
         }
 

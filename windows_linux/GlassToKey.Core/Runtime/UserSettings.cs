@@ -178,12 +178,9 @@ public sealed class UserSettings
             string path = GetSettingsPath();
             if (!File.Exists(path))
             {
-                if (TryLoadBundledDefaults(out UserSettings bundledDefaults))
-                {
-                    return bundledDefaults;
-                }
-
-                return new UserSettings();
+                UserSettings firstRunDefaults = LoadBundledDefaultsOrDefault();
+                firstRunDefaults.Save();
+                return firstRunDefaults;
             }
 
             string json = File.ReadAllText(path);
@@ -405,7 +402,22 @@ public sealed class UserSettings
             }
 
             string json = File.ReadAllText(path);
-            UserSettings? loaded = JsonSerializer.Deserialize<UserSettings>(json);
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement payload = document.RootElement;
+            if (payload.ValueKind == JsonValueKind.Object &&
+                TryGetPropertyIgnoreCase(payload, "Settings", out JsonElement bundledSettings))
+            {
+                if (bundledSettings.ValueKind != JsonValueKind.Object)
+                {
+                    return false;
+                }
+
+                payload = bundledSettings;
+            }
+
+            UserSettings? loaded = JsonSerializer.Deserialize<UserSettings>(
+                payload.GetRawText(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
             if (loaded == null)
             {
                 return false;
@@ -419,6 +431,21 @@ public sealed class UserSettings
         {
             return false;
         }
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static Dictionary<string, string>? CloneDecoderProfiles(Dictionary<string, string>? source)
