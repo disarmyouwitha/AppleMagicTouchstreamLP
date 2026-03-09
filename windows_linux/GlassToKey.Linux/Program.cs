@@ -1,8 +1,10 @@
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Threading;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Contracts;
 using GlassToKey.Platform.Linux.Uinput;
@@ -12,6 +14,9 @@ namespace GlassToKey.Linux;
 
 internal static class Program
 {
+    private const string CliName = "glasstokey";
+    private const string GuiCliName = "glasstokey-gui";
+
     private static int Main(string[] args)
     {
         if (string.Equals(GetCommand(args), "__background-run", StringComparison.OrdinalIgnoreCase))
@@ -55,6 +60,11 @@ internal static class Program
         if (string.Equals(args[0], "probe-uinput", StringComparison.OrdinalIgnoreCase))
         {
             return ProbeUinput();
+        }
+
+        if (string.Equals(args[0], "pulse-haptics", StringComparison.OrdinalIgnoreCase))
+        {
+            return PulseHaptics(args);
         }
 
         if (string.Equals(args[0], "doctor", StringComparison.OrdinalIgnoreCase))
@@ -163,12 +173,13 @@ internal static class Program
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = enumerator.EnumerateDevices();
         if (devices.Count == 0)
         {
-            Console.WriteLine("No multitouch trackpad candidates found.");
+            Console.WriteLine("No supported Apple Magic Trackpad multitouch event nodes found.");
             return 0;
         }
 
         foreach (LinuxInputDeviceDescriptor device in devices)
         {
+            LinuxMagicTrackpadActuatorProbeResult haptics = LinuxMagicTrackpadActuatorProbe.Probe(device.DeviceNode);
             Console.WriteLine(device.DisplayName);
             Console.WriteLine($"  Node: {device.DeviceNode}");
             Console.WriteLine($"  StableId: {device.StableId}");
@@ -177,6 +188,16 @@ internal static class Program
             Console.WriteLine($"  Pressure: {device.SupportsPressure}");
             Console.WriteLine($"  ButtonClick: {device.SupportsButtonClick}");
             Console.WriteLine($"  EventAccess: {(device.CanOpenEventStream ? "ok" : device.AccessError)}");
+            if (haptics.Supported)
+            {
+                Console.WriteLine($"  Haptics: {(haptics.CanOpenWrite ? "ok" : haptics.Status)}");
+                Console.WriteLine($"  HapticsNode: {haptics.HidrawDeviceNode}");
+                Console.WriteLine($"  HapticsInterface: {haptics.InterfaceName ?? "(unknown)"}");
+            }
+            else
+            {
+                Console.WriteLine($"  Haptics: {haptics.Status}");
+            }
             Console.WriteLine();
         }
 
@@ -185,32 +206,43 @@ internal static class Program
 
     private static void PrintUsage()
     {
+        Console.WriteLine("After install:");
+        Console.WriteLine($"  1. {CliName} doctor");
+        Console.WriteLine($"  2. {CliName} init-config");
+        Console.WriteLine($"  3. {CliName} show-config");
+        Console.WriteLine($"  4. Use {CliName} bind-left / bind-right if the defaults need correction");
+        Console.WriteLine($"  5. For direct CLI validation, run {CliName} start and later {CliName} stop");
+        Console.WriteLine($"  6. For desktop use, run {GuiCliName} to start the tray host in background, then {GuiCliName} --show when you want the config window");
+        Console.WriteLine($"  7. Only enable the user service if you want the optional headless/background runtime path");
+        Console.WriteLine();
+
         Console.WriteLine("Usage:");
-        Console.WriteLine("  GlassToKey.Linux              (graphical: launch tray host)");
-        Console.WriteLine("  GlassToKey.Linux list-devices");
-        Console.WriteLine("  GlassToKey.Linux read-frames [device-node-or-stable-id] [seconds] [max-frames]");
-        Console.WriteLine("  GlassToKey.Linux read-events [device-node-or-stable-id] [seconds] [max-events]");
-        Console.WriteLine("  GlassToKey.Linux probe-axes [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux probe-uinput");
-        Console.WriteLine("  GlassToKey.Linux doctor");
-        Console.WriteLine("  GlassToKey.Linux show-config [--print|--cli|--no-runtime]");
-        Console.WriteLine("  GlassToKey.Linux init-config");
-        Console.WriteLine("  GlassToKey.Linux bind-left [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux bind-right [device-node-or-stable-id]");
-        Console.WriteLine("  GlassToKey.Linux swap-sides");
-        Console.WriteLine("  GlassToKey.Linux print-udev-rules");
-        Console.WriteLine("  GlassToKey.Linux load-keymap [path-to-keymap.json]");
-        Console.WriteLine("  GlassToKey.Linux selftest");
-        Console.WriteLine("  GlassToKey.Linux capture-atpcap [output-path] [seconds]");
-        Console.WriteLine("  GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
-        Console.WriteLine("  GlassToKey.Linux summarize-atpcap [capture-path]");
-        Console.WriteLine("  GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
-        Console.WriteLine("  GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
-        Console.WriteLine("  GlassToKey.Linux uinput-smoke [token]");
-        Console.WriteLine("  GlassToKey.Linux watch-runtime [seconds]");
-        Console.WriteLine("  GlassToKey.Linux start");
-        Console.WriteLine("  GlassToKey.Linux stop");
-        Console.WriteLine("  GlassToKey.Linux run-engine [seconds]");
+        Console.WriteLine($"  {CliName}              (graphical: launch tray host)");
+        Console.WriteLine($"  {CliName} list-devices");
+        Console.WriteLine($"  {CliName} read-frames [device-node-or-stable-id] [seconds] [max-frames]");
+        Console.WriteLine($"  {CliName} read-events [device-node-or-stable-id] [seconds] [max-events]");
+        Console.WriteLine($"  {CliName} probe-axes [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} probe-uinput");
+        Console.WriteLine($"  {CliName} pulse-haptics [left|right|device-node-or-stable-id] [count]");
+        Console.WriteLine($"  {CliName} doctor");
+        Console.WriteLine($"  {CliName} show-config [--print|--cli|--no-runtime]");
+        Console.WriteLine($"  {CliName} init-config");
+        Console.WriteLine($"  {CliName} bind-left [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} bind-right [device-node-or-stable-id]");
+        Console.WriteLine($"  {CliName} swap-sides");
+        Console.WriteLine($"  {CliName} print-udev-rules");
+        Console.WriteLine($"  {CliName} load-keymap [path-to-keymap.json]");
+        Console.WriteLine($"  {CliName} selftest");
+        Console.WriteLine($"  {CliName} capture-atpcap [output-path] [seconds]");
+        Console.WriteLine($"  {CliName} replay-atpcap [capture-path] [trace-output]");
+        Console.WriteLine($"  {CliName} summarize-atpcap [capture-path]");
+        Console.WriteLine($"  {CliName} write-atpcap-fixture [capture-path] [fixture-path]");
+        Console.WriteLine($"  {CliName} check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
+        Console.WriteLine($"  {CliName} uinput-smoke [token]");
+        Console.WriteLine($"  {CliName} watch-runtime [seconds]");
+        Console.WriteLine($"  {CliName} start");
+        Console.WriteLine($"  {CliName} stop");
+        Console.WriteLine($"  {CliName} run-engine [seconds]");
     }
 
     private static int LaunchTrayHost()
@@ -340,8 +372,7 @@ internal static class Program
         Console.WriteLine(device.DisplayName);
         Console.WriteLine($"  Node: {device.DeviceNode}");
         Console.WriteLine($"  StableId: {device.StableId}");
-        Console.WriteLine($"  UsesMtPositionAxes: {profile.UsesMtPositionAxes}");
-        Console.WriteLine($"  UsesLegacyPositionAxes: {profile.UsesLegacyPositionAxes}");
+        Console.WriteLine("  InputContract: authoritative ABS_MT slot stream");
         PrintAxis("Slot", profile.Slot);
         PrintAxis("X", profile.X);
         PrintAxis("Y", profile.Y);
@@ -388,6 +419,82 @@ internal static class Program
         Console.WriteLine($"  Access: {status.AccessError}");
         Console.WriteLine($"  Guidance: {status.Guidance}");
         return status.IsReady ? 0 : 1;
+    }
+
+    private static int PulseHaptics(string[] args)
+    {
+        string target = args.Length >= 2 ? args[1] : "right";
+        int count = args.Length >= 3 && int.TryParse(args[2], out int parsedCount)
+            ? Math.Clamp(parsedCount, 1, 64)
+            : 1;
+
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        string? hint = ResolveHapticHint(target, configuration);
+        if (string.IsNullOrWhiteSpace(hint))
+        {
+            Console.Error.WriteLine($"No matching haptics target found for '{target}'.");
+            return 1;
+        }
+
+        int amplitude = TypingTuningCatalog.GetHapticsAmplitude(configuration.SharedProfile);
+        uint strength = configuration.SharedProfile.HapticsStrength;
+        if (amplitude <= 0)
+        {
+            strength = 0x00026C15u;
+        }
+
+        if (!LinuxMagicTrackpadActuatorHaptics.TryPulse(hint, strength, count, TimeSpan.FromMilliseconds(150), out string message))
+        {
+            Console.Error.WriteLine(message);
+            return 1;
+        }
+
+        Console.WriteLine(message);
+        return 0;
+    }
+
+    private static string? ResolveHapticHint(string target, LinuxRuntimeConfiguration configuration)
+    {
+        if (string.Equals(target, "left", StringComparison.OrdinalIgnoreCase))
+        {
+            for (int index = 0; index < configuration.Bindings.Count; index++)
+            {
+                LinuxTrackpadBinding binding = configuration.Bindings[index];
+                if (binding.Side == TrackpadSide.Left)
+                {
+                    return binding.Device.DeviceNode;
+                }
+            }
+
+            return null;
+        }
+
+        if (string.Equals(target, "right", StringComparison.OrdinalIgnoreCase))
+        {
+            for (int index = 0; index < configuration.Bindings.Count; index++)
+            {
+                LinuxTrackpadBinding binding = configuration.Bindings[index];
+                if (binding.Side == TrackpadSide.Right)
+                {
+                    return binding.Device.DeviceNode;
+                }
+            }
+
+            return null;
+        }
+
+        for (int index = 0; index < configuration.Bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = configuration.Bindings[index];
+            if (string.Equals(binding.Device.DeviceNode, target, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(binding.Device.StableId, target, StringComparison.OrdinalIgnoreCase))
+            {
+                return binding.Device.DeviceNode;
+            }
+        }
+
+        return target;
     }
 
     private static int RunDoctor()
@@ -459,7 +566,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine($"Usage: GlassToKey.Linux {(side == TrackpadSide.Left ? "bind-left" : "bind-right")} [device-node-or-stable-id]");
+            Console.Error.WriteLine($"Usage: {CliName} {(side == TrackpadSide.Left ? "bind-left" : "bind-right")} [device-node-or-stable-id]");
             return 1;
         }
 
@@ -494,7 +601,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux load-keymap [path-to-keymap.json]");
+            Console.Error.WriteLine($"Usage: {CliName} load-keymap [path-to-keymap.json]");
             return 1;
         }
 
@@ -570,7 +677,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux replay-atpcap [capture-path] [trace-output]");
+            Console.Error.WriteLine($"Usage: {CliName} replay-atpcap [capture-path] [trace-output]");
             return 1;
         }
 
@@ -601,7 +708,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux summarize-atpcap [capture-path]");
+            Console.Error.WriteLine($"Usage: {CliName} summarize-atpcap [capture-path]");
             return 1;
         }
 
@@ -620,7 +727,7 @@ internal static class Program
     {
         if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux write-atpcap-fixture [capture-path] [fixture-path]");
+            Console.Error.WriteLine($"Usage: {CliName} write-atpcap-fixture [capture-path] [fixture-path]");
             return 1;
         }
 
@@ -646,7 +753,7 @@ internal static class Program
     {
         if (args.Length < 3 || string.IsNullOrWhiteSpace(args[1]) || string.IsNullOrWhiteSpace(args[2]))
         {
-            Console.Error.WriteLine("Usage: GlassToKey.Linux check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
+            Console.Error.WriteLine($"Usage: {CliName} check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
             return 1;
         }
 
@@ -835,6 +942,8 @@ internal static class Program
         List<LinuxTrackpadBinding> bindings = [.. configuration.Bindings];
 
         using CancellationTokenSource cts = new(TimeSpan.FromSeconds(seconds));
+        using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
+        using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
         LinuxInputRuntimeService runtime = new();
         Console.WriteLine($"Watching runtime for {seconds:0.##}s on {bindings.Count} trackpad(s).");
         Console.WriteLine($"  Settings: {configuration.SettingsPath}");
@@ -877,6 +986,8 @@ internal static class Program
         using CancellationTokenSource cts = duration.HasValue
             ? new CancellationTokenSource(duration.Value)
             : new CancellationTokenSource();
+        using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
+        using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
         LinuxRuntimeOwner runtimeOwner = new(appRuntime);
 
         Console.WriteLine(duration.HasValue
@@ -902,6 +1013,21 @@ internal static class Program
 
     private static async Task<int> StartBackgroundRuntimeAsync()
     {
+        LinuxSystemdServiceController serviceController = new();
+        IReadOnlyList<LinuxSystemdServiceStatus> runningServices = serviceController.Query()
+            .Where(static serviceStatus => serviceStatus.IsRunning)
+            .ToArray();
+        if (runningServices.Count > 0)
+        {
+            Console.WriteLine("GlassToKey is already running through a user service.");
+            foreach (LinuxSystemdServiceStatus serviceStatus in runningServices)
+            {
+                Console.WriteLine($"  Service: {serviceStatus.UnitName}{FormatProcessId(serviceStatus.ProcessId)}");
+            }
+
+            return 0;
+        }
+
         LinuxGuiHostController trayController = new();
         LinuxGuiHostStatus trayStatus = trayController.Query();
         if (trayStatus.IsRunning && trayStatus.OwnsRuntime)
@@ -928,18 +1054,39 @@ internal static class Program
 
     private static async Task<int> StopBackgroundRuntimeAsync()
     {
+        LinuxSystemdServiceController serviceController = new();
         LinuxBackgroundRuntimeController backgroundController = new();
         LinuxGuiHostController trayController = new();
 
+        IReadOnlyList<LinuxSystemdServiceStatus> currentServices = serviceController.Query()
+            .Where(static serviceStatus => serviceStatus.IsRunning)
+            .ToArray();
         LinuxBackgroundRuntimeStatus currentBackground = backgroundController.Query();
         LinuxGuiHostStatus currentTray = trayController.Query();
-        if (!currentBackground.IsRunning && !currentTray.IsRunning)
+        if (currentServices.Count == 0 && !currentBackground.IsRunning && !currentTray.IsRunning)
         {
             Console.WriteLine("GlassToKey is not running.");
             return 0;
         }
 
         bool success = true;
+
+        if (currentServices.Count > 0)
+        {
+            IReadOnlyList<LinuxSystemdServiceStatus> serviceStatuses = await serviceController.StopAsync().ConfigureAwait(false);
+            foreach (LinuxSystemdServiceStatus status in serviceStatuses)
+            {
+                Console.WriteLine(status.Message);
+                if (status.IsRunning)
+                {
+                    success = false;
+                }
+            }
+        }
+        else
+        {
+            Console.WriteLine("No GlassToKey user service is running.");
+        }
 
         if (currentBackground.IsRunning)
         {
@@ -977,6 +1124,23 @@ internal static class Program
         LinuxBackgroundRuntimeController controller = new();
         LinuxRuntimeOwner runtimeOwner = new();
         return await controller.RunBackgroundAsync(runtimeOwner).ConfigureAwait(false);
+    }
+
+    private static PosixSignalRegistration RegisterShutdownSignal(PosixSignal signal, CancellationTokenSource cts)
+    {
+        return PosixSignalRegistration.Create(signal, context =>
+        {
+            context.Cancel = true;
+            if (!cts.IsCancellationRequested)
+            {
+                cts.Cancel();
+            }
+        });
+    }
+
+    private static string FormatProcessId(int? processId)
+    {
+        return processId.HasValue ? $" (PID {processId.Value})" : string.Empty;
     }
 
     private sealed class ConsoleTrackpadFrameTarget : ITrackpadFrameTarget

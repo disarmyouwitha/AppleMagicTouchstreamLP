@@ -14,7 +14,9 @@ public sealed class LinuxGuiHostController
 
     private static readonly TimeSpan StopPollInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ForceStopTimeout = TimeSpan.FromSeconds(2);
     private const int SignalTerm = 15;
+    private const int SignalKill = 9;
 
     private readonly string _markerPath;
 
@@ -105,7 +107,35 @@ public sealed class LinuxGuiHostController
                     ProcessId: null,
                     OwnsRuntime: false,
                     MarkerPath: _markerPath,
-                    Message: "The tray host has stopped.");
+                Message: "The tray host has stopped.");
+            }
+        }
+
+        if (!SendSignal(marker.ProcessId, SignalKill))
+        {
+            DeleteMarker();
+            return new LinuxGuiHostStatus(
+                IsRunning: false,
+                ProcessId: null,
+                OwnsRuntime: false,
+                MarkerPath: _markerPath,
+                Message: "The tray host is no longer running.");
+        }
+
+        Stopwatch forceStopwatch = Stopwatch.StartNew();
+        while (forceStopwatch.Elapsed < ForceStopTimeout)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(StopPollInterval, cancellationToken).ConfigureAwait(false);
+            if (!IsProcessAlive(marker.ProcessId))
+            {
+                DeleteMarker();
+                return new LinuxGuiHostStatus(
+                    IsRunning: false,
+                    ProcessId: null,
+                    OwnsRuntime: false,
+                    MarkerPath: _markerPath,
+                    Message: $"The tray host did not stop within {StopTimeout.TotalSeconds:0}s and was force-stopped.");
             }
         }
 
@@ -114,7 +144,7 @@ public sealed class LinuxGuiHostController
             ProcessId: marker.ProcessId,
             OwnsRuntime: marker.OwnsRuntime,
             MarkerPath: _markerPath,
-            Message: $"The tray host did not stop within {StopTimeout.TotalSeconds:0}s.");
+            Message: $"The tray host did not stop within {StopTimeout.TotalSeconds:0}s and could not be force-stopped.");
     }
 
     public void RegisterCurrentProcess(bool ownsRuntime)
@@ -210,4 +240,3 @@ public sealed class LinuxGuiHostController
         bool OwnsRuntime,
         DateTimeOffset StartedUtc);
 }
-

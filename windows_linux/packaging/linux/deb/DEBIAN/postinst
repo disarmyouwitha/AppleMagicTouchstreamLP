@@ -18,11 +18,12 @@ cat <<'EOF'
 GlassToKey Linux install complete.
 
 Recommended next steps:
-  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions.
+  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions on both
+     `/dev/input/event*` and the Magic Trackpad actuator `/dev/hidraw*` nodes.
   2. Add the desktop user to the 'glasstokey' group:
      sudo usermod -aG glasstokey $USER
   3. Log out and back in so the new group membership applies.
-  4. Run `glasstokey doctor`
+  4. Run `glasstokey doctor` and confirm `HapticsWriteAccess: ok` for each USB trackpad.
 
 
   # Usage:

@@ -20,7 +20,6 @@ public sealed class UserSettings
     public bool AutocorrectDryRunEnabled { get; set; }
     public string AutocorrectBlacklistCsv { get; set; } = string.Empty;
     public string AutocorrectOverridesCsv { get; set; } = string.Empty;
-    public bool AllowMouseTakeover { get; set; } = true;
     public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
     public bool RunAtStartup { get; set; }
@@ -110,7 +109,6 @@ public sealed class UserSettings
         AutocorrectDryRunEnabled = source.AutocorrectDryRunEnabled;
         AutocorrectBlacklistCsv = source.AutocorrectBlacklistCsv;
         AutocorrectOverridesCsv = source.AutocorrectOverridesCsv;
-        AllowMouseTakeover = source.AllowMouseTakeover;
         ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;
         RunAtStartup = source.RunAtStartup;
@@ -378,6 +376,16 @@ public sealed class UserSettings
         }
 
         if (ColumnSettings != null && NormalizeColumnSettingsList(ColumnSettings))
+        {
+            changed = true;
+        }
+
+        if (TypingTuningCatalog.NormalizeSettings(this))
+        {
+            changed = true;
+        }
+
+        if (GestureBindingCatalog.NormalizeSettings(this))
         {
             changed = true;
         }

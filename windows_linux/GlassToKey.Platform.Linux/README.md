@@ -11,7 +11,7 @@ Current responsibilities:
 - probe real evdev axis metadata through `EVIOCGABS`
 - capture raw evdev events for device validation
 - support normalized Linux `.atpcap` frame capture for offline replay-oriented diagnostics via the Linux host
-- assemble multitouch frames from evdev Type B slots and observed legacy absolute fallback fields
+- assemble multitouch frames from evdev Type B slot events only
 - expose Linux device capabilities and stable IDs
 - stream normalized `InputFrame` data through a runtime service/sink seam or directly into the shared `TrackpadFrameEnvelope` target
 - supervise trackpad streams by stable ID so runtime rebind after unplug/replug is possible without restarting the process
@@ -20,11 +20,13 @@ Current responsibilities:
 - map semantic dispatch codes to evdev output before falling back to Windows VK compatibility
 - surface Linux-specific diagnostics and permission checks
 - support a minimal `run-engine` host path that drives the shared engine and dispatches through `uinput`
+- drive Magic Trackpad haptics through the Linux actuator hidraw interface when the device exposes the validated output report
 
 Current caveats:
 
-- On the current Ubuntu 24.04 setup, Apple Magic Trackpads expose usable evdev traffic and can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node.
+- On the current Ubuntu 24.04 setup, Apple Magic Trackpads can emit both `ABS_MT_*` slot updates and parallel legacy absolute updates on the same node. The Linux backend now ignores the legacy compatibility events and treats the MT slot stream as authoritative.
 - `EVIOCGABS` works on the host devices and reports real axis ranges. It may still be denied inside the sandboxed coding environment, so validation in this environment may require escalation rather than product-side fallback logic.
+- Binding now fails fast if the selected evdev node does not expose `ABS_MT_SLOT` and `ABS_MT_POSITION_X/Y`. Wrong-node recovery should happen through device selection, not Linux-side fallback synthesis.
 - The current Linux CLI exposes `probe-uinput` so packaging/permission work can be validated separately from evdev capture.
 - The current Linux CLI also exposes `uinput-smoke` for a focused-app sanity check of the virtual input path.
 - The current Linux CLI also exposes `run-engine`, and that path has now been validated end-to-end on the host with real Apple Magic Trackpads over both USB and Bluetooth.
@@ -32,6 +34,10 @@ Current caveats:
 - The current Linux CLI now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, `replay-atpcap`, `write-atpcap-fixture`, and `check-atpcap-fixture`, so packaging checks and offline diagnostics are no longer just planned.
 - The Linux host now also exposes `show-config`, `init-config`, and `print-udev-rules` so device selection, keymap choice, and packaging permission scaffolding can be exercised without a GUI.
 - The Linux runtime now reports binding state changes outside the hot path and can re-open a trackpad stream after device-node churn.
+- On the validated USB Magic Trackpad path, Linux also exposes a separate HID interface named `Actuator`; GlassToKey now resolves that hidraw node and sends the same `0x53` output report shape used by the Windows implementation.
+- On the validated Linux host, the working actuator write shape is the raw 14-byte `0x53` report payload, not the 64-byte padded write that works on Windows.
+- The validated USB actuator nodes on the current host are `/dev/hidraw11` for product `0x0265` and `/dev/hidraw15` for product `0x0324`.
+- On the validated Bluetooth Magic Trackpad path on this host, Linux does not expose that actuator HID descriptor, so haptics remain capability-detected instead of assumed.
 - The Linux output path now covers semantic volume and brightness aliases (`VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, `BRIGHT_DOWN`) directly instead of depending on Windows-VK fallback.
 - The Linux semantic/output path now also covers broader non-text keys like mute/media transport, lock keys, print/pause/menu, and F13-F24 without leaning on VK fallback.
 - The Linux host now also checks in publish profiles for framework-dependent and self-contained `linux-x64` publishes, so packaging work has moved from planning into repo-backed build artifacts.

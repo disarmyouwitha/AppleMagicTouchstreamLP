@@ -298,7 +298,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
             _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
 
@@ -843,12 +842,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SyncDerivedGestureToggleSettings()
     {
-        _settings.ChordShiftEnabled = IsChordShiftGestureAction(_settings.FourFingerHoldAction);
-    }
-
-    private static bool IsChordShiftGestureAction(string? action)
-    {
-        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
+        _settings.ChordShiftEnabled = GestureBindingCatalog.UsesChordShift(_settings);
     }
 
     private void HookTuningAutoApplyHandlers()
@@ -1361,7 +1355,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _touchActor.Configure(BuildConfigFromSettings());
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
@@ -1379,22 +1372,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void SetHapticsStrengthUiFromSettings()
     {
-        const int maxAmp = 70;
-
-        int amp = 0;
-        if (_settings.HapticsEnabled)
-        {
-            int rawAmp = (int)(_settings.HapticsStrength & 0xFFu);
-            amp = Math.Clamp(rawAmp, 0, maxAmp);
-        }
-
-        HapticsStrengthSlider.Value = amp;
+        HapticsStrengthSlider.Value = TypingTuningCatalog.GetHapticsAmplitude(_settings);
     }
 
     private void SetForceThresholdUiFromSettings()
     {
-        int forceMin = Math.Clamp(_settings.ForceMin, 0, 255);
-        int forceCap = Math.Clamp(_settings.ForceCap, 0, 255);
+        int forceMin = Math.Clamp(_settings.ForceMin, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceCap = Math.Clamp(_settings.ForceCap, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         ForceMinSlider.Value = forceMin;
         ForceCapSlider.Value = forceCap;
         UpdateForceThresholdLabels();
@@ -1402,21 +1386,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateForceThresholdLabels()
     {
-        int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
-        int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
+        int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         ForceMinValueText.Text = forceMin.ToString(CultureInfo.InvariantCulture);
         ForceCapValueText.Text = forceCap.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ApplyHapticsStrengthFromUi()
     {
-        const int maxAmp = 70;
-        int amp = (int)Math.Clamp(Math.Round(HapticsStrengthSlider.Value), 0, maxAmp);
-        _settings.HapticsEnabled = amp != 0;
-        if (_settings.HapticsEnabled)
-        {
-            _settings.HapticsStrength = 0x00026C00u | (uint)amp;
-        }
+        int amp = (int)Math.Clamp(
+            Math.Round(HapticsStrengthSlider.Value),
+            0,
+            TypingTuningCatalog.HapticsAmplitudeMaximum);
+        TypingTuningCatalog.SetHapticsAmplitude(_settings, amp);
     }
 
     private void RebuildLayouts()
@@ -3638,7 +3620,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _touchActor.SetPersistentLayer(_activeLayer);
         _touchActor.SetTypingEnabled(true);
         _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-        _touchActor.SetAllowMouseTakeover(true);
         UpdateEngineStateDetails();
     }
 

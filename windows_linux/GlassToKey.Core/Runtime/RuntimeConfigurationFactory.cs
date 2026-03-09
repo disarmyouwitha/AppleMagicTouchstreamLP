@@ -18,7 +18,7 @@ public static class RuntimeConfigurationFactory
 
     internal static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
     {
-        bool chordShiftEnabled = IsChordShiftGestureAction(settings.FourFingerHoldAction);
+        bool chordShiftEnabled = GestureBindingCatalog.UsesChordShift(settings);
 
         return TouchProcessorConfig.Default with
         {
@@ -67,11 +67,6 @@ public static class RuntimeConfigurationFactory
             ChordShiftEnabled = chordShiftEnabled,
             HoldRepeatEnabled = settings.HoldRepeatEnabled
         };
-    }
-
-    private static bool IsChordShiftGestureAction(string? action)
-    {
-        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
     }
 
     public static void BuildLayouts(

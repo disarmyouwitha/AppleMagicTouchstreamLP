@@ -80,7 +80,6 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor.SetPersistentLayer(layer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
             _lastModeIndicator = ToModeIndicator(
                 _settings.TypingEnabled,
                 _settings.KeyboardModeEnabled,
@@ -145,7 +144,6 @@ internal sealed class TouchRuntimeService : IDisposable
 
         actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(_settings));
         actor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-        actor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));

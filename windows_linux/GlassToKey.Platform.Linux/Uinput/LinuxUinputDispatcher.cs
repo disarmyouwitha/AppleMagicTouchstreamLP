@@ -2,10 +2,13 @@ namespace GlassToKey.Platform.Linux.Uinput;
 
 using System.Diagnostics;
 using System.Threading;
+using GlassToKey.Platform.Linux.Haptics;
+using GlassToKey.Platform.Linux.Models;
 
 public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController
 {
     private readonly LinuxUinputDevice _device;
+    private readonly LinuxMagicTrackpadActuatorHaptics _haptics;
     private readonly DispatchRepeatProfile _repeatProfile;
     private readonly AutocorrectSession _autocorrect = new();
     private readonly int[] _modifierRefCounts = new int[256];
@@ -35,6 +38,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
     internal LinuxUinputDispatcher(LinuxUinputDevice device, DispatchRepeatProfile repeatProfile)
     {
         _device = device;
+        _haptics = new LinuxMagicTrackpadActuatorHaptics();
         _repeatProfile = repeatProfile;
         _repeatInitialDelayTicks = _repeatProfile.GetInitialDelayTicks();
         _repeatIntervalTicks = _repeatProfile.GetIntervalTicks();
@@ -50,6 +54,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         long nowTicks = Stopwatch.GetTimestamp();
         Interlocked.Increment(ref _dispatchCalls);
         Volatile.Write(ref _lastDispatchTicks, nowTicks);
+        bool shouldVibrate = false;
 
         lock (_gate)
         {
@@ -91,6 +96,13 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                     }
                     break;
             }
+
+            shouldVibrate = (dispatchEvent.Flags & DispatchEventFlags.Haptic) != 0;
+        }
+
+        if (shouldVibrate)
+        {
+            _ = _haptics.TryVibrate(dispatchEvent.Side);
         }
     }
 
@@ -147,6 +159,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             Array.Clear(_modifierRefCounts, 0, _modifierRefCounts.Length);
             Array.Clear(_repeatEntries, 0, _repeatEntries.Length);
             _autocorrect.Dispose();
+            _haptics.Dispose();
             _disposed = true;
         }
 
@@ -167,6 +180,42 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         {
             _autocorrect.Configure(options);
         }
+    }
+
+    public void ConfigureHaptics(UserSettings settings)
+    {
+        ArgumentNullException.ThrowIfNull(settings);
+        _haptics.Configure(settings.HapticsEnabled, settings.HapticsStrength, settings.HapticsMinIntervalMs);
+    }
+
+    public void SetHapticRoutes(IReadOnlyList<LinuxTrackpadBinding> bindings)
+    {
+        ArgumentNullException.ThrowIfNull(bindings);
+
+        string? leftHint = null;
+        string? rightHint = null;
+        for (int index = 0; index < bindings.Count; index++)
+        {
+            LinuxTrackpadBinding binding = bindings[index];
+            string hint = string.IsNullOrWhiteSpace(binding.Device.StableId)
+                ? binding.Device.DeviceNode
+                : binding.Device.StableId;
+            if (binding.Side == TrackpadSide.Right)
+            {
+                rightHint = hint;
+            }
+            else
+            {
+                leftHint = hint;
+            }
+        }
+
+        _haptics.SetRoutes(leftHint, rightHint);
+    }
+
+    public void WarmupHaptics()
+    {
+        _haptics.WarmupAsync();
     }
 
     public void NotifyPointerActivity()

@@ -6,7 +6,7 @@ For Linux implementation status, validated behavior, and the remaining work chec
 
 Current install artifacts:
 
-- `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth vendor/product pairs plus `/dev/uinput`, now using a dedicated `glasstokey` group with `0660` modes and additive `uaccess`
+- `90-glasstokey.rules`: starter `udev` rule for the tested Apple Magic Trackpad USB and Bluetooth event nodes, the validated USB actuator hidraw nodes for both `0x0265` and `0x0324`, and `/dev/uinput`, now using a dedicated `glasstokey` group with `0660` modes and additive `uaccess`
 - `deb/`: first Debian package skeleton, including `dpkg-deb` build script, maintainer scripts, user service unit, and optional GUI desktop entry template
 - `arch/`: first local Arch `PKGBUILD` skeleton, including pacman install hooks, user service unit, desktop entry, and sysusers group definition
 
@@ -49,6 +49,7 @@ Notes:
 - the documented direct headless path is `glasstokey start` / `glasstokey stop`
 - package-manager installs ship a user `systemd` unit for the optional headless/background runtime path; it is not force-enabled
 - reconnect the trackpads after install if the refreshed `udev` permissions have not applied yet
+- after install, `glasstokey doctor` should report `HapticsWriteAccess: ok` for each USB-bound trackpad before you expect live haptics to work
 - `deb/build-deb.sh` now expects the self-contained GUI publish output by default, so the `.deb` can carry a runnable GUI without a separate `.NET 10` GUI runtime dependency
 - current host finding: the packaged rule tags the older Bluetooth trackpad node with `uaccess`, but this Ubuntu session still did not receive a live ACL on the recreated node. Because of that, the checked-in packaging strategy now prefers the dedicated `glasstokey` group model instead of relying on `uaccess` alone.
 - the Arch `PKGBUILD` path is now checked in under `packaging/linux/arch`; the next distro-expansion checkpoint is validating this install/runtime story on a real Arch environment

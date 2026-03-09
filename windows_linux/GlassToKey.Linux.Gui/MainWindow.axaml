@@ -18,9 +18,6 @@
                      FontSize="28"
                      FontWeight="Bold"
                      Foreground="#F7F2EA" />
-          <TextBlock Text="Device binding and config for the tray-owned Linux runtime"
-                     FontSize="14"
-                     Foreground="#D9C7B5" />
           <TextBlock x:Name="RuntimeTypingStatusText"
                      FontSize="13"
                      FontWeight="SemiBold"
@@ -66,32 +63,33 @@
       </Grid>
     </Border>
 
-    <ScrollViewer Grid.Row="1"
-                  Margin="24"
-                  VerticalScrollBarVisibility="Auto">
-      <StackPanel Spacing="18">
-        <Border Classes="panel">
-          <StackPanel Spacing="12">
-            <Grid ColumnDefinitions="*,*,Auto">
-              <StackPanel Spacing="8">
-                <TextBlock Text="Left trackpad" />
-                <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
-              </StackPanel>
-              <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="8">
-                <TextBlock Text="Right trackpad" />
-                <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
-              </StackPanel>
-              <Button x:Name="RefreshDevicesButton"
-                      Grid.Column="2"
-                      Margin="16,28,0,0"
-                      VerticalAlignment="Top"
-                      Classes="action"
-                      Content="Refresh Devices" />
-            </Grid>
-          </StackPanel>
-        </Border>
+    <Grid Grid.Row="1"
+          Margin="24"
+          RowDefinitions="Auto,*">
+      <Border Classes="panel">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,*,Auto">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Left trackpad" />
+              <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="8">
+              <TextBlock Text="Right trackpad" />
+              <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
+            </StackPanel>
+            <Button x:Name="RefreshDevicesButton"
+                    Grid.Column="2"
+                    Margin="16,28,0,0"
+                    VerticalAlignment="Top"
+                    Classes="action"
+                    Content="Refresh Devices" />
+          </Grid>
+        </StackPanel>
+      </Border>
 
-        <Grid ColumnDefinitions="2.8*,0.9*">
+      <Grid Grid.Row="1"
+            Margin="0,18,0,0"
+            ColumnDefinitions="2.8*,0.9*">
           <Border Classes="panel">
             <StackPanel Spacing="12">
               <Grid ColumnDefinitions="*,*">
@@ -160,31 +158,43 @@
           </Border>
 
           <Border Grid.Column="1" Classes="panel" Margin="18,0,0,0">
-            <StackPanel Spacing="12"
-                        HorizontalAlignment="Stretch">
-              <TextBlock Classes="section" Text="Settings" />
-              <Grid ColumnDefinitions="*,*">
-                <TextBlock Text="Layout preset"
-                           VerticalAlignment="Center" />
-                <ComboBox x:Name="LayoutPresetCombo"
-                          Grid.Column="1"
-                          Margin="12,0,0,0"
-                          HorizontalAlignment="Stretch" />
-              </Grid>
-              <Separator Margin="0,6,0,2" />
-              <Expander x:Name="KeymapTuningExpander"
-                        Header="Keymap Tuning"
-                        IsExpanded="False"
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="12"
+                          HorizontalAlignment="Stretch">
+                <TextBlock Classes="section" Text="Settings" />
+                <Grid ColumnDefinitions="*,*">
+                  <TextBlock Text="Layout preset"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="LayoutPresetCombo"
+                            Grid.Column="1"
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
+                </Grid>
+                <Separator Margin="0,6,0,2" />
+                <Expander Header="Typing Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <StackPanel x:Name="TypingTuningPanel"
+                              Margin="0,10,0,0"
+                              Spacing="8"
+                              HorizontalAlignment="Stretch" />
+                </Expander>
+                <Separator Margin="0,6,0,2" />
+                <Expander x:Name="KeymapTuningExpander"
+                          Header="Keymap Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <Grid Margin="0,10,0,0"
                         HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch">
-                <Grid Margin="0,10,0,0"
-                      HorizontalAlignment="Stretch"
-                      ColumnDefinitions="*,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                  <TextBlock x:Name="KeymapSelectionText"
-                             Grid.ColumnSpan="2"
-                             IsVisible="False"
-                             Text="Selection: none" />
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock x:Name="KeymapSelectionText"
+                               Grid.ColumnSpan="2"
+                               IsVisible="False"
+                               Text="Selection: none" />
 
                   <TextBlock Grid.Row="1"
                              Text="Layer"
@@ -296,26 +306,26 @@
                           Margin="0,10,0,0"
                           HorizontalAlignment="Stretch"
                           Content="Delete Selected" />
-                </Grid>
-              </Expander>
-              <Separator Margin="0,6,0,2" />
-              <Expander Header="Column Tuning"
-                        IsExpanded="False"
+                  </Grid>
+                </Expander>
+                <Separator Margin="0,6,0,2" />
+                <Expander Header="Column Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <Grid Margin="0,10,0,0"
                         HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch">
-                <Grid Margin="0,10,0,0"
-                      HorizontalAlignment="Stretch"
-                      ColumnDefinitions="*,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
-                  <TextBlock Grid.Row="0"
-                             Margin="0,8,0,0"
-                             Text="Edit Column"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="ColumnLayoutColumnCombo"
-                            Grid.Row="0"
-                            Grid.Column="1"
-                            Margin="12,8,0,0"
-                            HorizontalAlignment="Stretch" />
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0"
+                               Margin="0,8,0,0"
+                               Text="Edit Column"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="ColumnLayoutColumnCombo"
+                              Grid.Row="0"
+                              Grid.Column="1"
+                              Margin="12,8,0,0"
+                              HorizontalAlignment="Stretch" />
 
                   <TextBlock Grid.Row="1"
                              Margin="0,8,0,0"
@@ -373,99 +383,175 @@
                             Margin="8,0,0,0"
                             Content="e v e n s p a c e" />
                   </Grid>
-                </Grid>
-              </Expander>
-              <Separator Margin="0,6,0,2" />
-              <Expander Header="5-finger gesture"
-                        IsExpanded="True"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch">
-                <Grid ColumnDefinitions="*,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto"
-                      Margin="0,10,0,0"
-                      HorizontalAlignment="Stretch">
-                  <TextBlock Text="Left"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="FiveFingerSwipeLeftCombo"
-                            Grid.Column="1"
-                            Margin="12,0,0,0"
-                            HorizontalAlignment="Stretch" />
-                  <TextBlock Grid.Row="1"
-                             Margin="0,8,0,0"
-                             Text="Right"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="FiveFingerSwipeRightCombo"
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Margin="12,8,0,0"
-                            HorizontalAlignment="Stretch" />
-                  <TextBlock Grid.Row="2"
-                             Margin="0,8,0,0"
-                             Text="Up"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="FiveFingerSwipeUpCombo"
-                            Grid.Row="2"
-                            Grid.Column="1"
-                            Margin="12,8,0,0"
-                            HorizontalAlignment="Stretch" />
-                  <TextBlock Grid.Row="3"
-                             Margin="0,8,0,0"
-                             Text="Down"
-                             VerticalAlignment="Center" />
-                  <ComboBox x:Name="FiveFingerSwipeDownCombo"
-                            Grid.Row="3"
-                            Grid.Column="1"
-                            Margin="12,8,0,0"
-                            HorizontalAlignment="Stretch" />
-                </Grid>
-              </Expander>
-              <Separator Margin="0,6,0,2" />
-              <Expander Header="Mode Toggles"
-                        IsExpanded="True"
-                        HorizontalAlignment="Stretch"
-                        HorizontalContentAlignment="Stretch">
-                <Grid Margin="0,10,0,0"
-                      ColumnDefinitions="*,*"
-                      RowDefinitions="Auto,Auto,Auto,Auto">
-                  <CheckBox x:Name="KeyboardModeCheck"
-                            Content="Keyboard/Mouse" />
-                  <CheckBox x:Name="RunAtStartupCheck"
-                            Grid.Row="1"
-                            Margin="0,8,0,0"
-                            Content="Run at Linux startup" />
-                  <CheckBox x:Name="StartInTrayOnLaunchCheck"
-                            Grid.Row="2"
-                            Margin="0,8,0,0"
-                            Content="Start in tray on launch" />
-                  <CheckBox x:Name="SnapRadiusModeCheck"
-                            Grid.Column="1"
-                            Margin="16,0,0,0"
-                            Content="Snap Radius" />
-                  <CheckBox x:Name="HoldRepeatModeCheck"
-                            Grid.Row="1"
-                            Grid.Column="1"
-                            Margin="16,8,0,0"
-                            Content="Hold Repeat" />
-                  <CheckBox x:Name="AutocorrectModeCheck"
-                            Grid.Row="2"
-                            Grid.Column="1"
-                            Margin="16,8,0,0"
-                            Content="Autocorrect" />
-                  <TextBlock x:Name="AutocorrectModeHintText"
-                             Grid.Row="3"
-                             Grid.ColumnSpan="2"
-                             Margin="0,10,0,0"
-                             FontSize="11"
-                             Foreground="#6C757D"
-                             TextWrapping="Wrap"
-                             Text="Autocorrect is stored in the shared profile for parity with Windows, but the current Linux runtime does not apply it yet." />
-                </Grid>
-              </Expander>
-            </StackPanel>
+                  </Grid>
+                </Expander>
+                <Separator Margin="0,6,0,2" />
+                <Expander Header="Gestures"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <StackPanel x:Name="GestureSectionsPanel"
+                              Margin="0,10,0,0"
+                              Spacing="8"
+                              HorizontalAlignment="Stretch" />
+                </Expander>
+                <Separator Margin="0,6,0,2" />
+                <Expander Header="Mode Toggles"
+                          IsExpanded="True"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <Grid Margin="0,10,0,0"
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto">
+                    <CheckBox x:Name="KeyboardModeCheck"
+                              Content="Keyboard/Mouse" />
+                    <CheckBox x:Name="RunAtStartupCheck"
+                              Grid.Row="1"
+                              Margin="0,8,0,0"
+                              Content="Run at Linux startup" />
+                    <CheckBox x:Name="StartInTrayOnLaunchCheck"
+                              Grid.Row="2"
+                              Margin="0,8,0,0"
+                              Content="Start in tray on launch" />
+                    <CheckBox x:Name="SnapRadiusModeCheck"
+                              Grid.Column="1"
+                              Margin="16,0,0,0"
+                              Content="Snap Radius" />
+                    <CheckBox x:Name="HoldRepeatModeCheck"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Margin="16,8,0,0"
+                              Content="Hold Repeat" />
+                    <CheckBox x:Name="AutocorrectModeCheck"
+                              Grid.Row="2"
+                              Grid.Column="1"
+                              Margin="16,8,0,0"
+                              Content="Autocorrect" />
+                    <TextBlock x:Name="AutocorrectModeHintText"
+                               Grid.Row="3"
+                               Grid.ColumnSpan="2"
+                               Margin="0,10,0,0"
+                               FontSize="11"
+                               Foreground="#6C757D"
+                               TextWrapping="Wrap"
+                               Text="Autocorrect is stored in the shared profile for parity with Windows, but the current Linux runtime does not apply it yet." />
+                  </Grid>
+                </Expander>
+                <Border x:Name="AutocorrectStatusBorder"
+                        IsVisible="False"
+                        Background="#FFF6ED"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="12"
+                        Margin="0,2,0,0">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Autocorrect Status"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <TextBlock x:Name="AutocorrectRuntimeStateText"
+                               FontSize="11"
+                               Foreground="#7A5C4A"
+                               TextWrapping="Wrap"
+                               Text="Waiting for the Linux runtime." />
+
+                  <Grid ColumnDefinitions="Auto,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Text="Last corrected"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectLastCorrectedValueText"
+                               Grid.Column="1"
+                               Margin="12,0,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="1"
+                               Text="Current buffer"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectCurrentBufferValueText"
+                               Grid.Row="1"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="2"
+                               Text="Skip reason"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectSkipReasonValueText"
+                               Grid.Row="2"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="3"
+                               Text="Reset source"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectResetSourceValueText"
+                               Grid.Row="3"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="4"
+                               Text="Recent words"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectWordHistoryValueText"
+                               Grid.Row="4"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+                  </Grid>
+
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="Blacklist words (comma/newline)"
+                                 FontSize="11"
+                                 Foreground="#7A5C4A" />
+                      <TextBox x:Name="AutocorrectBlacklistBox"
+                               Height="56"
+                               AcceptsReturn="True"
+                               TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="Always-correct map (wrong=right, comma/newline)"
+                                 FontSize="11"
+                                 Foreground="#7A5C4A" />
+                      <TextBox x:Name="AutocorrectOverridesBox"
+                               Height="64"
+                               AcceptsReturn="True"
+                               TextWrapping="Wrap" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
           </Border>
         </Grid>
-      </StackPanel>
-    </ScrollViewer>
+    </Grid>
 
     <Border x:Name="NoticeOverlay"
             Grid.RowSpan="2"

@@ -1,5 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
 using GlassToKey.Linux.Runtime;
+using GlassToKey.Platform.Linux.Devices;
+using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
@@ -45,7 +49,37 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateConfiguredRuntimeStartupState(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateConfiguredMouseTakeoverStartupState(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         if (!ValidateAtpCapRoundTrip(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxForceThresholdDispatch(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxAssemblerForceData(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateMagicTrackpadSelectionHeuristic(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxActuatorDescriptorParsing(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -67,18 +101,11 @@ internal static class LinuxSelfTestRunner
 
         try
         {
-            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
-            if (!document.RootElement.TryGetProperty("KeymapJson", out JsonElement keymapJsonElement) ||
-                keymapJsonElement.ValueKind != JsonValueKind.String)
-            {
-                failure = "Bundled Linux keymap is missing KeymapJson.";
-                return false;
-            }
-
-            string? keymapJson = keymapJsonElement.GetString();
+            string bundledJson = File.ReadAllText(path);
+            string keymapJson = ExtractBundledKeymapJsonOrSelf(bundledJson);
             if (string.IsNullOrWhiteSpace(keymapJson))
             {
-                failure = "Bundled Linux keymap KeymapJson is empty.";
+                failure = "Bundled Linux keymap payload is empty.";
                 return false;
             }
 
@@ -106,6 +133,41 @@ internal static class LinuxSelfTestRunner
             failure = $"Bundled Linux keymap parse failed: {ex.Message}";
             return false;
         }
+    }
+
+    private static string ExtractBundledKeymapJsonOrSelf(string bundledJson)
+    {
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(bundledJson);
+            if (document.RootElement.ValueKind == JsonValueKind.Object &&
+                TryGetPropertyIgnoreCase(document.RootElement, "KeymapJson", out JsonElement keymapJsonElement) &&
+                keymapJsonElement.ValueKind == JsonValueKind.String)
+            {
+                return keymapJsonElement.GetString() ?? string.Empty;
+            }
+        }
+        catch
+        {
+            // Let the normal keymap import path surface the parse error.
+        }
+
+        return bundledJson;
+    }
+
+    private static bool TryGetPropertyIgnoreCase(JsonElement element, string propertyName, out JsonElement value)
+    {
+        foreach (JsonProperty property in element.EnumerateObject())
+        {
+            if (string.Equals(property.Name, propertyName, StringComparison.OrdinalIgnoreCase))
+            {
+                value = property.Value;
+                return true;
+            }
+        }
+
+        value = default;
+        return false;
     }
 
     private static bool ValidateBundledTranslations(KeymapStore.KeymapFileModel keymap, out string failure)
@@ -253,6 +315,117 @@ internal static class LinuxSelfTestRunner
         if (status.CorrectedCount != 2 || status.SkippedCount == 0)
         {
             failure = "Shared autocorrect skip/correct counters were not updated as expected.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateConfiguredRuntimeStartupState(out string failure)
+    {
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            ActiveLayer = 2,
+            TypingEnabled = false,
+            KeyboardModeEnabled = true
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+        if (!host.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Configured runtime host did not produce an initial snapshot.";
+            return false;
+        }
+
+        if (snapshot.ActiveLayer != settings.ActiveLayer ||
+            snapshot.TypingEnabled != settings.TypingEnabled ||
+            snapshot.KeyboardModeEnabled != settings.KeyboardModeEnabled)
+        {
+            failure = $"Configured runtime host did not restore startup mode state (layer={snapshot.ActiveLayer}, typing={snapshot.TypingEnabled}, keyboard={snapshot.KeyboardModeEnabled}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateConfiguredMouseTakeoverStartupState(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort offKeyX = (ushort)Math.Clamp(maxX - 64, 1, maxX - 1);
+        ushort offKeyY = (ushort)Math.Clamp(maxY - 64, 1, maxY - 1);
+
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            TypingEnabled = true,
+            KeyboardModeEnabled = false,
+            KeyBufferMs = 1.0,
+            IntentMoveMm = 1.0,
+            DragCancelMm = 1.0
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+
+        long now = Stopwatch.Frequency / 100;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 200);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+
+        if (!host.TryGetSynchronizedSnapshot(timeoutMs: 25, out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Configured runtime host did not produce a synchronized snapshot for mouse takeover validation.";
+            return false;
+        }
+
+        if (!string.Equals(snapshot.IntentMode, "MouseActive", StringComparison.Ordinal))
+        {
+            failure = $"Configured runtime host did not restore mouse takeover on startup (intent={snapshot.IntentMode}).";
             return false;
         }
 
@@ -519,6 +692,213 @@ internal static class LinuxSelfTestRunner
     {
         return (semanticCode != DispatchSemanticCode.None && LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out _)) ||
                (virtualKey != 0 && LinuxKeyCodeMapper.TryMapKey(virtualKey, out _));
+    }
+
+    private static bool ValidateLinuxForceThresholdDispatch(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            ForceMin = 200,
+            ForceCap = 255
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+
+        long now = 0;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 32, hasForceData: true),
+            maxX,
+            maxY,
+            now));
+        now += 1;
+        host.Post(new TrackpadFrameEnvelope(TrackpadSide.Right, MakeFrame(contactCount: 0), maxX, maxY, now));
+        if (!dispatcher.WaitForDispatchCount(0, timeoutMs: 150))
+        {
+            failure = "Low-force key tap was not suppressed by shared Force Min/Max settings.";
+            return false;
+        }
+
+        now += 10;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 240, hasForceData: true),
+            maxX,
+            maxY,
+            now));
+        now += 1;
+        host.Post(new TrackpadFrameEnvelope(TrackpadSide.Right, MakeFrame(contactCount: 0), maxX, maxY, now));
+        if (!dispatcher.WaitForDispatchCount(1, timeoutMs: 150))
+        {
+            failure = "High-force key tap did not dispatch when inside the shared Force Min/Max window.";
+            return false;
+        }
+
+        DispatchEvent[] events = dispatcher.Snapshot();
+        if (events.Length != 1 || events[0].Kind != DispatchEventKind.KeyTap)
+        {
+            failure = $"Unexpected dispatch sequence for force-threshold validation (events={events.Length}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxAssemblerForceData(out string failure)
+    {
+        LinuxMtFrameAssembler assembler = new(
+            slotCount: 1,
+            maxX: 1000,
+            maxY: 1000,
+            hasMtPressureData: true);
+        assembler.SelectSlot(0);
+        assembler.SetTrackingId(7);
+        assembler.SetPositionX(320);
+        assembler.SetPositionY(480);
+        assembler.SetPressure(192);
+
+        InputFrame mtFrame = assembler.CommitFrame(timestampTicks: 1);
+        if (mtFrame.GetClampedContactCount() != 1)
+        {
+            failure = "Linux multitouch assembler did not emit the expected slot contact.";
+            return false;
+        }
+
+        ContactFrame mtContact = mtFrame.GetContact(0);
+        if (!mtContact.HasForceData || mtContact.Pressure8 != 192 || mtContact.ForceNorm <= 0)
+        {
+            failure = "Linux multitouch assembler did not preserve force-capable pressure data.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateMagicTrackpadSelectionHeuristic(out string failure)
+    {
+        if (!LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Apple Inc. Magic Trackpad") ||
+            !LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Apple Inc. Magic Trackpad USB-C"))
+        {
+            failure = "Magic Trackpad enumeration heuristic no longer recognizes the validated Apple Bluetooth/USB names.";
+            return false;
+        }
+
+        if (LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("Logitech M720 Triathlon") ||
+            LinuxTrackpadEnumerator.IsMagicTrackpadCandidateName("JLabs Augur Mouse"))
+        {
+            failure = "Magic Trackpad enumeration heuristic started matching non-trackpad devices.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxActuatorDescriptorParsing(out string failure)
+    {
+        byte[] usbActuatorDescriptor = Convert.FromHexString("0600FF090DA1010600FF090D150026FF007508853F960F008102090D8553963F009102C0");
+        if (!LinuxMagicTrackpadActuatorProbe.TryParseActuatorOutputReportLength(usbActuatorDescriptor, out int outputReportBytes) ||
+            outputReportBytes != 64)
+        {
+            failure = "Linux actuator HID descriptor parsing no longer recognizes the validated Magic Trackpad actuator interface.";
+            return false;
+        }
+
+        byte[] bluetoothTouchDescriptor = Convert.FromHexString("05010902A10185020509190129021500250195027501810295017506810305010901A1001681FF267F0036C3FE463D016513550D09300931750895028106750895048101C00602FF09558555150026FF0075089540B1A2C00600FF0914A101859005847501950315002501096105850944094681029505810175089501150026FF0009658102C000");
+        if (LinuxMagicTrackpadActuatorProbe.TryParseActuatorOutputReportLength(bluetoothTouchDescriptor, out _))
+        {
+            failure = "Linux actuator HID descriptor parsing started treating the validated Bluetooth touch interface as an actuator.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static InputFrame MakeFrame(int contactCount, ushort x = 0, ushort y = 0, byte pressure = 0, bool hasForceData = false)
+    {
+        InputFrame frame = new()
+        {
+            ArrivalQpcTicks = 0,
+            ReportId = 0xEE,
+            ScanTime = 0,
+            ContactCount = (byte)contactCount,
+            IsButtonClicked = 0
+        };
+
+        if (contactCount > 0)
+        {
+            frame.SetContact(0, new ContactFrame(1, x, y, 0x03, pressure, Phase: 0, HasForceData: hasForceData));
+        }
+
+        return frame;
+    }
+
+    private sealed class RecordingDispatcher : IInputDispatcher
+    {
+        private readonly object _gate = new();
+        private readonly List<DispatchEvent> _events = [];
+
+        public void Dispatch(in DispatchEvent dispatchEvent)
+        {
+            lock (_gate)
+            {
+                _events.Add(dispatchEvent);
+            }
+        }
+
+        public void Tick(long nowTicks)
+        {
+            _ = nowTicks;
+        }
+
+        public DispatchEvent[] Snapshot()
+        {
+            lock (_gate)
+            {
+                return _events.ToArray();
+            }
+        }
+
+        public bool WaitForDispatchCount(int expectedCount, int timeoutMs)
+        {
+            long deadline = Environment.TickCount64 + Math.Max(1, timeoutMs);
+            while (Environment.TickCount64 < deadline)
+            {
+                lock (_gate)
+                {
+                    if (_events.Count == expectedCount)
+                    {
+                        return true;
+                    }
+                }
+
+                Thread.Sleep(5);
+            }
+
+            lock (_gate)
+            {
+                return _events.Count == expectedCount;
+            }
+        }
+
+        public void Dispose()
+        {
+        }
     }
 
     private static IEnumerable<string> EnumerateActionLabels(KeymapStore.KeymapFileModel keymap)

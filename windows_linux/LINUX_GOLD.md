@@ -320,7 +320,7 @@ The architecture is not considered complete until:
 
 ## Validated Host Findings
 
-- Apple trackpads can expose Type B multitouch slots and parallel legacy absolute fields on the same evdev node.
+- Apple trackpads can expose Type B multitouch slots and parallel legacy absolute fields on the same evdev node, but the product path now treats the MT slot stream as authoritative and ignores the legacy compatibility fields.
 - Prefer the Apple `if01` `-event-mouse` node when multiple event nodes represent one physical trackpad.
 - Real `EVIOCGABS` probing works on the host and should be used instead of hardcoded Windows ranges.
 - The tested host reported:
@@ -341,6 +341,14 @@ The architecture is not considered complete until:
   - `doctor` reported `Summary: ok` after session refresh
   - stable-id bindings survived event-node renumbering across reboot/reconnect
 - The checked-in package-manager install flow and user-service flow were validated on the host.
+- Linux haptics has now been validated end-to-end on the host for both tested USB trackpads:
+  - older Magic Trackpad (`0x05ac/0x0265`) actuator node `/dev/hidraw11`
+  - newer Magic Trackpad (`0x05ac/0x0324`) actuator node `/dev/hidraw15`
+- The working Linux actuator write shape on this host is the raw 14-byte `0x53` report payload; the Windows-style 64-byte padded write should not be treated as the Linux default.
+- Packaged/user-mode haptics depends on the same `glasstokey` group model as input output:
+  - matched actuator `/dev/hidraw*` nodes must come up as `root:glasstokey` with mode `0660`
+  - `doctor` should report `HapticsWriteAccess: ok` for each USB-bound trackpad
+  - both validated USB product ids now need actuator rules: `0x0265` and `0x0324`
 - The Linux user service now runs `run-engine` until interrupted rather than timing out after 10 seconds.
 - Packaged reconnect validation is now proven on the host for both:
   - Bluetooth power off/on churn
@@ -353,7 +361,7 @@ The architecture is not considered complete until:
   - `usb-trackpad`
 - Sandbox caveat:
   - `EVIOCGABS` can fail inside the coding sandbox even when it works on the real host
-  - treat that as an environment validation issue first, not product-side evidence that fallback logic is required
+  - treat that as an environment validation issue first, not product-side evidence that fallback logic is required or should be reintroduced
 
 ## Current Implemented Status
 
@@ -373,7 +381,7 @@ The architecture is not considered complete until:
 - [x] raw evdev event capture exists
 - [x] evdev-to-`InputFrame` assembly exists
 - [x] normalized coordinate path validated on host
-- [x] legacy absolute fallback path is accounted for
+- [x] legacy absolute fallback path removed; MT slot stream is authoritative
 - [x] runtime-side stable-id rebind/reconnect supervision exists
 - [x] `LinuxUinputDispatcher` exists
 - [x] semantic-first Linux mapping resolves semantic codes before Windows-VK fallback
@@ -545,7 +553,7 @@ These are intentionally not blocking the current packaging/productization push, 
 - [ ] Decide whether Linux v1 ships mixed-mode only or also attempts keyboard-mode suppression
 - [ ] If keyboard-mode suppression is pursued, prototype `EVIOCGRAB` with strict crash/exit safety and clear operator expectations
 - [ ] Decide whether Linux force-click parity remains disabled or whether a Linux-specific calibrated pressure path is worth building later
-- [ ] Investigate Magic Trackpad haptics only after the typing/runtime path is productized
+- [x] Investigate Magic Trackpad haptics after the typing/runtime path is productized
 
 ## Next Milestone Checklist
 
@@ -581,12 +589,12 @@ Exit criteria:
 - [x] Remove the linked-source bridge from the Windows app into `GlassToKey.Core`
 - [ ] Reduce remaining shared-flow dependence on Windows virtual-key compatibility where semantic actions should be authoritative
 - [x] Keep Windows as one top-level `GlassToKey.Windows` app project; do not split further unless a future need justifies it
-- [ ] Only then return to deferred Linux parity work like keyboard suppression, force-click parity, or haptics
+- [ ] Only then return to remaining deferred Linux parity work like keyboard suppression or force-click parity
 
 ## README Follow-Ups
 
 - `packaging/linux/README.md`: keep desktop packaging guidance centered on the tray-owned GUI runtime, with the user service described as the optional headless/background path and `glasstokey start` / `stop` documented as the direct headless path
-- `GlassToKey.Linux/README.md`: keep a short direct-run section covering `doctor`, `init-config`, `show-config`, `load-keymap`, `start`, `stop`, and `run-engine`
+- `GlassToKey.Linux/README.md`: keep a short direct-run section covering `doctor`, `init-config`, `show-config`, `load-keymap`, `pulse-haptics`, `start`, `stop`, and `run-engine`
 - `GlassToKey.Linux.Gui/README.md`: keep the current scope aligned with the tray-owned desktop runtime, GUI keymap editing being in scope, and rich diagnostics remaining CLI-first
 - `GlassToKey.Core/README.md`: update when the linked-source bridge starts shrinking materially, not just when Linux adds features
 - `AGENTS.md`: update after Linux packaging defaults or desktop/headless workflow expectations change

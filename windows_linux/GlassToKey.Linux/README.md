@@ -17,8 +17,10 @@ Current CLI/runtime features:
 
 - `show-config` opens the config GUI in graphical sessions when available, and `show-config --print` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
 - `init-config` writes default Linux host settings using detected stable IDs
-- `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, and `/dev/uinput` readiness
-- `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads and `/dev/uinput`
+- `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, `/dev/uinput` readiness, and Linux actuator-hidraw haptics access when available
+- `list-devices` and runtime binding only target authoritative Apple Magic Trackpad multitouch nodes; wrong evdev nodes should be fixed by rebinding, not by Linux-side fallback logic
+- `pulse-haptics` sends direct actuator pulses to the configured left/right USB trackpad for bring-up and permission validation
+- `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads, any validated actuator hidraw interfaces, and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
@@ -28,12 +30,16 @@ Current CLI/runtime features:
 - `write-atpcap-fixture` writes a replay expectation fixture from an existing Linux `.atpcap` capture
 - `check-atpcap-fixture` replays a Linux `.atpcap` capture and validates it against an expectation fixture
 - `start` launches the headless runtime in the background and returns the shell prompt
-- `stop` stops that background runtime
+- `stop` stops the detached background runtime, any running tray host, and matching user `systemd` services such as `glasstokey.service`
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
+- Linux now also triggers Magic Trackpad haptics through the validated actuator hidraw interface when the device exposes that interface and permissions allow write access
+- On the current Ubuntu 24.04 host, live runtime haptics has now been validated end-to-end on both tested USB trackpads:
+  - older Magic Trackpad (`0x05ac/0x0265`) actuator node `/dev/hidraw11`
+  - newer Magic Trackpad (`0x05ac/0x0324`) actuator node `/dev/hidraw15`
 - the CLI now consumes the shared `GlassToKey.Linux.Host` library instead of carrying its own private copy of the Linux settings/runtime layer
 - the generated/installable Linux `udev` rules now prefer a dedicated `glasstokey` access group plus `0660` device modes, with `uaccess` left as an additive hint instead of the primary trust model
 - checked-in publish profiles now cover:
@@ -62,10 +68,11 @@ Quick start:
   - `glasstokey show-config`
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`
-- stop the background CLI runtime with `glasstokey stop`
+- stop the background CLI runtime, tray host, or optional user service with `glasstokey stop`
 - the documented default desktop path is `glasstokey-gui`; it starts the tray host in background, and `glasstokey-gui --show` opens the config window on demand
 - profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
 - if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
+- for direct haptics bring-up, use `pulse-haptics left 5` or `pulse-haptics right 5`
 - if you installed the optional headless user service, control it with:
   - `systemctl --user start glasstokey.service`
   - `systemctl --user stop glasstokey.service`
@@ -82,8 +89,9 @@ Publish commands:
 Packaging notes:
 
 - framework-dependent publish still expects the target machine to have `.NET 10` runtime installed
-- self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*` and `/dev/uinput`
+- self-contained publish avoids the runtime prerequisite, but device permissions still need a targeted `udev` rule for `/dev/input/event*`, validated actuator `/dev/hidraw*` nodes, and `/dev/uinput`
 - on the current Ubuntu host, `uaccess` tags alone were not sufficient to guarantee user ACLs on recreated Bluetooth trackpad nodes, so the packaged permission strategy now prefers the dedicated `glasstokey` group model
+- the checked-in packaging rules now include Magic Trackpad actuator hidraw access for both validated USB product ids: `0x0265` and `0x0324`
 - `print-udev-rules` is the current packaging scaffold for those permissions
 - run overlapping `dotnet build` / `dotnet publish` commands for the same project graph sequentially; parallel publishes can collide in shared output paths
 - `packaging/linux/90-glasstokey.rules` plus package-manager installs (`.deb` and Arch package) are the supported install artifacts

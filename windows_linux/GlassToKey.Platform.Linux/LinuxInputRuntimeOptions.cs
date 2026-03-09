@@ -9,4 +9,6 @@ public sealed class LinuxInputRuntimeOptions
     public TimeSpan ReconnectDelay { get; init; } = TimeSpan.FromMilliseconds(750);
 
     public ILinuxRuntimeObserver? Observer { get; init; }
+
+    public Func<bool>? ShouldGrabExclusiveInput { get; init; }
 }

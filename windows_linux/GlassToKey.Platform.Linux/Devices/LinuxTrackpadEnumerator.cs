@@ -34,6 +34,8 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
             string capabilitiesAbs = ReadTrimmed(Path.Combine(sysfsDevicePath, "capabilities", "abs"));
             string capabilitiesKey = ReadTrimmed(Path.Combine(sysfsDevicePath, "capabilities", "key"));
             string properties = ReadTrimmed(Path.Combine(sysfsDevicePath, "properties"));
+            ushort vendorId = ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "vendor"));
+            ushort productId = ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "product"));
 
             bool supportsMultitouch =
                 HasBit(capabilitiesEv, EventTypeAbs) &&
@@ -50,7 +52,7 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
                 HasBit(properties, InputPropButtonPad) ||
                 displayName.Contains("trackpad", StringComparison.OrdinalIgnoreCase);
 
-            if (!supportsMultitouch || !pointerLike)
+            if (!IsMagicTrackpadCandidateName(displayName) || !supportsMultitouch || !pointerLike)
             {
                 continue;
             }
@@ -65,8 +67,8 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
                 UniqueId: uniqueId,
                 PhysicalPath: physicalPath,
                 DisplayName: displayName,
-                VendorId: ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "vendor")),
-                ProductId: ReadHexUShort(Path.Combine(sysfsDevicePath, "id", "product")),
+                VendorId: vendorId,
+                ProductId: productId,
                 SupportsMultitouch: supportsMultitouch,
                 SupportsPressure: supportsPressure,
                 SupportsButtonClick: supportsButtonClick,
@@ -152,6 +154,11 @@ public sealed class LinuxTrackpadEnumerator : ILinuxTrackpadBackend
     private static bool IsPreferredStableId(string stableId)
     {
         return stableId.Contains("-if01-event-mouse", StringComparison.OrdinalIgnoreCase);
+    }
+
+    internal static bool IsMagicTrackpadCandidateName(string displayName)
+    {
+        return displayName.Contains("Magic Trackpad", StringComparison.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, string> BuildStableIdsByDeviceNode()

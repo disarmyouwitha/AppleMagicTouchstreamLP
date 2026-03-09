@@ -17,6 +17,7 @@ public sealed class LinuxBackgroundRuntimeController
     private static readonly TimeSpan StartTimeout = TimeSpan.FromSeconds(10);
     private static readonly TimeSpan StopPollInterval = TimeSpan.FromMilliseconds(100);
     private static readonly TimeSpan StopTimeout = TimeSpan.FromSeconds(10);
+    private static readonly TimeSpan ForceStopTimeout = TimeSpan.FromSeconds(2);
 
     private readonly string _markerPath;
 
@@ -117,11 +118,33 @@ public sealed class LinuxBackgroundRuntimeController
             }
         }
 
+        if (!SendSignal(marker.ProcessId, SignalKill))
+        {
+            DeleteMarker();
+            return new LinuxBackgroundRuntimeStatus(false, null, _markerPath, "The background runtime is no longer running.");
+        }
+
+        Stopwatch forceStopwatch = Stopwatch.StartNew();
+        while (forceStopwatch.Elapsed < ForceStopTimeout)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            await Task.Delay(StopPollInterval, cancellationToken).ConfigureAwait(false);
+            if (!IsProcessAlive(marker.ProcessId))
+            {
+                DeleteMarker();
+                return new LinuxBackgroundRuntimeStatus(
+                    false,
+                    null,
+                    _markerPath,
+                    $"The background runtime did not stop within {StopTimeout.TotalSeconds:0}s and was force-stopped.");
+            }
+        }
+
         return new LinuxBackgroundRuntimeStatus(
             true,
             marker.ProcessId,
             _markerPath,
-            $"The background runtime did not stop within {StopTimeout.TotalSeconds:0}s.");
+            $"The background runtime did not stop within {StopTimeout.TotalSeconds:0}s and could not be force-stopped.");
     }
 
     public async Task<int> RunBackgroundAsync(
@@ -280,6 +303,7 @@ public sealed class LinuxBackgroundRuntimeController
     }
 
     private const int SignalTerm = 15;
+    private const int SignalKill = 9;
 
     [DllImport("libc", SetLastError = true)]
     private static extern int kill(int pid, int sig);

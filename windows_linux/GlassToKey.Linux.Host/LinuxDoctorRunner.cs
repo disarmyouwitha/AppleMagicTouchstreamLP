@@ -1,5 +1,6 @@
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Evdev;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 using GlassToKey.Platform.Linux.Uinput;
 
@@ -40,6 +41,27 @@ public static class LinuxDoctorRunner
             ok = false;
             issues.Add("bundled-keymap");
         }
+        else
+        {
+            try
+            {
+                KeymapStore keymap = KeymapStore.LoadBundledDefault();
+                bool keymapLooksEmpty =
+                    keymap.SerializeToJson(writeIndented: false).Contains("\"Layouts\":{}", StringComparison.Ordinal);
+                writer.WriteLine($"  BundledKeymapImportable: {!keymapLooksEmpty}");
+                if (keymapLooksEmpty)
+                {
+                    ok = false;
+                    issues.Add("bundled-keymap-import");
+                }
+            }
+            catch (Exception ex)
+            {
+                writer.WriteLine($"  BundledKeymapImportable: false ({ex.Message})");
+                ok = false;
+                issues.Add("bundled-keymap-import");
+            }
+        }
 
         if (!string.IsNullOrWhiteSpace(configuration.Settings.KeymapPath))
         {
@@ -76,10 +98,19 @@ public static class LinuxDoctorRunner
             writer.WriteLine($"    PreferredInterface: {device.IsPreferredInterface}");
             writer.WriteLine($"    Pressure: {device.SupportsPressure}");
             writer.WriteLine($"    ButtonClick: {device.SupportsButtonClick}");
+            LinuxMagicTrackpadActuatorProbeResult haptics = LinuxMagicTrackpadActuatorProbe.Probe(device.DeviceNode);
+            writer.WriteLine($"    HapticsSupported: {haptics.Supported}");
+            writer.WriteLine($"    HapticsNode: {haptics.HidrawDeviceNode ?? "(none)"}");
+            writer.WriteLine($"    HapticsWriteAccess: {(haptics.Supported ? (haptics.CanOpenWrite ? "ok" : haptics.Status) : haptics.Status)}");
             if (!device.CanOpenEventStream)
             {
                 ok = false;
                 issues.Add($"event:{device.DeviceNode}");
+            }
+            else if (configuration.SharedProfile.HapticsEnabled && haptics.Supported && !haptics.CanOpenWrite)
+            {
+                ok = false;
+                issues.Add($"haptics:{haptics.HidrawDeviceNode}");
             }
         }
 
@@ -105,7 +136,17 @@ public static class LinuxDoctorRunner
             catch (Exception ex)
             {
                 writer.WriteLine($"    AxisProbeWarning: {ex.Message}");
-                writer.WriteLine("    AxisProbeGuidance: If event access is otherwise ok, re-run doctor outside the sandbox before treating this as a product issue.");
+                if (ex.Message.Contains("ABS_MT_SLOT", StringComparison.OrdinalIgnoreCase) ||
+                    ex.Message.Contains("ABS_MT_POSITION", StringComparison.OrdinalIgnoreCase))
+                {
+                    writer.WriteLine("    AxisProbeGuidance: Bound node is not an authoritative Magic Trackpad multitouch stream. Rebind using list-devices and prefer the if01-event-mouse node when present.");
+                    ok = false;
+                    issues.Add($"binding-node:{binding.Device.DeviceNode}");
+                }
+                else
+                {
+                    writer.WriteLine("    AxisProbeGuidance: If event access is otherwise ok, re-run doctor outside the sandbox before treating this as a product issue.");
+                }
             }
         }
 

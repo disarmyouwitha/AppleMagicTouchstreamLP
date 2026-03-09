@@ -9,23 +9,16 @@ namespace GlassToKey.Platform.Linux.Evdev;
 
 public sealed class LinuxEvdevReader
 {
-    private static readonly long PendingReleaseFlushDelayTicks = (long)(Stopwatch.Frequency * 0.012);
     private const int OpenReadOnly = 0x0000;
     private const int OpenNonBlocking = 0x0800;
     private const int ErrnoTryAgain = 11;
+    private const uint EviocGrab = 0x40044590;
     private const ushort EventTypeSync = 0x00;
     private const ushort EventTypeKey = 0x01;
     private const ushort EventTypeAbsolute = 0x03;
     private const ushort SyncReport = 0x00;
     private const ushort SyncDropped = 0x03;
     private const ushort ButtonLeft = 0x110;
-    private const ushort ButtonToolFinger = 0x145;
-    private const ushort ButtonTouch = 0x14a;
-    private const ushort AbsX = 0x00;
-    private const ushort AbsY = 0x01;
-    private const ushort AbsPressure = 0x18;
-    private const ushort AbsMtTouchMajor = 0x30;
-    private const ushort AbsMtTouchMinor = 0x31;
     private const ushort AbsMtSlot = 0x2f;
     private const ushort AbsMtPositionX = 0x35;
     private const ushort AbsMtPositionY = 0x36;
@@ -135,6 +128,7 @@ public sealed class LinuxEvdevReader
                 frames.Add(snapshot);
                 return ValueTask.FromResult(frames.Count < maxFrames && Stopwatch.GetTimestamp() < deadlineTimestamp);
             },
+            shouldGrabExclusiveInput: null,
             cancellationToken).ConfigureAwait(false);
 
         return frames;
@@ -143,6 +137,7 @@ public sealed class LinuxEvdevReader
     public async Task StreamFramesAsync(
         string deviceNode,
         Func<LinuxEvdevFrameSnapshot, ValueTask<bool>> onFrame,
+        Func<bool>? shouldGrabExclusiveInput,
         CancellationToken cancellationToken = default)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(deviceNode);
@@ -150,12 +145,23 @@ public sealed class LinuxEvdevReader
 
         using SafeFileHandle handle = OpenNonBlockingHandle(deviceNode);
         LinuxTrackpadAxisProfile axisProfile = GetAxisProfile(handle);
-        LinuxMtFrameAssembler assembler = new(axisProfile.SlotCount, axisProfile.MaxX, axisProfile.MaxY);
+        LinuxMtFrameAssembler assembler = new(
+            axisProfile.SlotCount,
+            axisProfile.MaxX,
+            axisProfile.MaxY,
+            axisProfile.SupportsPressure);
         byte[] buffer = new byte[InputEvent.Size];
-        PendingReleaseState pendingRelease = new();
+        bool isExclusivelyGrabbed = false;
 
         while (!cancellationToken.IsCancellationRequested)
         {
+            bool shouldGrab = shouldGrabExclusiveInput?.Invoke() == true;
+            if (shouldGrab != isExclusivelyGrabbed)
+            {
+                SetExclusiveGrab(handle, shouldGrab, deviceNode);
+                isExclusivelyGrabbed = shouldGrab;
+            }
+
             nint bytesRead;
             try
             {
@@ -171,22 +177,6 @@ public sealed class LinuxEvdevReader
                 int error = Marshal.GetLastWin32Error();
                 if (error == ErrnoTryAgain)
                 {
-                    if (pendingRelease.Pending &&
-                        await TryFlushPendingReleaseAsync(
-                            assembler,
-                            axisProfile,
-                            deviceNode,
-                            onFrame,
-                            pendingRelease).ConfigureAwait(false) is { Flushed: true } releaseResult)
-                    {
-                        if (!releaseResult.ShouldContinue)
-                        {
-                            break;
-                        }
-
-                        continue;
-                    }
-
                     try
                     {
                         await Task.Delay(8, cancellationToken).ConfigureAwait(false);
@@ -204,22 +194,6 @@ public sealed class LinuxEvdevReader
 
             if (bytesRead == 0)
             {
-                if (pendingRelease.Pending &&
-                    await TryFlushPendingReleaseAsync(
-                        assembler,
-                        axisProfile,
-                        deviceNode,
-                        onFrame,
-                        pendingRelease).ConfigureAwait(false) is { Flushed: true } releaseResult)
-                {
-                    if (!releaseResult.ShouldContinue)
-                    {
-                        break;
-                    }
-
-                    continue;
-                }
-
                 try
                 {
                     await Task.Delay(8, cancellationToken).ConfigureAwait(false);
@@ -243,12 +217,6 @@ public sealed class LinuxEvdevReader
                 throw new IOException($"evdev reported SYN_DROPPED on '{deviceNode}'; rebinding stream.");
             }
 
-            if (ShouldArmPendingReleaseFlush(in inputEvent))
-            {
-                pendingRelease.Pending = true;
-                pendingRelease.DeadlineTicks = Stopwatch.GetTimestamp() + PendingReleaseFlushDelayTicks;
-            }
-
             if (!ApplyEvent(assembler, axisProfile, in inputEvent))
             {
                 continue;
@@ -262,8 +230,6 @@ public sealed class LinuxEvdevReader
                 MaxY: axisProfile.MaxY,
                 FrameSequence: assembler.FrameSequence,
                 Frame: assembler.CommitFrame(ToStopwatchTicks(inputEvent)));
-            pendingRelease.Pending = false;
-            pendingRelease.DeadlineTicks = 0;
             bool shouldContinue = await onFrame(snapshot).ConfigureAwait(false);
             if (!shouldContinue)
             {
@@ -284,11 +250,6 @@ public sealed class LinuxEvdevReader
                 {
                     assembler.SetButtonPressed(inputEvent.Value != 0);
                 }
-                else if (inputEvent.Code == ButtonTouch || inputEvent.Code == ButtonToolFinger)
-                {
-                    assembler.SetLegacyTouchActive(inputEvent.Value != 0);
-                }
-
                 return false;
             case EventTypeSync:
                 return inputEvent.Code == SyncReport;
@@ -301,21 +262,6 @@ public sealed class LinuxEvdevReader
     {
         switch (code)
         {
-            case AbsX:
-                assembler.SetLegacyPositionX(axisProfile.NormalizeX(value));
-                break;
-            case AbsY:
-                assembler.SetLegacyPositionY(axisProfile.NormalizeY(value));
-                break;
-            case AbsPressure:
-                assembler.SetLegacyPressure(value);
-                break;
-            case AbsMtTouchMajor:
-                assembler.SetLegacyTouchMajor(value);
-                break;
-            case AbsMtTouchMinor:
-                assembler.SetLegacyTouchMinor(value);
-                break;
             case AbsMtSlot:
                 assembler.SelectSlot(value);
                 break;
@@ -329,62 +275,12 @@ public sealed class LinuxEvdevReader
                 assembler.SetPositionY(axisProfile.NormalizeY(value));
                 break;
             case AbsMtPressure:
-                assembler.SetPressure(value);
+                assembler.SetPressure(axisProfile.NormalizePressure(value));
                 break;
             case AbsMtOrientation:
                 assembler.SetOrientation(value);
                 break;
         }
-    }
-
-    private static bool ShouldArmPendingReleaseFlush(in InputEvent inputEvent)
-    {
-        if (inputEvent.Type == EventTypeKey &&
-            (inputEvent.Code == ButtonTouch || inputEvent.Code == ButtonToolFinger) &&
-            inputEvent.Value == 0)
-        {
-            return true;
-        }
-
-        return inputEvent.Type == EventTypeAbsolute &&
-               inputEvent.Code == AbsMtTrackingId &&
-               inputEvent.Value < 0;
-    }
-
-    private static async ValueTask<PendingReleaseFlushResult> TryFlushPendingReleaseAsync(
-        LinuxMtFrameAssembler assembler,
-        LinuxTrackpadAxisProfile axisProfile,
-        string deviceNode,
-        Func<LinuxEvdevFrameSnapshot, ValueTask<bool>> onFrame,
-        PendingReleaseState pendingRelease)
-    {
-        if (!pendingRelease.Pending || Stopwatch.GetTimestamp() < pendingRelease.DeadlineTicks)
-        {
-            return new PendingReleaseFlushResult(false, true);
-        }
-
-        LinuxEvdevFrameSnapshot snapshot = new(
-            DeviceNode: deviceNode,
-            MinX: axisProfile.MinX,
-            MinY: axisProfile.MinY,
-            MaxX: axisProfile.MaxX,
-            MaxY: axisProfile.MaxY,
-            FrameSequence: assembler.FrameSequence,
-            Frame: assembler.CommitFrame(Stopwatch.GetTimestamp()));
-        pendingRelease.Pending = false;
-        pendingRelease.DeadlineTicks = 0;
-        return new PendingReleaseFlushResult(
-            Flushed: true,
-            ShouldContinue: await onFrame(snapshot).ConfigureAwait(false));
-    }
-
-    private readonly record struct PendingReleaseFlushResult(bool Flushed, bool ShouldContinue);
-
-    private sealed class PendingReleaseState
-    {
-        public bool Pending { get; set; }
-
-        public long DeadlineTicks { get; set; }
     }
 
     private static LinuxInputAxisInfo GetAxisInfo(SafeFileHandle handle, ushort axisCode)
@@ -404,26 +300,17 @@ public sealed class LinuxEvdevReader
         LinuxInputAxisInfo? slotAxis = TryGetAxisInfo(handle, AbsMtSlot);
         LinuxInputAxisInfo? mtX = TryGetAxisInfo(handle, AbsMtPositionX);
         LinuxInputAxisInfo? mtY = TryGetAxisInfo(handle, AbsMtPositionY);
-        LinuxInputAxisInfo? legacyX = TryGetAxisInfo(handle, AbsX);
-        LinuxInputAxisInfo? legacyY = TryGetAxisInfo(handle, AbsY);
         LinuxInputAxisInfo? mtPressure = TryGetAxisInfo(handle, AbsMtPressure);
-        LinuxInputAxisInfo? legacyPressure = TryGetAxisInfo(handle, AbsPressure);
-
-        LinuxInputAxisInfo? xAxis = mtX ?? legacyX;
-        LinuxInputAxisInfo? yAxis = mtY ?? legacyY;
-        LinuxInputAxisInfo? pressureAxis = mtPressure ?? legacyPressure;
-        if (xAxis == null || yAxis == null)
+        if (slotAxis == null || mtX == null || mtY == null)
         {
-            throw new IOException("Trackpad device does not expose usable X/Y absolute axes.");
+            throw new IOException("Apple Magic Trackpad binding requires ABS_MT_SLOT and ABS_MT_POSITION_X/Y on the selected evdev node.");
         }
 
         return new LinuxTrackpadAxisProfile(
             Slot: slotAxis,
-            X: xAxis,
-            Y: yAxis,
-            Pressure: pressureAxis,
-            UsesMtPositionAxes: mtX != null && mtY != null,
-            UsesLegacyPositionAxes: mtX == null || mtY == null);
+            X: mtX,
+            Y: mtY,
+            Pressure: mtPressure);
     }
 
     private static LinuxInputAxisInfo? TryGetAxisInfo(SafeFileHandle handle, ushort axisCode)
@@ -479,6 +366,9 @@ public sealed class LinuxEvdevReader
     private static extern int ioctl(SafeFileHandle fd, ulong request, ref InputAbsInfo value);
 
     [DllImport("libc", SetLastError = true)]
+    private static extern int ioctl(SafeFileHandle fd, uint request, int value);
+
+    [DllImport("libc", SetLastError = true)]
     private static extern int open(string pathname, int flags);
 
     [DllImport("libc", SetLastError = true)]
@@ -505,5 +395,15 @@ public sealed class LinuxEvdevReader
         public readonly ushort Type;
         public readonly ushort Code;
         public readonly int Value;
+    }
+
+    private static void SetExclusiveGrab(SafeFileHandle handle, bool shouldGrab, string deviceNode)
+    {
+        int result = ioctl(handle, EviocGrab, shouldGrab ? 1 : 0);
+        if (result < 0)
+        {
+            throw new IOException(
+                $"EVIOCGRAB({(shouldGrab ? 1 : 0)}) failed for '{deviceNode}': {new Win32Exception(Marshal.GetLastWin32Error()).Message}");
+        }
     }
 }

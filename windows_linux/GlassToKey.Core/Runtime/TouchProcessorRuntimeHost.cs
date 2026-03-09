@@ -23,7 +23,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
             : TouchProcessorFactory.CreateConfigured(resolvedKeymap, settings, preset);
         _dispatchQueue = new DispatchEventQueue();
         _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
-        _actor.SetHapticsOnKeyDispatchEnabled(false);
+        _actor.SetHapticsOnKeyDispatchEnabled(settings?.HapticsEnabled ?? false);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
         if (settings != null)
         {
@@ -148,21 +148,19 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
 
         int activeLayer = Math.Clamp(profile.ActiveLayer, 0, 7);
         bool typingEnabled = profile.TypingEnabled;
-        bool keyboardModeEnabled = profile.KeyboardModeEnabled;
         if (TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
         {
             activeLayer = Math.Clamp(snapshot.ActiveLayer, 0, 7);
             typingEnabled = snapshot.TypingEnabled;
-            keyboardModeEnabled = snapshot.KeyboardModeEnabled;
         }
 
         _actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(profile));
         _actor.SetTypingEnabled(typingEnabled);
-        _actor.SetKeyboardModeEnabled(keyboardModeEnabled);
-        _actor.SetAllowMouseTakeover(profile.AllowMouseTakeover);
+        _actor.SetKeyboardModeEnabled(profile.KeyboardModeEnabled);
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);
+        _actor.SetHapticsOnKeyDispatchEnabled(settings.HapticsEnabled);
         ConfigureDispatcherAutocorrect(_dispatcher, profile);
     }
 

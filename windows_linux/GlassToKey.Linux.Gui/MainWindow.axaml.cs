@@ -35,10 +35,8 @@ public partial class MainWindow : Window
     private readonly ComboBox _rightDeviceCombo;
     private readonly ComboBox _layoutPresetCombo;
     private readonly ComboBox _columnLayoutColumnCombo;
-    private readonly ComboBox _fiveFingerSwipeLeftCombo;
-    private readonly ComboBox _fiveFingerSwipeRightCombo;
-    private readonly ComboBox _fiveFingerSwipeUpCombo;
-    private readonly ComboBox _fiveFingerSwipeDownCombo;
+    private readonly StackPanel _typingTuningPanel;
+    private readonly StackPanel _gestureSectionsPanel;
     private readonly Expander _keymapTuningExpander;
     private readonly ComboBox _keymapLayerCombo;
     private readonly ComboBox _keymapPrimaryCombo;
@@ -49,16 +47,25 @@ public partial class MainWindow : Window
     private readonly CheckBox _snapRadiusModeCheck;
     private readonly CheckBox _holdRepeatModeCheck;
     private readonly CheckBox _autocorrectModeCheck;
+    private readonly Border _autocorrectStatusBorder;
     private readonly Button _keymapClearSelectionButton;
     private readonly Button _columnAutoSplayButton;
     private readonly Button _columnEvenSpaceButton;
     private readonly TextBlock _keymapSelectionText;
+    private readonly TextBlock _autocorrectRuntimeStateText;
+    private readonly TextBlock _autocorrectLastCorrectedValueText;
+    private readonly TextBlock _autocorrectCurrentBufferValueText;
+    private readonly TextBlock _autocorrectSkipReasonValueText;
+    private readonly TextBlock _autocorrectResetSourceValueText;
+    private readonly TextBlock _autocorrectWordHistoryValueText;
     private readonly TextBox _columnScaleBox;
     private readonly TextBox _keyPaddingBox;
     private readonly TextBox _columnOffsetXBox;
     private readonly TextBox _columnOffsetYBox;
     private readonly TextBox _columnRotationBox;
     private readonly TextBox _keyRotationBox;
+    private readonly TextBox _autocorrectBlacklistBox;
+    private readonly TextBox _autocorrectOverridesBox;
     private readonly Button _customButtonAddLeftButton;
     private readonly Button _customButtonAddRightButton;
     private readonly Button _customButtonDeleteButton;
@@ -85,6 +92,12 @@ public partial class MainWindow : Window
     private readonly DispatcherTimer _replayTimer;
     private readonly List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
     private readonly HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TextBox> _typingTuningTextBoxes = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TextBlock> _typingTuningSliderValueTexts = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, ComboBox> _gestureActionCombos = new(StringComparer.Ordinal);
+    private Slider? _hapticsStrengthSlider;
+    private TextBlock? _hapticsStrengthValueText;
     private bool _allowExit;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
@@ -110,6 +123,12 @@ public partial class MainWindow : Window
     private ColumnLayoutSettings[] _columnSettings = Array.Empty<ColumnLayoutSettings>();
     private string _leftStickyTouchedKeys = "Touched keys: (none)";
     private string _rightStickyTouchedKeys = "Touched keys: (none)";
+    private string _lastAutocorrectUiRuntimeState = string.Empty;
+    private string _lastAutocorrectUiLastCorrected = string.Empty;
+    private string _lastAutocorrectUiCurrentBuffer = string.Empty;
+    private string _lastAutocorrectUiSkipReason = string.Empty;
+    private string _lastAutocorrectUiResetSource = string.Empty;
+    private string _lastAutocorrectUiWordHistory = string.Empty;
     private LinuxInputPreviewSnapshot _previewSnapshot = new(
         LinuxInputPreviewStatus.Stopped,
         "The Linux tray runtime is stopped.",
@@ -131,10 +150,8 @@ public partial class MainWindow : Window
         _rightDeviceCombo = RequireControl<ComboBox>("RightDeviceCombo");
         _layoutPresetCombo = RequireControl<ComboBox>("LayoutPresetCombo");
         _columnLayoutColumnCombo = RequireControl<ComboBox>("ColumnLayoutColumnCombo");
-        _fiveFingerSwipeLeftCombo = RequireControl<ComboBox>("FiveFingerSwipeLeftCombo");
-        _fiveFingerSwipeRightCombo = RequireControl<ComboBox>("FiveFingerSwipeRightCombo");
-        _fiveFingerSwipeUpCombo = RequireControl<ComboBox>("FiveFingerSwipeUpCombo");
-        _fiveFingerSwipeDownCombo = RequireControl<ComboBox>("FiveFingerSwipeDownCombo");
+        _typingTuningPanel = RequireControl<StackPanel>("TypingTuningPanel");
+        _gestureSectionsPanel = RequireControl<StackPanel>("GestureSectionsPanel");
         _keymapTuningExpander = RequireControl<Expander>("KeymapTuningExpander");
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
@@ -145,16 +162,25 @@ public partial class MainWindow : Window
         _snapRadiusModeCheck = RequireControl<CheckBox>("SnapRadiusModeCheck");
         _holdRepeatModeCheck = RequireControl<CheckBox>("HoldRepeatModeCheck");
         _autocorrectModeCheck = RequireControl<CheckBox>("AutocorrectModeCheck");
+        _autocorrectStatusBorder = RequireControl<Border>("AutocorrectStatusBorder");
         _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
         _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
         _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
         _keymapSelectionText = RequireControl<TextBlock>("KeymapSelectionText");
+        _autocorrectRuntimeStateText = RequireControl<TextBlock>("AutocorrectRuntimeStateText");
+        _autocorrectLastCorrectedValueText = RequireControl<TextBlock>("AutocorrectLastCorrectedValueText");
+        _autocorrectCurrentBufferValueText = RequireControl<TextBlock>("AutocorrectCurrentBufferValueText");
+        _autocorrectSkipReasonValueText = RequireControl<TextBlock>("AutocorrectSkipReasonValueText");
+        _autocorrectResetSourceValueText = RequireControl<TextBlock>("AutocorrectResetSourceValueText");
+        _autocorrectWordHistoryValueText = RequireControl<TextBlock>("AutocorrectWordHistoryValueText");
         _columnScaleBox = RequireControl<TextBox>("ColumnScaleBox");
         _keyPaddingBox = RequireControl<TextBox>("KeyPaddingBox");
         _columnOffsetXBox = RequireControl<TextBox>("ColumnOffsetXBox");
         _columnOffsetYBox = RequireControl<TextBox>("ColumnOffsetYBox");
         _columnRotationBox = RequireControl<TextBox>("ColumnRotationBox");
         _keyRotationBox = RequireControl<TextBox>("KeyRotationBox");
+        _autocorrectBlacklistBox = RequireControl<TextBox>("AutocorrectBlacklistBox");
+        _autocorrectOverridesBox = RequireControl<TextBox>("AutocorrectOverridesBox");
         _customButtonAddLeftButton = RequireControl<Button>("CustomButtonAddLeftButton");
         _customButtonAddRightButton = RequireControl<Button>("CustomButtonAddRightButton");
         _customButtonDeleteButton = RequireControl<Button>("CustomButtonDeleteButton");
@@ -182,6 +208,8 @@ public partial class MainWindow : Window
         {
             Interval = TimeSpan.FromMilliseconds(8)
         };
+        BuildTypingTuningControls();
+        BuildGestureControls();
         _desktopRuntime.PreviewSnapshotChanged += OnPreviewSnapshotChanged;
         _desktopRuntime.RuntimeSnapshotChanged += OnRuntimeSnapshotChanged;
         Closing += OnWindowClosing;
@@ -197,6 +225,285 @@ public partial class MainWindow : Window
         AvaloniaXamlLoader.Load(this);
     }
 
+    private void BuildTypingTuningControls()
+    {
+        _typingTuningPanel.Children.Clear();
+        _typingTuningTextBoxes.Clear();
+        _typingTuningSliders.Clear();
+        _typingTuningSliderValueTexts.Clear();
+        _hapticsStrengthSlider = null;
+        _hapticsStrengthValueText = null;
+
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            Grid row = new()
+            {
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = field.Label,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+
+            TextBox box = new()
+            {
+                Width = 90,
+                Margin = new Thickness(8, 0, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            Grid.SetColumn(box, 1);
+            row.Children.Add(box);
+            _typingTuningPanel.Children.Add(row);
+            _typingTuningTextBoxes.Add(field.Id, box);
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            Grid row = new()
+            {
+                Margin = new Thickness(0, 6, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+
+            row.Children.Add(new TextBlock
+            {
+                Text = field.Label,
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            });
+
+            StackPanel sliderPanel = new()
+            {
+                Margin = new Thickness(8, 0, 0, 0),
+                Spacing = 2
+            };
+            Grid.SetColumn(sliderPanel, 1);
+
+            Slider slider = new()
+            {
+                Minimum = field.Minimum,
+                Maximum = field.Maximum,
+                TickFrequency = 1,
+                IsSnapToTickEnabled = true,
+                Height = 22
+            };
+            sliderPanel.Children.Add(slider);
+
+            Grid valuesGrid = new();
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            valuesGrid.Children.Add(new TextBlock
+            {
+                Text = field.Minimum.ToString(CultureInfo.InvariantCulture),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+            });
+            TextBlock valueText = new()
+            {
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#5A4032")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+            };
+            Grid.SetColumn(valueText, 1);
+            valuesGrid.Children.Add(valueText);
+            TextBlock maxText = new()
+            {
+                Text = field.Maximum.ToString(CultureInfo.InvariantCulture),
+                FontSize = 10,
+                Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+            };
+            Grid.SetColumn(maxText, 2);
+            valuesGrid.Children.Add(maxText);
+            sliderPanel.Children.Add(valuesGrid);
+
+            row.Children.Add(sliderPanel);
+            _typingTuningPanel.Children.Add(row);
+            _typingTuningSliders.Add(field.Id, slider);
+            _typingTuningSliderValueTexts.Add(field.Id, valueText);
+        }
+
+        _typingTuningPanel.Children.Add(BuildHapticsControl());
+    }
+
+    private Control BuildHapticsControl()
+    {
+        Grid row = new()
+        {
+            Margin = new Thickness(0, 12, 0, 0),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = "Haptic Strength",
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+
+        StackPanel sliderPanel = new()
+        {
+            Margin = new Thickness(8, 0, 0, 0),
+            Spacing = 2
+        };
+        Grid.SetColumn(sliderPanel, 1);
+
+        Slider slider = new()
+        {
+            Minimum = 0,
+            Maximum = TypingTuningCatalog.HapticsAmplitudeMaximum,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+            Height = 22
+        };
+        sliderPanel.Children.Add(slider);
+
+        Grid valuesGrid = new();
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        valuesGrid.Children.Add(new TextBlock
+        {
+            Text = "0",
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        });
+        TextBlock valueText = new()
+        {
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#5A4032")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        };
+        Grid.SetColumn(valueText, 1);
+        valuesGrid.Children.Add(valueText);
+        TextBlock maxText = new()
+        {
+            Text = TypingTuningCatalog.HapticsAmplitudeMaximum.ToString(CultureInfo.InvariantCulture),
+            FontSize = 10,
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        };
+        Grid.SetColumn(maxText, 2);
+        valuesGrid.Children.Add(maxText);
+        sliderPanel.Children.Add(valuesGrid);
+
+        TextBlock note = new()
+        {
+            Margin = new Thickness(0, 4, 0, 0),
+            Text = TypingTuningCatalog.HapticsPlatformNote,
+            FontSize = 11,
+            TextWrapping = TextWrapping.Wrap,
+            Foreground = new SolidColorBrush(Color.Parse("#6C757D"))
+        };
+        sliderPanel.Children.Add(note);
+
+        row.Children.Add(sliderPanel);
+        _hapticsStrengthSlider = slider;
+        _hapticsStrengthValueText = valueText;
+        return row;
+    }
+
+    private void BuildGestureControls()
+    {
+        _gestureSectionsPanel.Children.Clear();
+        _gestureActionCombos.Clear();
+
+        foreach (GestureSectionDefinition section in GestureBindingCatalog.Sections)
+        {
+            Expander expander = new()
+            {
+                IsExpanded = section.IsExpandedByDefault,
+                Margin = new Thickness(0, 0, 0, 0),
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+                Header = BuildGestureSectionHeader(section)
+            };
+
+            StackPanel sectionPanel = new()
+            {
+                Margin = new Thickness(0, 6, 0, 0),
+                Spacing = 6,
+                HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+            };
+
+            foreach (GestureBindingDefinition binding in GestureBindingCatalog.EnumerateSectionBindings(section.Id))
+            {
+                Grid row = new()
+                {
+                    Margin = new Thickness(0, 6, 0, 0),
+                    HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+                };
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+                row.Children.Add(new TextBlock
+                {
+                    Text = binding.Label,
+                    VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                });
+
+                ComboBox combo = CreateGestureActionCombo();
+                Grid.SetColumn(combo, 1);
+                combo.Margin = new Thickness(12, 0, 0, 0);
+                row.Children.Add(combo);
+                sectionPanel.Children.Add(row);
+                _gestureActionCombos.Add(binding.Id, combo);
+            }
+
+            expander.Content = sectionPanel;
+            _gestureSectionsPanel.Children.Add(expander);
+        }
+    }
+
+    private static Control BuildGestureSectionHeader(GestureSectionDefinition section)
+    {
+        (string backgroundHex, string borderHex, string foregroundHex) = section.Id switch
+        {
+            "holds" => ("#1A8FB6CF", "#2F4251", "#8FB6CF"),
+            "swipes" => ("#1A86C9A9", "#2E4E43", "#86C9A9"),
+            "triangles" => ("#1AD8B37A", "#5A4A2E", "#D8B37A"),
+            "clicks" => ("#1AB7A3D9", "#4A3E62", "#B7A3D9"),
+            "force_clicks" => ("#1AD49A9A", "#5E3D3D", "#D49A9A"),
+            _ => ("#1A8B949E", "#2B2F33", "#8B949E")
+        };
+
+        return new Border
+        {
+            Margin = new Thickness(10, 0, 0, 0),
+            Padding = new Thickness(8, 2),
+            CornerRadius = new CornerRadius(6),
+            Background = new SolidColorBrush(Color.Parse(backgroundHex)),
+            BorderBrush = new SolidColorBrush(Color.Parse(borderHex)),
+            BorderThickness = new Thickness(1),
+            Child = new TextBlock
+            {
+                Text = section.Title,
+                Foreground = new SolidColorBrush(Color.Parse(foregroundHex)),
+                FontSize = 12,
+                FontWeight = FontWeight.SemiBold
+            }
+        };
+    }
+
+    private ComboBox CreateGestureActionCombo()
+    {
+        return new ComboBox
+        {
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
+            MaxDropDownHeight = 420,
+            ItemsSource = _keyActionChoices
+        };
+    }
+
     private void WireEvents()
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
@@ -206,16 +513,31 @@ public partial class MainWindow : Window
         _rightDeviceCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _layoutPresetCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
         _columnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
-        _fiveFingerSwipeLeftCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
-        _fiveFingerSwipeRightCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
-        _fiveFingerSwipeUpCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
-        _fiveFingerSwipeDownCombo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.SelectionChanged += OnLiveSettingsSelectionChanged;
+        }
         _keyboardModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _runAtStartupCheck.IsCheckedChanged += OnModeToggleChanged;
         _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
         _snapRadiusModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _holdRepeatModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _autocorrectModeCheck.IsCheckedChanged += OnModeToggleChanged;
+        _autocorrectBlacklistBox.LostFocus += OnAutocorrectTextCommitted;
+        _autocorrectOverridesBox.LostFocus += OnAutocorrectTextCommitted;
+        foreach (TextBox box in _typingTuningTextBoxes.Values)
+        {
+            box.LostFocus += OnTypingTuningCommitted;
+            box.KeyDown += OnTypingTuningKeyDown;
+        }
+        foreach (Slider slider in _typingTuningSliders.Values)
+        {
+            slider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
+        }
+        if (_hapticsStrengthSlider != null)
+        {
+            _hapticsStrengthSlider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
+        }
         _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
         _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
         _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
@@ -294,16 +616,15 @@ public partial class MainWindow : Window
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
         _layoutPresetCombo.SelectedItem = SelectPresetChoice(presetChoices, settings.LayoutPresetName) ?? presetChoices[0];
-        ApplyModeToggleControls(settings.GetSharedProfile());
+        UserSettings profile = settings.GetSharedProfile();
+        ApplyModeToggleControls(profile);
+        ApplyTypingTuningControls(profile);
 
         RenderKeymapPreview(configuration);
         RefreshColumnLayoutEditor();
-        ReloadKeymapActionChoices(configuration.Keymap, EnumerateGestureActions(settings.SharedProfile));
-        SetActionComboSelection(_fiveFingerSwipeLeftCombo, settings.SharedProfile.FiveFingerSwipeLeftAction ?? "Typing Toggle");
-        SetActionComboSelection(_fiveFingerSwipeRightCombo, settings.SharedProfile.FiveFingerSwipeRightAction ?? "Typing Toggle");
-        SetActionComboSelection(_fiveFingerSwipeUpCombo, settings.SharedProfile.FiveFingerSwipeUpAction ?? "None");
-        SetActionComboSelection(_fiveFingerSwipeDownCombo, settings.SharedProfile.FiveFingerSwipeDownAction ?? "None");
-        int fallbackLayer = Math.Clamp(settings.SharedProfile.ActiveLayer, 0, MaxSupportedLayer);
+        ReloadKeymapActionChoices(configuration.Keymap, GestureBindingCatalog.EnumerateConfiguredActions(profile));
+        ApplyGestureSelections(profile);
+        int fallbackLayer = Math.Clamp(profile.ActiveLayer, 0, MaxSupportedLayer);
         List<LayerChoice> layerChoices = BuildLayerChoices();
         _suppressKeymapEditorEvents = true;
         _keymapLayerCombo.ItemsSource = layerChoices;
@@ -348,6 +669,17 @@ public partial class MainWindow : Window
             return;
         }
 
+        UpdateAutocorrectStatusVisibility();
+        await SaveLiveSettingsAsync();
+    }
+
+    private async void OnAutocorrectTextCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
         await SaveLiveSettingsAsync();
     }
 
@@ -365,18 +697,14 @@ public partial class MainWindow : Window
         settings.RightTrackpadStableId = (_rightDeviceCombo.SelectedItem as DeviceChoice)?.StableId;
         settings.LayoutPresetName = (_layoutPresetCombo.SelectedItem as PresetChoice)?.Name ?? TrackpadLayoutPreset.SixByThree.Name;
         settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
-        settings.SharedProfile.FiveFingerSwipeLeftAction = ReadActionSelection(_fiveFingerSwipeLeftCombo, "Typing Toggle");
-        settings.SharedProfile.FiveFingerSwipeRightAction = ReadActionSelection(_fiveFingerSwipeRightCombo, "Typing Toggle");
-        settings.SharedProfile.FiveFingerSwipeUpAction = ReadActionSelection(_fiveFingerSwipeUpCombo, "None");
-        settings.SharedProfile.FiveFingerSwipeDownAction = ReadActionSelection(_fiveFingerSwipeDownCombo, "None");
-        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeLeftAction);
-        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeRightAction);
-        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeUpAction);
-        EnsureActionChoice(settings.SharedProfile.FiveFingerSwipeDownAction);
+        ApplyGestureSettingsFromUi(settings.SharedProfile);
+        ApplyTypingTuningSettingsFromUi(settings.SharedProfile);
         settings.SharedProfile.KeyboardModeEnabled = _keyboardModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectEnabled = _autocorrectModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectDryRunEnabled = false;
         settings.SharedProfile.AutocorrectMaxEditDistance = 2;
+        settings.SharedProfile.AutocorrectBlacklistCsv = NormalizeMultilineText(_autocorrectBlacklistBox.Text);
+        settings.SharedProfile.AutocorrectOverridesCsv = NormalizeMultilineText(_autocorrectOverridesBox.Text);
         settings.SharedProfile.SnapRadiusPercent = _snapRadiusModeCheck.IsChecked == true
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
@@ -415,12 +743,159 @@ public partial class MainWindow : Window
     {
         _keyboardModeCheck.IsChecked = profile.KeyboardModeEnabled;
         _autocorrectModeCheck.IsChecked = profile.AutocorrectEnabled;
+        _autocorrectBlacklistBox.Text = profile.AutocorrectBlacklistCsv ?? string.Empty;
+        _autocorrectOverridesBox.Text = profile.AutocorrectOverridesCsv ?? string.Empty;
         _snapRadiusModeCheck.IsChecked = profile.SnapRadiusPercent > 0.0;
         _holdRepeatModeCheck.IsChecked = profile.HoldRepeatEnabled;
         _startInTrayOnLaunchCheck.IsChecked = profile.StartInTrayOnLaunch;
         bool startupEnabled = LinuxStartupRegistration.IsEnabled();
         profile.RunAtStartup = startupEnabled;
         _runAtStartupCheck.IsChecked = startupEnabled;
+        UpdateAutocorrectStatusVisibility();
+        UpdateAutocorrectStatusDetails();
+    }
+
+    private void ApplyTypingTuningControls(UserSettings profile)
+    {
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            if (_typingTuningTextBoxes.TryGetValue(field.Id, out TextBox? box))
+            {
+                box.Text = FormatNumber(TypingTuningCatalog.GetTextValue(profile, field));
+            }
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
+            {
+                slider.Value = TypingTuningCatalog.GetSliderValue(profile, field);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null)
+        {
+            _hapticsStrengthSlider.Value = TypingTuningCatalog.GetHapticsAmplitude(profile);
+        }
+
+        UpdateTypingTuningSliderLabels();
+    }
+
+    private void ApplyTypingTuningSettingsFromUi(UserSettings profile)
+    {
+        foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
+        {
+            if (_typingTuningTextBoxes.TryGetValue(field.Id, out TextBox? box))
+            {
+                double fallback = TypingTuningCatalog.GetTextValue(profile, field);
+                TypingTuningCatalog.SetTextValue(profile, field, ReadDouble(box, fallback));
+            }
+        }
+
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
+            {
+                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                TypingTuningCatalog.SetSliderValue(profile, field, value);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null)
+        {
+            int amplitude = (int)Math.Clamp(
+                Math.Round(_hapticsStrengthSlider.Value),
+                0,
+                TypingTuningCatalog.HapticsAmplitudeMaximum);
+            TypingTuningCatalog.SetHapticsAmplitude(profile, amplitude);
+        }
+
+        UpdateTypingTuningSliderLabels();
+    }
+
+    private void UpdateTypingTuningSliderLabels()
+    {
+        foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
+        {
+            if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider) &&
+                _typingTuningSliderValueTexts.TryGetValue(field.Id, out TextBlock? text))
+            {
+                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                text.Text = value.ToString(CultureInfo.InvariantCulture);
+            }
+        }
+
+        if (_hapticsStrengthSlider != null && _hapticsStrengthValueText != null)
+        {
+            int amplitude = (int)Math.Clamp(
+                Math.Round(_hapticsStrengthSlider.Value),
+                0,
+                TypingTuningCatalog.HapticsAmplitudeMaximum);
+            _hapticsStrengthValueText.Text = amplitude.ToString(CultureInfo.InvariantCulture);
+        }
+    }
+
+    private async void OnTypingTuningCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
+    private async void OnTypingTuningKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+        e.Handled = true;
+    }
+
+    private async void OnTypingTuningSliderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != RangeBase.ValueProperty)
+        {
+            return;
+        }
+
+        UpdateTypingTuningSliderLabels();
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
+    private void ApplyGestureSelections(UserSettings profile)
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (_gestureActionCombos.TryGetValue(binding.Id, out ComboBox? combo))
+            {
+                SetActionComboSelection(combo, GestureBindingCatalog.GetAction(profile, binding));
+            }
+        }
+    }
+
+    private void ApplyGestureSettingsFromUi(UserSettings profile)
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (!_gestureActionCombos.TryGetValue(binding.Id, out ComboBox? combo))
+            {
+                continue;
+            }
+
+            string action = ReadActionSelection(combo, binding.DefaultAction);
+            GestureBindingCatalog.SetAction(profile, binding, action);
+            EnsureActionChoice(action);
+        }
     }
 
     private TrackpadLayoutPreset GetSelectedPreset()
@@ -824,10 +1299,10 @@ public partial class MainWindow : Window
 
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.ItemsSource = _keyActionChoices;
+        }
         _keymapSelectionText.Text = "Selection: none";
         _keymapPrimaryCombo.IsEnabled = false;
         _keymapHoldCombo.IsEnabled = false;
@@ -841,10 +1316,7 @@ public partial class MainWindow : Window
     {
         string previousPrimary = ReadSelectedActionValue(_keymapPrimaryCombo, "None");
         string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
-        string previousSwipeLeft = ReadSelectedActionValue(_fiveFingerSwipeLeftCombo, "Typing Toggle");
-        string previousSwipeRight = ReadSelectedActionValue(_fiveFingerSwipeRightCombo, "Typing Toggle");
-        string previousSwipeUp = ReadSelectedActionValue(_fiveFingerSwipeUpCombo, "None");
-        string previousSwipeDown = ReadSelectedActionValue(_fiveFingerSwipeDownCombo, "None");
+        Dictionary<string, string> previousGestureActions = CaptureGestureSelections();
 
         _keyActionChoices.Clear();
         _keyActionChoiceLookup.Clear();
@@ -888,22 +1360,19 @@ public partial class MainWindow : Window
         _suppressKeymapEditorEvents = true;
         _keymapPrimaryCombo.ItemsSource = null;
         _keymapHoldCombo.ItemsSource = null;
-        _fiveFingerSwipeLeftCombo.ItemsSource = null;
-        _fiveFingerSwipeRightCombo.ItemsSource = null;
-        _fiveFingerSwipeUpCombo.ItemsSource = null;
-        _fiveFingerSwipeDownCombo.ItemsSource = null;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.ItemsSource = null;
+        }
         _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
         _keymapHoldCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeLeftCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeRightCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeUpCombo.ItemsSource = _keyActionChoices;
-        _fiveFingerSwipeDownCombo.ItemsSource = _keyActionChoices;
+        foreach (ComboBox combo in _gestureActionCombos.Values)
+        {
+            combo.ItemsSource = _keyActionChoices;
+        }
         SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
         SetActionComboSelection(_keymapHoldCombo, previousHold);
-        SetActionComboSelection(_fiveFingerSwipeLeftCombo, previousSwipeLeft);
-        SetActionComboSelection(_fiveFingerSwipeRightCombo, previousSwipeRight);
-        SetActionComboSelection(_fiveFingerSwipeUpCombo, previousSwipeUp);
-        SetActionComboSelection(_fiveFingerSwipeDownCombo, previousSwipeDown);
+        RestoreGestureSelections(previousGestureActions);
         _suppressKeymapEditorEvents = false;
     }
 
@@ -926,6 +1395,36 @@ public partial class MainWindow : Window
         }
 
         _keyActionChoices.Add(KeyActionChoice.Action(value));
+    }
+
+    private Dictionary<string, string> CaptureGestureSelections()
+    {
+        Dictionary<string, string> actions = new(StringComparer.Ordinal);
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (_gestureActionCombos.TryGetValue(binding.Id, out ComboBox? combo))
+            {
+                actions[binding.Id] = ReadSelectedActionValue(combo, binding.DefaultAction);
+            }
+        }
+
+        return actions;
+    }
+
+    private void RestoreGestureSelections(IReadOnlyDictionary<string, string> actions)
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (!_gestureActionCombos.TryGetValue(binding.Id, out ComboBox? combo))
+            {
+                continue;
+            }
+
+            string selected = actions.TryGetValue(binding.Id, out string? action)
+                ? action
+                : binding.DefaultAction;
+            SetActionComboSelection(combo, selected);
+        }
     }
 
     private static List<KeyActionChoice> BuildKeyActionChoices()
@@ -1126,14 +1625,6 @@ public partial class MainWindow : Window
             NumberStyles.Integer,
             CultureInfo.InvariantCulture,
             out layer);
-    }
-
-    private static IEnumerable<string> EnumerateGestureActions(UserSettings profile)
-    {
-        yield return profile.FiveFingerSwipeLeftAction ?? "Typing Toggle";
-        yield return profile.FiveFingerSwipeRightAction ?? "Typing Toggle";
-        yield return profile.FiveFingerSwipeUpAction ?? "None";
-        yield return profile.FiveFingerSwipeDownAction ?? "None";
     }
 
     private static List<LayerChoice> BuildLayerChoices()
@@ -1877,6 +2368,30 @@ public partial class MainWindow : Window
         return fallback;
     }
 
+    private static string NormalizeMultilineText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            return string.Empty;
+        }
+
+        string normalized = text.Replace("\r\n", "\n", StringComparison.Ordinal).Replace('\r', '\n');
+        string[] lines = normalized.Split('\n');
+        List<string> cleaned = new(lines.Length);
+        for (int i = 0; i < lines.Length; i++)
+        {
+            string line = lines[i].Trim();
+            if (line.Length == 0)
+            {
+                continue;
+            }
+
+            cleaned.Add(line);
+        }
+
+        return string.Join('\n', cleaned);
+    }
+
     private static string FormatNumber(double value)
     {
         return value.ToString("0.##", CultureInfo.InvariantCulture);
@@ -2320,6 +2835,98 @@ public partial class MainWindow : Window
 
         _runtimeTypingStatusText.Text = text;
         _runtimeTypingStatusText.Foreground = new SolidColorBrush(color);
+        UpdateAutocorrectStatusDetails();
+    }
+
+    private void UpdateAutocorrectStatusDetails()
+    {
+        string runtimeState = BuildAutocorrectRuntimeStateText();
+        string lastCorrected = "n/a";
+        string currentBuffer = "n/a";
+        string skipReason = "n/a";
+        string resetSource = "n/a";
+        string wordHistory = "n/a";
+
+        if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot))
+        {
+            if (!snapshot.Enabled)
+            {
+                runtimeState = "Autocorrect is disabled in the active Linux runtime.";
+            }
+
+            lastCorrected = string.IsNullOrWhiteSpace(snapshot.LastCorrected) ? "none" : snapshot.LastCorrected;
+            currentBuffer = string.IsNullOrEmpty(snapshot.CurrentBuffer) ? "<empty>" : snapshot.CurrentBuffer;
+            skipReason = string.IsNullOrWhiteSpace(snapshot.SkipReason) ? "idle" : snapshot.SkipReason;
+            resetSource = string.IsNullOrWhiteSpace(snapshot.LastResetSource) ? "none" : snapshot.LastResetSource;
+            wordHistory = string.IsNullOrWhiteSpace(snapshot.WordHistory) ? "<empty>" : snapshot.WordHistory;
+        }
+
+        if (!string.Equals(runtimeState, _lastAutocorrectUiRuntimeState, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiRuntimeState = runtimeState;
+            _autocorrectRuntimeStateText.Text = runtimeState;
+        }
+
+        if (!string.Equals(lastCorrected, _lastAutocorrectUiLastCorrected, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiLastCorrected = lastCorrected;
+            _autocorrectLastCorrectedValueText.Text = lastCorrected;
+        }
+
+        if (!string.Equals(currentBuffer, _lastAutocorrectUiCurrentBuffer, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiCurrentBuffer = currentBuffer;
+            _autocorrectCurrentBufferValueText.Text = currentBuffer;
+        }
+
+        if (!string.Equals(skipReason, _lastAutocorrectUiSkipReason, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiSkipReason = skipReason;
+            _autocorrectSkipReasonValueText.Text = skipReason;
+        }
+
+        if (!string.Equals(resetSource, _lastAutocorrectUiResetSource, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiResetSource = resetSource;
+            _autocorrectResetSourceValueText.Text = resetSource;
+        }
+
+        if (!string.Equals(wordHistory, _lastAutocorrectUiWordHistory, StringComparison.Ordinal))
+        {
+            _lastAutocorrectUiWordHistory = wordHistory;
+            _autocorrectWordHistoryValueText.Text = wordHistory;
+        }
+    }
+
+    private void UpdateAutocorrectStatusVisibility()
+    {
+        _autocorrectStatusBorder.IsVisible = !IsReplayMode && _autocorrectModeCheck.IsChecked == true;
+    }
+
+    private bool TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot)
+    {
+        return _desktopRuntime.TryGetAutocorrectStatus(out snapshot);
+    }
+
+    private string BuildAutocorrectRuntimeStateText()
+    {
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot = _desktopRuntime.RuntimeSnapshot;
+        if (TryGetAutocorrectStatusSnapshot(out AutocorrectStatusSnapshot snapshot) && snapshot.Enabled)
+        {
+            string mode = snapshot.DryRunEnabled ? "dry run" : "active";
+            string app = string.IsNullOrWhiteSpace(snapshot.CurrentApp) ? "unknown app" : snapshot.CurrentApp;
+            return $"Runtime {mode}. Current app: {app}. Corrections: {snapshot.CorrectedCount}, skipped: {snapshot.SkippedCount}.";
+        }
+
+        return runtimeSnapshot.Status switch
+        {
+            LinuxDesktopRuntimeStatus.Running => "Runtime active. Touch a key to populate autocorrect state.",
+            LinuxDesktopRuntimeStatus.Starting => "Runtime starting.",
+            LinuxDesktopRuntimeStatus.Stopping => "Runtime stopping.",
+            LinuxDesktopRuntimeStatus.WaitingForBindings => "Runtime waiting for trackpad bindings.",
+            LinuxDesktopRuntimeStatus.Faulted => "Runtime faulted.",
+            _ => "Runtime stopped."
+        };
     }
 
     private bool IsReplayMode => _replayData != null;
@@ -2336,6 +2943,7 @@ public partial class MainWindow : Window
         UpdateReplayControls();
         RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
+        UpdateAutocorrectStatusVisibility();
         ApplyReplayVisualState();
         Activate();
     }
@@ -2378,6 +2986,7 @@ public partial class MainWindow : Window
         UpdateReplayControls();
         RefreshColumnLayoutEditor();
         RefreshKeymapEditor();
+        UpdateAutocorrectStatusVisibility();
         ApplyRuntimeStatus(_desktopRuntime.RuntimeSnapshot);
         ApplyPreviewSnapshot(_desktopRuntime.PreviewSnapshot);
     }
@@ -2763,7 +3372,7 @@ public partial class MainWindow : Window
         }
 
         _previewSnapshot = snapshot;
-        int activeLayer = ResolveVisualizerLayer();
+        int activeLayer = ResolveVisualizerLayer(snapshot);
         LinuxInputPreviewTrackpadState? left = GetPreviewState(snapshot, TrackpadSide.Left);
         LinuxInputPreviewTrackpadState? right = GetPreviewState(snapshot, TrackpadSide.Right);
         _leftPreviewText.Text = BuildPreviewDetails(left, _leftRenderedLayout, _renderedKeymap, TrackpadSide.Left, activeLayer, ref _leftStickyTouchedKeys);
@@ -2772,24 +3381,145 @@ public partial class MainWindow : Window
         RenderPreviewCanvas(_rightPreviewCanvas, right, _rightRenderedLayout, _renderedKeymap, TrackpadSide.Right, activeLayer, "#246A73");
     }
 
-    private int ResolveVisualizerLayer()
+    private int ResolveVisualizerLayer(LinuxInputPreviewSnapshot snapshot)
     {
+        int selectedLayer = Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
+
         if (IsReplayMode)
         {
             LinuxAtpCapReplayVisualFrame? frame = GetCurrentReplayFrame();
             if (frame.HasValue)
             {
-                return Math.Clamp(frame.Value.RuntimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
+                return ResolveVisualizerLayer(
+                    frame.Value.PreviewSnapshot,
+                    frame.Value.RuntimeSnapshot,
+                    selectedLayer);
             }
         }
 
-        LinuxDesktopRuntimeSnapshot runtimeSnapshot = _desktopRuntime.RuntimeSnapshot;
-        if (runtimeSnapshot.IsRunning)
+        return ResolveVisualizerLayer(snapshot, _desktopRuntime.RuntimeSnapshot, selectedLayer);
+    }
+
+    private int ResolveVisualizerLayer(
+        LinuxInputPreviewSnapshot snapshot,
+        LinuxDesktopRuntimeSnapshot runtimeSnapshot,
+        int selectedLayer)
+    {
+        if (HasPressedLayerOverride(snapshot, selectedLayer))
         {
             return Math.Clamp(runtimeSnapshot.ActiveLayer, 0, MaxSupportedLayer);
         }
 
-        return Math.Clamp(GetSelectedLayer(), 0, MaxSupportedLayer);
+        return selectedLayer;
+    }
+
+    private bool HasPressedLayerOverride(LinuxInputPreviewSnapshot snapshot, int layer)
+    {
+        for (int index = 0; index < snapshot.Trackpads.Count; index++)
+        {
+            LinuxInputPreviewTrackpadState state = snapshot.Trackpads[index];
+            KeyLayout layout = state.Side == TrackpadSide.Left ? _leftRenderedLayout : _rightRenderedLayout;
+            if (HasPressedLayerOverride(state, layout, _renderedKeymap, layer))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool HasPressedLayerOverride(
+        LinuxInputPreviewTrackpadState state,
+        KeyLayout layout,
+        KeymapStore keymap,
+        int layer)
+    {
+        if (state.Contacts.Count == 0 || state.MaxX == 0 || state.MaxY == 0)
+        {
+            return false;
+        }
+
+        for (int index = 0; index < state.Contacts.Count; index++)
+        {
+            LinuxInputPreviewContact contact = state.Contacts[index];
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            double x = contact.X / (double)state.MaxX;
+            double y = contact.Y / (double)state.MaxY;
+            if (TryResolveLayerOverrideFromGridKey(state.Side, layout, keymap, layer, x, y, out _) ||
+                TryResolveLayerOverrideFromCustomButton(state.Side, keymap, layer, x, y, out _))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveLayerOverrideFromGridKey(
+        TrackpadSide side,
+        KeyLayout layout,
+        KeymapStore keymap,
+        int layer,
+        double x,
+        double y,
+        out int targetLayer)
+    {
+        targetLayer = 0;
+        if (layout.HitGeometries.Length == 0)
+        {
+            return false;
+        }
+
+        for (int row = 0; row < layout.HitGeometries.Length; row++)
+        {
+            for (int col = 0; col < layout.HitGeometries[row].Length; col++)
+            {
+                if (!layout.HitGeometries[row][col].Contains(x, y))
+                {
+                    continue;
+                }
+
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyMapping mapping = keymap.ResolveMapping(layer, storageKey, layout.Labels[row][col]);
+                if (TryParseLayerActionChoice(mapping.Primary.Label, out targetLayer))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    private static bool TryResolveLayerOverrideFromCustomButton(
+        TrackpadSide side,
+        KeymapStore keymap,
+        int layer,
+        double x,
+        double y,
+        out int targetLayer)
+    {
+        targetLayer = 0;
+        IReadOnlyList<CustomButton> customButtons = keymap.ResolveCustomButtons(layer, side);
+        for (int index = 0; index < customButtons.Count; index++)
+        {
+            CustomButton button = customButtons[index];
+            if (!button.Rect.Contains(x, y))
+            {
+                continue;
+            }
+
+            if (TryParseLayerActionChoice(button.Primary.Label, out targetLayer))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static LinuxInputPreviewTrackpadState? GetPreviewState(

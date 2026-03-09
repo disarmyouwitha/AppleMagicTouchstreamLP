@@ -151,6 +151,7 @@ public sealed class LinuxInputRuntimeService
                 await _reader.StreamFramesAsync(
                     currentDevice.DeviceNode,
                     snapshot => onFrame(activeBinding, snapshot, cancellationToken),
+                    options.ShouldGrabExclusiveInput,
                     cancellationToken).ConfigureAwait(false);
 
                 if (cancellationToken.IsCancellationRequested)

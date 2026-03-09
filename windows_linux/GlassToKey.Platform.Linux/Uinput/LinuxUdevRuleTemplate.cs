@@ -1,4 +1,5 @@
 using System.Text;
+using GlassToKey.Platform.Linux.Haptics;
 using GlassToKey.Platform.Linux.Models;
 
 namespace GlassToKey.Platform.Linux.Uinput;
@@ -10,10 +11,12 @@ public static class LinuxUdevRuleTemplate
     public static string BuildRules(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
     {
         HashSet<string> seenPairs = new(StringComparer.OrdinalIgnoreCase);
+        HashSet<string> seenActuatorPairs = new(StringComparer.OrdinalIgnoreCase);
         StringBuilder builder = new();
         builder.AppendLine("# /etc/udev/rules.d/90-glasstokey.rules");
-        builder.AppendLine("# Grant the glasstokey access group ownership of Apple Magic Trackpad event nodes");
-        builder.AppendLine("# and the GlassToKey uinput node. Keep uaccess as an additive hint for desktop sessions.");
+        builder.AppendLine("# Grant the glasstokey access group ownership of Apple Magic Trackpad event nodes,");
+        builder.AppendLine("# any detected actuator hidraw nodes, and the GlassToKey uinput node.");
+        builder.AppendLine("# Keep uaccess as an additive hint for desktop sessions.");
 
         for (int index = 0; index < devices.Count; index++)
         {
@@ -27,6 +30,20 @@ public static class LinuxUdevRuleTemplate
             builder.Append("SUBSYSTEM==\"input\", KERNEL==\"event*\", ATTRS{id/vendor}==\"");
             builder.Append(device.VendorId.ToString("x4"));
             builder.Append("\", ATTRS{id/product}==\"");
+            builder.Append(device.ProductId.ToString("x4"));
+            builder.Append("\", GROUP=\"");
+            builder.Append(DefaultAccessGroup);
+            builder.AppendLine("\", MODE=\"0660\", TAG+=\"uaccess\"");
+
+            LinuxMagicTrackpadActuatorProbeResult haptics = LinuxMagicTrackpadActuatorProbe.Probe(device.DeviceNode);
+            if (!haptics.Supported || !seenActuatorPairs.Add(pair))
+            {
+                continue;
+            }
+
+            builder.Append("SUBSYSTEM==\"hidraw\", KERNEL==\"hidraw*\", ATTRS{idVendor}==\"");
+            builder.Append(device.VendorId.ToString("x4"));
+            builder.Append("\", ATTRS{idProduct}==\"");
             builder.Append(device.ProductId.ToString("x4"));
             builder.Append("\", GROUP=\"");
             builder.Append(DefaultAccessGroup);

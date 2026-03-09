@@ -126,6 +126,9 @@ public sealed class LinuxRuntimeOwner
 
                 if (LinuxRuntimeConfigurationComparer.HaveEquivalentBindings(configuration.Bindings, updated.Bindings))
                 {
+                    session.Dispatcher.SetHapticRoutes(updated.Bindings);
+                    session.Dispatcher.ConfigureHaptics(updated.SharedProfile);
+                    session.Dispatcher.WarmupHaptics();
                     session.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
                     configuration = updated;
                     settingsSignature = updatedSignature;
@@ -168,13 +171,31 @@ public sealed class LinuxRuntimeOwner
     {
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         LinuxUinputDispatcher dispatcher = new();
+        dispatcher.SetHapticRoutes(configuration.Bindings);
+        dispatcher.ConfigureHaptics(configuration.SharedProfile);
+        dispatcher.WarmupHaptics();
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
+        RuntimeSession? session = null;
         LinuxInputRuntimeOptions options = new()
         {
-            Observer = observer
+            Observer = observer,
+            ShouldGrabExclusiveInput = () => ShouldGrabExclusiveInput(session, configuration.SharedProfile)
         };
         Task runTask = _runtime.RunAsync([.. configuration.Bindings], engine, options, sessionCts.Token);
-        return new RuntimeSession(sessionCts, dispatcher, engine, runTask);
+        session = new RuntimeSession(sessionCts, dispatcher, engine, runTask);
+        return session;
+    }
+
+    private static bool ShouldGrabExclusiveInput(RuntimeSession? session, UserSettings fallbackProfile)
+    {
+        if (session != null && session.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            return snapshot.KeyboardModeEnabled &&
+                   snapshot.TypingEnabled &&
+                   !snapshot.MomentaryLayerActive;
+        }
+
+        return fallbackProfile.KeyboardModeEnabled && fallbackProfile.TypingEnabled;
     }
 
     private static string BuildSettingsSignature(LinuxHostSettings settings)
@@ -243,6 +264,8 @@ public sealed class LinuxRuntimeOwner
         }
 
         public TouchProcessorRuntimeHost Engine => _engine;
+
+        public LinuxUinputDispatcher Dispatcher => _dispatcher;
 
         public Task RunTask { get; }
 

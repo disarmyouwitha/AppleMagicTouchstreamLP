@@ -26,6 +26,11 @@
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
       <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
     </None>
+    <None Include="..\GlassToKey.Linux\MY_KEYMAP.json" Link="MY_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
     <AvaloniaResource Include="..\GlassToKey.Windows\screenshots\VITO_PANEL.png" Link="Assets/StatusIcon.png" />
   </ItemGroup>
 </Project>
