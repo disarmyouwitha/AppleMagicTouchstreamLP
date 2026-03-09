@@ -49,6 +49,11 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateBundledSettingsDefaults(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         if (!ValidateConfiguredRuntimeStartupState(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
@@ -320,6 +325,67 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static bool ValidateBundledSettingsDefaults(out string failure)
+    {
+        failure = string.Empty;
+
+        string path = Path.Combine(AppContext.BaseDirectory, "GLASSTOKEY_DEFAULT_KEYMAP.json");
+        if (!File.Exists(path))
+        {
+            failure = $"Bundled Linux keymap is missing: {path}";
+            return false;
+        }
+
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(File.ReadAllText(path));
+            if (!TryGetPropertyIgnoreCase(document.RootElement, "settings", out JsonElement settingsElement) ||
+                settingsElement.ValueKind != JsonValueKind.Object)
+            {
+                failure = "Bundled Linux defaults are missing the settings payload.";
+                return false;
+            }
+
+            UserSettings? expected = JsonSerializer.Deserialize<UserSettings>(
+                settingsElement.GetRawText(),
+                new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+            if (expected == null)
+            {
+                failure = "Bundled Linux settings payload did not deserialize.";
+                return false;
+            }
+
+            expected.NormalizeRanges();
+
+            UserSettings actual = UserSettings.LoadBundledDefaultsOrDefault();
+            if (!string.Equals(actual.TwoFingerHoldAction, expected.TwoFingerHoldAction, StringComparison.Ordinal) ||
+                !string.Equals(actual.ThreeFingerHoldAction, expected.ThreeFingerHoldAction, StringComparison.Ordinal))
+            {
+                failure = "Bundled Linux settings did not load expected gesture defaults from the settings payload.";
+                return false;
+            }
+
+            if (actual.ForceMin != expected.ForceMin || actual.ForceCap != expected.ForceCap)
+            {
+                failure = "Bundled Linux settings did not load expected force thresholds from the settings payload.";
+                return false;
+            }
+
+            if (!string.Equals(actual.LayoutPresetName, expected.LayoutPresetName, StringComparison.OrdinalIgnoreCase))
+            {
+                failure = "Bundled Linux settings did not load the expected layout preset from the settings payload.";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            failure = $"Bundled Linux settings validation failed: {ex.Message}";
+            return false;
+        }
     }
 
     private static bool ValidateConfiguredRuntimeStartupState(out string failure)
