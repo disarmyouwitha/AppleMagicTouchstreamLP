@@ -298,7 +298,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
             _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
 
@@ -1356,7 +1355,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _touchActor.Configure(BuildConfigFromSettings());
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _touchActor.SetAllowMouseTakeover(_settings.AllowMouseTakeover);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
@@ -3622,7 +3620,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _touchActor.SetPersistentLayer(_activeLayer);
         _touchActor.SetTypingEnabled(true);
         _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-        _touchActor.SetAllowMouseTakeover(true);
         UpdateEngineStateDetails();
     }
 

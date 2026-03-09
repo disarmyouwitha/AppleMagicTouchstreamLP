@@ -75,7 +75,6 @@ internal sealed class TouchProcessorCore
     private long _typingGraceDeadlineTicks;
     private bool _typingCommittedUntilAllUp;
     private bool _typingCommittedByKeyboardOnly;
-    private bool _allowMouseTakeoverDuringTyping;
     private bool _hapticsOnKeyDispatch;
 
     private bool _typingEnabled = true;
@@ -275,11 +274,6 @@ internal sealed class TouchProcessorCore
     public void SetKeyboardModeEnabled(bool enabled)
     {
         _keyboardModeEnabled = enabled;
-    }
-
-    public void SetAllowMouseTakeover(bool enabled)
-    {
-        _allowMouseTakeoverDuringTyping = enabled;
     }
 
     public void SetHapticsOnKeyDispatchEnabled(bool enabled)
@@ -2407,7 +2401,7 @@ internal sealed class TouchProcessorCore
         bool typingAnchorActive = aggregate.KeyboardAnchor && aggregate.ContactCount <= 1;
         if (graceActive)
         {
-            SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "grace");
+            SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "grace");
             return;
         }
 
@@ -2416,7 +2410,7 @@ internal sealed class TouchProcessorCore
             case IntentMode.Idle:
                 if (typingAnchorActive)
                 {
-                    SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "typing_anchor");
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
                     return;
                 }
 
@@ -2437,7 +2431,7 @@ internal sealed class TouchProcessorCore
             case IntentMode.KeyCandidate:
                 if (typingAnchorActive)
                 {
-                    SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "typing_anchor");
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
                     return;
                 }
 
@@ -2448,7 +2442,7 @@ internal sealed class TouchProcessorCore
                 }
                 else if (nowTicks - _keyCandidateStartTicks >= keyBufferTicks)
                 {
-                    SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "candidate_elapsed");
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "candidate_elapsed");
                 }
                 break;
             case IntentMode.TypingCommitted:
@@ -2471,7 +2465,7 @@ internal sealed class TouchProcessorCore
             case IntentMode.MouseCandidate:
                 if (typingAnchorActive)
                 {
-                    SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "typing_anchor");
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
                     return;
                 }
 
@@ -2483,7 +2477,7 @@ internal sealed class TouchProcessorCore
             case IntentMode.MouseActive:
                 if (typingAnchorActive)
                 {
-                    SetTypingCommittedState(nowTicks, untilAllUp: !_allowMouseTakeoverDuringTyping, reason: "typing_anchor");
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
                 }
                 break;
             case IntentMode.GestureCandidate:
@@ -5000,14 +4994,6 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetKeyboardModeEnabled(enabled);
-        }
-    }
-
-    public void SetAllowMouseTakeover(bool enabled)
-    {
-        lock (_coreGate)
-        {
-            _core.SetAllowMouseTakeover(enabled);
         }
     }
 

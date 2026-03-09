@@ -39,6 +39,8 @@ internal static class TouchProcessorFactory
 
         TouchProcessorCore core = new(left, right, keymap, config);
         core.SetPersistentLayer(Math.Clamp(profile.ActiveLayer, 0, 7));
+        core.SetTypingEnabled(profile.TypingEnabled);
+        core.SetKeyboardModeEnabled(profile.KeyboardModeEnabled);
         return core;
     }
 }

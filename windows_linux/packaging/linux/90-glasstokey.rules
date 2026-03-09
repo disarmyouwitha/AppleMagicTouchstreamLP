@@ -7,6 +7,6 @@ SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="05ac", ATTRS{id/product}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0265", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
 SUBSYSTEM=="input", KERNEL=="event*", ATTRS{id/vendor}=="004c", ATTRS{id/product}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{interface}=="Actuator", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0265", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
-SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{interface}=="Actuator", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0265", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
+SUBSYSTEM=="hidraw", KERNEL=="hidraw*", ATTRS{idVendor}=="05ac", ATTRS{idProduct}=="0324", GROUP="glasstokey", MODE="0660", TAG+="uaccess"
 KERNEL=="uinput", GROUP="glasstokey", MODE="0660", TAG+="uaccess"

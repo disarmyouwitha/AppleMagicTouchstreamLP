@@ -157,7 +157,6 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(profile));
         _actor.SetTypingEnabled(typingEnabled);
         _actor.SetKeyboardModeEnabled(profile.KeyboardModeEnabled);
-        _actor.SetAllowMouseTakeover(profile.AllowMouseTakeover);
         _actor.ConfigureLayouts(leftLayout, rightLayout);
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);

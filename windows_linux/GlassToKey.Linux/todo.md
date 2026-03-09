@@ -1,7 +1,9 @@
 # TODO:
-- If the program starts in keyboard/mouse mode the circles are still green/red, and it's actually not in `keyboard/mouse` until you toggle it off/back on.. looks like it's not getting initialized correctly?
+- haptics over USB no longer works, what did you do?
 
-- If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give control back to the mouse until I click.
+- If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click.
+
+- Is there a less aggressive way to take over? 
 
 # HEADLESS
 - Try starting headless. `glasstokey start`
@@ -22,7 +24,3 @@
 
 # TEST / root cause:
 - 5-finger Up "D" is triggering Choral shift on it's own side? 
-
-# Wayland?
-- What happens when you actually run this on arch? do ppl use GUI on arch? lol. 
-- What happens when you run this on non-wayland? How flexible is avalonia or whatever?

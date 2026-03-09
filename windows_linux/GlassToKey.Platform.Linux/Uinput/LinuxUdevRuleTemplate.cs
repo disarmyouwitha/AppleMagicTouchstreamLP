@@ -41,7 +41,7 @@ public static class LinuxUdevRuleTemplate
                 continue;
             }
 
-            builder.Append("SUBSYSTEM==\"hidraw\", KERNEL==\"hidraw*\", ATTRS{interface}==\"Actuator\", ATTRS{idVendor}==\"");
+            builder.Append("SUBSYSTEM==\"hidraw\", KERNEL==\"hidraw*\", ATTRS{idVendor}==\"");
             builder.Append(device.VendorId.ToString("x4"));
             builder.Append("\", ATTRS{idProduct}==\"");
             builder.Append(device.ProductId.ToString("x4"));

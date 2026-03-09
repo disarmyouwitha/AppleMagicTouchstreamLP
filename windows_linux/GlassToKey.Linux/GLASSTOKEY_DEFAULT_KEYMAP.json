@@ -13,7 +13,6 @@
     "autocorrectDryRunEnabled": false,
     "autocorrectBlacklistCsv": "",
     "autocorrectOverridesCsv": "",
-    "allowMouseTakeover": true,
     "chordShiftEnabled": true,
     "typingEnabled": true,
     "runAtStartup": false,

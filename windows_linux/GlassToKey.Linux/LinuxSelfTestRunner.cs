@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Text.Json;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
@@ -44,6 +45,16 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateSharedAutocorrect(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateConfiguredRuntimeStartupState(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateConfiguredMouseTakeoverStartupState(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -304,6 +315,117 @@ internal static class LinuxSelfTestRunner
         if (status.CorrectedCount != 2 || status.SkippedCount == 0)
         {
             failure = "Shared autocorrect skip/correct counters were not updated as expected.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateConfiguredRuntimeStartupState(out string failure)
+    {
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            ActiveLayer = 2,
+            TypingEnabled = false,
+            KeyboardModeEnabled = true
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+        if (!host.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Configured runtime host did not produce an initial snapshot.";
+            return false;
+        }
+
+        if (snapshot.ActiveLayer != settings.ActiveLayer ||
+            snapshot.TypingEnabled != settings.TypingEnabled ||
+            snapshot.KeyboardModeEnabled != settings.KeyboardModeEnabled)
+        {
+            failure = $"Configured runtime host did not restore startup mode state (layer={snapshot.ActiveLayer}, typing={snapshot.TypingEnabled}, keyboard={snapshot.KeyboardModeEnabled}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateConfiguredMouseTakeoverStartupState(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort offKeyX = (ushort)Math.Clamp(maxX - 64, 1, maxX - 1);
+        ushort offKeyY = (ushort)Math.Clamp(maxY - 64, 1, maxY - 1);
+
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            TypingEnabled = true,
+            KeyboardModeEnabled = false,
+            KeyBufferMs = 1.0,
+            IntentMoveMm = 1.0,
+            DragCancelMm = 1.0
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+
+        long now = Stopwatch.Frequency / 100;
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 200);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: offKeyX, y: offKeyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+
+        if (!host.TryGetSynchronizedSnapshot(timeoutMs: 25, out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Configured runtime host did not produce a synchronized snapshot for mouse takeover validation.";
+            return false;
+        }
+
+        if (!string.Equals(snapshot.IntentMode, "MouseActive", StringComparison.Ordinal))
+        {
+            failure = $"Configured runtime host did not restore mouse takeover on startup (intent={snapshot.IntentMode}).";
             return false;
         }
 

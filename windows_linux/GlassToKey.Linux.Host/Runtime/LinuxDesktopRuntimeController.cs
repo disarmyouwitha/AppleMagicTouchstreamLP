@@ -35,6 +35,8 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private int _captureFrameCount;
     private bool _disposed;
     private bool _hasAutocorrectStatusSnapshot;
+    private bool _holdExclusiveGrabUntilAllUp;
+    private bool _lastEngineRequestedExclusiveGrab;
     private LinuxAtpCapCaptureWriter? _captureWriter;
     private AutocorrectStatusSnapshot _autocorrectStatusSnapshot;
     private LinuxDesktopRuntimeSnapshot _runtimeSnapshot = LinuxDesktopRuntimeSnapshot.Stopped;
@@ -284,6 +286,11 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 BindingMessage = "Streaming evdev frames.",
                 Contacts = contacts
             };
+
+            if (_holdExclusiveGrabUntilAllUp && !HasActivePhysicalInputLocked())
+            {
+                _holdExclusiveGrabUntilAllUp = false;
+            }
         }
 
         bool posted = session.Engine.Post(in envelope);
@@ -308,6 +315,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             : session.Engine.TryGetSnapshot(out snapshot);
         if (snapshotReady)
         {
+            UpdateExclusiveGrabHandoff(snapshot);
             RefreshAutocorrectStatusCacheIfDue(session);
             PublishRuntimeSnapshot(new LinuxDesktopRuntimeSnapshot(
                 LinuxDesktopRuntimeStatus.Running,
@@ -360,6 +368,8 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             _ownerCts = null;
             _ownerTask = null;
             _trackpads.Clear();
+            _holdExclusiveGrabUntilAllUp = false;
+            _lastEngineRequestedExclusiveGrab = false;
         }
 
         CompleteCapture(success: false, path: null, failure: "Capture stopped because the Linux tray runtime shut down.");
@@ -559,6 +569,8 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
                 _ownerCts?.Dispose();
                 _ownerCts = null;
                 _trackpads.Clear();
+                _holdExclusiveGrabUntilAllUp = false;
+                _lastEngineRequestedExclusiveGrab = false;
             }
             ClearAutocorrectStatusCache();
 
@@ -591,21 +603,52 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
         lock (_gate)
         {
             _session = session;
+            _holdExclusiveGrabUntilAllUp = false;
+            _lastEngineRequestedExclusiveGrab = false;
         }
 
         return session;
     }
 
-    private static bool ShouldGrabExclusiveInput(RuntimeSession? session, UserSettings fallbackProfile)
+    private bool ShouldGrabExclusiveInput(RuntimeSession? session, UserSettings fallbackProfile)
     {
         if (session != null && session.Engine.TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot))
         {
-            return snapshot.KeyboardModeEnabled &&
-                   snapshot.TypingEnabled &&
-                   !snapshot.MomentaryLayerActive;
+            bool engineWantsExclusiveGrab = snapshot.KeyboardModeEnabled &&
+                                            snapshot.TypingEnabled &&
+                                            !snapshot.MomentaryLayerActive;
+            lock (_gate)
+            {
+                return engineWantsExclusiveGrab || _holdExclusiveGrabUntilAllUp;
+            }
         }
 
         return fallbackProfile.KeyboardModeEnabled && fallbackProfile.TypingEnabled;
+    }
+
+    private void UpdateExclusiveGrabHandoff(TouchProcessorRuntimeSnapshot snapshot)
+    {
+        bool engineWantsExclusiveGrab = snapshot.KeyboardModeEnabled &&
+                                        snapshot.TypingEnabled &&
+                                        !snapshot.MomentaryLayerActive;
+
+        lock (_gate)
+        {
+            if (_lastEngineRequestedExclusiveGrab &&
+                !engineWantsExclusiveGrab &&
+                snapshot.KeyboardModeEnabled &&
+                !snapshot.TypingEnabled &&
+                HasActivePhysicalInputLocked())
+            {
+                _holdExclusiveGrabUntilAllUp = true;
+            }
+            else if (_holdExclusiveGrabUntilAllUp && !HasActivePhysicalInputLocked())
+            {
+                _holdExclusiveGrabUntilAllUp = false;
+            }
+
+            _lastEngineRequestedExclusiveGrab = engineWantsExclusiveGrab;
+        }
     }
 
     private void ResetTrackpads(IReadOnlyList<LinuxTrackpadBinding> bindings)
@@ -739,16 +782,23 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     {
         lock (_gate)
         {
-            foreach (LinuxInputPreviewTrackpadState trackpad in _trackpads.Values)
-            {
-                if (trackpad.ContactCount > 0 || CountTipContacts(trackpad.Contacts) > 0)
-                {
-                    return true;
-                }
-            }
-
-            return false;
+            return HasActivePhysicalInputLocked();
         }
+    }
+
+    private bool HasActivePhysicalInputLocked()
+    {
+        foreach (LinuxInputPreviewTrackpadState trackpad in _trackpads.Values)
+        {
+            if (trackpad.ContactCount > 0 ||
+                trackpad.IsButtonPressed ||
+                CountTipContacts(trackpad.Contacts) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static string BuildSettingsSignature(LinuxHostSettings settings)
