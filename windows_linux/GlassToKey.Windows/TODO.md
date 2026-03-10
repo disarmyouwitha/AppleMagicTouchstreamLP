@@ -1,19 +1,13 @@
 ## TODO:
-- Organize Linux folders under shared folder
--------
-- Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
-- Is there any way to add a "click and drag gesture that would start on Hold and Release when you release your fingers? [3 finger "grasp" to 1 finger] [Can we try 5-finger hold to activate - gesture stays active until 0 fingers so I can drag around until I release??]
-- What other actions could we add??
+- Implenent 3-Finger Drag (Like Mac!) for Windows / Linux. (`3FingerDragOnWindows` program as reference)
 - caps lock button?
---- 
-- ** Mention Auto-Splay in Readme!
-- Tune velocity / drag cancel on windows /w codex
----
+- What other actions could we add??
+- Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Can we add a small checkbox next to each action which when clicked would make that gesture "continuous" so it will repeat if the gesture is held?
-- 2/3 finger tap gestures~
--------
+- Tune velocity / drag cancel on windows /w codex
 
 ## ICONIC:
+- Need a logo for glasstokey!
 - Start transition from Circles to Triangles
 
 

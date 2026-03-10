@@ -3,16 +3,15 @@
 
 - Is there a less aggressive way to take over? 
 
-# HEADLESS
-- Try starting headless. `glasstokey start`
-- Can it *just* start headless /w `glasstokey` if it recognized no GUI is available?
+# ARCH SUPPORT
+- try installing Arch tonight, lol. 
 
 # GUI
 - Can we remove the <hr> dividers between the collapsables in the right column?
  
 - BRIGHT_UP, BRIGHT_DOWN doesn't work on Linux. I think we need a Linux specific implementation. 
 
-- Adjust FOrce min / force max slider to max out at 255 ON LINUX ONLY (maybe prod more.. are we not getting force phases from Linux like we are for WIndows? Why is `f:255` the max in the visualizer?)
+- Adjust FOrce min / force max slider to max out at 255 ON LINUX ONLY
 
 - In Windows there are "contact pills" and "state pills" can you please implement those in Linux?
 
