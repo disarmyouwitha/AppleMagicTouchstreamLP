@@ -370,7 +370,10 @@ public partial class App : Application
             _configWindow = null;
         }
 
-        if (_restartToTrayWhenConfigCloses &&
+        bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
+            !window.IsAutocorrectEnabled;
+
+        if (shouldRestartToTrayOnClose &&
             !_restartRequested &&
             TryLaunchReplacementInstance(showErrors: true, "--tray-only"))
         {

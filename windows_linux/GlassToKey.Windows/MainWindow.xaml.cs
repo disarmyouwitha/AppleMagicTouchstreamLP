@@ -130,6 +130,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
+    public bool IsAutocorrectEnabled => _settings.AutocorrectEnabled;
 
     private static Brush CreateFrozenBrush(string colorHex)
     {
