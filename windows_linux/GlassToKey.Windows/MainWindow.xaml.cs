@@ -231,6 +231,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         StartInTrayOnLaunchCheck.Unchecked += OnModeSettingChanged;
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
+        ThreeFingerDragModeCheck.Checked += OnModeSettingChanged;
+        ThreeFingerDragModeCheck.Unchecked += OnModeSettingChanged;
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
@@ -602,6 +604,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpdateAutocorrectStatusVisibility();
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         HoldRepeatModeCheck.IsChecked = _settings.HoldRepeatEnabled;
+        ThreeFingerDragModeCheck.IsChecked = _settings.ThreeFingerDragEnabled;
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
@@ -1069,6 +1072,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ? RuntimeConfigurationFactory.HardcodedSnapRadiusPercent
             : 0.0;
         _settings.HoldRepeatEnabled = HoldRepeatModeCheck.IsChecked == true;
+        _settings.ThreeFingerDragEnabled = ThreeFingerDragModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         _settings.StartInTrayOnLaunch = StartInTrayOnLaunchCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)

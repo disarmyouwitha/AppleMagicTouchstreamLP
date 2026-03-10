@@ -21,6 +21,7 @@
     "RunAtStartup": false,
     "StartInTrayOnLaunch": false,
     "HoldRepeatEnabled": false,
+    "ThreeFingerDragEnabled": false,
     "FiveFingerSwipeLeftAction": "Typing Toggle",
     "FiveFingerSwipeRightAction": "Typing Toggle",
     "FiveFingerSwipeUpAction": "None",

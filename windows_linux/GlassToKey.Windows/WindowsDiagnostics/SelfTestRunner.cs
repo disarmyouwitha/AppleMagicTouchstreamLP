@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.IO;
 using System.Text.Json;
 
@@ -16,6 +17,11 @@ internal static class SelfTestRunner
         if (!RunButtonEdgeTrackerTests(out string buttonFailure))
         {
             return new SelfTestResult(false, $"Button edge helper tests failed: {buttonFailure}");
+        }
+
+        if (!RunThreeFingerDragControllerTests(out string threeFingerDragFailure))
+        {
+            return new SelfTestResult(false, $"Three-finger drag tests failed: {threeFingerDragFailure}");
         }
 
         if (!RunAutoDecoderProfileTests(out string decoderProfileFailure))
@@ -2342,6 +2348,98 @@ internal static class SelfTestRunner
             return false;
         }
 
+        if (settings.ThreeFingerDragEnabled)
+        {
+            failure = "bundled default settings should leave three-finger drag disabled by default";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunThreeFingerDragControllerTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TestThreeFingerDragSink sink = new();
+        ThreeFingerDragController controller = new(sink);
+        controller.SetEnabled(true);
+
+        long startTicks = Stopwatch.Frequency;
+        InputFrame startFrame = CreateThreeFingerFrame(
+            (1000, 1200),
+            (1800, 1500),
+            (2600, 1800));
+        if (!controller.ProcessFrame(TrackpadSide.Left, in startFrame, maxX, maxY, startTicks))
+        {
+            failure = "controller should consume initial three-finger candidate frames";
+            return false;
+        }
+
+        if (sink.LeftButtonDownCount != 0 || sink.MoveCount != 0)
+        {
+            failure = "controller should not click or move before activation";
+            return false;
+        }
+
+        InputFrame movedFrame = CreateThreeFingerFrame(
+            (1200, 1200),
+            (2000, 1500),
+            (2800, 1800));
+        if (!controller.ProcessFrame(TrackpadSide.Left, in movedFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 20)))
+        {
+            failure = "controller should keep consuming active drag frames";
+            return false;
+        }
+
+        if (sink.LeftButtonDownCount != 1 || sink.MoveCount == 0 || sink.TotalDeltaX <= 0)
+        {
+            failure = "movement activation should press left mouse and emit pointer motion";
+            return false;
+        }
+
+        InputFrame releaseFrame = default;
+        if (!controller.ProcessFrame(TrackpadSide.Left, in releaseFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 10)))
+        {
+            failure = "controller should consume the terminating release frame";
+            return false;
+        }
+
+        if (sink.LeftButtonUpCount != 1)
+        {
+            failure = "release should synthesize a left mouse button up";
+            return false;
+        }
+
+        sink = new TestThreeFingerDragSink();
+        controller = new ThreeFingerDragController(sink);
+        controller.SetEnabled(true);
+        if (!controller.ProcessFrame(TrackpadSide.Right, in startFrame, maxX, maxY, startTicks))
+        {
+            failure = "controller should consume right-side three-finger candidates";
+            return false;
+        }
+
+        InputFrame heldFrame = CreateThreeFingerFrame(
+            (1004, 1202),
+            (1802, 1498),
+            (2601, 1801));
+        controller.ProcessFrame(TrackpadSide.Right, in heldFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 8));
+        if (sink.LeftButtonDownCount != 1 || sink.MoveCount != 0)
+        {
+            failure = "hold activation should press left mouse without synthetic movement";
+            return false;
+        }
+
+        controller.SetEnabled(false);
+        if (sink.LeftButtonUpCount != 1)
+        {
+            failure = "disabling the feature mid-drag should release the left mouse button";
+            return false;
+        }
+
         failure = string.Empty;
         return true;
     }
@@ -3304,6 +3402,23 @@ internal static class SelfTestRunner
         return (long)Math.Round(milliseconds * System.Diagnostics.Stopwatch.Frequency / 1000.0);
     }
 
+    private static InputFrame CreateThreeFingerFrame(
+        (ushort X, ushort Y) contact0,
+        (ushort X, ushort Y) contact1,
+        (ushort X, ushort Y) contact2)
+    {
+        InputFrame frame = new()
+        {
+            ReportId = RawInputInterop.ReportIdMultitouch,
+            ContactCount = 3
+        };
+
+        frame.SetContact(0, new ContactFrame(1, contact0.X, contact0.Y, 0x03));
+        frame.SetContact(1, new ContactFrame(2, contact1.X, contact1.Y, 0x03));
+        frame.SetContact(2, new ContactFrame(3, contact2.X, contact2.Y, 0x03));
+        return frame;
+    }
+
     private static void WriteContact(Span<byte> reportBytes, int index, byte flags, uint contactId, ushort x, ushort y)
     {
         int offset = 1 + (index * 9);
@@ -3342,4 +3457,38 @@ internal static class SelfTestRunner
 }
 
 internal readonly record struct SelfTestResult(bool Success, string Summary);
+
+internal sealed class TestThreeFingerDragSink : IThreeFingerDragSink
+{
+    public int LeftButtonDownCount { get; private set; }
+    public int LeftButtonUpCount { get; private set; }
+    public int MoveCount { get; private set; }
+    public int TotalDeltaX { get; private set; }
+    public int TotalDeltaY { get; private set; }
+    public int PointerActivityCount { get; private set; }
+
+    public void MovePointerBy(int deltaX, int deltaY)
+    {
+        MoveCount++;
+        TotalDeltaX += deltaX;
+        TotalDeltaY += deltaY;
+    }
+
+    public void NotifyPointerActivity()
+    {
+        PointerActivityCount++;
+    }
+
+    public void SetLeftButtonState(bool pressed)
+    {
+        if (pressed)
+        {
+            LeftButtonDownCount++;
+        }
+        else
+        {
+            LeftButtonUpCount++;
+        }
+    }
+}
 

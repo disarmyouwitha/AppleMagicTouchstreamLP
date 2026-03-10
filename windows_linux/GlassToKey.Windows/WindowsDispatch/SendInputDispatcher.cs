@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace GlassToKey;
 
-internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectController
+internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectController, IThreeFingerDragSink
 {
     private const uint InputMouse = 0;
     private const uint InputKeyboard = 1;
@@ -15,6 +15,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
     private const uint KeyeventfExtendedkey = 0x0001;
     private const uint KeyeventfKeyup = 0x0002;
     private const uint KeyeventfScancode = 0x0008;
+    private const uint MouseeventfMove = 0x0001;
     private const uint MouseeventfLeftdown = 0x0002;
     private const uint MouseeventfLeftup = 0x0004;
     private const uint MouseeventfRightdown = 0x0008;
@@ -92,6 +93,29 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
     public void NotifyPointerActivity()
     {
         Interlocked.Exchange(ref _autocorrectPointerActivityPending, 1);
+    }
+
+    public void MovePointerBy(int deltaX, int deltaY)
+    {
+        if (_suppressPhysicalOutput || (deltaX == 0 && deltaY == 0))
+        {
+            return;
+        }
+
+        _singleInput[0] = CreateMouseInput(MouseeventfMove, deltaX, deltaY);
+        SendInput(1, _singleInput, Marshal.SizeOf<Input>());
+    }
+
+    public void SetLeftButtonState(bool pressed)
+    {
+        if (pressed)
+        {
+            SendMouseButtonDown(DispatchMouseButton.Left);
+        }
+        else
+        {
+            SendMouseButtonUp(DispatchMouseButton.Left);
+        }
     }
 
     public void Dispatch(in DispatchEvent dispatchEvent)
@@ -678,8 +702,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        _dualInput[0] = CreateMouseInput(down);
-        _dualInput[1] = CreateMouseInput(up);
+        _dualInput[0] = CreateMouseInput(down, 0, 0);
+        _dualInput[1] = CreateMouseInput(up, 0, 0);
         SendInput(2, _dualInput, Marshal.SizeOf<Input>());
     }
 
@@ -696,7 +720,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        _singleInput[0] = CreateMouseInput(down);
+        _singleInput[0] = CreateMouseInput(down, 0, 0);
         SendInput(1, _singleInput, Marshal.SizeOf<Input>());
     }
 
@@ -713,7 +737,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
-        _singleInput[0] = CreateMouseInput(up);
+        _singleInput[0] = CreateMouseInput(up, 0, 0);
         SendInput(1, _singleInput, Marshal.SizeOf<Input>());
     }
 
@@ -728,7 +752,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         };
     }
 
-    private static Input CreateMouseInput(uint flags)
+    private static Input CreateMouseInput(uint flags, int deltaX, int deltaY)
     {
         return new Input
         {
@@ -737,8 +761,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             {
                 Mouse = new MouseInput
                 {
-                    DeltaX = 0,
-                    DeltaY = 0,
+                    DeltaX = deltaX,
+                    DeltaY = deltaY,
                     MouseData = 0,
                     Flags = flags,
                     Time = 0,

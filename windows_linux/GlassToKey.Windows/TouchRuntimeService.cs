@@ -19,6 +19,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private DispatchEventQueue? _dispatchQueue;
     private DispatchEventPump? _dispatchPump;
     private SendInputDispatcher? _sendInputDispatcher;
+    private ThreeFingerDragController? _threeFingerDragController;
     private InputSinkWindow? _inputSink;
     private Timer? _snapshotTimer;
     private IRuntimeFrameObserver? _frameObserver;
@@ -69,6 +70,8 @@ internal sealed class TouchRuntimeService : IDisposable
             _dispatchQueue = new DispatchEventQueue();
             _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _sendInputDispatcher = new SendInputDispatcher();
+            _threeFingerDragController = new ThreeFingerDragController(_sendInputDispatcher);
+            _threeFingerDragController.SetEnabled(_settings.ThreeFingerDragEnabled);
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
@@ -126,6 +129,7 @@ internal sealed class TouchRuntimeService : IDisposable
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
+        _threeFingerDragController?.SetEnabled(_settings.ThreeFingerDragEnabled);
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
         _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
         _keymap = keymap;
@@ -215,6 +219,8 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _dispatchPump?.Dispose();
         _dispatchPump = null;
+        _threeFingerDragController?.SetEnabled(false);
+        _threeFingerDragController = null;
         _sendInputDispatcher = null;
 
         _dispatchQueue?.Dispose();
@@ -352,7 +358,11 @@ internal sealed class TouchRuntimeService : IDisposable
                         _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
                     }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
-                    _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
+                    bool consumed = _threeFingerDragController?.ProcessFrame(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks) == true;
+                    if (!consumed)
+                    {
+                        _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
+                    }
                 }
 
                 if (routeRight)
@@ -363,7 +373,11 @@ internal sealed class TouchRuntimeService : IDisposable
                         _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
                     }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
-                    _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
+                    bool consumed = _threeFingerDragController?.ProcessFrame(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks) == true;
+                    if (!consumed)
+                    {
+                        _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
+                    }
                 }
             }
             catch (Exception ex)

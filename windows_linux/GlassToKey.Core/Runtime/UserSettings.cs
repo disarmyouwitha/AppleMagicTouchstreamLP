@@ -25,6 +25,7 @@ public sealed class UserSettings
     public bool RunAtStartup { get; set; }
     public bool StartInTrayOnLaunch { get; set; }
     public bool HoldRepeatEnabled { get; set; }
+    public bool ThreeFingerDragEnabled { get; set; }
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeUpAction { get; set; } = "None";
@@ -114,6 +115,7 @@ public sealed class UserSettings
         RunAtStartup = source.RunAtStartup;
         StartInTrayOnLaunch = source.StartInTrayOnLaunch;
         HoldRepeatEnabled = source.HoldRepeatEnabled;
+        ThreeFingerDragEnabled = source.ThreeFingerDragEnabled;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
         FiveFingerSwipeUpAction = source.FiveFingerSwipeUpAction;
@@ -358,6 +360,34 @@ public sealed class UserSettings
                     KeyPaddingPercentByLayout[key] = normalized;
                     changed = true;
                 }
+            }
+        }
+
+        if (DecoderProfilesByDevicePath != null)
+        {
+            foreach (string originalKey in new List<string>(DecoderProfilesByDevicePath.Keys))
+            {
+                string normalizedKey = originalKey.Trim();
+                string value = DecoderProfilesByDevicePath[originalKey];
+                if (string.IsNullOrWhiteSpace(normalizedKey) ||
+                    !TrackpadDecoderProfileMap.TryParse(value, out TrackpadDecoderProfile profile))
+                {
+                    DecoderProfilesByDevicePath.Remove(originalKey);
+                    changed = true;
+                    continue;
+                }
+
+                string normalizedValue = TrackpadDecoderProfileMap.ToSettingsValue(profile);
+                bool keyChanged = !string.Equals(originalKey, normalizedKey, StringComparison.Ordinal);
+                bool valueChanged = !string.Equals(value, normalizedValue, StringComparison.Ordinal);
+                if (!keyChanged && !valueChanged)
+                {
+                    continue;
+                }
+
+                DecoderProfilesByDevicePath.Remove(originalKey);
+                DecoderProfilesByDevicePath[normalizedKey] = normalizedValue;
+                changed = true;
             }
         }
 
