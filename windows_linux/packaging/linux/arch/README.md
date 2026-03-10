@@ -22,7 +22,7 @@ Build and install:
 sudo pacman -S --needed base-devel dotnet-sdk
 cd packaging/linux/arch
 makepkg -f
-sudo pacman -U ./glasstokey-linux-0.1.0-1-x86_64.pkg.tar.zst
+sudo pacman -U ./glasstokey-linux-0.1.0-2-x86_64.pkg.tar.zst
 ```
 
 Docker build (no Arch host required):
@@ -42,7 +42,7 @@ Container note:
 Lifecycle validation checklist:
 
 1. Install:
-   - `sudo pacman -U ./glasstokey-linux-0.1.0-1-x86_64.pkg.tar.zst`
+   - `sudo pacman -U ./glasstokey-linux-0.1.0-2-x86_64.pkg.tar.zst`
    - `glasstokey doctor`
    - `glasstokey init-config`
    - `glasstokey show-config --print`

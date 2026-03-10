@@ -2,7 +2,7 @@
 
 pkgname=glasstokey-linux
 pkgver=0.1.0
-pkgrel=1
+pkgrel=2
 pkgdesc="Apple Magic Trackpad to keyboard runtime for Linux (CLI + tray GUI)"
 arch=('x86_64')
 url="https://github.com/OpenAdaptAI/AppleMagicTouchstreamLP"

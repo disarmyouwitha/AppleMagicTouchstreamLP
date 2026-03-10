@@ -1,6 +1,4 @@
 # TODO:
-- haptics over USB no longer works, what did you do?
-
 - If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click.
 
 - Is there a less aggressive way to take over? 
