@@ -9,13 +9,7 @@
     GestureCandidate, and there are tests that explicitly assert that in SelfTestRunner.cs:1036.}
 
 ## TODO:
-
-nessisary now?
--   4. Add arbitration rules so stationary 3-finger hold/click are no longer stolen.
-  5. Retune thresholds.
-  6. Delete obsolete controller code.
-  Add and/or update tests in SelfTestRunner.cs and LinuxSelfTestRunner.cs:
-- Great! My only complaint about the 3-finger grab logic is that it's eating 3-finger holds and 3-finger clicks when I would consider that I am not moving my fingers. Maybe we need to up the mm for drag? Please analyze and advise. 
+- TEST: My only complaint about the 3-finger grab logic is that it's eating 3-finger holds and 3-finger clicks when I would consider that I am not moving my fingers. Maybe we need to up the mm for drag? Please analyze and advise. 
 ---
 - `Memory Saver` toggle to gate restart logic.. can I have hover-text explain "restarts GTK when config is closed"
 - `Keyboard / Mouse` mode should just be about state machine
