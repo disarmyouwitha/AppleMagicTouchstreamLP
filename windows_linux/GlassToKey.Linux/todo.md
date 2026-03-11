@@ -1,4 +1,5 @@
 # TODO:
+- Move `Restart GlassToKey` above `Quit GlassToKey`
 - Between every mode transition be it Mixed/Mouse or Keyboard/Mouse my mouse input and clicks are being grabbed and that absolutely should not be the case for mixed/mouse.
 
 - If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click - Is there another way to accomplish this? I really don't like EVIOCGRAB style suppression. =x 
