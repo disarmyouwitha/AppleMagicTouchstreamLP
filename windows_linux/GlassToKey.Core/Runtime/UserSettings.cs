@@ -24,6 +24,7 @@ public sealed class UserSettings
     public bool TypingEnabled { get; set; } = true;
     public bool RunAtStartup { get; set; }
     public bool StartInTrayOnLaunch { get; set; }
+    public bool MemorySaverEnabled { get; set; }
     public bool HoldRepeatEnabled { get; set; }
     public bool ThreeFingerDragEnabled { get; set; }
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
@@ -114,6 +115,7 @@ public sealed class UserSettings
         TypingEnabled = source.TypingEnabled;
         RunAtStartup = source.RunAtStartup;
         StartInTrayOnLaunch = source.StartInTrayOnLaunch;
+        MemorySaverEnabled = source.MemorySaverEnabled;
         HoldRepeatEnabled = source.HoldRepeatEnabled;
         ThreeFingerDragEnabled = source.ThreeFingerDragEnabled;
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;

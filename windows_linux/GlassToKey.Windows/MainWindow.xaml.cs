@@ -130,7 +130,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
-    public bool IsAutocorrectEnabled => _settings.AutocorrectEnabled;
+    public bool IsMemorySaverEnabled => _settings.MemorySaverEnabled;
 
     private static Brush CreateFrozenBrush(string colorHex)
     {
@@ -229,6 +229,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         StartInTrayOnLaunchCheck.Checked += OnModeSettingChanged;
         StartInTrayOnLaunchCheck.Unchecked += OnModeSettingChanged;
+        MemorySaverModeCheck.Checked += OnModeSettingChanged;
+        MemorySaverModeCheck.Unchecked += OnModeSettingChanged;
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
         ThreeFingerDragModeCheck.Checked += OnModeSettingChanged;
@@ -613,6 +615,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
         StartInTrayOnLaunchCheck.IsChecked = _settings.StartInTrayOnLaunch;
+        MemorySaverModeCheck.IsChecked = _settings.MemorySaverEnabled;
         InitializeDecoderProfileCombos();
         RefreshDecoderProfileCombos();
 
@@ -1079,6 +1082,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ThreeFingerDragEnabled = ThreeFingerDragModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         _settings.StartInTrayOnLaunch = StartInTrayOnLaunchCheck.IsChecked == true;
+        _settings.MemorySaverEnabled = MemorySaverModeCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)
         {
             if (!StartupRegistration.TrySetEnabled(startupRequested, out string? startupError))

@@ -1,7 +1,8 @@
 ## User Issues:
 - momentary layer not working when used as a hold action
-- Allow User-set key-combos
-- test 3-finger holds like ctrl+alt+del
+- Fix 3-finger holds like ctrl+alt+del
+- Allow User-set key-combos!
+---
 - allow option to override "3+ finger = gesture" rule:
 { Every other gesture is modeled inside the engine. TouchProcessorCore.ProcessFrame runs swipes,
     multi-finger holds, clicks, corner/triangle/force gestures, then intent arbitration in one place
@@ -9,9 +10,12 @@
     GestureCandidate, and there are tests that explicitly assert that in SelfTestRunner.cs:1036.}
 
 ## TODO:
-- TEST: My only complaint about the 3-finger grab logic is that it's eating 3-finger holds and 3-finger clicks when I would consider that I am not moving my fingers. Maybe we need to up the mm for drag? Please analyze and advise. 
+- Yesterday we added Windows logic, if autocorrect is off, and you close the config,glasstokey will reboot itself, preserving it's state.. I would like to change that.. It should be implemented under a `Memory Saver` toggle and it should apply even if autocorrect is enabled if it's toggled on.. Can I have hover-text explain "Restarts GTK when config is closed to release memory"
+- Can we split Mode Toggle into 2 coluumns with 4 options each in this order?
+[]          []
+[]          []
+[]          []
 ---
-- `Memory Saver` toggle to gate restart logic.. can I have hover-text explain "restarts GTK when config is closed"
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION
 ---
