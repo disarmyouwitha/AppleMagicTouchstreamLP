@@ -6,7 +6,6 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
     private readonly DispatchEventQueue _dispatchQueue;
     private readonly DispatchEventPump _dispatchPump;
     private readonly TouchProcessorActor _actor;
-    private readonly ThreeFingerDragController? _threeFingerDragController;
     private bool _disposed;
 
     public TouchProcessorRuntimeHost(
@@ -25,20 +24,18 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
             ? TouchProcessorFactory.CreateDefault(resolvedKeymap, preset)
             : TouchProcessorFactory.CreateConfigured(resolvedKeymap, settings, preset);
         _dispatchQueue = new DispatchEventQueue();
-        _actor = new TouchProcessorActor(core, dispatchQueue: _dispatchQueue);
+        _actor = new TouchProcessorActor(
+            core,
+            dispatchQueue: _dispatchQueue,
+            threeFingerDragSink: dispatcher as IThreeFingerDragSink);
         _actor.SetHapticsOnKeyDispatchEnabled(settings?.HapticsEnabled ?? false);
         _actor.SetPointerIntentEnabled(!pureKeyboardIntent);
         _actor.SetTypingToggleActionsEnabled(!ignoreTypingToggleActions);
+        _actor.SetThreeFingerDragEnabled(settings?.ThreeFingerDragEnabled == true);
         _dispatchPump = new DispatchEventPump(_dispatchQueue, dispatcher);
         if (settings != null)
         {
             ConfigureDispatcherAutocorrect(dispatcher, settings);
-        }
-
-        if (dispatcher is IThreeFingerDragSink dragSink)
-        {
-            _threeFingerDragController = new ThreeFingerDragController(dragSink);
-            _threeFingerDragController.SetEnabled(settings?.ThreeFingerDragEnabled == true);
         }
     }
 
@@ -50,21 +47,10 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         InputFrame payload = frame.Frame;
-        bool consumedByDrag = _threeFingerDragController?.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true;
-        if (_threeFingerDragController?.ConsumeCompletedDragSequence() == true)
-        {
-            _actor.ArmPointerIntentSequence(frame.TimestampTicks);
-        }
-
-        if (consumedByDrag)
-        {
-            return true;
-        }
-
         return _actor.Post(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
     }
 
-    public bool RequestsExclusiveInput => _threeFingerDragController?.RequestsExclusiveInput == true;
+    public bool RequestsExclusiveInput => false;
 
     public bool TryGetSnapshot(out TouchProcessorRuntimeSnapshot snapshot)
     {
@@ -189,7 +175,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         _actor.ConfigureKeymap(keymap);
         _actor.SetPersistentLayer(activeLayer);
         _actor.SetHapticsOnKeyDispatchEnabled(settings.HapticsEnabled);
-        _threeFingerDragController?.SetEnabled(profile.ThreeFingerDragEnabled);
+        _actor.SetThreeFingerDragEnabled(profile.ThreeFingerDragEnabled);
         ConfigureDispatcherAutocorrect(_dispatcher, profile);
     }
 
@@ -201,7 +187,7 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         _disposed = true;
-        _threeFingerDragController?.SetEnabled(false);
+        _actor.SetThreeFingerDragEnabled(false);
         _actor.Dispose();
         _dispatchPump.Dispose();
         _dispatchQueue.Dispose();

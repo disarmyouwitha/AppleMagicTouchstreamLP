@@ -45,6 +45,7 @@ internal sealed class TouchProcessorCore
     private const double ChordSourceStaleTimeoutMs = 200.0;
     private const double MultiFingerClickHoldGuardMs = 90.0;
     private const double MultiFingerClickForceVelocityThresholdPerSec = 1400.0;
+    private const double ThreeFingerDragPixelsPerMm = 10.0;
     private const ushort ShiftVirtualKey = 0x10;
 
     private TouchProcessorConfig _config;
@@ -128,10 +129,15 @@ internal sealed class TouchProcessorCore
     private readonly DispatchEvent[] _dispatchRing = new DispatchEvent[512];
     private int _dispatchRingHead;
     private int _dispatchRingCount;
+    private readonly PointerDragEffect[] _pointerDragRing = new PointerDragEffect[64];
+    private int _pointerDragRingHead;
+    private int _pointerDragRingCount;
     private long _dispatchDrops;
     private long _dispatchEnqueued;
     private long _dispatchSuppressedTypingDisabled;
     private long _dispatchSuppressedRingFull;
+    private bool _threeFingerDragEnabled;
+    private ThreeFingerDragState _threeFingerDragState;
     private MultiFingerHoldGesture _twoFingerHoldGesture;
     private MultiFingerHoldGesture _threeFingerHoldGesture;
     private MultiFingerHoldGesture _fourFingerHoldGesture;
@@ -308,6 +314,20 @@ internal sealed class TouchProcessorCore
         _pointerSequenceGraceDeadlineTicks = 0;
     }
 
+    public void SetThreeFingerDragEnabled(bool enabled)
+    {
+        if (_threeFingerDragEnabled == enabled)
+        {
+            return;
+        }
+
+        _threeFingerDragEnabled = enabled;
+        if (!enabled)
+        {
+            ReleaseThreeFingerDragState(Stopwatch.GetTimestamp(), armPointerIntentSequence: false);
+        }
+    }
+
     public void ArmPointerIntentSequence(long timestampTicks)
     {
         if (!_pointerIntentEnabled)
@@ -437,6 +457,8 @@ internal sealed class TouchProcessorCore
         _transitionRingCount = 0;
         _dispatchRingHead = 0;
         _dispatchRingCount = 0;
+        _pointerDragRingHead = 0;
+        _pointerDragRingCount = 0;
         _dispatchDrops = 0;
         _dispatchEnqueued = 0;
         _releaseDroppedTotal = 0;
@@ -466,6 +488,7 @@ internal sealed class TouchProcessorCore
         _rightPositiveForceVelocityPerSec = 0;
         _leftHoldBlockedUntilAllUpFromClick = false;
         _rightHoldBlockedUntilAllUpFromClick = false;
+        _threeFingerDragState = default;
         _diagnosticRingHead = 0;
         _diagnosticRingCount = 0;
         _clockAnchorTimestampTicks = 0;
@@ -526,6 +549,11 @@ internal sealed class TouchProcessorCore
             }
         }
         UpdateSideForceVelocity(side, frameTipMaxForceNorm, timestampTicks);
+        if (ProcessThreeFingerDragFrame(side, in frame, maxX, maxY, timestampTicks))
+        {
+            return;
+        }
+
         UpdateMultiFingerClickGestures(
             side,
             tipContactsInFrame,
@@ -2006,6 +2034,8 @@ internal sealed class TouchProcessorCore
 
     private void ReleaseHeldStateForTypingDisable(long timestampTicks)
     {
+        ReleaseThreeFingerDragState(timestampTicks, armPointerIntentSequence: false);
+
         if (_chordShiftKeyDown)
         {
             EnqueueDispatchEvent(
@@ -2802,6 +2832,298 @@ internal sealed class TouchProcessorCore
 
         lastForce = frameTipMaxForceNorm;
         lastTicks = nowTicks;
+    }
+
+    private bool ProcessThreeFingerDragFrame(
+        TrackpadSide side,
+        in InputFrame frame,
+        ushort maxX,
+        ushort maxY,
+        long timestampTicks)
+    {
+        if (!_threeFingerDragEnabled)
+        {
+            return false;
+        }
+
+        ref ThreeFingerDragState drag = ref _threeFingerDragState;
+        if (drag.AwaitingAllUp)
+        {
+            if (side != drag.Side)
+            {
+                return false;
+            }
+
+            if (HasPhysicalInput(in frame))
+            {
+                return true;
+            }
+
+            drag = default;
+            ArmPointerIntentSequence(timestampTicks);
+            return false;
+        }
+
+        if (!TryGetThreeFingerCentroidMm(in frame, maxX, maxY, out double centroidXMm, out double centroidYMm))
+        {
+            if (!drag.Candidate || side != drag.Side)
+            {
+                return false;
+            }
+
+            if (!drag.Active)
+            {
+                drag = default;
+                return false;
+            }
+
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonUp | PointerDragEffectKind.PointerActivity,
+                side,
+                timestampTicks);
+            ClearStateForThreeFingerDrag(side, timestampTicks);
+            drag.Active = false;
+            drag.Candidate = false;
+            if (HasPhysicalInput(in frame))
+            {
+                drag.AwaitingAllUp = true;
+                return true;
+            }
+
+            drag = default;
+            ArmPointerIntentSequence(timestampTicks);
+            return false;
+        }
+
+        if (drag.Candidate && side != drag.Side)
+        {
+            return false;
+        }
+
+        if (!drag.Candidate)
+        {
+            drag = new ThreeFingerDragState(
+                Candidate: true,
+                Active: false,
+                AwaitingAllUp: false,
+                Side: side,
+                AnchorCentroidXMm: centroidXMm,
+                AnchorCentroidYMm: centroidYMm,
+                LastCentroidXMm: centroidXMm,
+                LastCentroidYMm: centroidYMm,
+                PendingPixelsX: 0.0,
+                PendingPixelsY: 0.0);
+            return false;
+        }
+
+        double deltaFromAnchorX = centroidXMm - drag.AnchorCentroidXMm;
+        double deltaFromAnchorY = centroidYMm - drag.AnchorCentroidYMm;
+        double activationMoveMm = Math.Max(_config.DragCancelMm, _config.IntentMoveMm);
+        bool activateByMove = ((deltaFromAnchorX * deltaFromAnchorX) + (deltaFromAnchorY * deltaFromAnchorY)) >=
+                              (activationMoveMm * activationMoveMm);
+        if (!drag.Active && !activateByMove)
+        {
+            return false;
+        }
+
+        if (!drag.Active)
+        {
+            ClearStateForThreeFingerDrag(side, timestampTicks);
+            drag.Active = true;
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonDown | PointerDragEffectKind.PointerActivity,
+                side,
+                timestampTicks);
+        }
+
+        EmitThreeFingerDragMovement(ref drag, side, centroidXMm, centroidYMm, timestampTicks);
+        drag.LastCentroidXMm = centroidXMm;
+        drag.LastCentroidYMm = centroidYMm;
+        return true;
+    }
+
+    private void EmitThreeFingerDragMovement(
+        ref ThreeFingerDragState drag,
+        TrackpadSide side,
+        double centroidXMm,
+        double centroidYMm,
+        long timestampTicks)
+    {
+        drag.PendingPixelsX += (centroidXMm - drag.LastCentroidXMm) * ThreeFingerDragPixelsPerMm;
+        drag.PendingPixelsY += (centroidYMm - drag.LastCentroidYMm) * ThreeFingerDragPixelsPerMm;
+
+        int deltaXPixels = (int)drag.PendingPixelsX;
+        int deltaYPixels = (int)drag.PendingPixelsY;
+        if (deltaXPixels == 0 && deltaYPixels == 0)
+        {
+            return;
+        }
+
+        drag.PendingPixelsX -= deltaXPixels;
+        drag.PendingPixelsY -= deltaYPixels;
+        EmitPointerDragEffect(
+            PointerDragEffectKind.Move | PointerDragEffectKind.PointerActivity,
+            side,
+            timestampTicks,
+            deltaXPixels,
+            deltaYPixels);
+    }
+
+    private void ReleaseThreeFingerDragState(long timestampTicks, bool armPointerIntentSequence)
+    {
+        if (_threeFingerDragState.Active)
+        {
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonUp | PointerDragEffectKind.PointerActivity,
+                _threeFingerDragState.Side,
+                timestampTicks);
+        }
+
+        _threeFingerDragState = default;
+        if (armPointerIntentSequence)
+        {
+            ArmPointerIntentSequence(timestampTicks);
+        }
+    }
+
+    private void ClearStateForThreeFingerDrag(TrackpadSide side, long timestampTicks)
+    {
+        int removalCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ulong key = _intentTouches.KeyAt(i);
+            if (TouchSideFromKey(key) != side)
+            {
+                continue;
+            }
+
+            if (removalCount < _removalBuffer.Length)
+            {
+                _removalBuffer[removalCount++] = key;
+            }
+        }
+
+        for (int i = 0; i < removalCount; i++)
+        {
+            ulong key = _removalBuffer[i];
+            _intentTouches.Remove(key, out _);
+            CancelTouchWithoutReleaseAction(key, timestampTicks);
+        }
+
+        EndSideMultiFingerHoldGesture(ref _twoFingerHoldGesture, side, timestampTicks);
+        EndSideMultiFingerHoldGesture(ref _threeFingerHoldGesture, side, timestampTicks);
+        EndSideMultiFingerHoldGesture(ref _fourFingerHoldGesture, side, timestampTicks);
+        if (side == TrackpadSide.Left)
+        {
+            _cornerHoldGestureLeft = default;
+            _triangleGestureLeft = default;
+            _forceClickGestureLeft = default;
+            _cornerClickTapGestureLeft = default;
+            _leftHoldBlockedUntilAllUpFromClick = false;
+            _leftMaxTipContactsBeforeButtonDown = 0;
+            _leftButtonPressed = false;
+        }
+        else
+        {
+            _cornerHoldGestureRight = default;
+            _triangleGestureRight = default;
+            _forceClickGestureRight = default;
+            _cornerClickTapGestureRight = default;
+            _rightHoldBlockedUntilAllUpFromClick = false;
+            _rightMaxTipContactsBeforeButtonDown = 0;
+            _rightButtonPressed = false;
+        }
+    }
+
+    private static bool HasPhysicalInput(in InputFrame frame)
+    {
+        if (frame.IsButtonPressed)
+        {
+            return true;
+        }
+
+        int count = frame.GetClampedContactCount();
+        for (int i = 0; i < count; i++)
+        {
+            if (frame.GetContact(i).TipSwitch)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetThreeFingerCentroidMm(
+        in InputFrame frame,
+        ushort maxX,
+        ushort maxY,
+        out double centroidXMm,
+        out double centroidYMm)
+    {
+        centroidXMm = 0.0;
+        centroidYMm = 0.0;
+
+        double sumX = 0.0;
+        double sumY = 0.0;
+        int tipCount = 0;
+        int count = frame.GetClampedContactCount();
+        for (int i = 0; i < count; i++)
+        {
+            ContactFrame contact = frame.GetContact(i);
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            sumX += contact.X;
+            sumY += contact.Y;
+            tipCount++;
+        }
+
+        if (tipCount != 3)
+        {
+            return false;
+        }
+
+        double scaledMaxX = maxX == 0 ? 1.0 : maxX;
+        double scaledMaxY = maxY == 0 ? 1.0 : maxY;
+        centroidXMm = ((sumX / tipCount) / scaledMaxX) * _config.TrackpadWidthMm;
+        centroidYMm = ((sumY / tipCount) / scaledMaxY) * _config.TrackpadHeightMm;
+        return true;
+    }
+
+    private void EmitPointerDragEffect(
+        PointerDragEffectKind kind,
+        TrackpadSide side,
+        long timestampTicks,
+        int deltaXPixels = 0,
+        int deltaYPixels = 0)
+    {
+        if (_pointerDragRingCount >= _pointerDragRing.Length)
+        {
+            return;
+        }
+
+        _pointerDragRing[_pointerDragRingHead] = new PointerDragEffect(timestampTicks, side, kind, deltaXPixels, deltaYPixels);
+        _pointerDragRingHead = (_pointerDragRingHead + 1) % _pointerDragRing.Length;
+        _pointerDragRingCount++;
+    }
+
+    private void EndSideMultiFingerHoldGesture(ref MultiFingerHoldGesture gesture, TrackpadSide side, long nowTicks)
+    {
+        if (!gesture.Active || gesture.Side != side)
+        {
+            return;
+        }
+
+        EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
+        gesture = default;
     }
 
     private void SetClickDerivedHoldBlock(TrackpadSide side, bool enabled)
@@ -4224,6 +4546,23 @@ internal sealed class TouchProcessorCore
             _chordShiftRight = false;
         }
 
+        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
+        if (_chordShiftLeft &&
+            _lastFourPlusRightTicks >= 0 &&
+            staleTicks > 0 &&
+            (timestampTicks - _lastFourPlusRightTicks) > staleTicks)
+        {
+            _chordShiftLeft = false;
+        }
+
+        if (_chordShiftRight &&
+            _lastFourPlusLeftTicks >= 0 &&
+            staleTicks > 0 &&
+            (timestampTicks - _lastFourPlusLeftTicks) > staleTicks)
+        {
+            _chordShiftRight = false;
+        }
+
         UpdateChordShiftKeyState(timestampTicks);
         if (prevLeft != _chordShiftLeft || prevRight != _chordShiftRight)
         {
@@ -4598,6 +4937,29 @@ internal sealed class TouchProcessorCore
             {
                 count++;
             }
+        }
+
+        return count;
+    }
+
+    public int DrainPointerDragEffects(Span<PointerDragEffect> destination)
+    {
+        int count = Math.Min(destination.Length, _pointerDragRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_pointerDragRingHead - _pointerDragRingCount + _pointerDragRing.Length) % _pointerDragRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _pointerDragRing[(start + i) % _pointerDragRing.Length];
+        }
+
+        _pointerDragRingCount -= count;
+        if (_pointerDragRingCount == 0)
+        {
+            _pointerDragRingHead = 0;
         }
 
         return count;
@@ -5041,6 +5403,61 @@ internal sealed class TouchProcessorCore
         public double StartY;
     }
 
+    [Flags]
+    internal enum PointerDragEffectKind : byte
+    {
+        None = 0,
+        PointerActivity = 1 << 0,
+        Move = 1 << 1,
+        LeftButtonDown = 1 << 2,
+        LeftButtonUp = 1 << 3
+    }
+
+    internal readonly record struct PointerDragEffect(
+        long TimestampTicks,
+        TrackpadSide Side,
+        PointerDragEffectKind Kind,
+        int DeltaXPixels,
+        int DeltaYPixels);
+
+    private struct ThreeFingerDragState
+    {
+        public ThreeFingerDragState(
+            bool Candidate,
+            bool Active,
+            bool AwaitingAllUp,
+            TrackpadSide Side,
+            double AnchorCentroidXMm,
+            double AnchorCentroidYMm,
+            double LastCentroidXMm,
+            double LastCentroidYMm,
+            double PendingPixelsX,
+            double PendingPixelsY)
+        {
+            this.Candidate = Candidate;
+            this.Active = Active;
+            this.AwaitingAllUp = AwaitingAllUp;
+            this.Side = Side;
+            this.AnchorCentroidXMm = AnchorCentroidXMm;
+            this.AnchorCentroidYMm = AnchorCentroidYMm;
+            this.LastCentroidXMm = LastCentroidXMm;
+            this.LastCentroidYMm = LastCentroidYMm;
+            this.PendingPixelsX = PendingPixelsX;
+            this.PendingPixelsY = PendingPixelsY;
+        }
+
+        public bool Candidate;
+        public bool Active;
+        public bool AwaitingAllUp;
+        public TrackpadSide Side;
+        public double AnchorCentroidXMm;
+        public double AnchorCentroidYMm;
+        public double LastCentroidXMm;
+        public double LastCentroidYMm;
+        public double PendingPixelsX;
+        public double PendingPixelsY;
+    }
+
 }
 
 internal sealed class TouchProcessorActor : IDisposable
@@ -5048,6 +5465,7 @@ internal sealed class TouchProcessorActor : IDisposable
     private readonly TouchProcessorCore _core;
     private readonly object _coreGate = new();
     private readonly DispatchEventQueue? _dispatchQueue;
+    private readonly IThreeFingerDragSink? _threeFingerDragSink;
     private readonly FrameEnvelope[] _queue;
     private readonly object _gate = new();
     private readonly AutoResetEvent _signal = new(false);
@@ -5059,10 +5477,15 @@ internal sealed class TouchProcessorActor : IDisposable
     private long _postedCount;
     private long _processedCount;
 
-    public TouchProcessorActor(TouchProcessorCore core, int queueCapacity = 2048, DispatchEventQueue? dispatchQueue = null)
+    public TouchProcessorActor(
+        TouchProcessorCore core,
+        int queueCapacity = 2048,
+        DispatchEventQueue? dispatchQueue = null,
+        IThreeFingerDragSink? threeFingerDragSink = null)
     {
         _core = core;
         _dispatchQueue = dispatchQueue;
+        _threeFingerDragSink = threeFingerDragSink;
         _queue = new FrameEnvelope[Math.Max(16, queueCapacity)];
         _thread = new Thread(RunLoop)
         {
@@ -5149,6 +5572,28 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetPointerIntentEnabled(enabled);
+        }
+    }
+
+    public void SetThreeFingerDragEnabled(bool enabled)
+    {
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[8];
+        lock (_coreGate)
+        {
+            _core.SetThreeFingerDragEnabled(enabled && _threeFingerDragSink != null);
+            while (true)
+            {
+                int drained = _core.DrainPointerDragEffects(dragScratchBuffer);
+                if (drained <= 0)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < drained; i++)
+                {
+                    ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                }
+            }
         }
     }
 
@@ -5250,6 +5695,25 @@ internal sealed class TouchProcessorActor : IDisposable
 
     public void Dispose()
     {
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[8];
+        lock (_coreGate)
+        {
+            _core.SetThreeFingerDragEnabled(false);
+            while (true)
+            {
+                int drained = _core.DrainPointerDragEffects(dragScratchBuffer);
+                if (drained <= 0)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < drained; i++)
+                {
+                    ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                }
+            }
+        }
+
         lock (_gate)
         {
             _disposing = true;
@@ -5263,6 +5727,7 @@ internal sealed class TouchProcessorActor : IDisposable
     private void RunLoop()
     {
         DispatchEvent[] scratchBuffer = new DispatchEvent[16];
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[16];
         while (true)
         {
             FrameEnvelope frame;
@@ -5296,6 +5761,20 @@ internal sealed class TouchProcessorActor : IDisposable
             lock (_coreGate)
             {
                 _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
+                while (true)
+                {
+                    int drainedDragEffects = _core.DrainPointerDragEffects(dragScratchBuffer);
+                    if (drainedDragEffects <= 0)
+                    {
+                        break;
+                    }
+
+                    for (int i = 0; i < drainedDragEffects; i++)
+                    {
+                        ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                    }
+                }
+
                 if (_dispatchQueue != null)
                 {
                     while (true)
@@ -5317,6 +5796,35 @@ internal sealed class TouchProcessorActor : IDisposable
                 }
             }
             Interlocked.Increment(ref _processedCount);
+        }
+    }
+
+    private void ApplyPointerDragEffect(in TouchProcessorCore.PointerDragEffect effect)
+    {
+        IThreeFingerDragSink? sink = _threeFingerDragSink;
+        if (sink == null)
+        {
+            return;
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.LeftButtonDown) != 0)
+        {
+            sink.SetLeftButtonState(true);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.LeftButtonUp) != 0)
+        {
+            sink.SetLeftButtonState(false);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.Move) != 0)
+        {
+            sink.MovePointerBy(effect.DeltaXPixels, effect.DeltaYPixels);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.PointerActivity) != 0)
+        {
+            sink.NotifyPointerActivity();
         }
     }
 
