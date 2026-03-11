@@ -19,6 +19,7 @@ Operational guidance, architecture boundaries, and build commands now live in `A
   - install the generated package on a real Arch environment
   - verify `glasstokey doctor`
   - verify `glasstokey init-config`
+  - verify `glasstokey print-keymap` shows saved bindings and a text keymap view
   - verify desktop tray launch through `glasstokey-gui`
   - verify desktop GUI starts with no bound devices until explicit device selection is saved
   - verify headless runtime launch through `glasstokey start` / `glasstokey stop`

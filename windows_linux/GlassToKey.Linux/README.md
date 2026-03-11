@@ -24,6 +24,7 @@ Current CLI/runtime features:
 - `print-udev-rules` emits a packaging-oriented rule template for the currently detected Apple trackpads, any validated actuator hidraw interfaces, and `/dev/uinput`
 - `bind-left`, `bind-right`, and `swap-sides` manage explicit left/right assignment without editing settings by hand
 - `load-keymap` imports a full GlassToKey profile bundle when present (`Version` + `Settings` + `KeymapJson`), while still accepting raw keymap JSON as a fallback
+- `print-keymap` prints the saved Linux device bindings plus a text-mode ASCII view of the current layer-0 keymap
 - `selftest` validates the bundled Linux keymap import path, rejects stray Windows-only bundled labels, and verifies semantic-to-evdev coverage for the current Linux action surface
 - `capture-atpcap` writes Linux `.atpcap` version 3 normalized frame captures for offline analysis
 - `summarize-atpcap` prints a quick summary of a Linux `.atpcap` capture
@@ -67,6 +68,7 @@ Quick start:
 - installed wrapper run:
   - `glasstokey doctor`
   - `glasstokey init-config`
+  - `glasstokey print-keymap`
   - `glasstokey`
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`

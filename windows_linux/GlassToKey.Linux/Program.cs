@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
@@ -75,6 +76,11 @@ internal static class Program
         if (string.Equals(args[0], "init-config", StringComparison.OrdinalIgnoreCase))
         {
             return InitConfig();
+        }
+
+        if (string.Equals(args[0], "print-keymap", StringComparison.OrdinalIgnoreCase))
+        {
+            return PrintKeymap();
         }
 
         if (string.Equals(args[0], "bind-left", StringComparison.OrdinalIgnoreCase))
@@ -201,42 +207,28 @@ internal static class Program
 
     private static void PrintUsage()
     {
-        Console.WriteLine("After install:");
-        Console.WriteLine($"  1. {CliName} doctor");
-        Console.WriteLine($"  2. {CliName} init-config");
-        Console.WriteLine($"  3. {CliName}");
-        Console.WriteLine($"  4. Use {CliName} bind-left / bind-right if the defaults need correction");
-        Console.WriteLine($"  5. For direct CLI validation, run {CliName} start and later {CliName} stop");
-        Console.WriteLine($"  6. For desktop use, run {CliName} in a graphical session");
-        Console.WriteLine($"  7. Only enable the user service if you want the optional headless/background runtime path");
+        Console.WriteLine("[After install]:");
+        Console.WriteLine("  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions on both");
+        Console.WriteLine("     `/dev/input/event*` and the Magic Trackpad actuator `/dev/hidraw*` nodes.");
+        Console.WriteLine("  2. Add the desktop user to the 'glasstokey' group:");
+        Console.WriteLine("     sudo usermod -aG glasstokey $USER");
+        Console.WriteLine("  3. Log out and back in so the new group membership applies.");
         Console.WriteLine();
 
-        Console.WriteLine("Usage:");
-        Console.WriteLine($"  {CliName}              (graphical: launch tray host)");
+        Console.WriteLine("[Usage]:");
+        Console.WriteLine($"  {CliName}            # start tray host in background");
+        Console.WriteLine($"  {CliName} start      # start in headless mode");
+        Console.WriteLine($"  {CliName} stop       # to stop the background runtime");
+        Console.WriteLine();
+        Console.WriteLine("[Other Commands]:");
+        Console.WriteLine($"  {CliName} print-keymap");
         Console.WriteLine($"  {CliName} list-devices");
-        Console.WriteLine($"  {CliName} read-frames [device-node-or-stable-id] [seconds] [max-frames]");
-        Console.WriteLine($"  {CliName} read-events [device-node-or-stable-id] [seconds] [max-events]");
-        Console.WriteLine($"  {CliName} probe-axes [device-node-or-stable-id]");
-        Console.WriteLine($"  {CliName} probe-uinput");
-        Console.WriteLine($"  {CliName} pulse-haptics [left|right|device-node-or-stable-id] [count]");
+        Console.WriteLine($"  {CliName} swap-sides");
         Console.WriteLine($"  {CliName} doctor");
-        Console.WriteLine($"  {CliName} init-config");
+        Console.WriteLine();
         Console.WriteLine($"  {CliName} bind-left [device-node-or-stable-id]");
         Console.WriteLine($"  {CliName} bind-right [device-node-or-stable-id]");
-        Console.WriteLine($"  {CliName} swap-sides");
         Console.WriteLine($"  {CliName} print-udev-rules");
-        Console.WriteLine($"  {CliName} load-keymap [path-to-keymap.json]");
-        Console.WriteLine($"  {CliName} selftest");
-        Console.WriteLine($"  {CliName} capture-atpcap [output-path] [seconds]");
-        Console.WriteLine($"  {CliName} replay-atpcap [capture-path] [trace-output]");
-        Console.WriteLine($"  {CliName} summarize-atpcap [capture-path]");
-        Console.WriteLine($"  {CliName} write-atpcap-fixture [capture-path] [fixture-path]");
-        Console.WriteLine($"  {CliName} check-atpcap-fixture [capture-path] [fixture-path] [trace-output]");
-        Console.WriteLine($"  {CliName} uinput-smoke [token]");
-        Console.WriteLine($"  {CliName} watch-runtime [seconds]");
-        Console.WriteLine($"  {CliName} start");
-        Console.WriteLine($"  {CliName} stop");
-        Console.WriteLine($"  {CliName} run-engine [seconds]");
     }
 
     private static int LaunchTrayHost()
@@ -604,6 +596,172 @@ internal static class Program
         string path = appRuntime.InitializeSettings();
         Console.WriteLine($"Initialized Linux host settings at {path}");
         return 0;
+    }
+
+    private static int PrintKeymap()
+    {
+        LinuxAppRuntime appRuntime = new();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+
+        Console.WriteLine("GlassToKey Linux Configuration");
+        Console.WriteLine();
+        Console.WriteLine("Runtime");
+        Console.WriteLine($"  SettingsPath: {configuration.SettingsPath}");
+        Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
+        Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
+        Console.WriteLine($"  KeymapRevision: {configuration.Settings.KeymapRevision}");
+        Console.WriteLine();
+
+        Console.WriteLine("Device Bindings");
+        Console.WriteLine($"  SavedLeftStableId: {configuration.Settings.LeftTrackpadStableId ?? "(none)"}");
+        Console.WriteLine($"  SavedRightStableId: {configuration.Settings.RightTrackpadStableId ?? "(none)"}");
+        Console.WriteLine($"  ResolvedLeft: {FormatResolvedBinding(configuration.Bindings, TrackpadSide.Left)}");
+        Console.WriteLine($"  ResolvedRight: {FormatResolvedBinding(configuration.Bindings, TrackpadSide.Right)}");
+
+        if (configuration.Warnings.Count > 0)
+        {
+            Console.WriteLine();
+            Console.WriteLine("Warnings");
+            for (int index = 0; index < configuration.Warnings.Count; index++)
+            {
+                Console.WriteLine($"  - {configuration.Warnings[index]}");
+            }
+        }
+
+        Console.WriteLine();
+        Console.WriteLine("Keymap");
+        Console.WriteLine("  Layer 0");
+        PrintLayoutAscii(configuration, TrackpadSide.Left);
+        PrintLayoutAscii(configuration, TrackpadSide.Right);
+        PrintCustomButtons(configuration, TrackpadSide.Left);
+        PrintCustomButtons(configuration, TrackpadSide.Right);
+        return 0;
+    }
+
+    private static string FormatResolvedBinding(IReadOnlyList<LinuxTrackpadBinding> bindings, TrackpadSide side)
+    {
+        LinuxTrackpadBinding? binding = bindings.FirstOrDefault(candidate => candidate.Side == side);
+        if (binding == null)
+        {
+            return "(none)";
+        }
+
+        return $"{binding.Device.DisplayName} [{binding.Device.StableId}] @ {binding.Device.DeviceNode}";
+    }
+
+    private static void PrintLayoutAscii(LinuxRuntimeConfiguration configuration, TrackpadSide side)
+    {
+        const int layer = 0;
+        ColumnLayoutSettings[] columns = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(configuration.SharedProfile, configuration.LayoutPreset);
+        RuntimeConfigurationFactory.BuildLayouts(
+            configuration.SharedProfile,
+            configuration.Keymap,
+            configuration.LayoutPreset,
+            columns,
+            out KeyLayout leftLayout,
+            out KeyLayout rightLayout);
+
+        KeyLayout layout = side == TrackpadSide.Left ? leftLayout : rightLayout;
+        Console.WriteLine($"  {side}");
+        string rendered = RenderLayoutAscii(layout, configuration.Keymap, side, layer);
+        string[] lines = rendered.Split(Environment.NewLine, StringSplitOptions.None);
+        for (int index = 0; index < lines.Length; index++)
+        {
+            Console.WriteLine($"    {lines[index]}");
+        }
+    }
+
+    private static void PrintCustomButtons(LinuxRuntimeConfiguration configuration, TrackpadSide side)
+    {
+        const int layer = 0;
+        IReadOnlyList<CustomButton> buttons = configuration.Keymap.ResolveCustomButtons(layer, side);
+        if (buttons.Count == 0)
+        {
+            return;
+        }
+
+        Console.WriteLine($"  {side} Custom Buttons");
+        for (int index = 0; index < buttons.Count; index++)
+        {
+            CustomButton button = buttons[index];
+            string label = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label.Trim();
+            Console.WriteLine($"    - {label} [{button.Id}]");
+        }
+    }
+
+    private static string RenderLayoutAscii(KeyLayout layout, KeymapStore keymap, TrackpadSide side, int layer)
+    {
+        if (layout.Labels.Length == 0)
+        {
+            return "(no keys)";
+        }
+
+        int cellWidth = DetermineCellWidth(layout, keymap, side, layer);
+        StringBuilder builder = new();
+        for (int row = 0; row < layout.Labels.Length; row++)
+        {
+            string[] rowLabels = layout.Labels[row];
+            string border = BuildAsciiBorder(rowLabels.Length, cellWidth);
+            builder.AppendLine(border);
+            builder.Append('|');
+            for (int col = 0; col < rowLabels.Length; col++)
+            {
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyMapping mapping = keymap.ResolveMapping(layer, storageKey, rowLabels[col]);
+                string label = NormalizeCellLabel(mapping.Primary?.Label, rowLabels[col]);
+                builder.Append(' ');
+                builder.Append(label.PadRight(cellWidth));
+                builder.Append(" |");
+            }
+
+            builder.AppendLine();
+        }
+
+        builder.Append(BuildAsciiBorder(layout.Labels[^1].Length, cellWidth));
+        return builder.ToString();
+    }
+
+    private static int DetermineCellWidth(KeyLayout layout, KeymapStore keymap, TrackpadSide side, int layer)
+    {
+        int maxWidth = 4;
+        for (int row = 0; row < layout.Labels.Length; row++)
+        {
+            string[] rowLabels = layout.Labels[row];
+            for (int col = 0; col < rowLabels.Length; col++)
+            {
+                string storageKey = GridKeyPosition.StorageKey(side, row, col);
+                KeyMapping mapping = keymap.ResolveMapping(layer, storageKey, rowLabels[col]);
+                string label = NormalizeCellLabel(mapping.Primary?.Label, rowLabels[col]);
+                maxWidth = Math.Max(maxWidth, label.Length);
+            }
+        }
+
+        return Math.Clamp(maxWidth, 4, 12);
+    }
+
+    private static string BuildAsciiBorder(int columnCount, int cellWidth)
+    {
+        StringBuilder builder = new();
+        for (int col = 0; col < columnCount; col++)
+        {
+            builder.Append('+');
+            builder.Append(new string('-', cellWidth + 2));
+        }
+
+        builder.Append('+');
+        return builder.ToString();
+    }
+
+    private static string NormalizeCellLabel(string? label, string fallback)
+    {
+        string text = string.IsNullOrWhiteSpace(label) ? fallback : label.Trim();
+        text = text.Replace('\r', ' ').Replace('\n', ' ');
+        if (text.Length <= 12)
+        {
+            return text;
+        }
+
+        return $"{text[..9]}...";
     }
 
     private static int BindTrackpad(string[] args, TrackpadSide side)

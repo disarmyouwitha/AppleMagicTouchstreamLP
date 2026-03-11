@@ -71,7 +71,7 @@
 ## Linux Notes
 - The Linux CLI currently supports:
   - `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `init-config`
-  - `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`
+  - `print-keymap`, `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`
   - `selftest`, `read-events`, `read-frames`, `uinput-smoke`, `watch-runtime`, `run-engine`
   - `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`
   - `pulse-haptics`
