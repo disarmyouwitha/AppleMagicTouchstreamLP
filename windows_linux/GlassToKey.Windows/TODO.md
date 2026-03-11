@@ -10,11 +10,14 @@
     GestureCandidate, and there are tests that explicitly assert that in SelfTestRunner.cs:1036.}
 
 ## TODO:
-- Yesterday we added Windows logic, if autocorrect is off, and you close the config,glasstokey will reboot itself, preserving it's state.. I would like to change that.. It should be implemented under a `Memory Saver` toggle and it should apply even if autocorrect is enabled if it's toggled on.. Can I have hover-text explain "Restarts GTK when config is closed to release memory"
-- Can we split Mode Toggle into 2 coluumns with 4 options each in this order?
-[]          []
-[]          []
-[]          []
+Can we split Mode Toggle into 2 coluumns with 4 options each in this order?
+{
+[] Run at Windows startup   [] Keyboard/Mouse
+[] Start in taskbar         [] Hold Repeat
+[] 3-Finger Drag            [] Memory Saver
+[] Snap Radius              [] Autocorrect
+}
+Is it possible to add alt-text or hover text to these options that gives more detail about each one?
 ---
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION
