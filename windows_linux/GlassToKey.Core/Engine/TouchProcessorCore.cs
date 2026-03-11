@@ -1006,24 +1006,31 @@ internal sealed class TouchProcessorCore
                     BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
                     EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
                     EngineKeyAction holdAction = ResolveEffectiveHoldAction(existingBinding.Mapping);
-                    TryBeginPressAction(
-                        holdAction,
-                        touchKey,
-                        timestampTicks,
-                        ref existing,
-                        existing.PeakForceNorm,
-                        hapticOnDispatch: IsCustomBinding(existingBinding),
-                        isHoldTriggeredAction: true);
-                    if (!existing.DispatchDownSent)
+                    if (holdAction.Kind == EngineActionKind.MomentaryLayer)
                     {
-                        ApplyReleaseAction(
+                        ActivateMomentaryLayerTouch(touchKey, ref existing, holdAction.LayerTarget);
+                    }
+                    else
+                    {
+                        TryBeginPressAction(
                             holdAction,
-                            side,
                             touchKey,
                             timestampTicks,
+                            ref existing,
                             existing.PeakForceNorm,
-                            allowTypingDisabledOverride: IsMomentaryLayerActive(),
-                            hapticOnDispatch: IsCustomBinding(existingBinding));
+                            hapticOnDispatch: IsCustomBinding(existingBinding),
+                            isHoldTriggeredAction: true);
+                        if (!existing.DispatchDownSent)
+                        {
+                            ApplyReleaseAction(
+                                holdAction,
+                                side,
+                                touchKey,
+                                timestampTicks,
+                                existing.PeakForceNorm,
+                                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                                hapticOnDispatch: IsCustomBinding(existingBinding));
+                        }
                     }
                 }
             }
@@ -1097,8 +1104,8 @@ internal sealed class TouchProcessorCore
         _touchStates.Set(touchKey, next);
         if (next.MomentaryLayerTarget >= 0)
         {
-            _momentaryLayerTouches.Set(touchKey, next.MomentaryLayerTarget);
-            UpdateActiveLayer();
+            ActivateMomentaryLayerTouch(touchKey, ref next, next.MomentaryLayerTarget);
+            _touchStates.Set(touchKey, next);
         }
 
         if (!next.HasHoldAction)
@@ -1161,8 +1168,7 @@ internal sealed class TouchProcessorCore
 
         if (state.MomentaryLayerTarget >= 0)
         {
-            _momentaryLayerTouches.Remove(touchKey, out _);
-            UpdateActiveLayer();
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
             RecordReleaseDropped(state.Side, EngineKeyAction.None, timestampTicks, "momentary_layer_release");
             return;
         }
@@ -2338,6 +2344,20 @@ internal sealed class TouchProcessorCore
         }
 
         return false;
+    }
+
+    private void ActivateMomentaryLayerTouch(ulong touchKey, ref TouchBindingState state, int layerTarget)
+    {
+        state.MomentaryLayerTarget = Math.Clamp(layerTarget, 0, 7);
+        _momentaryLayerTouches.Set(touchKey, state.MomentaryLayerTarget);
+        UpdateActiveLayer();
+    }
+
+    private void DeactivateMomentaryLayerTouch(ulong touchKey, ref TouchBindingState state)
+    {
+        _momentaryLayerTouches.Remove(touchKey, out _);
+        state.MomentaryLayerTarget = -1;
+        UpdateActiveLayer();
     }
 
     private bool ShouldEnforceKeyboardOnlyMode()
@@ -4648,8 +4668,7 @@ internal sealed class TouchProcessorCore
 
         if (state.MomentaryLayerTarget >= 0)
         {
-            _momentaryLayerTouches.Remove(touchKey, out _);
-            UpdateActiveLayer();
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
             return;
         }
 

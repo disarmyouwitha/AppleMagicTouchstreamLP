@@ -1,6 +1,5 @@
 ## User Issues:
-- momentary layer not working when used as a hold action
-- Fix 3-finger holds like ctrl+alt+del
+- Fix 3-finger holds like ctrl+alt+del 
 - Allow User-set key-combos!
 ---
 - allow option to override "3+ finger = gesture" rule:
@@ -10,15 +9,6 @@
     GestureCandidate, and there are tests that explicitly assert that in SelfTestRunner.cs:1036.}
 
 ## TODO:
-Can we split Mode Toggle into 2 coluumns with 4 options each in this order?
-{
-[] Run at Windows startup   [] Keyboard/Mouse
-[] Start in taskbar         [] Hold Repeat
-[] 3-Finger Drag            [] Memory Saver
-[] Snap Radius              [] Autocorrect
-}
-Is it possible to add alt-text or hover text to these options that gives more detail about each one?
----
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION
 ---
@@ -27,6 +17,7 @@ Is it possible to add alt-text or hover text to these options that gives more de
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right?
 - Can we add a small checkbox next to each action which when clicked would make that gesture "continuous" so it will repeat if the gesture is held?
 - Tune velocity / drag cancel on windows /w codex
+- When the config opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 
 ## ICONIC:
 - Need a logo for glasstokey!

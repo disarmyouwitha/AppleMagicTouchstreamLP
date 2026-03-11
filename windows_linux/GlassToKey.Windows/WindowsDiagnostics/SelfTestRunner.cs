@@ -59,6 +59,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Momentary-layer directional tests failed: {momentaryLayerFailure}");
         }
 
+        if (!RunHoldTriggeredMomentaryLayerTests(out string holdMomentaryFailure))
+        {
+            return new SelfTestResult(false, $"Hold-triggered momentary-layer tests failed: {holdMomentaryFailure}");
+        }
+
         if (!RunTypingToggleDispatchResumeTests(out string typingToggleFailure))
         {
             return new SelfTestResult(false, $"Typing toggle tests failed: {typingToggleFailure}");
@@ -2625,6 +2630,118 @@ internal static class SelfTestRunner
                 failure = $"{name} failed: {reason}; snapshot={snapshot.ToSummary()}";
                 return false;
             }
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunHoldTriggeredMomentaryLayerTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        string holdMoStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 0);
+        string holdTargetStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
+        keymap.Mappings[0][holdMoStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "MO(1)" }
+        };
+        keymap.Mappings[0][holdTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        keymap.Mappings[1][holdMoStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        keymap.Mappings[1][holdTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        NormalizedRect holdMoRect = leftLayout.Rects[0][0];
+        NormalizedRect holdTargetRect = leftLayout.Rects[0][1];
+        ushort holdMoX = (ushort)Math.Clamp((int)Math.Round((holdMoRect.X + (holdMoRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort holdMoY = (ushort)Math.Clamp((int)Math.Round((holdMoRect.Y + (holdMoRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort holdTargetX = (ushort)Math.Clamp((int)Math.Round((holdTargetRect.X + (holdTargetRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort holdTargetY = (ushort)Math.Clamp((int)Math.Round((holdTargetRect.Y + (holdTargetRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            HoldDurationMs = 120.0
+        });
+
+        using DispatchEventQueue queue = new(capacity: 128);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame holdDown = MakeFrame(contactCount: 1, id0: 231, x0: holdMoX, y0: holdMoY);
+        InputFrame holdAndTargetDown = MakeFrame(contactCount: 2, id0: 231, x0: holdMoX, y0: holdMoY, id1: 232, x1: holdTargetX, y1: holdTargetY);
+        InputFrame holdOnly = MakeFrame(contactCount: 1, id0: 231, x0: holdMoX, y0: holdMoY);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        actor.Post(TrackpadSide.Left, in holdDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(140);
+        actor.Post(TrackpadSide.Left, in holdDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        TouchProcessorSnapshot activeSnapshot = actor.Snapshot();
+        if (activeSnapshot.ActiveLayer != 1 || !activeSnapshot.MomentaryLayerActive)
+        {
+            failure = $"hold MO did not activate layer 1 (snapshot={activeSnapshot.ToSummary()})";
+            return false;
+        }
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in holdAndTargetDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in holdOnly, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        TouchProcessorSnapshot releasedSnapshot = actor.Snapshot();
+        if (releasedSnapshot.ActiveLayer != 0 || releasedSnapshot.MomentaryLayerActive)
+        {
+            failure = $"hold MO did not release back to layer 0 (snapshot={releasedSnapshot.ToSummary()})";
+            return false;
+        }
+
+        int aTapCount = 0;
+        int otherEventCount = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                aTapCount++;
+            }
+            else
+            {
+                otherEventCount++;
+            }
+        }
+
+        if (aTapCount != 1 || otherEventCount != 0)
+        {
+            failure = $"hold MO target dispatch mismatch (aTapCount={aTapCount}, otherEvents={otherEventCount}, expected=1/0)";
+            return false;
         }
 
         failure = string.Empty;
