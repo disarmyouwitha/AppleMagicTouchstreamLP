@@ -6,6 +6,7 @@ using Avalonia.Threading;
 using System.Linq;
 using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
+using System.Threading.Tasks;
 
 namespace GlassToKey.Linux.Gui;
 
@@ -82,6 +83,30 @@ public partial class App : Application
     private void OnTrayDoctorClick(object? sender, EventArgs e)
     {
         _mainWindow?.RunDoctorFromStatusArea();
+    }
+
+    private async void OnTrayRestartClick(object? sender, EventArgs e)
+    {
+        if (!Program.TryRelaunchBackground(out string? error))
+        {
+            if (_mainWindow != null)
+            {
+                ShowMainWindow();
+                _mainWindow.ShowNotice("Restart Failed", error ?? "Could not relaunch GlassToKey.");
+            }
+
+            return;
+        }
+
+        if (_mainWindow != null)
+        {
+            await _mainWindow.RequestExitAsync();
+        }
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+        }
     }
 
     private async void OnTrayCaptureAtpCapClick(object? sender, EventArgs e)

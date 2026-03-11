@@ -72,11 +72,6 @@ internal static class Program
             return RunDoctor();
         }
 
-        if (string.Equals(args[0], "show-config", StringComparison.OrdinalIgnoreCase))
-        {
-            return ShowConfig(args);
-        }
-
         if (string.Equals(args[0], "init-config", StringComparison.OrdinalIgnoreCase))
         {
             return InitConfig();
@@ -209,10 +204,10 @@ internal static class Program
         Console.WriteLine("After install:");
         Console.WriteLine($"  1. {CliName} doctor");
         Console.WriteLine($"  2. {CliName} init-config");
-        Console.WriteLine($"  3. {CliName} show-config");
+        Console.WriteLine($"  3. {CliName}");
         Console.WriteLine($"  4. Use {CliName} bind-left / bind-right if the defaults need correction");
         Console.WriteLine($"  5. For direct CLI validation, run {CliName} start and later {CliName} stop");
-        Console.WriteLine($"  6. For desktop use, run {GuiCliName} to start the tray host in background, then {GuiCliName} --show when you want the config window");
+        Console.WriteLine($"  6. For desktop use, run {CliName} in a graphical session");
         Console.WriteLine($"  7. Only enable the user service if you want the optional headless/background runtime path");
         Console.WriteLine();
 
@@ -225,7 +220,6 @@ internal static class Program
         Console.WriteLine($"  {CliName} probe-uinput");
         Console.WriteLine($"  {CliName} pulse-haptics [left|right|device-node-or-stable-id] [count]");
         Console.WriteLine($"  {CliName} doctor");
-        Console.WriteLine($"  {CliName} show-config [--print|--cli|--no-runtime]");
         Console.WriteLine($"  {CliName} init-config");
         Console.WriteLine($"  {CliName} bind-left [device-node-or-stable-id]");
         Console.WriteLine($"  {CliName} bind-right [device-node-or-stable-id]");
@@ -253,7 +247,33 @@ internal static class Program
             return 1;
         }
 
-        if (LinuxGuiLauncher.TryLaunchTray())
+        LinuxGuiHostController trayController = new();
+        LinuxGuiHostStatus trayStatus = trayController.Query();
+        if (trayStatus.IsRunning && trayStatus.OwnsRuntime)
+        {
+            if (LinuxGuiLauncher.TryShowConfig())
+            {
+                Console.WriteLine("GlassToKey is already running in the tray.");
+                return 0;
+            }
+
+            Console.Error.WriteLine("GlassToKey is already running in the tray, but the window could not be shown.");
+            return 1;
+        }
+
+        if (TryHandOffHeadlessRuntimeToGui(out string? handoffMessage, out bool handoffSucceeded))
+        {
+            if (handoffSucceeded)
+            {
+                Console.WriteLine(handoffMessage);
+                return 0;
+            }
+
+            Console.Error.WriteLine(handoffMessage);
+            return 1;
+        }
+
+        if (LinuxGuiLauncher.TryShowConfig())
         {
             Console.WriteLine("Launching GlassToKey tray host.");
             return 0;
@@ -429,7 +449,7 @@ internal static class Program
             : 1;
 
         LinuxAppRuntime appRuntime = new();
-        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
+        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration(LinuxRuntimePolicy.HeadlessPureKeyboard);
         string? hint = ResolveHapticHint(target, configuration);
         if (string.IsNullOrWhiteSpace(hint))
         {
@@ -504,54 +524,78 @@ internal static class Program
         return result.Success ? 0 : 1;
     }
 
-    private static int ShowConfig(string[] args)
+    private static bool TryHandOffHeadlessRuntimeToGui(out string? message, out bool success)
     {
-        bool forceConsole = args.Any(arg =>
-            string.Equals(arg, "--print", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(arg, "--cli", StringComparison.OrdinalIgnoreCase));
-        bool noRuntimeRequested = args.Any(arg =>
-            string.Equals(arg, "--no-runtime", StringComparison.OrdinalIgnoreCase) ||
-            string.Equals(arg, "--config-only", StringComparison.OrdinalIgnoreCase));
-        if (!forceConsole && LinuxGuiLauncher.IsGraphicalSession())
-        {
-            LinuxGuiHostController trayController = new();
-            LinuxGuiHostStatus trayStatus = trayController.Query();
-            LinuxBackgroundRuntimeController backgroundController = new();
-            LinuxBackgroundRuntimeStatus backgroundStatus = backgroundController.Query();
+        message = null;
+        success = false;
 
-            bool noRuntime = noRuntimeRequested || (!trayStatus.IsRunning && backgroundStatus.IsRunning);
-            if (LinuxGuiLauncher.TryShowConfig(noRuntime))
+        LinuxSystemdServiceController serviceController = new();
+        LinuxBackgroundRuntimeController backgroundController = new();
+        LinuxGuiHostController trayController = new();
+
+        IReadOnlyList<LinuxSystemdServiceStatus> runningServices = serviceController.Query()
+            .Where(static status => status.IsRunning)
+            .ToArray();
+        LinuxBackgroundRuntimeStatus backgroundStatus = backgroundController.Query();
+        LinuxGuiHostStatus trayStatus = trayController.Query();
+
+        if (runningServices.Count == 0 && !backgroundStatus.IsRunning)
+        {
+            return false;
+        }
+
+        if (!StopHeadlessRuntimeForGui(serviceController, backgroundController, runningServices, backgroundStatus, out string stopError))
+        {
+            message = stopError;
+            success = false;
+            return true;
+        }
+
+        if (!LinuxGuiLauncher.TryShowConfig())
+        {
+            message = "Stopped the headless runtime, but could not launch the GlassToKey tray host.";
+            success = false;
+            return true;
+        }
+
+        message = trayStatus.IsRunning
+            ? "Stopped the headless runtime and opening the existing GlassToKey tray host."
+            : "Stopped the headless runtime and launching the GlassToKey tray host.";
+        success = true;
+        return true;
+    }
+
+    private static bool StopHeadlessRuntimeForGui(
+        LinuxSystemdServiceController serviceController,
+        LinuxBackgroundRuntimeController backgroundController,
+        IReadOnlyList<LinuxSystemdServiceStatus> runningServices,
+        LinuxBackgroundRuntimeStatus backgroundStatus,
+        out string error)
+    {
+        error = string.Empty;
+
+        if (runningServices.Count > 0)
+        {
+            IReadOnlyList<LinuxSystemdServiceStatus> serviceStatuses = serviceController.StopAsync().GetAwaiter().GetResult();
+            LinuxSystemdServiceStatus? stillRunning = serviceStatuses.FirstOrDefault(static status => status.IsRunning);
+            if (stillRunning != null)
             {
-                Console.WriteLine(noRuntime
-                    ? "Opening GlassToKey config UI (config-only, runtime unchanged)."
-                    : "Opening GlassToKey config UI.");
-                return 0;
+                error = stillRunning.Message;
+                return false;
             }
         }
 
-        LinuxAppRuntime appRuntime = new();
-        LinuxRuntimeConfiguration configuration = appRuntime.LoadConfiguration();
-
-        Console.WriteLine("Linux host config");
-        Console.WriteLine($"  SettingsPath: {configuration.SettingsPath}");
-        Console.WriteLine($"  LayoutPreset: {configuration.LayoutPreset.Name}");
-        Console.WriteLine($"  KeymapPath: {configuration.Settings.KeymapPath ?? "(bundled default)"}");
-        Console.WriteLine($"  LeftTrackpadStableId: {configuration.Settings.LeftTrackpadStableId ?? "(auto)"}");
-        Console.WriteLine($"  RightTrackpadStableId: {configuration.Settings.RightTrackpadStableId ?? "(auto)"}");
-        Console.WriteLine($"  DevicesDetected: {configuration.Devices.Count}");
-        Console.WriteLine($"  BindingsResolved: {configuration.Bindings.Count}");
-        for (int index = 0; index < configuration.Bindings.Count; index++)
+        if (backgroundStatus.IsRunning)
         {
-            LinuxTrackpadBinding binding = configuration.Bindings[index];
-            Console.WriteLine($"    {binding.Side}: {binding.Device.DisplayName} [{binding.Device.DeviceNode}] stable={binding.Device.StableId}");
+            LinuxBackgroundRuntimeStatus stoppedBackground = backgroundController.StopAsync().GetAwaiter().GetResult();
+            if (stoppedBackground.IsRunning)
+            {
+                error = stoppedBackground.Message;
+                return false;
+            }
         }
 
-        for (int index = 0; index < configuration.Warnings.Count; index++)
-        {
-            Console.WriteLine($"  Warning: {configuration.Warnings[index]}");
-        }
-
-        return 0;
+        return true;
     }
 
     private static int InitConfig()
@@ -988,7 +1032,7 @@ internal static class Program
             : new CancellationTokenSource();
         using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM, cts);
         using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT, cts);
-        LinuxRuntimeOwner runtimeOwner = new(appRuntime);
+        LinuxRuntimeOwner runtimeOwner = new(appRuntime: appRuntime, policy: LinuxRuntimePolicy.HeadlessPureKeyboard);
 
         Console.WriteLine(duration.HasValue
             ? $"Running engine for {duration.Value.TotalSeconds:0.##}s."
@@ -1122,7 +1166,7 @@ internal static class Program
     private static async Task<int> RunBackgroundAsync()
     {
         LinuxBackgroundRuntimeController controller = new();
-        LinuxRuntimeOwner runtimeOwner = new();
+        LinuxRuntimeOwner runtimeOwner = new(policy: LinuxRuntimePolicy.HeadlessPureKeyboard);
         return await controller.RunBackgroundAsync(runtimeOwner).ConfigureAwait(false);
     }
 

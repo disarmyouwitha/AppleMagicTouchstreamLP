@@ -19,15 +19,18 @@ public sealed class LinuxRuntimeOwner
     private readonly LinuxAppRuntime _appRuntime;
     private readonly LinuxInputRuntimeService _runtime;
     private readonly LinuxRuntimeStateStore _stateStore;
+    private readonly LinuxRuntimePolicy _policy;
 
     public LinuxRuntimeOwner(
         LinuxAppRuntime? appRuntime = null,
         LinuxInputRuntimeService? runtime = null,
-        LinuxRuntimeStateStore? stateStore = null)
+        LinuxRuntimeStateStore? stateStore = null,
+        LinuxRuntimePolicy policy = LinuxRuntimePolicy.DesktopInteractive)
     {
         _appRuntime = appRuntime ?? new LinuxAppRuntime();
         _runtime = runtime ?? new LinuxInputRuntimeService();
         _stateStore = stateStore ?? new LinuxRuntimeStateStore();
+        _policy = policy;
     }
 
     public async Task RunAsync(
@@ -36,7 +39,7 @@ public sealed class LinuxRuntimeOwner
         CancellationToken cancellationToken = default)
     {
         _ = logger;
-        LinuxRuntimeConfiguration configuration = _appRuntime.LoadConfiguration();
+        LinuxRuntimeConfiguration configuration = _appRuntime.LoadConfiguration(_policy);
         string settingsSignature = BuildSettingsSignature(configuration.Settings);
         RuntimeSession? session = null;
         bool waitingForBindingsLogged = false;
@@ -109,7 +112,7 @@ public sealed class LinuxRuntimeOwner
                     PersistRunningState(snapshot);
                 }
 
-                LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration();
+                LinuxRuntimeConfiguration updated = _appRuntime.LoadConfiguration(_policy);
                 string updatedSignature = BuildSettingsSignature(updated.Settings);
                 if (updatedSignature == settingsSignature)
                 {
@@ -129,7 +132,11 @@ public sealed class LinuxRuntimeOwner
                     session.Dispatcher.SetHapticRoutes(updated.Bindings);
                     session.Dispatcher.ConfigureHaptics(updated.SharedProfile);
                     session.Dispatcher.WarmupHaptics();
-                    session.Engine.Reconfigure(updated.Keymap, updated.LayoutPreset, updated.SharedProfile);
+                    session.Engine.Reconfigure(
+                        updated.Keymap,
+                        updated.LayoutPreset,
+                        updated.SharedProfile,
+                        ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions());
                     configuration = updated;
                     settingsSignature = updatedSignature;
                     continue;
@@ -174,7 +181,12 @@ public sealed class LinuxRuntimeOwner
         dispatcher.SetHapticRoutes(configuration.Bindings);
         dispatcher.ConfigureHaptics(configuration.SharedProfile);
         dispatcher.WarmupHaptics();
-        TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
+        TouchProcessorRuntimeHost engine = new(
+            dispatcher,
+            configuration.Keymap,
+            configuration.LayoutPreset,
+            configuration.SharedProfile,
+            ignoreTypingToggleActions: _policy.IgnoresTypingToggleActions());
         RuntimeSession? session = null;
         LinuxInputRuntimeOptions options = new()
         {

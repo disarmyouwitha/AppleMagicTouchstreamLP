@@ -610,11 +610,11 @@ public partial class MainWindow : Window
         LinuxHostSettings settings = configuration.Settings;
 
         List<DeviceChoice> deviceChoices = BuildDeviceChoices(configuration.Devices);
-        DeviceChoice autoChoice = deviceChoices[0];
+        DeviceChoice noneChoice = deviceChoices[0];
         _leftDeviceCombo.ItemsSource = deviceChoices;
         _rightDeviceCombo.ItemsSource = deviceChoices;
-        _leftDeviceCombo.SelectedItem = SelectDeviceChoice(deviceChoices, settings.LeftTrackpadStableId) ?? autoChoice;
-        _rightDeviceCombo.SelectedItem = SelectDeviceChoice(deviceChoices, settings.RightTrackpadStableId) ?? autoChoice;
+        _leftDeviceCombo.SelectedItem = SelectDeviceChoice(deviceChoices, settings.LeftTrackpadStableId) ?? noneChoice;
+        _rightDeviceCombo.SelectedItem = SelectDeviceChoice(deviceChoices, settings.RightTrackpadStableId) ?? noneChoice;
 
         List<PresetChoice> presetChoices = BuildPresetChoices();
         _layoutPresetCombo.ItemsSource = presetChoices;
@@ -2688,11 +2688,16 @@ public partial class MainWindow : Window
         Close();
     }
 
+    public void ShowNotice(string title, string message)
+    {
+        ShowNoticeDialog(title, message);
+    }
+
     private static List<DeviceChoice> BuildDeviceChoices(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
     {
         List<DeviceChoice> choices =
         [
-            new DeviceChoice("(Auto / first available)", null)
+            new DeviceChoice("(None)", null)
         ];
 
         for (int index = 0; index < devices.Count; index++)

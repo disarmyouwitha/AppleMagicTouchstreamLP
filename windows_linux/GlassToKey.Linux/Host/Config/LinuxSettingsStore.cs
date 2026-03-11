@@ -53,7 +53,14 @@ public sealed class LinuxSettingsStore
     public LinuxHostSettings LoadOrCreateDefaults(IReadOnlyList<LinuxInputDeviceDescriptor> devices)
     {
         LinuxHostSettings settings = Load();
-        bool changed = ApplyAutoSelectionDefaults(settings, devices);
+        bool changed = false;
+        if (string.IsNullOrWhiteSpace(settings.LayoutPresetName))
+        {
+            settings.LayoutPresetName = TrackpadLayoutPreset.SixByThree.Name;
+            changed = true;
+        }
+
+        changed |= settings.Normalize();
         string path = GetSettingsPath();
         if (changed || !File.Exists(path))
         {
@@ -76,41 +83,5 @@ public sealed class LinuxSettingsStore
 
         string json = JsonSerializer.Serialize(settings, SerializerOptions);
         File.WriteAllText(path, json);
-    }
-
-    private static bool ApplyAutoSelectionDefaults(LinuxHostSettings settings, IReadOnlyList<LinuxInputDeviceDescriptor> devices)
-    {
-        bool changed = false;
-        if (string.IsNullOrWhiteSpace(settings.LeftTrackpadStableId) && devices.Count >= 1)
-        {
-            settings.LeftTrackpadStableId = devices[0].StableId;
-            changed = true;
-        }
-
-        if (string.IsNullOrWhiteSpace(settings.RightTrackpadStableId))
-        {
-            for (int index = 0; index < devices.Count; index++)
-            {
-                string stableId = devices[index].StableId;
-                if (string.Equals(stableId, settings.LeftTrackpadStableId, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                settings.RightTrackpadStableId = stableId;
-                changed = true;
-                break;
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(settings.LayoutPresetName))
-        {
-            settings.LayoutPresetName = TrackpadLayoutPreset.SixByThree.Name;
-            changed = true;
-        }
-
-        changed |= settings.Normalize();
-
-        return changed;
     }
 }

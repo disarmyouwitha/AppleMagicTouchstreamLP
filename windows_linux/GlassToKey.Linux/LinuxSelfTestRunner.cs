@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.Json;
+using GlassToKey.Linux.Config;
 using GlassToKey.Linux.Runtime;
 using GlassToKey.Platform.Linux.Devices;
 using GlassToKey.Platform.Linux.Evdev;
@@ -60,6 +61,16 @@ internal static class LinuxSelfTestRunner
         }
 
         if (!ValidateConfiguredMouseTakeoverStartupState(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateHeadlessPureKeyboardPolicy(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxBundleRoundTripPreservesTrackpadBindings(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
         }
@@ -503,6 +514,108 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static bool ValidateHeadlessPureKeyboardPolicy(out string failure)
+    {
+        UserSettings profile = new()
+        {
+            KeyboardModeEnabled = false,
+            TypingEnabled = false,
+            ThreeFingerDragEnabled = true
+        };
+
+        UserSettings effective = LinuxRuntimePolicy.HeadlessPureKeyboard.ApplyToProfile(profile);
+        if (!effective.KeyboardModeEnabled || !effective.TypingEnabled || effective.ThreeFingerDragEnabled)
+        {
+            failure = $"HeadlessPureKeyboard policy did not force the expected runtime flags (typing={effective.TypingEnabled}, keyboard={effective.KeyboardModeEnabled}, drag={effective.ThreeFingerDragEnabled}).";
+            return false;
+        }
+
+        if (LinuxRuntimePolicy.DesktopInteractive.IgnoresTypingToggleActions() ||
+            !LinuxRuntimePolicy.HeadlessPureKeyboard.IgnoresTypingToggleActions())
+        {
+            failure = "Linux runtime typing-toggle policy flags are inconsistent.";
+            return false;
+        }
+
+        if (!LinuxRuntimePolicy.HeadlessPureKeyboard.AllowsAutomaticBindingSelection(hasSavedBindings: false) ||
+            LinuxRuntimePolicy.HeadlessPureKeyboard.AllowsAutomaticBindingSelection(hasSavedBindings: true) ||
+            LinuxRuntimePolicy.DesktopInteractive.AllowsAutomaticBindingSelection(hasSavedBindings: false))
+        {
+            failure = "Linux runtime auto-binding policy flags are inconsistent.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxBundleRoundTripPreservesTrackpadBindings(out string failure)
+    {
+        string? originalConfigHome = Environment.GetEnvironmentVariable("XDG_CONFIG_HOME");
+        string tempRoot = Path.Combine(Path.GetTempPath(), $"glasstokey-selftest-{Guid.NewGuid():N}");
+
+        try
+        {
+            Directory.CreateDirectory(tempRoot);
+            Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", tempRoot);
+
+            LinuxAppRuntime runtime = new();
+            LinuxHostSettings settings = runtime.LoadSettings();
+            settings.LeftTrackpadStableId = "left-stable-id";
+            settings.RightTrackpadStableId = "right-stable-id";
+            runtime.SaveSettings(settings);
+
+            string bundlePath = Path.Combine(tempRoot, "bundle.json");
+            if (!runtime.TryExportProfile(bundlePath, out string exportMessage))
+            {
+                failure = $"Linux bundle export failed during self-test: {exportMessage}";
+                return false;
+            }
+
+            LinuxHostSettings clearedSettings = runtime.LoadSettings();
+            clearedSettings.LeftTrackpadStableId = null;
+            clearedSettings.RightTrackpadStableId = null;
+            runtime.SaveSettings(clearedSettings);
+
+            if (!runtime.TryImportProfile(bundlePath, out string importMessage))
+            {
+                failure = $"Linux bundle import failed during self-test: {importMessage}";
+                return false;
+            }
+
+            LinuxHostSettings imported = runtime.LoadSettings();
+            if (!string.Equals(imported.LeftTrackpadStableId, "left-stable-id", StringComparison.Ordinal) ||
+                !string.Equals(imported.RightTrackpadStableId, "right-stable-id", StringComparison.Ordinal))
+            {
+                failure = $"Linux bundle round-trip did not preserve trackpad bindings (left='{imported.LeftTrackpadStableId}', right='{imported.RightTrackpadStableId}').";
+                return false;
+            }
+
+            failure = string.Empty;
+            return true;
+        }
+        catch (Exception ex)
+        {
+            failure = $"Linux bundle round-trip self-test failed: {ex.Message}";
+            return false;
+        }
+        finally
+        {
+            Environment.SetEnvironmentVariable("XDG_CONFIG_HOME", originalConfigHome);
+            try
+            {
+                if (Directory.Exists(tempRoot))
+                {
+                    Directory.Delete(tempRoot, recursive: true);
+                }
+            }
+            catch
+            {
+                // Best-effort cleanup only.
+            }
+        }
     }
 
     private static bool ValidateResolvedAction(string label, EngineKeyAction action, out string failure)

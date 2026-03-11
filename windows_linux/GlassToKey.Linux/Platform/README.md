@@ -32,7 +32,7 @@ Current caveats:
 - The current Linux CLI also exposes `run-engine`, and that path has now been validated end-to-end on the host with real Apple Magic Trackpads over both USB and Bluetooth.
 - The current Linux CLI now also exposes `selftest`, which validates the bundled Linux keymap import path and checks that the current semantic Linux action surface maps cleanly to evdev codes.
 - The current Linux CLI now also exposes `doctor`, `capture-atpcap`, `summarize-atpcap`, `replay-atpcap`, `write-atpcap-fixture`, and `check-atpcap-fixture`, so packaging checks and offline diagnostics are no longer just planned.
-- The Linux host now also exposes `show-config`, `init-config`, and `print-udev-rules` so device selection, keymap choice, and packaging permission scaffolding can be exercised without a GUI.
+- The Linux host now also exposes `init-config` and `print-udev-rules` so device selection, keymap choice, and packaging permission scaffolding can be exercised without a GUI.
 - The Linux runtime now reports binding state changes outside the hot path and can re-open a trackpad stream after device-node churn.
 - On the validated USB Magic Trackpad path, Linux also exposes a separate HID interface named `Actuator`; GlassToKey now resolves that hidraw node and sends the same `0x53` output report shape used by the Windows implementation.
 - On the validated Linux host, the working actuator write shape is the raw 14-byte `0x53` report payload, not the 64-byte padded write that works on Windows.

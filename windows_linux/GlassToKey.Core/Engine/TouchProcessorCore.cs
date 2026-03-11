@@ -79,6 +79,7 @@ internal sealed class TouchProcessorCore
 
     private bool _typingEnabled = true;
     private bool _keyboardModeEnabled;
+    private bool _typingToggleActionsEnabled = true;
     private int _persistentLayer;
     private int _activeLayer;
 
@@ -274,6 +275,11 @@ internal sealed class TouchProcessorCore
     public void SetKeyboardModeEnabled(bool enabled)
     {
         _keyboardModeEnabled = enabled;
+    }
+
+    public void SetTypingToggleActionsEnabled(bool enabled)
+    {
+        _typingToggleActionsEnabled = enabled;
     }
 
     public void SetHapticsOnKeyDispatchEnabled(bool enabled)
@@ -1890,7 +1896,10 @@ internal sealed class TouchProcessorCore
         switch (action.Kind)
         {
             case EngineActionKind.TypingToggle:
-                SetTypingEnabledState(!_typingEnabled, timestampTicks, TypingToggleSource.KeyAction);
+                if (_typingToggleActionsEnabled)
+                {
+                    SetTypingEnabledState(!_typingEnabled, timestampTicks, TypingToggleSource.KeyAction);
+                }
                 break;
             case EngineActionKind.LayerSet:
                 _persistentLayer = Math.Clamp(action.LayerTarget, 0, 7);
@@ -5031,6 +5040,14 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetKeyboardModeEnabled(enabled);
+        }
+    }
+
+    public void SetTypingToggleActionsEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetTypingToggleActionsEnabled(enabled);
         }
     }
 

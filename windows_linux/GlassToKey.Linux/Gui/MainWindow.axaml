@@ -402,7 +402,7 @@
                           HorizontalContentAlignment="Stretch">
                   <Grid Margin="0,10,0,0"
                         ColumnDefinitions="*,*"
-                        RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                        RowDefinitions="Auto,Auto,Auto,Auto">
                     <CheckBox x:Name="KeyboardModeCheck"
                               Content="Keyboard/Mouse" />
                     <CheckBox x:Name="RunAtStartupCheck"
@@ -432,14 +432,6 @@
                               Grid.Column="1"
                               Margin="16,8,0,0"
                               Content="3-Finger Drag" />
-                    <TextBlock x:Name="AutocorrectModeHintText"
-                               Grid.Row="4"
-                               Grid.ColumnSpan="2"
-                               Margin="0,10,0,0"
-                               FontSize="11"
-                               Foreground="#6C757D"
-                               TextWrapping="Wrap"
-                               Text="Autocorrect is stored in the shared profile for parity with Windows, but the current Linux runtime does not apply it yet." />
                   </Grid>
                 </Expander>
                 <Border x:Name="AutocorrectStatusBorder"

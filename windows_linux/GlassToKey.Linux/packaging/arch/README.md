@@ -45,7 +45,7 @@ Lifecycle validation checklist:
    - `sudo pacman -U ./glasstokey-linux-0.1.0-2-x86_64.pkg.tar.zst`
    - `glasstokey doctor`
    - `glasstokey init-config`
-   - `glasstokey show-config --print`
+   - `glasstokey`
    - `glasstokey start` then `glasstokey stop`
    - `glasstokey-gui` (starts tray host in background)
    - `glasstokey-gui --show` (opens config window)

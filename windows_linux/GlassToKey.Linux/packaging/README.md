@@ -18,7 +18,7 @@ Expected workflow:
 4. Install through the package manager
 5. Run `doctor`
 6. Run `init-config`
-7. Run `show-config`
+7. Run `glasstokey`
 8. Use `bind-left` / `bind-right` if the defaults need correction
 9. For direct CLI validation, run `glasstokey start` and later `glasstokey stop`
 10. For desktop use, run `glasstokey-gui` to start the tray host in background, then `glasstokey-gui --show` when you want the config window

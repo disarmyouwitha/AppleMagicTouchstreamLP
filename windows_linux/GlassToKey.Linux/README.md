@@ -15,7 +15,8 @@ Responsibilities:
 
 Current CLI/runtime features:
 
-- `show-config` opens the config GUI in graphical sessions when available, and `show-config --print` prints the resolved XDG-backed host settings, selected trackpads, preset, and keymap path
+- bare `glasstokey` is the graphical entrypoint; in a graphical session it opens the tray host and config window
+- when bare `glasstokey` is used while a detached headless runtime or user service is active, GlassToKey now stops that headless runtime first and launches the full tray host so pointer input is not left suppressed underneath the GUI
 - `init-config` writes default Linux host settings using detected stable IDs
 - `doctor` checks XDG config health, bundled keymap presence, live evdev bindings, `/dev/uinput` readiness, and Linux actuator-hidraw haptics access when available
 - `list-devices` and runtime binding only target authoritative Apple Magic Trackpad multitouch nodes; wrong evdev nodes should be fixed by rebinding, not by Linux-side fallback logic
@@ -32,6 +33,8 @@ Current CLI/runtime features:
 - `start` launches the headless runtime in the background and returns the shell prompt
 - `stop` stops the detached background runtime, any running tray host, and matching user `systemd` services such as `glasstokey.service`
 - `run-engine` now consumes the resolved settings so stable-id selection, preset choice, and optional keymap override are part of the live runtime path
+- `start`, detached `__background-run`, and `run-engine` now all use the headless pure-keyboard runtime policy
+- headless only auto-selects trackpads when no saved left/right bindings exist; it does not persist those temporary choices
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
@@ -59,19 +62,18 @@ Quick start:
 - source run:
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- doctor`
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- init-config`
-  - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- show-config --print`
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- load-keymap /path/to/keymap.json`
   - `dotnet run --project GlassToKey.Linux/GlassToKey.Linux.csproj -c Release -- start`
 - installed wrapper run:
   - `glasstokey doctor`
   - `glasstokey init-config`
-  - `glasstokey show-config`
+  - `glasstokey`
   - `glasstokey load-keymap /path/to/keymap.json`
   - `glasstokey start`
 - stop the background CLI runtime, tray host, or optional user service with `glasstokey stop`
 - the documented default desktop path is `glasstokey-gui`; it starts the tray host in background, and `glasstokey-gui --show` opens the config window on demand
 - profile import/export is now shared with Windows: both sides use the same `Version` + `Settings` + `KeymapJson` bundle shape
-- if you want a bounded foreground smoke test instead of a background session, use `run-engine 10`
+- if you want a bounded foreground headless smoke test instead of a background session, use `run-engine 10`
 - for direct haptics bring-up, use `pulse-haptics left 5` or `pulse-haptics right 5`
 - if you installed the optional headless user service, control it with:
   - `systemctl --user start glasstokey.service`

@@ -70,12 +70,24 @@
 
 ## Linux Notes
 - The Linux CLI currently supports:
-  - `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `show-config`, `init-config`
+  - `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `init-config`
   - `bind-left`, `bind-right`, `swap-sides`, `print-udev-rules`
   - `selftest`, `read-events`, `read-frames`, `uinput-smoke`, `watch-runtime`, `run-engine`
   - `capture-atpcap`, `replay-atpcap`, `summarize-atpcap`, `write-atpcap-fixture`, `check-atpcap-fixture`
   - `pulse-haptics`
 - Linux keyboard/mouse mode already uses `EVIOCGRAB` for exclusive pointer suppression when `KeyboardModeEnabled && TypingEnabled && !MomentaryLayerActive`.
+- Desktop Linux runtime/device selection should stay explicit:
+  - GUI defaults to no bound devices unless stable IDs were previously saved
+  - do not silently persist first-available trackpads into Linux host settings on desktop startup
+- Headless Linux runtime policy is now distinct from desktop:
+  - `glasstokey start`, `__background-run`, and `run-engine` use `HeadlessPureKeyboard`
+  - the packaged user `systemd` service inherits that same headless policy because it launches `run-engine`
+  - headless only auto-resolves devices when no saved left/right stable IDs exist; it does not persist those choices
+  - headless forces `KeyboardModeEnabled=true`, `TypingEnabled=true`, and `ThreeFingerDragEnabled=false`
+  - headless ignores typing-toggle actions so the background runtime cannot flip itself out of pure keyboard mode
+- Graphical Linux config handoff should preserve mouse usability:
+  - when bare `glasstokey` is used from a graphical session while a detached headless runtime or user service is active, stop that headless runtime first
+  - then launch the full tray host so the GUI becomes the active desktop path instead of leaving the headless runtime grabbing pointer input underneath it
 - Prefer the Apple `if01` `-event-mouse` node when multiple event nodes represent one physical device.
 - On the validated Ubuntu host, `EVIOCGABS` reports real ranges and Linux normalization should produce `MaxX=7612` and `MaxY=5065`.
 - Over Bluetooth on the validated host, `/dev/input/by-id` may be absent; use `uniq` as the stable-id fallback.

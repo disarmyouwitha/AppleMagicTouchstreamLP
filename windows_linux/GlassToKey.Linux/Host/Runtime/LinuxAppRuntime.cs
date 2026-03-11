@@ -18,13 +18,13 @@ public sealed class LinuxAppRuntime
         _settingsStore = settingsStore ?? new LinuxSettingsStore();
     }
 
-    public LinuxRuntimeConfiguration LoadConfiguration()
+    public LinuxRuntimeConfiguration LoadConfiguration(LinuxRuntimePolicy policy = LinuxRuntimePolicy.DesktopInteractive)
     {
         IReadOnlyList<LinuxInputDeviceDescriptor> devices = _enumerator.EnumerateDevices();
         LinuxHostSettings settings = _settingsStore.LoadOrCreateDefaults(devices);
-        UserSettings sharedProfile = settings.GetSharedProfile();
+        UserSettings sharedProfile = policy.ApplyToProfile(settings.GetSharedProfile());
         List<string> warnings = [];
-        List<LinuxTrackpadBinding> bindings = ResolveBindings(settings, devices, warnings);
+        List<LinuxTrackpadBinding> bindings = ResolveBindings(settings, devices, warnings, policy);
         KeymapStore keymap = LoadKeymap(settings, warnings);
         TrackpadLayoutPreset preset = TrackpadLayoutPreset.ResolveByNameOrDefault(sharedProfile.LayoutPresetName);
         keymap.SetActiveLayout(preset.Name);
@@ -250,7 +250,9 @@ public sealed class LinuxAppRuntime
             {
                 Version = 1,
                 Settings = settings.GetSharedProfile().Clone(),
-                KeymapJson = keymap.SerializeToJson(writeIndented: false)
+                KeymapJson = keymap.SerializeToJson(writeIndented: false),
+                LeftTrackpadStableId = settings.LeftTrackpadStableId,
+                RightTrackpadStableId = settings.RightTrackpadStableId
             };
 
             string? directory = Path.GetDirectoryName(path);
@@ -285,8 +287,30 @@ public sealed class LinuxAppRuntime
         error = null;
 
         WindowsSettingsBundleFile? bundle;
+        bool hasLeftTrackpadStableId = false;
+        bool hasRightTrackpadStableId = false;
+        string? importedLeftTrackpadStableId = null;
+        string? importedRightTrackpadStableId = null;
         try
         {
+            using JsonDocument document = JsonDocument.Parse(json);
+            JsonElement root = document.RootElement;
+            if (TryGetPropertyIgnoreCase(root, nameof(WindowsSettingsBundleFile.LeftTrackpadStableId), out JsonElement leftTrackpadStableIdElement))
+            {
+                hasLeftTrackpadStableId = true;
+                importedLeftTrackpadStableId = leftTrackpadStableIdElement.ValueKind == JsonValueKind.Null
+                    ? null
+                    : leftTrackpadStableIdElement.GetString();
+            }
+
+            if (TryGetPropertyIgnoreCase(root, nameof(WindowsSettingsBundleFile.RightTrackpadStableId), out JsonElement rightTrackpadStableIdElement))
+            {
+                hasRightTrackpadStableId = true;
+                importedRightTrackpadStableId = rightTrackpadStableIdElement.ValueKind == JsonValueKind.Null
+                    ? null
+                    : rightTrackpadStableIdElement.GetString();
+            }
+
             bundle = JsonSerializer.Deserialize<WindowsSettingsBundleFile>(
                 json,
                 new JsonSerializerOptions { PropertyNameCaseInsensitive = true });
@@ -322,6 +346,16 @@ public sealed class LinuxAppRuntime
         current.LayoutPresetName = current.SharedProfile.LayoutPresetName;
         current.KeymapPath = importedKeymapPath;
         current.KeymapRevision = NextKeymapRevision(current.KeymapRevision);
+        if (hasLeftTrackpadStableId)
+        {
+            current.LeftTrackpadStableId = importedLeftTrackpadStableId;
+        }
+
+        if (hasRightTrackpadStableId)
+        {
+            current.RightTrackpadStableId = importedRightTrackpadStableId;
+        }
+
         settings = current;
         return true;
     }
@@ -401,25 +435,18 @@ public sealed class LinuxAppRuntime
     private static List<LinuxTrackpadBinding> ResolveBindings(
         LinuxHostSettings settings,
         IReadOnlyList<LinuxInputDeviceDescriptor> devices,
-        List<string> warnings)
+        List<string> warnings,
+        LinuxRuntimePolicy policy)
     {
+        bool hasSavedBindings =
+            !string.IsNullOrWhiteSpace(settings.LeftTrackpadStableId) ||
+            !string.IsNullOrWhiteSpace(settings.RightTrackpadStableId);
+        bool allowAutomaticBindingSelection = policy.AllowsAutomaticBindingSelection(hasSavedBindings);
         List<LinuxTrackpadBinding> bindings = [];
         HashSet<string> usedStableIds = new(StringComparer.OrdinalIgnoreCase);
 
-        AddBinding(TrackpadSide.Left, settings.LeftTrackpadStableId, devices, usedStableIds, bindings, warnings);
-        AddBinding(TrackpadSide.Right, settings.RightTrackpadStableId, devices, usedStableIds, bindings, warnings);
-
-        if (bindings.Count == 0)
-        {
-            for (int index = 0; index < devices.Count && bindings.Count < 2; index++)
-            {
-                TrackpadSide side = bindings.Count == 0 ? TrackpadSide.Left : TrackpadSide.Right;
-                if (usedStableIds.Add(devices[index].StableId))
-                {
-                    bindings.Add(new LinuxTrackpadBinding(side, devices[index]));
-                }
-            }
-        }
+        AddBinding(TrackpadSide.Left, settings.LeftTrackpadStableId, devices, usedStableIds, bindings, warnings, allowAutomaticBindingSelection);
+        AddBinding(TrackpadSide.Right, settings.RightTrackpadStableId, devices, usedStableIds, bindings, warnings, allowAutomaticBindingSelection);
 
         return bindings;
     }
@@ -430,7 +457,8 @@ public sealed class LinuxAppRuntime
         IReadOnlyList<LinuxInputDeviceDescriptor> devices,
         HashSet<string> usedStableIds,
         List<LinuxTrackpadBinding> bindings,
-        List<string> warnings)
+        List<string> warnings,
+        bool allowAutomaticBindingSelection)
     {
         LinuxInputDeviceDescriptor? chosen = null;
         if (!string.IsNullOrWhiteSpace(requestedStableId))
@@ -451,7 +479,7 @@ public sealed class LinuxAppRuntime
             }
         }
 
-        if (chosen == null)
+        if (chosen == null && allowAutomaticBindingSelection)
         {
             for (int index = 0; index < devices.Count; index++)
             {
@@ -513,5 +541,7 @@ public sealed class LinuxAppRuntime
         public int Version { get; set; } = 1;
         public UserSettings Settings { get; set; } = new();
         public string KeymapJson { get; set; } = string.Empty;
+        public string? LeftTrackpadStableId { get; set; }
+        public string? RightTrackpadStableId { get; set; }
     }
 }

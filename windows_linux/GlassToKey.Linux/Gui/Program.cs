@@ -2,6 +2,9 @@ using Avalonia;
 using Avalonia.Controls;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
 using System.Threading;
 using GlassToKey.Linux.Runtime;
 
@@ -61,6 +64,35 @@ internal static class Program
             .LogToTrace();
     }
 
+    public static bool TryRelaunchBackground(out string? error)
+    {
+        error = null;
+
+        try
+        {
+            RelaunchSpec launchSpec = ResolveRelaunchSpec();
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = launchSpec.FileName,
+                UseShellExecute = false
+            };
+
+            for (int index = 0; index < launchSpec.Arguments.Count; index++)
+            {
+                startInfo.ArgumentList.Add(launchSpec.Arguments[index]);
+            }
+
+            using Process process = Process.Start(startInfo)
+                ?? throw new InvalidOperationException("Process launch returned no process.");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = ex.Message;
+            return false;
+        }
+    }
+
     private static string[] ParseStartupArguments(
         string[] args,
         out bool backgroundRequested,
@@ -104,4 +136,39 @@ internal static class Program
 
         return forwarded.ToArray();
     }
+
+    private static RelaunchSpec ResolveRelaunchSpec()
+    {
+        List<string> arguments = ["--background"];
+        if (!OwnsRuntime)
+        {
+            arguments.Add("--no-runtime");
+        }
+
+        string? processPath = Environment.ProcessPath;
+        if (!string.IsNullOrWhiteSpace(processPath) && !IsDotnetHost(processPath))
+        {
+            return new RelaunchSpec(processPath, arguments);
+        }
+
+        string? entryAssemblyPath = Assembly.GetEntryAssembly()?.Location;
+        if (!string.IsNullOrWhiteSpace(entryAssemblyPath))
+        {
+            return new RelaunchSpec("dotnet", [entryAssemblyPath, .. arguments]);
+        }
+
+        throw new InvalidOperationException("Could not resolve how to relaunch GlassToKey Linux GUI.");
+    }
+
+    private static bool IsDotnetHost(string path)
+    {
+        return string.Equals(
+            Path.GetFileNameWithoutExtension(path),
+            "dotnet",
+            StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed record RelaunchSpec(
+        string FileName,
+        IReadOnlyList<string> Arguments);
 }
