@@ -216,9 +216,9 @@ internal static class Program
         Console.WriteLine();
 
         Console.WriteLine("[Usage]:");
-        Console.WriteLine($"  {CliName}            # start tray host in background");
-        Console.WriteLine($"  {CliName} start      # start in headless mode");
-        Console.WriteLine($"  {CliName} stop       # to stop the background runtime");
+        Console.WriteLine($"  {CliName}            # start tray GUI");
+        Console.WriteLine($"  {CliName} start      # start headless mode");
+        Console.WriteLine($"  {CliName} stop       # stop headless mode");
         Console.WriteLine();
         Console.WriteLine("[Other Commands]:");
         Console.WriteLine($"  {CliName} print-keymap");

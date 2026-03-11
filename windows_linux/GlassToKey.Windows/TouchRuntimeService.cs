@@ -359,6 +359,10 @@ internal sealed class TouchRuntimeService : IDisposable
                     }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
                     bool consumed = _threeFingerDragController?.ProcessFrame(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks) == true;
+                    if (_threeFingerDragController?.ConsumeCompletedDragSequence() == true)
+                    {
+                        actor.ArmPointerIntentSequence(timestampTicks);
+                    }
                     if (!consumed)
                     {
                         _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
@@ -374,6 +378,10 @@ internal sealed class TouchRuntimeService : IDisposable
                     }
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
                     bool consumed = _threeFingerDragController?.ProcessFrame(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks) == true;
+                    if (_threeFingerDragController?.ConsumeCompletedDragSequence() == true)
+                    {
+                        actor.ArmPointerIntentSequence(timestampTicks);
+                    }
                     if (!consumed)
                     {
                         _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);

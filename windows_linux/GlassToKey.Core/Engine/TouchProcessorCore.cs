@@ -6,6 +6,7 @@ namespace GlassToKey;
 
 internal sealed class TouchProcessorCore
 {
+    private const double DragReleasePointerGraceMs = 1500.0;
     private const double FiveFingerSwipeThresholdMm = 8.0;
     private const int FiveFingerSwipeArmContacts = 5;
     private const int FiveFingerSwipeSustainContacts = 4;
@@ -73,8 +74,11 @@ internal sealed class TouchProcessorCore
     private long _mouseCandidateStartTicks;
     private long _gestureCandidateStartTicks;
     private long _typingGraceDeadlineTicks;
+    private long _pointerSequenceGraceDeadlineTicks;
     private bool _typingCommittedUntilAllUp;
     private bool _typingCommittedByKeyboardOnly;
+    private bool _pointerSequenceGracePending;
+    private bool _pointerSequenceGraceActive;
     private bool _hapticsOnKeyDispatch;
 
     private bool _typingEnabled = true;
@@ -298,6 +302,22 @@ internal sealed class TouchProcessorCore
                 TransitionTo(IntentMode.Idle, nowTicks, "pointer_intent_disabled");
             }
         }
+
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
+        _pointerSequenceGraceDeadlineTicks = 0;
+    }
+
+    public void ArmPointerIntentSequence(long timestampTicks)
+    {
+        if (!_pointerIntentEnabled)
+        {
+            return;
+        }
+
+        _pointerSequenceGracePending = true;
+        _pointerSequenceGraceActive = false;
+        _pointerSequenceGraceDeadlineTicks = timestampTicks + MsToTicks(DragReleasePointerGraceMs);
     }
 
     public void SetTypingToggleActionsEnabled(bool enabled)
@@ -382,8 +402,11 @@ internal sealed class TouchProcessorCore
         _mouseCandidateStartTicks = 0;
         _gestureCandidateStartTicks = 0;
         _typingGraceDeadlineTicks = 0;
+        _pointerSequenceGraceDeadlineTicks = 0;
         _typingCommittedUntilAllUp = false;
         _typingCommittedByKeyboardOnly = false;
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
         _fiveFingerSwipeLeft = default;
         _fiveFingerSwipeRight = default;
         _threeFingerSwipeStateLeft = default;
@@ -2021,9 +2044,12 @@ internal sealed class TouchProcessorCore
         _cornerClickTapGestureLeft = default;
         _cornerClickTapGestureRight = default;
         _typingGraceDeadlineTicks = 0;
+        _pointerSequenceGraceDeadlineTicks = 0;
         _intentMode = IntentMode.Idle;
         _typingCommittedUntilAllUp = false;
         _typingCommittedByKeyboardOnly = false;
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
         _lastContactCount = 0;
         _chordShiftLeft = false;
         _chordShiftRight = false;
@@ -2402,8 +2428,10 @@ internal sealed class TouchProcessorCore
         bool graceActive = IsTypingGraceActive(nowTicks);
         bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
         bool pointerIntentEnabled = _pointerIntentEnabled;
+        bool pointerSequenceGracePending = IsPointerSequenceGracePending(nowTicks);
         if (aggregate.ContactCount <= 0)
         {
+            _pointerSequenceGraceActive = false;
             if (graceActive)
             {
                 SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "grace");
@@ -2419,6 +2447,13 @@ internal sealed class TouchProcessorCore
         }
 
         int previousContactCount = _lastContactCount;
+        if (pointerSequenceGracePending)
+        {
+            _pointerSequenceGracePending = false;
+            _pointerSequenceGraceActive = true;
+        }
+
+        bool forcePointerSequence = _pointerSequenceGraceActive && pointerIntentEnabled;
         if (keyboardOnly)
         {
             _lastContactCount = aggregate.ContactCount;
@@ -2481,7 +2516,12 @@ internal sealed class TouchProcessorCore
                     return;
                 }
 
-                if (aggregate.OnKeyCount > 0 && !mouseSignal && aggregate.HasFirstOnKeyTouch)
+                if (forcePointerSequence)
+                {
+                    _mouseCandidateStartTicks = nowTicks;
+                    TransitionTo(IntentMode.MouseCandidate, nowTicks, "drag_release_grace");
+                }
+                else if (aggregate.OnKeyCount > 0 && !mouseSignal && aggregate.HasFirstOnKeyTouch)
                 {
                     _keyCandidateStartTicks = nowTicks;
                     _keyCandidateTouchKey = aggregate.FirstOnKeyTouch;
@@ -3765,6 +3805,23 @@ internal sealed class TouchProcessorCore
         }
 
         _typingGraceDeadlineTicks = 0;
+        return false;
+    }
+
+    private bool IsPointerSequenceGracePending(long nowTicks)
+    {
+        if (!_pointerSequenceGracePending)
+        {
+            return false;
+        }
+
+        if (_pointerSequenceGraceDeadlineTicks == 0 || nowTicks <= _pointerSequenceGraceDeadlineTicks)
+        {
+            return true;
+        }
+
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceDeadlineTicks = 0;
         return false;
     }
 
@@ -5092,6 +5149,14 @@ internal sealed class TouchProcessorActor : IDisposable
         lock (_coreGate)
         {
             _core.SetPointerIntentEnabled(enabled);
+        }
+    }
+
+    public void ArmPointerIntentSequence(long timestampTicks)
+    {
+        lock (_coreGate)
+        {
+            _core.ArmPointerIntentSequence(timestampTicks);
         }
     }
 

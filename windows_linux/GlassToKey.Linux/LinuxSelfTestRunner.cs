@@ -66,6 +66,11 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateThreeFingerDragReleaseClearsLatchedContacts(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         if (!ValidatePureKeyboardIntentSuppressesMouseTakeover(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
@@ -515,6 +520,121 @@ internal static class LinuxSelfTestRunner
         if (!string.Equals(snapshot.IntentMode, "MouseActive", StringComparison.Ordinal))
         {
             failure = $"Configured runtime host did not restore mouse takeover on startup (intent={snapshot.IntentMode}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateThreeFingerDragReleaseClearsLatchedContacts(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect keyRect = rightLayout.Rects[0][0];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        UserSettings settings = new()
+        {
+            LayoutPresetName = preset.Name,
+            TypingEnabled = true,
+            ThreeFingerDragEnabled = true
+        };
+        settings.NormalizeRanges();
+
+        using RecordingDispatcher dispatcher = new();
+        using TouchProcessorRuntimeHost host = new(dispatcher, KeymapStore.LoadBundledDefault(), preset, settings);
+
+        long now = Stopwatch.Frequency / 50;
+
+        now += Math.Max(1, Stopwatch.Frequency / 200);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeThreeFingerFrame(
+                (1000, 1200),
+                (1800, 1500),
+                (2600, 1800)),
+            maxX,
+            maxY,
+            now));
+
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeThreeFingerFrame(
+                (1200, 1200),
+                (2000, 1500),
+                (2800, 1800)),
+            maxX,
+            maxY,
+            now));
+
+        now += Math.Max(1, Stopwatch.Frequency / 20);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+
+        now += Math.Max(1, Stopwatch.Frequency / 200);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 0),
+            maxX,
+            maxY,
+            now));
+
+        if (!host.TryGetSynchronizedSnapshot(timeoutMs: 25, out TouchProcessorRuntimeSnapshot snapshot))
+        {
+            failure = "Three-finger drag release regression test could not read a synchronized runtime snapshot.";
+            return false;
+        }
+
+        if (dispatcher.LeftButtonDownCount != 1 || dispatcher.LeftButtonUpCount != 1)
+        {
+            failure = $"Three-finger drag release regression test saw an unexpected button sequence (down={dispatcher.LeftButtonDownCount}, up={dispatcher.LeftButtonUpCount}).";
+            return false;
+        }
+
+        if (dispatcher.Snapshot().Length != 0)
+        {
+            failure = "Residual fingers after three-finger drag should not leak key or mouse dispatch before all-up.";
+            return false;
+        }
+
+        if (snapshot.ContactCount != 0 || !string.Equals(snapshot.IntentMode, "Idle", StringComparison.Ordinal))
+        {
+            failure = $"Three-finger drag release did not clear the latched engine contact state (contacts={snapshot.ContactCount}, intent={snapshot.IntentMode}).";
+            return false;
+        }
+
+        now += Math.Max(1, Stopwatch.Frequency / 8);
+        host.Post(new TrackpadFrameEnvelope(
+            TrackpadSide.Right,
+            MakeFrame(contactCount: 1, x: keyX, y: keyY, pressure: 64),
+            maxX,
+            maxY,
+            now));
+
+        if (!host.TryGetSynchronizedSnapshot(timeoutMs: 25, out snapshot))
+        {
+            failure = "Three-finger drag release regression test could not read a follow-up runtime snapshot.";
+            return false;
+        }
+
+        if (!string.Equals(snapshot.IntentMode, "MouseCandidate", StringComparison.Ordinal))
+        {
+            failure = $"Three-finger drag release should bias the next touch sequence back to mouse (intent={snapshot.IntentMode}).";
+            return false;
+        }
+
+        if (dispatcher.Snapshot().Length != 0)
+        {
+            failure = "Three-finger drag release pointer grace should not emit dispatch on the first follow-up contact.";
             return false;
         }
 
@@ -1140,10 +1260,34 @@ internal static class LinuxSelfTestRunner
         return frame;
     }
 
-    private sealed class RecordingDispatcher : IInputDispatcher
+    private static InputFrame MakeThreeFingerFrame(
+        (ushort X, ushort Y) contact0,
+        (ushort X, ushort Y) contact1,
+        (ushort X, ushort Y) contact2)
+    {
+        InputFrame frame = new()
+        {
+            ArrivalQpcTicks = 0,
+            ReportId = 0xEE,
+            ScanTime = 0,
+            ContactCount = 3,
+            IsButtonClicked = 0
+        };
+
+        frame.SetContact(0, new ContactFrame(1, contact0.X, contact0.Y, 0x03));
+        frame.SetContact(1, new ContactFrame(2, contact1.X, contact1.Y, 0x03));
+        frame.SetContact(2, new ContactFrame(3, contact2.X, contact2.Y, 0x03));
+        return frame;
+    }
+
+    private sealed class RecordingDispatcher : IInputDispatcher, IThreeFingerDragSink
     {
         private readonly object _gate = new();
         private readonly List<DispatchEvent> _events = [];
+        public int LeftButtonDownCount { get; private set; }
+        public int LeftButtonUpCount { get; private set; }
+        public int MoveCount { get; private set; }
+        public int PointerActivityCount { get; private set; }
 
         public void Dispatch(in DispatchEvent dispatchEvent)
         {
@@ -1156,6 +1300,42 @@ internal static class LinuxSelfTestRunner
         public void Tick(long nowTicks)
         {
             _ = nowTicks;
+        }
+
+        public void MovePointerBy(int deltaX, int deltaY)
+        {
+            if (deltaX == 0 && deltaY == 0)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                MoveCount++;
+            }
+        }
+
+        public void NotifyPointerActivity()
+        {
+            lock (_gate)
+            {
+                PointerActivityCount++;
+            }
+        }
+
+        public void SetLeftButtonState(bool pressed)
+        {
+            lock (_gate)
+            {
+                if (pressed)
+                {
+                    LeftButtonDownCount++;
+                }
+                else
+                {
+                    LeftButtonUpCount++;
+                }
+            }
         }
 
         public DispatchEvent[] Snapshot()

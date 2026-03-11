@@ -2400,16 +2400,41 @@ internal static class SelfTestRunner
             return false;
         }
 
-        InputFrame releaseFrame = default;
-        if (!controller.ProcessFrame(TrackpadSide.Left, in releaseFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 10)))
+        InputFrame residualFrame = MakeFrame(contactCount: 1, id0: 80, x0: 3000, y0: 1900);
+        if (!controller.ProcessFrame(TrackpadSide.Left, in residualFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 12)))
         {
-            failure = "controller should consume the terminating release frame";
+            failure = "controller should keep swallowing residual drag fingers until all-up";
+            return false;
+        }
+
+        if (sink.LeftButtonUpCount != 1)
+        {
+            failure = "residual drag fingers should release the synthetic left button exactly once";
+            return false;
+        }
+
+        if (controller.ConsumeCompletedDragSequence())
+        {
+            failure = "controller should not report drag completion before all-up";
+            return false;
+        }
+
+        InputFrame releaseFrame = default;
+        if (controller.ProcessFrame(TrackpadSide.Left, in releaseFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 10)))
+        {
+            failure = "controller should allow the terminating all-up frame to reach the engine";
             return false;
         }
 
         if (sink.LeftButtonUpCount != 1)
         {
             failure = "release should synthesize a left mouse button up";
+            return false;
+        }
+
+        if (!controller.ConsumeCompletedDragSequence())
+        {
+            failure = "controller should report drag completion once the terminating all-up frame is observed";
             return false;
         }
 

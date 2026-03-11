@@ -1,20 +1,7 @@
 # TODO:
-Minor modification to help/install text:
-{
-  glasstokey            # start tray GUI
-  glasstokey start      # start headless mode
-  glasstokey stop       # stop  headless mode
-}
----
-Now complete {
-  4. In core, add a pure-keyboard intent path so headless never transitions into MouseCandidate / MouseActive; keep key and non-pointer gesture semantics only.
-  5. Change grab policy to be policy-driven: headless pure-keyboard grabs the evdev node whenever we are in a real desktop seat; only skip grab behind an explicit --no-grab or a proven no-pointer environment.
-}
+- Between every mode transition be it Mixed/Mouse or Keyboard/Mouse my mouse input and clicks are being grabbed and that absolutely should not be the case for mixed/mouse.
 
-
-- 3 finger drag doesn't release to mouse the right way (like purple switch)
-
-- If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click.
+- If I Switch between keyboard (purple) and mouse (red) during keyboard/mouse mode.. It actually wont give mouse control back to the mouse until I click. Actually, if I enter Keyboard/mouse mode, and then toggle it off.. my mouse still gets grabbed when toggling between mixed/mouse.. that shouldn't happen.
 
 
 # ARCH SUPPORT

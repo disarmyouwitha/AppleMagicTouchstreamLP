@@ -146,9 +146,13 @@
 - Debian:
   - `bash GlassToKey.Linux/packaging/deb/build-deb.sh --version 0.1.0-dev --output-dir /tmp/glasstokey-deb-out`
 - Arch:
-  - `sudo pacman -S --needed base-devel dotnet-sdk`
-  - `cd GlassToKey.Linux/packaging/arch`
-  - `makepkg -f`
+  - default non-Arch-host path:
+    `./GlassToKey.Linux/packaging/arch/build-in-docker.sh`
+  - only use raw `makepkg` on a real Arch host that already has Arch tooling installed
+  - if you need the raw host flow on Arch:
+    `sudo pacman -S --needed base-devel dotnet-sdk`
+    `cd GlassToKey.Linux/packaging/arch`
+    `makepkg -f`
 
 ## Key Files
 - Windows runtime hot path: `GlassToKey.Windows/TouchRuntimeService.cs`

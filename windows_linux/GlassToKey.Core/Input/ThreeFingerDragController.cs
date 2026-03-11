@@ -20,6 +20,8 @@ public sealed class ThreeFingerDragController
     private bool _enabled;
     private bool _candidate;
     private bool _dragActive;
+    private bool _awaitingAllUpAfterRelease;
+    private bool _completedDragSequencePending;
     private long _candidateStartedTicks;
     private double _anchorCentroidXMm;
     private double _anchorCentroidYMm;
@@ -33,7 +35,14 @@ public sealed class ThreeFingerDragController
         _sink = sink ?? throw new ArgumentNullException(nameof(sink));
     }
 
-    public bool RequestsExclusiveInput => _candidate;
+    public bool RequestsExclusiveInput => false;
+
+    public bool ConsumeCompletedDragSequence()
+    {
+        bool completed = _completedDragSequencePending;
+        _completedDragSequencePending = false;
+        return completed;
+    }
 
     public void SetEnabled(bool enabled)
     {
@@ -56,12 +65,41 @@ public sealed class ThreeFingerDragController
             return false;
         }
 
+        if (_awaitingAllUpAfterRelease)
+        {
+            if (side != _ownerSide)
+            {
+                return false;
+            }
+
+            if (HasPhysicalInput(in frame))
+            {
+                return true;
+            }
+
+            Reset(releaseButton: false);
+            _completedDragSequencePending = true;
+            return false;
+        }
+
         if (!TryGetThreeFingerCentroid(in frame, maxX, maxY, out double centroidXMm, out double centroidYMm))
         {
             if (_candidate && side == _ownerSide)
             {
-                Reset(releaseButton: true);
-                return true;
+                bool dragWasActive = _dragActive || _awaitingAllUpAfterRelease;
+                ReleaseDragButtonIfNeeded();
+                if (HasPhysicalInput(in frame))
+                {
+                    _awaitingAllUpAfterRelease = true;
+                    return true;
+                }
+
+                Reset(releaseButton: false);
+                if (dragWasActive)
+                {
+                    _completedDragSequencePending = true;
+                }
+                return false;
             }
 
             return false;
@@ -141,14 +179,14 @@ public sealed class ThreeFingerDragController
 
     private void Reset(bool releaseButton)
     {
-        if (releaseButton && _dragActive)
+        if (releaseButton)
         {
-            _sink.SetLeftButtonState(false);
-            _sink.NotifyPointerActivity();
+            ReleaseDragButtonIfNeeded();
         }
 
         _candidate = false;
         _dragActive = false;
+        _awaitingAllUpAfterRelease = false;
         _candidateStartedTicks = 0;
         _anchorCentroidXMm = 0.0;
         _anchorCentroidYMm = 0.0;
@@ -156,6 +194,37 @@ public sealed class ThreeFingerDragController
         _lastCentroidYMm = 0.0;
         _pendingPixelsX = 0.0;
         _pendingPixelsY = 0.0;
+    }
+
+    private void ReleaseDragButtonIfNeeded()
+    {
+        if (!_dragActive)
+        {
+            return;
+        }
+
+        _sink.SetLeftButtonState(false);
+        _sink.NotifyPointerActivity();
+        _dragActive = false;
+    }
+
+    private static bool HasPhysicalInput(in InputFrame frame)
+    {
+        if (frame.IsButtonPressed)
+        {
+            return true;
+        }
+
+        int count = frame.GetClampedContactCount();
+        for (int i = 0; i < count; i++)
+        {
+            if (frame.GetContact(i).TipSwitch)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static bool TryGetThreeFingerCentroid(in InputFrame frame, ushort maxX, ushort maxY, out double centroidXMm, out double centroidYMm)

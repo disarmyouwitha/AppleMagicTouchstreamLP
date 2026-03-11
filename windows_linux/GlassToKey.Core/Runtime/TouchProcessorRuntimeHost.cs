@@ -50,7 +50,13 @@ public sealed class TouchProcessorRuntimeHost : ITrackpadFrameTarget, IDisposabl
         }
 
         InputFrame payload = frame.Frame;
-        if (_threeFingerDragController?.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true)
+        bool consumedByDrag = _threeFingerDragController?.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true;
+        if (_threeFingerDragController?.ConsumeCompletedDragSequence() == true)
+        {
+            _actor.ArmPointerIntentSequence(frame.TimestampTicks);
+        }
+
+        if (consumedByDrag)
         {
             return true;
         }
