@@ -12,7 +12,8 @@ public enum DispatchEventKind : byte
     ModifierUp = 5,
     MouseButtonClick = 6,
     MouseButtonDown = 7,
-    MouseButtonUp = 8
+    MouseButtonUp = 8,
+    AppLaunch = 9
 }
 
 public enum DispatchMouseButton : byte
@@ -153,7 +154,8 @@ public enum DispatchSemanticKind : ushort
     TypingToggle = 1 << 5,
     LayerSet = 1 << 6,
     LayerToggle = 1 << 7,
-    MomentaryLayer = 1 << 8
+    MomentaryLayer = 1 << 8,
+    AppLaunch = 1 << 9
 }
 
 [Flags]

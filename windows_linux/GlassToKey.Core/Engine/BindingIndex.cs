@@ -217,7 +217,8 @@ internal sealed class BindingIndex
         return action.Kind is EngineActionKind.Key
             or EngineActionKind.Continuous
             or EngineActionKind.Modifier
-            or EngineActionKind.KeyChord;
+            or EngineActionKind.KeyChord
+            or EngineActionKind.AppLaunch;
     }
 
     private static int BucketIndex(double value, int bucketCount)
@@ -247,6 +248,11 @@ internal static class EngineActionResolver
         if (DispatchKeyResolver.TryResolveMouseButton(resolved, out DispatchMouseButton mouseButton))
         {
             return CreateAction(EngineActionKind.MouseButton, resolved, mouseButton: mouseButton);
+        }
+
+        if (AppLaunchActionHelper.TryParse(resolved, out _))
+        {
+            return CreateAction(EngineActionKind.AppLaunch, resolved);
         }
 
         if (TryParseLayerAction(resolved, "MO(", EngineActionKind.MomentaryLayer, out EngineKeyAction momentary))
@@ -538,6 +544,7 @@ internal static class EngineActionResolver
             EngineActionKind.Continuous => DispatchSemanticKind.Continuous,
             EngineActionKind.MouseButton => DispatchSemanticKind.MouseButton,
             EngineActionKind.KeyChord => DispatchSemanticKind.KeyChord,
+            EngineActionKind.AppLaunch => DispatchSemanticKind.AppLaunch,
             _ => DispatchSemanticKind.None
         };
 

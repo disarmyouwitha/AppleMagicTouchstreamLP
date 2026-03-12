@@ -30,7 +30,8 @@ internal enum EngineActionKind
     Modifier = 6,
     Continuous = 7,
     MouseButton = 8,
-    KeyChord = 9
+    KeyChord = 9,
+    AppLaunch = 10
 }
 
 internal enum TypingToggleSource : byte

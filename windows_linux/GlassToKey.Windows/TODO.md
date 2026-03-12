@@ -1,6 +1,6 @@
 ## CURRENT:
-- Can I implement an `App Launcher` into Custom Shortcuts?: Calculator.. VSCode.. Chrome? You decide!
-- DECIDE: Do I like Custom Buttons as a collapsable? 
+- Can I implement an `App Launcher` into Custom Shortcuts?: Calculator.. VSCode.. Chrome? User decides!
+- Custom Buttons: Can we change the pill color to Green, like "Swipes" under Gesture Tuning?
 
 ## User Issues:
 - `chording with more than 3 keys doesn't register`: I think I should be able to "fix" rolling by exposing a slider for tuning tap cadence (ms). Marking 3+ finger chords as "won't fix: use Custom Shortcuts"
@@ -30,3 +30,7 @@
 - `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
 - `Advanced Gestures Config` as it's own GUI like Config? (more breathing room to make the GUI more usable)
+
+
+# unrelated:
+- AI Tamagachi: something like a controlled openclaw.. It runs in the background and you take care of it and interact with it and feed it it will grow. As it grows, it can learn skills.. Maybe it starts to talk one day.. maybe it notices that the the user has a mic and it learns to listen? 

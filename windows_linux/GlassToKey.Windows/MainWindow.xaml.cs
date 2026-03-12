@@ -62,6 +62,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
     private bool _suppressGestureShortcutEditorEvents;
+    private bool _suppressAppLauncherEditorEvents;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -285,6 +286,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
         GestureShortcutApplyButton.Click += OnGestureShortcutApplyClicked;
         GestureShortcutResetButton.Click += OnGestureShortcutResetClicked;
+        AppLauncherFileBox.TextChanged += OnAppLauncherEditorChanged;
+        AppLauncherArgsBox.TextChanged += OnAppLauncherEditorChanged;
+        AppLauncherBrowseButton.Click += OnAppLauncherBrowseClicked;
+        AppLauncherApplyButton.Click += OnAppLauncherApplyClicked;
+        AppLauncherResetButton.Click += OnAppLauncherResetClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -836,7 +842,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
             if (combo.SelectedValue is string selectedValue && !string.IsNullOrWhiteSpace(selectedValue))
             {
-                combo.Text = selectedValue;
+                combo.Text = GetActionOptionDisplay(selectedValue);
                 return;
             }
 
@@ -853,6 +859,27 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return option.Display.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                option.Value.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0 ||
                option.Group.IndexOf(query, StringComparison.OrdinalIgnoreCase) >= 0;
+    }
+
+    private static string GetActionOptionDisplay(string value)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? AppLaunchActionHelper.GetDisplayLabel(value)
+            : value;
+    }
+
+    private static string GetActionOptionGroup(string value, string fallbackGroup)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? "App Launch"
+            : fallbackGroup;
+    }
+
+    private static string GetActionSurfaceLabel(string value)
+    {
+        return AppLaunchActionHelper.TryParse(value, out _)
+            ? AppLaunchActionHelper.GetDisplayLabel(value)
+            : value;
     }
 
     private static void ClearActionComboFilter(ListCollectionView view)
@@ -1010,6 +1037,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         GestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
         ShortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
+        RefreshAppLauncherEditorUi();
     }
 
     private void RefreshGestureShortcutEditorUi()
@@ -1140,6 +1168,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         EnsureActionOption(shortcut);
         GetShortcutTargetCombo().SelectedValue = shortcut;
         UpdateGestureShortcutPreview();
+        RefreshAppLauncherEditorUi();
     }
 
     private void OnGestureShortcutResetClicked(object sender, RoutedEventArgs e)
@@ -1159,6 +1188,119 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         UpdateGestureShortcutPreview();
+    }
+
+    private void RefreshAppLauncherEditorUi()
+    {
+        _suppressAppLauncherEditorEvents = true;
+        try
+        {
+            if (!HasKeymapSelection())
+            {
+                AppLauncherFileBox.Text = string.Empty;
+                AppLauncherArgsBox.Text = string.Empty;
+            }
+            else
+            {
+                string selectedAction = ReadGestureActionSelection(GetShortcutTargetCombo(), "None");
+                if (AppLaunchActionHelper.TryParse(selectedAction, out AppLaunchActionSpec spec))
+                {
+                    AppLauncherFileBox.Text = spec.FileName;
+                    AppLauncherArgsBox.Text = spec.Arguments;
+                }
+                else
+                {
+                    AppLauncherFileBox.Text = string.Empty;
+                    AppLauncherArgsBox.Text = string.Empty;
+                }
+            }
+        }
+        finally
+        {
+            _suppressAppLauncherEditorEvents = false;
+        }
+
+        UpdateAppLauncherPreview();
+    }
+
+    private void OnAppLauncherEditorChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_suppressAppLauncherEditorEvents)
+        {
+            return;
+        }
+
+        UpdateAppLauncherPreview();
+    }
+
+    private void OnAppLauncherBrowseClicked(object sender, RoutedEventArgs e)
+    {
+        OpenFileDialog dialog = new()
+        {
+            CheckFileExists = true,
+            Filter = "Applications|*.exe;*.lnk;*.bat;*.cmd|All files (*.*)|*.*",
+            Title = "Select application or shortcut"
+        };
+
+        if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FileName))
+        {
+            return;
+        }
+
+        AppLauncherFileBox.Text = dialog.FileName;
+    }
+
+    private void UpdateAppLauncherPreview()
+    {
+        string action = BuildAppLauncherAction();
+        AppLauncherPreviewText.Text = string.IsNullOrEmpty(action)
+            ? "Launch: none"
+            : $"Launch: {AppLaunchActionHelper.GetDisplayLabel(action)}";
+        AppLauncherApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(action);
+        AppLauncherResetButton.IsEnabled = !string.IsNullOrWhiteSpace(AppLauncherFileBox.Text) ||
+                                           !string.IsNullOrWhiteSpace(AppLauncherArgsBox.Text);
+    }
+
+    private string BuildAppLauncherAction()
+    {
+        string fileName = AppLauncherFileBox.Text?.Trim() ?? string.Empty;
+        string arguments = AppLauncherArgsBox.Text?.Trim() ?? string.Empty;
+        if (fileName.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return AppLaunchActionHelper.CreateActionLabel(fileName, arguments);
+    }
+
+    private void OnAppLauncherApplyClicked(object sender, RoutedEventArgs e)
+    {
+        string action = BuildAppLauncherAction();
+        if (!HasKeymapSelection() || string.IsNullOrEmpty(action))
+        {
+            return;
+        }
+
+        EnsureActionOption(action);
+        GetShortcutTargetCombo().SelectedValue = action;
+        RefreshGestureShortcutEditorUi();
+        RefreshAppLauncherEditorUi();
+    }
+
+    private void OnAppLauncherResetClicked(object sender, RoutedEventArgs e)
+    {
+        _suppressAppLauncherEditorEvents = true;
+        try
+        {
+            AppLauncherFileBox.Text = string.Empty;
+            AppLauncherArgsBox.Text = string.Empty;
+        }
+        finally
+        {
+            _suppressAppLauncherEditorEvents = false;
+        }
+
+        UpdateAppLauncherPreview();
     }
 
     private ComboBox GetShortcutTargetCombo()
@@ -2265,7 +2407,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private static void AddKeyActionOption(List<KeyActionOption> options, string value, string group)
     {
-        options.Add(new KeyActionOption(value, value, group));
+        options.Add(new KeyActionOption(value, GetActionOptionDisplay(value), GetActionOptionGroup(value, group)));
     }
 
     private void EnsureActionOption(string? action)
@@ -2290,7 +2432,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         try
         {
-            _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
+            _keyActionOptions.Add(new KeyActionOption(
+                action,
+                GetActionOptionDisplay(action),
+                GetActionOptionGroup(action, "Custom")));
             _keyActionOptionLookup.Add(action);
             RefreshActionComboViews();
             return true;
@@ -2872,8 +3017,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         for (int i = 0; i < buttons.Count; i++)
         {
             CustomButton button = buttons[i];
-            string primary = string.IsNullOrWhiteSpace(button.Primary?.Label) ? "None" : button.Primary.Label;
-            string? hold = button.Hold?.Label;
+            string primary = string.IsNullOrWhiteSpace(button.Primary?.Label)
+                ? "None"
+                : GetActionSurfaceLabel(button.Primary.Label);
+            string? hold = string.IsNullOrWhiteSpace(button.Hold?.Label)
+                ? null
+                : GetActionSurfaceLabel(button.Hold.Label);
             string label = string.IsNullOrWhiteSpace(hold) ? primary : $"{primary}\n{hold}";
             output[i] = new SurfaceCustomButton(button.Id, button.Rect, label);
         }
@@ -2895,8 +3044,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
                 string defaultLabel = labels[row][col];
                 KeyMapping mapping = _keymap.ResolveMapping(layer, storageKey, defaultLabel);
-                string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label) ? defaultLabel : mapping.Primary.Label;
-                string? hold = mapping.Hold?.Label;
+                string primary = string.IsNullOrWhiteSpace(mapping.Primary.Label)
+                    ? defaultLabel
+                    : GetActionSurfaceLabel(mapping.Primary.Label);
+                string? hold = string.IsNullOrWhiteSpace(mapping.Hold?.Label)
+                    ? null
+                    : GetActionSurfaceLabel(mapping.Hold.Label);
                 output[row][col] = string.IsNullOrWhiteSpace(hold) ? primary : $"{primary}\n{hold}";
             }
         }
@@ -2928,6 +3081,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
             RefreshGestureShortcutEditorUi();
+            RefreshAppLauncherEditorUi();
             return;
         }
 
@@ -2945,6 +3099,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
             RefreshGestureShortcutEditorUi();
+            RefreshAppLauncherEditorUi();
             return;
         }
 
@@ -2975,6 +3130,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeyRotationBox.Text = FormatNumber(_keymap.ResolveKeyGeometry(storageKey).RotationDegrees);
         _suppressKeymapActionEvents = false;
         RefreshGestureShortcutEditorUi();
+        RefreshAppLauncherEditorUi();
     }
 
     private void SetCustomButtonGeometryEditorEnabled(bool enabled)
@@ -3028,6 +3184,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         ApplySelectedKeymapOverride();
         RefreshGestureShortcutEditorUi();
+        RefreshAppLauncherEditorUi();
     }
 
     private void ApplySelectedKeymapOverride()

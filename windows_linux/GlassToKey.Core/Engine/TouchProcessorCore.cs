@@ -1862,6 +1862,22 @@ internal sealed class TouchProcessorCore
                     }
                 }
                 break;
+            case EngineActionKind.AppLaunch:
+                EnqueueDispatchEvent(
+                    DispatchEventKind.AppLaunch,
+                    0,
+                    DispatchMouseButton.None,
+                    repeatToken: 0,
+                    hapticOnDispatch && _hapticsOnKeyDispatch
+                        ? DispatchEventFlags.Haptic
+                        : DispatchEventFlags.None,
+                    side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm);
+                break;
             case EngineActionKind.KeyChord:
                 if (CanDispatchChordModifierAction(action) && CanDispatchKeyAction(action))
                 {
@@ -1927,6 +1943,7 @@ internal sealed class TouchProcessorCore
             case EngineActionKind.Modifier:
             case EngineActionKind.MouseButton:
             case EngineActionKind.KeyChord:
+            case EngineActionKind.AppLaunch:
                 ExtendTypingGrace(timestampTicks);
                 break;
             case EngineActionKind.None:
@@ -2181,6 +2198,7 @@ internal sealed class TouchProcessorCore
             DispatchEventKind.KeyDown => $"KeyDown({VirtualKeyLabel(virtualKey)})",
             DispatchEventKind.KeyUp => $"KeyUp({VirtualKeyLabel(virtualKey)})",
             DispatchEventKind.KeyTap => $"KeyTap({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.AppLaunch => "AppLaunch",
             _ => kind.ToString()
         };
     }
@@ -2243,14 +2261,16 @@ internal sealed class TouchProcessorCore
     {
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
-            DispatchEventKind.ModifierDown;
+            DispatchEventKind.ModifierDown or
+            DispatchEventKind.AppLaunch;
     }
 
     private static bool IsForceSuppressedDispatch(DispatchEventKind kind)
     {
         return kind is DispatchEventKind.KeyTap or
             DispatchEventKind.KeyDown or
-            DispatchEventKind.ModifierDown;
+            DispatchEventKind.ModifierDown or
+            DispatchEventKind.AppLaunch;
     }
 
     private bool IsMomentaryLayerActive()
@@ -4023,6 +4043,7 @@ internal sealed class TouchProcessorCore
             EngineActionKind.Key or EngineActionKind.Continuous or EngineActionKind.KeyChord => DispatchEventKind.KeyTap,
             EngineActionKind.Modifier => DispatchEventKind.ModifierDown,
             EngineActionKind.MouseButton => DispatchEventKind.MouseButtonClick,
+            EngineActionKind.AppLaunch => DispatchEventKind.AppLaunch,
             _ => DispatchEventKind.None
         };
     }

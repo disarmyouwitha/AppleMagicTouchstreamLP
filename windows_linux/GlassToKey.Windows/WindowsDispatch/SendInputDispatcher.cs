@@ -129,6 +129,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
         switch (dispatchEvent.Kind)
         {
+            case DispatchEventKind.AppLaunch:
+                HandleAppLaunch(dispatchEvent);
+                break;
             case DispatchEventKind.KeyTap:
                 if (!TryResolveKeyVirtualKey(dispatchEvent, out ushort keyTapVirtualKey))
                 {
@@ -221,6 +224,30 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
     {
         ProcessAutocorrectKeyInput(dispatchEvent);
         SendKeyTap(virtualKey);
+    }
+
+    private void HandleAppLaunch(in DispatchEvent dispatchEvent)
+    {
+        _autocorrect.NotifyNonWordKey();
+        if (_suppressPhysicalOutput ||
+            !AppLaunchActionHelper.TryParse(dispatchEvent.SemanticAction.Label, out AppLaunchActionSpec spec))
+        {
+            return;
+        }
+
+        try
+        {
+            using Process? process = Process.Start(new ProcessStartInfo
+            {
+                FileName = spec.FileName,
+                Arguments = spec.Arguments,
+                UseShellExecute = true
+            });
+        }
+        catch
+        {
+            // Ignore launch failures to keep the dispatch path best-effort.
+        }
     }
 
     private void HandleChordKeyTap(ushort virtualKey, in DispatchEvent dispatchEvent)

@@ -116,6 +116,8 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                         TryEmitKey(upButton, isDown: false);
                     }
                     break;
+                case DispatchEventKind.AppLaunch:
+                    break;
             }
 
             shouldVibrate = (dispatchEvent.Flags & DispatchEventFlags.Haptic) != 0;
