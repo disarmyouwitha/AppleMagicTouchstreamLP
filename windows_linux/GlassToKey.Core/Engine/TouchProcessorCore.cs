@@ -1597,21 +1597,6 @@ internal sealed class TouchProcessorCore
                 }
 
                 ApplyActionState(action, timestampTicks);
-                if (!EnqueueDispatchEvent(
-                    DispatchEventKind.ModifierDown,
-                    action.ModifierVirtualKey,
-                    DispatchMouseButton.None,
-                    repeatToken: 0,
-                    DispatchEventFlags.None,
-                    state.Side,
-                    timestampTicks,
-                    dispatchLabel: action.Label,
-                    semanticAction: action.SemanticAction,
-                    allowTypingDisabledOverride: allowTypingDisabledOverride,
-                    forceNorm: forceNorm))
-                {
-                    return;
-                }
 
                 DispatchEventFlags chordKeyDownFlags = DispatchEventFlags.Repeatable;
                 if (_hapticsOnKeyDispatch)
@@ -1635,26 +1620,11 @@ internal sealed class TouchProcessorCore
                     state.DispatchDownSent = true;
                     state.DispatchDownKind = DispatchEventKind.KeyDown;
                     state.DispatchDownVirtualKey = action.VirtualKey;
-                    state.DispatchDownModifierVirtualKey = action.ModifierVirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
                     state.DispatchDownMouseButton = DispatchMouseButton.None;
                     state.RepeatToken = touchKey;
                     state.DispatchDownLabel = action.Label;
                     state.DispatchDownSemanticAction = action.SemanticAction;
-                }
-                else
-                {
-                    EnqueueDispatchEvent(
-                        DispatchEventKind.ModifierUp,
-                        action.ModifierVirtualKey,
-                        DispatchMouseButton.None,
-                        repeatToken: 0,
-                        DispatchEventFlags.None,
-                        state.Side,
-                        timestampTicks,
-                        dispatchLabel: action.Label,
-                        semanticAction: action.SemanticAction,
-                        allowTypingDisabledOverride: allowTypingDisabledOverride,
-                        forceNorm: forceNorm);
                 }
                 break;
             default:
@@ -1762,21 +1732,6 @@ internal sealed class TouchProcessorCore
                     timestampTicks,
                     dispatchLabel: state.DispatchDownLabel,
                     semanticAction: state.DispatchDownSemanticAction);
-                if (ShouldReleaseChordModifier(
-                    state.DispatchDownSemanticAction,
-                    state.DispatchDownModifierVirtualKey))
-                {
-                    EnqueueDispatchEvent(
-                        DispatchEventKind.ModifierUp,
-                        state.DispatchDownModifierVirtualKey,
-                        DispatchMouseButton.None,
-                        repeatToken: 0,
-                        DispatchEventFlags.None,
-                        state.Side,
-                        timestampTicks,
-                        dispatchLabel: state.DispatchDownLabel,
-                        semanticAction: state.DispatchDownSemanticAction);
-                }
                 break;
             case DispatchEventKind.MouseButtonDown:
                 EnqueueDispatchEvent(
@@ -1911,18 +1866,6 @@ internal sealed class TouchProcessorCore
                 if (CanDispatchChordModifierAction(action) && CanDispatchKeyAction(action))
                 {
                     EnqueueDispatchEvent(
-                        DispatchEventKind.ModifierDown,
-                        action.ModifierVirtualKey,
-                        DispatchMouseButton.None,
-                        repeatToken: 0,
-                        DispatchEventFlags.None,
-                        side,
-                        timestampTicks,
-                        dispatchLabel: action.Label,
-                        semanticAction: action.SemanticAction,
-                        allowTypingDisabledOverride: allowTypingDisabledOverride,
-                        forceNorm: forceNorm);
-                    EnqueueDispatchEvent(
                         DispatchEventKind.KeyTap,
                         action.VirtualKey,
                         DispatchMouseButton.None,
@@ -1930,18 +1873,6 @@ internal sealed class TouchProcessorCore
                         hapticOnDispatch && _hapticsOnKeyDispatch
                             ? DispatchEventFlags.Haptic
                             : DispatchEventFlags.None,
-                        side,
-                        timestampTicks,
-                        dispatchLabel: action.Label,
-                        semanticAction: action.SemanticAction,
-                        allowTypingDisabledOverride: allowTypingDisabledOverride,
-                        forceNorm: forceNorm);
-                    EnqueueDispatchEvent(
-                        DispatchEventKind.ModifierUp,
-                        action.ModifierVirtualKey,
-                        DispatchMouseButton.None,
-                        repeatToken: 0,
-                        DispatchEventFlags.None,
                         side,
                         timestampTicks,
                         dispatchLabel: action.Label,
@@ -2299,24 +2230,13 @@ internal sealed class TouchProcessorCore
 
     private static bool CanDispatchChordModifierAction(EngineKeyAction action)
     {
-        return HasDispatchIdentity(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey);
+        return action.SemanticAction.Modifiers != DispatchModifierFlags.None ||
+            HasDispatchIdentity(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey);
     }
 
     private static bool HasDispatchIdentity(DispatchSemanticCode semanticCode, ushort virtualKey)
     {
         return semanticCode != DispatchSemanticCode.None || virtualKey != 0;
-    }
-
-    private static bool ShouldReleaseChordModifier(
-        DispatchSemanticAction semanticAction,
-        ushort modifierVirtualKey)
-    {
-        if (semanticAction.Kind != DispatchSemanticKind.KeyChord)
-        {
-            return modifierVirtualKey != 0;
-        }
-
-        return semanticAction.SecondaryCode != DispatchSemanticCode.None || modifierVirtualKey != 0;
     }
 
     private static bool IsTypingSuppressedDispatch(DispatchEventKind kind)

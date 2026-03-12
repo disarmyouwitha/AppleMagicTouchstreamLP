@@ -878,7 +878,7 @@ internal static class LinuxSelfTestRunner
                     return false;
                 }
 
-                if (!CanResolveLinuxKey(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey))
+                if (!CanResolveChordModifiers(action))
                 {
                     failure = $"Chord '{label}' did not resolve its modifier Linux key code.";
                     return false;
@@ -905,6 +905,27 @@ internal static class LinuxSelfTestRunner
 
         failure = string.Empty;
         return true;
+    }
+
+    private static bool CanResolveChordModifiers(EngineKeyAction action)
+    {
+        if (action.SemanticAction.Modifiers != DispatchModifierFlags.None)
+        {
+            Span<DispatchSemanticCode> modifierCodes = stackalloc DispatchSemanticCode[12];
+            int count = DispatchShortcutHelper.CopyModifierSemanticCodes(action.SemanticAction.Modifiers, modifierCodes);
+            int limit = Math.Min(count, modifierCodes.Length);
+            for (int index = 0; index < limit; index++)
+            {
+                if (!CanResolveLinuxKey(modifierCodes[index], 0))
+                {
+                    return false;
+                }
+            }
+
+            return limit > 0;
+        }
+
+        return CanResolveLinuxKey(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey);
     }
 
     private sealed class FakeAutocorrectLexicon : AutocorrectSession.IAutocorrectLexicon

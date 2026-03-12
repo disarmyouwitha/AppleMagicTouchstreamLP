@@ -157,6 +157,24 @@ public enum DispatchSemanticKind : ushort
 }
 
 [Flags]
+public enum DispatchModifierFlags : ushort
+{
+    None = 0,
+    Shift = 1 << 0,
+    LeftShift = 1 << 1,
+    RightShift = 1 << 2,
+    Ctrl = 1 << 3,
+    LeftCtrl = 1 << 4,
+    RightCtrl = 1 << 5,
+    Alt = 1 << 6,
+    LeftAlt = 1 << 7,
+    RightAlt = 1 << 8,
+    Meta = 1 << 9,
+    LeftMeta = 1 << 10,
+    RightMeta = 1 << 11
+}
+
+[Flags]
 public enum DispatchEventFlags : byte
 {
     None = 0,
@@ -169,7 +187,8 @@ public readonly record struct DispatchSemanticAction(
     string Label,
     DispatchSemanticCode PrimaryCode = DispatchSemanticCode.None,
     DispatchSemanticCode SecondaryCode = DispatchSemanticCode.None,
-    DispatchMouseButton MouseButton = DispatchMouseButton.None)
+    DispatchMouseButton MouseButton = DispatchMouseButton.None,
+    DispatchModifierFlags Modifiers = DispatchModifierFlags.None)
 {
     public static DispatchSemanticAction None => new(DispatchSemanticKind.None, string.Empty);
 }

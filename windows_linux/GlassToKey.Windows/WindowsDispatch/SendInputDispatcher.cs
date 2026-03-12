@@ -140,7 +140,14 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                     break;
                 }
 
-                HandleKeyTap(keyTapVirtualKey, dispatchEvent);
+                if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                {
+                    HandleChordKeyTap(keyTapVirtualKey, dispatchEvent);
+                }
+                else
+                {
+                    HandleKeyTap(keyTapVirtualKey, dispatchEvent);
+                }
                 break;
             case DispatchEventKind.KeyDown:
                 if (!TryResolveKeyVirtualKey(dispatchEvent, out ushort keyDownVirtualKey))
@@ -148,18 +155,32 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                     break;
                 }
 
-                HandleKeyDownAutocorrect(dispatchEvent);
-                HandleKeyDown(
-                    keyDownVirtualKey,
-                    dispatchEvent.RepeatToken,
-                    dispatchEvent.Flags,
-                    dispatchEvent.TimestampTicks,
-                    dispatchEvent.SemanticAction);
+                if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                {
+                    HandleChordKeyDown(keyDownVirtualKey, dispatchEvent);
+                }
+                else
+                {
+                    HandleKeyDownAutocorrect(dispatchEvent);
+                    HandleKeyDown(
+                        keyDownVirtualKey,
+                        dispatchEvent.RepeatToken,
+                        dispatchEvent.Flags,
+                        dispatchEvent.TimestampTicks,
+                        dispatchEvent.SemanticAction);
+                }
                 break;
             case DispatchEventKind.KeyUp:
                 if (TryResolveKeyVirtualKey(dispatchEvent, out ushort keyUpVirtualKey))
                 {
-                    HandleKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken);
+                    if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                    {
+                        HandleChordKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken, dispatchEvent.SemanticAction);
+                    }
+                    else
+                    {
+                        HandleKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken);
+                    }
                 }
                 break;
             case DispatchEventKind.ModifierDown:
@@ -200,6 +221,20 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
     {
         ProcessAutocorrectKeyInput(dispatchEvent);
         SendKeyTap(virtualKey);
+    }
+
+    private void HandleChordKeyTap(ushort virtualKey, in DispatchEvent dispatchEvent)
+    {
+        ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+        try
+        {
+            ProcessAutocorrectKeyInput(dispatchEvent);
+            SendKeyTap(virtualKey);
+        }
+        finally
+        {
+            ReleaseShortcutModifiers(dispatchEvent.SemanticAction);
+        }
     }
 
     private void HandleKeyDownAutocorrect(in DispatchEvent dispatchEvent)
@@ -346,6 +381,30 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
     }
 
+    private void HandleChordKeyDown(ushort virtualKey, in DispatchEvent dispatchEvent)
+    {
+        ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+        HandleKeyDownAutocorrect(dispatchEvent);
+        HandleKeyDown(
+            virtualKey,
+            dispatchEvent.RepeatToken,
+            dispatchEvent.Flags,
+            dispatchEvent.TimestampTicks,
+            dispatchEvent.SemanticAction);
+    }
+
+    private void HandleChordKeyUp(ushort virtualKey, ulong repeatToken, DispatchSemanticAction semanticAction)
+    {
+        try
+        {
+            HandleKeyUp(virtualKey, repeatToken);
+        }
+        finally
+        {
+            ReleaseShortcutModifiers(semanticAction);
+        }
+    }
+
     private void HandleModifierDown(ushort virtualKey)
     {
         if (virtualKey == 0)
@@ -398,6 +457,26 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         {
             SendKeyboard(virtualKey, keyUp: true);
             _keyDown[vk] = false;
+        }
+    }
+
+    private void ApplyShortcutModifiers(DispatchSemanticAction semanticAction)
+    {
+        Span<ushort> modifierVirtualKeys = stackalloc ushort[12];
+        int count = CopyShortcutModifierVirtualKeys(semanticAction, modifierVirtualKeys);
+        for (int index = 0; index < count; index++)
+        {
+            HandleModifierDown(modifierVirtualKeys[index]);
+        }
+    }
+
+    private void ReleaseShortcutModifiers(DispatchSemanticAction semanticAction)
+    {
+        Span<ushort> modifierVirtualKeys = stackalloc ushort[12];
+        int count = CopyShortcutModifierVirtualKeys(semanticAction, modifierVirtualKeys);
+        for (int index = count - 1; index >= 0; index--)
+        {
+            HandleModifierUp(modifierVirtualKeys[index]);
         }
     }
 
@@ -812,10 +891,9 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
     private static bool TryResolveModifierVirtualKey(in DispatchEvent dispatchEvent, out ushort virtualKey)
     {
-        DispatchSemanticCode semanticCode =
-            dispatchEvent.SemanticAction.Kind == DispatchSemanticKind.KeyChord
-                ? dispatchEvent.SemanticAction.SecondaryCode
-                : dispatchEvent.SemanticAction.PrimaryCode;
+        DispatchSemanticCode semanticCode = dispatchEvent.SemanticAction.PrimaryCode != DispatchSemanticCode.None
+            ? dispatchEvent.SemanticAction.PrimaryCode
+            : dispatchEvent.SemanticAction.SecondaryCode;
         if (WindowsVirtualKeyMapper.TryMapSemanticCode(semanticCode, out virtualKey))
         {
             return true;
@@ -823,6 +901,49 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
         virtualKey = dispatchEvent.VirtualKey;
         return virtualKey != 0;
+    }
+
+    private static bool IsShortcutKeyChord(DispatchSemanticAction semanticAction)
+    {
+        if (semanticAction.Kind != DispatchSemanticKind.KeyChord)
+        {
+            return false;
+        }
+
+        return semanticAction.Modifiers != DispatchModifierFlags.None ||
+            semanticAction.SecondaryCode != DispatchSemanticCode.None;
+    }
+
+    private static int CopyShortcutModifierVirtualKeys(DispatchSemanticAction semanticAction, Span<ushort> destination)
+    {
+        DispatchModifierFlags modifiers = semanticAction.Modifiers;
+        if (modifiers == DispatchModifierFlags.None && semanticAction.SecondaryCode != DispatchSemanticCode.None)
+        {
+            modifiers = DispatchShortcutHelper.ToModifierFlag(semanticAction.SecondaryCode);
+        }
+
+        Span<DispatchSemanticCode> modifierCodes = stackalloc DispatchSemanticCode[12];
+        int available = DispatchShortcutHelper.CopyModifierSemanticCodes(modifiers, modifierCodes);
+        int count = 0;
+        int limit = Math.Min(available, modifierCodes.Length);
+        for (int index = 0; index < limit; index++)
+        {
+            if (!WindowsVirtualKeyMapper.TryMapSemanticCode(modifierCodes[index], out ushort virtualKey))
+            {
+                continue;
+            }
+
+            destination[count++] = virtualKey;
+        }
+
+        if (count == 0 &&
+            semanticAction.SecondaryCode != DispatchSemanticCode.None &&
+            WindowsVirtualKeyMapper.TryMapSemanticCode(semanticAction.SecondaryCode, out ushort legacyVirtualKey))
+        {
+            destination[count++] = legacyVirtualKey;
+        }
+
+        return count;
     }
 
     private void ApplyAutocorrectForWordBoundary()

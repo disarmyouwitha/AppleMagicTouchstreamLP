@@ -68,6 +68,7 @@ internal readonly record struct EngineKeyAction(
     ushort VirtualKey = 0,
     DispatchMouseButton MouseButton = DispatchMouseButton.None,
     ushort ModifierVirtualKey = 0,
+    DispatchModifierFlags ModifierFlags = DispatchModifierFlags.None,
     DispatchSemanticAction SemanticAction = default)
 {
     public static EngineKeyAction None => new(

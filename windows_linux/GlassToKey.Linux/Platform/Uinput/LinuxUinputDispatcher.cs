@@ -61,13 +61,34 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             switch (dispatchEvent.Kind)
             {
                 case DispatchEventKind.KeyTap:
-                    HandleKeyTap(dispatchEvent);
+                    if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                    {
+                        HandleChordKeyTap(dispatchEvent);
+                    }
+                    else
+                    {
+                        HandleKeyTap(dispatchEvent);
+                    }
                     break;
                 case DispatchEventKind.KeyDown:
-                    HandleKeyDown(dispatchEvent);
+                    if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                    {
+                        HandleChordKeyDown(dispatchEvent);
+                    }
+                    else
+                    {
+                        HandleKeyDown(dispatchEvent);
+                    }
                     break;
                 case DispatchEventKind.KeyUp:
-                    HandleKeyUp(dispatchEvent);
+                    if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
+                    {
+                        HandleChordKeyUp(dispatchEvent);
+                    }
+                    else
+                    {
+                        HandleKeyUp(dispatchEvent);
+                    }
                     break;
                 case DispatchEventKind.ModifierDown:
                     HandleModifierDown(dispatchEvent);
@@ -337,6 +358,19 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         TrySendKeyCode(keyCode, isDown: false);
     }
 
+    private void HandleChordKeyTap(in DispatchEvent dispatchEvent)
+    {
+        ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+        try
+        {
+            HandleKeyTap(dispatchEvent);
+        }
+        finally
+        {
+            ReleaseShortcutModifiers(dispatchEvent.SemanticAction);
+        }
+    }
+
     private void HandleKeyDown(in DispatchEvent dispatchEvent)
     {
         ProcessAutocorrectKeyInput(dispatchEvent);
@@ -368,6 +402,12 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         }
     }
 
+    private void HandleChordKeyDown(in DispatchEvent dispatchEvent)
+    {
+        ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+        HandleKeyDown(dispatchEvent);
+    }
+
     private void HandleKeyUp(in DispatchEvent dispatchEvent)
     {
         if (dispatchEvent.RepeatToken != 0)
@@ -396,6 +436,18 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         }
 
         TrySendKeyCode(keyCode, isDown: false);
+    }
+
+    private void HandleChordKeyUp(in DispatchEvent dispatchEvent)
+    {
+        try
+        {
+            HandleKeyUp(dispatchEvent);
+        }
+        finally
+        {
+            ReleaseShortcutModifiers(dispatchEvent.SemanticAction);
+        }
     }
 
     private void HandleModifierDown(in DispatchEvent dispatchEvent)
@@ -441,6 +493,52 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         if (TrySendKeyCode(keyCode, isDown: false))
         {
             _keyDown[keyCode] = false;
+        }
+    }
+
+    private void ApplyShortcutModifiers(DispatchSemanticAction semanticAction)
+    {
+        Span<ushort> modifierKeyCodes = stackalloc ushort[12];
+        int count = CopyShortcutModifierKeyCodes(semanticAction, modifierKeyCodes);
+        for (int index = 0; index < count; index++)
+        {
+            DispatchSemanticCode semanticCode = DispatchShortcutHelper.ToSemanticCode(ToShortcutModifierFlag(modifierKeyCodes[index], semanticAction));
+            HandleModifierDown(new DispatchEvent(
+                TimestampTicks: 0,
+                Kind: DispatchEventKind.ModifierDown,
+                VirtualKey: 0,
+                MouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                Flags: DispatchEventFlags.None,
+                Side: TrackpadSide.Left,
+                DispatchLabel: string.Empty,
+                SemanticAction: new DispatchSemanticAction(
+                    DispatchSemanticKind.Modifier,
+                    string.Empty,
+                    semanticCode)));
+        }
+    }
+
+    private void ReleaseShortcutModifiers(DispatchSemanticAction semanticAction)
+    {
+        Span<ushort> modifierKeyCodes = stackalloc ushort[12];
+        int count = CopyShortcutModifierKeyCodes(semanticAction, modifierKeyCodes);
+        for (int index = count - 1; index >= 0; index--)
+        {
+            DispatchSemanticCode semanticCode = DispatchShortcutHelper.ToSemanticCode(ToShortcutModifierFlag(modifierKeyCodes[index], semanticAction));
+            HandleModifierUp(new DispatchEvent(
+                TimestampTicks: 0,
+                Kind: DispatchEventKind.ModifierUp,
+                VirtualKey: 0,
+                MouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                Flags: DispatchEventFlags.None,
+                Side: TrackpadSide.Left,
+                DispatchLabel: string.Empty,
+                SemanticAction: new DispatchSemanticAction(
+                    DispatchSemanticKind.Modifier,
+                    string.Empty,
+                    semanticCode)));
         }
     }
 
@@ -721,16 +819,81 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
     private static bool TryResolveModifierKeyCode(in DispatchEvent dispatchEvent, out ushort keyCode)
     {
-        DispatchSemanticCode semanticCode =
-            dispatchEvent.SemanticAction.Kind == DispatchSemanticKind.KeyChord
-                ? dispatchEvent.SemanticAction.SecondaryCode
-                : dispatchEvent.SemanticAction.PrimaryCode;
+        DispatchSemanticCode semanticCode = dispatchEvent.SemanticAction.PrimaryCode != DispatchSemanticCode.None
+            ? dispatchEvent.SemanticAction.PrimaryCode
+            : dispatchEvent.SemanticAction.SecondaryCode;
         if (LinuxKeyCodeMapper.TryMapSemanticCode(semanticCode, out keyCode))
         {
             return true;
         }
 
         return LinuxKeyCodeMapper.TryMapKey(dispatchEvent.VirtualKey, out keyCode);
+    }
+
+    private static bool IsShortcutKeyChord(DispatchSemanticAction semanticAction)
+    {
+        if (semanticAction.Kind != DispatchSemanticKind.KeyChord)
+        {
+            return false;
+        }
+
+        return semanticAction.Modifiers != DispatchModifierFlags.None ||
+            semanticAction.SecondaryCode != DispatchSemanticCode.None;
+    }
+
+    private static int CopyShortcutModifierKeyCodes(DispatchSemanticAction semanticAction, Span<ushort> destination)
+    {
+        DispatchModifierFlags modifiers = semanticAction.Modifiers;
+        if (modifiers == DispatchModifierFlags.None && semanticAction.SecondaryCode != DispatchSemanticCode.None)
+        {
+            modifiers = DispatchShortcutHelper.ToModifierFlag(semanticAction.SecondaryCode);
+        }
+
+        Span<DispatchSemanticCode> modifierCodes = stackalloc DispatchSemanticCode[12];
+        int available = DispatchShortcutHelper.CopyModifierSemanticCodes(modifiers, modifierCodes);
+        int count = 0;
+        int limit = Math.Min(available, modifierCodes.Length);
+        for (int index = 0; index < limit; index++)
+        {
+            if (!LinuxKeyCodeMapper.TryMapSemanticCode(modifierCodes[index], out ushort keyCode))
+            {
+                continue;
+            }
+
+            destination[count++] = keyCode;
+        }
+
+        if (count == 0 &&
+            semanticAction.SecondaryCode != DispatchSemanticCode.None &&
+            LinuxKeyCodeMapper.TryMapSemanticCode(semanticAction.SecondaryCode, out ushort legacyKeyCode))
+        {
+            destination[count++] = legacyKeyCode;
+        }
+
+        return count;
+    }
+
+    private static DispatchModifierFlags ToShortcutModifierFlag(ushort keyCode, DispatchSemanticAction semanticAction)
+    {
+        DispatchModifierFlags modifiers = semanticAction.Modifiers;
+        if (modifiers == DispatchModifierFlags.None)
+        {
+            return DispatchShortcutHelper.ToModifierFlag(semanticAction.SecondaryCode);
+        }
+
+        Span<DispatchSemanticCode> modifierCodes = stackalloc DispatchSemanticCode[12];
+        int count = DispatchShortcutHelper.CopyModifierSemanticCodes(modifiers, modifierCodes);
+        int limit = Math.Min(count, modifierCodes.Length);
+        for (int index = 0; index < limit; index++)
+        {
+            if (LinuxKeyCodeMapper.TryMapSemanticCode(modifierCodes[index], out ushort candidate) &&
+                candidate == keyCode)
+            {
+                return DispatchShortcutHelper.ToModifierFlag(modifierCodes[index]);
+            }
+        }
+
+        return DispatchShortcutHelper.ToModifierFlag(semanticAction.SecondaryCode);
     }
 
     private static bool TryResolveMouseButtonCode(in DispatchEvent dispatchEvent, out ushort buttonCode)

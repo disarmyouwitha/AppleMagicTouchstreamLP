@@ -10,6 +10,7 @@ using System.Text.Json;
 using Microsoft.Win32;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Data;
 using System.Windows.Interop;
 using System.Windows.Input;
@@ -60,6 +61,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
     private bool _suppressActionComboFiltering;
     private bool _deferredKeyActionOptionsScheduled;
+    private bool _suppressGestureShortcutEditorEvents;
     private TrackpadLayoutPreset _preset;
     private ColumnLayoutSettings[] _columnSettings;
     private readonly RawInputContext _rawInputContext = new();
@@ -270,6 +272,19 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpperRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         LowerRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        ShortcutTargetPrimaryRadio.Checked += OnGestureShortcutEditorChanged;
+        ShortcutTargetHoldRadio.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutCtrlToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutCtrlToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutShiftToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutShiftToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutAltToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutWinToggle.Checked += OnGestureShortcutEditorChanged;
+        GestureShortcutWinToggle.Unchecked += OnGestureShortcutEditorChanged;
+        GestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
+        GestureShortcutApplyButton.Click += OnGestureShortcutApplyClicked;
+        GestureShortcutResetButton.Click += OnGestureShortcutResetClicked;
         CustomButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
         CustomButtonAddRightButton.Click += OnCustomButtonAddRightClicked;
         CustomButtonDeleteButton.Click += OnCustomButtonDeleteClicked;
@@ -495,6 +510,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _keyActionOptionLookup.Add(action.Value);
         }
 
+        SeedConfiguredActionOptions();
+
         foreach (ComboBox actionCombo in EnumerateActionCombos())
         {
             InitializeActionCombo(actionCombo);
@@ -611,6 +628,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         HoldRepeatModeCheck.IsChecked = _settings.HoldRepeatEnabled;
         ThreeFingerDragModeCheck.IsChecked = _settings.ThreeFingerDragEnabled;
+        SyncThreeFingerSwipeGestureAvailability();
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
@@ -632,6 +650,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshColumnLayoutEditor();
         _suppressSettingsEvents = false;
         UpdateAutocorrectStatusDetails();
+        InitializeGestureShortcutEditor();
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
@@ -644,10 +663,53 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return view;
     }
 
+    private void SeedConfiguredActionOptions()
+    {
+        foreach (KeyValuePair<int, Dictionary<string, KeyMapping>> layer in _keymap.Mappings)
+        {
+            foreach (KeyValuePair<string, KeyMapping> mappingEntry in layer.Value)
+            {
+                EnsureActionOption(mappingEntry.Value?.Primary?.Label);
+                EnsureActionOption(mappingEntry.Value?.Hold?.Label);
+            }
+        }
+
+        foreach (KeyValuePair<int, List<CustomButton>> customButtonsByLayer in _keymap.CustomButtons)
+        {
+            for (int index = 0; index < customButtonsByLayer.Value.Count; index++)
+            {
+                CustomButton button = customButtonsByLayer.Value[index];
+                EnsureActionOption(button.Primary?.Label);
+                EnsureActionOption(button.Hold?.Label);
+            }
+        }
+
+        foreach (string action in GestureBindingCatalog.EnumerateConfiguredActions(_settings))
+        {
+            EnsureActionOption(action);
+        }
+    }
+
+    private void RefreshActionComboViews()
+    {
+        foreach (ListCollectionView view in _actionViewsByCombo.Values)
+        {
+            view.Refresh();
+        }
+    }
+
     private IEnumerable<ComboBox> EnumerateActionCombos()
     {
         yield return KeymapPrimaryCombo;
         yield return KeymapHoldCombo;
+        foreach (ComboBox combo in EnumerateGestureActionCombos())
+        {
+            yield return combo;
+        }
+    }
+
+    private IEnumerable<ComboBox> EnumerateGestureActionCombos()
+    {
         yield return FiveFingerSwipeLeftGestureCombo;
         yield return FiveFingerSwipeRightGestureCombo;
         yield return FiveFingerSwipeUpGestureCombo;
@@ -858,6 +920,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ChordShiftEnabled = GestureBindingCatalog.UsesChordShift(_settings);
     }
 
+    private void SyncThreeFingerSwipeGestureAvailability()
+    {
+        bool enableThreeFingerSwipes = ThreeFingerDragModeCheck.IsChecked != true;
+        ThreeFingerSwipeLeftGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeRightGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeUpGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeDownGestureCombo.IsEnabled = enableThreeFingerSwipes;
+    }
+
     private void HookTuningAutoApplyHandlers()
     {
         TextBox[] boxes =
@@ -920,6 +991,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         UpdateAutocorrectStatusVisibility();
+        SyncThreeFingerSwipeGestureAvailability();
         ApplySettingsFromUi();
     }
 
@@ -931,6 +1003,175 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ApplySettingsFromUi();
+    }
+
+    private void InitializeGestureShortcutEditor()
+    {
+        GestureShortcutKeyCombo.ItemsSource = DispatchShortcutHelper.ShortcutKeyLabels;
+        ShortcutTargetPrimaryRadio.IsChecked = true;
+        RefreshGestureShortcutEditorUi();
+    }
+
+    private void RefreshGestureShortcutEditorUi()
+    {
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            if (!HasKeymapSelection())
+            {
+                GestureShortcutCtrlToggle.IsChecked = false;
+                GestureShortcutShiftToggle.IsChecked = false;
+                GestureShortcutAltToggle.IsChecked = false;
+                GestureShortcutWinToggle.IsChecked = false;
+                GestureShortcutKeyCombo.SelectedItem = null;
+            }
+            else
+            {
+                string selectedAction = ReadGestureActionSelection(GetShortcutTargetCombo(), "None");
+                if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                {
+                    GestureShortcutCtrlToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Ctrl |
+                        DispatchModifierFlags.LeftCtrl |
+                        DispatchModifierFlags.RightCtrl)) != 0;
+                    GestureShortcutShiftToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Shift |
+                        DispatchModifierFlags.LeftShift |
+                        DispatchModifierFlags.RightShift)) != 0;
+                    GestureShortcutAltToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Alt |
+                        DispatchModifierFlags.LeftAlt |
+                        DispatchModifierFlags.RightAlt)) != 0;
+                    GestureShortcutWinToggle.IsChecked = (modifiers & (
+                        DispatchModifierFlags.Meta |
+                        DispatchModifierFlags.LeftMeta |
+                        DispatchModifierFlags.RightMeta)) != 0;
+                    GestureShortcutKeyCombo.SelectedItem = keyLabel;
+                }
+                else
+                {
+                    GestureShortcutCtrlToggle.IsChecked = false;
+                    GestureShortcutShiftToggle.IsChecked = false;
+                    GestureShortcutAltToggle.IsChecked = false;
+                    GestureShortcutWinToggle.IsChecked = false;
+                    GestureShortcutKeyCombo.SelectedItem = null;
+                }
+            }
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutEditorChanged(object sender, RoutedEventArgs e)
+    {
+        if (_suppressGestureShortcutEditorEvents)
+        {
+            return;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutKeySelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (_suppressGestureShortcutEditorEvents)
+        {
+            return;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private void UpdateGestureShortcutPreview()
+    {
+        string preview = BuildGestureShortcutPreview();
+        GestureShortcutPreviewText.Text = string.IsNullOrEmpty(preview)
+            ? "Shortcut: none"
+            : $"Shortcut: {preview}";
+        GestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(preview);
+    }
+
+    private string BuildGestureShortcutPreview()
+    {
+        if (GestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
+            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
+        {
+            return string.Empty;
+        }
+
+        DispatchModifierFlags modifiers = DispatchModifierFlags.None;
+        if (GestureShortcutCtrlToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Ctrl;
+        }
+
+        if (GestureShortcutShiftToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Shift;
+        }
+
+        if (GestureShortcutAltToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Alt;
+        }
+
+        if (GestureShortcutWinToggle.IsChecked == true)
+        {
+            modifiers |= DispatchModifierFlags.Meta;
+        }
+
+        return modifiers == DispatchModifierFlags.None
+            ? string.Empty
+            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+    }
+
+    private void OnGestureShortcutApplyClicked(object sender, RoutedEventArgs e)
+    {
+        string shortcut = BuildGestureShortcutPreview();
+        if (!HasKeymapSelection() || string.IsNullOrEmpty(shortcut))
+        {
+            return;
+        }
+
+        EnsureActionOption(shortcut);
+        GetShortcutTargetCombo().SelectedValue = shortcut;
+        UpdateGestureShortcutPreview();
+    }
+
+    private void OnGestureShortcutResetClicked(object sender, RoutedEventArgs e)
+    {
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            GestureShortcutCtrlToggle.IsChecked = false;
+            GestureShortcutShiftToggle.IsChecked = false;
+            GestureShortcutAltToggle.IsChecked = false;
+            GestureShortcutWinToggle.IsChecked = false;
+            GestureShortcutKeyCombo.SelectedItem = null;
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+
+        UpdateGestureShortcutPreview();
+    }
+
+    private ComboBox GetShortcutTargetCombo()
+    {
+        return ShortcutTargetHoldRadio.IsChecked == true
+            ? KeymapHoldCombo
+            : KeymapPrimaryCombo;
+    }
+
+    private bool HasKeymapSelection()
+    {
+        return TryGetSelectedCustomButton(out _, out _) ||
+               TryGetSelectedKeyPosition(out _, out _, out _);
     }
 
     private void OnHapticsStrengthChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
@@ -2012,21 +2253,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
         }
 
-        string[] shortcuts =
-        {
-            "Ctrl+C",
-            "Ctrl+V",
-            "Ctrl+F",
-            "Ctrl+X",
-            "Ctrl+S",
-            "Ctrl+A",
-            "Ctrl+Z"
-        };
-        for (int i = 0; i < shortcuts.Length; i++)
-        {
-            AddKeyActionOption(options, shortcuts[i], "Shortcuts");
-        }
-
         AddKeyActionOption(options, "TO(0)", "Layers");
         for (int layer = 1; layer <= 3; layer++)
         {
@@ -2042,7 +2268,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         options.Add(new KeyActionOption(value, value, group));
     }
 
-    private void EnsureActionOption(string action)
+    private void EnsureActionOption(string? action)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -2066,6 +2292,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _keyActionOptions.Add(new KeyActionOption(action, action, "Custom"));
             _keyActionOptionLookup.Add(action);
+            RefreshActionComboViews();
             return true;
         }
         catch (InvalidOperationException)
@@ -2681,6 +2908,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _suppressKeymapActionEvents = true;
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
         {
+            CustomButtonsExpander.IsExpanded = true;
             KeymapPrimaryCombo.IsEnabled = true;
             KeymapHoldCombo.IsEnabled = true;
             CustomButtonDeleteButton.IsEnabled = true;
@@ -2699,11 +2927,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             CustomButtonHeightBox.Text = FormatNumber(selectedButton.Rect.Height * 100.0);
             KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
+            RefreshGestureShortcutEditorUi();
             return;
         }
 
         if (!TryGetSelectedKeyPosition(out TrackpadSide side, out int row, out int column))
         {
+            CustomButtonsExpander.IsExpanded = false;
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
@@ -2714,6 +2944,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ClearCustomButtonGeometryEditorValues();
             KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
+            RefreshGestureShortcutEditorUi();
             return;
         }
 
@@ -2729,6 +2960,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.IsEnabled = true;
         CustomButtonDeleteButton.IsEnabled = false;
         KeyRotationBox.IsEnabled = true;
+        CustomButtonsExpander.IsExpanded = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
         string defaultLabel = layout.Labels[row][column];
@@ -2742,6 +2974,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         KeymapHoldCombo.SelectedValue = hold;
         KeyRotationBox.Text = FormatNumber(_keymap.ResolveKeyGeometry(storageKey).RotationDegrees);
         _suppressKeymapActionEvents = false;
+        RefreshGestureShortcutEditorUi();
     }
 
     private void SetCustomButtonGeometryEditorEnabled(bool enabled)
@@ -2794,6 +3027,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         ApplySelectedKeymapOverride();
+        RefreshGestureShortcutEditorUi();
     }
 
     private void ApplySelectedKeymapOverride()
@@ -3085,18 +3319,30 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _selectedKeyColumn = -1;
         UpdateSelectedKeyHighlight();
         RefreshKeymapEditor();
-        ExpandKeymapEditorAndFocusPrimaryAction();
+        ExpandCustomButtonEditorAndFocusGeometry();
     }
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
     {
         KeymapEditorExpander.IsExpanded = true;
+        CustomButtonsExpander.IsExpanded = false;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
         {
-            KeymapEditorExpander.IsExpanded = true;
             KeymapPrimaryCombo.BringIntoView();
             KeymapPrimaryCombo.Focus();
             Keyboard.Focus(KeymapPrimaryCombo);
+        }));
+    }
+
+    private void ExpandCustomButtonEditorAndFocusGeometry()
+    {
+        KeymapEditorExpander.IsExpanded = true;
+        CustomButtonsExpander.IsExpanded = true;
+        Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
+        {
+            CustomButtonXBox.BringIntoView();
+            CustomButtonXBox.Focus();
+            Keyboard.Focus(CustomButtonXBox);
         }));
     }
 

@@ -296,6 +296,7 @@ internal static class EngineActionResolver
                 resolved,
                 virtualKey: 0xBE,
                 modifierVirtualKey: 0x5B,
+                modifierFlags: DispatchModifierFlags.Meta,
                 semanticPrimaryCode: DispatchSemanticCode.Dot,
                 semanticSecondaryCode: DispatchSemanticCode.LeftMeta);
         }
@@ -307,6 +308,7 @@ internal static class EngineActionResolver
                 resolved,
                 virtualKey: 0x48,
                 modifierVirtualKey: 0x5B,
+                modifierFlags: DispatchModifierFlags.Meta,
                 semanticPrimaryCode: DispatchSemanticCode.H,
                 semanticSecondaryCode: DispatchSemanticCode.LeftMeta);
         }
@@ -383,20 +385,13 @@ internal static class EngineActionResolver
         out EngineKeyAction action)
     {
         action = EngineKeyAction.None;
-        int plusIndex = text.IndexOf('+', StringComparison.Ordinal);
-        if (plusIndex <= 0 || plusIndex >= text.Length - 1)
-        {
-            return false;
-        }
-
-        string modifierLabel = text[..plusIndex].Trim();
-        string token = text[(plusIndex + 1)..].Trim();
-        if (!TryResolveModifierIdentity(modifierLabel, out ushort modifierVirtualKey, out DispatchSemanticCode modifierSemanticCode))
-        {
-            return false;
-        }
-
-        if (!TryResolveKeyIdentity(token, out ushort keyVk, out DispatchSemanticCode primaryCode))
+        if (!DispatchShortcutHelper.TryParseShortcut(
+                text,
+                out DispatchModifierFlags modifierFlags,
+                out ushort keyVk,
+                out DispatchSemanticCode primaryCode,
+                out DispatchSemanticCode modifierSemanticCode,
+                out ushort modifierVirtualKey))
         {
             return false;
         }
@@ -408,12 +403,14 @@ internal static class EngineActionResolver
             VirtualKey: keyVk,
             MouseButton: DispatchMouseButton.None,
             ModifierVirtualKey: modifierVirtualKey,
+            ModifierFlags: modifierFlags,
             SemanticAction: CreateSemanticAction(
                 EngineActionKind.KeyChord,
                 text,
                 primaryCode,
                 modifierSemanticCode,
-                DispatchMouseButton.None));
+                DispatchMouseButton.None,
+                modifierFlags));
         return true;
     }
 
@@ -460,12 +457,14 @@ internal static class EngineActionResolver
             VirtualKey: vk,
             MouseButton: DispatchMouseButton.None,
             ModifierVirtualKey: 0x10,
+            ModifierFlags: DispatchModifierFlags.Shift,
             SemanticAction: CreateSemanticAction(
                 EngineActionKind.KeyChord,
                 text,
                 primaryCode,
                 DispatchSemanticCode.Shift,
-                DispatchMouseButton.None));
+                DispatchMouseButton.None,
+                DispatchModifierFlags.Shift));
         return true;
     }
 
@@ -505,6 +504,7 @@ internal static class EngineActionResolver
         ushort virtualKey = 0,
         DispatchMouseButton mouseButton = DispatchMouseButton.None,
         ushort modifierVirtualKey = 0,
+        DispatchModifierFlags modifierFlags = DispatchModifierFlags.None,
         DispatchSemanticCode semanticPrimaryCode = DispatchSemanticCode.None,
         DispatchSemanticCode semanticSecondaryCode = DispatchSemanticCode.None)
     {
@@ -515,7 +515,8 @@ internal static class EngineActionResolver
             virtualKey,
             mouseButton,
             modifierVirtualKey,
-            CreateSemanticAction(kind, label, semanticPrimaryCode, semanticSecondaryCode, mouseButton));
+            modifierFlags,
+            CreateSemanticAction(kind, label, semanticPrimaryCode, semanticSecondaryCode, mouseButton, modifierFlags));
     }
 
     private static DispatchSemanticAction CreateSemanticAction(
@@ -523,7 +524,8 @@ internal static class EngineActionResolver
         string label,
         DispatchSemanticCode primaryCode,
         DispatchSemanticCode secondaryCode,
-        DispatchMouseButton mouseButton)
+        DispatchMouseButton mouseButton,
+        DispatchModifierFlags modifierFlags = DispatchModifierFlags.None)
     {
         DispatchSemanticKind semanticKind = kind switch
         {
@@ -539,7 +541,7 @@ internal static class EngineActionResolver
             _ => DispatchSemanticKind.None
         };
 
-        return new DispatchSemanticAction(semanticKind, label, primaryCode, secondaryCode, mouseButton);
+        return new DispatchSemanticAction(semanticKind, label, primaryCode, secondaryCode, mouseButton, modifierFlags);
     }
 
     private static bool TryResolveKeyIdentity(
