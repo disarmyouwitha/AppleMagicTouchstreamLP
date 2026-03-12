@@ -1,12 +1,5 @@
 ## User Issues:
-- Fix 3-finger holds like ctrl+alt+del 
-- Allow User-set key-combos!
----
-- allow option to override "3+ finger = gesture" rule:
-{ Every other gesture is modeled inside the engine. TouchProcessorCore.ProcessFrame runs swipes,
-    multi-finger holds, clicks, corner/triangle/force gestures, then intent arbitration in one place
-    in TouchProcessorCore.cs:681. The engine also reserves 3+ finger contact sets for
-    GestureCandidate, and there are tests that explicitly assert that in SelfTestRunner.cs:1036.}
+- add radio button for selecting primary or hold
 
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine
