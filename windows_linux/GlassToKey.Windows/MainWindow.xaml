@@ -342,16 +342,12 @@
                                Text="Shortcut: none"
                                Foreground="#cfe6f5"
                                FontSize="11" />
-                  </StackPanel>
-                </Border>
-                <Border Margin="0,12,0,0"
-                        Padding="12"
-                        CornerRadius="10"
-                        Background="#101821"
-                        BorderBrush="#2f5d78"
-                        BorderThickness="1">
-                  <StackPanel>
+                    <Border Margin="0,12,0,0"
+                            Padding="0"
+                            Background="#1a2430"
+                            Height="1" />
                     <TextBlock Text="App Launcher"
+                               Margin="0,12,0,0"
                                Foreground="#cfe6f5"
                                FontSize="12"
                                FontWeight="SemiBold" />
@@ -421,11 +417,11 @@
                     <Border Margin="10,0,0,0"
                             Padding="8,2"
                             CornerRadius="6"
-                            Background="#1A8FB6CF"
-                            BorderBrush="#2F4251"
+                            Background="#1A86C9A9"
+                            BorderBrush="#2E4E43"
                             BorderThickness="1">
                       <TextBlock Text="Custom Buttons"
-                                 Foreground="#8fb6cf"
+                                 Foreground="#86c9a9"
                                  FontSize="12"
                                  FontWeight="SemiBold" />
                     </Border>

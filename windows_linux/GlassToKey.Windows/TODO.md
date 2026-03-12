@@ -1,6 +1,6 @@
 ## CURRENT:
-- Can I implement an `App Launcher` into Custom Shortcuts?: Calculator.. VSCode.. Chrome? User decides!
-- Custom Buttons: Can we change the pill color to Green, like "Swipes" under Gesture Tuning?
+- In keymap editor remove "App:" and just display the filename. 
+- Remove Args and just use Shortcut builder apply/reset
 
 ## User Issues:
 - `chording with more than 3 keys doesn't register`: I think I should be able to "fix" rolling by exposing a slider for tuning tap cadence (ms). Marking 3+ finger chords as "won't fix: use Custom Shortcuts"

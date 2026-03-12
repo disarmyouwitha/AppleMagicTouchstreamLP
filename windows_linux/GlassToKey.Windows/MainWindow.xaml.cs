@@ -1101,6 +1101,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        if (sender is RadioButton)
+        {
+            RefreshGestureShortcutEditorUi();
+            RefreshAppLauncherEditorUi();
+            return;
+        }
+
         UpdateGestureShortcutPreview();
     }
 
