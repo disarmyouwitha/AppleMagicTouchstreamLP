@@ -21,6 +21,7 @@ namespace GlassToKey.Linux.Gui;
 public partial class MainWindow : Window
 {
     private const int MaxSupportedLayer = 3;
+    private const int LinuxForceSliderMaximum = 255;
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -265,6 +266,7 @@ public partial class MainWindow : Window
 
         foreach (TypingTuningSliderFieldDefinition field in TypingTuningCatalog.SliderFields)
         {
+            int linuxMaximum = GetLinuxTypingSliderMaximum(field);
             Grid row = new()
             {
                 Margin = new Thickness(0, 6, 0, 0),
@@ -289,7 +291,7 @@ public partial class MainWindow : Window
             Slider slider = new()
             {
                 Minimum = field.Minimum,
-                Maximum = field.Maximum,
+                Maximum = linuxMaximum,
                 TickFrequency = 1,
                 IsSnapToTickEnabled = true,
                 Height = 22
@@ -317,7 +319,7 @@ public partial class MainWindow : Window
             valuesGrid.Children.Add(valueText);
             TextBlock maxText = new()
             {
-                Text = field.Maximum.ToString(CultureInfo.InvariantCulture),
+                Text = linuxMaximum.ToString(CultureInfo.InvariantCulture),
                 FontSize = 10,
                 Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
@@ -774,7 +776,7 @@ public partial class MainWindow : Window
         {
             if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
             {
-                slider.Value = TypingTuningCatalog.GetSliderValue(profile, field);
+                slider.Value = ClampLinuxTypingSliderValue(field, TypingTuningCatalog.GetSliderValue(profile, field));
             }
         }
 
@@ -801,7 +803,7 @@ public partial class MainWindow : Window
         {
             if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider))
             {
-                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                int value = ClampLinuxTypingSliderValue(field, (int)Math.Round(slider.Value));
                 TypingTuningCatalog.SetSliderValue(profile, field, value);
             }
         }
@@ -825,7 +827,7 @@ public partial class MainWindow : Window
             if (_typingTuningSliders.TryGetValue(field.Id, out Slider? slider) &&
                 _typingTuningSliderValueTexts.TryGetValue(field.Id, out TextBlock? text))
             {
-                int value = (int)Math.Clamp(Math.Round(slider.Value), field.Minimum, field.Maximum);
+                int value = ClampLinuxTypingSliderValue(field, (int)Math.Round(slider.Value));
                 text.Text = value.ToString(CultureInfo.InvariantCulture);
             }
         }
@@ -848,6 +850,22 @@ public partial class MainWindow : Window
         }
 
         await SaveLiveSettingsAsync();
+    }
+
+    private static int GetLinuxTypingSliderMaximum(TypingTuningSliderFieldDefinition field)
+    {
+        if (string.Equals(field.Id, "force_min", StringComparison.Ordinal) ||
+            string.Equals(field.Id, "force_cap", StringComparison.Ordinal))
+        {
+            return Math.Min(field.Maximum, LinuxForceSliderMaximum);
+        }
+
+        return field.Maximum;
+    }
+
+    private static int ClampLinuxTypingSliderValue(TypingTuningSliderFieldDefinition field, int value)
+    {
+        return Math.Clamp(value, field.Minimum, GetLinuxTypingSliderMaximum(field));
     }
 
     private async void OnTypingTuningKeyDown(object? sender, KeyEventArgs e)
