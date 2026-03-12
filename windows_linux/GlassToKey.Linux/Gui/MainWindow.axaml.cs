@@ -710,6 +710,7 @@ public partial class MainWindow : Window
         }
 
         UpdateAutocorrectStatusVisibility();
+        UpdateThreeFingerSwipeGestureAvailability();
         await SaveLiveSettingsAsync();
     }
 
@@ -789,12 +790,30 @@ public partial class MainWindow : Window
         _snapRadiusModeCheck.IsChecked = profile.SnapRadiusPercent > 0.0;
         _holdRepeatModeCheck.IsChecked = profile.HoldRepeatEnabled;
         _threeFingerDragModeCheck.IsChecked = profile.ThreeFingerDragEnabled;
+        UpdateThreeFingerSwipeGestureAvailability();
         _startInTrayOnLaunchCheck.IsChecked = profile.StartInTrayOnLaunch;
         bool startupEnabled = LinuxStartupRegistration.IsEnabled();
         profile.RunAtStartup = startupEnabled;
         _runAtStartupCheck.IsChecked = startupEnabled;
         UpdateAutocorrectStatusVisibility();
         UpdateAutocorrectStatusDetails();
+    }
+
+    private void UpdateThreeFingerSwipeGestureAvailability()
+    {
+        bool enableThreeFingerSwipes = _threeFingerDragModeCheck.IsChecked != true;
+        SetGestureActionComboEnabled("three_finger_swipe_left", enableThreeFingerSwipes);
+        SetGestureActionComboEnabled("three_finger_swipe_right", enableThreeFingerSwipes);
+        SetGestureActionComboEnabled("three_finger_swipe_up", enableThreeFingerSwipes);
+        SetGestureActionComboEnabled("three_finger_swipe_down", enableThreeFingerSwipes);
+    }
+
+    private void SetGestureActionComboEnabled(string bindingId, bool isEnabled)
+    {
+        if (_gestureActionCombos.TryGetValue(bindingId, out ComboBox? combo))
+        {
+            combo.IsEnabled = isEnabled;
+        }
     }
 
     private void ApplyTypingTuningControls(UserSettings profile)

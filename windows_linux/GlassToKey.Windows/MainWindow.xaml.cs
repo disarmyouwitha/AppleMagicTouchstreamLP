@@ -628,6 +628,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         SnapRadiusModeCheck.IsChecked = _settings.SnapRadiusPercent > 0.0;
         HoldRepeatModeCheck.IsChecked = _settings.HoldRepeatEnabled;
         ThreeFingerDragModeCheck.IsChecked = _settings.ThreeFingerDragEnabled;
+        SyncThreeFingerSwipeGestureAvailability();
         bool startupEnabled = StartupRegistration.IsEnabled();
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
@@ -919,6 +920,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ChordShiftEnabled = GestureBindingCatalog.UsesChordShift(_settings);
     }
 
+    private void SyncThreeFingerSwipeGestureAvailability()
+    {
+        bool enableThreeFingerSwipes = ThreeFingerDragModeCheck.IsChecked != true;
+        ThreeFingerSwipeLeftGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeRightGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeUpGestureCombo.IsEnabled = enableThreeFingerSwipes;
+        ThreeFingerSwipeDownGestureCombo.IsEnabled = enableThreeFingerSwipes;
+    }
+
     private void HookTuningAutoApplyHandlers()
     {
         TextBox[] boxes =
@@ -981,6 +991,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         UpdateAutocorrectStatusVisibility();
+        SyncThreeFingerSwipeGestureAvailability();
         ApplySettingsFromUi();
     }
 

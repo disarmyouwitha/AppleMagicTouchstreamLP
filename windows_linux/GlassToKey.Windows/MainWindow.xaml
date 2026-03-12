@@ -346,7 +346,17 @@
                 </Border>
                 <Expander x:Name="CustomButtonsExpander" IsExpanded="False" Margin="0,12,0,0">
                   <Expander.Header>
-                    <TextBlock Text="Custom Buttons" Foreground="#8b949e" FontSize="12" />
+                    <Border Margin="10,0,0,0"
+                            Padding="8,2"
+                            CornerRadius="6"
+                            Background="#1A8FB6CF"
+                            BorderBrush="#2F4251"
+                            BorderThickness="1">
+                      <TextBlock Text="Custom Buttons"
+                                 Foreground="#8fb6cf"
+                                 FontSize="12"
+                                 FontWeight="SemiBold" />
+                    </Border>
                   </Expander.Header>
                   <StackPanel Margin="0,8,0,0">
                     <Grid>
