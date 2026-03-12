@@ -1,5 +1,6 @@
 ## User Issues:
-- add radio button for selecting primary or hold
+- Okay, I made a Mistake. I asked you to move Custom Buttons into it's own collapsable, and add logic to make it an accordian and open one and close the other.. I don't like that. Custom Buttons belongs inside Keymap Tuning, and it can remain collapsed unless a custom button is clicked. I made another mistake in asking you to put the shortcut builder above "key rotation" please move it underneath `key rotation` and above Custom Buttons.
+- App Launcher: Shortcut.. VSCode.. Chrome? You decide!
 
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine

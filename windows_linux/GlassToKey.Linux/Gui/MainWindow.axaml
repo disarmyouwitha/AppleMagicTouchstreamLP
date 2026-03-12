@@ -10,6 +10,28 @@
     <x:Double x:Key="TrackpadPreviewInnerWidth">700</x:Double>
     <x:Double x:Key="TrackpadPreviewInnerHeight">420</x:Double>
   </Window.Resources>
+  <Window.Styles>
+    <Style Selector="ToggleButton.shortcutModifierToggle">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Foreground" Value="#CFD7DC" />
+      <Setter Property="Background" Value="#111821" />
+      <Setter Property="BorderBrush" Value="#2F4251" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:pointerover">
+      <Setter Property="Background" Value="#162431" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:checked">
+      <Setter Property="Background" Value="#1F4A67" />
+      <Setter Property="BorderBrush" Value="#6EB4DF" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+  </Window.Styles>
   <Grid RowDefinitions="Auto,*">
     <Border Background="#23303A" Padding="24,18">
       <Grid ColumnDefinitions="*,Auto">
@@ -318,27 +340,30 @@
                           <RadioButton x:Name="ShortcutTargetPrimaryRadio"
                                        GroupName="ShortcutTarget"
                                        Content="Primary"
+                                       Foreground="#CFE6F5"
                                        IsChecked="True"
                                        Margin="0,0,8,0" />
                           <RadioButton x:Name="ShortcutTargetHoldRadio"
                                        Grid.Column="1"
                                        GroupName="ShortcutTarget"
+                                       Foreground="#CFE6F5"
                                        Content="Hold" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*,*">
                           <ToggleButton x:Name="GestureShortcutCtrlToggle"
-                                        Margin="0,0,6,0"
+                                        Classes="shortcutModifierToggle"
                                         Content="Ctrl" />
                           <ToggleButton x:Name="GestureShortcutShiftToggle"
                                         Grid.Column="1"
-                                        Margin="0,0,6,0"
+                                        Classes="shortcutModifierToggle"
                                         Content="Shift" />
                           <ToggleButton x:Name="GestureShortcutAltToggle"
                                         Grid.Column="2"
-                                        Margin="0,0,6,0"
+                                        Classes="shortcutModifierToggle"
                                         Content="Alt" />
                           <ToggleButton x:Name="GestureShortcutWinToggle"
                                         Grid.Column="3"
+                                        Classes="shortcutModifierToggle"
                                         Content="Win" />
                         </Grid>
                         <Grid ColumnDefinitions="Auto,*,Auto,Auto">

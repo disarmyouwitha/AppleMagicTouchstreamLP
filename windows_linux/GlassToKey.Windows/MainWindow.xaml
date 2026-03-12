@@ -17,6 +17,42 @@
     <Style x:Key="KeymapActionComboItemStyle" TargetType="{x:Type ComboBoxItem}">
       <Setter Property="Padding" Value="8,3" />
     </Style>
+    <Style x:Key="ShortcutModifierToggleStyle" TargetType="{x:Type ToggleButton}">
+      <Setter Property="Margin" Value="0,0,6,6" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Foreground" Value="#cfd7dc" />
+      <Setter Property="Background" Value="#111821" />
+      <Setter Property="BorderBrush" Value="#2f4251" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="{x:Type ToggleButton}">
+            <Border x:Name="ShortcutToggleBorder"
+                    Background="{TemplateBinding Background}"
+                    BorderBrush="{TemplateBinding BorderBrush}"
+                    BorderThickness="{TemplateBinding BorderThickness}"
+                    CornerRadius="8">
+              <ContentPresenter HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                                Margin="{TemplateBinding Padding}" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="ShortcutToggleBorder" Property="Background" Value="#162431" />
+              </Trigger>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="ShortcutToggleBorder" Property="Background" Value="#1f4a67" />
+                <Setter TargetName="ShortcutToggleBorder" Property="BorderBrush" Value="#6eb4df" />
+              </Trigger>
+              <Trigger Property="IsEnabled" Value="False">
+                <Setter Property="Opacity" Value="0.45" />
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions>
@@ -230,11 +266,13 @@
                       <RadioButton x:Name="ShortcutTargetPrimaryRadio"
                                    GroupName="ShortcutTarget"
                                    Content="Primary"
+                                   Foreground="#cfe6f5"
                                    IsChecked="True"
                                    Margin="0,0,8,0" />
                       <RadioButton x:Name="ShortcutTargetHoldRadio"
                                    Grid.Column="1"
                                    GroupName="ShortcutTarget"
+                                   Foreground="#cfe6f5"
                                    Content="Hold" />
                     </Grid>
                     <Grid Margin="0,10,0,0">
@@ -247,21 +285,22 @@
                       <ToggleButton x:Name="GestureShortcutCtrlToggle"
                                     Content="Ctrl"
                                     Height="28"
-                                    Margin="0,0,6,0" />
+                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
                       <ToggleButton x:Name="GestureShortcutShiftToggle"
                                     Grid.Column="1"
                                     Content="Shift"
                                     Height="28"
-                                    Margin="0,0,6,0" />
+                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
                       <ToggleButton x:Name="GestureShortcutAltToggle"
                                     Grid.Column="2"
                                     Content="Alt"
                                     Height="28"
-                                    Margin="0,0,6,0" />
+                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
                       <ToggleButton x:Name="GestureShortcutWinToggle"
                                     Grid.Column="3"
                                     Content="Win"
-                                    Height="28" />
+                                    Height="28"
+                                    Style="{StaticResource ShortcutModifierToggleStyle}" />
                     </Grid>
                     <Grid Margin="0,10,0,0">
                       <Grid.ColumnDefinitions>
