@@ -130,7 +130,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private bool IsReplayMode => _replayData != null;
     private bool UsesSharedRuntime => !IsReplayMode && _runtimeService != null;
-    public bool IsAutocorrectEnabled => _settings.AutocorrectEnabled;
+    public bool IsMemorySaverEnabled => _settings.MemorySaverEnabled;
 
     private static Brush CreateFrozenBrush(string colorHex)
     {
@@ -229,6 +229,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RunAtStartupCheck.Unchecked += OnModeSettingChanged;
         StartInTrayOnLaunchCheck.Checked += OnModeSettingChanged;
         StartInTrayOnLaunchCheck.Unchecked += OnModeSettingChanged;
+        MemorySaverModeCheck.Checked += OnModeSettingChanged;
+        MemorySaverModeCheck.Unchecked += OnModeSettingChanged;
         HoldRepeatModeCheck.Checked += OnModeSettingChanged;
         HoldRepeatModeCheck.Unchecked += OnModeSettingChanged;
         ThreeFingerDragModeCheck.Checked += OnModeSettingChanged;
@@ -293,14 +295,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
             _dispatchQueue = new DispatchEventQueue();
-            _touchActor = new TouchProcessorActor(_touchCore, dispatchQueue: _dispatchQueue);
             _sendInputDispatcher = new SendInputDispatcher();
+            _touchActor = new TouchProcessorActor(
+                _touchCore,
+                dispatchQueue: _dispatchQueue,
+                threeFingerDragSink: _sendInputDispatcher);
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
+            _touchActor.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
             _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
 
@@ -609,6 +615,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.RunAtStartup = startupEnabled;
         RunAtStartupCheck.IsChecked = startupEnabled;
         StartInTrayOnLaunchCheck.IsChecked = _settings.StartInTrayOnLaunch;
+        MemorySaverModeCheck.IsChecked = _settings.MemorySaverEnabled;
         InitializeDecoderProfileCombos();
         RefreshDecoderProfileCombos();
 
@@ -1075,6 +1082,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.ThreeFingerDragEnabled = ThreeFingerDragModeCheck.IsChecked == true;
         bool startupRequested = RunAtStartupCheck.IsChecked == true;
         _settings.StartInTrayOnLaunch = StartInTrayOnLaunchCheck.IsChecked == true;
+        _settings.MemorySaverEnabled = MemorySaverModeCheck.IsChecked == true;
         if (_settings.RunAtStartup != startupRequested)
         {
             if (!StartupRegistration.TrySetEnabled(startupRequested, out string? startupError))
@@ -1363,6 +1371,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _touchActor.Configure(BuildConfigFromSettings());
             _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
+            _touchActor.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(_activeLayer);

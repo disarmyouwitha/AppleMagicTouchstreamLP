@@ -371,7 +371,7 @@ public partial class App : Application
         }
 
         bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
-            !window.IsAutocorrectEnabled;
+            window.IsMemorySaverEnabled;
 
         if (shouldRestartToTrayOnClose)
         {

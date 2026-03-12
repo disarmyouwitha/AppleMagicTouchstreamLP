@@ -788,13 +788,24 @@
                 <TextBlock Text="Mode Toggles" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
-                <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="StartInTrayOnLaunchCheck" Content="Start in taskbar (tray only)" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="HoldRepeatModeCheck" Content="Hold Repeat" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="ThreeFingerDragModeCheck" Content="3-Finger Drag" Foreground="#8b949e" Margin="0,4,0,0" />
-                <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" />
+                <Grid Margin="0,0,0,4">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel Grid.Column="0" Margin="0,0,10,0">
+                    <CheckBox x:Name="RunAtStartupCheck" Content="Run at Windows startup" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Launches GlassToKey automatically when you sign in to Windows." />
+                    <CheckBox x:Name="StartInTrayOnLaunchCheck" Content="Start in taskbar" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Starts GlassToKey in the system tray without opening the config window." />
+                    <CheckBox x:Name="ThreeFingerDragModeCheck" Content="3-Finger Drag" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Lets three-finger drag gestures control pointer dragging when drag handling is active." />
+                    <CheckBox x:Name="SnapRadiusModeCheck" Content="Snap Radius" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Expands key hit detection so nearby touches snap to the closest key." />
+                  </StackPanel>
+                  <StackPanel Grid.Column="1" Margin="10,0,0,0">
+                    <CheckBox x:Name="KeyboardModeCheck" Content="Keyboard/Mouse" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Supress mouse clicks with Keyboard mode" />
+                    <CheckBox x:Name="HoldRepeatModeCheck" Content="Hold Repeat" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Repeats hold-enabled key actions while you keep the touch held." />
+                    <CheckBox x:Name="MemorySaverModeCheck" Content="Memory Saver" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="Restarts GTK when config is closed to release memory" />
+                    <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="enables word correction via SymSpell" />
+                  </StackPanel>
+                </Grid>
                 <Border x:Name="AutocorrectStatusBorder" Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                   <StackPanel>
                     <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />

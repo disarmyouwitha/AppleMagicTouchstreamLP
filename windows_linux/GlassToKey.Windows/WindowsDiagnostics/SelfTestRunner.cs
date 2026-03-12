@@ -59,6 +59,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Momentary-layer directional tests failed: {momentaryLayerFailure}");
         }
 
+        if (!RunHoldTriggeredMomentaryLayerTests(out string holdMomentaryFailure))
+        {
+            return new SelfTestResult(false, $"Hold-triggered momentary-layer tests failed: {holdMomentaryFailure}");
+        }
+
         if (!RunTypingToggleDispatchResumeTests(out string typingToggleFailure))
         {
             return new SelfTestResult(false, $"Typing toggle tests failed: {typingToggleFailure}");
@@ -2363,24 +2368,22 @@ internal static class SelfTestRunner
         const ushort maxX = 7612;
         const ushort maxY = 5065;
 
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TestThreeFingerDragSink sink = new();
-        ThreeFingerDragController controller = new(sink);
-        controller.SetEnabled(true);
+        TouchProcessorCore dragCore = TouchProcessorFactory.CreateDefault(keymap);
+        using TouchProcessorActor dragActor = new(dragCore, threeFingerDragSink: sink);
+        dragActor.SetThreeFingerDragEnabled(true);
 
-        long startTicks = Stopwatch.Frequency;
+        long now = Stopwatch.Frequency;
         InputFrame startFrame = CreateThreeFingerFrame(
             (1000, 1200),
             (1800, 1500),
             (2600, 1800));
-        if (!controller.ProcessFrame(TrackpadSide.Left, in startFrame, maxX, maxY, startTicks))
-        {
-            failure = "controller should consume initial three-finger candidate frames";
-            return false;
-        }
-
+        dragActor.Post(TrackpadSide.Left, in startFrame, maxX, maxY, now);
+        dragActor.WaitForIdle();
         if (sink.LeftButtonDownCount != 0 || sink.MoveCount != 0)
         {
-            failure = "controller should not click or move before activation";
+            failure = "engine drag path should not activate on the initial stationary three-finger frame";
             return false;
         }
 
@@ -2388,80 +2391,111 @@ internal static class SelfTestRunner
             (1200, 1200),
             (2000, 1500),
             (2800, 1800));
-        if (!controller.ProcessFrame(TrackpadSide.Left, in movedFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 20)))
-        {
-            failure = "controller should keep consuming active drag frames";
-            return false;
-        }
-
+        now += Stopwatch.Frequency / 20;
+        dragActor.Post(TrackpadSide.Left, in movedFrame, maxX, maxY, now);
+        dragActor.WaitForIdle();
         if (sink.LeftButtonDownCount != 1 || sink.MoveCount == 0 || sink.TotalDeltaX <= 0)
         {
-            failure = "movement activation should press left mouse and emit pointer motion";
+            failure = "movement activation should press left mouse and emit pointer motion through the actor";
             return false;
         }
 
         InputFrame residualFrame = MakeFrame(contactCount: 1, id0: 80, x0: 3000, y0: 1900);
-        if (!controller.ProcessFrame(TrackpadSide.Left, in residualFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 12)))
-        {
-            failure = "controller should keep swallowing residual drag fingers until all-up";
-            return false;
-        }
-
+        now += Stopwatch.Frequency / 20;
+        dragActor.Post(TrackpadSide.Left, in residualFrame, maxX, maxY, now);
+        dragActor.WaitForIdle();
         if (sink.LeftButtonUpCount != 1)
         {
             failure = "residual drag fingers should release the synthetic left button exactly once";
             return false;
         }
 
-        if (controller.ConsumeCompletedDragSequence())
-        {
-            failure = "controller should not report drag completion before all-up";
-            return false;
-        }
-
         InputFrame releaseFrame = default;
-        if (controller.ProcessFrame(TrackpadSide.Left, in releaseFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 10)))
+        now += Stopwatch.Frequency / 200;
+        dragActor.Post(TrackpadSide.Left, in releaseFrame, maxX, maxY, now);
+        dragActor.WaitForIdle();
+        TouchProcessorSnapshot dragSnapshot = dragActor.Snapshot();
+        if (sink.LeftButtonUpCount != 1 || dragSnapshot.ContactCount != 0 || dragSnapshot.IntentMode != IntentMode.Idle)
         {
-            failure = "controller should allow the terminating all-up frame to reach the engine";
+            failure = $"drag completion did not return the engine to idle cleanly (buttonUp={sink.LeftButtonUpCount}, contacts={dragSnapshot.ContactCount}, intent={dragSnapshot.IntentMode})";
             return false;
         }
 
-        if (sink.LeftButtonUpCount != 1)
+        TouchProcessorCore holdCore = TouchProcessorFactory.CreateDefault(keymap);
+        holdCore.Configure(holdCore.CurrentConfig with
         {
-            failure = "release should synthesize a left mouse button up";
-            return false;
-        }
-
-        if (!controller.ConsumeCompletedDragSequence())
-        {
-            failure = "controller should report drag completion once the terminating all-up frame is observed";
-            return false;
-        }
-
+            HoldDurationMs = 120.0,
+            ThreeFingerHoldAction = "A"
+        });
+        using DispatchEventQueue holdQueue = new(capacity: 64);
         sink = new TestThreeFingerDragSink();
-        controller = new ThreeFingerDragController(sink);
-        controller.SetEnabled(true);
-        if (!controller.ProcessFrame(TrackpadSide.Right, in startFrame, maxX, maxY, startTicks))
-        {
-            failure = "controller should consume right-side three-finger candidates";
-            return false;
-        }
+        using TouchProcessorActor holdActor = new(holdCore, dispatchQueue: holdQueue, threeFingerDragSink: sink);
+        holdActor.SetThreeFingerDragEnabled(true);
 
+        now = 0;
         InputFrame heldFrame = CreateThreeFingerFrame(
             (1004, 1202),
             (1802, 1498),
             (2601, 1801));
-        controller.ProcessFrame(TrackpadSide.Right, in heldFrame, maxX, maxY, startTicks + (Stopwatch.Frequency / 8));
-        if (sink.LeftButtonDownCount != 1 || sink.MoveCount != 0)
+        holdActor.Post(TrackpadSide.Right, in startFrame, maxX, maxY, now);
+        now += MsToTicks(260);
+        holdActor.Post(TrackpadSide.Right, in heldFrame, maxX, maxY, now);
+        now += MsToTicks(10);
+        holdActor.Post(TrackpadSide.Right, in releaseFrame, maxX, maxY, now);
+        holdActor.WaitForIdle();
+        int holdATaps = 0;
+        while (holdQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
         {
-            failure = "hold activation should press left mouse without synthetic movement";
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                holdATaps++;
+            }
+        }
+
+        if (sink.LeftButtonDownCount != 0 || sink.MoveCount != 0 || holdATaps != 1)
+        {
+            failure = $"stationary three-finger hold should not be stolen by drag (buttonDown={sink.LeftButtonDownCount}, move={sink.MoveCount}, holdATaps={holdATaps})";
             return false;
         }
 
-        controller.SetEnabled(false);
-        if (sink.LeftButtonUpCount != 1)
+        TouchProcessorCore clickCore = TouchProcessorFactory.CreateDefault(keymap);
+        clickCore.Configure(clickCore.CurrentConfig with
         {
-            failure = "disabling the feature mid-drag should release the left mouse button";
+            ThreeFingerClickAction = "Left Click"
+        });
+        using DispatchEventQueue clickQueue = new(capacity: 64);
+        sink = new TestThreeFingerDragSink();
+        using TouchProcessorActor clickActor = new(clickCore, dispatchQueue: clickQueue, threeFingerDragSink: sink);
+        clickActor.SetThreeFingerDragEnabled(true);
+
+        now = 0;
+        InputFrame clickDown = CreateThreeFingerFrame(
+            (1400, 1800),
+            (2200, 1900),
+            (3000, 2000));
+        InputFrame clickPress = clickDown;
+        clickPress.IsButtonClicked = 1;
+        clickActor.Post(TrackpadSide.Left, in clickDown, maxX, maxY, now);
+        now += MsToTicks(5);
+        clickActor.Post(TrackpadSide.Left, in clickPress, maxX, maxY, now);
+        now += MsToTicks(5);
+        clickActor.Post(TrackpadSide.Left, in clickDown, maxX, maxY, now);
+        now += MsToTicks(5);
+        clickActor.Post(TrackpadSide.Left, in releaseFrame, maxX, maxY, now);
+        clickActor.WaitForIdle();
+        int clickCount = 0;
+        while (clickQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.MouseButtonClick &&
+                dispatchEvent.MouseButton == DispatchMouseButton.Left)
+            {
+                clickCount++;
+            }
+        }
+
+        if (sink.LeftButtonDownCount != 0 || sink.MoveCount != 0 || clickCount != 1)
+        {
+            failure = $"three-finger click should coexist with drag-enabled runtime (buttonDown={sink.LeftButtonDownCount}, move={sink.MoveCount}, clickCount={clickCount})";
             return false;
         }
 
@@ -2596,6 +2630,118 @@ internal static class SelfTestRunner
                 failure = $"{name} failed: {reason}; snapshot={snapshot.ToSummary()}";
                 return false;
             }
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunHoldTriggeredMomentaryLayerTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        string holdMoStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 0);
+        string holdTargetStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 1);
+        keymap.Mappings[0][holdMoStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = new KeyAction { Label = "MO(1)" }
+        };
+        keymap.Mappings[0][holdTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        keymap.Mappings[1][holdMoStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "None" },
+            Hold = null
+        };
+        keymap.Mappings[1][holdTargetStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        NormalizedRect holdMoRect = leftLayout.Rects[0][0];
+        NormalizedRect holdTargetRect = leftLayout.Rects[0][1];
+        ushort holdMoX = (ushort)Math.Clamp((int)Math.Round((holdMoRect.X + (holdMoRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort holdMoY = (ushort)Math.Clamp((int)Math.Round((holdMoRect.Y + (holdMoRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort holdTargetX = (ushort)Math.Clamp((int)Math.Round((holdTargetRect.X + (holdTargetRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort holdTargetY = (ushort)Math.Clamp((int)Math.Round((holdTargetRect.Y + (holdTargetRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            HoldDurationMs = 120.0
+        });
+
+        using DispatchEventQueue queue = new(capacity: 128);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame holdDown = MakeFrame(contactCount: 1, id0: 231, x0: holdMoX, y0: holdMoY);
+        InputFrame holdAndTargetDown = MakeFrame(contactCount: 2, id0: 231, x0: holdMoX, y0: holdMoY, id1: 232, x1: holdTargetX, y1: holdTargetY);
+        InputFrame holdOnly = MakeFrame(contactCount: 1, id0: 231, x0: holdMoX, y0: holdMoY);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        actor.Post(TrackpadSide.Left, in holdDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(140);
+        actor.Post(TrackpadSide.Left, in holdDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        TouchProcessorSnapshot activeSnapshot = actor.Snapshot();
+        if (activeSnapshot.ActiveLayer != 1 || !activeSnapshot.MomentaryLayerActive)
+        {
+            failure = $"hold MO did not activate layer 1 (snapshot={activeSnapshot.ToSummary()})";
+            return false;
+        }
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in holdAndTargetDown, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in holdOnly, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        TouchProcessorSnapshot releasedSnapshot = actor.Snapshot();
+        if (releasedSnapshot.ActiveLayer != 0 || releasedSnapshot.MomentaryLayerActive)
+        {
+            failure = $"hold MO did not release back to layer 0 (snapshot={releasedSnapshot.ToSummary()})";
+            return false;
+        }
+
+        int aTapCount = 0;
+        int otherEventCount = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                aTapCount++;
+            }
+            else
+            {
+                otherEventCount++;
+            }
+        }
+
+        if (aTapCount != 1 || otherEventCount != 0)
+        {
+            failure = $"hold MO target dispatch mismatch (aTapCount={aTapCount}, otherEvents={otherEventCount}, expected=1/0)";
+            return false;
         }
 
         failure = string.Empty;
