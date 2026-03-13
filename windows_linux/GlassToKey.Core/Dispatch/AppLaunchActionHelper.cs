@@ -74,7 +74,19 @@ public static class AppLaunchActionHelper
             : action?.Trim() ?? string.Empty;
     }
 
+    public static string GetKeymapDisplayLabel(string? action)
+    {
+        return TryParse(action, out AppLaunchActionSpec spec)
+            ? FormatDisplayLabel(spec, includePrefix: false)
+            : action?.Trim() ?? string.Empty;
+    }
+
     public static string FormatDisplayLabel(AppLaunchActionSpec spec)
+    {
+        return FormatDisplayLabel(spec, includePrefix: true);
+    }
+
+    public static string FormatDisplayLabel(AppLaunchActionSpec spec, bool includePrefix)
     {
         string fileName = spec.FileName.Trim();
         string leafName = Path.GetFileName(fileName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
@@ -84,8 +96,13 @@ public static class AppLaunchActionHelper
         }
 
         string display = string.IsNullOrWhiteSpace(spec.Arguments)
-            ? $"App: {leafName}"
-            : $"App: {leafName} {spec.Arguments.Trim()}";
+            ? leafName
+            : $"{leafName} {spec.Arguments.Trim()}";
+        if (includePrefix)
+        {
+            display = $"App: {display}";
+        }
+
         return display.Length <= MaxDisplayLength
             ? display
             : display.Substring(0, MaxDisplayLength - 3) + "...";

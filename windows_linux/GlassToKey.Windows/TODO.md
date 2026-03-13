@@ -1,15 +1,11 @@
-## CURRENT:
-- In keymap editor remove "App:" and just display the filename. 
-- Remove Args and just use Shortcut builder apply/reset
-
 ## User Issues:
-- `chording with more than 3 keys doesn't register`: I think I should be able to "fix" rolling by exposing a slider for tuning tap cadence (ms). Marking 3+ finger chords as "won't fix: use Custom Shortcuts"
 - Test: `momentary layer not working when used as a hold action` Backspace / MO(1) with custom button underneath makes input go crazy (interaction with another layer?)
 - Try: `left click every time I press a key` I think you actually pointed out one avenue I haven't explored and that is setting that taps windows Mouse events and eats them if they are under Force Min. (This way you could set an Actuation Force basically that determines if you are mouse tapping(lighter) or key tapping (harder))
+- `chording with more than 3 keys doesn't register`: I think I should be able to "fix" rolling by exposing a slider for tuning tap cadence (ms), if it is an issue.
 
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine
-- `Suppress Mouse in Keyboard mode` should be an OPTION
+- `Suppress Mouse in Keyboard mode` should be an OPTION *******
 ---
 - caps lock button?
 - What other actions could we add??
