@@ -1896,7 +1896,6 @@ public partial class MainWindow : Window
         string[] modifiers =
         {
             "Shift",
-            "Chordal Shift",
             "Ctrl",
             "Alt",
             "LWin",
@@ -1907,15 +1906,11 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, modifiers[i]);
         }
 
-        AddActionSection(options, "Modes");
         string[] modes =
         {
+            "Chordal Shift",
             "Typing Toggle"
         };
-        for (int i = 0; i < modes.Length; i++)
-        {
-            AddKeyActionChoice(options, modes[i]);
-        }
 
         AddActionSection(options, "Symbols");
         string[] symbols =
@@ -1976,6 +1971,13 @@ public partial class MainWindow : Window
             "BRIGHT_UP",
             "BRIGHT_DOWN"
         };
+
+        AddActionSection(options, "Modes");
+        for (int i = 0; i < modes.Length; i++)
+        {
+            AddKeyActionChoice(options, modes[i]);
+        }
+
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
             AddKeyActionChoice(options, systemAndMedia[i]);

@@ -2291,7 +2291,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string[] modifiers =
         {
             "Shift",
-            "Chordal Shift",
             "Ctrl",
             "Alt",
             "LWin",
@@ -2304,12 +2303,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         string[] modes =
         {
+            "Chordal Shift",
             "Typing Toggle"
         };
-        for (int i = 0; i < modes.Length; i++)
-        {
-            AddKeyActionOption(options, modes[i], "Modes");
-        }
 
         string[] symbols =
         {
@@ -2366,6 +2362,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "BRIGHT_UP",
             "BRIGHT_DOWN"
         };
+
+        for (int i = 0; i < modes.Length; i++)
+        {
+            AddKeyActionOption(options, modes[i], "Modes");
+        }
+
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
