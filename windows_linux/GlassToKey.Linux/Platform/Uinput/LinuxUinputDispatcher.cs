@@ -117,6 +117,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                     }
                     break;
                 case DispatchEventKind.AppLaunch:
+                    _autocorrect.NotifyNonWordKey();
                     break;
             }
 

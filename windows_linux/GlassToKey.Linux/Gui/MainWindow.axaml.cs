@@ -1,6 +1,7 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Templates;
 using Avalonia.Interactivity;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -27,6 +28,9 @@ public partial class MainWindow : Window
     private const double KeyWidthMm = 18.0;
     private const double KeyHeightMm = 17.0;
     private const double MinCustomButtonPercent = 5.0;
+    private const string TerminalLauncherCommand = "x-terminal-emulator";
+    private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
+    private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
     private readonly LinuxAppRuntime _runtime = new();
     private readonly LinuxDesktopRuntimeController _desktopRuntime;
     private KeyLayout _leftRenderedLayout = new(Array.Empty<NormalizedRect[]>(), Array.Empty<string[]>());
@@ -51,8 +55,9 @@ public partial class MainWindow : Window
     private readonly ToggleButton _gestureShortcutAltToggle;
     private readonly ToggleButton _gestureShortcutWinToggle;
     private readonly ComboBox _gestureShortcutKeyCombo;
+    private readonly TextBox _appLauncherFileBox;
+    private readonly Button _appLauncherBrowseButton;
     private readonly Button _gestureShortcutApplyButton;
-    private readonly Button _gestureShortcutResetButton;
     private readonly TextBlock _gestureShortcutPreviewText;
     private readonly CheckBox _keyboardModeCheck;
     private readonly CheckBox _runAtStartupCheck;
@@ -104,8 +109,8 @@ public partial class MainWindow : Window
     private readonly Canvas _leftPreviewCanvas;
     private readonly Canvas _rightPreviewCanvas;
     private readonly DispatcherTimer _replayTimer;
-    private readonly List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
-    private readonly HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
+    private List<KeyActionChoice> _keyActionChoices = BuildKeyActionChoices();
+    private HashSet<string> _keyActionChoiceLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, TextBox> _typingTuningTextBoxes = new(StringComparer.Ordinal);
     private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TextBlock> _typingTuningSliderValueTexts = new(StringComparer.Ordinal);
@@ -120,6 +125,7 @@ public partial class MainWindow : Window
     private bool _suppressColumnLayoutEvents;
     private bool _suppressKeymapEditorEvents;
     private bool _suppressGestureShortcutEditorEvents;
+    private bool _suppressAppLauncherEditorEvents;
     private bool _suppressReplayTimelineEvents;
     private bool _suppressReplaySpeedEvents;
     private bool _hasSelectedKey;
@@ -180,8 +186,9 @@ public partial class MainWindow : Window
         _gestureShortcutAltToggle = RequireControl<ToggleButton>("GestureShortcutAltToggle");
         _gestureShortcutWinToggle = RequireControl<ToggleButton>("GestureShortcutWinToggle");
         _gestureShortcutKeyCombo = RequireControl<ComboBox>("GestureShortcutKeyCombo");
+        _appLauncherFileBox = RequireControl<TextBox>("AppLauncherFileBox");
+        _appLauncherBrowseButton = RequireControl<Button>("AppLauncherBrowseButton");
         _gestureShortcutApplyButton = RequireControl<Button>("GestureShortcutApplyButton");
-        _gestureShortcutResetButton = RequireControl<Button>("GestureShortcutResetButton");
         _gestureShortcutPreviewText = RequireControl<TextBlock>("GestureShortcutPreviewText");
         _keyboardModeCheck = RequireControl<CheckBox>("KeyboardModeCheck");
         _runAtStartupCheck = RequireControl<CheckBox>("RunAtStartupCheck");
@@ -232,6 +239,8 @@ public partial class MainWindow : Window
         _rightPreviewText = RequireControl<TextBlock>("RightPreviewText");
         _leftPreviewCanvas = RequireControl<Canvas>("LeftPreviewCanvas");
         _rightPreviewCanvas = RequireControl<Canvas>("RightPreviewCanvas");
+        _keymapPrimaryCombo.ItemTemplate = KeyActionChoiceTemplate;
+        _keymapHoldCombo.ItemTemplate = KeyActionChoiceTemplate;
         _replayTimer = new DispatcherTimer(DispatcherPriority.Render)
         {
             Interval = TimeSpan.FromMilliseconds(8)
@@ -270,17 +279,18 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             row.Children.Add(new TextBlock
             {
                 Text = field.Label,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
             });
 
             TextBox box = new()
             {
-                Width = 90,
+                MinWidth = 90,
                 Margin = new Thickness(8, 0, 0, 0),
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
@@ -299,12 +309,13 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
             row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(170) });
+            row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
             row.Children.Add(new TextBlock
             {
                 Text = field.Label,
-                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                TextWrapping = TextWrapping.Wrap
             });
 
             StackPanel sliderPanel = new()
@@ -371,12 +382,13 @@ public partial class MainWindow : Window
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
         };
         row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(140) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
 
         row.Children.Add(new TextBlock
         {
             Text = "Haptic Strength",
-            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            TextWrapping = TextWrapping.Wrap
         });
 
         StackPanel sliderPanel = new()
@@ -530,7 +542,8 @@ public partial class MainWindow : Window
         {
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch,
             MaxDropDownHeight = 420,
-            ItemsSource = _keyActionChoices
+            ItemsSource = _keyActionChoices,
+            ItemTemplate = KeyActionChoiceTemplate
         };
     }
 
@@ -554,8 +567,9 @@ public partial class MainWindow : Window
         _gestureShortcutAltToggle.IsCheckedChanged += OnGestureShortcutToggleChanged;
         _gestureShortcutWinToggle.IsCheckedChanged += OnGestureShortcutToggleChanged;
         _gestureShortcutKeyCombo.SelectionChanged += OnGestureShortcutKeySelectionChanged;
+        _appLauncherFileBox.TextChanged += OnAppLauncherEditorChanged;
+        _appLauncherBrowseButton.Click += OnAppLauncherBrowseClick;
         _gestureShortcutApplyButton.Click += OnGestureShortcutApplyClick;
-        _gestureShortcutResetButton.Click += OnGestureShortcutResetClick;
         _keyboardModeCheck.IsCheckedChanged += OnModeToggleChanged;
         _runAtStartupCheck.IsCheckedChanged += OnModeToggleChanged;
         _startInTrayOnLaunchCheck.IsCheckedChanged += OnModeToggleChanged;
@@ -959,10 +973,7 @@ public partial class MainWindow : Window
             }
         }
 
-        if (_gestureShortcutTargetCombo != null)
-        {
-            RefreshGestureShortcutEditorUi();
-        }
+        RefreshGestureShortcutEditorUi();
     }
 
     private void ApplyGestureSettingsFromUi(UserSettings profile)
@@ -990,21 +1001,25 @@ public partial class MainWindow : Window
     private void RefreshGestureShortcutEditorUi()
     {
         _suppressGestureShortcutEditorEvents = true;
+        _suppressAppLauncherEditorEvents = true;
         try
         {
             if (!HasKeymapSelection())
             {
-                _gestureShortcutCtrlToggle.IsChecked = false;
-                _gestureShortcutShiftToggle.IsChecked = false;
-                _gestureShortcutAltToggle.IsChecked = false;
-                _gestureShortcutWinToggle.IsChecked = false;
-                _gestureShortcutKeyCombo.SelectedItem = null;
+                ClearGestureShortcutEditorState();
+                _appLauncherFileBox.Text = string.Empty;
             }
             else
             {
                 string selectedAction = ReadActionSelection(GetShortcutTargetCombo(), "None");
-                if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                if (AppLaunchActionHelper.TryParse(selectedAction, out AppLaunchActionSpec spec))
                 {
+                    ClearGestureShortcutEditorState();
+                    _appLauncherFileBox.Text = spec.FileName;
+                }
+                else if (DispatchShortcutHelper.TryReadShortcut(selectedAction, out DispatchModifierFlags modifiers, out string keyLabel))
+                {
+                    _appLauncherFileBox.Text = string.Empty;
                     _gestureShortcutCtrlToggle.IsChecked = (modifiers & (
                         DispatchModifierFlags.Ctrl |
                         DispatchModifierFlags.LeftCtrl |
@@ -1025,20 +1040,18 @@ public partial class MainWindow : Window
                 }
                 else
                 {
-                    _gestureShortcutCtrlToggle.IsChecked = false;
-                    _gestureShortcutShiftToggle.IsChecked = false;
-                    _gestureShortcutAltToggle.IsChecked = false;
-                    _gestureShortcutWinToggle.IsChecked = false;
-                    _gestureShortcutKeyCombo.SelectedItem = null;
+                    ClearGestureShortcutEditorState();
+                    _appLauncherFileBox.Text = string.Empty;
                 }
             }
         }
         finally
         {
             _suppressGestureShortcutEditorEvents = false;
+            _suppressAppLauncherEditorEvents = false;
         }
 
-        UpdateGestureShortcutPreview();
+        UpdateActionBuilderPreview();
     }
 
     private void OnGestureShortcutToggleChanged(object? sender, RoutedEventArgs e)
@@ -1048,7 +1061,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        UpdateGestureShortcutPreview();
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
     }
 
     private void OnGestureShortcutKeySelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -1058,19 +1072,18 @@ public partial class MainWindow : Window
             return;
         }
 
-        UpdateGestureShortcutPreview();
+        ClearAppLauncherEditorState();
+        UpdateActionBuilderPreview();
     }
 
-    private void UpdateGestureShortcutPreview()
+    private void UpdateActionBuilderPreview()
     {
-        string preview = BuildGestureShortcutPreview();
-        _gestureShortcutPreviewText.Text = string.IsNullOrEmpty(preview)
-            ? "Shortcut: none"
-            : $"Shortcut: {preview}";
-        _gestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(preview);
+        string action = BuildActionBuilderAction(out string preview);
+        _gestureShortcutPreviewText.Text = preview;
+        _gestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(action);
     }
 
-    private string BuildGestureShortcutPreview()
+    private string BuildGestureShortcutAction()
     {
         if (_gestureShortcutKeyCombo.SelectedItem is not string selectedKey ||
             !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
@@ -1104,39 +1117,42 @@ public partial class MainWindow : Window
             : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
     }
 
+    private string BuildActionBuilderAction(out string preview)
+    {
+        string appAction = BuildAppLauncherAction();
+        if (!string.IsNullOrEmpty(appAction))
+        {
+            preview = AppLaunchActionHelper.GetDisplayLabel(appAction);
+            return appAction;
+        }
+
+        string shortcut = BuildGestureShortcutAction();
+        if (!string.IsNullOrEmpty(shortcut))
+        {
+            preview = $"Shortcut: {shortcut}";
+            return shortcut;
+        }
+
+        preview = "Shortcut: none";
+        return string.Empty;
+    }
+
     private void OnGestureShortcutApplyClick(object? sender, RoutedEventArgs e)
     {
-        string shortcut = BuildGestureShortcutPreview();
-        if (!HasKeymapSelection() || string.IsNullOrEmpty(shortcut))
+        string action = BuildActionBuilderAction(out string preview);
+        if (!HasKeymapSelection() || string.IsNullOrEmpty(action))
         {
+            _gestureShortcutPreviewText.Text = preview;
             return;
         }
 
-        if (EnsureActionChoice(shortcut))
+        if (EnsureActionChoice(action))
         {
             RefreshActionChoiceBindings();
         }
 
-        SetActionComboSelection(GetShortcutTargetCombo(), shortcut);
-    }
-
-    private void OnGestureShortcutResetClick(object? sender, RoutedEventArgs e)
-    {
-        _suppressGestureShortcutEditorEvents = true;
-        try
-        {
-            _gestureShortcutCtrlToggle.IsChecked = false;
-            _gestureShortcutShiftToggle.IsChecked = false;
-            _gestureShortcutAltToggle.IsChecked = false;
-            _gestureShortcutWinToggle.IsChecked = false;
-            _gestureShortcutKeyCombo.SelectedItem = null;
-        }
-        finally
-        {
-            _suppressGestureShortcutEditorEvents = false;
-        }
-
-        UpdateGestureShortcutPreview();
+        SetActionComboSelection(GetShortcutTargetCombo(), action);
+        RefreshGestureShortcutEditorUi();
     }
 
     private ComboBox GetShortcutTargetCombo()
@@ -1144,6 +1160,100 @@ public partial class MainWindow : Window
         return _shortcutTargetHoldRadio.IsChecked == true
             ? _keymapHoldCombo
             : _keymapPrimaryCombo;
+    }
+
+    private void ClearGestureShortcutEditorState()
+    {
+        _gestureShortcutCtrlToggle.IsChecked = false;
+        _gestureShortcutShiftToggle.IsChecked = false;
+        _gestureShortcutAltToggle.IsChecked = false;
+        _gestureShortcutWinToggle.IsChecked = false;
+        _gestureShortcutKeyCombo.SelectedItem = null;
+    }
+
+    private void OnAppLauncherEditorChanged(object? sender, TextChangedEventArgs e)
+    {
+        if (_suppressAppLauncherEditorEvents)
+        {
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_appLauncherFileBox.Text))
+        {
+            _suppressGestureShortcutEditorEvents = true;
+            try
+            {
+                ClearGestureShortcutEditorState();
+            }
+            finally
+            {
+                _suppressGestureShortcutEditorEvents = false;
+            }
+        }
+
+        UpdateActionBuilderPreview();
+    }
+
+    private async void OnAppLauncherBrowseClick(object? sender, RoutedEventArgs e)
+    {
+        if (!StorageProvider.CanOpen)
+        {
+            ShowNoticeDialog(
+                "Browse Unavailable",
+                "This Linux GUI session cannot open a file picker on the current platform backend.");
+            return;
+        }
+
+        IReadOnlyList<IStorageFile> files = await StorageProvider.OpenFilePickerAsync(new FilePickerOpenOptions
+        {
+            Title = "Select application, desktop entry, or script",
+            AllowMultiple = false,
+            FileTypeFilter =
+            [
+                new FilePickerFileType("Applications") { Patterns = ["*.desktop"] },
+                new FilePickerFileType("All Files") { Patterns = ["*"] }
+            ]
+        });
+
+        if (files.Count == 0)
+        {
+            return;
+        }
+
+        string? localPath = files[0].TryGetLocalPath();
+        if (string.IsNullOrWhiteSpace(localPath))
+        {
+            ShowNoticeDialog(
+                "Browse Failed",
+                "The selected item could not be resolved to a local file path.");
+            return;
+        }
+
+        _appLauncherFileBox.Text = localPath;
+    }
+
+    private void ClearAppLauncherEditorState()
+    {
+        _suppressAppLauncherEditorEvents = true;
+        try
+        {
+            _appLauncherFileBox.Text = string.Empty;
+        }
+        finally
+        {
+            _suppressAppLauncherEditorEvents = false;
+        }
+    }
+
+    private string BuildAppLauncherAction()
+    {
+        string fileName = _appLauncherFileBox.Text?.Trim() ?? string.Empty;
+        if (fileName.Length == 0)
+        {
+            return string.Empty;
+        }
+
+        return AppLaunchActionHelper.CreateActionLabel(fileName);
     }
 
     private bool HasKeymapSelection()
@@ -1572,15 +1682,13 @@ public partial class MainWindow : Window
         string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
         Dictionary<string, string> previousGestureActions = CaptureGestureSelections();
 
-        _keyActionChoices.Clear();
-        _keyActionChoiceLookup.Clear();
-        List<KeyActionChoice> defaults = BuildKeyActionChoices();
-        for (int index = 0; index < defaults.Count; index++)
+        List<KeyActionChoice> nextChoices = BuildKeyActionChoices();
+        HashSet<string> nextLookup = new(StringComparer.OrdinalIgnoreCase);
+        for (int index = 0; index < nextChoices.Count; index++)
         {
-            _keyActionChoices.Add(defaults[index]);
-            if (!defaults[index].IsSeparator)
+            if (!nextChoices[index].IsSeparator)
             {
-                _keyActionChoiceLookup.Add(defaults[index].Value);
+                nextLookup.Add(nextChoices[index].Value);
             }
         }
 
@@ -1588,8 +1696,8 @@ public partial class MainWindow : Window
         {
             foreach (KeyValuePair<string, KeyMapping> mappingEntry in layer.Value)
             {
-                EnsureActionChoice(mappingEntry.Value?.Primary?.Label);
-                EnsureActionChoice(mappingEntry.Value?.Hold?.Label);
+                EnsureActionChoice(nextChoices, nextLookup, mappingEntry.Value?.Primary?.Label);
+                EnsureActionChoice(nextChoices, nextLookup, mappingEntry.Value?.Hold?.Label);
             }
         }
 
@@ -1598,8 +1706,8 @@ public partial class MainWindow : Window
             for (int index = 0; index < customButtonsByLayer.Value.Count; index++)
             {
                 CustomButton button = customButtonsByLayer.Value[index];
-                EnsureActionChoice(button.Primary?.Label);
-                EnsureActionChoice(button.Hold?.Label);
+                EnsureActionChoice(nextChoices, nextLookup, button.Primary?.Label);
+                EnsureActionChoice(nextChoices, nextLookup, button.Hold?.Label);
             }
         }
 
@@ -1607,23 +1715,14 @@ public partial class MainWindow : Window
         {
             foreach (string action in additionalActions)
             {
-                EnsureActionChoice(action);
+                EnsureActionChoice(nextChoices, nextLookup, action);
             }
         }
 
         _suppressKeymapEditorEvents = true;
-        _keymapPrimaryCombo.ItemsSource = null;
-        _keymapHoldCombo.ItemsSource = null;
-        foreach (ComboBox combo in _gestureActionCombos.Values)
-        {
-            combo.ItemsSource = null;
-        }
-        _keymapPrimaryCombo.ItemsSource = _keyActionChoices;
-        _keymapHoldCombo.ItemsSource = _keyActionChoices;
-        foreach (ComboBox combo in _gestureActionCombos.Values)
-        {
-            combo.ItemsSource = _keyActionChoices;
-        }
+        _keyActionChoices = nextChoices;
+        _keyActionChoiceLookup = nextLookup;
+        ResetActionChoiceBindingsSource();
         SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
         SetActionComboSelection(_keymapHoldCombo, previousHold);
         RestoreGestureSelections(previousGestureActions);
@@ -1637,10 +1736,22 @@ public partial class MainWindow : Window
         Dictionary<string, string> previousGestureActions = CaptureGestureSelections();
 
         _suppressKeymapEditorEvents = true;
+        ResetActionChoiceBindingsSource();
+        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
+        SetActionComboSelection(_keymapHoldCombo, previousHold);
+        RestoreGestureSelections(previousGestureActions);
+        _suppressKeymapEditorEvents = false;
+    }
+
+    private void ResetActionChoiceBindingsSource()
+    {
+        _keymapPrimaryCombo.SelectedItem = null;
+        _keymapHoldCombo.SelectedItem = null;
         _keymapPrimaryCombo.ItemsSource = null;
         _keymapHoldCombo.ItemsSource = null;
         foreach (ComboBox combo in _gestureActionCombos.Values)
         {
+            combo.SelectedItem = null;
             combo.ItemsSource = null;
         }
 
@@ -1650,14 +1761,17 @@ public partial class MainWindow : Window
         {
             combo.ItemsSource = _keyActionChoices;
         }
-
-        SetActionComboSelection(_keymapPrimaryCombo, previousPrimary);
-        SetActionComboSelection(_keymapHoldCombo, previousHold);
-        RestoreGestureSelections(previousGestureActions);
-        _suppressKeymapEditorEvents = false;
     }
 
     private bool EnsureActionChoice(string? action)
+    {
+        return EnsureActionChoice(_keyActionChoices, _keyActionChoiceLookup, action);
+    }
+
+    private static bool EnsureActionChoice(
+        List<KeyActionChoice> choices,
+        HashSet<string> lookup,
+        string? action)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -1670,12 +1784,12 @@ public partial class MainWindow : Window
             return false;
         }
 
-        if (!_keyActionChoiceLookup.Add(value))
+        if (!lookup.Add(value))
         {
             return false;
         }
 
-        _keyActionChoices.Add(KeyActionChoice.Action(value));
+        choices.Add(KeyActionChoice.Action(value));
         return true;
     }
 
@@ -1825,6 +1939,7 @@ public partial class MainWindow : Window
         AddActionSection(options, "System and Media");
         string[] systemAndMedia =
         {
+            TerminalActionValue,
             "EMOJI",
             "VOICE",
             "VOL_UP",
@@ -4194,12 +4309,110 @@ public partial class MainWindow : Window
 
     private static string BuildPrimaryHoldDisplayLabel(string primary, string? hold, string separator)
     {
+        string displayPrimary = FormatSurfaceActionLabel(primary);
         if (string.IsNullOrWhiteSpace(hold))
         {
-            return primary;
+            return displayPrimary;
         }
 
-        return $"{primary}{separator}{hold}";
+        return $"{displayPrimary}{separator}{FormatSurfaceActionLabel(hold)}";
+    }
+
+    private static string FormatSurfaceActionLabel(string action)
+    {
+        return GetActionDisplayLabel(action);
+    }
+
+    private static string GetActionDisplayLabel(string action)
+    {
+        if (TryGetSpecialActionDisplayLabel(action, out string label))
+        {
+            return label;
+        }
+
+        return AppLaunchActionHelper.TryParse(action, out _)
+            ? AppLaunchActionHelper.GetKeymapDisplayLabel(action)
+            : action;
+    }
+
+    private static bool TryGetSpecialActionDisplayLabel(string? action, out string label)
+    {
+        label = string.Empty;
+        if (!AppLaunchActionHelper.TryParse(action, out AppLaunchActionSpec spec))
+        {
+            return false;
+        }
+
+        if (string.Equals(spec.FileName, TerminalLauncherCommand, StringComparison.OrdinalIgnoreCase) &&
+            string.IsNullOrWhiteSpace(spec.Arguments))
+        {
+            label = "Terminal";
+            return true;
+        }
+
+        return false;
+    }
+
+    private static IDataTemplate CreateKeyActionChoiceTemplate()
+    {
+        return new FuncDataTemplate<object?>((value, _) =>
+        {
+            if (value is KeyActionChoice choice)
+            {
+                if (choice.IsSeparator)
+                {
+                    Grid grid = new()
+                    {
+                        ColumnDefinitions = new ColumnDefinitions("*,Auto,*"),
+                        Margin = new Thickness(6, 2)
+                    };
+
+                    Border leftRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(0, 0, 8, 0)
+                    };
+                    grid.Children.Add(leftRule);
+
+                    TextBlock title = new()
+                    {
+                        Text = choice.Label,
+                        Foreground = new SolidColorBrush(Color.Parse("#4A5B68")),
+                        FontSize = 11,
+                        FontWeight = FontWeight.SemiBold,
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+                    };
+                    Grid.SetColumn(title, 1);
+                    grid.Children.Add(title);
+
+                    Border rightRule = new()
+                    {
+                        Height = 1,
+                        Background = new SolidColorBrush(Color.Parse("#9FB3C1")),
+                        VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center,
+                        Margin = new Thickness(8, 0, 0, 0)
+                    };
+                    Grid.SetColumn(rightRule, 2);
+                    grid.Children.Add(rightRule);
+                    return grid;
+                }
+
+                return new TextBlock
+                {
+                    Text = choice.Label,
+                    Margin = new Thickness(6, 2),
+                    Foreground = new SolidColorBrush(Color.Parse("#1E2328"))
+                };
+            }
+
+            return new TextBlock
+            {
+                Text = value?.ToString() ?? string.Empty,
+                Margin = new Thickness(6, 2)
+            };
+        });
     }
 
     private sealed record DeviceChoice(string Label, string? StableId)
@@ -4230,13 +4443,14 @@ public partial class MainWindow : Window
     {
         public static KeyActionChoice Action(string value)
         {
-            return new KeyActionChoice(value, value, IsSeparator: false);
+            string label = GetActionDisplayLabel(value);
+            return new KeyActionChoice(label, value, IsSeparator: false);
         }
 
         public static KeyActionChoice Section(string title)
         {
             string key = title.Replace(' ', '_');
-            return new KeyActionChoice($"--- {title} ---", $"__section__{key}", IsSeparator: true);
+            return new KeyActionChoice(title, $"__section__{key}", IsSeparator: true);
         }
 
         public override string ToString()

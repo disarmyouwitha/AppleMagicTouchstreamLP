@@ -10,12 +10,13 @@
         <TrayIcon.Menu>
           <NativeMenu>
             <NativeMenuItem Header="Open Config" Click="OnTrayOpenClick" />
-            <NativeMenuItem Header="Run Doctor" Click="OnTrayDoctorClick" />
+            <NativeMenuItemSeparator />
             <NativeMenuItem Header="Capture .atpcap" Click="OnTrayCaptureAtpCapClick" />
             <NativeMenuItem Header="Replay .atpcap" Click="OnTrayReplayAtpCapClick" />
+            <NativeMenuItem Header="Run Doctor" Click="OnTrayDoctorClick" />
             <NativeMenuItemSeparator />
             <NativeMenuItem Header="Restart GlassToKey" Click="OnTrayRestartClick" />
-            <NativeMenuItem Header="Quit GlassToKey" Click="OnTrayQuitClick" />
+            <NativeMenuItem Header="Exit GlassToKey" Click="OnTrayQuitClick" />
           </NativeMenu>
         </TrayIcon.Menu>
       </TrayIcon>

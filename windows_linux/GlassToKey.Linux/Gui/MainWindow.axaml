@@ -11,25 +11,56 @@
     <x:Double x:Key="TrackpadPreviewInnerHeight">420</x:Double>
   </Window.Resources>
   <Window.Styles>
+    <Style Selector="RadioButton.shortcutTargetRadio">
+      <Setter Property="Foreground" Value="#FFF6EA" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.shortcutTargetRadio:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle">
       <Setter Property="Margin" Value="0,0,6,6" />
       <Setter Property="Padding" Value="10,5" />
-      <Setter Property="Foreground" Value="#CFD7DC" />
-      <Setter Property="Background" Value="#111821" />
-      <Setter Property="BorderBrush" Value="#2F4251" />
-      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="Foreground" Value="#FFF8F0" />
+      <Setter Property="Background" Value="#1C2733" />
+      <Setter Property="BorderBrush" Value="#86C6EC" />
+      <Setter Property="BorderThickness" Value="2" />
       <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
       <Setter Property="CornerRadius" Value="8" />
     </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle:pointerover">
-      <Setter Property="Background" Value="#162431" />
+      <Setter Property="Background" Value="#243445" />
     </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle:checked">
-      <Setter Property="Background" Value="#1F4A67" />
-      <Setter Property="BorderBrush" Value="#6EB4DF" />
+      <Setter Property="Foreground" Value="#0F1418" />
+      <Setter Property="Background" Value="#A6E0FF" />
+      <Setter Property="BorderBrush" Value="#E6F7FF" />
     </Style>
     <Style Selector="ToggleButton.shortcutModifierToggle:disabled">
       <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton">
+      <Setter Property="Foreground" Value="#16181B" />
+      <Setter Property="Background" Value="#F5E7CF" />
+      <Setter Property="BorderBrush" Value="#FFD28E" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:pointerover">
+      <Setter Property="Background" Value="#FFF1D8" />
+      <Setter Property="BorderBrush" Value="#FFE2AE" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:pressed">
+      <Setter Property="Background" Value="#E8C88F" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="TextBlock.shortcutFieldLabel">
+      <Setter Property="Foreground" Value="#FFF6EA" />
+      <Setter Property="FontWeight" Value="SemiBold" />
     </Style>
   </Window.Styles>
   <Grid RowDefinitions="Auto,*">
@@ -352,15 +383,15 @@
                                    IsVisible="False" />
                         <Grid ColumnDefinitions="*,*">
                           <RadioButton x:Name="ShortcutTargetPrimaryRadio"
+                                       Classes="shortcutTargetRadio"
                                        GroupName="ShortcutTarget"
                                        Content="Primary"
-                                       Foreground="#CFE6F5"
                                        IsChecked="True"
                                        Margin="0,0,8,0" />
                           <RadioButton x:Name="ShortcutTargetHoldRadio"
                                        Grid.Column="1"
+                                       Classes="shortcutTargetRadio"
                                        GroupName="ShortcutTarget"
-                                       Foreground="#CFE6F5"
                                        Content="Hold" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*,*">
@@ -378,23 +409,36 @@
                           <ToggleButton x:Name="GestureShortcutWinToggle"
                                         Grid.Column="3"
                                         Classes="shortcutModifierToggle"
-                                        Content="Win" />
+                                        Content="Super" />
                         </Grid>
-                        <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
                           <TextBlock Text="Key"
+                                     Classes="shortcutFieldLabel"
                                      VerticalAlignment="Center" />
                           <ComboBox x:Name="GestureShortcutKeyCombo"
                                     Grid.Column="1"
                                     Margin="8,0,0,0"
                                     HorizontalAlignment="Stretch" />
                           <Button x:Name="GestureShortcutApplyButton"
+                                  Classes="shortcutActionButton"
                                   Grid.Column="2"
                                   Margin="8,0,0,0"
                                   Content="Apply" />
-                          <Button x:Name="GestureShortcutResetButton"
-                                  Grid.Column="3"
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <TextBlock Text="App"
+                                     Classes="shortcutFieldLabel"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="AppLauncherFileBox"
+                                   Grid.Column="1"
+                                   Margin="8,0,0,0"
+                                   HorizontalAlignment="Stretch"
+                                   Watermark="Executable, desktop entry, or URL" />
+                          <Button x:Name="AppLauncherBrowseButton"
+                                  Classes="shortcutActionButton"
+                                  Grid.Column="2"
                                   Margin="8,0,0,0"
-                                  Content="Reset" />
+                                  Content="Browse" />
                         </Grid>
                         <TextBlock x:Name="GestureShortcutPreviewText"
                                    Text="Shortcut: none"

@@ -586,10 +586,11 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private RuntimeSession StartSession(LinuxRuntimeConfiguration configuration, CancellationToken cancellationToken)
     {
         CancellationTokenSource sessionCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        LinuxUinputDispatcher dispatcher = new();
-        dispatcher.SetHapticRoutes(configuration.Bindings);
-        dispatcher.ConfigureHaptics(configuration.SharedProfile);
-        dispatcher.WarmupHaptics();
+        LinuxUinputDispatcher uinputDispatcher = new();
+        uinputDispatcher.SetHapticRoutes(configuration.Bindings);
+        uinputDispatcher.ConfigureHaptics(configuration.SharedProfile);
+        uinputDispatcher.WarmupHaptics();
+        LinuxAppLaunchDispatcher dispatcher = new(uinputDispatcher);
         TouchProcessorRuntimeHost engine = new(dispatcher, configuration.Keymap, configuration.LayoutPreset, configuration.SharedProfile);
         RuntimeSession? session = null;
         ResetTrackpads(configuration.Bindings);
@@ -599,7 +600,7 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
             ShouldGrabExclusiveInput = () => ShouldGrabExclusiveInput(session, configuration.SharedProfile)
         };
         Task runTask = _runtime.RunAsync([.. configuration.Bindings], this, options, sessionCts.Token);
-        session = new RuntimeSession(sessionCts, dispatcher, engine, runTask);
+        session = new RuntimeSession(sessionCts, dispatcher, uinputDispatcher, engine, runTask);
         lock (_gate)
         {
             _session = session;
@@ -927,24 +928,27 @@ public sealed class LinuxDesktopRuntimeController : IDisposable, ILinuxInputFram
     private sealed class RuntimeSession : IDisposable
     {
         private readonly CancellationTokenSource _cts;
-        private readonly LinuxUinputDispatcher _dispatcher;
+        private readonly LinuxAppLaunchDispatcher _dispatcher;
+        private readonly LinuxUinputDispatcher _uinputDispatcher;
         private bool _disposed;
 
         public RuntimeSession(
             CancellationTokenSource cts,
-            LinuxUinputDispatcher dispatcher,
+            LinuxAppLaunchDispatcher dispatcher,
+            LinuxUinputDispatcher uinputDispatcher,
             TouchProcessorRuntimeHost engine,
             Task runTask)
         {
             _cts = cts;
             _dispatcher = dispatcher;
+            _uinputDispatcher = uinputDispatcher;
             Engine = engine;
             RunTask = runTask;
         }
 
         public TouchProcessorRuntimeHost Engine { get; }
 
-        public LinuxUinputDispatcher Dispatcher => _dispatcher;
+        public LinuxUinputDispatcher Dispatcher => _uinputDispatcher;
 
         public Task RunTask { get; }
 
