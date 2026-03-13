@@ -1855,6 +1855,7 @@ public partial class MainWindow : Window
             "Backspace",
             "Back",
             "Escape",
+            "Caps Lock",
             "Delete",
             "Insert",
             "Home",
@@ -1880,8 +1881,7 @@ public partial class MainWindow : Window
             "Alt",
             "LWin",
             "RWin",
-            "Typing Toggle",
-            "TT"
+            "Typing Toggle"
         };
         for (int i = 0; i < modifiersAndModes.Length; i++)
         {
@@ -2838,6 +2838,10 @@ public partial class MainWindow : Window
                 "The selected settings file could not be resolved to a local file path.");
             return;
         }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
+        ApplyPreviewSnapshot(_previewSnapshot);
 
         if (!TryImportSettings(localPath, out string message))
         {

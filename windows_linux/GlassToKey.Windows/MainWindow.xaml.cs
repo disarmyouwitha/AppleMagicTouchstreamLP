@@ -1366,6 +1366,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
+
         if (!TryImportSettingsBundle(dialog.FileName, out string error))
         {
             MessageBox.Show(
@@ -2266,6 +2269,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Backspace",
             "Back",
             "Escape",
+            "Caps Lock",
             "Delete",
             "Insert",
             "Home",
@@ -2290,8 +2294,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Alt",
             "LWin",
             "RWin",
-            "Typing Toggle",
-            "TT"
+            "Typing Toggle"
         };
         for (int i = 0; i < modifiersAndModes.Length; i++)
         {
@@ -2331,7 +2334,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "_",
             "+",
             "EmDash",
-            "â€”",
             "=",
             "`"
         };
