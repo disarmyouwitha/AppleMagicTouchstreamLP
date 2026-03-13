@@ -52,7 +52,6 @@ public static class DispatchShortcutHelper
         "\\",
         "]",
         "'",
-        "PrintScreen",
         "F1",
         "F2",
         "F3",

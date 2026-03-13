@@ -39,7 +39,7 @@ Current CLI/runtime features:
 - headless now also disables pointer-intent takeover in core, so the pure-keyboard runtime never transitions into mouse intent
 - headless evdev grab is now policy-driven: in a graphical session it grabs exclusively by default, in proven no-pointer environments it skips grab, and `start --no-grab` / `run-engine --no-grab` explicitly opt out
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
-- the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
+- the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LeftWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
 - Linux now also triggers Magic Trackpad haptics through the validated actuator hidraw interface when the device exposes that interface and permissions allow write access

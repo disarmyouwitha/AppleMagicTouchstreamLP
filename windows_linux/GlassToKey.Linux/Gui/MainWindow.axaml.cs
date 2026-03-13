@@ -1875,12 +1875,18 @@ public partial class MainWindow : Window
         string[] modifiersAndModes =
         {
             "Shift",
+            "LeftShift",
+            "RightShift",
             "Chordal Shift",
             "Ctrl",
+            "LeftCtrl",
+            "RightCtrl",
             "Alt",
+            "LeftAlt",
+            "RightAlt",
             "CapsLock",
-            "LWin",
-            "RWin",
+            "LeftWin",
+            "RightWin",
             "Typing Toggle"
         };
         for (int i = 0; i < modifiersAndModes.Length; i++)

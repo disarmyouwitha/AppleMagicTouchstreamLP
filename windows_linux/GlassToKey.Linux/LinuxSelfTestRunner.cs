@@ -19,8 +19,8 @@ internal static class LinuxSelfTestRunner
     [
         "EMOJI",
         "VOICE",
-        "LWin",
-        "RWin",
+        "LeftWin",
+        "RightWin",
         "Win+H"
     ];
 

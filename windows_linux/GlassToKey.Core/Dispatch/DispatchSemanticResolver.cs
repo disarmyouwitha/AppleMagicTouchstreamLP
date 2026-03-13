@@ -196,9 +196,11 @@ internal static class DispatchSemanticResolver
         switch (label.Trim().ToUpperInvariant())
         {
             case "LSHIFT":
+            case "LEFTSHIFT":
                 code = DispatchSemanticCode.LeftShift;
                 return true;
             case "RSHIFT":
+            case "RIGHTSHIFT":
                 code = DispatchSemanticCode.RightShift;
                 return true;
             case "SHIFT":
@@ -229,13 +231,11 @@ internal static class DispatchSemanticResolver
             case "ALT":
                 code = DispatchSemanticCode.Alt;
                 return true;
-            case "LWIN":
             case "LMETA":
             case "LEFTWIN":
             case "LEFTMETA":
                 code = DispatchSemanticCode.LeftMeta;
                 return true;
-            case "RWIN":
             case "RMETA":
             case "RIGHTWIN":
             case "RIGHTMETA":

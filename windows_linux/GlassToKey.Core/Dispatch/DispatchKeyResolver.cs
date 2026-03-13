@@ -55,13 +55,15 @@ internal static class DispatchKeyResolver
             return false;
         }
 
-        if (label.Equals("LShift", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("LShift", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("LeftShift", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0xA0;
             return true;
         }
 
-        if (label.Equals("RShift", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("RShift", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RightShift", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0xA1;
             return true;
@@ -113,13 +115,15 @@ internal static class DispatchKeyResolver
             return true;
         }
 
-        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("LeftWin", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("LeftMeta", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase))
+        if (label.Equals("RightWin", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("RightMeta", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5C;
             return true;
