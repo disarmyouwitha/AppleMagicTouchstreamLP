@@ -1878,10 +1878,10 @@ public partial class MainWindow : Window
             "Chordal Shift",
             "Ctrl",
             "Alt",
+            "CapsLock",
             "LWin",
             "RWin",
-            "Typing Toggle",
-            "TT"
+            "Typing Toggle"
         };
         for (int i = 0; i < modifiersAndModes.Length; i++)
         {
@@ -2838,6 +2838,9 @@ public partial class MainWindow : Window
                 "The selected settings file could not be resolved to a local file path.");
             return;
         }
+
+        ClearSelectionForEditing();
+        RefreshKeymapEditor();
 
         if (!TryImportSettings(localPath, out string message))
         {
