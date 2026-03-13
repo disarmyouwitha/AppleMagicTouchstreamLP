@@ -167,7 +167,7 @@
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Edit Column" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="ColumnLayoutColumnCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -175,7 +175,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -183,7 +183,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -191,7 +191,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Column X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnOffsetXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -199,7 +199,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Column Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnOffsetYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -207,7 +207,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnRotationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -228,26 +228,37 @@
                 <TextBlock Text="Keymap Tuning" Foreground="#8b949e" FontSize="12" />
               </Expander.Header>
               <StackPanel Margin="0,6,0,0">
-                <ComboBox x:Name="LayerCombo" Height="26" />
-                <TextBlock Text="Primary Action" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
-                <ComboBox x:Name="KeymapPrimaryCombo" Height="26" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                  <ComboBox.GroupStyle>
-                    <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                  </ComboBox.GroupStyle>
-                </ComboBox>
-                <TextBlock Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" Margin="0,8,0,2" />
-                <ComboBox x:Name="KeymapHoldCombo" Height="26" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                  <ComboBox.GroupStyle>
-                    <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                  </ComboBox.GroupStyle>
-                </ComboBox>
-                <Grid Margin="0,8,0,0">
+                <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <TextBox x:Name="KeyRotationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                  </Grid.RowDefinitions>
+
+                  <TextBlock Grid.Row="0" Grid.Column="0" Text="Layer" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                  <ComboBox x:Name="LayerCombo" Grid.Row="0" Grid.Column="1" Height="26" Margin="8,0,0,0" />
+
+                  <TextBlock Grid.Row="1" Grid.Column="0" Text="Primary Action" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                  <ComboBox x:Name="KeymapPrimaryCombo" Grid.Row="1" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="2" Grid.Column="0" Text="Hold Action (optional)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                  <ComboBox x:Name="KeymapHoldCombo" Grid.Row="2" Grid.Column="1" Height="26" Margin="8,8,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                  <TextBox x:Name="KeyRotationBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" />
                 </Grid>
                 <Border Margin="0,12,0,0"
                         Padding="12"
@@ -395,7 +406,7 @@
                     <Grid Margin="0,10,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <TextBlock Text="X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="CustomButtonXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -403,7 +414,7 @@
                     <Grid Margin="0,6,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <TextBlock Text="Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="CustomButtonYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -411,7 +422,7 @@
                     <Grid Margin="0,6,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <TextBlock Text="Width (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="CustomButtonWidthBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -419,7 +430,7 @@
                     <Grid Margin="0,6,0,0">
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="90" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <TextBlock Text="Height (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                       <TextBox x:Name="CustomButtonHeightBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -438,7 +449,7 @@
                 <Grid>
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Hold Duration (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="HoldDurationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -446,7 +457,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Typing Grace (ms)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="TypingGraceBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -454,7 +465,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Drag Cancel (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="DragCancelBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -462,7 +473,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Intent Move (mm)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="IntentMoveBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -470,7 +481,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="90" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
@@ -478,7 +489,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Force Min" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
@@ -498,7 +509,7 @@
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Force Max" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
@@ -518,7 +529,7 @@
                 <Grid Margin="0,12,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="140" />
+                    <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Haptic Strength" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <StackPanel Grid.Column="1" Margin="8,0,0,0">
