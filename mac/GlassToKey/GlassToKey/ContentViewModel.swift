@@ -96,10 +96,323 @@ struct GridKeyPosition: Codable, Hashable {
     }
 }
 
+struct AppLaunchActionSpec: Codable, Hashable {
+    let fileName: String
+    let arguments: String
+
+    private enum CodingKeys: String, CodingKey {
+        case fileName = "FileName"
+        case arguments = "Arguments"
+    }
+}
+
+enum AppLaunchActionHelper {
+    private static let prefix = "APP:"
+    private static let maxDisplayLength = 56
+
+    static func createActionLabel(fileName: String, arguments: String? = nil) -> String? {
+        let trimmedFileName = fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedFileName.isEmpty else { return nil }
+        let spec = AppLaunchActionSpec(
+            fileName: trimmedFileName,
+            arguments: arguments?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        guard let data = try? encoder.encode(spec),
+              let payload = String(data: data, encoding: .utf8) else {
+            return nil
+        }
+        return prefix + payload
+    }
+
+    static func parse(_ action: String) -> AppLaunchActionSpec? {
+        let trimmed = action.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= prefix.count,
+              String(trimmed.prefix(prefix.count)).caseInsensitiveCompare(prefix) == .orderedSame else {
+            return nil
+        }
+        let payload = trimmed.dropFirst(prefix.count).trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !payload.isEmpty,
+              let data = payload.data(using: .utf8),
+              let spec = try? JSONDecoder().decode(AppLaunchActionSpec.self, from: data) else {
+            return nil
+        }
+        let fileName = spec.fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !fileName.isEmpty else { return nil }
+        let arguments = spec.arguments.trimmingCharacters(in: .whitespacesAndNewlines)
+        return AppLaunchActionSpec(fileName: fileName, arguments: arguments)
+    }
+
+    static func displayLabel(for action: String, includePrefix: Bool = true) -> String {
+        guard let spec = parse(action) else {
+            return action.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+        return displayLabel(for: spec, includePrefix: includePrefix)
+    }
+
+    static func keymapDisplayLabel(for action: String) -> String {
+        displayLabel(for: action, includePrefix: false)
+    }
+
+    static func displayLabel(for spec: AppLaunchActionSpec, includePrefix: Bool = true) -> String {
+        let trimmedFileName = spec.fileName.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedArguments = spec.arguments.trimmingCharacters(in: .whitespacesAndNewlines)
+        var leafName = (trimmedFileName as NSString).lastPathComponent
+        if leafName.isEmpty {
+            leafName = trimmedFileName
+        }
+        var display = trimmedArguments.isEmpty
+            ? leafName
+            : "\(leafName) \(trimmedArguments)"
+        if includePrefix {
+            display = "App: \(display)"
+        }
+        if display.count > maxDisplayLength {
+            display = String(display.prefix(maxDisplayLength - 3)) + "..."
+        }
+        return display
+    }
+}
+
+enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
+    case control = "Ctrl"
+    case shift = "Shift"
+    case option = "Alt"
+    case command = "Cmd"
+
+    static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .command]
+
+    var flags: CGEventFlags {
+        switch self {
+        case .control:
+            return .maskControl
+        case .shift:
+            return .maskShift
+        case .option:
+            return .maskAlternate
+        case .command:
+            return .maskCommand
+        }
+    }
+
+    static func parse(_ text: String) -> ShortcutModifierToken? {
+        switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+        case "ctrl", "control":
+            return .control
+        case "shift":
+            return .shift
+        case "alt", "option":
+            return .option
+        case "cmd", "command", "meta", "super", "win":
+            return .command
+        default:
+            return nil
+        }
+    }
+}
+
+struct ShortcutActionSpec: Hashable {
+    let modifiers: Set<ShortcutModifierToken>
+    let keyLabel: String
+
+    var flags: CGEventFlags {
+        modifiers.reduce(into: CGEventFlags()) { partialResult, modifier in
+            partialResult.insert(modifier.flags)
+        }
+    }
+
+    var label: String {
+        let parts = ShortcutModifierToken.ordered
+            .filter { modifiers.contains($0) }
+            .map(\.rawValue) + [keyLabel]
+        return parts.joined(separator: "+")
+    }
+}
+
+enum ShortcutActionHelper {
+    private static let keyEntries: [(String, CGKeyCode)] = [
+        ("A", CGKeyCode(kVK_ANSI_A)),
+        ("B", CGKeyCode(kVK_ANSI_B)),
+        ("C", CGKeyCode(kVK_ANSI_C)),
+        ("D", CGKeyCode(kVK_ANSI_D)),
+        ("E", CGKeyCode(kVK_ANSI_E)),
+        ("F", CGKeyCode(kVK_ANSI_F)),
+        ("G", CGKeyCode(kVK_ANSI_G)),
+        ("H", CGKeyCode(kVK_ANSI_H)),
+        ("I", CGKeyCode(kVK_ANSI_I)),
+        ("J", CGKeyCode(kVK_ANSI_J)),
+        ("K", CGKeyCode(kVK_ANSI_K)),
+        ("L", CGKeyCode(kVK_ANSI_L)),
+        ("M", CGKeyCode(kVK_ANSI_M)),
+        ("N", CGKeyCode(kVK_ANSI_N)),
+        ("O", CGKeyCode(kVK_ANSI_O)),
+        ("P", CGKeyCode(kVK_ANSI_P)),
+        ("Q", CGKeyCode(kVK_ANSI_Q)),
+        ("R", CGKeyCode(kVK_ANSI_R)),
+        ("S", CGKeyCode(kVK_ANSI_S)),
+        ("T", CGKeyCode(kVK_ANSI_T)),
+        ("U", CGKeyCode(kVK_ANSI_U)),
+        ("V", CGKeyCode(kVK_ANSI_V)),
+        ("W", CGKeyCode(kVK_ANSI_W)),
+        ("X", CGKeyCode(kVK_ANSI_X)),
+        ("Y", CGKeyCode(kVK_ANSI_Y)),
+        ("Z", CGKeyCode(kVK_ANSI_Z)),
+        ("0", CGKeyCode(kVK_ANSI_0)),
+        ("1", CGKeyCode(kVK_ANSI_1)),
+        ("2", CGKeyCode(kVK_ANSI_2)),
+        ("3", CGKeyCode(kVK_ANSI_3)),
+        ("4", CGKeyCode(kVK_ANSI_4)),
+        ("5", CGKeyCode(kVK_ANSI_5)),
+        ("6", CGKeyCode(kVK_ANSI_6)),
+        ("7", CGKeyCode(kVK_ANSI_7)),
+        ("8", CGKeyCode(kVK_ANSI_8)),
+        ("9", CGKeyCode(kVK_ANSI_9)),
+        ("Space", CGKeyCode(kVK_Space)),
+        ("Backspace", CGKeyCode(kVK_Delete)),
+        ("Tab", CGKeyCode(kVK_Tab)),
+        ("Enter", CGKeyCode(kVK_Return)),
+        ("Esc", CGKeyCode(kVK_Escape)),
+        ("Delete", CGKeyCode(kVK_ForwardDelete)),
+        ("Insert", CGKeyCode(kVK_Help)),
+        ("Home", CGKeyCode(kVK_Home)),
+        ("End", CGKeyCode(kVK_End)),
+        ("PageUp", CGKeyCode(kVK_PageUp)),
+        ("PageDown", CGKeyCode(kVK_PageDown)),
+        ("Left", CGKeyCode(kVK_LeftArrow)),
+        ("Up", CGKeyCode(kVK_UpArrow)),
+        ("Right", CGKeyCode(kVK_RightArrow)),
+        ("Down", CGKeyCode(kVK_DownArrow)),
+        (";", CGKeyCode(kVK_ANSI_Semicolon)),
+        ("=", CGKeyCode(kVK_ANSI_Equal)),
+        (",", CGKeyCode(kVK_ANSI_Comma)),
+        ("-", CGKeyCode(kVK_ANSI_Minus)),
+        (".", CGKeyCode(kVK_ANSI_Period)),
+        ("/", CGKeyCode(kVK_ANSI_Slash)),
+        ("`", CGKeyCode(kVK_ANSI_Grave)),
+        ("[", CGKeyCode(kVK_ANSI_LeftBracket)),
+        ("\\", CGKeyCode(kVK_ANSI_Backslash)),
+        ("]", CGKeyCode(kVK_ANSI_RightBracket)),
+        ("'", CGKeyCode(kVK_ANSI_Quote)),
+        ("F1", CGKeyCode(kVK_F1)),
+        ("F2", CGKeyCode(kVK_F2)),
+        ("F3", CGKeyCode(kVK_F3)),
+        ("F4", CGKeyCode(kVK_F4)),
+        ("F5", CGKeyCode(kVK_F5)),
+        ("F6", CGKeyCode(kVK_F6)),
+        ("F7", CGKeyCode(kVK_F7)),
+        ("F8", CGKeyCode(kVK_F8)),
+        ("F9", CGKeyCode(kVK_F9)),
+        ("F10", CGKeyCode(kVK_F10)),
+        ("F11", CGKeyCode(kVK_F11)),
+        ("F12", CGKeyCode(kVK_F12)),
+        ("F13", CGKeyCode(kVK_F13)),
+        ("F14", CGKeyCode(kVK_F14)),
+        ("F15", CGKeyCode(kVK_F15)),
+        ("F16", CGKeyCode(kVK_F16)),
+        ("F17", CGKeyCode(kVK_F17)),
+        ("F18", CGKeyCode(kVK_F18)),
+        ("F19", CGKeyCode(kVK_F19)),
+        ("F20", CGKeyCode(kVK_F20))
+    ]
+
+    private static let keyCodeByLabel = Dictionary(uniqueKeysWithValues: keyEntries)
+
+    static let supportedKeyLabels: [String] = keyEntries.map(\.0)
+
+    static func parse(_ text: String) -> ShortcutActionSpec? {
+        let tokens = text.split(separator: "+").map {
+            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        }.filter { !$0.isEmpty }
+        guard tokens.count >= 2 else { return nil }
+        guard let keyLabel = normalizeKeyLabel(tokens.last ?? "") else { return nil }
+        var modifiers = Set<ShortcutModifierToken>()
+        for token in tokens.dropLast() {
+            guard let modifier = ShortcutModifierToken.parse(token) else { return nil }
+            modifiers.insert(modifier)
+        }
+        guard !modifiers.isEmpty,
+              keyCodeByLabel[keyLabel] != nil else {
+            return nil
+        }
+        return ShortcutActionSpec(modifiers: modifiers, keyLabel: keyLabel)
+    }
+
+    static func createAction(
+        modifiers: Set<ShortcutModifierToken>,
+        keyLabel: String
+    ) -> KeyAction? {
+        guard !modifiers.isEmpty,
+              let normalizedKeyLabel = normalizeKeyLabel(keyLabel),
+              let keyCode = keyCodeByLabel[normalizedKeyLabel] else {
+            return nil
+        }
+        let spec = ShortcutActionSpec(modifiers: modifiers, keyLabel: normalizedKeyLabel)
+        return KeyAction(
+            label: spec.label,
+            keyCode: UInt16(keyCode),
+            flags: spec.flags.rawValue
+        )
+    }
+
+    static func spec(for action: KeyAction) -> ShortcutActionSpec? {
+        guard action.kind == .key else { return nil }
+        return parse(action.label)
+    }
+
+    static func normalizeKeyLabel(_ text: String) -> String? {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let uppercase = trimmed.uppercased()
+        if keyCodeByLabel[uppercase] != nil {
+            return uppercase
+        }
+        switch uppercase {
+        case "BACK", "BACKSPACE":
+            return "Backspace"
+        case "RET", "RETURN", "ENTER":
+            return "Enter"
+        case "ESC", "ESCAPE":
+            return "Esc"
+        case "SPACE":
+            return "Space"
+        case "DELETE":
+            return "Delete"
+        case "INSERT", "HELP":
+            return "Insert"
+        case "HOME":
+            return "Home"
+        case "END":
+            return "End"
+        case "PAGEUP":
+            return "PageUp"
+        case "PAGEDOWN":
+            return "PageDown"
+        case "LEFT":
+            return "Left"
+        case "UP":
+            return "Up"
+        case "RIGHT":
+            return "Right"
+        case "DOWN":
+            return "Down"
+        default:
+            break
+        }
+        if uppercase.hasPrefix("F"),
+           let number = Int(uppercase.dropFirst()),
+           (1...20).contains(number) {
+            return "F\(number)"
+        }
+        return keyCodeByLabel[trimmed] != nil ? trimmed : nil
+    }
+}
+
 @MainActor
 final class ContentViewModel: ObservableObject {
     enum KeyBindingAction: Sendable {
         case key(code: CGKeyCode, flags: CGEventFlags)
+        case appLaunch(String)
         case leftClick
         case doubleClick
         case rightClick
@@ -1135,6 +1448,7 @@ struct KeyGeometryOverride: Codable, Hashable {
 
 enum KeyActionKind: String, Codable {
     case key
+    case appLaunch
     case leftClick
     case doubleClick
     case rightClick
@@ -1169,6 +1483,19 @@ struct KeyAction: Codable, Hashable {
                 return KeyActionCatalog.noneLabel
             case .typingToggle:
                 return KeyActionCatalog.typingToggleDisplayLabel
+            case .appLaunch:
+                return AppLaunchActionHelper.keymapDisplayLabel(for: label)
+            default:
+                return label
+            }
+        }
+
+        var pickerText: String {
+            switch kind {
+            case .typingToggle:
+                return KeyActionCatalog.typingToggleLabel
+            case .appLaunch:
+                return AppLaunchActionHelper.displayLabel(for: label)
             default:
                 return label
             }
@@ -1217,10 +1544,13 @@ struct KeyAction: Codable, Hashable {
 
 extension KeyAction {
     var holdLabelText: String? {
-        guard kind != .none else { return nil }
-        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty, trimmed != KeyActionCatalog.noneLabel else { return nil }
-        return kind == .typingToggle ? KeyActionCatalog.typingToggleDisplayLabel : label
+        let display = displayText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard kind != .none,
+              !display.isEmpty,
+              display != KeyActionCatalog.noneLabel else {
+            return nil
+        }
+        return displayText
     }
 }
 
@@ -1403,6 +1733,36 @@ enum KeyActionCatalog {
             flags: 0,
             kind: .none
         )
+    }
+    static let shortcutKeyLabels = ShortcutActionHelper.supportedKeyLabels
+
+    static func shortcutAction(
+        modifiers: Set<ShortcutModifierToken>,
+        keyLabel: String
+    ) -> KeyAction? {
+        ShortcutActionHelper.createAction(modifiers: modifiers, keyLabel: keyLabel)
+    }
+
+    static func shortcutSpec(for action: KeyAction) -> ShortcutActionSpec? {
+        ShortcutActionHelper.spec(for: action)
+    }
+
+    static func appLaunchAction(
+        fileName: String,
+        arguments: String? = nil
+    ) -> KeyAction? {
+        guard let label = AppLaunchActionHelper.createActionLabel(
+            fileName: fileName,
+            arguments: arguments
+        ) else {
+            return nil
+        }
+        return KeyAction(label: label, keyCode: 0, flags: 0, kind: .appLaunch)
+    }
+
+    static func appLaunchSpec(for action: KeyAction) -> AppLaunchActionSpec? {
+        guard action.kind == .appLaunch else { return nil }
+        return AppLaunchActionHelper.parse(action.label)
     }
     static let holdBindingsByLabel: [String: (CGKeyCode, CGEventFlags)] = [
         "Esc": (CGKeyCode(kVK_Escape), []),
@@ -1758,10 +2118,6 @@ enum KeyActionCatalog {
         var groups: [ActionGroup] = groupDefinitions.compactMap { definition in
             makeActionGroup(title: definition.title, labels: definition.labels, resolver: resolver)
         }
-        let commandGroup = ActionGroup(title: dashedHeader("Cmd Shortcuts"), actions: commandShortcutActions)
-        if !commandGroup.actions.isEmpty {
-            groups.append(commandGroup)
-        }
         let layerGroup = ActionGroup(title: dashedHeader("Layers"), actions: layerActions)
         if !layerGroup.actions.isEmpty {
             groups.append(layerGroup)
@@ -1769,28 +2125,30 @@ enum KeyActionCatalog {
         return groups
     }
 
-    private static let commandShortcutActions: [KeyAction] = {
-        let combos: [(String, CGKeyCode)] = [
-            ("Cmd+F", CGKeyCode(kVK_ANSI_F)),
-            ("Cmd+R", CGKeyCode(kVK_ANSI_R)),
-            ("Cmd+X", CGKeyCode(kVK_ANSI_X)),
-            ("Cmd+C", CGKeyCode(kVK_ANSI_C)),
-            ("Cmd+V", CGKeyCode(kVK_ANSI_V)),
-            ("Cmd+A", CGKeyCode(kVK_ANSI_A)),
-            ("Cmd+S", CGKeyCode(kVK_ANSI_S)),
-            ("Cmd+Z", CGKeyCode(kVK_ANSI_Z))
-        ]
-        return combos.map { label, code in
-            KeyAction(label: label, keyCode: UInt16(code), flags: CGEventFlags.maskCommand.rawValue)
-        }
-    }()
-
     private static let sharedActionGroups: [ActionGroup] = buildActionGroups(using: action)
 
     static let primaryActionGroups: [ActionGroup] = sharedActionGroups
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
 
     static func action(for label: String) -> KeyAction? {
+        if let spec = AppLaunchActionHelper.parse(label) {
+            return KeyAction(
+                label: AppLaunchActionHelper.createActionLabel(
+                    fileName: spec.fileName,
+                    arguments: spec.arguments
+                ) ?? label,
+                keyCode: 0,
+                flags: 0,
+                kind: .appLaunch
+            )
+        }
+        if let shortcut = ShortcutActionHelper.parse(label),
+           let action = ShortcutActionHelper.createAction(
+            modifiers: shortcut.modifiers,
+            keyLabel: shortcut.keyLabel
+           ) {
+            return action
+        }
         let normalizedLabel: String
         switch label {
         case "Escape":

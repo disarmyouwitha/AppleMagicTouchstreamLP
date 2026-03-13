@@ -100,6 +100,7 @@ struct ContentView: View {
     @State private var columnInspectorSelection: ColumnInspectorSelection?
     @State private var buttonInspectorSelection: ButtonInspectorSelection?
     @State private var keyInspectorSelection: KeyInspectorSelection?
+    @State private var inspectorSelectionRevision = 0
     @State private var keyMappingsByLayer: LayeredKeyMappings = [:]
     @State private var keyMappingsByLayout: LayoutLayeredKeyMappings = [:]
     @State private var keyGeometryOverrides: KeyGeometryOverrides = [:]
@@ -854,6 +855,9 @@ struct ContentView: View {
                 lastHitRight: viewModel.debugLastHitRight,
                 selectedButtonID: $selectedButtonID,
                 selectedGridKey: $selectedGridKey,
+                onSelectionInteraction: {
+                    inspectorSelectionRevision += 1
+                },
                 testText: $testText,
                 autocorrectCurrentBufferText: $autocorrectCurrentBufferText,
                 autocorrectLastCorrectedText: $autocorrectLastCorrectedText
@@ -875,9 +879,13 @@ struct ContentView: View {
             layoutOption: layoutOption,
             columnSettings: columnSettings,
             columnSelection: columnInspectorSelection,
+            primaryActionGroups: primaryActionGroups,
+            holdActionGroups: holdActionGroups,
+            gestureActionGroups: gestureActionGroups,
             editColumnIndex: $editColumnIndex,
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
+            selectionRevision: inspectorSelectionRevision,
             editModeEnabled: editModeEnabled,
             layerSelection: layerSelectionBinding,
             tapHoldDurationMs: $tapHoldDurationMs,
@@ -932,6 +940,89 @@ struct ContentView: View {
             onAutoSplayColumns: applyAutoSplay,
             onEvenSpaceColumns: applyEvenColumnSpacing
         )
+    }
+
+    private var primaryActionGroups: [KeyActionCatalog.ActionGroup] {
+        mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
+    }
+
+    private var holdActionGroups: [KeyActionCatalog.ActionGroup] {
+        mergedActionGroups(baseGroups: KeyActionCatalog.holdActionGroups)
+    }
+
+    private var gestureActionGroups: [KeyActionCatalog.ActionGroup] {
+        mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
+    }
+
+    private func mergedActionGroups(
+        baseGroups: [KeyActionCatalog.ActionGroup]
+    ) -> [KeyActionCatalog.ActionGroup] {
+        let customActions = collectedCustomActions(excluding: baseGroups)
+        guard !customActions.isEmpty else { return baseGroups }
+        return [
+            KeyActionCatalog.ActionGroup(title: "Saved Custom Actions", actions: customActions)
+        ] + baseGroups
+    }
+
+    private func collectedCustomActions(
+        excluding groups: [KeyActionCatalog.ActionGroup]
+    ) -> [KeyAction] {
+        var actions = Set<KeyAction>()
+
+        func add(_ action: KeyAction?) {
+            guard let action, action.kind != .none else { return }
+            let existsInBaseGroups = groups.contains { group in
+                group.actions.contains(action)
+            }
+            guard !existsInBaseGroups else { return }
+            actions.insert(action)
+        }
+
+        for layeredMappings in keyMappingsByLayout.values {
+            for mappings in layeredMappings.values {
+                for mapping in mappings.values {
+                    add(mapping.primary)
+                    add(mapping.hold)
+                }
+            }
+        }
+
+        for mappings in keyMappingsByLayer.values {
+            for mapping in mappings.values {
+                add(mapping.primary)
+                add(mapping.hold)
+            }
+        }
+
+        if let storedButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) {
+            for layeredButtons in storedButtonsByLayout.values {
+                for buttons in layeredButtons.values {
+                    for button in buttons {
+                        add(button.action)
+                        add(button.hold)
+                    }
+                }
+            }
+        }
+
+        for button in customButtons {
+            add(button.action)
+            add(button.hold)
+        }
+
+        add(KeyActionCatalog.action(for: twoFingerTapGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerTapGestureAction))
+        add(KeyActionCatalog.action(for: twoFingerHoldGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerHoldGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerHoldGestureAction))
+        add(KeyActionCatalog.action(for: outerCornersHoldGestureAction))
+        add(KeyActionCatalog.action(for: innerCornersHoldGestureAction))
+        add(KeyActionCatalog.action(for: fiveFingerSwipeLeftGestureAction))
+        add(KeyActionCatalog.action(for: fiveFingerSwipeRightGestureAction))
+
+        return actions.sorted {
+            $0.pickerText.localizedCaseInsensitiveCompare($1.pickerText) == .orderedAscending
+        }
     }
 
     private struct HeaderControlsView: View {
@@ -1050,6 +1141,7 @@ struct ContentView: View {
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
         @Binding var selectedGridKey: SelectedGridKey?
+        let onSelectionInteraction: () -> Void
         @Binding var testText: String
         @Binding var autocorrectCurrentBufferText: String
         @Binding var autocorrectLastCorrectedText: String
@@ -1071,7 +1163,8 @@ struct ContentView: View {
                             lastHitLeft: lastHitLeft,
                             lastHitRight: lastHitRight,
                             selectedButtonID: $selectedButtonID,
-                            selectedGridKey: $selectedGridKey
+                            selectedGridKey: $selectedGridKey,
+                            onSelectionInteraction: onSelectionInteraction
                         )
                     TextEditor(text: $testText)
                         .font(.system(.body, design: .monospaced))
@@ -1132,9 +1225,13 @@ struct ContentView: View {
         let layoutOption: TrackpadLayoutPreset
         let columnSettings: [ColumnLayoutSettings]
         let columnSelection: ColumnInspectorSelection?
+        let primaryActionGroups: [KeyActionCatalog.ActionGroup]
+        let holdActionGroups: [KeyActionCatalog.ActionGroup]
+        let gestureActionGroups: [KeyActionCatalog.ActionGroup]
         @Binding var editColumnIndex: Int
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
+        let selectionRevision: Int
         let editModeEnabled: Bool
         let layerSelection: Binding<Int>
         @Binding var tapHoldDurationMs: Double
@@ -1213,6 +1310,7 @@ struct ContentView: View {
                             isExpanded: $gestureTuningExpanded
                         ) {
                             GestureTuningSectionView(
+                                actionGroups: gestureActionGroups,
                                 twoFingerTapGestureAction: $twoFingerTapGestureAction,
                                 threeFingerTapGestureAction: $threeFingerTapGestureAction,
                                 twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
@@ -1307,6 +1405,9 @@ struct ContentView: View {
                                 ButtonTuningSectionView(
                                     buttonSelection: buttonSelection,
                                     keySelection: keySelection,
+                                    selectionRevision: selectionRevision,
+                                    primaryActionGroups: primaryActionGroups,
+                                    holdActionGroups: holdActionGroups,
                                     layerSelection: layerSelection,
                                     onAddCustomButton: onAddCustomButton,
                                     onRemoveCustomButton: onRemoveCustomButton,
@@ -1569,15 +1670,17 @@ struct ContentView: View {
                 if layoutOption.hasGrid && layoutOption.allowsColumnSettings {
                     if let index = activeColumnIndex,
                        let settings = activeColumnSettings {
-                        HStack {
+                        EqualSplitFormRow {
                             Text("Edit Column")
-                            Spacer()
+                        } field: {
                             Picker("", selection: editColumnBinding) {
                                 ForEach(columnSettings.indices, id: \.self) { columnIndex in
                                     Text("Column \(columnIndex + 1)").tag(columnIndex)
                                 }
                             }
                             .pickerStyle(MenuPickerStyle())
+                            .labelsHidden()
+                            .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         VStack(alignment: .leading, spacing: 14) {
                             ColumnTuningRow(
@@ -1691,8 +1794,18 @@ struct ContentView: View {
     }
 
     private struct ButtonTuningSectionView: View {
+        private enum ActionBuilderTarget: String, CaseIterable, Identifiable {
+            case primary = "Primary"
+            case hold = "Hold"
+
+            var id: String { rawValue }
+        }
+
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
+        let selectionRevision: Int
+        let primaryActionGroups: [KeyActionCatalog.ActionGroup]
+        let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let layerSelection: Binding<Int>
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
@@ -1701,6 +1814,11 @@ struct ContentView: View {
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
+        @State private var actionBuilderTarget: ActionBuilderTarget = .primary
+        @State private var shortcutModifiers = Set<ShortcutModifierToken>()
+        @State private var shortcutKeyLabel = ""
+        @State private var appLaunchTarget = ""
+        @State private var appLaunchArguments = ""
 
         private var hasEditableSelection: Bool {
             buttonSelection != nil || keySelection != nil
@@ -1762,11 +1880,171 @@ struct ContentView: View {
             )
         }
 
+        private var selectionIdentity: String {
+            if let selection = buttonSelection {
+                return "button:\(selection.button.id.uuidString)"
+            }
+            if let selection = keySelection {
+                return "key:\(selection.key.storageKey)"
+            }
+            return "none"
+        }
+
+        private var selectedPrimaryAction: KeyAction {
+            primaryActionBinding.wrappedValue
+        }
+
+        private var selectedHoldAction: KeyAction {
+            holdActionBinding.wrappedValue ?? KeyActionCatalog.noneAction
+        }
+
+        private var targetAction: KeyAction {
+            actionBuilderTarget == .hold ? selectedHoldAction : selectedPrimaryAction
+        }
+
+        private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
+            var groups = hold ? holdActionGroups : primaryActionGroups
+            let containsAction = groups.contains { group in
+                group.actions.contains(action)
+            }
+            if action.kind != .none && !containsAction {
+                groups.insert(
+                    KeyActionCatalog.ActionGroup(
+                        title: "Current Custom Action",
+                        actions: [action]
+                    ),
+                    at: 0
+                )
+            }
+            return groups
+        }
+
+        private var shortcutKeyBinding: Binding<String> {
+            Binding(
+                get: { shortcutKeyLabel },
+                set: { newValue in
+                    if !newValue.isEmpty {
+                        appLaunchTarget = ""
+                    }
+                    shortcutKeyLabel = newValue
+                }
+            )
+        }
+
+        private var appLaunchTargetBinding: Binding<String> {
+            Binding(
+                get: { appLaunchTarget },
+                set: { newValue in
+                    let trimmed = newValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !trimmed.isEmpty {
+                        clearShortcutBuilderState()
+                    }
+                    appLaunchTarget = trimmed
+                }
+            )
+        }
+
+        private func shortcutModifierBinding(_ modifier: ShortcutModifierToken) -> Binding<Bool> {
+            Binding(
+                get: { shortcutModifiers.contains(modifier) },
+                set: { isEnabled in
+                    if isEnabled {
+                        appLaunchTarget = ""
+                        shortcutModifiers.insert(modifier)
+                    } else {
+                        shortcutModifiers.remove(modifier)
+                    }
+                }
+            )
+        }
+
+        private var builtShortcutAction: KeyAction? {
+            KeyActionCatalog.shortcutAction(
+                modifiers: shortcutModifiers,
+                keyLabel: shortcutKeyLabel
+            )
+        }
+
+        private var builtAppLaunchAction: KeyAction? {
+            KeyActionCatalog.appLaunchAction(
+                fileName: appLaunchTarget,
+                arguments: appLaunchArguments
+            )
+        }
+
+        private var builtAction: KeyAction? {
+            builtAppLaunchAction ?? builtShortcutAction
+        }
+
+        private var actionBuilderPreview: String {
+            if let action = builtAppLaunchAction {
+                return action.pickerText
+            }
+            if let action = builtShortcutAction {
+                return "Shortcut: \(action.label)"
+            }
+            return "Shortcut: none"
+        }
+
+        private func clearShortcutBuilderState() {
+            shortcutModifiers.removeAll()
+            shortcutKeyLabel = ""
+        }
+
+        private func syncActionBuilderFromSelection() {
+            guard hasEditableSelection else {
+                clearShortcutBuilderState()
+                appLaunchTarget = ""
+                appLaunchArguments = ""
+                return
+            }
+
+            let action = targetAction
+            if let spec = KeyActionCatalog.appLaunchSpec(for: action) {
+                clearShortcutBuilderState()
+                appLaunchTarget = spec.fileName
+                appLaunchArguments = spec.arguments
+                return
+            }
+            if let spec = KeyActionCatalog.shortcutSpec(for: action) {
+                appLaunchTarget = ""
+                appLaunchArguments = ""
+                shortcutModifiers = spec.modifiers
+                shortcutKeyLabel = spec.keyLabel
+                return
+            }
+            clearShortcutBuilderState()
+            appLaunchTarget = ""
+            appLaunchArguments = ""
+        }
+
+        private func applyBuiltAction() {
+            guard let action = builtAction else { return }
+            switch actionBuilderTarget {
+            case .primary:
+                primaryActionBinding.wrappedValue = action
+            case .hold:
+                holdActionBinding.wrappedValue = action
+            }
+            syncActionBuilderFromSelection()
+        }
+
+        private func browseForAppTarget() {
+            let panel = NSOpenPanel()
+            panel.canChooseFiles = true
+            panel.canChooseDirectories = true
+            panel.allowsMultipleSelection = false
+            panel.resolvesAliases = true
+            guard panel.runModal() == .OK, let url = panel.url else { return }
+            appLaunchTarget = url.path
+            clearShortcutBuilderState()
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
-                HStack {
+                EqualSplitFormRow {
                     Text("Layer")
-                    Spacer()
+                } field: {
                     Picker("", selection: layerSelection) {
                         ForEach(ContentView.editableLayers, id: \.self) { layer in
                             Text("Layer\(layer)").tag(layer)
@@ -1774,32 +2052,108 @@ struct ContentView: View {
                     }
                     .pickerStyle(MenuPickerStyle())
                     .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 Text("Select a button or key on the trackpad to edit.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
-                Picker("Primary Action", selection: primaryActionBinding) {
-                    ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                        let group = KeyActionCatalog.primaryActionGroups[index]
-                        ContentView.pickerGroupHeader(group.title)
-                        ForEach(group.actions, id: \.self) { action in
-                            ContentView.pickerLabel(for: action).tag(action)
+                EqualSplitFormRow {
+                    Text("Primary Action")
+                } field: {
+                    Picker("", selection: primaryActionBinding) {
+                        ForEach(actionGroups(for: selectedPrimaryAction, hold: false).indices, id: \.self) { index in
+                            let group = actionGroups(for: selectedPrimaryAction, hold: false)[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action)
+                            }
                         }
                     }
+                    .pickerStyle(MenuPickerStyle())
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(!hasEditableSelection)
                 }
-                .pickerStyle(MenuPickerStyle())
-                .disabled(!hasEditableSelection)
-                Picker("Hold Action", selection: holdActionBinding) {
-                    ForEach(KeyActionCatalog.holdActionGroups.indices, id: \.self) { index in
-                        let group = KeyActionCatalog.holdActionGroups[index]
-                        ContentView.pickerGroupHeader(group.title)
-                        ForEach(group.actions, id: \.self) { action in
-                            ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                EqualSplitFormRow {
+                    Text("Hold Action")
+                } field: {
+                    Picker("", selection: holdActionBinding) {
+                        ForEach(actionGroups(for: selectedHoldAction, hold: true).indices, id: \.self) { index in
+                            let group = actionGroups(for: selectedHoldAction, hold: true)[index]
+                            ContentView.pickerGroupHeader(group.title)
+                            ForEach(group.actions, id: \.self) { action in
+                                ContentView.pickerLabel(for: action).tag(action as KeyAction?)
+                            }
                         }
                     }
+                    .pickerStyle(MenuPickerStyle())
+                    .labelsHidden()
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .disabled(!hasEditableSelection)
                 }
-                .pickerStyle(MenuPickerStyle())
-                .disabled(!hasEditableSelection)
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Shortcut Builder")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    Picker("", selection: $actionBuilderTarget) {
+                        ForEach(ActionBuilderTarget.allCases) { target in
+                            Text(target.rawValue).tag(target)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+                    .labelsHidden()
+                    .disabled(!hasEditableSelection)
+                    LazyVGrid(
+                        columns: [
+                            GridItem(.flexible(), spacing: 8),
+                            GridItem(.flexible(), spacing: 8)
+                        ],
+                        alignment: .leading,
+                        spacing: 8
+                    ) {
+                        ForEach(ShortcutModifierToken.ordered, id: \.self) { modifier in
+                            Toggle(modifier.rawValue, isOn: shortcutModifierBinding(modifier))
+                                .toggleStyle(.button)
+                                .frame(maxWidth: .infinity, minHeight: 28)
+                                .disabled(!hasEditableSelection)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        Text("Key")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Picker("Shortcut Key", selection: shortcutKeyBinding) {
+                            Text("None").tag("")
+                            ForEach(KeyActionCatalog.shortcutKeyLabels, id: \.self) { label in
+                                Text(label).tag(label)
+                            }
+                        }
+                        .pickerStyle(MenuPickerStyle())
+                        .labelsHidden()
+                        .disabled(!hasEditableSelection)
+                        Button("Apply") {
+                            applyBuiltAction()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!hasEditableSelection || builtAction == nil)
+                    }
+                    HStack(spacing: 8) {
+                        Text("App")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
+                            .textFieldStyle(.roundedBorder)
+                            .disabled(!hasEditableSelection)
+                        Button("Browse") {
+                            browseForAppTarget()
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(!hasEditableSelection)
+                    }
+                    Text(actionBuilderPreview)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
                 if let selection = keySelection {
                     ColumnTuningRow(
                         title: "Key Rotation (0-360 deg)",
@@ -1879,6 +2233,28 @@ struct ContentView: View {
                     onClearTouchState()
                 }
             )
+            .onAppear {
+                syncActionBuilderFromSelection()
+            }
+            .onChange(of: selectionIdentity) { _ in
+                syncActionBuilderFromSelection()
+            }
+            .onChange(of: selectionRevision) { _ in
+                syncActionBuilderFromSelection()
+            }
+            .onChange(of: actionBuilderTarget) { _ in
+                syncActionBuilderFromSelection()
+            }
+            .onChange(of: selectedPrimaryAction) { _ in
+                if actionBuilderTarget == .primary {
+                    syncActionBuilderFromSelection()
+                }
+            }
+            .onChange(of: selectedHoldAction) { _ in
+                if actionBuilderTarget == .hold {
+                    syncActionBuilderFromSelection()
+                }
+            }
         }
 
         private var addButtonsRow: some View {
@@ -1886,10 +2262,11 @@ struct ContentView: View {
                 Button("Add Left") {
                     onAddCustomButton(.left)
                 }
-                Spacer()
+                .frame(maxWidth: .infinity)
                 Button("Add Right") {
                     onAddCustomButton(.right)
                 }
+                .frame(maxWidth: .infinity)
             }
         }
 
@@ -2287,6 +2664,7 @@ struct ContentView: View {
     }
 
     private struct GestureTuningSectionView: View {
+        let actionGroups: [KeyActionCatalog.ActionGroup]
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
         @Binding var twoFingerHoldGestureAction: String
@@ -2320,23 +2698,28 @@ struct ContentView: View {
             selection: Binding<String>,
             fallbackLabel: String
         ) -> some View {
-            Picker(
-                title,
-                selection: gestureBinding(
-                    selection,
-                    fallbackLabel: fallbackLabel
-                )
-            ) {
-                ForEach(KeyActionCatalog.primaryActionGroups.indices, id: \.self) { index in
-                    let group = KeyActionCatalog.primaryActionGroups[index]
-                    ContentView.pickerGroupHeader(group.title)
-                    ForEach(group.actions, id: \.self) { action in
-                        ContentView.pickerLabel(for: action).tag(action)
+            EqualSplitFormRow {
+                Text(title)
+            } field: {
+                Picker(
+                    "",
+                    selection: gestureBinding(
+                        selection,
+                        fallbackLabel: fallbackLabel
+                    )
+                ) {
+                    ForEach(actionGroups.indices, id: \.self) { index in
+                        let group = actionGroups[index]
+                        ContentView.pickerGroupHeader(group.title)
+                        ForEach(group.actions, id: \.self) { action in
+                            ContentView.pickerLabel(for: action).tag(action)
+                        }
                     }
                 }
+                .pickerStyle(MenuPickerStyle())
+                .labelsHidden()
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .pickerStyle(MenuPickerStyle())
-            .gridCellColumns(3)
         }
 
         var body: some View {
@@ -2452,6 +2835,7 @@ struct ContentView: View {
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
         @Binding var selectedGridKey: SelectedGridKey?
+        let onSelectionInteraction: () -> Void
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -2539,6 +2923,7 @@ struct ContentView: View {
         private func surfaceSelectionChanged(_ selection: TrackpadSurfaceSelectionEvent) {
             guard editModeEnabled else { return }
             viewModel.clearTouchState()
+            onSelectionInteraction()
             switch selection.target {
             case .button(let id):
                 selectedButtonID = id
@@ -3656,11 +4041,11 @@ struct ContentView: View {
             }
 
         var body: some View {
-            HStack(alignment: .center, spacing: 12) {
+            EqualSplitFormRow {
                 Text(title)
                     .font(.callout)
                     .fontWeight(.semibold)
-                Spacer()
+            } field: {
                 HStack(spacing: 12) {
                     if showSlider {
                         Slider(value: $value, in: range, step: sliderStep)
@@ -3668,6 +4053,7 @@ struct ContentView: View {
                     }
                     controlButtons
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
 
@@ -3705,6 +4091,31 @@ struct ContentView: View {
                 max(range.lowerBound, value + delta),
                 range.upperBound
             )
+        }
+    }
+
+    private struct EqualSplitFormRow<Label: View, Field: View>: View {
+        let label: Label
+        let field: Field
+        let spacing: CGFloat
+
+        init(
+            spacing: CGFloat = 12,
+            @ViewBuilder label: () -> Label,
+            @ViewBuilder field: () -> Field
+        ) {
+            self.label = label()
+            self.field = field()
+            self.spacing = spacing
+        }
+
+        var body: some View {
+            HStack(alignment: .center, spacing: spacing) {
+                label
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                field
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 
@@ -3782,10 +4193,7 @@ struct ContentView: View {
     }
 
     fileprivate static func pickerLabel(for action: KeyAction) -> some View {
-        let label = action.kind == .typingToggle
-            ? KeyActionCatalog.typingToggleLabel
-            : action.label
-        return Text(label)
+        return Text(action.pickerText)
             .multilineTextAlignment(.center)
     }
 

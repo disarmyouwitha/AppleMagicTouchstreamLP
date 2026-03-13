@@ -498,6 +498,81 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 }
 
+private final class AppLaunchDispatcher: @unchecked Sendable {
+    func open(_ actionLabel: String) {
+        guard let spec = AppLaunchActionHelper.parse(actionLabel) else { return }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = launchArguments(for: spec)
+        try? process.run()
+    }
+
+    private func launchArguments(for spec: AppLaunchActionSpec) -> [String] {
+        var arguments = [spec.fileName]
+        let appArguments = tokenizeArguments(spec.arguments)
+        if !appArguments.isEmpty {
+            arguments.append("--args")
+            arguments.append(contentsOf: appArguments)
+        }
+        return arguments
+    }
+
+    private func tokenizeArguments(_ text: String) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var arguments: [String] = []
+        var current = ""
+        var quote: Character?
+        var escaped = false
+
+        for character in trimmed {
+            if escaped {
+                current.append(character)
+                escaped = false
+                continue
+            }
+
+            if character == "\\" {
+                escaped = true
+                continue
+            }
+
+            if let activeQuote = quote {
+                if character == activeQuote {
+                    self.flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+                    quote = nil
+                } else {
+                    current.append(character)
+                }
+                continue
+            }
+
+            if character == "\"" || character == "'" {
+                quote = character
+                continue
+            }
+
+            if character.isWhitespace {
+                flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+                continue
+            }
+
+            current.append(character)
+        }
+
+        flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+        return arguments
+    }
+
+    private func flushCurrentArgumentIfNeeded(into arguments: inout [String], current: inout String) {
+        guard !current.isEmpty else { return }
+        arguments.append(current)
+        current.removeAll(keepingCapacity: true)
+    }
+}
+
 final class DispatchService: @unchecked Sendable {
     struct Metrics: Sendable {
         var queueDepth: Int = 0
@@ -511,6 +586,7 @@ final class DispatchService: @unchecked Sendable {
     private enum Command {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case appLaunch(String)
         case leftClick(clickCount: Int)
         case rightClick
         case middleClick
@@ -568,6 +644,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     private let keyDispatcher: KeyEventDispatcher
+    private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let dispatchQueue = DispatchQueue(
         label: "com.kyome.GlassToKey.DispatchPump",
@@ -603,6 +680,10 @@ final class DispatchService: @unchecked Sendable {
                 token: token
             )
         )
+    }
+
+    func postAppLaunch(_ actionLabel: String) {
+        enqueue(.appLaunch(actionLabel))
     }
 
     func postLeftClick(clickCount: Int = 1) {
@@ -701,6 +782,8 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
+        case let .appLaunch(actionLabel):
+            appLaunchDispatcher.open(actionLabel)
         case let .leftClick(clickCount):
             keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
         case .rightClick:

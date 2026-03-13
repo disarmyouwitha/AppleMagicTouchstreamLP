@@ -1244,7 +1244,7 @@ actor TouchProcessorEngine {
                     continue
                 case .none:
                     break
-                case .key, .leftClick, .doubleClick, .rightClick, .middleClick,
+                case .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
                      .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
                      .chordalShift,
                      .voice,
@@ -1789,6 +1789,8 @@ actor TouchProcessorEngine {
                     code: CGKeyCode(button.action.keyCode),
                     flags: CGEventFlags(rawValue: button.action.flags)
                 )
+            case .appLaunch:
+                action = .appLaunch(button.action.label)
             case .leftClick:
                 action = .leftClick
             case .doubleClick:
@@ -1912,6 +1914,17 @@ actor TouchProcessorEngine {
                 canvasSize: canvasSize,
                 label: action.label,
                 action: .key(code: CGKeyCode(action.keyCode), flags: flags),
+                position: position,
+                side: side,
+                holdAction: holdAction
+            )
+        case .appLaunch:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
+                label: action.label,
+                action: .appLaunch(action.label),
                 position: position,
                 side: side,
                 holdAction: holdAction
@@ -3166,6 +3179,8 @@ actor TouchProcessorEngine {
         switch action.kind {
         case .none:
             break
+        case .appLaunch:
+            dispatchService.postAppLaunch(action.label)
         case .leftClick:
             dispatchService.postLeftClick()
         case .doubleClick:
@@ -3659,6 +3674,8 @@ actor TouchProcessorEngine {
         pressure: Float? = nil
     ) {
         switch binding.action {
+        case let .appLaunch(actionLabel):
+            dispatchService.postAppLaunch(actionLabel)
         case let .layerMomentary(layer):
             guard let touchKey else { return }
             momentaryLayerTouches.set(touchKey, layer)
