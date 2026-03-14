@@ -1,5 +1,4 @@
 ## Current:
-- presets: add a preset for mx(19.05x19.05mm) and choc(18x17mm) key dimmensions.
 - independent column scale for x and y. (Starts "linked" but you can "break the chain" like in photoshop)
 ---
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?)
