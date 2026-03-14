@@ -1279,7 +1279,7 @@ struct ContentView: View {
             ScrollView(.vertical) {
                 VStack(alignment: .leading, spacing: 14) {
                     if !editModeEnabled {
-                        DisclosureGroup(
+                        CollapsibleSection(
                             isExpanded: $typingTuningExpanded
                         ) {
                             TypingTuningSectionView(
@@ -1294,7 +1294,6 @@ struct ContentView: View {
                                 tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
                                 onRestoreDefaults: onRestoreDefaults
                             )
-                            .padding(.top, 8)
                         } label: {
                             Text("Typing Tuning")
                                 .font(.subheadline)
@@ -1306,7 +1305,7 @@ struct ContentView: View {
                                 .fill(Color.primary.opacity(0.05))
                         )
 
-                        DisclosureGroup(
+                        CollapsibleSection(
                             isExpanded: $gestureTuningExpanded
                         ) {
                             GestureTuningSectionView(
@@ -1321,7 +1320,6 @@ struct ContentView: View {
                                 fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
                                 fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
                             )
-                            .padding(.top, 8)
                         } label: {
                             Text("Gesture Tuning")
                                 .font(.subheadline)
@@ -1333,7 +1331,7 @@ struct ContentView: View {
                                 .fill(Color.primary.opacity(0.05))
                         )
 
-                        DisclosureGroup(
+                        CollapsibleSection(
                             isExpanded: $modeTogglesExpanded
                         ) {
                             ModeTogglesSectionView(
@@ -1344,7 +1342,6 @@ struct ContentView: View {
                                 runAtStartupEnabled: $runAtStartupEnabled,
                                 autoResyncEnabled: $autoResyncEnabled
                             )
-                            .padding(.top, 8)
                         } label: {
                             Text("Mode Toggles")
                                 .font(.subheadline)
@@ -1375,7 +1372,7 @@ struct ContentView: View {
                                     .fill(Color.primary.opacity(0.05))
                             )
 
-                            DisclosureGroup(
+                            CollapsibleSection(
                                 isExpanded: $columnTuningExpanded
                             ) {
                                 ColumnTuningSectionView(
@@ -1387,7 +1384,6 @@ struct ContentView: View {
                                     onAutoSplay: onAutoSplayColumns,
                                     onEvenSpacing: onEvenSpaceColumns
                                 )
-                                .padding(.top, 8)
                             } label: {
                                 Text("Column Tuning")
                                     .font(.subheadline)
@@ -1399,7 +1395,7 @@ struct ContentView: View {
                                     .fill(Color.primary.opacity(0.05))
                             )
 
-                            DisclosureGroup(
+                            CollapsibleSection(
                                 isExpanded: $keymapTuningExpanded
                             ) {
                                 ButtonTuningSectionView(
@@ -1417,7 +1413,6 @@ struct ContentView: View {
                                     keyRotationDegrees: keyRotationDegrees,
                                     onUpdateKeyRotation: onUpdateKeyRotation
                                 )
-                                .padding(.top, 8)
                             } label: {
                                 Text("Keymap Tuning")
                                     .font(.subheadline)
@@ -1620,6 +1615,52 @@ struct ContentView: View {
                 RoundedRectangle(cornerRadius: 12)
                     .fill(Color.primary.opacity(0.05))
             )
+        }
+    }
+
+    private struct CollapsibleSection<Label: View, Content: View>: View {
+        @Binding var isExpanded: Bool
+        let topSpacing: CGFloat
+        let content: () -> Content
+        let label: () -> Label
+
+        init(
+            isExpanded: Binding<Bool>,
+            topSpacing: CGFloat = 8,
+            @ViewBuilder content: @escaping () -> Content,
+            @ViewBuilder label: @escaping () -> Label
+        ) {
+            _isExpanded = isExpanded
+            self.topSpacing = topSpacing
+            self.content = content
+            self.label = label
+        }
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 0) {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.12)) {
+                        isExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 8) {
+                        Image(systemName: isExpanded ? "chevron.down" : "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 12)
+                        label()
+                        Spacer(minLength: 0)
+                    }
+                    .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                if isExpanded {
+                    content()
+                        .padding(.top, topSpacing)
+                }
+            }
         }
     }
 
@@ -2736,8 +2777,9 @@ struct ContentView: View {
 
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
-                DisclosureGroup(
-                    isExpanded: $tapsExpanded
+                CollapsibleSection(
+                    isExpanded: $tapsExpanded,
+                    topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                         GridRow {
@@ -2755,13 +2797,13 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .padding(.top, 4)
                 } label: {
                     Text("Taps")
                 }
 
-                DisclosureGroup(
-                    isExpanded: $holdsExpanded
+                CollapsibleSection(
+                    isExpanded: $holdsExpanded,
+                    topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                         GridRow {
@@ -2800,13 +2842,13 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .padding(.top, 4)
                 } label: {
                     Text("Holds")
                 }
 
-                DisclosureGroup(
-                    isExpanded: $swipesExpanded
+                CollapsibleSection(
+                    isExpanded: $swipesExpanded,
+                    topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                         GridRow {
@@ -2824,7 +2866,6 @@ struct ContentView: View {
                             )
                         }
                     }
-                    .padding(.top, 4)
                 } label: {
                     Text("Swipes")
                 }

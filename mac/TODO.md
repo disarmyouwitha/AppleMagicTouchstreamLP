@@ -1,6 +1,5 @@
 ## TODO
-- Highlight Custom Button with a pill-like circle like Windows?
-- Can we make section headers toggleable so I can click any part of it
+- Can we make the collapsable headers clickable   so I can click any part of it to toggle? (ie. click "Typing Tuning" text to expand the collapsable)
 - Can we make Space a continuous key like Backspace?
 ---
 - Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
