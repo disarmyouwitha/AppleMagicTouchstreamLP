@@ -10,6 +10,7 @@
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION *******
 ---
+- Column Spacing (%) is not saved Per-Column
 - Tune velocity / drag cancel on windows /w codex
 - When the config opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 
