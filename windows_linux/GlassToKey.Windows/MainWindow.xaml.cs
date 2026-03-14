@@ -3361,29 +3361,90 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ApplyAllKeySizePreset(double keyWidthMm, double keyHeightMm)
     {
-        double widthScale = keyWidthMm / KeyWidthMm;
-        double heightScale = keyHeightMm / KeyHeightMm;
+        bool layoutChanged = ApplyColumnLayoutFromUi();
+        bool sizingChanged = ApplyLayoutKeySizePreset(keyWidthMm, keyHeightMm);
+        bool geometryChanged = ClearKeySizePresetOverrides();
 
-        ApplyKeySizePresetForLayout(TrackpadSide.Left, _leftLayout, widthScale, heightScale);
-        ApplyKeySizePresetForLayout(TrackpadSide.Right, _rightLayout, widthScale, heightScale);
+        if (layoutChanged || sizingChanged)
+        {
+            RuntimeConfigurationFactory.SaveColumnSettingsForPreset(_settings, _preset, _columnSettings);
+            _settings.Save();
+        }
 
-        _keymap.Save();
+        if (geometryChanged)
+        {
+            _keymap.Save();
+        }
+
+        RefreshColumnLayoutEditor();
         RebuildLayouts();
         ApplyCoreSettings();
         RefreshKeymapEditor();
     }
 
-    private void ApplyKeySizePresetForLayout(TrackpadSide side, KeyLayout layout, double widthScale, double heightScale)
+    private bool ApplyLayoutKeySizePreset(double keyWidthMm, double keyHeightMm)
     {
+        bool changed = false;
+        double targetScaleX = keyWidthMm / KeyWidthMm;
+        double targetScaleY = keyHeightMm / KeyHeightMm;
+        double existingPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset);
+        if (Math.Abs(existingPadding) > 0.00001)
+        {
+            RuntimeConfigurationFactory.SaveKeyPaddingForPreset(_settings, _preset, 0.0);
+            changed = true;
+        }
+
+        if (!_preset.AllowsColumnSettings || _columnSettings.Length == 0)
+        {
+            return changed;
+        }
+
+        for (int i = 0; i < _columnSettings.Length; i++)
+        {
+            ColumnLayoutSettings settings = _columnSettings[i];
+            if (Math.Abs(settings.ScaleX - targetScaleX) > 0.00001)
+            {
+                settings.ScaleX = targetScaleX;
+                changed = true;
+            }
+
+            if (Math.Abs(settings.ScaleY - targetScaleY) > 0.00001)
+            {
+                settings.ScaleY = targetScaleY;
+                changed = true;
+            }
+        }
+
+        return changed;
+    }
+
+    private bool ClearKeySizePresetOverrides()
+    {
+        bool changed = false;
+        changed |= ClearKeySizePresetOverridesForLayout(TrackpadSide.Left, _leftLayout);
+        changed |= ClearKeySizePresetOverridesForLayout(TrackpadSide.Right, _rightLayout);
+        return changed;
+    }
+
+    private bool ClearKeySizePresetOverridesForLayout(TrackpadSide side, KeyLayout layout)
+    {
+        bool changed = false;
         for (int row = 0; row < layout.Rects.Length; row++)
         {
             for (int col = 0; col < layout.Rects[row].Length; col++)
             {
                 string storageKey = GridKeyPosition.StorageKey(side, row, col);
                 KeyGeometryOverride geometry = _keymap.ResolveKeyGeometry(storageKey);
-                _keymap.SetKeyGeometry(storageKey, geometry.RotationDegrees, widthScale, heightScale);
+                if (Math.Abs(geometry.WidthScale - 1.0) > 0.00001 ||
+                    Math.Abs(geometry.HeightScale - 1.0) > 0.00001)
+                {
+                    _keymap.SetKeyGeometry(storageKey, geometry.RotationDegrees);
+                    changed = true;
+                }
             }
         }
+
+        return changed;
     }
 
     private void OnCustomButtonAddLeftClicked(object sender, RoutedEventArgs e)

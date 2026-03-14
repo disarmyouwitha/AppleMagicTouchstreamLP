@@ -1,6 +1,9 @@
 ## Current:
 - Can we change "Column Scale (%)" into 2 fields: Column Scale X% and Column Scale Y%?
+- should scale be set to 100 x/y if we click mx size/choc size
 - Aside from the physical deminsions of MX and Choc keycaps, they also have a physical space between them that I want those buttons to default. Please look up those deminsions online!
+---
+- If you click and old "Shift" it shows "left shift, right shift" options to pick from!, same with ctrl, win (and alt?)
 ---
 - Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?)
 ---

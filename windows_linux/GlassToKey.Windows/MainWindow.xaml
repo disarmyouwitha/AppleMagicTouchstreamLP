@@ -287,7 +287,7 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
-                  <Button x:Name="MxSpacingButton" Content="Mx Size" Height="28" Margin="0,0,6,0" />
+                  <Button x:Name="MxSpacingButton" Content="mx size" Height="28" Margin="0,0,6,0" />
                   <Button x:Name="ChocSpacingButton" Grid.Column="1" Content="choc size" Height="28" Margin="6,0,0,0" />
                 </Grid>
                 <Border Margin="0,12,0,0"
