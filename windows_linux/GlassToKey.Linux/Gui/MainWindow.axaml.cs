@@ -139,6 +139,7 @@ public partial class MainWindow : Window
     private bool _hasSelectedKey;
     private bool _hasSelectedCustomButton;
     private ToggleButton? _shortcutModifierPressedButton;
+    private IPointer? _shortcutModifierPressedPointer;
     private TrackpadSide _selectedKeySide = TrackpadSide.Left;
     private int _selectedKeyRow = -1;
     private int _selectedKeyColumn = -1;
@@ -1071,8 +1072,10 @@ public partial class MainWindow : Window
         }
 
         _shortcutModifierPressedButton = button;
+        _shortcutModifierPressedPointer = e.Pointer;
         _shortcutModifierHoldTimer.Stop();
         _shortcutModifierHoldTimer.Start();
+        button.Focus();
         e.Pointer.Capture(button);
         e.Handled = true;
     }
@@ -1087,6 +1090,7 @@ public partial class MainWindow : Window
 
         _shortcutModifierHoldTimer.Stop();
         _shortcutModifierPressedButton = null;
+        _shortcutModifierPressedPointer = null;
         if (e.Pointer.Captured == button)
         {
             e.Pointer.Capture(null);
@@ -1107,6 +1111,7 @@ public partial class MainWindow : Window
         {
             _shortcutModifierHoldTimer.Stop();
             _shortcutModifierPressedButton = null;
+            _shortcutModifierPressedPointer = null;
         }
     }
 
@@ -1121,6 +1126,13 @@ public partial class MainWindow : Window
         }
 
         _shortcutModifierPressedButton = null;
+        if (_shortcutModifierPressedPointer?.Captured == button)
+        {
+            _shortcutModifierPressedPointer.Capture(null);
+        }
+
+        _shortcutModifierPressedPointer = null;
+        button.ContextMenu.PlacementTarget = button;
         button.ContextMenu.Open(button);
     }
 
@@ -4885,7 +4897,7 @@ public partial class MainWindow : Window
                 {
                     Text = choice.Label,
                     Margin = new Thickness(10, 2),
-                    Foreground = new SolidColorBrush(Color.Parse("#F1F5F8"))
+                    Foreground = new SolidColorBrush(Color.Parse("#1E2328"))
                 };
             }
 

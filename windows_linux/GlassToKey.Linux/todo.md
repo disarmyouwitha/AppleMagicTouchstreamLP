@@ -1,9 +1,14 @@
 # TODO:
-- Ctrl, Shift, Alt, Super do not match the description: when you click they DO toggle but nothing happens when I HOLD (should present sided options: Left Shift, Right Shift) please see windows.
+- Move everything but Typing Toggle from Modes into "System & Media" (spell it like this) in the Action drop downs. 
+- Remove Shift from "System & Media"
+- Move Chordal Shift into `Modes`
+- Remove everything but Typing Toggle (and move Chordal Shift into) `Modes` and move everything else from Modes into 
+- Ctrl, Shift, Alt, Super do not match the description in Shortcut Builder: when you click they DO toggle but nothing happens when I HOLD (should present sided options: Left Shift, Right Shift) please see windows. How does AltGr work in Linux? How do I do AltGr+n > Accented N in Linux?
 ---
 - Test AltGr on Linux
 1. You said Super+N then N should send the international letter? I can't get it to work now, (because it's set to Win?)
 - Meta keys? or is that same as Super? distinct enough to add to shortcut builder and action dropdowns?
+- The GUI colors are so bad when you hover over any button please make it more high contrast
 -------
 # Test Linux Restart:
 - Linux does not respect `open in tray` and always opens in fullscreen
