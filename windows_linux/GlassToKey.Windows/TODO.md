@@ -1,7 +1,5 @@
 ## Current:
-- In the shortcut builder can we make it so that if you click and hold "Shift" it shows "left shift, right shift" options to pick from like a drop down? same with ctrl, win (and alt?)
----
-- Can we add 3-finger tap? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?)
+- Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 ---
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
 - `Advanced Gestures Config` as it's own GUI like Config? (more breathing room to make the GUI more usable)
