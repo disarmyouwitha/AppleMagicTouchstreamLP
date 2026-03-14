@@ -959,9 +959,9 @@ struct ContentView: View {
     ) -> [KeyActionCatalog.ActionGroup] {
         let customActions = collectedCustomActions(excluding: baseGroups)
         guard !customActions.isEmpty else { return baseGroups }
-        return [
+        return baseGroups + [
             KeyActionCatalog.ActionGroup(title: "Saved Custom Actions", actions: customActions)
-        ] + baseGroups
+        ]
     }
 
     private func collectedCustomActions(

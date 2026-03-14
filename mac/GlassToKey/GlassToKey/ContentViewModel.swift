@@ -178,7 +178,7 @@ enum AppLaunchActionHelper {
 enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
     case control = "Ctrl"
     case shift = "Shift"
-    case option = "Alt"
+    case option = "Option"
     case command = "Cmd"
 
     static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .command]
@@ -2065,7 +2065,6 @@ enum KeyActionCatalog {
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
-                "Alt",
                 "Option",
                 "Cmd",
                 "Emoji",
