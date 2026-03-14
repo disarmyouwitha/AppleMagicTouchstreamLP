@@ -2348,8 +2348,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "Ctrl",
             "Alt",
             "AltGr",
-            "LWin",
-            "RWin"
+            "Win"
         };
         for (int i = 0; i < modifiers.Length; i++)
         {

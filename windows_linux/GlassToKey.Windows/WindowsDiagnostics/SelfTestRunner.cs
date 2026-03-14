@@ -130,6 +130,13 @@ internal static class SelfTestRunner
             return false;
         }
 
+        if (!DispatchKeyResolver.TryResolveModifierVirtualKey("Win", out ushort winKey) ||
+            winKey != 0x5B)
+        {
+            failure = "Win modifier label did not resolve to virtual key 0x5B";
+            return false;
+        }
+
         if (!WindowsVirtualKeyMapper.TryMapSemanticCode(DispatchSemanticCode.BrightnessUp, out ushort brightnessUpKey) ||
             brightnessUpKey != DispatchKeyResolver.VirtualKeyBrightnessUp)
         {

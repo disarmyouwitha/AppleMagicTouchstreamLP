@@ -1,9 +1,4 @@
 ## Current:
-- Can you give me a functional list of all selftest being done right now and what the expected behavior is?
-- Please add `AltGr` to the Primary/Hold Dropdown and also add a button to the Shortcut Builder! Users want to be able to `r_alt+n` > ñ, etc
-- I would like to test `r_alt+n` in shortcut builder.. But it doesnt dipatch anything? Also mapping a key to AltGr + N key doesnt dispatch. 
-- Remove `LWin` and ` Rwin` from dropdowns, make them alias to `Win` instead~
----
 - presets: add a preset for mx(19.05x19.05mm) and choc(18x17mm) key dimmensions.
 - independent column scale for x and y. (Starts "linked" but you can "break the chain" like in photoshop)
 ---
@@ -39,3 +34,29 @@
 
 # unrelated:
 - AI Tamagachi: something like a controlled openclaw.. It runs in the background and you take care of it and interact with it and feed it it will grow. As it grows, it can learn skills.. Maybe it starts to talk one day.. maybe it notices that the the user has a mic and it learns to listen? 
+
+
+# Unicode send??
+
+  Rework
+  If you want ñ to work regardless of Windows layout, the right rework is direct text injection, not
+  more AltGr logic.
+
+  What that would involve:
+
+  - Add a new action type for literal text, likely single-character first, instead of only VK/semantic
+    key actions.
+  - Extend parsing/storage/UI so a key can map to something like a text action rather than a shortcut
+    chord.
+  - Add a Windows dispatch path using Unicode SendInput instead of virtual-key/scancode injection.
+  - Decide semantics for hold/repeat. My recommendation: text actions should be tap-only at first.
+  - Add tests for parsing, engine dispatch, and Windows Unicode injection behavior.
+
+  In practice, Windows-only first is a moderate change, not huge. The existing system is VK/chord-
+  centric, so this is additive rather than a one-line fix. If you want the smallest useful version,
+  I’d implement:
+
+  - single-character Unicode text actions
+  - Windows dispatch only
+  - no shortcut-builder changes yet
+  - simple UI entry in the Primary/Hold action model

@@ -114,6 +114,13 @@ internal static class DispatchKeyResolver
             return true;
         }
 
+        if (label.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
+            label.Equals("Meta", StringComparison.OrdinalIgnoreCase))
+        {
+            virtualKey = 0x5B;
+            return true;
+        }
+
         if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase))
         {
             virtualKey = 0x5B;

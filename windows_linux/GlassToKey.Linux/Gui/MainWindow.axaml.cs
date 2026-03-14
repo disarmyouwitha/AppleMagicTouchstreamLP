@@ -1898,8 +1898,7 @@ public partial class MainWindow : Window
             "Shift",
             "Ctrl",
             "Alt",
-            "LWin",
-            "RWin"
+            "Win"
         };
         for (int i = 0; i < modifiers.Length; i++)
         {
