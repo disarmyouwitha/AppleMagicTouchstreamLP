@@ -3387,12 +3387,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         bool changed = false;
         double targetScaleX = keyWidthMm / KeyWidthMm;
         double targetScaleY = keyHeightMm / KeyHeightMm;
-        double existingPadding = RuntimeConfigurationFactory.GetKeyPaddingPercentForPreset(_settings, _preset);
-        if (Math.Abs(existingPadding) > 0.00001)
-        {
-            RuntimeConfigurationFactory.SaveKeyPaddingForPreset(_settings, _preset, 0.0);
-            changed = true;
-        }
 
         if (!_preset.AllowsColumnSettings || _columnSettings.Length == 0)
         {
