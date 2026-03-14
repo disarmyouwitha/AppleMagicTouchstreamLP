@@ -1,6 +1,7 @@
 ## TODO
-- International keys like AltGR on mac?
----
+- Mx Spacing, Choc Spacing 50/50 buttons (that also set the padding to the correct spacing)
+- Column Scale X / Column Scale Y
+-------
 - Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
 - I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
 ^ tip switch like on windows?

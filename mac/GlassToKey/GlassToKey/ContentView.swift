@@ -1949,6 +1949,10 @@ struct ContentView: View {
             actionBuilderTarget == .hold ? selectedHoldAction : selectedPrimaryAction
         }
 
+        private var builderSupportedShortcutModifiers: Set<ShortcutModifierToken> {
+            Set(ShortcutModifierToken.builderOrdered)
+        }
+
         private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
             var groups = hold ? holdActionGroups : primaryActionGroups
             let containsAction = groups.contains { group in
@@ -2007,7 +2011,7 @@ struct ContentView: View {
 
         private var builtShortcutAction: KeyAction? {
             KeyActionCatalog.shortcutAction(
-                modifiers: shortcutModifiers,
+                modifiers: shortcutModifiers.intersection(builderSupportedShortcutModifiers),
                 keyLabel: shortcutKeyLabel
             )
         }
@@ -2056,7 +2060,7 @@ struct ContentView: View {
             if let spec = KeyActionCatalog.shortcutSpec(for: action) {
                 appLaunchTarget = ""
                 appLaunchArguments = ""
-                shortcutModifiers = spec.modifiers
+                shortcutModifiers = spec.modifiers.intersection(builderSupportedShortcutModifiers)
                 shortcutKeyLabel = spec.keyLabel
                 return
             }
@@ -2158,7 +2162,7 @@ struct ContentView: View {
                     .labelsHidden()
                     .disabled(!hasEditableSelection)
                     HStack(spacing: 8) {
-                        ForEach(ShortcutModifierToken.ordered, id: \.self) { modifier in
+                        ForEach(ShortcutModifierToken.builderOrdered, id: \.self) { modifier in
                             Toggle(modifier.rawValue, isOn: shortcutModifierBinding(modifier))
                                 .toggleStyle(.button)
                                 .frame(maxWidth: .infinity, minHeight: 28)

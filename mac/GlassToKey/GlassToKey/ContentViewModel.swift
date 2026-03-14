@@ -194,6 +194,7 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
     case command = "Cmd"
 
     static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .altGr, .command]
+    static let builderOrdered: [ShortcutModifierToken] = [.control, .shift, .option, .command]
 
     var flags: CGEventFlags {
         switch self {
