@@ -19,6 +19,8 @@ public sealed class KeyMapping
 public sealed class KeyGeometryOverride
 {
     public double RotationDegrees { get; set; }
+    public double WidthScale { get; set; } = 1.0;
+    public double HeightScale { get; set; } = 1.0;
 }
 
 public sealed class CustomButton
@@ -296,14 +298,16 @@ public sealed class KeymapStore
         {
             return new KeyGeometryOverride
             {
-                RotationDegrees = Math.Clamp(geometry.RotationDegrees, 0.0, 360.0)
+                RotationDegrees = Math.Clamp(geometry.RotationDegrees, 0.0, 360.0),
+                WidthScale = NormalizeScale(geometry.WidthScale),
+                HeightScale = NormalizeScale(geometry.HeightScale)
             };
         }
 
         return new KeyGeometryOverride();
     }
 
-    public void SetKeyGeometry(string storageKey, double rotationDegrees)
+    public void SetKeyGeometry(string storageKey, double rotationDegrees, double widthScale = 1.0, double heightScale = 1.0)
     {
         if (string.IsNullOrWhiteSpace(storageKey))
         {
@@ -312,8 +316,13 @@ public sealed class KeymapStore
 
         LayoutKeymapData data = EnsureLayoutData(_activeLayoutKey);
         data.KeyGeometry ??= new Dictionary<string, KeyGeometryOverride>(StringComparer.OrdinalIgnoreCase);
-        double clamped = Math.Clamp(rotationDegrees, 0.0, 360.0);
-        if (clamped <= 0.00001)
+        double clampedRotation = Math.Clamp(rotationDegrees, 0.0, 360.0);
+        double normalizedWidthScale = NormalizeScale(widthScale);
+        double normalizedHeightScale = NormalizeScale(heightScale);
+        bool hasRotation = clampedRotation > 0.00001;
+        bool hasWidthScale = Math.Abs(normalizedWidthScale - 1.0) > 0.00001;
+        bool hasHeightScale = Math.Abs(normalizedHeightScale - 1.0) > 0.00001;
+        if (!hasRotation && !hasWidthScale && !hasHeightScale)
         {
             data.KeyGeometry.Remove(storageKey);
             return;
@@ -321,7 +330,9 @@ public sealed class KeymapStore
 
         data.KeyGeometry[storageKey] = new KeyGeometryOverride
         {
-            RotationDegrees = clamped
+            RotationDegrees = clampedRotation,
+            WidthScale = normalizedWidthScale,
+            HeightScale = normalizedHeightScale
         };
     }
 
@@ -668,17 +679,34 @@ public sealed class KeymapStore
             }
 
             double rotationDegrees = Math.Clamp(value?.RotationDegrees ?? 0.0, 0.0, 360.0);
-            if (rotationDegrees <= 0.00001)
+            double widthScale = NormalizeScale(value?.WidthScale ?? 1.0);
+            double heightScale = NormalizeScale(value?.HeightScale ?? 1.0);
+            bool hasRotation = rotationDegrees > 0.00001;
+            bool hasWidthScale = Math.Abs(widthScale - 1.0) > 0.00001;
+            bool hasHeightScale = Math.Abs(heightScale - 1.0) > 0.00001;
+            if (!hasRotation && !hasWidthScale && !hasHeightScale)
             {
                 continue;
             }
 
             normalized[key] = new KeyGeometryOverride
             {
-                RotationDegrees = rotationDegrees
+                RotationDegrees = rotationDegrees,
+                WidthScale = widthScale,
+                HeightScale = heightScale
             };
         }
 
         return normalized;
+    }
+
+    private static double NormalizeScale(double value)
+    {
+        if (double.IsNaN(value) || double.IsInfinity(value) || value <= 0.0)
+        {
+            return 1.0;
+        }
+
+        return Math.Clamp(value, 0.1, 10.0);
     }
 }

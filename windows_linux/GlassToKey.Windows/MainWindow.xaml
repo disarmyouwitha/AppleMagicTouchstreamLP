@@ -157,8 +157,14 @@
           <StackPanel Orientation="Vertical">
             <TextBlock Text="Controls" Foreground="#e7e9ea" FontSize="14" FontWeight="SemiBold" />
 
-            <TextBlock Text="Layout" Foreground="#8b949e" FontSize="12" Margin="0,10,0,2" />
-            <ComboBox x:Name="LayoutPresetCombo" Height="26" />
+            <Grid Margin="0,10,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+              </Grid.ColumnDefinitions>
+              <TextBlock Text="Layout" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+              <ComboBox x:Name="LayoutPresetCombo" Grid.Column="1" Height="26" Margin="8,0,0,0" />
+            </Grid>
             <Expander IsExpanded="False" Margin="0,8,0,0">
               <Expander.Header>
                 <TextBlock Text="Column Tuning" Foreground="#8b949e" FontSize="12" />
@@ -177,8 +183,16 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Column Scale (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                  <TextBlock Text="Column Scale X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column Scale Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
@@ -212,14 +226,21 @@
                   <TextBlock Text="Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnRotationBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
-                <Button x:Name="ColumnAutoSplayButton"
-                        Content="Auto Splay (4+ Fingers)"
-                        Height="26"
-                        Margin="0,8,0,0" />
-                <Button x:Name="ColumnEvenSpaceButton"
-                        Content="e v e n s p a c e"
-                        Height="26"
-                        Margin="0,6,0,0" />
+                <Grid Margin="0,8,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Button x:Name="ColumnAutoSplayButton"
+                          Content="Auto Splay (4+ Fingers)"
+                          Height="26"
+                          Margin="0,0,6,0" />
+                  <Button x:Name="ColumnEvenSpaceButton"
+                          Grid.Column="1"
+                          Content="e v e n s p a c e"
+                          Height="26"
+                          Margin="6,0,0,0" />
+                </Grid>
               </StackPanel>
             </Expander>
 
@@ -234,6 +255,7 @@
                     <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
                   <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -259,6 +281,14 @@
 
                   <TextBlock Grid.Row="3" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
                   <TextBox x:Name="KeyRotationBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" />
+                </Grid>
+                <Grid Margin="0,12,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
+                  <Button x:Name="MxSpacingButton" Content="Mx Size" Height="28" Margin="0,0,6,0" />
+                  <Button x:Name="ChocSpacingButton" Grid.Column="1" Content="choc size" Height="28" Margin="6,0,0,0" />
                 </Grid>
                 <Border Margin="0,12,0,0"
                         Padding="12"

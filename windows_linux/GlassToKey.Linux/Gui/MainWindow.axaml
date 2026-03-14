@@ -231,7 +231,7 @@
                   <Grid Margin="0,10,0,0"
                         HorizontalAlignment="Stretch"
                         ColumnDefinitions="*,*"
-                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                     <TextBlock Grid.Row="0"
                                Margin="0,8,0,0"
                                Text="Edit Column"
@@ -244,50 +244,59 @@
 
                   <TextBlock Grid.Row="1"
                              Margin="0,8,0,0"
-                             Text="Column Scale (%)"
+                             Text="Column Scale X (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleBox"
+                  <TextBox x:Name="ColumnScaleXBox"
                            Grid.Row="1"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="2"
                              Margin="0,8,0,0"
-                             Text="Column Spacing (%)"
+                             Text="Column Scale Y (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="KeyPaddingBox"
+                  <TextBox x:Name="ColumnScaleYBox"
                            Grid.Row="2"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="3"
                              Margin="0,8,0,0"
-                             Text="Column X (%)"
+                             Text="Column Spacing (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnOffsetXBox"
+                  <TextBox x:Name="KeyPaddingBox"
                            Grid.Row="3"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="4"
                              Margin="0,8,0,0"
-                             Text="Column Y (%)"
+                             Text="Column X (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnOffsetYBox"
+                  <TextBox x:Name="ColumnOffsetXBox"
                            Grid.Row="4"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="5"
                              Margin="0,8,0,0"
-                             Text="Rotation (0-360 deg)"
+                             Text="Column Y (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnRotationBox"
+                  <TextBox x:Name="ColumnOffsetYBox"
                            Grid.Row="5"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
-                  <Grid Grid.Row="6"
+                  <TextBlock Grid.Row="6"
+                             Margin="0,8,0,0"
+                             Text="Rotation (0-360 deg)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnRotationBox"
+                           Grid.Row="6"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <Grid Grid.Row="7"
                         Grid.ColumnSpan="2"
                         Margin="0,10,0,0"
                         ColumnDefinitions="*,*">

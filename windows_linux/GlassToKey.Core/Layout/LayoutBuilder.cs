@@ -67,12 +67,6 @@ public static class LayoutBuilder
             ? columnSettings
             : ColumnLayoutDefaults.DefaultSettings(columns);
 
-        double[] columnScales = new double[columns];
-        for (int i = 0; i < columns; i++)
-        {
-            columnScales[i] = settings[i].Scale;
-        }
-
         PointMm[] adjustedAnchors = preset.ColumnAnchorsMm;
         double spacingXmm = keyWidthMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
         double spacingYmm = keyHeightMm * (Math.Clamp(keySpacingPercent, 0.0, 200.0) / 100.0);
@@ -84,9 +78,8 @@ public static class LayoutBuilder
             for (int col = 0; col < columns; col++)
             {
                 PointMm anchor = adjustedAnchors[col];
-                double scale = columnScales[col];
-                double widthMm = keyWidthMm * scale;
-                double heightMm = keyHeightMm * scale;
+                double widthMm = keyWidthMm * settings[col].ScaleX;
+                double heightMm = keyHeightMm * settings[col].ScaleY;
                 double rowSpacing = heightMm * (settings[col].RowSpacingPercent / 100.0);
                 double xMm = anchor.X;
                 double yMm = anchor.Y + row * (heightMm + rowSpacing + spacingYmm);
@@ -140,15 +133,7 @@ public static class LayoutBuilder
                 for (int col = 0; col < columns; col++)
                 {
                     string storageKey = GridKeyPosition.StorageKey(side, row, col);
-                    KeyGeometryOverride geometry = keymap.ResolveKeyGeometry(storageKey);
-                    double rotationDegrees = -Math.Clamp(geometry.RotationDegrees, 0.0, 360.0);
-                    if (Math.Abs(rotationDegrees) < 0.00001)
-                    {
-                        continue;
-                    }
-
-                    NormalizedRect rect = rects[row][col];
-                    rects[row][col] = rect.RotateAround(rect.CenterX, rect.CenterY, rotationDegrees);
+                    rects[row][col] = ApplyKeyGeometryOverride(rects[row][col], keymap.ResolveKeyGeometry(storageKey));
                 }
             }
         }
@@ -268,19 +253,39 @@ public static class LayoutBuilder
                 for (int col = 0; col < rects[row].Length; col++)
                 {
                     string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Right, row, col);
-                    KeyGeometryOverride geometry = keymap.ResolveKeyGeometry(storageKey);
-                    double rotationDegrees = -Math.Clamp(geometry.RotationDegrees, 0.0, 360.0);
-                    if (Math.Abs(rotationDegrees) < 0.00001)
-                    {
-                        continue;
-                    }
-
-                    NormalizedRect rect = rects[row][col];
-                    rects[row][col] = rect.RotateAround(rect.CenterX, rect.CenterY, rotationDegrees);
+                    rects[row][col] = ApplyKeyGeometryOverride(rects[row][col], keymap.ResolveKeyGeometry(storageKey));
                 }
             }
         }
 
         return new KeyLayout(rects, labels);
+    }
+
+    private static NormalizedRect ApplyKeyGeometryOverride(NormalizedRect rect, KeyGeometryOverride geometry)
+    {
+        double widthScale = geometry.WidthScale > 0.0 ? geometry.WidthScale : 1.0;
+        double heightScale = geometry.HeightScale > 0.0 ? geometry.HeightScale : 1.0;
+        if (Math.Abs(widthScale - 1.0) >= 0.00001 || Math.Abs(heightScale - 1.0) >= 0.00001)
+        {
+            double centerX = rect.CenterX;
+            double centerY = rect.CenterY;
+            double width = rect.Width * widthScale;
+            double height = rect.Height * heightScale;
+            rect = rect with
+            {
+                X = centerX - (width * 0.5),
+                Y = centerY - (height * 0.5),
+                Width = width,
+                Height = height
+            };
+        }
+
+        double rotationDegrees = -Math.Clamp(geometry.RotationDegrees, 0.0, 360.0);
+        if (Math.Abs(rotationDegrees) >= 0.00001)
+        {
+            rect = rect.RotateAround(rect.CenterX, rect.CenterY, rotationDegrees);
+        }
+
+        return rect;
     }
 }

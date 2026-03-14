@@ -540,7 +540,7 @@ public sealed class UserSettings
         for (int i = 0; i < source.Count; i++)
         {
             ColumnLayoutSettings item = source[i] ?? new ColumnLayoutSettings();
-            clone.Add(new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees));
+            clone.Add(new ColumnLayoutSettings(item.ScaleX, item.ScaleY, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees));
         }
 
         return clone;
@@ -552,11 +552,14 @@ public sealed class UserSettings
         for (int i = 0; i < settings.Count; i++)
         {
             ColumnLayoutSettings item = settings[i] ?? new ColumnLayoutSettings();
-            double normalizedScale = Math.Clamp(item.Scale, RuntimeConfigurationFactory.MinColumnScale, 10.0);
+            double normalizedScaleX = Math.Clamp(item.ScaleX, RuntimeConfigurationFactory.MinColumnScale, 10.0);
+            double normalizedScaleY = Math.Clamp(item.ScaleY, RuntimeConfigurationFactory.MinColumnScale, 10.0);
             double normalizedRotation = Math.Clamp(item.RotationDegrees, 0.0, 360.0);
-            if (!AreClose(item.Scale, normalizedScale) || !AreClose(item.RotationDegrees, normalizedRotation))
+            if (!AreClose(item.ScaleX, normalizedScaleX) ||
+                !AreClose(item.ScaleY, normalizedScaleY) ||
+                !AreClose(item.RotationDegrees, normalizedRotation))
             {
-                settings[i] = new ColumnLayoutSettings(normalizedScale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, normalizedRotation);
+                settings[i] = new ColumnLayoutSettings(normalizedScaleX, normalizedScaleY, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, normalizedRotation);
                 changed = true;
             }
         }

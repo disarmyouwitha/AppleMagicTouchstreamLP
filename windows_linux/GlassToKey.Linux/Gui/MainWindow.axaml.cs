@@ -78,7 +78,8 @@ public partial class MainWindow : Window
     private readonly TextBlock _autocorrectSkipReasonValueText;
     private readonly TextBlock _autocorrectResetSourceValueText;
     private readonly TextBlock _autocorrectWordHistoryValueText;
-    private readonly TextBox _columnScaleBox;
+    private readonly TextBox _columnScaleXBox;
+    private readonly TextBox _columnScaleYBox;
     private readonly TextBox _keyPaddingBox;
     private readonly TextBox _columnOffsetXBox;
     private readonly TextBox _columnOffsetYBox;
@@ -210,7 +211,8 @@ public partial class MainWindow : Window
         _autocorrectSkipReasonValueText = RequireControl<TextBlock>("AutocorrectSkipReasonValueText");
         _autocorrectResetSourceValueText = RequireControl<TextBlock>("AutocorrectResetSourceValueText");
         _autocorrectWordHistoryValueText = RequireControl<TextBlock>("AutocorrectWordHistoryValueText");
-        _columnScaleBox = RequireControl<TextBox>("ColumnScaleBox");
+        _columnScaleXBox = RequireControl<TextBox>("ColumnScaleXBox");
+        _columnScaleYBox = RequireControl<TextBox>("ColumnScaleYBox");
         _keyPaddingBox = RequireControl<TextBox>("KeyPaddingBox");
         _columnOffsetXBox = RequireControl<TextBox>("ColumnOffsetXBox");
         _columnOffsetYBox = RequireControl<TextBox>("ColumnOffsetYBox");
@@ -595,12 +597,14 @@ public partial class MainWindow : Window
         {
             _hapticsStrengthSlider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
         }
-        _columnScaleBox.LostFocus += OnColumnLayoutCommitted;
+        _columnScaleXBox.LostFocus += OnColumnLayoutCommitted;
+        _columnScaleYBox.LostFocus += OnColumnLayoutCommitted;
         _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
         _columnOffsetXBox.LostFocus += OnColumnLayoutCommitted;
         _columnOffsetYBox.LostFocus += OnColumnLayoutCommitted;
         _columnRotationBox.LostFocus += OnColumnLayoutCommitted;
-        _columnScaleBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnScaleXBox.KeyDown += OnColumnLayoutKeyDown;
+        _columnScaleYBox.KeyDown += OnColumnLayoutKeyDown;
         _keyPaddingBox.KeyDown += OnColumnLayoutKeyDown;
         _columnOffsetXBox.KeyDown += OnColumnLayoutKeyDown;
         _columnOffsetYBox.KeyDown += OnColumnLayoutKeyDown;
@@ -1377,7 +1381,8 @@ public partial class MainWindow : Window
         _suppressColumnLayoutEvents = true;
         _keyPaddingBox.IsEnabled = !IsReplayMode;
         _columnLayoutColumnCombo.IsEnabled = allowsColumnSettings;
-        _columnScaleBox.IsEnabled = allowsColumnSettings;
+        _columnScaleXBox.IsEnabled = allowsColumnSettings;
+        _columnScaleYBox.IsEnabled = allowsColumnSettings;
         _columnOffsetXBox.IsEnabled = allowsColumnSettings;
         _columnOffsetYBox.IsEnabled = allowsColumnSettings;
         _columnRotationBox.IsEnabled = allowsColumnSettings;
@@ -1422,8 +1427,10 @@ public partial class MainWindow : Window
 
         if (!preset.AllowsColumnSettings)
         {
-            _columnScaleBox.Text = FormatNumber(preset.FixedKeyScale * 100.0);
-            ToolTip.SetTip(_columnScaleBox, "Fixed layout scale.");
+            _columnScaleXBox.Text = FormatNumber(preset.FixedKeyScale * 100.0);
+            _columnScaleYBox.Text = FormatNumber(preset.FixedKeyScale * 100.0);
+            ToolTip.SetTip(_columnScaleXBox, "Fixed layout X scale.");
+            ToolTip.SetTip(_columnScaleYBox, "Fixed layout Y scale.");
             _columnOffsetXBox.Text = "0";
             _columnOffsetYBox.Text = "0";
             _columnRotationBox.Text = "0";
@@ -1435,8 +1442,10 @@ public partial class MainWindow : Window
         int col = _columnLayoutColumnCombo.SelectedIndex;
         if (col < 0 || col >= _columnSettings.Length)
         {
-            _columnScaleBox.Text = "100";
-            ToolTip.SetTip(_columnScaleBox, null);
+            _columnScaleXBox.Text = "100";
+            _columnScaleYBox.Text = "100";
+            ToolTip.SetTip(_columnScaleXBox, null);
+            ToolTip.SetTip(_columnScaleYBox, null);
             _columnOffsetXBox.Text = "0";
             _columnOffsetYBox.Text = "0";
             _columnRotationBox.Text = "0";
@@ -1445,12 +1454,17 @@ public partial class MainWindow : Window
             return;
         }
 
-        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
+        double maxScaleX = RuntimeConfigurationFactory.GetMaxColumnScaleXForPreset(preset);
+        double maxScaleY = RuntimeConfigurationFactory.GetMaxColumnScaleYForPreset(preset);
         ColumnLayoutSettings column = _columnSettings[col];
-        _columnScaleBox.Text = FormatNumber(column.Scale * 100.0);
+        _columnScaleXBox.Text = FormatNumber(column.ScaleX * 100.0);
+        _columnScaleYBox.Text = FormatNumber(column.ScaleY * 100.0);
         ToolTip.SetTip(
-            _columnScaleBox,
-            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScale * 100.0)}% (based on Magic Trackpad 2 dimensions 160.0mm x 114.9mm).");
+            _columnScaleXBox,
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScaleX * 100.0)}% (based on Magic Trackpad 2 width 160.0mm).");
+        ToolTip.SetTip(
+            _columnScaleYBox,
+            $"Scale range: {FormatNumber(RuntimeConfigurationFactory.MinColumnScale * 100.0)}% - {FormatNumber(maxScaleY * 100.0)}% (based on Magic Trackpad 2 height 114.9mm and preset row count).");
         _columnOffsetXBox.Text = FormatNumber(column.OffsetXPercent);
         _columnOffsetYBox.Text = FormatNumber(column.OffsetYPercent);
         _columnRotationBox.Text = FormatNumber(column.RotationDegrees);
@@ -1500,16 +1514,25 @@ public partial class MainWindow : Window
         }
 
         ColumnLayoutSettings target = _columnSettings[selectedColumn];
-        double maxScale = RuntimeConfigurationFactory.GetMaxColumnScaleForPreset(preset);
-        double nextScalePercent = ReadDouble(_columnScaleBox, target.Scale * 100.0);
-        double nextScale = Math.Clamp(nextScalePercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScale);
+        double maxScaleX = RuntimeConfigurationFactory.GetMaxColumnScaleXForPreset(preset);
+        double maxScaleY = RuntimeConfigurationFactory.GetMaxColumnScaleYForPreset(preset);
+        double nextScaleXPercent = ReadDouble(_columnScaleXBox, target.ScaleX * 100.0);
+        double nextScaleYPercent = ReadDouble(_columnScaleYBox, target.ScaleY * 100.0);
+        double nextScaleX = Math.Clamp(nextScaleXPercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScaleX);
+        double nextScaleY = Math.Clamp(nextScaleYPercent / 100.0, RuntimeConfigurationFactory.MinColumnScale, maxScaleY);
         double nextOffsetX = ReadDouble(_columnOffsetXBox, target.OffsetXPercent);
         double nextOffsetY = ReadDouble(_columnOffsetYBox, target.OffsetYPercent);
         double nextRotation = Math.Clamp(ReadDouble(_columnRotationBox, target.RotationDegrees), 0.0, 360.0);
 
-        if (Math.Abs(nextScale - target.Scale) > 0.00001)
+        if (Math.Abs(nextScaleX - target.ScaleX) > 0.00001)
         {
-            target.Scale = nextScale;
+            target.ScaleX = nextScaleX;
+            changed = true;
+        }
+
+        if (Math.Abs(nextScaleY - target.ScaleY) > 0.00001)
+        {
+            target.ScaleY = nextScaleY;
             changed = true;
         }
 
@@ -1531,7 +1554,8 @@ public partial class MainWindow : Window
             changed = true;
         }
 
-        _columnScaleBox.Text = FormatNumber(target.Scale * 100.0);
+        _columnScaleXBox.Text = FormatNumber(target.ScaleX * 100.0);
+        _columnScaleYBox.Text = FormatNumber(target.ScaleY * 100.0);
         _columnOffsetXBox.Text = FormatNumber(target.OffsetXPercent);
         _columnOffsetYBox.Text = FormatNumber(target.OffsetYPercent);
         _columnRotationBox.Text = FormatNumber(target.RotationDegrees);

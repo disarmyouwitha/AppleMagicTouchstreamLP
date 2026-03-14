@@ -137,7 +137,7 @@ public static class RuntimeConfigurationFactory
         for (int i = 0; i < source.Length; i++)
         {
             ColumnLayoutSettings item = source[i];
-            output[i] = new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees);
+            output[i] = new ColumnLayoutSettings(item.ScaleX, item.ScaleY, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees);
         }
 
         return output;
@@ -150,7 +150,8 @@ public static class RuntimeConfigurationFactory
             return BuildFixedColumnSettingsForPreset(preset);
         }
 
-        double maxColumnScale = GetMaxColumnScaleForPreset(preset);
+        double maxColumnScaleX = GetMaxColumnScaleXForPreset(preset);
+        double maxColumnScaleY = GetMaxColumnScaleYForPreset(preset);
         ColumnLayoutSettings[] defaults = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         List<ColumnLayoutSettings>? savedSettings = null;
 
@@ -179,7 +180,8 @@ public static class RuntimeConfigurationFactory
         {
             ColumnLayoutSettings saved = savedSettings[i] ?? new ColumnLayoutSettings();
             output[i] = new ColumnLayoutSettings(
-                scale: Math.Clamp(saved.Scale, MinColumnScale, maxColumnScale),
+                scaleX: Math.Clamp(saved.ScaleX, MinColumnScale, maxColumnScaleX),
+                scaleY: Math.Clamp(saved.ScaleY, MinColumnScale, maxColumnScaleY),
                 offsetXPercent: saved.OffsetXPercent,
                 offsetYPercent: saved.OffsetYPercent,
                 rowSpacingPercent: saved.RowSpacingPercent,
@@ -191,10 +193,20 @@ public static class RuntimeConfigurationFactory
 
     public static double GetMaxColumnScaleForPreset(TrackpadLayoutPreset preset)
     {
-        int rows = Math.Max(1, preset.Rows);
+        return Math.Min(GetMaxColumnScaleXForPreset(preset), GetMaxColumnScaleYForPreset(preset));
+    }
+
+    public static double GetMaxColumnScaleXForPreset(TrackpadLayoutPreset preset)
+    {
         double maxByWidth = TrackpadWidthMm / KeyWidthMm;
+        return Math.Max(MinColumnScale, maxByWidth);
+    }
+
+    public static double GetMaxColumnScaleYForPreset(TrackpadLayoutPreset preset)
+    {
+        int rows = Math.Max(1, preset.Rows);
         double maxByHeight = TrackpadHeightMm / (KeyHeightMm * rows);
-        return Math.Max(MinColumnScale, Math.Min(maxByWidth, maxByHeight));
+        return Math.Max(MinColumnScale, maxByHeight);
     }
 
     public static void SaveColumnSettingsForPreset(
@@ -210,7 +222,7 @@ public static class RuntimeConfigurationFactory
             for (int i = 0; i < fixedSettings.Length; i++)
             {
                 ColumnLayoutSettings item = fixedSettings[i];
-                fixedList.Add(new ColumnLayoutSettings(item.Scale, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees));
+                fixedList.Add(new ColumnLayoutSettings(item.ScaleX, item.ScaleY, item.OffsetXPercent, item.OffsetYPercent, item.RowSpacingPercent, item.RotationDegrees));
             }
 
             settings.ColumnSettingsByLayout[preset.Name] = fixedList;
@@ -235,7 +247,8 @@ public static class RuntimeConfigurationFactory
         {
             ColumnLayoutSettings item = asList[i];
             settings.ColumnSettings.Add(new ColumnLayoutSettings(
-                scale: item.Scale,
+                scaleX: item.ScaleX,
+                scaleY: item.ScaleY,
                 offsetXPercent: item.OffsetXPercent,
                 offsetYPercent: item.OffsetYPercent,
                 rowSpacingPercent: item.RowSpacingPercent,
@@ -248,7 +261,8 @@ public static class RuntimeConfigurationFactory
         ColumnLayoutSettings[] fixedSettings = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
         for (int i = 0; i < fixedSettings.Length; i++)
         {
-            fixedSettings[i].Scale = preset.FixedKeyScale;
+            fixedSettings[i].ScaleX = preset.FixedKeyScale;
+            fixedSettings[i].ScaleY = preset.FixedKeyScale;
             fixedSettings[i].OffsetXPercent = 0.0;
             fixedSettings[i].OffsetYPercent = 0.0;
             fixedSettings[i].RowSpacingPercent = 0.0;
