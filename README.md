@@ -4,7 +4,7 @@
 ## Mac: **(Packaged with signed .DMG)**
 - Built on top of the wonderful: https://github.com/Kyome22/OpenMultitouchSupport
 
-*The app will ask for elevated Accessibility permissions on first run*
+*The app will ask for elevated permissions on first run*
 
 ## Windows: **(*PREREQUISITE INSTALL)**
 - Supports both the Official Apple Bootcamp drivers and Opensource drivers!

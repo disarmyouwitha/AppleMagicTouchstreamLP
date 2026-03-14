@@ -1,8 +1,7 @@
 ## TODO
-- Highlight Custom Button with a pill-like circle like Windows?
-- Can we make section headers toggleable so I can click any part of it
-- Can we make Space behave like Backspace?
-- Why doesn't xcode build let me type??
+- Can we make Space a continuous key like Backspace?
+- International keys like AltGR on mac?
+- I thought we didn't ask for "Input Monitoring" permissions unless the user toggled: "Keyboard/Mouse mode" (because that is where event tap is)
 ---
 - Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
 - I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
@@ -31,5 +30,5 @@ cd ~/Documents/AppleMagicTouchstreamLP/mac
 /usr/bin/ditto ~/Documents/AppleMagicTouchstreamLP/mac/release-output/1.0.0-1/GlassToKey-1.0.0.dmg /Users/nap/Downloads/
 
 # Clear permissions for testing:
-# tccutil reset All ink.ranna.glasstokey
-# defaults delete ink.ranna.glasstokey
+tccutil reset All ink.ranna.glasstokey
+defaults delete ink.ranna.glasstokey

@@ -3589,6 +3589,7 @@ actor TouchProcessorEngine {
     private func isContinuousKey(_ binding: KeyBinding) -> Bool {
         guard case let .key(code, _) = binding.action else { return false }
         return code == CGKeyCode(kVK_Delete)
+            || code == CGKeyCode(kVK_Space)
             || code == CGKeyCode(kVK_LeftArrow)
             || code == CGKeyCode(kVK_RightArrow)
             || code == CGKeyCode(kVK_UpArrow)
