@@ -55,6 +55,8 @@ Lots to do in the TODO! For now I am working on feature parity between Mac, Wind
 
 Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT for Windows) which would help support the community but also help this project! =]
 
+**Special thank you to @FRANF23 and @InternOne1306 for being my very early adopters and helping me test!!**
+
 <hr>
 
 ## Intention
