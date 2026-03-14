@@ -2077,8 +2077,10 @@ public partial class MainWindow : Window
     private static List<KeyActionChoice> BuildKeyActionChoices()
     {
         List<KeyActionChoice> options = [];
-        AddActionSection(options, "Core");
+        AddActionSection(options, "General");
         AddKeyActionChoice(options, "None");
+
+        AddActionSection(options, "Mouse Actions");
         AddKeyActionChoice(options, "Left Click");
         AddKeyActionChoice(options, "Double Click");
         AddKeyActionChoice(options, "Right Click");
@@ -2090,13 +2092,13 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, ch.ToString());
         }
 
-        AddActionSection(options, "Digits 0-9");
+        AddActionSection(options, "Numbers 0-9");
         for (char ch = '0'; ch <= '9'; ch++)
         {
             AddKeyActionChoice(options, ch.ToString());
         }
 
-        AddActionSection(options, "Navigation and Editing");
+        AddActionSection(options, "Navigation & Editing");
         string[] navigationAndEditing =
         {
             "Space",
@@ -2143,7 +2145,7 @@ public partial class MainWindow : Window
             "Typing Toggle"
         };
 
-        AddActionSection(options, "Symbols");
+        AddActionSection(options, "Symbols & Punctuation");
         string[] symbols =
         {
             "!",
@@ -2191,30 +2193,18 @@ public partial class MainWindow : Window
             AddKeyActionChoice(options, $"F{i}");
         }
 
-        AddActionSection(options, "System and Media");
-        string[] systemAndMedia =
-        {
-            TerminalActionValue,
-            "EMOJI",
-            "VOICE",
-            "VOL_UP",
-            "VOL_DOWN",
-            "BRIGHT_UP",
-            "BRIGHT_DOWN"
-        };
-
         AddActionSection(options, "Modes");
         for (int i = 0; i < modes.Length; i++)
         {
             AddKeyActionChoice(options, modes[i]);
         }
 
-        for (int i = 0; i < systemAndMedia.Length; i++)
-        {
-            AddKeyActionChoice(options, systemAndMedia[i]);
-        }
+        AddActionSection(options, "System & Media");
+        AddKeyActionChoice(options, TerminalActionValue);
+        AddKeyActionChoice(options, "VOL_UP");
+        AddKeyActionChoice(options, "VOL_DOWN");
 
-        AddActionSection(options, "Layer Controls");
+        AddActionSection(options, "Layers");
         AddKeyActionChoice(options, "TO(0)");
         for (int layer = 1; layer <= MaxSupportedLayer; layer++)
         {
@@ -2266,7 +2256,7 @@ public partial class MainWindow : Window
 
         if (value.Length == 1 && value[0] is >= '0' and <= '9')
         {
-            return "Digits 0-9";
+            return "Numbers 0-9";
         }
 
         if (value.Length > 1 && value[0] == 'F' && int.TryParse(value.AsSpan(1), out _))
@@ -2276,8 +2266,8 @@ public partial class MainWindow : Window
 
         return value switch
         {
-            ";" or "=" or "," or "-" or "." or "/" or "`" or "[" or "\\" or "]" or "'" => "Symbols",
-            _ => "Navigation and Editing"
+            ";" or "=" or "," or "-" or "." or "/" or "`" or "[" or "\\" or "]" or "'" => "Symbols & Punctuation",
+            _ => "Navigation & Editing"
         };
     }
 
@@ -4667,7 +4657,18 @@ public partial class MainWindow : Window
 
         return AppLaunchActionHelper.TryParse(action, out _)
             ? AppLaunchActionHelper.GetKeymapDisplayLabel(action)
-            : action;
+            : GetLinuxActionLabel(action);
+    }
+
+    private static string GetLinuxActionLabel(string action)
+    {
+        return action switch
+        {
+            "Win" or "Meta" => "Super",
+            "LWin" or "LSuper" => "Left Super",
+            "RWin" or "RSuper" => "Right Super",
+            _ => action
+        };
     }
 
     private void OnMxSpacingClick(object? sender, RoutedEventArgs e)

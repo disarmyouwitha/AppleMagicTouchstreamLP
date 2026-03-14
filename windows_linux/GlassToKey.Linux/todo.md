@@ -1,8 +1,15 @@
 # TODO:
+- Can you please make the Linux Dropdown reflect Windows as the Golden Mirror? If there are Windows specific buttons or actions leave them on the Windows side. Please Change windows-specific keys to linux (Windows to Super, etc). Please remove EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN from Linux drop-downs.
+
+---
 - Move everything but Typing Toggle from Modes into "System & Media" (spell it like this) in the Action drop downs. 
 - Remove Shift from "System & Media"
 - Move Chordal Shift into `Modes`
-- Remove everything but Typing Toggle (and move Chordal Shift into) `Modes` and move everything else from Modes into 
+- Please make all "Custom" actions added at the bottom with their own fancy `Custom` header~
+- What is the Difference between Super and AltGr in Linux?
+- I'm having a really hard time stopping glasstokey
+---
+- Add Linux Equivalents for: `System & Media`: EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN
 - Ctrl, Shift, Alt, Super do not match the description in Shortcut Builder: when you click they DO toggle but nothing happens when I HOLD (should present sided options: Left Shift, Right Shift) please see windows. How does AltGr work in Linux? How do I do AltGr+n > Accented N in Linux?
 ---
 - Test AltGr on Linux
