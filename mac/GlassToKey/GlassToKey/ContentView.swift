@@ -1739,7 +1739,8 @@ struct ContentView: View {
                                 formatter: ContentView.columnScalePercentFormatter,
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                             ColumnTuningRow(
                                 title: "Column Scale Y (%)",
@@ -1754,7 +1755,8 @@ struct ContentView: View {
                                 formatter: ContentView.columnScalePercentFormatter,
                                 range: ContentView.columnScalePercentRange,
                                 sliderStep: 5.0,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                             ColumnTuningRow(
                                 title: "Column Spacing (%)",
@@ -1770,7 +1772,8 @@ struct ContentView: View {
                                 range: ContentView.rowSpacingPercentRange,
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                             ColumnTuningRow(
                                 title: "Column X (%)",
@@ -1786,7 +1789,8 @@ struct ContentView: View {
                                 range: ContentView.columnOffsetPercentRange,
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                             ColumnTuningRow(
                                 title: "Column Y (%)",
@@ -1802,7 +1806,8 @@ struct ContentView: View {
                                 range: ContentView.columnOffsetPercentRange,
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                             ColumnTuningRow(
                                 title: "Rotation (0-360 deg)",
@@ -1818,7 +1823,8 @@ struct ContentView: View {
                                 range: ContentView.rotationDegreesRange,
                                 sliderStep: 1.0,
                                 buttonStep: 0.5,
-                                showSlider: false
+                                showSlider: false,
+                                fillFieldWidth: true
                             )
                         }
                         HStack(spacing: 8) {
@@ -4101,6 +4107,7 @@ struct ContentView: View {
         let sliderStep: Double
         let buttonStep: Double
         let showSlider: Bool
+        let fillFieldWidth: Bool
         @Binding var value: Double
 
             init(
@@ -4110,7 +4117,8 @@ struct ContentView: View {
                 range: ClosedRange<Double>,
                 sliderStep: Double,
                 buttonStep: Double? = nil,
-                showSlider: Bool? = nil
+                showSlider: Bool? = nil,
+                fillFieldWidth: Bool = false
             ) {
                 self.title = title
                 self._value = value
@@ -4119,6 +4127,7 @@ struct ContentView: View {
                 self.sliderStep = sliderStep
                 self.buttonStep = buttonStep ?? sliderStep
                 self.showSlider = showSlider ?? true
+                self.fillFieldWidth = fillFieldWidth
             }
 
         var body: some View {
@@ -4154,7 +4163,7 @@ struct ContentView: View {
                     value: $value,
                     formatter: formatter
                 )
-                .frame(width: 60)
+                .frame(minWidth: fillFieldWidth ? 0 : 60, maxWidth: fillFieldWidth ? .infinity : 60)
                 .textFieldStyle(.roundedBorder)
 
                 Button {
