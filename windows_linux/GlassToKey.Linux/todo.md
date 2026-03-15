@@ -1,4 +1,17 @@
 # TODO:
+Can we change install / help text to:
+`
+[Other Commands]:
+  glasstokey print-keymap
+  glasstokey list-devices
+  glasstokey bind-left [device-node-or-stable-id]
+  glasstokey bind-right [device-node-or-stable-id]
+  glasstokey print-udev-rules
+  glasstokey swap-sides
+  glasstokey doctor
+<extra blank row here>
+`
+-------
 - Add Linux Equivalents for: `System & Media`: EMOJI
 - Add Linux Equivalents for: `System & Media`: VOICE, 
 - Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
