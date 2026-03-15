@@ -2176,6 +2176,7 @@ public partial class MainWindow : Window
 
         AddActionSection(options, "System & Media");
         AddKeyActionChoice(options, TerminalActionValue);
+        AddKeyActionChoice(options, "EMOJI");
         AddKeyActionChoice(options, "VOL_UP");
         AddKeyActionChoice(options, "VOL_DOWN");
 
