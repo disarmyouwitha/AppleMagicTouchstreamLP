@@ -1,4 +1,5 @@
 # TODO:
+-  In the Action/Hold/Gesture shared dropdown please rename the `Shift` under `Modes` to `Chordal Shift` while leaving the `Shift` under `Modifiers alone.
 - Please make all "Custom" actions added at the bottom with their own fancy `Custom` header~ (like in Windows)
 - What is the Difference between Super and AltGr in Linux?
 - I'm having a really hard time stopping glasstokey when running `dotnet run` do you think that is indicitave of actual installs or just testing?
@@ -36,3 +37,6 @@
 
 # TEST / root cause:
 - 5-finger Up "D" is triggering Choral shift on it's own side? 
+
+# NUKE
+pkill -f 'GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj'

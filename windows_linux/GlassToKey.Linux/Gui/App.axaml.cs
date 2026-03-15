@@ -35,6 +35,7 @@ public partial class App : Application
     private DispatcherTimer? _activationTimer;
     private LinuxTrayModeIndicator _currentModeIndicator = LinuxTrayModeIndicator.Unknown;
     private bool _hasAppliedTrayModeIndicator;
+    private bool _shutdownRequested;
 
     public override void Initialize()
     {
@@ -135,15 +136,30 @@ public partial class App : Application
 
     private async void OnTrayQuitClick(object? sender, EventArgs e)
     {
-        if (_mainWindow != null)
+        await RequestShutdownAsync("tray quit");
+    }
+
+    public Task RequestShutdownAsync(string reason)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
         {
-            await _mainWindow.RequestExitAsync();
+            TaskCompletionSource completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
+            Dispatcher.UIThread.Post(async () =>
+            {
+                try
+                {
+                    await RequestShutdownCoreAsync(reason).ConfigureAwait(true);
+                    completion.TrySetResult();
+                }
+                catch (Exception ex)
+                {
+                    completion.TrySetException(ex);
+                }
+            });
+            return completion.Task;
         }
 
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.Shutdown();
-        }
+        return RequestShutdownCoreAsync(reason);
     }
 
     private void ShowMainWindow()
@@ -298,6 +314,27 @@ public partial class App : Application
         if (_activationSignalStore.TryConsumeShowRequest())
         {
             ShowMainWindow();
+        }
+    }
+
+    private async Task RequestShutdownCoreAsync(string reason)
+    {
+        if (_shutdownRequested)
+        {
+            return;
+        }
+
+        _shutdownRequested = true;
+        _activationTimer?.Stop();
+
+        if (_mainWindow != null)
+        {
+            await _mainWindow.RequestExitAsync().ConfigureAwait(true);
+        }
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
         }
     }
 }

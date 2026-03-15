@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Threading;
 using GlassToKey.Linux.Runtime;
 
@@ -12,7 +13,9 @@ namespace GlassToKey.Linux.Gui;
 
 internal static class Program
 {
+    private static readonly TimeSpan SignalShutdownTimeout = TimeSpan.FromSeconds(5);
     private static Mutex? _singleInstanceMutex;
+    private static int _shutdownRequested;
     public static bool StartHidden { get; private set; }
     public static bool ShowRequested { get; private set; }
     public static bool OwnsRuntime { get; private set; } = true;
@@ -44,15 +47,22 @@ internal static class Program
 
         LinuxGuiHostController hostController = new();
         hostController.RegisterCurrentProcess(OwnsRuntime);
+        ConsoleCancelEventHandler cancelKeyPressHandler = OnConsoleCancelKeyPress;
+        using PosixSignalRegistration sigIntRegistration = RegisterShutdownSignal(PosixSignal.SIGINT);
+        using PosixSignalRegistration sigTermRegistration = RegisterShutdownSignal(PosixSignal.SIGTERM);
+        using PosixSignalRegistration sigQuitRegistration = RegisterShutdownSignal(PosixSignal.SIGQUIT);
+        Console.CancelKeyPress += cancelKeyPressHandler;
         try
         {
             BuildAvaloniaApp().StartWithClassicDesktopLifetime(forwardedArgs, ShutdownMode.OnExplicitShutdown);
         }
         finally
         {
+            Console.CancelKeyPress -= cancelKeyPressHandler;
             hostController.UnregisterCurrentProcess();
             _singleInstanceMutex?.Dispose();
             _singleInstanceMutex = null;
+            Interlocked.Exchange(ref _shutdownRequested, 0);
         }
     }
 
@@ -166,6 +176,60 @@ internal static class Program
             Path.GetFileNameWithoutExtension(path),
             "dotnet",
             StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static PosixSignalRegistration RegisterShutdownSignal(PosixSignal signal)
+    {
+        return PosixSignalRegistration.Create(signal, context =>
+        {
+            context.Cancel = true;
+            RequestGracefulShutdown(signal.ToString());
+        });
+    }
+
+    private static void OnConsoleCancelKeyPress(object? sender, ConsoleCancelEventArgs e)
+    {
+        e.Cancel = true;
+        RequestGracefulShutdown(nameof(Console.CancelKeyPress));
+    }
+
+    private static void RequestGracefulShutdown(string reason)
+    {
+        if (Interlocked.Exchange(ref _shutdownRequested, 1) != 0)
+        {
+            return;
+        }
+
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                if (Application.Current is App app)
+                {
+                    Task shutdownTask = app.RequestShutdownAsync(reason);
+                    if (await Task.WhenAny(shutdownTask, Task.Delay(SignalShutdownTimeout)).ConfigureAwait(false) == shutdownTask)
+                    {
+                        await shutdownTask.ConfigureAwait(false);
+                    }
+
+                    return;
+                }
+            }
+            catch (Exception ex)
+            {
+                Trace.WriteLine($"Linux GUI signal shutdown failed ({reason}): {ex}");
+            }
+
+            try
+            {
+                using Process current = Process.GetCurrentProcess();
+                current.Kill(entireProcessTree: false);
+            }
+            catch
+            {
+                Environment.Exit(0);
+            }
+        });
     }
 
     private sealed record RelaunchSpec(
