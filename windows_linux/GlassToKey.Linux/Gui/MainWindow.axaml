@@ -122,6 +122,7 @@
     <Style Selector="Button.shortcutApplyButton:disabled">
       <Setter Property="Opacity" Value="1" />
       <Setter Property="Foreground" Value="#6A5241" />
+      <Setter Property="ToolTip.Tip" Value="Disabled" />
     </Style>
     <Style Selector="Button.shortcutApplyButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
       <Setter Property="Background" Value="#D8C4A4" />
