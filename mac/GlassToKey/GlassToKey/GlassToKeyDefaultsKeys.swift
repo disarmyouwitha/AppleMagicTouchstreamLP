@@ -4,6 +4,7 @@ enum GlassToKeyDefaultsKeys {
     static let leftDeviceID = "GlassToKey.leftDeviceID"
     static let rightDeviceID = "GlassToKey.rightDeviceID"
     static let columnSettings = "GlassToKey.columnSettings"
+    static let keyPaddingByLayout = "GlassToKey.keyPaddingByLayout"
     static let customButtons = "GlassToKey.customButtons"
     static let keyMappings = "GlassToKey.keyMappings"
     static let keyGeometry = "GlassToKey.keyGeometry"

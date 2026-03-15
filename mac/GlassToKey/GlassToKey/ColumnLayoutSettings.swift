@@ -1,3 +1,4 @@
+import CoreGraphics
 import Foundation
 
 struct ColumnLayoutSettings: Codable, Hashable {
@@ -104,6 +105,150 @@ enum LayoutColumnSettingsStorage {
             return nil
         }
         return settings
+    }
+}
+
+enum LayoutKeyPaddingDefaults {
+    static let defaultPercent: Double = 10.0
+    static let percentRange: ClosedRange<Double> = 0.0...90.0
+
+    static func normalized(_ value: Double) -> Double {
+        min(max(value, percentRange.lowerBound), percentRange.upperBound)
+    }
+}
+
+enum LayoutKeyPaddingStorage {
+    static func decode(from data: Data) -> [String: Double]? {
+        guard !data.isEmpty else { return nil }
+        return try? JSONDecoder().decode([String: Double].self, from: data)
+    }
+
+    static func encode(_ map: [String: Double]) -> Data? {
+        guard !map.isEmpty else { return nil }
+        return try? JSONEncoder().encode(map)
+    }
+
+    static func keyPaddingPercent(
+        for layout: TrackpadLayoutPreset,
+        from data: Data
+    ) -> Double {
+        guard let map = decode(from: data),
+              let value = map[layout.rawValue] else {
+            return LayoutKeyPaddingDefaults.defaultPercent
+        }
+        return LayoutKeyPaddingDefaults.normalized(value)
+    }
+}
+
+enum LayoutKeySizePresetTuning {
+    static let mxKeyWidthMm: CGFloat = 19.05
+    static let mxKeyHeightMm: CGFloat = 19.05
+
+    static func recommendedPaddingPercentForMXPitch(
+        targetKeyWidthMm: CGFloat,
+        targetKeyHeightMm: CGFloat
+    ) -> Double {
+        guard targetKeyWidthMm > 0, targetKeyHeightMm > 0 else {
+            return LayoutKeyPaddingDefaults.defaultPercent
+        }
+        let horizontal = max((Double(mxKeyWidthMm / targetKeyWidthMm) - 1.0) * 100.0, 0.0)
+        let vertical = max((Double(mxKeyHeightMm / targetKeyHeightMm) - 1.0) * 100.0, 0.0)
+        return LayoutKeyPaddingDefaults.normalized((horizontal + vertical) * 0.5)
+    }
+
+    static func applyKeySizePreset(
+        layout: TrackpadLayoutPreset,
+        columnSettings: inout [ColumnLayoutSettings],
+        trackpadWidthMm: CGFloat,
+        baseKeyWidthMm: CGFloat,
+        baseKeyHeightMm: CGFloat,
+        targetKeyWidthMm: CGFloat,
+        targetKeyHeightMm: CGFloat,
+        keyPaddingPercent: Double
+    ) -> Bool {
+        guard layout.allowsColumnSettings,
+              !columnSettings.isEmpty,
+              layout.columnAnchors.count == columnSettings.count,
+              trackpadWidthMm > 0,
+              baseKeyWidthMm > 0,
+              baseKeyHeightMm > 0 else {
+            return false
+        }
+
+        let targetScaleX = Double(targetKeyWidthMm / baseKeyWidthMm)
+        let targetScaleY = Double(targetKeyHeightMm / baseKeyHeightMm)
+        let targetScaleXs = Array(repeating: CGFloat(targetScaleX), count: columnSettings.count)
+        let baselineAnchorsMm = scaledColumnAnchorsMM(layout.columnAnchors, columnScaleXs: targetScaleXs)
+        let targetAnchorsMm = desiredPitchAnchorsMM(
+            layout.columnAnchors,
+            baseKeyWidthMm: baseKeyWidthMm,
+            targetKeyWidthMm: targetKeyWidthMm,
+            targetScaleX: CGFloat(targetScaleX),
+            keyPaddingPercent: keyPaddingPercent
+        )
+
+        var changed = false
+        for column in columnSettings.indices {
+            if abs(columnSettings[column].scaleX - targetScaleX) > 0.000_01 {
+                columnSettings[column].scaleX = targetScaleX
+                changed = true
+            }
+            if abs(columnSettings[column].scaleY - targetScaleY) > 0.000_01 {
+                columnSettings[column].scaleY = targetScaleY
+                changed = true
+            }
+
+            let targetOffsetXPercent = Double(
+                ((targetAnchorsMm[column].x - baselineAnchorsMm[column].x) / trackpadWidthMm) * 100.0
+            )
+            if abs(columnSettings[column].offsetXPercent - targetOffsetXPercent) > 0.000_01 {
+                columnSettings[column].offsetXPercent = targetOffsetXPercent
+                changed = true
+            }
+        }
+
+        return changed
+    }
+
+    private static func desiredPitchAnchorsMM(
+        _ anchors: [CGPoint],
+        baseKeyWidthMm: CGFloat,
+        targetKeyWidthMm: CGFloat,
+        targetScaleX: CGFloat,
+        keyPaddingPercent: Double
+    ) -> [CGPoint] {
+        guard anchors.count > 1 else { return anchors }
+        let spacingScale = CGFloat(LayoutKeyPaddingDefaults.normalized(keyPaddingPercent) / 100.0)
+        var resolved = anchors
+        resolved[0] = anchors[0]
+
+        for index in 1..<anchors.count {
+            let baseGapMm = anchors[index].x - anchors[index - 1].x
+            let desiredGapMm = (baseGapMm * targetScaleX) + (targetKeyWidthMm * spacingScale)
+            resolved[index].x = resolved[index - 1].x + desiredGapMm
+        }
+
+        let baselineRightMm = anchors[anchors.count - 1].x + baseKeyWidthMm
+        let baselineCenterMm = (anchors[0].x + baselineRightMm) * 0.5
+        let adjustedRightMm = resolved[resolved.count - 1].x + targetKeyWidthMm
+        let adjustedCenterMm = (resolved[0].x + adjustedRightMm) * 0.5
+        let centerOffsetMm = baselineCenterMm - adjustedCenterMm
+
+        return resolved.map { anchor in
+            CGPoint(x: anchor.x + centerOffsetMm, y: anchor.y)
+        }
+    }
+
+    private static func scaledColumnAnchorsMM(
+        _ anchors: [CGPoint],
+        columnScaleXs: [CGFloat]
+    ) -> [CGPoint] {
+        guard let originX = anchors.first?.x else { return anchors }
+        return anchors.enumerated().map { index, anchor in
+            let scale = columnScaleXs.indices.contains(index) ? columnScaleXs[index] : 1.0
+            let offsetX = anchor.x - originX
+            return CGPoint(x: originX + offsetX * scale, y: anchor.y)
+        }
     }
 }
 

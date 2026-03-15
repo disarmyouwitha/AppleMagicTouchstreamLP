@@ -68,6 +68,7 @@ final class GlassToKeyController: ObservableObject {
         let innerCornersHoldGestureAction: String?
         let fiveFingerSwipeLeftGestureAction: String?
         let fiveFingerSwipeRightGestureAction: String?
+        let keyPaddingPercentByLayout: [String: Double]?
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
@@ -99,6 +100,7 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.innerCornersHoldGestureAction,
         GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction,
         GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction,
+        GlassToKeyDefaultsKeys.keyPaddingByLayout,
         GlassToKeyDefaultsKeys.columnSettings,
         GlassToKeyDefaultsKeys.customButtons,
         GlassToKeyDefaultsKeys.keyMappings,
@@ -142,6 +144,11 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.innerCornersHoldGestureAction, forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction)
         defaults.set(profile.fiveFingerSwipeLeftGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
         defaults.set(profile.fiveFingerSwipeRightGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
+        if let encodedPadding = LayoutKeyPaddingStorage.encode(
+            profile.keyPaddingPercentByLayout ?? [:]
+        ) {
+            defaults.set(encodedPadding, forKey: GlassToKeyDefaultsKeys.keyPaddingByLayout)
+        }
 
         if let encodedColumns = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) {
             defaults.set(encodedColumns, forKey: GlassToKeyDefaultsKeys.columnSettings)
