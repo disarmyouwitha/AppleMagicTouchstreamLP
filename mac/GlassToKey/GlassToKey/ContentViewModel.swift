@@ -29,6 +29,24 @@ typealias KeyGeometryOverrides = [String: KeyGeometryOverride]
 typealias LayoutKeyGeometryOverrides = [String: KeyGeometryOverrides]
 
 enum KeyboardModifierFlags {
+    static let leftControl = CGEventFlags.maskControl.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICELCTLKEYMASK))
+    )
+    static let rightControl = CGEventFlags.maskControl.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICERCTLKEYMASK))
+    )
+    static let leftShift = CGEventFlags.maskShift.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICELSHIFTKEYMASK))
+    )
+    static let rightShift = CGEventFlags.maskShift.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICERSHIFTKEYMASK))
+    )
+    static let leftCommand = CGEventFlags.maskCommand.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICELCMDKEYMASK))
+    )
+    static let rightCommand = CGEventFlags.maskCommand.union(
+        CGEventFlags(rawValue: UInt64(NX_DEVICERCMDKEYMASK))
+    )
     // macOS exposes right Option as a distinct device-side modifier bit.
     static let leftOption = CGEventFlags.maskAlternate.union(
         CGEventFlags(rawValue: UInt64(NX_DEVICELALTKEYMASK))
@@ -186,43 +204,210 @@ enum AppLaunchActionHelper {
     }
 }
 
-enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
-    case control = "Ctrl"
-    case shift = "Shift"
-    case option = "Option"
-    case altGr = "AltGr"
-    case command = "Cmd"
+enum ShortcutModifierVariant: String, CaseIterable, Hashable, Codable {
+    case generic
+    case left
+    case right
+}
 
-    static let ordered: [ShortcutModifierToken] = [.control, .shift, .option, .altGr, .command]
-    static let builderOrdered: [ShortcutModifierToken] = [.control, .shift, .option, .command]
+enum ShortcutModifier: String, CaseIterable, Hashable, Codable {
+    case control
+    case shift
+    case option
+    case command
 
-    var flags: CGEventFlags {
+    static let ordered: [ShortcutModifier] = [.control, .shift, .option, .command]
+
+    func buttonLabel(for variant: ShortcutModifierVariant) -> String {
         switch self {
         case .control:
-            return .maskControl
+            switch variant {
+            case .generic:
+                return "Ctrl"
+            case .left:
+                return "L Ctrl"
+            case .right:
+                return "R Ctrl"
+            }
         case .shift:
-            return .maskShift
+            switch variant {
+            case .generic:
+                return "Shift"
+            case .left:
+                return "L Shift"
+            case .right:
+                return "R Shift"
+            }
         case .option:
-            return KeyboardModifierFlags.leftOption
-        case .altGr:
-            return KeyboardModifierFlags.rightOption
+            switch variant {
+            case .generic:
+                return "Option"
+            case .left:
+                return "L Option"
+            case .right:
+                return "AltGr"
+            }
         case .command:
-            return .maskCommand
+            switch variant {
+            case .generic:
+                return "Cmd"
+            case .left:
+                return "L Cmd"
+            case .right:
+                return "R Cmd"
+            }
         }
     }
 
-    static func parse(_ text: String) -> ShortcutModifierToken? {
+    func menuLabel(for variant: ShortcutModifierVariant) -> String {
+        switch self {
+        case .control:
+            switch variant {
+            case .generic:
+                return "Ctrl"
+            case .left:
+                return "Left Ctrl"
+            case .right:
+                return "Right Ctrl"
+            }
+        case .shift:
+            switch variant {
+            case .generic:
+                return "Shift"
+            case .left:
+                return "Left Shift"
+            case .right:
+                return "Right Shift"
+            }
+        case .option:
+            switch variant {
+            case .generic:
+                return "Option"
+            case .left:
+                return "Left Option"
+            case .right:
+                return "Right Option (AltGr)"
+            }
+        case .command:
+            switch variant {
+            case .generic:
+                return "Cmd"
+            case .left:
+                return "Left Cmd"
+            case .right:
+                return "Right Cmd"
+            }
+        }
+    }
+
+    func serializedLabel(for variant: ShortcutModifierVariant) -> String {
+        switch self {
+        case .control:
+            switch variant {
+            case .generic:
+                return "Ctrl"
+            case .left:
+                return "Left Ctrl"
+            case .right:
+                return "Right Ctrl"
+            }
+        case .shift:
+            switch variant {
+            case .generic:
+                return "Shift"
+            case .left:
+                return "Left Shift"
+            case .right:
+                return "Right Shift"
+            }
+        case .option:
+            switch variant {
+            case .generic:
+                return "Option"
+            case .left:
+                return "Left Option"
+            case .right:
+                return "Right Option"
+            }
+        case .command:
+            switch variant {
+            case .generic:
+                return "Cmd"
+            case .left:
+                return "Left Cmd"
+            case .right:
+                return "Right Cmd"
+            }
+        }
+    }
+
+    func flags(for variant: ShortcutModifierVariant) -> CGEventFlags {
+        switch self {
+        case .control:
+            switch variant {
+            case .generic:
+                return .maskControl
+            case .left:
+                return KeyboardModifierFlags.leftControl
+            case .right:
+                return KeyboardModifierFlags.rightControl
+            }
+        case .shift:
+            switch variant {
+            case .generic:
+                return .maskShift
+            case .left:
+                return KeyboardModifierFlags.leftShift
+            case .right:
+                return KeyboardModifierFlags.rightShift
+            }
+        case .option:
+            switch variant {
+            case .generic:
+                return .maskAlternate
+            case .left:
+                return KeyboardModifierFlags.leftOption
+            case .right:
+                return KeyboardModifierFlags.rightOption
+            }
+        case .command:
+            switch variant {
+            case .generic:
+                return .maskCommand
+            case .left:
+                return KeyboardModifierFlags.leftCommand
+            case .right:
+                return KeyboardModifierFlags.rightCommand
+            }
+        }
+    }
+
+    static func parse(_ text: String) -> (modifier: ShortcutModifier, variant: ShortcutModifierVariant)? {
         switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "ctrl", "control":
-            return .control
+            return (.control, .generic)
+        case "left ctrl", "left control", "lctrl", "lcontrol":
+            return (.control, .left)
+        case "right ctrl", "right control", "rctrl", "rcontrol":
+            return (.control, .right)
         case "shift":
-            return .shift
+            return (.shift, .generic)
+        case "left shift", "lshift":
+            return (.shift, .left)
+        case "right shift", "rshift":
+            return (.shift, .right)
         case "option", "alt":
-            return .option
-        case "altgr", "alt gr", "right option", "right-option", "rightoption", "ralt":
-            return .altGr
+            return (.option, .generic)
+        case "left option", "left alt", "lalt", "loption":
+            return (.option, .left)
+        case "right option", "right-option", "rightoption", "ralt", "altgr", "alt gr":
+            return (.option, .right)
         case "cmd", "command", "meta", "super", "win":
-            return .command
+            return (.command, .generic)
+        case "left cmd", "left command", "left meta", "left super", "left win", "lcmd":
+            return (.command, .left)
+        case "right cmd", "right command", "right meta", "right super", "right win", "rcmd":
+            return (.command, .right)
         default:
             return nil
         }
@@ -230,19 +415,26 @@ enum ShortcutModifierToken: String, CaseIterable, Hashable, Codable {
 }
 
 struct ShortcutActionSpec: Hashable {
-    let modifiers: Set<ShortcutModifierToken>
+    let modifiers: [ShortcutModifier: ShortcutModifierVariant]
     let keyLabel: String
 
+    private var orderedModifierSelections: [(ShortcutModifier, ShortcutModifierVariant)] {
+        ShortcutModifier.ordered.compactMap { modifier in
+            guard let variant = modifiers[modifier] else { return nil }
+            return (modifier, variant)
+        }
+    }
+
     var flags: CGEventFlags {
-        modifiers.reduce(into: CGEventFlags()) { partialResult, modifier in
-            partialResult.insert(modifier.flags)
+        orderedModifierSelections.reduce(into: CGEventFlags()) { partialResult, selection in
+            partialResult.formUnion(selection.0.flags(for: selection.1))
         }
     }
 
     var label: String {
-        let parts = ShortcutModifierToken.ordered
-            .filter { modifiers.contains($0) }
-            .map(\.rawValue) + [keyLabel]
+        let parts = orderedModifierSelections.map { modifier, variant in
+            modifier.serializedLabel(for: variant)
+        } + [keyLabel]
         return parts.joined(separator: "+")
     }
 }
@@ -343,10 +535,10 @@ enum ShortcutActionHelper {
         }.filter { !$0.isEmpty }
         guard tokens.count >= 2 else { return nil }
         guard let keyLabel = normalizeKeyLabel(tokens.last ?? "") else { return nil }
-        var modifiers = Set<ShortcutModifierToken>()
+        var modifiers: [ShortcutModifier: ShortcutModifierVariant] = [:]
         for token in tokens.dropLast() {
-            guard let modifier = ShortcutModifierToken.parse(token) else { return nil }
-            modifiers.insert(modifier)
+            guard let parsed = ShortcutModifier.parse(token) else { return nil }
+            modifiers[parsed.modifier] = parsed.variant
         }
         guard !modifiers.isEmpty,
               keyCodeByLabel[keyLabel] != nil else {
@@ -356,7 +548,7 @@ enum ShortcutActionHelper {
     }
 
     static func createAction(
-        modifiers: Set<ShortcutModifierToken>,
+        modifiers: [ShortcutModifier: ShortcutModifierVariant],
         keyLabel: String
     ) -> KeyAction? {
         guard !modifiers.isEmpty,
@@ -1755,7 +1947,7 @@ enum KeyActionCatalog {
     static let shortcutKeyLabels = ShortcutActionHelper.supportedKeyLabels
 
     static func shortcutAction(
-        modifiers: Set<ShortcutModifierToken>,
+        modifiers: [ShortcutModifier: ShortcutModifierVariant],
         keyLabel: String
     ) -> KeyAction? {
         ShortcutActionHelper.createAction(modifiers: modifiers, keyLabel: keyLabel)

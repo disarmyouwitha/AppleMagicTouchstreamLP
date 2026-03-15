@@ -1895,7 +1895,9 @@ struct ContentView: View {
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         @State private var actionBuilderTarget: ActionBuilderTarget = .primary
-        @State private var shortcutModifiers = Set<ShortcutModifierToken>()
+        @State private var shortcutModifiers: [ShortcutModifier: ShortcutModifierVariant] = [:]
+        @State private var shortcutModifierPicker: ShortcutModifier?
+        @State private var suppressShortcutModifierTap: ShortcutModifier?
         @State private var shortcutKeyLabel = ""
         @State private var appLaunchTarget = ""
         @State private var appLaunchArguments = ""
@@ -1999,10 +2001,6 @@ struct ContentView: View {
             actionBuilderTarget == .hold ? selectedHoldAction : selectedPrimaryAction
         }
 
-        private var builderSupportedShortcutModifiers: Set<ShortcutModifierToken> {
-            Set(ShortcutModifierToken.builderOrdered)
-        }
-
         private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
             var groups = hold ? holdActionGroups : primaryActionGroups
             let containsAction = groups.contains { group in
@@ -2045,23 +2043,141 @@ struct ContentView: View {
             )
         }
 
-        private func shortcutModifierBinding(_ modifier: ShortcutModifierToken) -> Binding<Bool> {
+        private func shortcutModifierPickerBinding(
+            for modifier: ShortcutModifier
+        ) -> Binding<Bool> {
             Binding(
-                get: { shortcutModifiers.contains(modifier) },
-                set: { isEnabled in
-                    if isEnabled {
-                        appLaunchTarget = ""
-                        shortcutModifiers.insert(modifier)
-                    } else {
-                        shortcutModifiers.remove(modifier)
+                get: { shortcutModifierPicker == modifier },
+                set: { isPresented in
+                    if isPresented {
+                        shortcutModifierPicker = modifier
+                    } else if shortcutModifierPicker == modifier {
+                        shortcutModifierPicker = nil
+                        if suppressShortcutModifierTap == modifier {
+                            suppressShortcutModifierTap = nil
+                        }
                     }
                 }
             )
         }
 
+        private func setShortcutModifier(
+            _ modifier: ShortcutModifier,
+            variant: ShortcutModifierVariant?
+        ) {
+            if let variant {
+                appLaunchTarget = ""
+                shortcutModifiers[modifier] = variant
+            } else {
+                shortcutModifiers.removeValue(forKey: modifier)
+            }
+        }
+
+        private func toggleShortcutModifier(_ modifier: ShortcutModifier) {
+            if shortcutModifiers[modifier] == nil {
+                setShortcutModifier(modifier, variant: .generic)
+            } else {
+                setShortcutModifier(modifier, variant: nil)
+            }
+        }
+
+        private func presentShortcutModifierPicker(for modifier: ShortcutModifier) {
+            guard hasEditableSelection else { return }
+            suppressShortcutModifierTap = modifier
+            shortcutModifierPicker = modifier
+        }
+
+        private func chooseShortcutModifierVariant(
+            _ modifier: ShortcutModifier,
+            variant: ShortcutModifierVariant
+        ) {
+            setShortcutModifier(modifier, variant: variant)
+            shortcutModifierPicker = nil
+            suppressShortcutModifierTap = nil
+        }
+
+        private func handleShortcutModifierButtonTap(_ modifier: ShortcutModifier) {
+            if suppressShortcutModifierTap == modifier {
+                suppressShortcutModifierTap = nil
+                return
+            }
+            toggleShortcutModifier(modifier)
+        }
+
+        private func shortcutModifierButton(_ modifier: ShortcutModifier) -> some View {
+            let activeVariant = shortcutModifiers[modifier]
+            let isSelected = activeVariant != nil
+            let label = modifier.buttonLabel(for: activeVariant ?? .generic)
+
+            return Button {
+                handleShortcutModifierButtonTap(modifier)
+            } label: {
+                Text(label)
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
+                    .frame(maxWidth: .infinity, minHeight: 28)
+                    .padding(.horizontal, 8)
+                    .background(
+                        RoundedRectangle(cornerRadius: 8)
+                            .fill(
+                                isSelected
+                                    ? Color.accentColor.opacity(0.14)
+                                    : Color(nsColor: .controlBackgroundColor)
+                            )
+                    )
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 8)
+                            .stroke(
+                                isSelected
+                                    ? Color.accentColor
+                                    : Color.secondary.opacity(0.24),
+                                lineWidth: 1
+                            )
+                    )
+            }
+            .buttonStyle(.plain)
+            .disabled(!hasEditableSelection)
+            .simultaneousGesture(
+                LongPressGesture(minimumDuration: 0.35)
+                    .onEnded { _ in
+                        presentShortcutModifierPicker(for: modifier)
+                    }
+            )
+            .popover(
+                isPresented: shortcutModifierPickerBinding(for: modifier),
+                arrowEdge: .bottom
+            ) {
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Use \(modifier.buttonLabel(for: .generic))")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    ForEach(ShortcutModifierVariant.allCases, id: \.self) { variant in
+                        Button {
+                            chooseShortcutModifierVariant(modifier, variant: variant)
+                        } label: {
+                            HStack(spacing: 8) {
+                                Image(systemName: shortcutModifiers[modifier] == variant ? "checkmark" : "circle")
+                                    .font(.system(size: 11, weight: .semibold))
+                                    .foregroundStyle(
+                                        shortcutModifiers[modifier] == variant
+                                            ? Color.accentColor
+                                            : Color.secondary
+                                    )
+                                Text(modifier.menuLabel(for: variant))
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .padding(12)
+                .frame(minWidth: 190)
+            }
+        }
+
         private var builtShortcutAction: KeyAction? {
             KeyActionCatalog.shortcutAction(
-                modifiers: shortcutModifiers.intersection(builderSupportedShortcutModifiers),
+                modifiers: shortcutModifiers,
                 keyLabel: shortcutKeyLabel
             )
         }
@@ -2088,7 +2204,9 @@ struct ContentView: View {
         }
 
         private func clearShortcutBuilderState() {
-            shortcutModifiers.removeAll()
+            shortcutModifiers = [:]
+            shortcutModifierPicker = nil
+            suppressShortcutModifierTap = nil
             shortcutKeyLabel = ""
         }
 
@@ -2110,7 +2228,7 @@ struct ContentView: View {
             if let spec = KeyActionCatalog.shortcutSpec(for: action) {
                 appLaunchTarget = ""
                 appLaunchArguments = ""
-                shortcutModifiers = spec.modifiers.intersection(builderSupportedShortcutModifiers)
+                shortcutModifiers = spec.modifiers
                 shortcutKeyLabel = spec.keyLabel
                 return
             }
@@ -2220,13 +2338,13 @@ struct ContentView: View {
                     .labelsHidden()
                     .disabled(!hasEditableSelection)
                     HStack(spacing: 8) {
-                        ForEach(ShortcutModifierToken.builderOrdered, id: \.self) { modifier in
-                            Toggle(modifier.rawValue, isOn: shortcutModifierBinding(modifier))
-                                .toggleStyle(.button)
-                                .frame(maxWidth: .infinity, minHeight: 28)
-                                .disabled(!hasEditableSelection)
+                        ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
+                            shortcutModifierButton(modifier)
                         }
                     }
+                    Text("Click to toggle. Hold to choose generic, left, or right. Right Option also accepts AltGr labels.")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
                         Text("Key")
                             .font(.caption)
