@@ -1,9 +1,3 @@
-# TODO:
-[x] Add Linux Equivalents for: `System & Media`: BRIGHT_UP / BRIGHT_DOWN
-> Linux now prefers native brightness-key dispatch when a real backlight device exists, and otherwise falls back to `xrandr` brightness adjustments on X11.
-- Add Linux Equivalents for: `System & Media`: VOICE (or like Windows Dictation)
-
--------
 # Test Linux Restart:
 - Linux does not respect `open in tray` and always opens in fullscreen
 - Test `open after restart` in linux by restarting
@@ -24,10 +18,11 @@
 
 # Autocorrect
 - Turning off Autocorrect should unload it from memory
-- Closing the Config should unload it from memory / restart
+- Closing the Config should unload it from memory / restart 
 
-# TEST / root cause:
-- 5-finger Up "D" is triggering Choral shift on it's own side? 
+# TODO:
+- Add Linux Equivalents for: `System & Media`: VOICE (or like Windows Dictation)
+-`Test` 5-finger Up "D" is triggering Choral shift on it's own side?
 
 # NUKE
 pkill -f 'GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj'
