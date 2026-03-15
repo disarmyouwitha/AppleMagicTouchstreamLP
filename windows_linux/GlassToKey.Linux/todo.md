@@ -1,7 +1,7 @@
 # TODO:
-[x] Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
-> Added to the Linux Action dropdown. Shared action parsing and Linux key dispatch already resolve these to brightness up/down media keys.
-- Add Linux Equivalents for: `System & Media`: VOICE, 
+[x] Add Linux Equivalents for: `System & Media`: BRIGHT_UP / BRIGHT_DOWN
+> Linux now prefers native brightness-key dispatch when a real backlight device exists, and otherwise falls back to `xrandr` brightness adjustments on X11.
+- Add Linux Equivalents for: `System & Media`: VOICE (or like Windows Dictation)
 
 -------
 # Test Linux Restart:

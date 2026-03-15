@@ -11,6 +11,8 @@ namespace GlassToKey.Linux.Runtime;
 internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController, IThreeFingerDragSink
 {
     private const string EmojiActionLabel = "EMOJI";
+    private const string BrightnessUpActionLabel = "BRIGHT_UP";
+    private const string BrightnessDownActionLabel = "BRIGHT_DOWN";
     private const string EmojiPickerExecutable = "/usr/libexec/ibus-ui-emojier";
     private const string EmojiCopiedMessage = "Copied an emoji to your clipboard.";
     private const string XpropExecutable = "/usr/bin/xprop";
@@ -49,6 +51,12 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
 
     public void Dispatch(in DispatchEvent dispatchEvent)
     {
+        if (TryGetBrightnessDelta(dispatchEvent.SemanticAction, out double brightnessDelta))
+        {
+            HandleBrightnessDispatch(dispatchEvent, brightnessDelta);
+            return;
+        }
+
         if (IsEmojiAction(dispatchEvent.SemanticAction))
         {
             HandleEmojiDispatch(dispatchEvent);
@@ -113,6 +121,30 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     public void SetLeftButtonState(bool pressed)
     {
         _inner.SetLeftButtonState(pressed);
+    }
+
+    private void HandleBrightnessDispatch(in DispatchEvent dispatchEvent, double brightnessDelta)
+    {
+        if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
+        {
+            return;
+        }
+
+        if (LinuxBrightnessController.ShouldUseNativeBrightnessPath())
+        {
+            _inner.Dispatch(in dispatchEvent);
+            return;
+        }
+
+        if (!LinuxBrightnessController.CanUseXrandrFallback())
+        {
+            return;
+        }
+
+        ThreadPool.UnsafeQueueUserWorkItem(
+            static state => LinuxBrightnessController.AdjustBrightnessBy((double)state!),
+            brightnessDelta,
+            preferLocal: false);
     }
 
     private void HandleEmojiDispatch(in DispatchEvent dispatchEvent)
@@ -390,6 +422,24 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     private static bool IsEmojiAction(DispatchSemanticAction semanticAction)
     {
         return semanticAction.Label.Equals(EmojiActionLabel, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool TryGetBrightnessDelta(DispatchSemanticAction semanticAction, out double delta)
+    {
+        if (semanticAction.Label.Equals(BrightnessUpActionLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            delta = 0.1;
+            return true;
+        }
+
+        if (semanticAction.Label.Equals(BrightnessDownActionLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            delta = -0.1;
+            return true;
+        }
+
+        delta = 0;
+        return false;
     }
 
     private static void TryLaunch(AppLaunchActionSpec spec)
