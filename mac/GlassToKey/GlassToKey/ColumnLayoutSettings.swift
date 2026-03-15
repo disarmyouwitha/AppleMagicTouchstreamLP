@@ -6,6 +6,7 @@ struct ColumnLayoutSettings: Codable, Hashable {
     var scaleY: Double
     var offsetXPercent: Double
     var offsetYPercent: Double
+    // Legacy decode-only field. New mac layouts use layout-level spacing.
     var rowSpacingPercent: Double
     var rotationDegrees: Double
 
@@ -78,7 +79,6 @@ struct ColumnLayoutSettings: Codable, Hashable {
         try container.encode(scale, forKey: .scale)
         try container.encode(offsetXPercent, forKey: .offsetXPercent)
         try container.encode(offsetYPercent, forKey: .offsetYPercent)
-        try container.encode(rowSpacingPercent, forKey: .rowSpacingPercent)
         try container.encode(rotationDegrees, forKey: .rotationDegrees)
     }
 }
@@ -143,7 +143,7 @@ enum LayoutKeySpacingStorage {
 enum LayoutKeySizePresetTuning {
     static let mxKeyWidthMm: CGFloat = 19.05
     static let mxKeyHeightMm: CGFloat = 19.05
-    static let defaultKeyPaddingPercent: Double = LayoutKeySpacingDefaults.defaultPercent
+    static let defaultColumnSpacingPercent: Double = LayoutKeySpacingDefaults.defaultPercent
 
     static func applyKeySizePreset(
         layout: TrackpadLayoutPreset,
@@ -153,7 +153,7 @@ enum LayoutKeySizePresetTuning {
         baseKeyHeightMm: CGFloat,
         targetKeyWidthMm: CGFloat,
         targetKeyHeightMm: CGFloat,
-        keyPaddingPercent: Double
+        columnSpacingPercent: Double
     ) -> Bool {
         guard layout.allowsColumnSettings,
               !columnSettings.isEmpty,
@@ -166,7 +166,7 @@ enum LayoutKeySizePresetTuning {
 
         let targetScaleX = Double(targetKeyWidthMm / baseKeyWidthMm)
         let targetScaleY = Double(targetKeyHeightMm / baseKeyHeightMm)
-        let spacingScale = clampedKeyPaddingPercent(keyPaddingPercent) / 100.0
+        let spacingScale = clampedColumnSpacingPercent(columnSpacingPercent) / 100.0
         var changed = false
         for column in columnSettings.indices {
             if abs(columnSettings[column].scaleX - targetScaleX) > 0.000_01 {
@@ -231,7 +231,7 @@ enum LayoutKeySizePresetTuning {
         return Double(((targetAnchorMm - anchors[column].x) / trackpadWidthMm) * 100.0)
     }
 
-    private static func clampedKeyPaddingPercent(_ value: Double) -> Double {
+    private static func clampedColumnSpacingPercent(_ value: Double) -> Double {
         min(
             max(value, 0.0),
             200.0
@@ -242,7 +242,7 @@ enum LayoutKeySizePresetTuning {
 enum ColumnLayoutDefaults {
     static let scaleRange: ClosedRange<Double> = 0.5...2.0
     static let offsetPercentRange: ClosedRange<Double> = -30.0...30.0
-    static let rowSpacingPercentRange: ClosedRange<Double> = -20.0...40.0
+    static let legacyRowSpacingPercentRange: ClosedRange<Double> = -20.0...40.0
     static let rotationDegreesRange: ClosedRange<Double> = 0.0...360.0
 
     static func defaultSettings(columns: Int) -> [ColumnLayoutSettings] {
@@ -251,7 +251,6 @@ enum ColumnLayoutDefaults {
                 scale: 1.0,
                 offsetXPercent: 0.0,
                 offsetYPercent: 0.0,
-                rowSpacingPercent: 0.0,
                 rotationDegrees: 0.0
             ),
             count: columns
@@ -261,6 +260,21 @@ enum ColumnLayoutDefaults {
     static func normalizedSettings(
         _ settings: [ColumnLayoutSettings],
         columns: Int
+    ) -> [ColumnLayoutSettings] {
+        normalizedSettings(settings, columns: columns, preserveLegacyRowSpacing: false)
+    }
+
+    static func normalizedLegacySettings(
+        _ settings: [ColumnLayoutSettings],
+        columns: Int
+    ) -> [ColumnLayoutSettings] {
+        normalizedSettings(settings, columns: columns, preserveLegacyRowSpacing: true)
+    }
+
+    private static func normalizedSettings(
+        _ settings: [ColumnLayoutSettings],
+        columns: Int,
+        preserveLegacyRowSpacing: Bool
     ) -> [ColumnLayoutSettings] {
         var resolved = settings
         if resolved.count != columns {
@@ -278,10 +292,12 @@ enum ColumnLayoutDefaults {
                     max(setting.offsetYPercent, offsetPercentRange.lowerBound),
                     offsetPercentRange.upperBound
                 ),
-                rowSpacingPercent: min(
-                    max(setting.rowSpacingPercent, rowSpacingPercentRange.lowerBound),
-                    rowSpacingPercentRange.upperBound
-                ),
+                rowSpacingPercent: preserveLegacyRowSpacing
+                    ? min(
+                        max(setting.rowSpacingPercent, legacyRowSpacingPercentRange.lowerBound),
+                        legacyRowSpacingPercentRange.upperBound
+                    )
+                    : 0.0,
                 rotationDegrees: min(
                     max(setting.rotationDegrees, rotationDegreesRange.lowerBound),
                     rotationDegreesRange.upperBound

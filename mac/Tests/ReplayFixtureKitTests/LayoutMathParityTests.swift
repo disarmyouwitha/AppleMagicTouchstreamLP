@@ -12,25 +12,25 @@ final class LayoutMathParityTests: XCTestCase {
             CGPoint(x: 125.0, y: 22.6),
         ]
         let settings = [
-            TestColumn(scaleX: 1.05, scaleY: 1.08, offsetXPercent: -1.5, offsetYPercent: 0.3, rowSpacingPercent: 2.0, rotationDegrees: 1.5),
-            TestColumn(scaleX: 1.00, scaleY: 1.02, offsetXPercent: -0.8, offsetYPercent: 0.1, rowSpacingPercent: 1.0, rotationDegrees: 0.5),
-            TestColumn(scaleX: 1.12, scaleY: 1.10, offsetXPercent: -0.2, offsetYPercent: -0.1, rowSpacingPercent: 3.0, rotationDegrees: 0.0),
-            TestColumn(scaleX: 1.15, scaleY: 1.09, offsetXPercent: 0.4, offsetYPercent: -0.2, rowSpacingPercent: 2.5, rotationDegrees: 0.0),
-            TestColumn(scaleX: 1.03, scaleY: 1.05, offsetXPercent: 1.0, offsetYPercent: 0.2, rowSpacingPercent: 1.5, rotationDegrees: 359.0),
-            TestColumn(scaleX: 0.98, scaleY: 1.00, offsetXPercent: 1.8, offsetYPercent: 0.4, rowSpacingPercent: 0.5, rotationDegrees: 358.5),
+            TestColumn(scaleX: 1.05, scaleY: 1.08, offsetXPercent: -1.5, offsetYPercent: 0.3, rotationDegrees: 1.5),
+            TestColumn(scaleX: 1.00, scaleY: 1.02, offsetXPercent: -0.8, offsetYPercent: 0.1, rotationDegrees: 0.5),
+            TestColumn(scaleX: 1.12, scaleY: 1.10, offsetXPercent: -0.2, offsetYPercent: -0.1, rotationDegrees: 0.0),
+            TestColumn(scaleX: 1.15, scaleY: 1.09, offsetXPercent: 0.4, offsetYPercent: -0.2, rotationDegrees: 0.0),
+            TestColumn(scaleX: 1.03, scaleY: 1.05, offsetXPercent: 1.0, offsetYPercent: 0.2, rotationDegrees: 359.0),
+            TestColumn(scaleX: 0.98, scaleY: 1.00, offsetXPercent: 1.8, offsetYPercent: 0.4, rotationDegrees: 358.5),
         ]
 
         let windows = buildWindowsLayout(
             anchors: anchors,
             rows: 4,
             settings: settings,
-            keySpacingPercent: 10.0
+            keySpacingPercent: 8.5
         )
         let canonicalMac = buildCanonicalMacLayout(
             anchors: anchors,
             rows: 4,
             settings: settings,
-            keySpacingPercent: 10.0
+            keySpacingPercent: 8.5
         )
 
         assertRectsEqual(windows, canonicalMac, accuracy: 0.000_001)
@@ -45,24 +45,24 @@ final class LayoutMathParityTests: XCTestCase {
             CGPoint(x: 107.0, y: 22.6),
         ]
         let settings = [
-            TestColumn(scaleX: 1.0, scaleY: 1.0, offsetXPercent: -1.0, offsetYPercent: 0.0, rowSpacingPercent: 0.0, rotationDegrees: 0.0),
-            TestColumn(scaleX: 1.08, scaleY: 1.04, offsetXPercent: -0.4, offsetYPercent: -0.2, rowSpacingPercent: 4.0, rotationDegrees: 0.0),
-            TestColumn(scaleX: 1.12, scaleY: 1.10, offsetXPercent: 0.0, offsetYPercent: -0.3, rowSpacingPercent: 5.0, rotationDegrees: 2.0),
-            TestColumn(scaleX: 1.04, scaleY: 1.02, offsetXPercent: 0.7, offsetYPercent: -0.1, rowSpacingPercent: 2.0, rotationDegrees: 0.0),
-            TestColumn(scaleX: 0.96, scaleY: 0.98, offsetXPercent: 1.2, offsetYPercent: 0.2, rowSpacingPercent: 1.0, rotationDegrees: 359.0),
+            TestColumn(scaleX: 1.0, scaleY: 1.0, offsetXPercent: -1.0, offsetYPercent: 0.0, rotationDegrees: 0.0),
+            TestColumn(scaleX: 1.08, scaleY: 1.04, offsetXPercent: -0.4, offsetYPercent: -0.2, rotationDegrees: 0.0),
+            TestColumn(scaleX: 1.12, scaleY: 1.10, offsetXPercent: 0.0, offsetYPercent: -0.3, rotationDegrees: 2.0),
+            TestColumn(scaleX: 1.04, scaleY: 1.02, offsetXPercent: 0.7, offsetYPercent: -0.1, rotationDegrees: 0.0),
+            TestColumn(scaleX: 0.96, scaleY: 0.98, offsetXPercent: 1.2, offsetYPercent: 0.2, rotationDegrees: 359.0),
         ]
 
         let windows = buildWindowsLayout(
             anchors: anchors,
             rows: 3,
             settings: settings,
-            keySpacingPercent: 10.0
+            keySpacingPercent: 0.0
         )
         let canonicalMac = buildCanonicalMacLayout(
             anchors: anchors,
             rows: 3,
             settings: settings,
-            keySpacingPercent: 10.0
+            keySpacingPercent: 0.0
         )
 
         assertRectsEqual(windows, canonicalMac, accuracy: 0.000_001)
@@ -137,10 +137,9 @@ final class LayoutMathParityTests: XCTestCase {
                 let width = keyWidth * CGFloat(setting.scaleX)
                 let height = keyHeight * CGFloat(setting.scaleY)
                 let spacingY = height * spacingScale
-                let rowSpacing = height * CGFloat(setting.rowSpacingPercent / 100.0)
                 rects[row][column] = TestRect(
                     x: anchors[column].x / trackpadWidth,
-                    y: (anchors[column].y + CGFloat(row) * (height + rowSpacing + spacingY)) / trackpadHeight,
+                    y: (anchors[column].y + CGFloat(row) * (height + spacingY)) / trackpadHeight,
                     width: width / trackpadWidth,
                     height: height / trackpadHeight
                 )
@@ -186,7 +185,6 @@ private struct TestColumn {
     let scaleY: Double
     let offsetXPercent: Double
     let offsetYPercent: Double
-    let rowSpacingPercent: Double
     let rotationDegrees: Double
 }
 

@@ -119,6 +119,11 @@ final class GlassToKeyController: ObservableObject {
     static func seedBundledDefaultsIfNeeded(defaults: UserDefaults = .standard) {
         guard !hasPortableBundledDefaults(defaults: defaults) else { return }
         guard let profile = bundledDefaultProfile() else { return }
+        let migratedLayoutMath = ContentView.migrateLayoutMath(
+            columnSettingsByLayout: profile.columnSettingsByLayout,
+            keySpacingByLayout: profile.keySpacingPercentByLayout ?? [:],
+            currentVersion: profile.layoutMathVersion ?? 0
+        )
 
         defaults.set(profile.layoutPreset, forKey: GlassToKeyDefaultsKeys.layoutPreset)
         defaults.set(profile.autoResyncMissingTrackpads, forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads)
@@ -147,16 +152,16 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.fiveFingerSwipeLeftGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
         defaults.set(profile.fiveFingerSwipeRightGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
         if let encodedKeySpacing = LayoutKeySpacingStorage.encode(
-            profile.keySpacingPercentByLayout ?? [:]
+            migratedLayoutMath.keySpacingByLayout
         ) {
             defaults.set(encodedKeySpacing, forKey: GlassToKeyDefaultsKeys.keySpacingByLayout)
         }
         defaults.set(
-            profile.layoutMathVersion ?? 0,
+            ContentView.windowsLayoutMathVersion,
             forKey: GlassToKeyDefaultsKeys.layoutMathVersion
         )
 
-        if let encodedColumns = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) {
+        if let encodedColumns = LayoutColumnSettingsStorage.encode(migratedLayoutMath.columnSettingsByLayout) {
             defaults.set(encodedColumns, forKey: GlassToKeyDefaultsKeys.columnSettings)
         }
         if let encodedButtons = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) {
