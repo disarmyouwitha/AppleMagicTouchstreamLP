@@ -108,7 +108,7 @@ enum LayoutColumnSettingsStorage {
     }
 }
 
-enum LayoutKeyPaddingDefaults {
+enum LayoutKeySpacingDefaults {
     static let defaultPercent: Double = 10.0
     static let percentRange: ClosedRange<Double> = 0.0...90.0
 
@@ -117,7 +117,7 @@ enum LayoutKeyPaddingDefaults {
     }
 }
 
-enum LayoutKeyPaddingStorage {
+enum LayoutKeySpacingStorage {
     static func decode(from data: Data) -> [String: Double]? {
         guard !data.isEmpty else { return nil }
         return try? JSONDecoder().decode([String: Double].self, from: data)
@@ -128,33 +128,22 @@ enum LayoutKeyPaddingStorage {
         return try? JSONEncoder().encode(map)
     }
 
-    static func keyPaddingPercent(
+    static func keySpacingPercent(
         for layout: TrackpadLayoutPreset,
         from data: Data
     ) -> Double {
         guard let map = decode(from: data),
               let value = map[layout.rawValue] else {
-            return LayoutKeyPaddingDefaults.defaultPercent
+            return LayoutKeySpacingDefaults.defaultPercent
         }
-        return LayoutKeyPaddingDefaults.normalized(value)
+        return LayoutKeySpacingDefaults.normalized(value)
     }
 }
 
 enum LayoutKeySizePresetTuning {
     static let mxKeyWidthMm: CGFloat = 19.05
     static let mxKeyHeightMm: CGFloat = 19.05
-
-    static func recommendedPaddingPercentForMXPitch(
-        targetKeyWidthMm: CGFloat,
-        targetKeyHeightMm: CGFloat
-    ) -> Double {
-        guard targetKeyWidthMm > 0, targetKeyHeightMm > 0 else {
-            return LayoutKeyPaddingDefaults.defaultPercent
-        }
-        let horizontal = max((Double(mxKeyWidthMm / targetKeyWidthMm) - 1.0) * 100.0, 0.0)
-        let vertical = max((Double(mxKeyHeightMm / targetKeyHeightMm) - 1.0) * 100.0, 0.0)
-        return LayoutKeyPaddingDefaults.normalized((horizontal + vertical) * 0.5)
-    }
+    static let defaultKeyPaddingPercent: Double = LayoutKeySpacingDefaults.defaultPercent
 
     static func applyKeySizePreset(
         layout: TrackpadLayoutPreset,
@@ -177,16 +166,7 @@ enum LayoutKeySizePresetTuning {
 
         let targetScaleX = Double(targetKeyWidthMm / baseKeyWidthMm)
         let targetScaleY = Double(targetKeyHeightMm / baseKeyHeightMm)
-        let targetScaleXs = Array(repeating: CGFloat(targetScaleX), count: columnSettings.count)
-        let baselineAnchorsMm = scaledColumnAnchorsMM(layout.columnAnchors, columnScaleXs: targetScaleXs)
-        let targetAnchorsMm = desiredPitchAnchorsMM(
-            layout.columnAnchors,
-            baseKeyWidthMm: baseKeyWidthMm,
-            targetKeyWidthMm: targetKeyWidthMm,
-            targetScaleX: CGFloat(targetScaleX),
-            keyPaddingPercent: keyPaddingPercent
-        )
-
+        let spacingScale = clampedKeyPaddingPercent(keyPaddingPercent) / 100.0
         var changed = false
         for column in columnSettings.indices {
             if abs(columnSettings[column].scaleX - targetScaleX) > 0.000_01 {
@@ -198,8 +178,13 @@ enum LayoutKeySizePresetTuning {
                 changed = true
             }
 
-            let targetOffsetXPercent = Double(
-                ((targetAnchorsMm[column].x - baselineAnchorsMm[column].x) / trackpadWidthMm) * 100.0
+            let targetOffsetXPercent = computeHorizontalPitchOffsetPercent(
+                layout: layout,
+                column: column,
+                trackpadWidthMm: trackpadWidthMm,
+                baseKeyWidthMm: baseKeyWidthMm,
+                targetKeyWidthMm: targetKeyWidthMm,
+                spacingScale: spacingScale
             )
             if abs(columnSettings[column].offsetXPercent - targetOffsetXPercent) > 0.000_01 {
                 columnSettings[column].offsetXPercent = targetOffsetXPercent
@@ -210,45 +195,47 @@ enum LayoutKeySizePresetTuning {
         return changed
     }
 
-    private static func desiredPitchAnchorsMM(
-        _ anchors: [CGPoint],
+    private static func computeHorizontalPitchOffsetPercent(
+        layout: TrackpadLayoutPreset,
+        column: Int,
+        trackpadWidthMm: CGFloat,
         baseKeyWidthMm: CGFloat,
         targetKeyWidthMm: CGFloat,
-        targetScaleX: CGFloat,
-        keyPaddingPercent: Double
-    ) -> [CGPoint] {
-        guard anchors.count > 1 else { return anchors }
-        let spacingScale = CGFloat(LayoutKeyPaddingDefaults.normalized(keyPaddingPercent) / 100.0)
-        var resolved = anchors
-        resolved[0] = anchors[0]
+        spacingScale: Double
+    ) -> Double {
+        let anchors = layout.columnAnchors
+        guard column >= 0,
+              column < anchors.count,
+              anchors.count > 1 else {
+            return 0.0
+        }
+        let scaleX = Double(targetKeyWidthMm / baseKeyWidthMm)
+        if abs(scaleX - 1.0) < 0.000_01 {
+            return 0.0
+        }
 
+        var targetAnchorsMm = Array(repeating: CGFloat.zero, count: anchors.count)
+        targetAnchorsMm[0] = anchors[0].x
         for index in 1..<anchors.count {
             let baseGapMm = anchors[index].x - anchors[index - 1].x
-            let desiredGapMm = (baseGapMm * targetScaleX) + (targetKeyWidthMm * spacingScale)
-            resolved[index].x = resolved[index - 1].x + desiredGapMm
+            let desiredGapMm = (baseGapMm * CGFloat(scaleX)) + (targetKeyWidthMm * CGFloat(spacingScale))
+            targetAnchorsMm[index] = targetAnchorsMm[index - 1] + desiredGapMm
         }
 
         let baselineRightMm = anchors[anchors.count - 1].x + baseKeyWidthMm
         let baselineCenterMm = (anchors[0].x + baselineRightMm) * 0.5
-        let adjustedRightMm = resolved[resolved.count - 1].x + targetKeyWidthMm
-        let adjustedCenterMm = (resolved[0].x + adjustedRightMm) * 0.5
+        let adjustedRightMm = targetAnchorsMm[targetAnchorsMm.count - 1] + targetKeyWidthMm
+        let adjustedCenterMm = (targetAnchorsMm[0] + adjustedRightMm) * 0.5
         let centerOffsetMm = baselineCenterMm - adjustedCenterMm
-
-        return resolved.map { anchor in
-            CGPoint(x: anchor.x + centerOffsetMm, y: anchor.y)
-        }
+        let targetAnchorMm = targetAnchorsMm[column] + centerOffsetMm
+        return Double(((targetAnchorMm - anchors[column].x) / trackpadWidthMm) * 100.0)
     }
 
-    private static func scaledColumnAnchorsMM(
-        _ anchors: [CGPoint],
-        columnScaleXs: [CGFloat]
-    ) -> [CGPoint] {
-        guard let originX = anchors.first?.x else { return anchors }
-        return anchors.enumerated().map { index, anchor in
-            let scale = columnScaleXs.indices.contains(index) ? columnScaleXs[index] : 1.0
-            let offsetX = anchor.x - originX
-            return CGPoint(x: originX + offsetX * scale, y: anchor.y)
-        }
+    private static func clampedKeyPaddingPercent(_ value: Double) -> Double {
+        min(
+            max(value, 0.0),
+            200.0
+        )
     }
 }
 

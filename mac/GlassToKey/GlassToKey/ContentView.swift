@@ -79,7 +79,8 @@ struct ContentView: View {
         let innerCornersHoldGestureAction: String?
         let fiveFingerSwipeLeftGestureAction: String?
         let fiveFingerSwipeRightGestureAction: String?
-        let keyPaddingPercentByLayout: [String: Double]?
+        let keySpacingPercentByLayout: [String: Double]?
+        let layoutMathVersion: Int?
         let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
         let customButtonsByLayout: [String: [Int: [CustomButton]]]
         let keyMappingsByLayout: LayoutLayeredKeyMappings?
@@ -94,10 +95,10 @@ struct ContentView: View {
     @State private var columnSettings: [ColumnLayoutSettings]
     @State private var leftLayout: ContentViewModel.Layout
     @State private var rightLayout: ContentViewModel.Layout
+    @State private var keySpacingPercent = LayoutKeySpacingDefaults.defaultPercent
     @State private var customButtons: [CustomButton] = []
     @State private var selectedButtonID: UUID?
     @State private var editColumnIndex = 0
-    @State private var keyPaddingPercent = LayoutKeyPaddingDefaults.defaultPercent
     @State private var selectedGridKey: SelectedGridKey?
     @State private var columnInspectorSelection: ColumnInspectorSelection?
     @State private var buttonInspectorSelection: ButtonInspectorSelection?
@@ -114,8 +115,9 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.leftDeviceID) private var storedLeftDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.rightDeviceID) private var storedRightDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.columnSettings) private var storedColumnSettingsData = Data()
-    @AppStorage(GlassToKeyDefaultsKeys.keyPaddingByLayout) private var storedKeyPaddingByLayoutData = Data()
+    @AppStorage(GlassToKeyDefaultsKeys.keySpacingByLayout) private var storedKeySpacingByLayoutData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.layoutPreset) private var storedLayoutPreset = TrackpadLayoutPreset.sixByThree.rawValue
+    @AppStorage(GlassToKeyDefaultsKeys.layoutMathVersion) private var storedLayoutMathVersion = 0
     @AppStorage(GlassToKeyDefaultsKeys.customButtons) private var storedCustomButtonsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.keyMappings) private var storedKeyMappingsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.keyGeometry) private var storedKeyGeometryData = Data()
@@ -186,6 +188,7 @@ struct ContentView: View {
     fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
     fileprivate static let intentMoveThresholdRange: ClosedRange<Double> = 0.5...10.0
     fileprivate static let intentVelocityThresholdRange: ClosedRange<Double> = 10.0...200.0
+    private static let windowsLayoutMathVersion = 1
     fileprivate static let snapRadiusPercentRange: ClosedRange<Double> = 0.0...100.0
     private static let keyCornerRadius: CGFloat = 6.0
     private static let autoSplayTouchCount = 4
@@ -404,7 +407,7 @@ struct ContentView: View {
         let initialColumnSettings = ColumnLayoutDefaults.defaultSettings(
             columns: defaultLayout.columns
         )
-        let initialKeyPaddingPercent = LayoutKeyPaddingDefaults.defaultPercent
+        let initialKeySpacingPercent = LayoutKeySpacingDefaults.defaultPercent
         let initialLeftLayout = ContentView.makeKeyLayout(
             size: size,
             keyWidth: Self.baseKeyWidthMM,
@@ -415,7 +418,7 @@ struct ContentView: View {
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: defaultLayout.columnAnchors,
             columnSettings: initialColumnSettings,
-            keySpacingPercent: initialKeyPaddingPercent,
+            keySpacingPercent: initialKeySpacingPercent,
             mirrored: true
         )
         let initialRightLayout = ContentView.makeKeyLayout(
@@ -428,10 +431,10 @@ struct ContentView: View {
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: defaultLayout.columnAnchors,
             columnSettings: initialColumnSettings,
-            keySpacingPercent: initialKeyPaddingPercent
+            keySpacingPercent: initialKeySpacingPercent
         )
         _columnSettings = State(initialValue: initialColumnSettings)
-        _keyPaddingPercent = State(initialValue: initialKeyPaddingPercent)
+        _keySpacingPercent = State(initialValue: initialKeySpacingPercent)
         _leftLayout = State(initialValue: initialLeftLayout)
         _rightLayout = State(initialValue: initialRightLayout)
     }
@@ -463,6 +466,7 @@ struct ContentView: View {
     private func lifecycleContent<Content: View>(_ content: Content) -> some View {
         content
             .onAppear {
+                migrateStoredLayoutMathIfNeeded()
                 applySavedSettings()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
                 viewModel.setKeymapEditingEnabled(editModeEnabled)
@@ -488,15 +492,6 @@ struct ContentView: View {
                 normalizeEditColumnIndex(for: newValue.count)
                 applyColumnSettings(newValue)
                 refreshColumnInspectorSelection()
-            }
-            .onChange(of: keyPaddingPercent) { newValue in
-                let normalized = LayoutKeyPaddingDefaults.normalized(newValue)
-                if abs(normalized - newValue) > 0.000_01 {
-                    keyPaddingPercent = normalized
-                    return
-                }
-                saveCurrentKeyPadding()
-                rebuildLayouts()
             }
             .onChange(of: customButtons) { newValue in
                 saveCustomButtons(newValue)
@@ -901,7 +896,6 @@ struct ContentView: View {
             holdActionGroups: holdActionGroups,
             gestureActionGroups: gestureActionGroups,
             editColumnIndex: $editColumnIndex,
-            keyPaddingPercent: $keyPaddingPercent,
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
             selectionRevision: inspectorSelectionRevision,
@@ -1260,7 +1254,6 @@ struct ContentView: View {
         let holdActionGroups: [KeyActionCatalog.ActionGroup]
         let gestureActionGroups: [KeyActionCatalog.ActionGroup]
         @Binding var editColumnIndex: Int
-        @Binding var keyPaddingPercent: Double
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
@@ -1414,7 +1407,6 @@ struct ContentView: View {
                                 ColumnTuningSectionView(
                                     layoutOption: layoutOption,
                                     columnSettings: columnSettings,
-                                    keyPaddingPercent: $keyPaddingPercent,
                                     selection: columnSelection,
                                     editColumnIndex: $editColumnIndex,
                                     onUpdateColumn: onUpdateColumn,
@@ -1715,7 +1707,6 @@ struct ContentView: View {
     private struct ColumnTuningSectionView: View {
         let layoutOption: TrackpadLayoutPreset
         let columnSettings: [ColumnLayoutSettings]
-        @Binding var keyPaddingPercent: Double
         let selection: ColumnInspectorSelection?
         @Binding var editColumnIndex: Int
         let onUpdateColumn: (Int, (inout ColumnLayoutSettings) -> Void) -> Void
@@ -1775,21 +1766,6 @@ struct ContentView: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         }
                         VStack(alignment: .leading, spacing: 14) {
-                            ColumnTuningRow(
-                                title: "Key Padding (%)",
-                                value: Binding(
-                                    get: { keyPaddingPercent },
-                                    set: { newValue in
-                                        keyPaddingPercent = LayoutKeyPaddingDefaults.normalized(newValue)
-                                    }
-                                ),
-                                formatter: ContentView.rowSpacingFormatter,
-                                range: LayoutKeyPaddingDefaults.percentRange,
-                                sliderStep: 1.0,
-                                buttonStep: 0.5,
-                                showSlider: false,
-                                fillFieldWidth: true
-                            )
                             ColumnTuningRow(
                                 title: "Column Scale X (%)",
                                 value: Binding(
@@ -3270,7 +3246,7 @@ struct ContentView: View {
         trackpadHeight: CGFloat,
         columnAnchorsMM: [CGPoint],
         columnSettings: [ColumnLayoutSettings],
-        keySpacingPercent: Double = LayoutKeyPaddingDefaults.defaultPercent,
+        keySpacingPercent: Double = LayoutKeySpacingDefaults.defaultPercent,
         keyGeometryOverrides: KeyGeometryOverrides = [:],
         mirrored: Bool = false
     ) -> ContentViewModel.Layout {
@@ -3287,13 +3263,7 @@ struct ContentView: View {
         )
         let columnScaleXs = resolvedSettings.map { CGFloat($0.scaleX) }
         let columnScaleYs = resolvedSettings.map { CGFloat($0.scaleY) }
-        let spacingScale = CGFloat(
-            LayoutKeyPaddingDefaults.normalized(keySpacingPercent) / 100.0
-        )
-        let adjustedAnchorsMM = scaledColumnAnchorsMM(
-            columnAnchorsMM,
-            columnScaleXs: columnScaleXs
-        )
+        let spacingScale = CGFloat(LayoutKeySpacingDefaults.normalized(keySpacingPercent) / 100.0)
 
         var keyRects: [[CGRect]] = Array(
             repeating: Array(repeating: .zero, count: columns),
@@ -3301,19 +3271,19 @@ struct ContentView: View {
         )
         for row in 0..<rows {
             for col in 0..<columns {
-                let anchorMM = adjustedAnchorsMM[col]
+                let anchorMM = columnAnchorsMM[col]
                 let columnScaleX = columnScaleXs[col]
                 let columnScaleY = columnScaleYs[col]
                 let keySize = CGSize(
                     width: keyWidth * columnScaleX * viewScaleX,
                     height: keyHeight * columnScaleY * viewScaleY
                 )
-                let keySpacing = keySize.height * spacingScale
+                let keySpacingY = keySize.height * spacingScale
                 let rowSpacingPercent = resolvedSettings[col].rowSpacingPercent
                 let rowSpacing = keySize.height * CGFloat(rowSpacingPercent / 100.0)
                 keyRects[row][col] = CGRect(
                     x: anchorMM.x * viewScaleX,
-                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + rowSpacing + keySpacing),
+                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + rowSpacing + keySpacingY),
                     width: keySize.width,
                     height: keySize.height
                 )
@@ -3349,16 +3319,154 @@ struct ContentView: View {
         return ContentViewModel.Layout(normalizedKeyRects: normalizedKeyRects, trackpadSize: size)
     }
 
-    private static func scaledColumnAnchorsMM(
-        _ anchors: [CGPoint],
-        columnScaleXs: [CGFloat]
-    ) -> [CGPoint] {
-        guard let originX = anchors.first?.x else { return anchors }
-        return anchors.enumerated().map { index, anchor in
+    private static func legacyMakeKeyLayout(
+        size: CGSize,
+        keyWidth: CGFloat,
+        keyHeight: CGFloat,
+        columns: Int,
+        rows: Int,
+        trackpadWidth: CGFloat,
+        trackpadHeight: CGFloat,
+        columnAnchorsMM: [CGPoint],
+        columnSettings: [ColumnLayoutSettings],
+        keyGeometryOverrides: KeyGeometryOverrides = [:],
+        mirrored: Bool = false
+    ) -> ContentViewModel.Layout {
+        guard columns > 0,
+              rows > 0,
+              columnAnchorsMM.count == columns else {
+            return ContentViewModel.Layout(normalizedKeyRects: [], trackpadSize: size)
+        }
+        let viewScaleX = size.width / trackpadWidth
+        let viewScaleY = size.height / trackpadHeight
+        let resolvedSettings = normalizedColumnSettings(
+            columnSettings,
+            columns: columns
+        )
+        let columnScaleXs = resolvedSettings.map { CGFloat($0.scaleX) }
+        let columnScaleYs = resolvedSettings.map { CGFloat($0.scaleY) }
+        let adjustedAnchorsMM = columnAnchorsMM.enumerated().map { index, anchor in
+            guard let originX = columnAnchorsMM.first?.x else { return anchor }
             let scale = columnScaleXs.indices.contains(index) ? columnScaleXs[index] : 1.0
             let offsetX = anchor.x - originX
             return CGPoint(x: originX + offsetX * scale, y: anchor.y)
         }
+
+        var keyRects: [[CGRect]] = Array(
+            repeating: Array(repeating: .zero, count: columns),
+            count: rows
+        )
+        for row in 0..<rows {
+            for col in 0..<columns {
+                let anchorMM = adjustedAnchorsMM[col]
+                let columnScaleX = columnScaleXs[col]
+                let columnScaleY = columnScaleYs[col]
+                let keySize = CGSize(
+                    width: keyWidth * columnScaleX * viewScaleX,
+                    height: keyHeight * columnScaleY * viewScaleY
+                )
+                let rowSpacingPercent = resolvedSettings[col].rowSpacingPercent
+                let rowSpacing = keySize.height * CGFloat(rowSpacingPercent / 100.0)
+                keyRects[row][col] = CGRect(
+                    x: anchorMM.x * viewScaleX,
+                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + rowSpacing),
+                    width: keySize.width,
+                    height: keySize.height
+                )
+            }
+        }
+
+        var normalizedKeyRects = keyRects.map { row in
+            row.map { normalizedRect(for: $0, in: size) }
+        }
+        let columnOffsets = resolvedSettings.map { setting in
+            CGSize(
+                width: size.width * CGFloat(setting.offsetXPercent / 100.0),
+                height: size.height * CGFloat(setting.offsetYPercent / 100.0)
+            )
+        }
+        applyColumnOffsets(keyRects: &normalizedKeyRects, columnOffsets: columnOffsets, size: size)
+        applyColumnRotations(keyRects: &normalizedKeyRects, columnSettings: resolvedSettings)
+        applyKeyGeometryOverrides(
+            keyRects: &normalizedKeyRects,
+            keyGeometryOverrides: keyGeometryOverrides,
+            mirrored: mirrored
+        )
+
+        if mirrored {
+            let mirroredKeyRects = normalizedKeyRects.map { row in
+                row.map { $0.mirroredHorizontally() }
+            }
+            return ContentViewModel.Layout(normalizedKeyRects: mirroredKeyRects, trackpadSize: size)
+        }
+
+        return ContentViewModel.Layout(normalizedKeyRects: normalizedKeyRects, trackpadSize: size)
+    }
+
+    private static func migratedColumnSettingsToWindowsLayout(
+        for layout: TrackpadLayoutPreset,
+        columnSettings: [ColumnLayoutSettings],
+        keySpacingPercent: Double
+    ) -> [ColumnLayoutSettings] {
+        guard layout.allowsColumnSettings else { return columnSettings }
+        let normalizedSettings = normalizedColumnSettings(columnSettings, columns: layout.columns)
+        let migrationSize = CGSize(
+            width: trackpadWidthMM * displayScale,
+            height: trackpadHeightMM * displayScale
+        )
+        let legacyLayout = legacyMakeKeyLayout(
+            size: migrationSize,
+            keyWidth: baseKeyWidthMM,
+            keyHeight: baseKeyHeightMM,
+            columns: layout.columns,
+            rows: layout.rows,
+            trackpadWidth: trackpadWidthMM,
+            trackpadHeight: trackpadHeightMM,
+            columnAnchorsMM: layout.columnAnchors,
+            columnSettings: normalizedSettings
+        )
+        var migrated = normalizedSettings
+        let windowsLayout = makeKeyLayout(
+            size: migrationSize,
+            keyWidth: baseKeyWidthMM,
+            keyHeight: baseKeyHeightMM,
+            columns: layout.columns,
+            rows: layout.rows,
+            trackpadWidth: trackpadWidthMM,
+            trackpadHeight: trackpadHeightMM,
+            columnAnchorsMM: layout.columnAnchors,
+            columnSettings: migrated,
+            keySpacingPercent: keySpacingPercent
+        )
+
+        for column in migrated.indices {
+            let legacyCenter = averageColumnCenter(in: legacyLayout.normalizedKeyRects, column: column)
+            let windowsCenter = averageColumnCenter(in: windowsLayout.normalizedKeyRects, column: column)
+            migrated[column].offsetXPercent = normalizedColumnOffsetPercent(
+                migrated[column].offsetXPercent + Double((legacyCenter.x - windowsCenter.x) * 100.0)
+            )
+            migrated[column].offsetYPercent = normalizedColumnOffsetPercent(
+                migrated[column].offsetYPercent + Double((legacyCenter.y - windowsCenter.y) * 100.0)
+            )
+        }
+
+        return migrated
+    }
+
+    private static func averageColumnCenter(
+        in normalizedKeyRects: [[NormalizedRect]],
+        column: Int
+    ) -> CGPoint {
+        var totalX: CGFloat = 0
+        var totalY: CGFloat = 0
+        var count: CGFloat = 0
+        for row in normalizedKeyRects where row.indices.contains(column) {
+            totalX += row[column].centerX
+            totalY += row[column].centerY
+            count += 1
+        }
+        guard count > 0 else { return .zero }
+        return CGPoint(x: totalX / count, y: totalY / count)
     }
 
     private static func applyColumnOffsets(
@@ -3762,7 +3870,7 @@ struct ContentView: View {
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: newLayout)
-        keyPaddingPercent = keyPaddingPercent(for: newLayout)
+        keySpacingPercent = keySpacingPercent(for: newLayout)
         keyGeometryOverrides = keyGeometryOverrides(for: newLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: newLayout)
@@ -3800,7 +3908,7 @@ struct ContentView: View {
                 trackpadHeight: Self.trackpadHeightMM,
                 columnAnchorsMM: layoutColumnAnchors,
                 columnSettings: columnSettings,
-                keySpacingPercent: keyPaddingPercent,
+                keySpacingPercent: keySpacingPercent,
                 keyGeometryOverrides: keyGeometryOverrides
             )
             viewModel.configureLayouts(
@@ -3823,7 +3931,7 @@ struct ContentView: View {
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: layoutColumnAnchors,
             columnSettings: columnSettings,
-            keySpacingPercent: keyPaddingPercent,
+            keySpacingPercent: keySpacingPercent,
             keyGeometryOverrides: keyGeometryOverrides,
             mirrored: true
         )
@@ -3837,7 +3945,7 @@ struct ContentView: View {
             trackpadHeight: Self.trackpadHeightMM,
             columnAnchorsMM: layoutColumnAnchors,
             columnSettings: columnSettings,
-            keySpacingPercent: keyPaddingPercent,
+            keySpacingPercent: keySpacingPercent,
             keyGeometryOverrides: keyGeometryOverrides
         )
         viewModel.configureLayouts(
@@ -3859,7 +3967,7 @@ struct ContentView: View {
         selectedGridKey = nil
         selectedButtonID = nil
         columnSettings = columnSettings(for: resolvedLayout)
-        keyPaddingPercent = keyPaddingPercent(for: resolvedLayout)
+        keySpacingPercent = keySpacingPercent(for: resolvedLayout)
         keyGeometryOverrides = keyGeometryOverrides(for: resolvedLayout)
         editColumnIndex = 0
         customButtons = loadCustomButtons(for: resolvedLayout)
@@ -3987,9 +4095,9 @@ struct ContentView: View {
     }
 
     private func keymapProfileSnapshot() -> KeymapProfile {
-        let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
-        let keyPaddingPercentByLayout = LayoutKeyPaddingStorage.decode(from: storedKeyPaddingByLayoutData)
+        let keySpacingPercentByLayout = LayoutKeySpacingStorage.decode(from: storedKeySpacingByLayoutData)
             ?? [:]
+        let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
         let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
         let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
             ?? normalizedLayoutMappingsWithCurrentRuntime()
@@ -4022,7 +4130,8 @@ struct ContentView: View {
             innerCornersHoldGestureAction: innerCornersHoldGestureAction,
             fiveFingerSwipeLeftGestureAction: fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
-            keyPaddingPercentByLayout: keyPaddingPercentByLayout,
+            keySpacingPercentByLayout: keySpacingPercentByLayout,
+            layoutMathVersion: Self.windowsLayoutMathVersion,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
             keyMappingsByLayout: mappings,
@@ -4057,13 +4166,15 @@ struct ContentView: View {
         innerCornersHoldGestureAction = profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
         fiveFingerSwipeLeftGestureAction = profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
         fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-        storedKeyPaddingByLayoutData = LayoutKeyPaddingStorage.encode(
-            profile.keyPaddingPercentByLayout ?? [:]
+        storedKeySpacingByLayoutData = LayoutKeySpacingStorage.encode(
+            profile.keySpacingPercentByLayout ?? [:]
         ) ?? Data()
+        storedLayoutMathVersion = profile.layoutMathVersion ?? 0
         storedColumnSettingsData = LayoutColumnSettingsStorage.encode(profile.columnSettingsByLayout) ?? Data()
         storedCustomButtonsData = LayoutCustomButtonStorage.encode(profile.customButtonsByLayout) ?? Data()
         storedKeyMappingsData = encodedLayoutKeyMappingsData(from: profile)
         storedKeyGeometryData = encodedLayoutKeyGeometryData(from: profile)
+        migrateStoredLayoutMathIfNeeded(force: profile.layoutMathVersion == nil)
         applySavedSettings()
         viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
     }
@@ -4085,8 +4196,8 @@ struct ContentView: View {
         storedLeftDeviceID = viewModel.leftDevice?.deviceID ?? ""
         storedRightDeviceID = viewModel.rightDevice?.deviceID ?? ""
         storedLayoutPreset = layoutOption.rawValue
+        saveCurrentKeySpacing()
         saveCurrentColumnSettings()
-        saveCurrentKeyPadding()
     }
 
     private func persistConfig() {
@@ -4111,13 +4222,19 @@ struct ContentView: View {
         return ColumnLayoutDefaults.defaultSettings(columns: layout.columns)
     }
 
-    private func keyPaddingPercent(
+    private func keySpacingPercent(
         for layout: TrackpadLayoutPreset
     ) -> Double {
-        LayoutKeyPaddingStorage.keyPaddingPercent(
+        LayoutKeySpacingStorage.keySpacingPercent(
             for: layout,
-            from: storedKeyPaddingByLayoutData
+            from: storedKeySpacingByLayoutData
         )
+    }
+
+    private func saveCurrentKeySpacing() {
+        var map = LayoutKeySpacingStorage.decode(from: storedKeySpacingByLayoutData) ?? [:]
+        map[layoutOption.rawValue] = LayoutKeySpacingDefaults.normalized(keySpacingPercent)
+        storedKeySpacingByLayoutData = LayoutKeySpacingStorage.encode(map) ?? Data()
     }
 
     private func saveCurrentColumnSettings() {
@@ -4133,14 +4250,78 @@ struct ContentView: View {
         }
     }
 
-    private func saveCurrentKeyPadding() {
-        var map = LayoutKeyPaddingStorage.decode(from: storedKeyPaddingByLayoutData) ?? [:]
-        map[layoutOption.rawValue] = LayoutKeyPaddingDefaults.normalized(keyPaddingPercent)
-        if let encoded = LayoutKeyPaddingStorage.encode(map) {
-            storedKeyPaddingByLayoutData = encoded
-        } else {
-            storedKeyPaddingByLayoutData = Data()
+    private func migrateStoredLayoutMathIfNeeded(force: Bool = false) {
+        let needsMigration = force ||
+            storedLayoutMathVersion < Self.windowsLayoutMathVersion ||
+            storedKeySpacingByLayoutData.isEmpty
+        guard needsMigration else { return }
+
+        let decodedColumnSettings = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
+        let decodedKeySpacing = LayoutKeySpacingStorage.decode(from: storedKeySpacingByLayoutData) ?? [:]
+
+        var migratedColumnSettings = decodedColumnSettings
+        var migratedKeySpacing = decodedKeySpacing
+
+        for layout in TrackpadLayoutPreset.allCases where layout.allowsColumnSettings {
+            let keySpacing = LayoutKeySpacingDefaults.normalized(
+                decodedKeySpacing[layout.rawValue] ?? LayoutKeySpacingDefaults.defaultPercent
+            )
+            migratedKeySpacing[layout.rawValue] = keySpacing
+            guard let settings = decodedColumnSettings[layout.rawValue],
+                  settings.count == layout.columns else {
+                continue
+            }
+            migratedColumnSettings[layout.rawValue] = Self.migratedColumnSettingsToWindowsLayout(
+                for: layout,
+                columnSettings: settings,
+                keySpacingPercent: keySpacing
+            )
         }
+
+        storedColumnSettingsData = LayoutColumnSettingsStorage.encode(migratedColumnSettings) ?? Data()
+        storedKeySpacingByLayoutData = LayoutKeySpacingStorage.encode(migratedKeySpacing) ?? Data()
+        storedLayoutMathVersion = Self.windowsLayoutMathVersion
+    }
+
+    static func ensureWindowsLayoutMathMigration(defaults: UserDefaults = .standard) {
+        let currentVersion = defaults.integer(forKey: GlassToKeyDefaultsKeys.layoutMathVersion)
+        let spacingData = defaults.data(forKey: GlassToKeyDefaultsKeys.keySpacingByLayout) ?? Data()
+        let needsMigration = currentVersion < windowsLayoutMathVersion || spacingData.isEmpty
+        guard needsMigration else { return }
+
+        let decodedColumnSettings = LayoutColumnSettingsStorage.decode(
+            from: defaults.data(forKey: GlassToKeyDefaultsKeys.columnSettings) ?? Data()
+        ) ?? [:]
+        let decodedKeySpacing = LayoutKeySpacingStorage.decode(from: spacingData) ?? [:]
+
+        var migratedColumnSettings = decodedColumnSettings
+        var migratedKeySpacing = decodedKeySpacing
+
+        for layout in TrackpadLayoutPreset.allCases where layout.allowsColumnSettings {
+            let keySpacing = LayoutKeySpacingDefaults.normalized(
+                decodedKeySpacing[layout.rawValue] ?? LayoutKeySpacingDefaults.defaultPercent
+            )
+            migratedKeySpacing[layout.rawValue] = keySpacing
+            guard let settings = decodedColumnSettings[layout.rawValue],
+                  settings.count == layout.columns else {
+                continue
+            }
+            migratedColumnSettings[layout.rawValue] = migratedColumnSettingsToWindowsLayout(
+                for: layout,
+                columnSettings: settings,
+                keySpacingPercent: keySpacing
+            )
+        }
+
+        defaults.set(
+            LayoutColumnSettingsStorage.encode(migratedColumnSettings) ?? Data(),
+            forKey: GlassToKeyDefaultsKeys.columnSettings
+        )
+        defaults.set(
+            LayoutKeySpacingStorage.encode(migratedKeySpacing) ?? Data(),
+            forKey: GlassToKeyDefaultsKeys.keySpacingByLayout
+        )
+        defaults.set(windowsLayoutMathVersion, forKey: GlassToKeyDefaultsKeys.layoutMathVersion)
     }
 
     private func applyKeySizePreset(
@@ -4148,10 +4329,6 @@ struct ContentView: View {
         targetKeyHeightMm: CGFloat
     ) {
         guard layoutOption.allowsColumnSettings else { return }
-        let recommendedPadding = LayoutKeySizePresetTuning.recommendedPaddingPercentForMXPitch(
-            targetKeyWidthMm: targetKeyWidthMm,
-            targetKeyHeightMm: targetKeyHeightMm
-        )
         var updated = columnSettings
         let layoutChanged = LayoutKeySizePresetTuning.applyKeySizePreset(
             layout: layoutOption,
@@ -4161,17 +4338,10 @@ struct ContentView: View {
             baseKeyHeightMm: Self.baseKeyHeightMM,
             targetKeyWidthMm: targetKeyWidthMm,
             targetKeyHeightMm: targetKeyHeightMm,
-            keyPaddingPercent: recommendedPadding
+            keyPaddingPercent: keySpacingPercent
         )
-        let paddingChanged = abs(keyPaddingPercent - recommendedPadding) > 0.000_01
         if layoutChanged {
             columnSettings = updated
-        }
-        if paddingChanged {
-            keyPaddingPercent = recommendedPadding
-        } else if layoutChanged {
-            saveCurrentKeyPadding()
-            saveCurrentColumnSettings()
         }
     }
 
