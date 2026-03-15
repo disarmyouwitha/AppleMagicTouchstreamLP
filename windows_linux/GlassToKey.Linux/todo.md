@@ -1,6 +1,9 @@
 # TODO:
-- The GUI colors are so bad when you hover over any button please make it more high contrast
-- Add Linux Equivalents for: `System & Media`: EMOJI, VOICE, BRIGHT_UP, BRIGHT_DOWN
+- Great, now I want you to apply that theme to `Import Settings`, `Export Settings`, `Refresh Devices` and `Browse` Please!!
+---
+- Add Linux Equivalents for: `System & Media`: EMOJI
+- Add Linux Equivalents for: `System & Media`: VOICE, 
+- Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
 -------
 # Test Linux Restart:
 - Linux does not respect `open in tray` and always opens in fullscreen
