@@ -1,5 +1,6 @@
 # TODO:
-- Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
+[x] Add Linux Equivalents for: `System & Media`: BRIGHT_UP and BRIGHT_DOWN
+> Added to the Linux Action dropdown. Shared action parsing and Linux key dispatch already resolve these to brightness up/down media keys.
 - Add Linux Equivalents for: `System & Media`: VOICE, 
 
 -------

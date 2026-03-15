@@ -2179,6 +2179,8 @@ public partial class MainWindow : Window
         AddKeyActionChoice(options, "EMOJI");
         AddKeyActionChoice(options, "VOL_UP");
         AddKeyActionChoice(options, "VOL_DOWN");
+        AddKeyActionChoice(options, "BRIGHT_UP");
+        AddKeyActionChoice(options, "BRIGHT_DOWN");
 
         AddActionSection(options, "Layers");
         AddKeyActionChoice(options, "TO(0)");
