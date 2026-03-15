@@ -317,27 +317,27 @@
 
                   <TextBlock Grid.Row="1"
                              Margin="0,8,0,0"
-                             Text="Column Scale X (%)"
+                             Text="Column Spacing (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleXBox"
+                  <TextBox x:Name="KeyPaddingBox"
                            Grid.Row="1"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="2"
                              Margin="0,8,0,0"
-                             Text="Column Scale Y (%)"
+                             Text="Column Scale X (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="ColumnScaleYBox"
+                  <TextBox x:Name="ColumnScaleXBox"
                            Grid.Row="2"
                            Grid.Column="1"
                            Margin="12,8,0,0" />
 
                   <TextBlock Grid.Row="3"
                              Margin="0,8,0,0"
-                             Text="Column Spacing (%)"
+                             Text="Column Scale Y (%)"
                              VerticalAlignment="Center" />
-                  <TextBox x:Name="KeyPaddingBox"
+                  <TextBox x:Name="ColumnScaleYBox"
                            Grid.Row="3"
                            Grid.Column="1"
                            Margin="12,8,0,0" />

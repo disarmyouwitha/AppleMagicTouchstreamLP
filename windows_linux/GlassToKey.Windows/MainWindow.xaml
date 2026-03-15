@@ -183,6 +183,14 @@
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="*" />
                   </Grid.ColumnDefinitions>
+                  <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                  </Grid.ColumnDefinitions>
                   <TextBlock Text="Column Scale X (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnScaleXBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
@@ -193,14 +201,6 @@
                   </Grid.ColumnDefinitions>
                   <TextBlock Text="Column Scale Y (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="ColumnScaleYBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Column Spacing (%)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <TextBox x:Name="KeyPaddingBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>

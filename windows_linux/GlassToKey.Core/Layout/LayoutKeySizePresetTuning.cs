@@ -29,6 +29,7 @@ public static class LayoutKeySizePresetTuning
         double targetScaleX = targetKeyWidthMm / baseKeyWidthMm;
         double targetScaleY = targetKeyHeightMm / baseKeyHeightMm;
         double spacingScale = Math.Clamp(keyPaddingPercent, 0.0, 200.0) / 100.0;
+        double horizontalPaddingMm = targetKeyHeightMm * spacingScale;
 
         for (int column = 0; column < columnSettings.Length; column++)
         {
@@ -51,7 +52,7 @@ public static class LayoutKeySizePresetTuning
                 trackpadWidthMm,
                 baseKeyWidthMm,
                 targetKeyWidthMm,
-                spacingScale);
+                horizontalPaddingMm);
             if (Math.Abs(settings.OffsetXPercent - targetOffsetX) > 0.00001)
             {
                 settings.OffsetXPercent = targetOffsetX;
@@ -68,7 +69,7 @@ public static class LayoutKeySizePresetTuning
         double trackpadWidthMm,
         double baseKeyWidthMm,
         double targetKeyWidthMm,
-        double spacingScale)
+        double horizontalPaddingMm)
     {
         ArgumentNullException.ThrowIfNull(preset);
 
@@ -84,7 +85,7 @@ public static class LayoutKeySizePresetTuning
         }
 
         double scaleX = targetKeyWidthMm / baseKeyWidthMm;
-        if (Math.Abs(scaleX - 1.0) < 0.00001)
+        if (Math.Abs(scaleX - 1.0) < 0.00001 && Math.Abs(horizontalPaddingMm) < 0.00001)
         {
             return 0.0;
         }
@@ -95,7 +96,7 @@ public static class LayoutKeySizePresetTuning
         for (int index = 1; index < anchors.Length; index++)
         {
             double baseGapMm = anchors[index].X - anchors[index - 1].X;
-            double desiredGapMm = (baseGapMm * scaleX) + (targetKeyWidthMm * spacingScale);
+            double desiredGapMm = (baseGapMm * scaleX) + horizontalPaddingMm;
             targetAnchorsMm[index] = targetAnchorsMm[index - 1] + desiredGapMm;
         }
 
