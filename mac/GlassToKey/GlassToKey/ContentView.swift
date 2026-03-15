@@ -1263,8 +1263,8 @@ struct ContentView: View {
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
-        @State private var columnTuningExpanded = false
-        @State private var keymapTuningExpanded = true
+        @State private var columnTuningExpanded = true
+        @State private var keymapTuningExpanded = false
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
         let onClearTouchState: () -> Void
@@ -1437,6 +1437,15 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(width: 420)
+            .onChange(of: editModeEnabled) { enabled in
+                guard enabled else { return }
+                columnTuningExpanded = true
+                keymapTuningExpanded = false
+            }
+            .onChange(of: keySelection?.key.storageKey) { newValue in
+                guard editModeEnabled, newValue != nil else { return }
+                keymapTuningExpanded = true
+            }
         }
     }
 
