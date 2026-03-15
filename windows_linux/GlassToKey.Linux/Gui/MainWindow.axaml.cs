@@ -73,7 +73,6 @@ public partial class MainWindow : Window
     private readonly CheckBox _threeFingerDragModeCheck;
     private readonly CheckBox _autocorrectModeCheck;
     private readonly Border _autocorrectStatusBorder;
-    private readonly Button _keymapClearSelectionButton;
     private readonly Button _columnAutoSplayButton;
     private readonly Button _columnEvenSpaceButton;
     private readonly Button _mxSpacingButton;
@@ -214,7 +213,6 @@ public partial class MainWindow : Window
         _threeFingerDragModeCheck = RequireControl<CheckBox>("ThreeFingerDragModeCheck");
         _autocorrectModeCheck = RequireControl<CheckBox>("AutocorrectModeCheck");
         _autocorrectStatusBorder = RequireControl<Border>("AutocorrectStatusBorder");
-        _keymapClearSelectionButton = RequireControl<Button>("KeymapClearSelectionButton");
         _columnAutoSplayButton = RequireControl<Button>("ColumnAutoSplayButton");
         _columnEvenSpaceButton = RequireControl<Button>("ColumnEvenSpaceButton");
         _mxSpacingButton = RequireControl<Button>("MxSpacingButton");
@@ -634,7 +632,6 @@ public partial class MainWindow : Window
         _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
         _keymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         _keymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
-        _keymapClearSelectionButton.Click += OnKeymapClearSelectionClick;
         _keyRotationBox.LostFocus += OnKeyGeometryCommitted;
         _keyRotationBox.KeyDown += OnKeyGeometryKeyDown;
         _customButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -2363,13 +2360,6 @@ public partial class MainWindow : Window
         RefreshGestureShortcutEditorUi();
     }
 
-    private void OnKeymapClearSelectionClick(object? sender, RoutedEventArgs e)
-    {
-        ClearSelectionForEditing();
-        RefreshKeymapEditor();
-        ApplyPreviewSnapshot(_previewSnapshot);
-    }
-
     private void OnLeftPreviewPointerPressed(object? sender, PointerPressedEventArgs e)
     {
         HandleSurfaceKeymapSelection(TrackpadSide.Left, _leftPreviewCanvas, _leftRenderedLayout, e);
@@ -2590,7 +2580,6 @@ public partial class MainWindow : Window
             _keymapHoldCombo.IsEnabled = false;
             _customButtonDeleteButton.IsEnabled = false;
             _keyRotationBox.IsEnabled = false;
-            _keymapClearSelectionButton.IsEnabled = false;
             _customButtonAddLeftButton.IsEnabled = false;
             _customButtonAddRightButton.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
@@ -2599,7 +2588,6 @@ public partial class MainWindow : Window
             return;
         }
 
-        _keymapClearSelectionButton.IsEnabled = true;
         _customButtonAddLeftButton.IsEnabled = true;
         _customButtonAddRightButton.IsEnabled = true;
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))

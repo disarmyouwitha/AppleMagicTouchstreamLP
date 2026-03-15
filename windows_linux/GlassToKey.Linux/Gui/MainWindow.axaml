@@ -119,6 +119,17 @@
       <Setter Property="CornerRadius" Value="8" />
       <Setter Property="TextBlock.Foreground" Value="#11161B" />
     </Style>
+    <Style Selector="Button.shortcutApplyButton:disabled">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Foreground" Value="#6A5241" />
+    </Style>
+    <Style Selector="Button.shortcutApplyButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#D8C4A4" />
+      <Setter Property="BorderBrush" Value="#A98552" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="TextBlock.Foreground" Value="#6A5241" />
+    </Style>
     <Style Selector="TextBlock.shortcutFieldLabel">
       <Setter Property="Foreground" Value="#F7F2EA" />
       <Setter Property="FontWeight" Value="SemiBold" />
@@ -397,18 +408,12 @@
                     <TextBlock Grid.Row="1"
                                Text="Layer"
                                VerticalAlignment="Center" />
-                    <Grid Grid.Row="1"
-                          Grid.Column="1"
-                          Margin="12,0,0,0"
-                          ColumnDefinitions="*,Auto">
-                      <ComboBox x:Name="KeymapLayerCombo"
-                                MinWidth="110" />
-                      <Button x:Name="KeymapClearSelectionButton"
+                    <ComboBox x:Name="KeymapLayerCombo"
+                              Grid.Row="1"
                               Grid.Column="1"
-                              Classes="outlineActionButton"
-                              Margin="8,0,0,0"
-                              Content="Clear" />
-                    </Grid>
+                              Margin="12,0,0,0"
+                              MinWidth="110"
+                              HorizontalAlignment="Stretch" />
 
                     <TextBlock Grid.Row="2"
                                Text="Primary Action"
@@ -561,7 +566,7 @@
                                     Margin="8,0,0,0"
                                     HorizontalAlignment="Stretch" />
                           <Button x:Name="GestureShortcutApplyButton"
-                                  Classes="shortcutActionButton"
+                                  Classes="outlineActionButton shortcutApplyButton"
                                   Grid.Column="2"
                                   Margin="8,0,0,0"
                                   Content="Apply" />
