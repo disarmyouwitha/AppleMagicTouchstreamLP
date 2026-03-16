@@ -41,40 +41,6 @@ enum GlassToKeySettings {
 
 @MainActor
 final class GlassToKeyController: ObservableObject {
-    private struct BundledKeymapProfile: Decodable {
-        let leftDeviceID: String
-        let rightDeviceID: String
-        let layoutPreset: String
-        let autoResyncMissingTrackpads: Bool
-        let tapHoldDurationMs: Double
-        let dragCancelDistance: Double
-        let forceClickMin: Double?
-        let forceClickCap: Double
-        let hapticStrength: Double
-        let typingGraceMs: Double
-        let intentMoveThresholdMm: Double
-        let intentVelocityThresholdMmPerSec: Double
-        let autocorrectEnabled: Bool
-        let tapClickCadenceMs: Double
-        let snapRadiusPercent: Double
-        let chordalShiftEnabled: Bool
-        let keyboardModeEnabled: Bool
-        let twoFingerTapGestureAction: String?
-        let threeFingerTapGestureAction: String?
-        let twoFingerHoldGestureAction: String?
-        let threeFingerHoldGestureAction: String?
-        let fourFingerHoldGestureAction: String?
-        let outerCornersHoldGestureAction: String?
-        let innerCornersHoldGestureAction: String?
-        let fiveFingerSwipeLeftGestureAction: String?
-        let fiveFingerSwipeRightGestureAction: String?
-        let keySpacingPercentByLayout: [String: Double]?
-        let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
-        let customButtonsByLayout: [String: [Int: [CustomButton]]]
-        let keyMappingsByLayout: LayoutLayeredKeyMappings?
-        let keyGeometryByLayout: LayoutKeyGeometryOverrides?
-    }
-
     private static let portableBundledDefaultKeys: [String] = [
         GlassToKeyDefaultsKeys.layoutPreset,
         GlassToKeyDefaultsKeys.autoResyncMissingTrackpads,
@@ -219,7 +185,7 @@ final class GlassToKeyController: ObservableObject {
         return false
     }
 
-    private static func bundledDefaultProfile() -> BundledKeymapProfile? {
+    private static func bundledDefaultProfile() -> AppKeymapProfile? {
         guard let url = Bundle.main.url(
             forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
             withExtension: "json"
@@ -227,7 +193,7 @@ final class GlassToKeyController: ObservableObject {
             return nil
         }
         guard let data = try? Data(contentsOf: url) else { return nil }
-        return try? JSONDecoder().decode(BundledKeymapProfile.self, from: data)
+        return PortableKeymapInterop.decodeBundledDefaultProfile(from: data)
     }
 
     private func configureFromDefaults() {

@@ -52,40 +52,6 @@ struct ContentView: View {
         var mapping: KeyMapping
     }
 
-    private struct KeymapProfile: Codable {
-        let leftDeviceID: String
-        let rightDeviceID: String
-        let layoutPreset: String
-        let autoResyncMissingTrackpads: Bool
-        let tapHoldDurationMs: Double
-        let dragCancelDistance: Double
-        let forceClickMin: Double?
-        let forceClickCap: Double
-        let hapticStrength: Double
-        let typingGraceMs: Double
-        let intentMoveThresholdMm: Double
-        let intentVelocityThresholdMmPerSec: Double
-        let autocorrectEnabled: Bool
-        let tapClickCadenceMs: Double
-        let snapRadiusPercent: Double
-        let chordalShiftEnabled: Bool
-        let keyboardModeEnabled: Bool
-        let twoFingerTapGestureAction: String?
-        let threeFingerTapGestureAction: String?
-        let twoFingerHoldGestureAction: String?
-        let threeFingerHoldGestureAction: String?
-        let fourFingerHoldGestureAction: String?
-        let outerCornersHoldGestureAction: String?
-        let innerCornersHoldGestureAction: String?
-        let fiveFingerSwipeLeftGestureAction: String?
-        let fiveFingerSwipeRightGestureAction: String?
-        let keySpacingPercentByLayout: [String: Double]?
-        let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
-        let customButtonsByLayout: [String: [Int: [CustomButton]]]
-        let keyMappingsByLayout: LayoutLayeredKeyMappings?
-        let keyGeometryByLayout: LayoutKeyGeometryOverrides?
-    }
-
     @StateObject private var viewModel: ContentViewModel
     @State private var testText = ""
     @State private var autocorrectCurrentBufferText = "<empty>"
@@ -3373,11 +3339,20 @@ struct ContentView: View {
                 let storageKey = GridKeyPosition(side: side, row: row, column: col).storageKey
                 guard let geometry = keyGeometryOverrides[storageKey] else { continue }
                 let rotationDegrees = -normalizedRotationDegrees(geometry.rotationDegrees)
-                guard abs(rotationDegrees) >= 0.000_01 else { continue }
+                let widthScale = max(geometry.widthScale, 0.05)
+                let heightScale = max(geometry.heightScale, 0.05)
                 let rect = keyRects[row][col]
-                keyRects[row][col] = rect.rotatedAround(
-                    pivotX: rect.centerX,
-                    pivotY: rect.centerY,
+                let scaledWidth = min(max(rect.width * CGFloat(widthScale), 0.001), 1.0)
+                let scaledHeight = min(max(rect.height * CGFloat(heightScale), 0.001), 1.0)
+                let scaledRect = NormalizedRect(
+                    x: rect.centerX - (scaledWidth * 0.5),
+                    y: rect.centerY - (scaledHeight * 0.5),
+                    width: scaledWidth,
+                    height: scaledHeight
+                ).clamped(minWidth: 0.001, minHeight: 0.001)
+                keyRects[row][col] = scaledRect.rotatedAround(
+                    pivotX: scaledRect.centerX,
+                    pivotY: scaledRect.centerY,
                     rotationDegrees: rotationDegrees
                 )
             }
@@ -3899,17 +3874,15 @@ struct ContentView: View {
         let panel = NSSavePanel()
         panel.canCreateDirectories = true
         panel.allowedContentTypes = [.json]
-        panel.nameFieldStringValue = "GlassToKeyKeymap.json"
+        panel.nameFieldStringValue = "GlassToKey-mac-settings.json"
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let profile = keymapProfileSnapshot()
-            let encoder = JSONEncoder()
-            encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            let data = try encoder.encode(profile)
+            let data = try PortableKeymapInterop.exportBundle(from: profile)
             try data.write(to: url, options: .atomic)
             showKeymapAlert(
                 title: "Export complete",
-                message: "Keymap saved to:\n\(url.path)"
+                message: "Settings bundle saved to:\n\(url.path)"
             )
         } catch {
             showKeymapAlert(
@@ -3929,11 +3902,14 @@ struct ContentView: View {
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do {
             let data = try Data(contentsOf: url)
-            let profile = try JSONDecoder().decode(KeymapProfile.self, from: data)
+            let profile = try PortableKeymapInterop.importProfile(
+                from: data,
+                currentProfile: keymapProfileSnapshot()
+            )
             applyKeymapProfile(profile)
             showKeymapAlert(
                 title: "Import complete",
-                message: "Loaded keymap from:\n\(url.path)"
+                message: "Loaded settings bundle from:\n\(url.path)"
             )
         } catch {
             showKeymapAlert(
@@ -3944,7 +3920,7 @@ struct ContentView: View {
         }
     }
 
-    private func keymapProfileSnapshot() -> KeymapProfile {
+    private func keymapProfileSnapshot() -> AppKeymapProfile {
         let keySpacingPercentByLayout = LayoutKeySpacingStorage.decode(from: storedKeySpacingByLayoutData)
             ?? [:]
         let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
@@ -3953,11 +3929,13 @@ struct ContentView: View {
             ?? normalizedLayoutMappingsWithCurrentRuntime()
         let keyGeometryByLayout = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData)
             ?? normalizedLayoutKeyGeometryWithCurrentRuntime()
-        return KeymapProfile(
+        return AppKeymapProfile(
             leftDeviceID: storedLeftDeviceID,
             rightDeviceID: storedRightDeviceID,
             layoutPreset: storedLayoutPreset,
+            activeLayer: viewModel.activeLayer,
             autoResyncMissingTrackpads: storedAutoResyncMissingTrackpads,
+            runAtStartupEnabled: runAtStartupEnabled,
             tapHoldDurationMs: tapHoldDurationMs,
             dragCancelDistance: dragCancelDistanceSetting,
             forceClickMin: forceClickMinSetting,
@@ -3988,11 +3966,23 @@ struct ContentView: View {
         )
     }
 
-    private func applyKeymapProfile(_ profile: KeymapProfile) {
+    private func applyKeymapProfile(_ profile: AppKeymapProfile) {
         storedLeftDeviceID = profile.leftDeviceID
         storedRightDeviceID = profile.rightDeviceID
         storedLayoutPreset = profile.layoutPreset
         storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
+        if let runAtStartupEnabled = profile.runAtStartupEnabled {
+            do {
+                try LaunchAtLoginManager.shared.setEnabled(runAtStartupEnabled)
+            } catch {
+                showKeymapAlert(
+                    title: "Run at startup update failed",
+                    message: error.localizedDescription,
+                    style: .warning
+                )
+            }
+            self.runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+        }
         tapHoldDurationMs = profile.tapHoldDurationMs
         dragCancelDistanceSetting = profile.dragCancelDistance
         forceClickMinSetting = profile.forceClickMin ?? GlassToKeySettings.forceClickMin
@@ -4026,6 +4016,9 @@ struct ContentView: View {
         storedKeyGeometryData = encodedLayoutKeyGeometryData(from: profile)
         applySavedSettings()
         viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
+        if let activeLayer = profile.activeLayer {
+            viewModel.setPersistentLayer(activeLayer)
+        }
     }
 
     private func showKeymapAlert(
@@ -4140,7 +4133,7 @@ struct ContentView: View {
             return nil
         }
         guard let data = try? Data(contentsOf: url) else { return nil }
-        guard let profile = try? JSONDecoder().decode(KeymapProfile.self, from: data) else {
+        guard let profile = PortableKeymapInterop.decodeBundledDefaultProfile(from: data) else {
             return nil
         }
         if let byLayout = profile.keyMappingsByLayout {
@@ -4157,7 +4150,7 @@ struct ContentView: View {
             return nil
         }
         guard let data = try? Data(contentsOf: url) else { return nil }
-        guard let profile = try? JSONDecoder().decode(KeymapProfile.self, from: data) else {
+        guard let profile = PortableKeymapInterop.decodeBundledDefaultProfile(from: data) else {
             return nil
         }
         if let byLayout = profile.keyGeometryByLayout {
@@ -4225,7 +4218,7 @@ struct ContentView: View {
         return KeyGeometryStore.normalized(merged)
     }
 
-    private func encodedLayoutKeyMappingsData(from profile: KeymapProfile) -> Data {
+    private func encodedLayoutKeyMappingsData(from profile: AppKeymapProfile) -> Data {
         if let byLayout = profile.keyMappingsByLayout,
            let encoded = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(byLayout)) {
             return encoded
@@ -4233,7 +4226,7 @@ struct ContentView: View {
         return Data()
     }
 
-    private func encodedLayoutKeyGeometryData(from profile: KeymapProfile) -> Data {
+    private func encodedLayoutKeyGeometryData(from profile: AppKeymapProfile) -> Data {
         if let byLayout = profile.keyGeometryByLayout,
            let encoded = KeyGeometryStore.encode(KeyGeometryStore.normalized(byLayout)) {
             return encoded
@@ -4570,10 +4563,26 @@ struct ContentView: View {
     ) {
         let normalized = Self.normalizedRotationDegrees(rotationDegrees)
         if normalized <= 0.000_01 {
-            keyGeometryOverrides.removeValue(forKey: key.storageKey)
+            let existing = keyGeometryOverrides[key.storageKey]
+            let widthScale = existing?.widthScale ?? 1.0
+            let heightScale = existing?.heightScale ?? 1.0
+            if abs(widthScale - 1.0) <= 0.000_01 && abs(heightScale - 1.0) <= 0.000_01 {
+                keyGeometryOverrides.removeValue(forKey: key.storageKey)
+            } else {
+                keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(
+                    rotationDegrees: 0.0,
+                    widthScale: widthScale,
+                    heightScale: heightScale
+                )
+            }
             return
         }
-        keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(rotationDegrees: normalized)
+        let existing = keyGeometryOverrides[key.storageKey]
+        keyGeometryOverrides[key.storageKey] = KeyGeometryOverride(
+            rotationDegrees: normalized,
+            widthScale: existing?.widthScale ?? 1.0,
+            heightScale: existing?.heightScale ?? 1.0
+        )
     }
 
     private func updateKeyRotationAndSelection(

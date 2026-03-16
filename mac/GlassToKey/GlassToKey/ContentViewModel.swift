@@ -1678,13 +1678,23 @@ struct NormalizedRect: Codable, Hashable {
 
 struct KeyGeometryOverride: Codable, Hashable {
     var rotationDegrees: Double
+    var widthScale: Double
+    var heightScale: Double
 
     private enum CodingKeys: String, CodingKey {
         case rotationDegrees
+        case widthScale
+        case heightScale
     }
 
-    init(rotationDegrees: Double = 0) {
+    init(
+        rotationDegrees: Double = 0,
+        widthScale: Double = 1.0,
+        heightScale: Double = 1.0
+    ) {
         self.rotationDegrees = min(max(rotationDegrees, 0.0), 360.0)
+        self.widthScale = Self.normalizedScale(widthScale)
+        self.heightScale = Self.normalizedScale(heightScale)
     }
 
     init(from decoder: Decoder) throws {
@@ -1693,6 +1703,12 @@ struct KeyGeometryOverride: Codable, Hashable {
             max(try container.decodeIfPresent(Double.self, forKey: .rotationDegrees) ?? 0.0, 0.0),
             360.0
         )
+        widthScale = Self.normalizedScale(
+            try container.decodeIfPresent(Double.self, forKey: .widthScale) ?? 1.0
+        )
+        heightScale = Self.normalizedScale(
+            try container.decodeIfPresent(Double.self, forKey: .heightScale) ?? 1.0
+        )
     }
 
     func encode(to encoder: Encoder) throws {
@@ -1700,6 +1716,17 @@ struct KeyGeometryOverride: Codable, Hashable {
         if rotationDegrees > 0.000_01 {
             try container.encode(rotationDegrees, forKey: .rotationDegrees)
         }
+        if abs(widthScale - 1.0) > 0.000_01 {
+            try container.encode(widthScale, forKey: .widthScale)
+        }
+        if abs(heightScale - 1.0) > 0.000_01 {
+            try container.encode(heightScale, forKey: .heightScale)
+        }
+    }
+
+    private static func normalizedScale(_ value: Double) -> Double {
+        guard value.isFinite, value > 0 else { return 1.0 }
+        return min(max(value, 0.05), 10.0)
     }
 }
 
@@ -2421,12 +2448,17 @@ enum KeyActionCatalog {
             normalizedLabel = "Ret"
         case "Backspace":
             normalizedLabel = "Back"
+        case "Alt", "LeftAlt", "LAlt":
+            normalizedLabel = "Option"
         case "TT":
             normalizedLabel = typingToggleLabel
         case "EMOJI":
             normalizedLabel = "Emoji"
         case "VOICE":
             normalizedLabel = voiceLabel
+        case "Win", "Meta", "Super", "LeftWin", "LeftMeta", "LeftSuper",
+             "RightWin", "RightMeta", "RightSuper":
+            normalizedLabel = "Cmd"
         case "Right Option", "RightOption", "RAlt":
             normalizedLabel = altGrLabel
         case "VOL_UP":
@@ -2737,8 +2769,17 @@ enum KeyGeometryStore {
         overrides.reduce(into: [:]) { result, entry in
             guard GridKeyPosition.from(storageKey: entry.key) != nil else { return }
             let rotationDegrees = min(max(entry.value.rotationDegrees, 0.0), 360.0)
-            guard rotationDegrees > 0.000_01 else { return }
-            result[entry.key] = KeyGeometryOverride(rotationDegrees: rotationDegrees)
+            let widthScale = min(max(entry.value.widthScale, 0.05), 10.0)
+            let heightScale = min(max(entry.value.heightScale, 0.05), 10.0)
+            let hasRotation = rotationDegrees > 0.000_01
+            let hasWidthScale = abs(widthScale - 1.0) > 0.000_01
+            let hasHeightScale = abs(heightScale - 1.0) > 0.000_01
+            guard hasRotation || hasWidthScale || hasHeightScale else { return }
+            result[entry.key] = KeyGeometryOverride(
+                rotationDegrees: rotationDegrees,
+                widthScale: widthScale,
+                heightScale: heightScale
+            )
         }
     }
 
@@ -2769,5 +2810,873 @@ enum KeyGeometryStore {
             overrides[layoutRawValue] = [:]
         }
         return overrides
+    }
+}
+
+struct AppKeymapProfile: Codable {
+    let leftDeviceID: String
+    let rightDeviceID: String
+    let layoutPreset: String
+    let activeLayer: Int?
+    let autoResyncMissingTrackpads: Bool
+    let runAtStartupEnabled: Bool?
+    let tapHoldDurationMs: Double
+    let dragCancelDistance: Double
+    let forceClickMin: Double?
+    let forceClickCap: Double
+    let hapticStrength: Double
+    let typingGraceMs: Double
+    let intentMoveThresholdMm: Double
+    let intentVelocityThresholdMmPerSec: Double
+    let autocorrectEnabled: Bool
+    let tapClickCadenceMs: Double
+    let snapRadiusPercent: Double
+    let chordalShiftEnabled: Bool
+    let keyboardModeEnabled: Bool
+    let twoFingerTapGestureAction: String?
+    let threeFingerTapGestureAction: String?
+    let twoFingerHoldGestureAction: String?
+    let threeFingerHoldGestureAction: String?
+    let fourFingerHoldGestureAction: String?
+    let outerCornersHoldGestureAction: String?
+    let innerCornersHoldGestureAction: String?
+    let fiveFingerSwipeLeftGestureAction: String?
+    let fiveFingerSwipeRightGestureAction: String?
+    let keySpacingPercentByLayout: [String: Double]?
+    let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
+    let customButtonsByLayout: [String: [Int: [CustomButton]]]
+    let keyMappingsByLayout: LayoutLayeredKeyMappings?
+    let keyGeometryByLayout: LayoutKeyGeometryOverrides?
+
+    static func defaultProfile() -> AppKeymapProfile {
+        AppKeymapProfile(
+            leftDeviceID: "",
+            rightDeviceID: "",
+            layoutPreset: TrackpadLayoutPreset.sixByThree.rawValue,
+            activeLayer: KeyLayerConfig.baseLayer,
+            autoResyncMissingTrackpads: false,
+            runAtStartupEnabled: GlassToKeySettings.runAtStartupEnabled,
+            tapHoldDurationMs: GlassToKeySettings.tapHoldDurationMs,
+            dragCancelDistance: GlassToKeySettings.dragCancelDistanceMm,
+            forceClickMin: GlassToKeySettings.forceClickMin,
+            forceClickCap: GlassToKeySettings.forceClickCap,
+            hapticStrength: GlassToKeySettings.hapticStrengthPercent,
+            typingGraceMs: GlassToKeySettings.typingGraceMs,
+            intentMoveThresholdMm: GlassToKeySettings.intentMoveThresholdMm,
+            intentVelocityThresholdMmPerSec: GlassToKeySettings.intentVelocityThresholdMmPerSec,
+            autocorrectEnabled: GlassToKeySettings.autocorrectEnabled,
+            tapClickCadenceMs: GlassToKeySettings.tapClickCadenceMs,
+            snapRadiusPercent: GlassToKeySettings.snapRadiusPercent,
+            chordalShiftEnabled: GlassToKeySettings.chordalShiftEnabled,
+            keyboardModeEnabled: GlassToKeySettings.keyboardModeEnabled,
+            twoFingerTapGestureAction: GlassToKeySettings.twoFingerTapGestureActionLabel,
+            threeFingerTapGestureAction: GlassToKeySettings.threeFingerTapGestureActionLabel,
+            twoFingerHoldGestureAction: GlassToKeySettings.twoFingerHoldGestureActionLabel,
+            threeFingerHoldGestureAction: GlassToKeySettings.threeFingerHoldGestureActionLabel,
+            fourFingerHoldGestureAction: GlassToKeySettings.fourFingerHoldGestureActionLabel,
+            outerCornersHoldGestureAction: GlassToKeySettings.outerCornersHoldGestureActionLabel,
+            innerCornersHoldGestureAction: GlassToKeySettings.innerCornersHoldGestureActionLabel,
+            fiveFingerSwipeLeftGestureAction: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel,
+            fiveFingerSwipeRightGestureAction: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel,
+            keySpacingPercentByLayout: [:],
+            columnSettingsByLayout: [:],
+            customButtonsByLayout: [:],
+            keyMappingsByLayout: KeyActionMappingStore.emptyLayoutMappings(),
+            keyGeometryByLayout: KeyGeometryStore.emptyLayoutOverrides()
+        )
+    }
+}
+
+enum PortableKeymapImportError: LocalizedError {
+    case invalidFormat
+    case invalidBundle
+    case invalidKeymap
+    case unsupportedActions([String])
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidFormat:
+            return "Import file is not a supported GlassToKey bundle or keymap JSON."
+        case .invalidBundle:
+            return "Expected a GlassToKey settings export with both settings and keymap data."
+        case .invalidKeymap:
+            return "Keymap section is invalid."
+        case .unsupportedActions(let labels):
+            let joined = labels.sorted().joined(separator: ", ")
+            return "The import uses action labels this mac build cannot resolve: \(joined)"
+        }
+    }
+}
+
+enum PortableKeymapInterop {
+    private static let bundleVersion = 1
+    private static let keymapVersion = 2
+    private static let minCustomButtonSize = CGSize(width: 0.05, height: 0.05)
+
+    static func exportBundle(from profile: AppKeymapProfile) throws -> Data {
+        let bundle = PortableProfileBundle(
+            version: bundleVersion,
+            settings: PortableSettings(profile: profile),
+            keymapJson: try encodePortableKeymap(from: profile),
+            hostExtensions: ["mac": MacHostProfileExtension(profile: profile)]
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        return try encoder.encode(bundle)
+    }
+
+    static func importProfile(from data: Data, currentProfile: AppKeymapProfile) throws -> AppKeymapProfile {
+        let decoder = JSONDecoder()
+        if let bundle = try? decoder.decode(PortableProfileBundle.self, from: data),
+           let keymapJson = bundle.keymapJson,
+           !keymapJson.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            return try importBundle(bundle, currentProfile: currentProfile)
+        }
+
+        if let keymap = try? decoder.decode(PortableKeymapStore.self, from: data) {
+            return try applyPortableKeymap(keymap, to: currentProfile)
+        }
+
+        if let legacy = try? decoder.decode(AppKeymapProfile.self, from: data) {
+            return legacy
+        }
+
+        throw PortableKeymapImportError.invalidFormat
+    }
+
+    static func decodeBundledDefaultProfile(from data: Data) -> AppKeymapProfile? {
+        try? importProfile(from: data, currentProfile: AppKeymapProfile.defaultProfile())
+    }
+
+    private static func importBundle(
+        _ bundle: PortableProfileBundle,
+        currentProfile: AppKeymapProfile
+    ) throws -> AppKeymapProfile {
+        guard let settings = bundle.settings,
+              let keymapJson = bundle.keymapJson,
+              let keymapData = keymapJson.data(using: .utf8),
+              let keymap = try? JSONDecoder().decode(PortableKeymapStore.self, from: keymapData) else {
+            throw PortableKeymapImportError.invalidBundle
+        }
+
+        var profile = currentProfile
+        let resolvedLayout = macLayoutName(fromPortable: settings.layoutPresetName) ?? currentProfile.layoutPreset
+        let activeLayer = KeyLayerConfig.clamped(settings.activeLayer ?? currentProfile.activeLayer ?? KeyLayerConfig.baseLayer)
+
+        var keySpacingByLayout = currentProfile.keySpacingPercentByLayout ?? [:]
+        if let importedSpacingByLayout = settings.keyPaddingPercentByLayout {
+            for (layoutName, value) in importedSpacingByLayout {
+                guard let macLayout = macLayoutName(fromPortable: layoutName) else { continue }
+                keySpacingByLayout[macLayout] = LayoutKeySpacingDefaults.normalized(value)
+            }
+        }
+        if let activeSpacing = settings.keyPaddingPercent {
+            keySpacingByLayout[resolvedLayout] = LayoutKeySpacingDefaults.normalized(activeSpacing)
+        }
+
+        var columnSettingsByLayout = currentProfile.columnSettingsByLayout
+        if let importedColumnsByLayout = settings.columnSettingsByLayout {
+            for (layoutName, values) in importedColumnsByLayout {
+                guard let macLayout = macLayoutName(fromPortable: layoutName) else { continue }
+                columnSettingsByLayout[macLayout] = values
+            }
+        }
+        if let activeColumns = settings.columnSettings {
+            columnSettingsByLayout[resolvedLayout] = activeColumns
+        }
+
+        profile = AppKeymapProfile(
+            leftDeviceID: currentProfile.leftDeviceID,
+            rightDeviceID: currentProfile.rightDeviceID,
+            layoutPreset: resolvedLayout,
+            activeLayer: activeLayer,
+            autoResyncMissingTrackpads: currentProfile.autoResyncMissingTrackpads,
+            runAtStartupEnabled: currentProfile.runAtStartupEnabled,
+            tapHoldDurationMs: settings.holdDurationMs ?? currentProfile.tapHoldDurationMs,
+            dragCancelDistance: settings.dragCancelMm ?? currentProfile.dragCancelDistance,
+            forceClickMin: Double(settings.forceMin ?? Int(currentProfile.forceClickMin ?? GlassToKeySettings.forceClickMin)),
+            forceClickCap: Double(settings.forceCap ?? Int(currentProfile.forceClickCap)),
+            hapticStrength: currentProfile.hapticStrength,
+            typingGraceMs: settings.typingGraceMs ?? currentProfile.typingGraceMs,
+            intentMoveThresholdMm: settings.intentMoveMm ?? currentProfile.intentMoveThresholdMm,
+            intentVelocityThresholdMmPerSec: settings.intentVelocityMmPerSec ?? currentProfile.intentVelocityThresholdMmPerSec,
+            autocorrectEnabled: settings.autocorrectEnabled ?? currentProfile.autocorrectEnabled,
+            tapClickCadenceMs: currentProfile.tapClickCadenceMs,
+            snapRadiusPercent: settings.snapRadiusPercent ?? currentProfile.snapRadiusPercent,
+            chordalShiftEnabled: settings.chordShiftEnabled ?? currentProfile.chordalShiftEnabled,
+            keyboardModeEnabled: settings.keyboardModeEnabled ?? currentProfile.keyboardModeEnabled,
+            twoFingerTapGestureAction: currentProfile.twoFingerTapGestureAction,
+            threeFingerTapGestureAction: settings.threeFingerClickAction ?? currentProfile.threeFingerTapGestureAction,
+            twoFingerHoldGestureAction: settings.twoFingerHoldAction ?? currentProfile.twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction: settings.threeFingerHoldAction ?? currentProfile.threeFingerHoldGestureAction,
+            fourFingerHoldGestureAction: settings.fourFingerHoldAction ?? currentProfile.fourFingerHoldGestureAction,
+            outerCornersHoldGestureAction: settings.outerCornersAction ?? currentProfile.outerCornersHoldGestureAction,
+            innerCornersHoldGestureAction: settings.innerCornersAction ?? currentProfile.innerCornersHoldGestureAction,
+            fiveFingerSwipeLeftGestureAction: settings.fiveFingerSwipeLeftAction ?? currentProfile.fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction: settings.fiveFingerSwipeRightAction ?? currentProfile.fiveFingerSwipeRightGestureAction,
+            keySpacingPercentByLayout: keySpacingByLayout,
+            columnSettingsByLayout: columnSettingsByLayout,
+            customButtonsByLayout: currentProfile.customButtonsByLayout,
+            keyMappingsByLayout: currentProfile.keyMappingsByLayout,
+            keyGeometryByLayout: currentProfile.keyGeometryByLayout
+        )
+
+        if let hostExtension = bundle.hostExtensions?["mac"] {
+            profile = AppKeymapProfile(
+                leftDeviceID: hostExtension.leftDeviceID ?? profile.leftDeviceID,
+                rightDeviceID: hostExtension.rightDeviceID ?? profile.rightDeviceID,
+                layoutPreset: profile.layoutPreset,
+                activeLayer: profile.activeLayer,
+                autoResyncMissingTrackpads: hostExtension.autoResyncMissingTrackpads ?? profile.autoResyncMissingTrackpads,
+                runAtStartupEnabled: hostExtension.runAtStartupEnabled ?? profile.runAtStartupEnabled,
+                tapHoldDurationMs: profile.tapHoldDurationMs,
+                dragCancelDistance: profile.dragCancelDistance,
+                forceClickMin: profile.forceClickMin,
+                forceClickCap: profile.forceClickCap,
+                hapticStrength: hostExtension.hapticStrength ?? profile.hapticStrength,
+                typingGraceMs: profile.typingGraceMs,
+                intentMoveThresholdMm: profile.intentMoveThresholdMm,
+                intentVelocityThresholdMmPerSec: profile.intentVelocityThresholdMmPerSec,
+                autocorrectEnabled: profile.autocorrectEnabled,
+                tapClickCadenceMs: hostExtension.tapClickCadenceMs ?? profile.tapClickCadenceMs,
+                snapRadiusPercent: profile.snapRadiusPercent,
+                chordalShiftEnabled: profile.chordalShiftEnabled,
+                keyboardModeEnabled: profile.keyboardModeEnabled,
+                twoFingerTapGestureAction: hostExtension.twoFingerTapGestureAction ?? profile.twoFingerTapGestureAction,
+                threeFingerTapGestureAction: hostExtension.threeFingerTapGestureAction ?? profile.threeFingerTapGestureAction,
+                twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
+                threeFingerHoldGestureAction: profile.threeFingerHoldGestureAction,
+                fourFingerHoldGestureAction: profile.fourFingerHoldGestureAction,
+                outerCornersHoldGestureAction: profile.outerCornersHoldGestureAction,
+                innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
+                fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
+                fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+                keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
+                columnSettingsByLayout: profile.columnSettingsByLayout,
+                customButtonsByLayout: profile.customButtonsByLayout,
+                keyMappingsByLayout: profile.keyMappingsByLayout,
+                keyGeometryByLayout: profile.keyGeometryByLayout
+            )
+        }
+
+        return try applyPortableKeymap(keymap, to: profile)
+    }
+
+    private static func applyPortableKeymap(
+        _ keymap: PortableKeymapStore,
+        to profile: AppKeymapProfile
+    ) throws -> AppKeymapProfile {
+        guard keymap.layouts != nil else {
+            throw PortableKeymapImportError.invalidKeymap
+        }
+
+        var unsupportedLabels = Set<String>()
+        var mappingsByLayout = KeyActionMappingStore.emptyLayoutMappings()
+        var customButtonsByLayout: [String: [Int: [CustomButton]]] = [:]
+        var geometryByLayout = KeyGeometryStore.emptyLayoutOverrides()
+
+        for (portableLayoutName, layoutData) in keymap.layouts ?? [:] {
+            guard let macLayoutName = macLayoutName(fromPortable: portableLayoutName) else { continue }
+
+            var mappedLayers = KeyActionMappingStore.emptyMappings()
+            for (layer, mappings) in layoutData.mappings ?? [:] {
+                let clampedLayer = KeyLayerConfig.clamped(layer)
+                var output: [String: KeyMapping] = [:]
+                for (storageKey, portableMapping) in mappings {
+                    guard GridKeyPosition.from(storageKey: storageKey) != nil else { continue }
+                    let primary = resolveImportedAction(
+                        portableMapping.primary?.label,
+                        unsupportedLabels: &unsupportedLabels
+                    ) ?? KeyActionCatalog.noneAction
+                    let hold = resolveImportedAction(
+                        portableMapping.hold?.label,
+                        unsupportedLabels: &unsupportedLabels,
+                        allowNil: true
+                    )
+                    output[storageKey] = KeyMapping(primary: primary, hold: hold)
+                }
+                mappedLayers[clampedLayer] = output
+            }
+            mappingsByLayout[macLayoutName] = KeyActionMappingStore.normalized(mappedLayers)
+
+            var buttonsByLayer: [Int: [CustomButton]] = [:]
+            for (layer, buttons) in layoutData.customButtons ?? [:] {
+                let clampedLayer = KeyLayerConfig.clamped(layer)
+                let converted = buttons.compactMap { portableButton -> CustomButton? in
+                    let primary = resolveImportedAction(
+                        portableButton.primary?.label,
+                        unsupportedLabels: &unsupportedLabels
+                    ) ?? KeyActionCatalog.noneAction
+                    let hold = resolveImportedAction(
+                        portableButton.hold?.label,
+                        unsupportedLabels: &unsupportedLabels,
+                        allowNil: true
+                    )
+                    guard let side = portableButton.trackpadSide else { return nil }
+                    let rect = portableButton.rect.normalizedRect.clamped(
+                        minWidth: minCustomButtonSize.width,
+                        minHeight: minCustomButtonSize.height
+                    )
+                    return CustomButton(
+                        id: portableButton.uuid,
+                        side: side,
+                        rect: rect,
+                        action: primary,
+                        hold: hold,
+                        layer: clampedLayer
+                    )
+                }
+                buttonsByLayer[clampedLayer] = converted
+            }
+            customButtonsByLayout[macLayoutName] = buttonsByLayer
+
+            var geometry: KeyGeometryOverrides = [:]
+            for (storageKey, portableGeometry) in layoutData.keyGeometry ?? [:] {
+                guard GridKeyPosition.from(storageKey: storageKey) != nil else { continue }
+                geometry[storageKey] = KeyGeometryOverride(
+                    rotationDegrees: portableGeometry.rotationDegrees ?? 0.0,
+                    widthScale: portableGeometry.widthScale ?? 1.0,
+                    heightScale: portableGeometry.heightScale ?? 1.0
+                )
+            }
+            geometryByLayout[macLayoutName] = geometry
+        }
+
+        guard unsupportedLabels.isEmpty else {
+            throw PortableKeymapImportError.unsupportedActions(Array(unsupportedLabels))
+        }
+
+        return AppKeymapProfile(
+            leftDeviceID: profile.leftDeviceID,
+            rightDeviceID: profile.rightDeviceID,
+            layoutPreset: profile.layoutPreset,
+            activeLayer: profile.activeLayer,
+            autoResyncMissingTrackpads: profile.autoResyncMissingTrackpads,
+            runAtStartupEnabled: profile.runAtStartupEnabled,
+            tapHoldDurationMs: profile.tapHoldDurationMs,
+            dragCancelDistance: profile.dragCancelDistance,
+            forceClickMin: profile.forceClickMin,
+            forceClickCap: profile.forceClickCap,
+            hapticStrength: profile.hapticStrength,
+            typingGraceMs: profile.typingGraceMs,
+            intentMoveThresholdMm: profile.intentMoveThresholdMm,
+            intentVelocityThresholdMmPerSec: profile.intentVelocityThresholdMmPerSec,
+            autocorrectEnabled: profile.autocorrectEnabled,
+            tapClickCadenceMs: profile.tapClickCadenceMs,
+            snapRadiusPercent: profile.snapRadiusPercent,
+            chordalShiftEnabled: profile.chordalShiftEnabled,
+            keyboardModeEnabled: profile.keyboardModeEnabled,
+            twoFingerTapGestureAction: profile.twoFingerTapGestureAction,
+            threeFingerTapGestureAction: profile.threeFingerTapGestureAction,
+            twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction: profile.threeFingerHoldGestureAction,
+            fourFingerHoldGestureAction: profile.fourFingerHoldGestureAction,
+            outerCornersHoldGestureAction: profile.outerCornersHoldGestureAction,
+            innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
+            fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+            keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
+            columnSettingsByLayout: profile.columnSettingsByLayout,
+            customButtonsByLayout: customButtonsByLayout,
+            keyMappingsByLayout: mappingsByLayout,
+            keyGeometryByLayout: geometryByLayout
+        )
+    }
+
+    private static func encodePortableKeymap(from profile: AppKeymapProfile) throws -> String {
+        var layouts: [String: PortableLayoutKeymapData] = [:]
+        let mappingsByLayout = KeyActionMappingStore.normalized(
+            profile.keyMappingsByLayout ?? KeyActionMappingStore.emptyLayoutMappings()
+        )
+        let geometryByLayout = KeyGeometryStore.normalized(
+            profile.keyGeometryByLayout ?? KeyGeometryStore.emptyLayoutOverrides()
+        )
+
+        for preset in TrackpadLayoutPreset.allCases {
+            let macLayoutName = preset.rawValue
+            let portableLayoutName = portableLayoutName(fromMac: macLayoutName)
+            let layerMappings = mappingsByLayout[macLayoutName] ?? KeyActionMappingStore.emptyMappings()
+            let portableMappings = layerMappings.reduce(into: [Int: [String: PortableKeyMapping]]()) { result, entry in
+                result[entry.key] = entry.value.reduce(into: [:]) { mappingResult, pair in
+                    mappingResult[pair.key] = PortableKeyMapping(
+                        primary: PortableKeyAction(label: portableLabel(for: pair.value.primary)),
+                        hold: pair.value.hold.map { PortableKeyAction(label: portableLabel(for: $0)) }
+                    )
+                }
+            }
+
+            let layeredButtons = profile.customButtonsByLayout[macLayoutName] ?? [:]
+            let portableButtons = layeredButtons.reduce(into: [Int: [PortableCustomButton]]()) { result, entry in
+                result[entry.key] = entry.value.map { button in
+                    PortableCustomButton(
+                        id: button.id.uuidString,
+                        side: button.side,
+                        rect: PortableNormalizedRect(normalizedRect: button.rect),
+                        primary: PortableKeyAction(label: portableLabel(for: button.action)),
+                        hold: button.hold.map { PortableKeyAction(label: portableLabel(for: $0)) },
+                        layer: entry.key
+                    )
+                }
+            }
+
+            let portableGeometry = (geometryByLayout[macLayoutName] ?? [:]).reduce(into: [String: PortableKeyGeometryOverride]()) { result, entry in
+                result[entry.key] = PortableKeyGeometryOverride(
+                    rotationDegrees: entry.value.rotationDegrees,
+                    widthScale: entry.value.widthScale,
+                    heightScale: entry.value.heightScale
+                )
+            }
+
+            layouts[portableLayoutName] = PortableLayoutKeymapData(
+                mappings: portableMappings,
+                customButtons: portableButtons,
+                keyGeometry: portableGeometry
+            )
+        }
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(PortableKeymapStore(version: keymapVersion, layouts: layouts))
+        guard let json = String(data: data, encoding: .utf8) else {
+            throw PortableKeymapImportError.invalidKeymap
+        }
+        return json
+    }
+
+    private static func resolveImportedAction(
+        _ label: String?,
+        unsupportedLabels: inout Set<String>,
+        allowNil: Bool = false
+    ) -> KeyAction? {
+        let trimmed = label?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        if trimmed.isEmpty {
+            return allowNil ? nil : KeyActionCatalog.noneAction
+        }
+        if let action = KeyActionCatalog.action(for: trimmed) {
+            return action
+        }
+        unsupportedLabels.insert(trimmed)
+        return allowNil ? nil : KeyActionCatalog.noneAction
+    }
+
+    private static func portableLayoutName(fromMac name: String) -> String {
+        switch name {
+        case TrackpadLayoutPreset.none.rawValue:
+            return "Blank"
+        case TrackpadLayoutPreset.mobileOrtho12x4.rawValue:
+            return "mobile-ortho-12x4"
+        default:
+            return name
+        }
+    }
+
+    private static func macLayoutName(fromPortable name: String?) -> String? {
+        guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+
+        let normalized = trimmed.lowercased()
+        switch normalized {
+        case "blank":
+            return TrackpadLayoutPreset.none.rawValue
+        case "mobile-ortho-12x4":
+            return TrackpadLayoutPreset.mobileOrtho12x4.rawValue
+        default:
+            return TrackpadLayoutPreset(rawValue: trimmed)?.rawValue
+        }
+    }
+
+    private static func portableLabel(for action: KeyAction) -> String {
+        if let shortcut = ShortcutActionHelper.parse(action.label) {
+            return portableShortcutLabel(for: shortcut)
+        }
+
+        switch action.label {
+        case "Option":
+            return "Alt"
+        case KeyActionCatalog.altGrLabel:
+            return "AltGr"
+        case "Cmd":
+            return "Win"
+        case "Back":
+            return "Backspace"
+        case "Ret":
+            return "Enter"
+        case "Emoji":
+            return "EMOJI"
+        case KeyActionCatalog.voiceLabel:
+            return "VOICE"
+        case KeyActionCatalog.volumeUpLabel:
+            return "VOL_UP"
+        case KeyActionCatalog.volumeDownLabel:
+            return "VOL_DOWN"
+        case KeyActionCatalog.brightnessUpLabel:
+            return "BRIGHT_UP"
+        case KeyActionCatalog.brightnessDownLabel:
+            return "BRIGHT_DOWN"
+        default:
+            return action.label
+        }
+    }
+
+    private static func portableShortcutLabel(for shortcut: ShortcutActionSpec) -> String {
+        let parts = ShortcutModifier.ordered.compactMap { modifier -> String? in
+            guard let variant = shortcut.modifiers[modifier] else { return nil }
+            switch modifier {
+            case .control:
+                switch variant {
+                case .generic: return "Ctrl"
+                case .left: return "LeftCtrl"
+                case .right: return "RightCtrl"
+                }
+            case .shift:
+                switch variant {
+                case .generic: return "Shift"
+                case .left: return "LeftShift"
+                case .right: return "RightShift"
+                }
+            case .option:
+                switch variant {
+                case .generic: return "Alt"
+                case .left: return "LeftAlt"
+                case .right: return "AltGr"
+                }
+            case .command:
+                switch variant {
+                case .generic: return "Win"
+                case .left: return "LeftWin"
+                case .right: return "RightWin"
+                }
+            }
+        }
+        return (parts + [portableKeyLabel(for: shortcut.keyLabel)]).joined(separator: "+")
+    }
+
+    private static func portableKeyLabel(for label: String) -> String {
+        switch label {
+        case "Backspace", "Back":
+            return "Backspace"
+        case "Enter", "Ret":
+            return "Enter"
+        case "Esc", "Escape":
+            return "Esc"
+        default:
+            return label
+        }
+    }
+
+    private struct PortableProfileBundle: Codable {
+        var version: Int
+        var settings: PortableSettings?
+        var keymapJson: String?
+        var hostExtensions: [String: MacHostProfileExtension]?
+
+        private enum CodingKeys: String, CodingKey {
+            case version = "Version"
+            case settings = "Settings"
+            case keymapJson = "KeymapJson"
+            case hostExtensions = "HostExtensions"
+        }
+    }
+
+    private struct MacHostProfileExtension: Codable {
+        var leftDeviceID: String?
+        var rightDeviceID: String?
+        var autoResyncMissingTrackpads: Bool?
+        var runAtStartupEnabled: Bool?
+        var twoFingerTapGestureAction: String?
+        var threeFingerTapGestureAction: String?
+        var tapClickCadenceMs: Double?
+        var hapticStrength: Double?
+
+        init(profile: AppKeymapProfile) {
+            leftDeviceID = profile.leftDeviceID
+            rightDeviceID = profile.rightDeviceID
+            autoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
+            runAtStartupEnabled = profile.runAtStartupEnabled
+            twoFingerTapGestureAction = profile.twoFingerTapGestureAction
+            threeFingerTapGestureAction = profile.threeFingerTapGestureAction
+            tapClickCadenceMs = profile.tapClickCadenceMs
+            hapticStrength = profile.hapticStrength
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case leftDeviceID = "LeftDeviceID"
+            case rightDeviceID = "RightDeviceID"
+            case autoResyncMissingTrackpads = "AutoResyncMissingTrackpads"
+            case runAtStartupEnabled = "RunAtStartupEnabled"
+            case twoFingerTapGestureAction = "TwoFingerTapGestureAction"
+            case threeFingerTapGestureAction = "ThreeFingerTapGestureAction"
+            case tapClickCadenceMs = "TapClickCadenceMs"
+            case hapticStrength = "HapticStrength"
+        }
+    }
+
+    private struct PortableSettings: Codable {
+        var activeLayer: Int?
+        var layoutPresetName: String?
+        var keyboardModeEnabled: Bool?
+        var autocorrectEnabled: Bool?
+        var chordShiftEnabled: Bool?
+        var fiveFingerSwipeLeftAction: String?
+        var fiveFingerSwipeRightAction: String?
+        var twoFingerHoldAction: String?
+        var threeFingerHoldAction: String?
+        var fourFingerHoldAction: String?
+        var threeFingerClickAction: String?
+        var outerCornersAction: String?
+        var innerCornersAction: String?
+        var holdDurationMs: Double?
+        var dragCancelMm: Double?
+        var typingGraceMs: Double?
+        var intentMoveMm: Double?
+        var intentVelocityMmPerSec: Double?
+        var snapRadiusPercent: Double?
+        var keyPaddingPercent: Double?
+        var keyPaddingPercentByLayout: [String: Double]?
+        var forceMin: Int?
+        var forceCap: Int?
+        var columnSettingsByLayout: [String: [ColumnLayoutSettings]]?
+        var columnSettings: [ColumnLayoutSettings]?
+
+        init(profile: AppKeymapProfile) {
+            activeLayer = KeyLayerConfig.clamped(profile.activeLayer ?? KeyLayerConfig.baseLayer)
+            let resolvedLayout = TrackpadLayoutPreset(rawValue: profile.layoutPreset) ?? .sixByThree
+            layoutPresetName = portableLayoutName(fromMac: profile.layoutPreset)
+            keyboardModeEnabled = profile.keyboardModeEnabled
+            autocorrectEnabled = profile.autocorrectEnabled
+            chordShiftEnabled = profile.chordalShiftEnabled
+            fiveFingerSwipeLeftAction = profile.fiveFingerSwipeLeftGestureAction
+            fiveFingerSwipeRightAction = profile.fiveFingerSwipeRightGestureAction
+            twoFingerHoldAction = profile.twoFingerHoldGestureAction
+            threeFingerHoldAction = profile.threeFingerHoldGestureAction
+            fourFingerHoldAction = profile.fourFingerHoldGestureAction
+            threeFingerClickAction = profile.threeFingerTapGestureAction
+            outerCornersAction = profile.outerCornersHoldGestureAction
+            innerCornersAction = profile.innerCornersHoldGestureAction
+            holdDurationMs = profile.tapHoldDurationMs
+            dragCancelMm = profile.dragCancelDistance
+            typingGraceMs = profile.typingGraceMs
+            intentMoveMm = profile.intentMoveThresholdMm
+            intentVelocityMmPerSec = profile.intentVelocityThresholdMmPerSec
+            snapRadiusPercent = profile.snapRadiusPercent
+            keyPaddingPercent = profile.keySpacingPercentByLayout?[resolvedLayout.rawValue]
+            keyPaddingPercentByLayout = profile.keySpacingPercentByLayout?.reduce(into: [:]) { result, entry in
+                result[portableLayoutName(fromMac: entry.key)] = entry.value
+            }
+            forceMin = Int(profile.forceClickMin ?? GlassToKeySettings.forceClickMin)
+            forceCap = Int(profile.forceClickCap)
+            columnSettingsByLayout = profile.columnSettingsByLayout.reduce(into: [:]) { result, entry in
+                result[portableLayoutName(fromMac: entry.key)] = entry.value
+            }
+            columnSettings = profile.columnSettingsByLayout[resolvedLayout.rawValue]
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case activeLayer = "ActiveLayer"
+            case layoutPresetName = "LayoutPresetName"
+            case keyboardModeEnabled = "KeyboardModeEnabled"
+            case autocorrectEnabled = "AutocorrectEnabled"
+            case chordShiftEnabled = "ChordShiftEnabled"
+            case fiveFingerSwipeLeftAction = "FiveFingerSwipeLeftAction"
+            case fiveFingerSwipeRightAction = "FiveFingerSwipeRightAction"
+            case twoFingerHoldAction = "TwoFingerHoldAction"
+            case threeFingerHoldAction = "ThreeFingerHoldAction"
+            case fourFingerHoldAction = "FourFingerHoldAction"
+            case threeFingerClickAction = "ThreeFingerClickAction"
+            case outerCornersAction = "OuterCornersAction"
+            case innerCornersAction = "InnerCornersAction"
+            case holdDurationMs = "HoldDurationMs"
+            case dragCancelMm = "DragCancelMm"
+            case typingGraceMs = "TypingGraceMs"
+            case intentMoveMm = "IntentMoveMm"
+            case intentVelocityMmPerSec = "IntentVelocityMmPerSec"
+            case snapRadiusPercent = "SnapRadiusPercent"
+            case keyPaddingPercent = "KeyPaddingPercent"
+            case keyPaddingPercentByLayout = "KeyPaddingPercentByLayout"
+            case forceMin = "ForceMin"
+            case forceCap = "ForceCap"
+            case columnSettingsByLayout = "ColumnSettingsByLayout"
+            case columnSettings = "ColumnSettings"
+        }
+    }
+
+    private struct PortableKeymapStore: Codable {
+        var version: Int?
+        var layouts: [String: PortableLayoutKeymapData]?
+
+        private enum CodingKeys: String, CodingKey {
+            case version = "Version"
+            case layouts = "Layouts"
+        }
+    }
+
+    private struct PortableLayoutKeymapData: Codable {
+        var mappings: [Int: [String: PortableKeyMapping]]?
+        var customButtons: [Int: [PortableCustomButton]]?
+        var keyGeometry: [String: PortableKeyGeometryOverride]?
+
+        private enum CodingKeys: String, CodingKey {
+            case mappings = "Mappings"
+            case customButtons = "CustomButtons"
+            case keyGeometry = "KeyGeometry"
+        }
+    }
+
+    private struct PortableKeyMapping: Codable {
+        var primary: PortableKeyAction?
+        var hold: PortableKeyAction?
+
+        private enum CodingKeys: String, CodingKey {
+            case primary = "Primary"
+            case hold = "Hold"
+        }
+    }
+
+    private struct PortableKeyAction: Codable {
+        var label: String
+
+        private enum CodingKeys: String, CodingKey {
+            case label = "Label"
+        }
+    }
+
+    private struct PortableCustomButton: Codable {
+        var id: String
+        var side: PortableTrackpadSideValue
+        var rect: PortableNormalizedRect
+        var primary: PortableKeyAction?
+        var hold: PortableKeyAction?
+        var layer: Int?
+
+        var uuid: UUID {
+            UUID(uuidString: id) ?? UUID()
+        }
+
+        var trackpadSide: TrackpadSide? {
+            side.trackpadSide
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case id = "Id"
+            case side = "Side"
+            case rect = "Rect"
+            case primary = "Primary"
+            case hold = "Hold"
+            case layer = "Layer"
+        }
+
+        init(
+            id: String,
+            side: TrackpadSide,
+            rect: PortableNormalizedRect,
+            primary: PortableKeyAction,
+            hold: PortableKeyAction?,
+            layer: Int
+        ) {
+            self.id = id
+            self.side = PortableTrackpadSideValue.trackpadSide(side)
+            self.rect = rect
+            self.primary = primary
+            self.hold = hold
+            self.layer = layer
+        }
+    }
+
+    private enum PortableTrackpadSideValue: Codable {
+        case int(Int)
+        case string(String)
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.singleValueContainer()
+            if let intValue = try? container.decode(Int.self) {
+                self = .int(intValue)
+                return
+            }
+            self = .string(try container.decode(String.self))
+        }
+
+        func encode(to encoder: Encoder) throws {
+            var container = encoder.singleValueContainer()
+            switch self {
+            case .int(let value):
+                try container.encode(value)
+            case .string(let value):
+                try container.encode(value)
+            }
+        }
+
+        var trackpadSide: TrackpadSide? {
+            switch self {
+            case .int(let value):
+                switch value {
+                case 0:
+                    return .left
+                case 1:
+                    return .right
+                default:
+                    return nil
+                }
+            case .string(let value):
+                return TrackpadSide(rawValue: value.lowercased())
+            }
+        }
+
+        static func trackpadSide(_ side: TrackpadSide) -> PortableTrackpadSideValue {
+            switch side {
+            case .left:
+                return .int(0)
+            case .right:
+                return .int(1)
+            }
+        }
+    }
+
+    private struct PortableNormalizedRect: Codable {
+        var x: CGFloat
+        var y: CGFloat
+        var width: CGFloat
+        var height: CGFloat
+        var rotationDegrees: Double?
+
+        init(normalizedRect: NormalizedRect) {
+            x = normalizedRect.x
+            y = normalizedRect.y
+            width = normalizedRect.width
+            height = normalizedRect.height
+            rotationDegrees = abs(normalizedRect.rotationDegrees) > 0.000_01
+                ? normalizedRect.rotationDegrees
+                : nil
+        }
+
+        var normalizedRect: NormalizedRect {
+            NormalizedRect(
+                x: x,
+                y: y,
+                width: width,
+                height: height,
+                rotationDegrees: rotationDegrees ?? 0.0
+            )
+        }
+
+        private enum CodingKeys: String, CodingKey {
+            case x = "X"
+            case y = "Y"
+            case width = "Width"
+            case height = "Height"
+            case rotationDegrees = "RotationDegrees"
+        }
+    }
+
+    private struct PortableKeyGeometryOverride: Codable {
+        var rotationDegrees: Double?
+        var widthScale: Double?
+        var heightScale: Double?
+
+        private enum CodingKeys: String, CodingKey {
+            case rotationDegrees = "RotationDegrees"
+            case widthScale = "WidthScale"
+            case heightScale = "HeightScale"
+        }
     }
 }
