@@ -295,7 +295,9 @@ internal static class EngineActionResolver
             return chord;
         }
 
-        if (resolved.Equals("EMOJI", StringComparison.OrdinalIgnoreCase))
+        if (resolved.Equals("EMOJI", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("Emoji", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("Globe", StringComparison.OrdinalIgnoreCase))
         {
             return CreateAction(
                 EngineActionKind.KeyChord,
@@ -307,7 +309,8 @@ internal static class EngineActionResolver
                 semanticSecondaryCode: DispatchSemanticCode.LeftMeta);
         }
 
-        if (resolved.Equals("VOICE", StringComparison.OrdinalIgnoreCase))
+        if (resolved.Equals("VOICE", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("Voice", StringComparison.OrdinalIgnoreCase))
         {
             return CreateAction(
                 EngineActionKind.KeyChord,
@@ -361,6 +364,48 @@ internal static class EngineActionResolver
                 resolved,
                 virtualKey: 0xBD,
                 semanticPrimaryCode: DispatchSemanticCode.Minus);
+        }
+
+        if (resolved.Equals("VOL_UP", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("VOL\u2B06\uFE0F", StringComparison.Ordinal))
+        {
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: 0xAF,
+                semanticPrimaryCode: DispatchSemanticCode.VolumeUp);
+        }
+
+        if (resolved.Equals("VOL_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("VOL\u2B07\uFE0F", StringComparison.Ordinal))
+        {
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: 0xAE,
+                semanticPrimaryCode: DispatchSemanticCode.VolumeDown);
+        }
+
+        if (resolved.Equals("BRIGHT_UP", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRIGHTNESS_UP", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRIGHT\u2B06\uFE0F", StringComparison.Ordinal))
+        {
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: DispatchKeyResolver.VirtualKeyBrightnessUp,
+                semanticPrimaryCode: DispatchSemanticCode.BrightnessUp);
+        }
+
+        if (resolved.Equals("BRIGHT_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRIGHTNESS_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRIGHT\u2B07\uFE0F", StringComparison.Ordinal))
+        {
+            return CreateAction(
+                EngineActionKind.Key,
+                resolved,
+                virtualKey: DispatchKeyResolver.VirtualKeyBrightnessDown,
+                semanticPrimaryCode: DispatchSemanticCode.BrightnessDown);
         }
 
         if (TryResolveKeyIdentity(resolved, out ushort virtualKey, out DispatchSemanticCode keyCode))

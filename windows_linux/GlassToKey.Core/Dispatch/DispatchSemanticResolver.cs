@@ -193,7 +193,12 @@ internal static class DispatchSemanticResolver
             return false;
         }
 
-        switch (label.Trim().ToUpperInvariant())
+        string compactToken = label.Trim().ToUpperInvariant()
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+
+        switch (compactToken)
         {
             case "LSHIFT":
                 code = DispatchSemanticCode.LeftShift;
@@ -202,9 +207,8 @@ internal static class DispatchSemanticResolver
                 code = DispatchSemanticCode.RightShift;
                 return true;
             case "SHIFT":
-            case "CHORD SHIFT":
             case "CHORDSHIFT":
-            case "CHORDAL SHIFT":
+            case "CHORDALSHIFT":
                 code = DispatchSemanticCode.Shift;
                 return true;
             case "LCTRL":
@@ -225,11 +229,17 @@ internal static class DispatchSemanticResolver
             case "ALTGR":
             case "RALT":
             case "RIGHTALT":
+            case "ROPTION":
+            case "RIGHTOPTION":
                 code = DispatchSemanticCode.RightAlt;
                 return true;
             case "ALT":
+            case "OPTION":
                 code = DispatchSemanticCode.Alt;
                 return true;
+            case "LCMD":
+            case "LEFTCMD":
+            case "LEFTCOMMAND":
             case "LWIN":
             case "LMETA":
             case "LSUPER":
@@ -238,6 +248,9 @@ internal static class DispatchSemanticResolver
             case "LEFTSUPER":
                 code = DispatchSemanticCode.LeftMeta;
                 return true;
+            case "RCMD":
+            case "RIGHTCMD":
+            case "RIGHTCOMMAND":
             case "RWIN":
             case "RMETA":
             case "RSUPER":
@@ -246,10 +259,16 @@ internal static class DispatchSemanticResolver
             case "RIGHTSUPER":
                 code = DispatchSemanticCode.RightMeta;
                 return true;
+            case "CMD":
+            case "COMMAND":
             case "WIN":
             case "META":
             case "SUPER":
                 code = DispatchSemanticCode.Meta;
+                return true;
+            case "LOPTION":
+            case "LEFTOPTION":
+                code = DispatchSemanticCode.LeftAlt;
                 return true;
             default:
                 return false;

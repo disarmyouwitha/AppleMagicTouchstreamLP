@@ -55,84 +55,80 @@ internal static class DispatchKeyResolver
             return false;
         }
 
-        if (label.Equals("LShift", StringComparison.OrdinalIgnoreCase))
+        string compactToken = label.Trim().ToUpperInvariant()
+            .Replace("_", string.Empty, StringComparison.Ordinal)
+            .Replace(" ", string.Empty, StringComparison.Ordinal)
+            .Replace("-", string.Empty, StringComparison.Ordinal);
+
+        if (compactToken == "LSHIFT")
         {
             virtualKey = 0xA0;
             return true;
         }
 
-        if (label.Equals("RShift", StringComparison.OrdinalIgnoreCase))
+        if (compactToken == "RSHIFT")
         {
             virtualKey = 0xA1;
             return true;
         }
 
-        if (label.Equals("Shift", StringComparison.OrdinalIgnoreCase))
+        if (compactToken == "SHIFT")
         {
             virtualKey = 0x10;
             return true;
         }
 
-        if (label.Equals("LCtrl", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LeftCtrl", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "LCTRL" or "LEFTCTRL")
         {
             virtualKey = 0xA2;
             return true;
         }
 
-        if (label.Equals("RCtrl", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RightCtrl", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "RCTRL" or "RIGHTCTRL")
         {
             virtualKey = 0xA3;
             return true;
         }
 
-        if (label.Equals("Ctrl", StringComparison.OrdinalIgnoreCase))
+        if (compactToken == "CTRL")
         {
             virtualKey = 0x11;
             return true;
         }
 
-        if (label.Equals("LAlt", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LeftAlt", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "LALT" or "LEFTALT" or "LOPTION" or "LEFTOPTION")
         {
             virtualKey = 0xA4;
             return true;
         }
 
-        if (label.Equals("AltGr", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RightAlt", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "ALTGR" or "RALT" or "RIGHTALT" or "ROPTION" or "RIGHTOPTION")
         {
             virtualKey = 0xA5;
             return true;
         }
 
-        if (label.Equals("Alt", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "ALT" or "OPTION")
         {
             virtualKey = 0x12;
             return true;
         }
 
-        if (label.Equals("Win", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("Meta", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("Super", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is "WIN" or "META" or "SUPER" or "CMD" or "COMMAND")
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("LWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LSuper", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("LeftSuper", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is
+            "LWIN" or "LSUPER" or "LEFTSUPER" or "LMETA" or "LEFTMETA" or "LCMD" or "LEFTCMD" or "LEFTCOMMAND")
         {
             virtualKey = 0x5B;
             return true;
         }
 
-        if (label.Equals("RWin", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RSuper", StringComparison.OrdinalIgnoreCase) ||
-            label.Equals("RightSuper", StringComparison.OrdinalIgnoreCase))
+        if (compactToken is
+            "RWIN" or "RSUPER" or "RIGHTSUPER" or "RMETA" or "RIGHTMETA" or "RCMD" or "RIGHTCMD" or "RIGHTCOMMAND")
         {
             virtualKey = 0x5C;
             return true;

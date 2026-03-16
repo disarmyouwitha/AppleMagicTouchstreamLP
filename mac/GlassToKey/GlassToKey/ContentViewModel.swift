@@ -2937,10 +2937,6 @@ enum PortableKeymapInterop {
             return try applyPortableKeymap(keymap, to: currentProfile)
         }
 
-        if let legacy = try? decoder.decode(AppKeymapProfile.self, from: data) {
-            return legacy
-        }
-
         throw PortableKeymapImportError.invalidFormat
     }
 
@@ -3287,82 +3283,7 @@ enum PortableKeymapInterop {
     }
 
     private static func portableLabel(for action: KeyAction) -> String {
-        if let shortcut = ShortcutActionHelper.parse(action.label) {
-            return portableShortcutLabel(for: shortcut)
-        }
-
-        switch action.label {
-        case "Option":
-            return "Alt"
-        case KeyActionCatalog.altGrLabel:
-            return "AltGr"
-        case "Cmd":
-            return "Win"
-        case "Back":
-            return "Backspace"
-        case "Ret":
-            return "Enter"
-        case "Emoji":
-            return "EMOJI"
-        case KeyActionCatalog.voiceLabel:
-            return "VOICE"
-        case KeyActionCatalog.volumeUpLabel:
-            return "VOL_UP"
-        case KeyActionCatalog.volumeDownLabel:
-            return "VOL_DOWN"
-        case KeyActionCatalog.brightnessUpLabel:
-            return "BRIGHT_UP"
-        case KeyActionCatalog.brightnessDownLabel:
-            return "BRIGHT_DOWN"
-        default:
-            return action.label
-        }
-    }
-
-    private static func portableShortcutLabel(for shortcut: ShortcutActionSpec) -> String {
-        let parts = ShortcutModifier.ordered.compactMap { modifier -> String? in
-            guard let variant = shortcut.modifiers[modifier] else { return nil }
-            switch modifier {
-            case .control:
-                switch variant {
-                case .generic: return "Ctrl"
-                case .left: return "LeftCtrl"
-                case .right: return "RightCtrl"
-                }
-            case .shift:
-                switch variant {
-                case .generic: return "Shift"
-                case .left: return "LeftShift"
-                case .right: return "RightShift"
-                }
-            case .option:
-                switch variant {
-                case .generic: return "Alt"
-                case .left: return "LeftAlt"
-                case .right: return "AltGr"
-                }
-            case .command:
-                switch variant {
-                case .generic: return "Win"
-                case .left: return "LeftWin"
-                case .right: return "RightWin"
-                }
-            }
-        }
-        return (parts + [portableKeyLabel(for: shortcut.keyLabel)]).joined(separator: "+")
-    }
-
-    private static func portableKeyLabel(for label: String) -> String {
-        switch label {
-        case "Backspace", "Back":
-            return "Backspace"
-        case "Enter", "Ret":
-            return "Enter"
-        case "Esc", "Escape":
-            return "Esc"
-        default:
-            return label
-        }
+        action.label
     }
 
     private struct PortableProfileBundle: Codable {
