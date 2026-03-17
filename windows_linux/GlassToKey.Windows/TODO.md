@@ -1,8 +1,32 @@
 ## Current:
-- `OS agnostic Import/Export` keymap to windows_linux,and mac! To start I want to use Windows as the GOLD STANDARD and I want to make sure that I can 1. export my Windows keymap and import it into Linux. 2. export my Linux keymap and import it into Windows! Please do a full analysis of the relevant code and pay careful attention to the seams of the program so that we can make a beautiful edit. Since windows_linux uses a shared core this should be a pretty easy first start!
-- Next I want you to force Mac into compliance: What does it need to accept the Windows/Linux keymap? Don't worry about preserving legacy Mac keymap support, I am nuking it and starting over from Windows GOLD standard.
-- 
+New Gesture Category/collapsable `Edges`:
+- `Left Edge`: Slide one finger along the left edge.
+- `Right Edge`: Slide one finger along the right edge.
+- `Top Edge`: Slide one finger along the top edge. 
+- `Bottom Edge`: Slide one finger along the bottom edge.
+
+Do you need .atpcaps for these?
+
+- New Gesture Category/collapsable: `Corners`:
+- (Should be distinct enough from Triangles to differentiate)
+- `Top Left`: Swipe in from the top-left corner with 1 finger
+- `Top Right`:
+- `Bottom Left`:
+- `Bottom Right`:
+
+Add more `Forced Click` options:
+- `Top Left`: Force Click in top-left corner (Forced Click 1)
+- `Top Right`:
+- `Bottom Left`:
+- `Bottom Right`:
+- Add `3-Finger force click`, `4-Finger force click`
+- Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
+-------
+- Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force) 
+-------
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
+- New gestures from FRAN!
+- Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
 ---
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
 - `Advanced Gestures Config` as it's own GUI like Config? (more breathing room to make the GUI more usable)
