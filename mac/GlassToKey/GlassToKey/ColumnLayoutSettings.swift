@@ -7,6 +7,7 @@ struct ColumnLayoutSettings: Codable, Hashable {
     var offsetXPercent: Double
     var offsetYPercent: Double
     var rotationDegrees: Double
+    var rowSpacingPercent: Double
 
     var scale: Double {
         get {
@@ -22,13 +23,15 @@ struct ColumnLayoutSettings: Codable, Hashable {
         scale: Double,
         offsetXPercent: Double,
         offsetYPercent: Double,
-        rotationDegrees: Double = 0.0
+        rotationDegrees: Double = 0.0,
+        rowSpacingPercent: Double = 0.0
     ) {
         self.scaleX = scale
         self.scaleY = scale
         self.offsetXPercent = offsetXPercent
         self.offsetYPercent = offsetYPercent
         self.rotationDegrees = rotationDegrees
+        self.rowSpacingPercent = rowSpacingPercent
     }
 
     init(
@@ -36,32 +39,61 @@ struct ColumnLayoutSettings: Codable, Hashable {
         scaleY: Double,
         offsetXPercent: Double,
         offsetYPercent: Double,
-        rotationDegrees: Double = 0.0
+        rotationDegrees: Double = 0.0,
+        rowSpacingPercent: Double = 0.0
     ) {
         self.scaleX = scaleX
         self.scaleY = scaleY
         self.offsetXPercent = offsetXPercent
         self.offsetYPercent = offsetYPercent
         self.rotationDegrees = rotationDegrees
+        self.rowSpacingPercent = rowSpacingPercent
     }
 
     private enum CodingKeys: String, CodingKey {
+        case scaleX = "ScaleX"
+        case scaleY = "ScaleY"
+        case scale = "Scale"
+        case offsetXPercent = "OffsetXPercent"
+        case offsetYPercent = "OffsetYPercent"
+        case rotationDegrees = "RotationDegrees"
+        case rowSpacingPercent = "RowSpacingPercent"
+    }
+
+    private enum LegacyCodingKeys: String, CodingKey {
         case scaleX
         case scaleY
         case scale
         case offsetXPercent
         case offsetYPercent
         case rotationDegrees
+        case rowSpacingPercent
     }
 
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let legacyScale = try container.decodeIfPresent(Double.self, forKey: .scale) ?? 1.0
-        scaleX = try container.decodeIfPresent(Double.self, forKey: .scaleX) ?? legacyScale
-        scaleY = try container.decodeIfPresent(Double.self, forKey: .scaleY) ?? legacyScale
-        offsetXPercent = try container.decodeIfPresent(Double.self, forKey: .offsetXPercent) ?? 0.0
-        offsetYPercent = try container.decodeIfPresent(Double.self, forKey: .offsetYPercent) ?? 0.0
-        rotationDegrees = try container.decodeIfPresent(Double.self, forKey: .rotationDegrees) ?? 0.0
+        let legacyContainer = try decoder.container(keyedBy: LegacyCodingKeys.self)
+        let legacyScale = try container.decodeIfPresent(Double.self, forKey: .scale)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scale)
+            ?? 1.0
+        scaleX = try container.decodeIfPresent(Double.self, forKey: .scaleX)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scaleX)
+            ?? legacyScale
+        scaleY = try container.decodeIfPresent(Double.self, forKey: .scaleY)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scaleY)
+            ?? legacyScale
+        offsetXPercent = try container.decodeIfPresent(Double.self, forKey: .offsetXPercent)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .offsetXPercent)
+            ?? 0.0
+        offsetYPercent = try container.decodeIfPresent(Double.self, forKey: .offsetYPercent)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .offsetYPercent)
+            ?? 0.0
+        rotationDegrees = try container.decodeIfPresent(Double.self, forKey: .rotationDegrees)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .rotationDegrees)
+            ?? 0.0
+        rowSpacingPercent = try container.decodeIfPresent(Double.self, forKey: .rowSpacingPercent)
+            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .rowSpacingPercent)
+            ?? 0.0
     }
 
     func encode(to encoder: Encoder) throws {
@@ -72,6 +104,7 @@ struct ColumnLayoutSettings: Codable, Hashable {
         try container.encode(offsetXPercent, forKey: .offsetXPercent)
         try container.encode(offsetYPercent, forKey: .offsetYPercent)
         try container.encode(rotationDegrees, forKey: .rotationDegrees)
+        try container.encode(rowSpacingPercent, forKey: .rowSpacingPercent)
     }
 }
 
@@ -237,7 +270,8 @@ enum ColumnLayoutDefaults {
                 scale: 1.0,
                 offsetXPercent: 0.0,
                 offsetYPercent: 0.0,
-                rotationDegrees: 0.0
+                rotationDegrees: 0.0,
+                rowSpacingPercent: 0.0
             ),
             count: columns
         )
@@ -266,7 +300,8 @@ enum ColumnLayoutDefaults {
                 rotationDegrees: min(
                     max(setting.rotationDegrees, rotationDegreesRange.lowerBound),
                     rotationDegreesRange.upperBound
-                )
+                ),
+                rowSpacingPercent: setting.rowSpacingPercent
             )
         }
     }

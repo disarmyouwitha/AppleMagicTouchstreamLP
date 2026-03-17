@@ -3251,9 +3251,10 @@ struct ContentView: View {
                     height: keyHeight * columnScaleY * viewScaleY
                 )
                 let keySpacingY = keySize.height * spacingScale
+                let rowSpacingY = keySize.height * CGFloat(resolvedSettings[col].rowSpacingPercent / 100.0)
                 keyRects[row][col] = CGRect(
                     x: anchorMM.x * viewScaleX,
-                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + keySpacingY),
+                    y: anchorMM.y * viewScaleY + CGFloat(row) * (keySize.height + keySpacingY + rowSpacingY),
                     width: keySize.width,
                     height: keySize.height
                 )
