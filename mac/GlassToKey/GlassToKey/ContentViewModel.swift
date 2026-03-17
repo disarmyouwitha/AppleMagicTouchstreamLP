@@ -427,27 +427,29 @@ enum ShortcutModifier: String, CaseIterable, Hashable, Codable {
         switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
         case "ctrl", "control":
             return (.control, .generic)
-        case "left ctrl", "left control", "lctrl", "lcontrol":
+        case "left ctrl", "left control", "lctrl", "lcontrol", "l ctl":
             return (.control, .left)
-        case "right ctrl", "right control", "rctrl", "rcontrol":
+        case "right ctrl", "right control", "rctrl", "rcontrol", "r ctl":
             return (.control, .right)
         case "shift":
             return (.shift, .generic)
-        case "left shift", "lshift":
+        case "left shift", "lshift", "l shift":
             return (.shift, .left)
-        case "right shift", "rshift":
+        case "right shift", "rshift", "r shift":
             return (.shift, .right)
         case "option", "alt":
             return (.option, .generic)
-        case "left option", "left alt", "lalt", "loption":
+        case "left option", "left alt", "lalt", "loption", "l option":
             return (.option, .left)
-        case "right option", "right-option", "rightoption", "ralt", "altgr", "alt gr":
+        case "right option", "right-option", "rightoption", "roption", "ralt", "altgr", "alt gr", "r option":
             return (.option, .right)
         case "cmd", "command", "meta", "super", "win":
             return (.command, .generic)
-        case "left cmd", "left command", "left meta", "left super", "left win", "lcmd":
+        case "left cmd", "left command", "left meta", "left super", "left win",
+             "lcmd", "lwin", "lmeta", "lsuper", "l cmd":
             return (.command, .left)
-        case "right cmd", "right command", "right meta", "right super", "right win", "rcmd":
+        case "right cmd", "right command", "right meta", "right super", "right win",
+             "rcmd", "rwin", "rmeta", "rsuper", "r cmd":
             return (.command, .right)
         default:
             return nil
@@ -2448,7 +2450,11 @@ enum KeyActionCatalog {
             normalizedLabel = "Ret"
         case "Backspace":
             normalizedLabel = "Back"
-        case "Alt", "LeftAlt", "LAlt":
+        case "Ctrl", "LCtrl", "RCtrl", "LeftCtrl", "RightCtrl":
+            normalizedLabel = "Ctrl"
+        case "Shift", "LShift", "RShift", "LeftShift", "RightShift":
+            normalizedLabel = "Shift"
+        case "Alt", "LeftAlt", "LAlt", "LeftOption", "LOption":
             normalizedLabel = "Option"
         case "TT":
             normalizedLabel = typingToggleLabel
@@ -2456,10 +2462,11 @@ enum KeyActionCatalog {
             normalizedLabel = "Emoji"
         case "VOICE":
             normalizedLabel = voiceLabel
-        case "Win", "Meta", "Super", "LeftWin", "LeftMeta", "LeftSuper",
-             "RightWin", "RightMeta", "RightSuper":
+        case "Win", "Meta", "Super", "Cmd", "Command",
+             "LWin", "LMeta", "LSuper", "LCmd", "LeftWin", "LeftMeta", "LeftSuper", "LeftCmd",
+             "RWin", "RMeta", "RSuper", "RCmd", "RightWin", "RightMeta", "RightSuper", "RightCmd":
             normalizedLabel = "Cmd"
-        case "Right Option", "RightOption", "RAlt":
+        case "Right Option", "RightOption", "ROption", "RAlt":
             normalizedLabel = altGrLabel
         case "VOL_UP":
             normalizedLabel = volumeUpLabel
