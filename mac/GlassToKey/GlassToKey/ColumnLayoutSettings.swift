@@ -60,39 +60,20 @@ struct ColumnLayoutSettings: Codable, Hashable {
         case rowSpacingPercent = "RowSpacingPercent"
     }
 
-    private enum LegacyCodingKeys: String, CodingKey {
-        case scaleX
-        case scaleY
-        case scale
-        case offsetXPercent
-        case offsetYPercent
-        case rotationDegrees
-        case rowSpacingPercent
-    }
-
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
-        let legacyContainer = try decoder.container(keyedBy: LegacyCodingKeys.self)
-        let legacyScale = try container.decodeIfPresent(Double.self, forKey: .scale)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scale)
-            ?? 1.0
+        let legacyScale = try container.decodeIfPresent(Double.self, forKey: .scale) ?? 1.0
         scaleX = try container.decodeIfPresent(Double.self, forKey: .scaleX)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scaleX)
             ?? legacyScale
         scaleY = try container.decodeIfPresent(Double.self, forKey: .scaleY)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .scaleY)
             ?? legacyScale
         offsetXPercent = try container.decodeIfPresent(Double.self, forKey: .offsetXPercent)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .offsetXPercent)
             ?? 0.0
         offsetYPercent = try container.decodeIfPresent(Double.self, forKey: .offsetYPercent)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .offsetYPercent)
             ?? 0.0
         rotationDegrees = try container.decodeIfPresent(Double.self, forKey: .rotationDegrees)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .rotationDegrees)
             ?? 0.0
         rowSpacingPercent = try container.decodeIfPresent(Double.self, forKey: .rowSpacingPercent)
-            ?? legacyContainer.decodeIfPresent(Double.self, forKey: .rowSpacingPercent)
             ?? 0.0
     }
 
