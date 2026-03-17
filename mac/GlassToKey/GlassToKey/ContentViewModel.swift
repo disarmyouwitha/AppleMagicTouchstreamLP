@@ -1905,62 +1905,6 @@ struct CustomButton: Identifiable, Codable, Hashable {
     }
 }
 
-enum CustomButtonDefaults {
-    static func defaultButtons(
-        trackpadWidth: CGFloat,
-        trackpadHeight: CGFloat,
-        thumbAnchorsMM: [CGRect]
-    ) -> [CustomButton] {
-        let leftActions = [
-            KeyActionCatalog.action(for: "Backspace"),
-            KeyActionCatalog.action(for: "Space")
-        ].compactMap { $0 }
-        let rightActions = [
-            KeyActionCatalog.action(for: "Space"),
-            KeyActionCatalog.action(for: "Space"),
-            KeyActionCatalog.action(for: "Space"),
-            KeyActionCatalog.action(for: "Return")
-        ].compactMap { $0 }
-
-        func normalize(_ rect: CGRect) -> NormalizedRect {
-            NormalizedRect(
-                x: rect.minX / trackpadWidth,
-                y: rect.minY / trackpadHeight,
-                width: rect.width / trackpadWidth,
-                height: rect.height / trackpadHeight
-            )
-        }
-
-        var buttons: [CustomButton] = []
-        for (index, rect) in thumbAnchorsMM.enumerated() {
-            let normalized = normalize(rect)
-            if index < leftActions.count {
-                buttons.append(CustomButton(
-                    id: UUID(),
-                    side: .left,
-                    rect: normalized.mirroredHorizontally(),
-                    action: leftActions[index]
-                    ,
-                    hold: nil,
-                    layer: 0
-                ))
-            }
-            if index < rightActions.count {
-                buttons.append(CustomButton(
-                    id: UUID(),
-                    side: .right,
-                    rect: normalized,
-                    action: rightActions[index]
-                    ,
-                    hold: nil,
-                    layer: 0
-                ))
-            }
-        }
-        return buttons
-    }
-}
-
 enum LayoutCustomButtonStorage {
     private static let decoder = JSONDecoder()
     private static let encoder = JSONEncoder()
@@ -3262,31 +3206,11 @@ enum PortableKeymapInterop {
     }
 
     private static func portableLayoutName(fromMac name: String) -> String {
-        switch name {
-        case TrackpadLayoutPreset.none.rawValue:
-            return "Blank"
-        case TrackpadLayoutPreset.mobileOrtho12x4.rawValue:
-            return "mobile-ortho-12x4"
-        default:
-            return name
-        }
+        TrackpadLayoutPreset.resolveByName(name)?.rawValue ?? name
     }
 
     private static func macLayoutName(fromPortable name: String?) -> String? {
-        guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines),
-              !trimmed.isEmpty else {
-            return nil
-        }
-
-        let normalized = trimmed.lowercased()
-        switch normalized {
-        case "blank":
-            return TrackpadLayoutPreset.none.rawValue
-        case "mobile-ortho-12x4":
-            return TrackpadLayoutPreset.mobileOrtho12x4.rawValue
-        default:
-            return TrackpadLayoutPreset(rawValue: trimmed)?.rawValue
-        }
+        TrackpadLayoutPreset.resolveByName(name)?.rawValue
     }
 
     private static func portableLabel(for action: KeyAction) -> String {
@@ -3369,7 +3293,7 @@ enum PortableKeymapInterop {
 
         init(profile: AppKeymapProfile) {
             activeLayer = KeyLayerConfig.clamped(profile.activeLayer ?? KeyLayerConfig.baseLayer)
-            let resolvedLayout = TrackpadLayoutPreset(rawValue: profile.layoutPreset) ?? .sixByThree
+            let resolvedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(profile.layoutPreset)
             layoutPresetName = portableLayoutName(fromMac: profile.layoutPreset)
             keyboardModeEnabled = profile.keyboardModeEnabled
             autocorrectEnabled = profile.autocorrectEnabled

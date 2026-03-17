@@ -210,7 +210,13 @@ final class GlassToKeyController: ObservableObject {
 
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
-        if layout.columns > 0, layout.rows > 0 {
+        if layout == .mobile {
+            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
+            rightLayout = ContentView.makeMobileKeyLayout(
+                size: trackpadSize,
+                keyGeometryOverrides: keyGeometryOverrides
+            )
+        } else if layout.columns > 0, layout.rows > 0 {
             leftLayout = ContentView.makeKeyLayout(
                 size: trackpadSize,
                 keyWidth: ContentView.baseKeyWidthMM,
@@ -291,11 +297,10 @@ final class GlassToKeyController: ObservableObject {
                 return stored
             }
         }
-        return CustomButtonDefaults.defaultButtons(
-            trackpadWidth: ContentView.trackpadWidthMM,
-            trackpadHeight: ContentView.trackpadHeightMM,
-            thumbAnchorsMM: ContentView.ThumbAnchorsMM
-        )
+        if let bundled = bundledDefaultCustomButtons()?[layout.rawValue] {
+            return bundled[viewModel.activeLayer] ?? []
+        }
+        return []
     }
 
     private func loadKeyMappings(for layout: TrackpadLayoutPreset) -> LayeredKeyMappings {
@@ -338,9 +343,13 @@ final class GlassToKeyController: ObservableObject {
         return nil
     }
 
+    private func bundledDefaultCustomButtons() -> [String: [Int: [CustomButton]]]? {
+        Self.bundledDefaultProfile()?.customButtonsByLayout
+    }
+
     private func resolvedLayoutPreset() -> TrackpadLayoutPreset {
         let stored = UserDefaults.standard.string(forKey: GlassToKeyDefaultsKeys.layoutPreset)
-        return TrackpadLayoutPreset(rawValue: stored ?? "") ?? .sixByThree
+        return TrackpadLayoutPreset.resolveByNameOrDefault(stored)
     }
 
     private func resolvedColumnSettings(

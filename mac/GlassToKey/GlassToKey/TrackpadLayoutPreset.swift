@@ -1,21 +1,43 @@
 import CoreGraphics
 
 enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
-    case none = "None"
+    case blank = "Blank"
     case sixByThree = "6x3"
     case sixByFour = "6x4"
     case fiveByThree = "5x3"
     case fiveByFour = "5x4"
-    case mobileOrtho12x4 = "Mobile Ortho 12x4"
+    case mobileOrtho12x4 = "mobile-ortho-12x4"
+    case mobile = "mobile"
+
+    static let allCases: [TrackpadLayoutPreset] = [
+        .blank,
+        .sixByThree,
+        .sixByFour,
+        .fiveByThree,
+        .fiveByFour,
+        .mobileOrtho12x4,
+        .mobile
+    ]
+
+    static let selectableCases: [TrackpadLayoutPreset] = [
+        .blank,
+        .sixByThree,
+        .sixByFour,
+        .fiveByThree,
+        .fiveByFour,
+        .mobileOrtho12x4
+    ]
 
     var id: String { rawValue }
 
     var displayName: String {
         switch self {
-        case .none:
-            return "Blank"
+        case .blank:
+            return rawValue
         case .mobileOrtho12x4:
             return "Planck"
+        case .mobile:
+            return "Mobile"
         default:
             return rawValue
         }
@@ -29,7 +51,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return 5
         case .mobileOrtho12x4:
             return 12
-        case .none:
+        case .mobile:
+            return 10
+        case .blank:
             return 0
         }
     }
@@ -38,9 +62,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         switch self {
         case .sixByThree, .fiveByThree:
             return 3
-        case .sixByFour, .fiveByFour, .mobileOrtho12x4:
+        case .sixByFour, .fiveByFour, .mobileOrtho12x4, .mobile:
             return 4
-        case .none:
+        case .blank:
             return 0
         }
     }
@@ -59,7 +83,9 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return Self.columnAnchors5FromSixTakeFirst
         case .mobileOrtho12x4:
             return Self.columnAnchors12
-        case .none:
+        case .mobile:
+            return Self.columnAnchors10
+        case .blank:
             return []
         }
     }
@@ -76,14 +102,16 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
             return Self.rightLabels6x4.map { Array($0.prefix(self.columns)) }
         case .mobileOrtho12x4:
             return Self.rightLabels12x4
-        case .none:
+        case .mobile:
+            return Self.rightLabelsMobile
+        case .blank:
             return []
         }
     }
 
     var leftLabels: [[String]] {
         switch self {
-        case .mobileOrtho12x4:
+        case .mobileOrtho12x4, .mobile:
             return []
         default:
             return Self.mirrored(rightLabels)
@@ -92,7 +120,7 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
 
     var blankLeftSide: Bool {
         switch self {
-        case .mobileOrtho12x4:
+        case .mobileOrtho12x4, .mobile:
             return true
         default:
             return false
@@ -100,7 +128,32 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     }
 
     var allowsColumnSettings: Bool {
-        hasGrid
+        switch self {
+        case .mobile:
+            return false
+        default:
+            return hasGrid
+        }
+    }
+
+    static func resolveByName(_ name: String?) -> TrackpadLayoutPreset? {
+        guard let trimmed = name?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !trimmed.isEmpty else {
+            return nil
+        }
+
+        switch trimmed.lowercased() {
+        case "blank", "none":
+            return .blank
+        case "mobile-ortho-12x4", "mobile ortho 12x4":
+            return .mobileOrtho12x4
+        default:
+            return allCases.first { $0.rawValue.caseInsensitiveCompare(trimmed) == .orderedSame }
+        }
+    }
+
+    static func resolveByNameOrDefault(_ name: String?) -> TrackpadLayoutPreset {
+        resolveByName(name) ?? .sixByThree
     }
 
     var allowHoldBindings: Bool {
@@ -138,6 +191,19 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         CGPoint(x: 138.0, y: 10.0)
     ]
 
+    private static let columnAnchors10: [CGPoint] = [
+        CGPoint(x: 8.0, y: 10.0),
+        CGPoint(x: 22.0, y: 10.0),
+        CGPoint(x: 36.0, y: 10.0),
+        CGPoint(x: 50.0, y: 10.0),
+        CGPoint(x: 64.0, y: 10.0),
+        CGPoint(x: 78.0, y: 10.0),
+        CGPoint(x: 92.0, y: 10.0),
+        CGPoint(x: 106.0, y: 10.0),
+        CGPoint(x: 120.0, y: 10.0),
+        CGPoint(x: 134.0, y: 10.0)
+    ]
+
     private static let rightLabels6x3: [[String]] = [
         ["Y", "U", "I", "O", "P", "Back"],
         ["H", "J", "K", "L", ";", "Ret"],
@@ -156,5 +222,12 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
         ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P", "[", "]"],
         ["A", "S", "D", "F", "G", "H", "J", "K", "L", ";", "'", "Ret"],
         ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "/", "Shift", "Space"]
+    ]
+
+    private static let rightLabelsMobile: [[String]] = [
+        ["Q", "W", "E", "R", "T", "Y", "U", "I", "O", "P"],
+        ["A", "S", "D", "F", "G", "H", "J", "K", "L", "Ret"],
+        ["Z", "X", "C", "V", "B", "N", "M", ",", ".", "Back"],
+        ["Space"]
     ]
 }

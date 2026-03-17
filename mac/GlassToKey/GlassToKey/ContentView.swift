@@ -1281,7 +1281,7 @@ struct ContentView: View {
                         Text("Layout")
                     } field: {
                         Picker("", selection: layoutSelection) {
-                            ForEach(TrackpadLayoutPreset.allCases) { preset in
+                            ForEach(TrackpadLayoutPreset.selectableCases) { preset in
                                 Text(preset.displayName).tag(preset)
                             }
                         }
@@ -3372,7 +3372,10 @@ struct ContentView: View {
         )
     }
 
-    private static func makeMobileKeyLayout(size: CGSize) -> ContentViewModel.Layout {
+    static func makeMobileKeyLayout(
+        size: CGSize,
+        keyGeometryOverrides: KeyGeometryOverrides = [:]
+    ) -> ContentViewModel.Layout {
         let scaleX = size.width / Self.trackpadWidthMM
         let scaleY = size.height / Self.trackpadHeightMM
         var keyRows: [[CGRect]] = []
@@ -3390,8 +3393,17 @@ struct ContentView: View {
             keyRows.append(scaledRects)
             currentY += rowHeight + mobileRowSpacingMM
         }
+
+        var normalizedKeyRects = keyRows.map { row in
+            row.map { normalizedRect(for: $0, in: size) }
+        }
+        applyKeyGeometryOverrides(
+            keyRects: &normalizedKeyRects,
+            keyGeometryOverrides: keyGeometryOverrides,
+            mirrored: false
+        )
         return ContentViewModel.Layout(
-            keyRects: keyRows,
+            normalizedKeyRects: normalizedKeyRects,
             trackpadSize: size,
             allowHoldBindings: false
         )
@@ -3722,6 +3734,22 @@ struct ContentView: View {
             )
             return
         }
+        if layoutOption == .mobile {
+            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
+            rightLayout = ContentView.makeMobileKeyLayout(
+                size: trackpadSize,
+                keyGeometryOverrides: keyGeometryOverrides
+            )
+            viewModel.configureLayouts(
+                leftLayout: leftLayout,
+                rightLayout: rightLayout,
+                leftLabels: leftGridLabels,
+                rightLabels: rightGridLabels,
+                trackpadSize: trackpadSize,
+                trackpadWidthMm: Self.trackpadWidthMM
+            )
+            return
+        }
         if layoutOption.blankLeftSide {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentView.makeKeyLayout(
@@ -3788,7 +3816,7 @@ struct ContentView: View {
         viewModel.setStatusVisualsEnabled(!editModeEnabled)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
-        let resolvedLayout = TrackpadLayoutPreset(rawValue: storedLayoutPreset) ?? .sixByThree
+        let resolvedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(storedLayoutPreset)
         layoutOption = resolvedLayout
         selectedGridKey = nil
         selectedButtonID = nil
@@ -4170,15 +4198,28 @@ struct ContentView: View {
         return [:]
     }
 
+    private func bundledDefaultCustomButtons() -> [String: [Int: [CustomButton]]]? {
+        guard let url = Bundle.main.url(
+            forResource: "GLASSTOKEY_DEFAULT_KEYMAP",
+            withExtension: "json"
+        ) else {
+            return nil
+        }
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        guard let profile = PortableKeymapInterop.decodeBundledDefaultProfile(from: data) else {
+            return nil
+        }
+        return profile.customButtonsByLayout
+    }
+
     private func loadCustomButtons(for layout: TrackpadLayoutPreset) -> [CustomButton] {
         if let stored = LayoutCustomButtonStorage.buttons(for: layout, from: storedCustomButtonsData) {
             return stored
         }
-        return CustomButtonDefaults.defaultButtons(
-            trackpadWidth: Self.trackpadWidthMM,
-            trackpadHeight: Self.trackpadHeightMM,
-            thumbAnchorsMM: Self.ThumbAnchorsMM
-        )
+        if let bundled = bundledDefaultCustomButtons()?[layout.rawValue] {
+            return bundled[viewModel.activeLayer] ?? []
+        }
+        return []
     }
 
     private func saveKeyMappings(_ mappings: LayoutLayeredKeyMappings) {
