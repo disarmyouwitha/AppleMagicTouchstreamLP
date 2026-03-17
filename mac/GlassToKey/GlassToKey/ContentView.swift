@@ -4596,7 +4596,7 @@ struct ContentView: View {
 
     private func defaultKeyMapping(for label: String) -> KeyMapping? {
         guard let primary = KeyActionCatalog.action(for: label) else { return nil }
-        return KeyMapping(primary: primary, hold: KeyActionCatalog.holdAction(for: label))
+        return KeyMapping(primary: primary, hold: nil)
     }
 
     private var layerSelectionBinding: Binding<Int> {

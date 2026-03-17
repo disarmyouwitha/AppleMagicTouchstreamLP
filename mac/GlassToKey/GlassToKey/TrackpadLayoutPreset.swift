@@ -145,10 +145,10 @@ enum TrackpadLayoutPreset: String, CaseIterable, Identifiable {
     ]
 
     private static let rightLabels6x4: [[String]] = [
-        ["Y", "U", "I", "O", "P", "Back"],
+        ["6", "7", "8", "9", "0", "Back"],
+        ["Y", "U", "I", "O", "P", "]"],
         ["H", "J", "K", "L", ";", "Ret"],
-        ["N", "M", ",", ".", "/", "Ret"],
-        ["Ctrl", "Option", "Cmd", "Space", "Cmd", "Option"]
+        ["N", "M", ",", ".", "/", "Ret"]
     ]
 
     private static let rightLabels12x4: [[String]] = [

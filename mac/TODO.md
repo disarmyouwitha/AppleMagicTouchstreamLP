@@ -1,11 +1,10 @@
 ## TODO
-- If I wanted to build a Universal import/export between windows_linux (shared core) and mac are there any fields missing, or missaligned that would cause trouble with that plan?
----
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
 -------
+- Shift on same hand is broken.. 2-finger hold/2-finger tap related??
 - right click bugs bc 3 finger drag, lets fix!
     
 ## TODO:
