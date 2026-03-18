@@ -35,6 +35,10 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("left_edge_down", "edges", "Left Edge Down", "None"),
         new GestureBindingDefinition("right_edge_up", "edges", "Right Edge Up", "None"),
         new GestureBindingDefinition("right_edge_down", "edges", "Right Edge Down", "None"),
+        new GestureBindingDefinition("top_edge_left", "edges", "Top Edge Left", "None"),
+        new GestureBindingDefinition("top_edge_right", "edges", "Top Edge Right", "None"),
+        new GestureBindingDefinition("bottom_edge_left", "edges", "Bottom Edge Left", "None"),
+        new GestureBindingDefinition("bottom_edge_right", "edges", "Bottom Edge Right", "None"),
 
         new GestureBindingDefinition("three_finger_swipe_left", "swipes", "3-finger swipe left", "None"),
         new GestureBindingDefinition("three_finger_swipe_right", "swipes", "3-finger swipe right", "None"),
@@ -183,6 +187,10 @@ public static class GestureBindingCatalog
             "left_edge_down" => settings.LeftEdgeDownAction,
             "right_edge_up" => settings.RightEdgeUpAction,
             "right_edge_down" => settings.RightEdgeDownAction,
+            "top_edge_left" => settings.TopEdgeLeftAction,
+            "top_edge_right" => settings.TopEdgeRightAction,
+            "bottom_edge_left" => settings.BottomEdgeLeftAction,
+            "bottom_edge_right" => settings.BottomEdgeRightAction,
             "three_finger_swipe_left" => settings.ThreeFingerSwipeLeftAction,
             "three_finger_swipe_right" => settings.ThreeFingerSwipeRightAction,
             "three_finger_swipe_up" => settings.ThreeFingerSwipeUpAction,
@@ -242,6 +250,18 @@ public static class GestureBindingCatalog
                 return;
             case "right_edge_down":
                 settings.RightEdgeDownAction = action;
+                return;
+            case "top_edge_left":
+                settings.TopEdgeLeftAction = action;
+                return;
+            case "top_edge_right":
+                settings.TopEdgeRightAction = action;
+                return;
+            case "bottom_edge_left":
+                settings.BottomEdgeLeftAction = action;
+                return;
+            case "bottom_edge_right":
+                settings.BottomEdgeRightAction = action;
                 return;
             case "three_finger_swipe_left":
                 settings.ThreeFingerSwipeLeftAction = action;

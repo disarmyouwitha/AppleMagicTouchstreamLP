@@ -3401,6 +3401,11 @@ internal static class SelfTestRunner
         ushort topY = (ushort)Math.Clamp((int)Math.Round(0.08 * maxY), 1, maxY - 1);
         ushort midY = (ushort)Math.Clamp((int)Math.Round(0.50 * maxY), 1, maxY - 1);
         ushort bottomY = (ushort)Math.Clamp((int)Math.Round(0.92 * maxY), 1, maxY - 1);
+        ushort topEdgeY = 1;
+        ushort bottomEdgeY = (ushort)Math.Max(1, maxY - 1);
+        ushort innerLeftX = (ushort)Math.Clamp((int)Math.Round(0.18 * maxX), 1, maxX - 1);
+        ushort centerX = (ushort)Math.Clamp((int)Math.Round(0.50 * maxX), 1, maxX - 1);
+        ushort innerRightX = (ushort)Math.Clamp((int)Math.Round(0.82 * maxX), 1, maxX - 1);
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         BindingIndex leftIndex = BindingIndex.Build(leftLayout, TrackpadSide.Left, 0, keymap, snapRadiusFraction: 0.0);
@@ -3424,11 +3429,16 @@ internal static class SelfTestRunner
             LeftEdgeUpAction = "B",
             RightEdgeDownAction = "A",
             RightEdgeUpAction = "B",
+            TopEdgeLeftAction = "A",
+            TopEdgeRightAction = "B",
+            BottomEdgeLeftAction = "A",
+            BottomEdgeRightAction = "B",
             SnapRadiusPercent = 0.0
         };
         InputFrame allUp = MakeFrame(contactCount: 0);
 
         void RunScenario(
+            TrackpadSide scenarioSide,
             KeymapStore scenarioKeymap,
             KeyLayout scenarioLeftLayout,
             KeyLayout scenarioRightLayout,
@@ -3449,7 +3459,7 @@ internal static class SelfTestRunner
             long now = 0;
             for (int i = 0; i < frames.Length; i++)
             {
-                core.ProcessFrame(TrackpadSide.Left, in frames[i], scenarioMaxX, scenarioMaxY, now);
+                core.ProcessFrame(scenarioSide, in frames[i], scenarioMaxX, scenarioMaxY, now);
                 TouchProcessorSnapshot snapshot = core.Snapshot(now);
                 snapshots.Add(snapshot.ToSummary());
 
@@ -3466,6 +3476,7 @@ internal static class SelfTestRunner
 
         bool ExpectSingleTap(
             string scenarioName,
+            TrackpadSide scenarioSide,
             InputFrame[] frames,
             ushort expectedVirtualKey,
             KeymapStore scenarioKeymap,
@@ -3477,6 +3488,7 @@ internal static class SelfTestRunner
             out string reason)
         {
             RunScenario(
+                scenarioSide,
                 scenarioKeymap,
                 scenarioLeftLayout,
                 scenarioRightLayout,
@@ -3500,6 +3512,7 @@ internal static class SelfTestRunner
 
         bool ExpectNoEvents(
             string scenarioName,
+            TrackpadSide scenarioSide,
             InputFrame[] frames,
             KeymapStore scenarioKeymap,
             KeyLayout scenarioLeftLayout,
@@ -3510,6 +3523,7 @@ internal static class SelfTestRunner
             out string reason)
         {
             RunScenario(
+                scenarioSide,
                 scenarioKeymap,
                 scenarioLeftLayout,
                 scenarioRightLayout,
@@ -3532,6 +3546,7 @@ internal static class SelfTestRunner
 
         if (!ExpectSingleTap(
                 "left-edge-down",
+                TrackpadSide.Left,
                 new[]
                 {
                     MakeFrame(contactCount: 1, id0: 300, x0: leftX, y0: topY),
@@ -3553,6 +3568,7 @@ internal static class SelfTestRunner
 
         if (!ExpectSingleTap(
                 "left-edge-up",
+                TrackpadSide.Left,
                 new[]
                 {
                     MakeFrame(contactCount: 1, id0: 301, x0: leftX, y0: bottomY),
@@ -3574,6 +3590,7 @@ internal static class SelfTestRunner
 
         if (!ExpectSingleTap(
                 "right-edge-down",
+                TrackpadSide.Left,
                 new[]
                 {
                     MakeFrame(contactCount: 1, id0: 302, x0: rightX, y0: topY),
@@ -3595,6 +3612,7 @@ internal static class SelfTestRunner
 
         if (!ExpectSingleTap(
                 "right-edge-up",
+                TrackpadSide.Left,
                 new[]
                 {
                     MakeFrame(contactCount: 1, id0: 303, x0: rightX, y0: bottomY),
@@ -3616,6 +3634,7 @@ internal static class SelfTestRunner
 
         if (!ExpectNoEvents(
                 "left-edge-drift-cancel",
+                TrackpadSide.Left,
                 new[]
                 {
                     MakeFrame(contactCount: 1, id0: 304, x0: leftX, y0: topY),
@@ -3623,6 +3642,94 @@ internal static class SelfTestRunner
                     MakeFrame(contactCount: 1, id0: 304, x0: leftDriftX, y0: bottomY),
                     allUp
                 },
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "top-edge-left",
+                TrackpadSide.Right,
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 305, x0: innerRightX, y0: topEdgeY),
+                    MakeFrame(contactCount: 1, id0: 305, x0: centerX, y0: topEdgeY),
+                    MakeFrame(contactCount: 1, id0: 305, x0: innerLeftX, y0: topEdgeY),
+                    allUp
+                },
+                0x41,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "top-edge-right",
+                TrackpadSide.Right,
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 306, x0: innerLeftX, y0: topEdgeY),
+                    MakeFrame(contactCount: 1, id0: 306, x0: centerX, y0: topEdgeY),
+                    MakeFrame(contactCount: 1, id0: 306, x0: innerRightX, y0: topEdgeY),
+                    allUp
+                },
+                0x42,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "bottom-edge-left",
+                TrackpadSide.Right,
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 307, x0: innerRightX, y0: bottomEdgeY),
+                    MakeFrame(contactCount: 1, id0: 307, x0: centerX, y0: bottomEdgeY),
+                    MakeFrame(contactCount: 1, id0: 307, x0: innerLeftX, y0: bottomEdgeY),
+                    allUp
+                },
+                0x41,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "bottom-edge-right",
+                TrackpadSide.Right,
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 308, x0: innerLeftX, y0: bottomEdgeY),
+                    MakeFrame(contactCount: 1, id0: 308, x0: centerX, y0: bottomEdgeY),
+                    MakeFrame(contactCount: 1, id0: 308, x0: innerRightX, y0: bottomEdgeY),
+                    allUp
+                },
+                0x42,
                 keymap,
                 leftLayout,
                 rightLayout,

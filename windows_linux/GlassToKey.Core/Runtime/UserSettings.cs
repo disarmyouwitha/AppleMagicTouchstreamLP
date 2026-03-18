@@ -46,6 +46,10 @@ public sealed class UserSettings
     public string LeftEdgeDownAction { get; set; } = "None";
     public string RightEdgeUpAction { get; set; } = "None";
     public string RightEdgeDownAction { get; set; } = "None";
+    public string TopEdgeLeftAction { get; set; } = "None";
+    public string TopEdgeRightAction { get; set; } = "None";
+    public string BottomEdgeLeftAction { get; set; } = "None";
+    public string BottomEdgeRightAction { get; set; } = "None";
     public string ThreeFingerClickAction { get; set; } = "None";
     public string FourFingerClickAction { get; set; } = "None";
     public string OuterCornersAction { get; set; } = "None";
@@ -141,6 +145,10 @@ public sealed class UserSettings
         LeftEdgeDownAction = source.LeftEdgeDownAction;
         RightEdgeUpAction = source.RightEdgeUpAction;
         RightEdgeDownAction = source.RightEdgeDownAction;
+        TopEdgeLeftAction = source.TopEdgeLeftAction;
+        TopEdgeRightAction = source.TopEdgeRightAction;
+        BottomEdgeLeftAction = source.BottomEdgeLeftAction;
+        BottomEdgeRightAction = source.BottomEdgeRightAction;
         ThreeFingerClickAction = source.ThreeFingerClickAction;
         FourFingerClickAction = source.FourFingerClickAction;
         OuterCornersAction = source.OuterCornersAction;

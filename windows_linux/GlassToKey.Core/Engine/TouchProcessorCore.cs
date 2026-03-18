@@ -167,6 +167,10 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _leftEdgeDownGestureAction = EngineKeyAction.None;
     private EngineKeyAction _rightEdgeUpGestureAction = EngineKeyAction.None;
     private EngineKeyAction _rightEdgeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topEdgeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topEdgeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomEdgeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomEdgeRightGestureAction = EngineKeyAction.None;
     private EngineKeyAction _threeFingerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _fourFingerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
@@ -270,7 +274,11 @@ internal sealed class TouchProcessorCore
         if (_leftEdgeUpGestureAction.Kind == EngineActionKind.None &&
             _leftEdgeDownGestureAction.Kind == EngineActionKind.None &&
             _rightEdgeUpGestureAction.Kind == EngineActionKind.None &&
-            _rightEdgeDownGestureAction.Kind == EngineActionKind.None)
+            _rightEdgeDownGestureAction.Kind == EngineActionKind.None &&
+            _topEdgeLeftGestureAction.Kind == EngineActionKind.None &&
+            _topEdgeRightGestureAction.Kind == EngineActionKind.None &&
+            _bottomEdgeLeftGestureAction.Kind == EngineActionKind.None &&
+            _bottomEdgeRightGestureAction.Kind == EngineActionKind.None)
         {
             _edgeSlideGestureLeft = default;
             _edgeSlideGestureRight = default;
@@ -3548,7 +3556,7 @@ internal sealed class TouchProcessorCore
         if (!gesture.Active)
         {
             if (IsEdgeSlideBlockedAnchor(side, xNorm, yNorm) ||
-                !TryClassifyEdgeSlideZone(xNorm, out EdgeSlideZone zone) ||
+                !TryClassifyEdgeSlideZone(xNorm, yNorm, out EdgeSlideZone zone) ||
                 !IsEdgeSlideZoneEnabled(zone))
             {
                 return;
@@ -3584,7 +3592,7 @@ internal sealed class TouchProcessorCore
         gesture.MaxYNorm = Math.Max(gesture.MaxYNorm, yNorm);
 
         if (IsEdgeSlideBlockedAnchor(side, xNorm, yNorm) ||
-            !IsWithinEdgeSlideZone(gesture.Zone, xNorm) ||
+            !IsWithinEdgeSlideZone(gesture.Zone, xNorm, yNorm) ||
             GetEdgeSlideLateralTravelMm(in gesture) > EdgeSlideMaxLateralTravelMm ||
             (nowTicks - gesture.StartedTicks) > MsToTicks(EdgeSlideMaxDurationMs))
         {
@@ -3593,7 +3601,7 @@ internal sealed class TouchProcessorCore
         }
 
         if (!gesture.PriorityArmed &&
-            TryMatchEdgeSlide(in gesture, minVerticalTravelMm: EdgeSlideArmDistanceMm, out _))
+            TryMatchEdgeSlide(in gesture, minPrimaryTravelMm: EdgeSlideArmDistanceMm, out _))
         {
             gesture.PriorityArmed = true;
         }
@@ -3808,7 +3816,11 @@ internal sealed class TouchProcessorCore
         return _leftEdgeUpGestureAction.Kind != EngineActionKind.None ||
                _leftEdgeDownGestureAction.Kind != EngineActionKind.None ||
                _rightEdgeUpGestureAction.Kind != EngineActionKind.None ||
-               _rightEdgeDownGestureAction.Kind != EngineActionKind.None;
+               _rightEdgeDownGestureAction.Kind != EngineActionKind.None ||
+               _topEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+               _topEdgeRightGestureAction.Kind != EngineActionKind.None ||
+               _bottomEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+               _bottomEdgeRightGestureAction.Kind != EngineActionKind.None;
     }
 
     private bool IsEdgeSlideBlockedAnchor(TrackpadSide side, double xNorm, double yNorm)
@@ -3827,7 +3839,7 @@ internal sealed class TouchProcessorCore
     private bool ShouldDeferPressForEdgeSlideCandidate(TrackpadSide side, double xNorm, double yNorm)
     {
         return AreEdgeSlideGesturesEnabled() &&
-               TryClassifyEdgeSlideZone(xNorm, out EdgeSlideZone zone) &&
+               TryClassifyEdgeSlideZone(xNorm, yNorm, out EdgeSlideZone zone) &&
                IsEdgeSlideZoneEnabled(zone) &&
                !IsEdgeSlideBlockedAnchor(side, xNorm, yNorm);
     }
@@ -3890,6 +3902,10 @@ internal sealed class TouchProcessorCore
             (EdgeSlideZone.Left, EdgeSlideDirection.Down) => _leftEdgeDownGestureAction,
             (EdgeSlideZone.Right, EdgeSlideDirection.Up) => _rightEdgeUpGestureAction,
             (EdgeSlideZone.Right, EdgeSlideDirection.Down) => _rightEdgeDownGestureAction,
+            (EdgeSlideZone.Top, EdgeSlideDirection.Left) => _topEdgeLeftGestureAction,
+            (EdgeSlideZone.Top, EdgeSlideDirection.Right) => _topEdgeRightGestureAction,
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Left) => _bottomEdgeLeftGestureAction,
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Right) => _bottomEdgeRightGestureAction,
             _ => EngineKeyAction.None
         };
     }
@@ -3989,7 +4005,7 @@ internal sealed class TouchProcessorCore
         return TryMatchEdgeSlide(in gesture, EdgeSlideTriggerDistanceMm, out direction);
     }
 
-    private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, double minVerticalTravelMm, out EdgeSlideDirection direction)
+    private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, double minPrimaryTravelMm, out EdgeSlideDirection direction)
     {
         direction = EdgeSlideDirection.None;
         if (!gesture.Active || !gesture.CandidateValid)
@@ -3997,13 +4013,13 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        double dyMm = (gesture.LastYNorm - gesture.StartYNorm) * _config.TrackpadHeightMm;
-        if (Math.Abs(dyMm) < 0.001)
+        double primaryDeltaMm = GetEdgeSlidePrimaryDeltaMm(in gesture);
+        if (Math.Abs(primaryDeltaMm) < 0.001)
         {
             return false;
         }
 
-        direction = dyMm < 0 ? EdgeSlideDirection.Up : EdgeSlideDirection.Down;
+        direction = ResolveEdgeSlideDirection(gesture.Zone, primaryDeltaMm);
         EngineKeyAction action = GetEdgeSlideGestureAction(gesture.Zone, direction);
         if (action.Kind == EngineActionKind.None)
         {
@@ -4011,11 +4027,11 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        double verticalTravelMm = GetEdgeSlideVerticalTravelMm(in gesture, direction);
+        double primaryTravelMm = GetEdgeSlidePrimaryTravelMm(in gesture, direction);
         double lateralTravelMm = GetEdgeSlideLateralTravelMm(in gesture);
-        if (verticalTravelMm < minVerticalTravelMm ||
-            verticalTravelMm < (lateralTravelMm * EdgeSlideDirectionDominanceRatio) ||
-            !IsWithinEdgeSlideZone(gesture.Zone, gesture.LastXNorm))
+        if (primaryTravelMm < minPrimaryTravelMm ||
+            primaryTravelMm < (lateralTravelMm * EdgeSlideDirectionDominanceRatio) ||
+            !IsWithinEdgeSlideZone(gesture.Zone, gesture.LastXNorm, gesture.LastYNorm))
         {
             direction = EdgeSlideDirection.None;
             return false;
@@ -4024,21 +4040,60 @@ internal sealed class TouchProcessorCore
         return true;
     }
 
-    private double GetEdgeSlideVerticalTravelMm(in EdgeSlideGesture gesture, EdgeSlideDirection direction)
+    private double GetEdgeSlidePrimaryDeltaMm(in EdgeSlideGesture gesture)
     {
-        double verticalNorm = direction switch
+        return gesture.Zone switch
+        {
+            EdgeSlideZone.Left or EdgeSlideZone.Right =>
+                (gesture.LastYNorm - gesture.StartYNorm) * _config.TrackpadHeightMm,
+            EdgeSlideZone.Top or EdgeSlideZone.Bottom =>
+                (gesture.LastXNorm - gesture.StartXNorm) * _config.TrackpadWidthMm,
+            _ => 0.0
+        };
+    }
+
+    private static EdgeSlideDirection ResolveEdgeSlideDirection(EdgeSlideZone zone, double primaryDeltaMm)
+    {
+        if (zone is EdgeSlideZone.Left or EdgeSlideZone.Right)
+        {
+            return primaryDeltaMm < 0 ? EdgeSlideDirection.Up : EdgeSlideDirection.Down;
+        }
+
+        if (zone is EdgeSlideZone.Top or EdgeSlideZone.Bottom)
+        {
+            return primaryDeltaMm < 0 ? EdgeSlideDirection.Left : EdgeSlideDirection.Right;
+        }
+
+        return EdgeSlideDirection.None;
+    }
+
+    private double GetEdgeSlidePrimaryTravelMm(in EdgeSlideGesture gesture, EdgeSlideDirection direction)
+    {
+        double primaryNorm = direction switch
         {
             EdgeSlideDirection.Up => gesture.StartYNorm - gesture.MinYNorm,
             EdgeSlideDirection.Down => gesture.MaxYNorm - gesture.StartYNorm,
+            EdgeSlideDirection.Left => gesture.StartXNorm - gesture.MinXNorm,
+            EdgeSlideDirection.Right => gesture.MaxXNorm - gesture.StartXNorm,
             _ => 0.0
         };
 
-        return Math.Max(0.0, verticalNorm * _config.TrackpadHeightMm);
+        double axisMm = gesture.Zone is EdgeSlideZone.Left or EdgeSlideZone.Right
+            ? _config.TrackpadHeightMm
+            : _config.TrackpadWidthMm;
+        return Math.Max(0.0, primaryNorm * axisMm);
     }
 
     private double GetEdgeSlideLateralTravelMm(in EdgeSlideGesture gesture)
     {
-        return Math.Max(0.0, (gesture.MaxXNorm - gesture.MinXNorm) * _config.TrackpadWidthMm);
+        return gesture.Zone switch
+        {
+            EdgeSlideZone.Left or EdgeSlideZone.Right =>
+                Math.Max(0.0, (gesture.MaxXNorm - gesture.MinXNorm) * _config.TrackpadWidthMm),
+            EdgeSlideZone.Top or EdgeSlideZone.Bottom =>
+                Math.Max(0.0, (gesture.MaxYNorm - gesture.MinYNorm) * _config.TrackpadHeightMm),
+            _ => 0.0
+        };
     }
 
     private bool IsEdgeSlideZoneEnabled(EdgeSlideZone zone)
@@ -4049,34 +4104,65 @@ internal sealed class TouchProcessorCore
                                   _leftEdgeDownGestureAction.Kind != EngineActionKind.None,
             EdgeSlideZone.Right => _rightEdgeUpGestureAction.Kind != EngineActionKind.None ||
                                    _rightEdgeDownGestureAction.Kind != EngineActionKind.None,
+            EdgeSlideZone.Top => _topEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+                                 _topEdgeRightGestureAction.Kind != EngineActionKind.None,
+            EdgeSlideZone.Bottom => _bottomEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+                                    _bottomEdgeRightGestureAction.Kind != EngineActionKind.None,
             _ => false
         };
     }
 
-    private static bool TryClassifyEdgeSlideZone(double xNorm, out EdgeSlideZone zone)
+    private static bool TryClassifyEdgeSlideZone(double xNorm, double yNorm, out EdgeSlideZone zone)
     {
+        zone = EdgeSlideZone.None;
+        double bestDistance = double.PositiveInfinity;
         if (xNorm <= EdgeSlideStartThreshold)
         {
+            bestDistance = xNorm;
             zone = EdgeSlideZone.Left;
-            return true;
         }
 
         if (xNorm >= (1.0 - EdgeSlideStartThreshold))
         {
-            zone = EdgeSlideZone.Right;
-            return true;
+            double distance = 1.0 - xNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Right;
+            }
         }
 
-        zone = EdgeSlideZone.None;
-        return false;
+        if (yNorm <= EdgeSlideStartThreshold)
+        {
+            double distance = yNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Top;
+            }
+        }
+
+        if (yNorm >= (1.0 - EdgeSlideStartThreshold))
+        {
+            double distance = 1.0 - yNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Bottom;
+            }
+        }
+
+        return zone != EdgeSlideZone.None;
     }
 
-    private static bool IsWithinEdgeSlideZone(EdgeSlideZone zone, double xNorm)
+    private static bool IsWithinEdgeSlideZone(EdgeSlideZone zone, double xNorm, double yNorm)
     {
         return zone switch
         {
             EdgeSlideZone.Left => xNorm <= EdgeSlideStayThreshold,
             EdgeSlideZone.Right => xNorm >= (1.0 - EdgeSlideStayThreshold),
+            EdgeSlideZone.Top => yNorm <= EdgeSlideStayThreshold,
+            EdgeSlideZone.Bottom => yNorm >= (1.0 - EdgeSlideStayThreshold),
             _ => false
         };
     }
@@ -4944,6 +5030,10 @@ internal sealed class TouchProcessorCore
         _leftEdgeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.LeftEdgeDownAction);
         _rightEdgeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.RightEdgeUpAction);
         _rightEdgeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.RightEdgeDownAction);
+        _topEdgeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopEdgeLeftAction);
+        _topEdgeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopEdgeRightAction);
+        _bottomEdgeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomEdgeLeftAction);
+        _bottomEdgeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomEdgeRightAction);
         _threeFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerClickAction);
         _fourFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerClickAction);
         _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
@@ -5004,6 +5094,10 @@ internal sealed class TouchProcessorCore
             LeftEdgeDownAction = NormalizeGestureAction(config.LeftEdgeDownAction, "None"),
             RightEdgeUpAction = NormalizeGestureAction(config.RightEdgeUpAction, "None"),
             RightEdgeDownAction = NormalizeGestureAction(config.RightEdgeDownAction, "None"),
+            TopEdgeLeftAction = NormalizeGestureAction(config.TopEdgeLeftAction, "None"),
+            TopEdgeRightAction = NormalizeGestureAction(config.TopEdgeRightAction, "None"),
+            BottomEdgeLeftAction = NormalizeGestureAction(config.BottomEdgeLeftAction, "None"),
+            BottomEdgeRightAction = NormalizeGestureAction(config.BottomEdgeRightAction, "None"),
             ThreeFingerClickAction = NormalizeGestureAction(config.ThreeFingerClickAction, "None"),
             FourFingerClickAction = NormalizeGestureAction(config.FourFingerClickAction, "None"),
             OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
@@ -5536,14 +5630,18 @@ internal sealed class TouchProcessorCore
     {
         None = 0,
         Left = 1,
-        Right = 2
+        Right = 2,
+        Top = 3,
+        Bottom = 4
     }
 
     private enum EdgeSlideDirection : byte
     {
         None = 0,
         Up = 1,
-        Down = 2
+        Down = 2,
+        Left = 3,
+        Right = 4
     }
 
     private enum TriangleCorner : byte

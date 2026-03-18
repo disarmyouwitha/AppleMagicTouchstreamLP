@@ -275,6 +275,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftEdgeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         RightEdgeUpGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         RightEdgeDownGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopEdgeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopEdgeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomEdgeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomEdgeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         OuterCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         InnerCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         TopLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -556,6 +560,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string leftEdgeDownAction = NormalizeGestureActionForUi(_settings.LeftEdgeDownAction, "None");
         string rightEdgeUpAction = NormalizeGestureActionForUi(_settings.RightEdgeUpAction, "None");
         string rightEdgeDownAction = NormalizeGestureActionForUi(_settings.RightEdgeDownAction, "None");
+        string topEdgeLeftAction = NormalizeGestureActionForUi(_settings.TopEdgeLeftAction, "None");
+        string topEdgeRightAction = NormalizeGestureActionForUi(_settings.TopEdgeRightAction, "None");
+        string bottomEdgeLeftAction = NormalizeGestureActionForUi(_settings.BottomEdgeLeftAction, "None");
+        string bottomEdgeRightAction = NormalizeGestureActionForUi(_settings.BottomEdgeRightAction, "None");
         string outerCornersAction = NormalizeGestureActionForUi(_settings.OuterCornersAction, "None");
         string innerCornersAction = NormalizeGestureActionForUi(_settings.InnerCornersAction, "None");
         string topLeftTriangleAction = NormalizeGestureActionForUi(_settings.TopLeftTriangleAction, "None");
@@ -590,6 +598,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LeftEdgeDownAction = leftEdgeDownAction;
         _settings.RightEdgeUpAction = rightEdgeUpAction;
         _settings.RightEdgeDownAction = rightEdgeDownAction;
+        _settings.TopEdgeLeftAction = topEdgeLeftAction;
+        _settings.TopEdgeRightAction = topEdgeRightAction;
+        _settings.BottomEdgeLeftAction = bottomEdgeLeftAction;
+        _settings.BottomEdgeRightAction = bottomEdgeRightAction;
         _settings.OuterCornersAction = outerCornersAction;
         _settings.InnerCornersAction = innerCornersAction;
         _settings.TopLeftTriangleAction = topLeftTriangleAction;
@@ -624,6 +636,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftEdgeDownGestureCombo.SelectedValue = leftEdgeDownAction;
         RightEdgeUpGestureCombo.SelectedValue = rightEdgeUpAction;
         RightEdgeDownGestureCombo.SelectedValue = rightEdgeDownAction;
+        TopEdgeLeftGestureCombo.SelectedValue = topEdgeLeftAction;
+        TopEdgeRightGestureCombo.SelectedValue = topEdgeRightAction;
+        BottomEdgeLeftGestureCombo.SelectedValue = bottomEdgeLeftAction;
+        BottomEdgeRightGestureCombo.SelectedValue = bottomEdgeRightAction;
         OuterCornersGestureCombo.SelectedValue = outerCornersAction;
         InnerCornersGestureCombo.SelectedValue = innerCornersAction;
         TopLeftTriangleGestureCombo.SelectedValue = topLeftTriangleAction;
@@ -761,6 +777,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return LeftEdgeDownGestureCombo;
         yield return RightEdgeUpGestureCombo;
         yield return RightEdgeDownGestureCombo;
+        yield return TopEdgeLeftGestureCombo;
+        yield return TopEdgeRightGestureCombo;
+        yield return BottomEdgeLeftGestureCombo;
+        yield return BottomEdgeRightGestureCombo;
         yield return OuterCornersGestureCombo;
         yield return InnerCornersGestureCombo;
         yield return TopLeftTriangleGestureCombo;
@@ -1640,6 +1660,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LeftEdgeDownAction = ReadGestureActionSelection(LeftEdgeDownGestureCombo, "None");
         _settings.RightEdgeUpAction = ReadGestureActionSelection(RightEdgeUpGestureCombo, "None");
         _settings.RightEdgeDownAction = ReadGestureActionSelection(RightEdgeDownGestureCombo, "None");
+        _settings.TopEdgeLeftAction = ReadGestureActionSelection(TopEdgeLeftGestureCombo, "None");
+        _settings.TopEdgeRightAction = ReadGestureActionSelection(TopEdgeRightGestureCombo, "None");
+        _settings.BottomEdgeLeftAction = ReadGestureActionSelection(BottomEdgeLeftGestureCombo, "None");
+        _settings.BottomEdgeRightAction = ReadGestureActionSelection(BottomEdgeRightGestureCombo, "None");
         _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
         _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
         _settings.TopLeftTriangleAction = ReadGestureActionSelection(TopLeftTriangleGestureCombo, "None");

@@ -1,13 +1,5 @@
 ## Current:
-- Does BRIGHT_UP try to use normal brightness first before calling the script? on windows?
-
-New Gesture Category/collapsable `Edges`:
-- `Left Edge`: Slide one finger along the left edge.
-- `Right Edge`: Slide one finger along the right edge.
-- `Top Edge`: Slide one finger along the top edge. 
-- `Bottom Edge`: Slide one finger along the bottom edge.
-
-Do you need .atpcaps for these?
+- In `Gestures`: small textarea with [ms] placeholder text, that if above 0 it will repeat at that cadence? Please advise on the best UX for this.
 
 - New Gesture Category/collapsable: `Corners`:
 - (Should be distinct enough from Triangles to differentiate)
@@ -15,6 +7,10 @@ Do you need .atpcaps for these?
 - `Top Right`:
 - `Bottom Left`:
 - `Bottom Right`:
+- Add `Top-left Click` from `Clicks`
+- Add `Top-Right Click` from `Clicks`
+- Add `Botom-left Click` from `Clicks`
+- Add `Bottom-right Click` from `Clicks`
 
 Add more `Forced Click` options:
 - `Top Left`: Force Click in top-left corner (Forced Click 1)
@@ -23,6 +19,8 @@ Add more `Forced Click` options:
 - `Bottom Right`:
 - Add `3-Finger force click`, `4-Finger force click`
 - Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
+
+Move `Force Clicks` into `clicks`
 -------
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
 - 
@@ -61,29 +59,3 @@ Add more `Forced Click` options:
 
 # unrelated:
 - AI Tamagachi: something like a controlled openclaw.. It runs in the background and you take care of it and interact with it and feed it it will grow. As it grows, it can learn skills.. Maybe it starts to talk one day.. maybe it notices that the the user has a mic and it learns to listen? 
-
-
-# Unicode send??
-
-  Rework
-  If you want ñ to work regardless of Windows layout, the right rework is direct text injection, not
-  more AltGr logic.
-
-  What that would involve:
-
-  - Add a new action type for literal text, likely single-character first, instead of only VK/semantic
-    key actions.
-  - Extend parsing/storage/UI so a key can map to something like a text action rather than a shortcut
-    chord.
-  - Add a Windows dispatch path using Unicode SendInput instead of virtual-key/scancode injection.
-  - Decide semantics for hold/repeat. My recommendation: text actions should be tap-only at first.
-  - Add tests for parsing, engine dispatch, and Windows Unicode injection behavior.
-
-  In practice, Windows-only first is a moderate change, not huge. The existing system is VK/chord-
-  centric, so this is additive rather than a one-line fix. If you want the smallest useful version,
-  I’d implement:
-
-  - single-character Unicode text actions
-  - Windows dispatch only
-  - no shortcut-builder changes yet
-  - simple UI entry in the Primary/Hold action model
