@@ -42,6 +42,10 @@ public sealed class UserSettings
     public string TwoFingerHoldAction { get; set; } = "None";
     public string ThreeFingerHoldAction { get; set; } = "None";
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string LeftEdgeUpAction { get; set; } = "None";
+    public string LeftEdgeDownAction { get; set; } = "None";
+    public string RightEdgeUpAction { get; set; } = "None";
+    public string RightEdgeDownAction { get; set; } = "None";
     public string ThreeFingerClickAction { get; set; } = "None";
     public string FourFingerClickAction { get; set; } = "None";
     public string OuterCornersAction { get; set; } = "None";
@@ -133,6 +137,10 @@ public sealed class UserSettings
         TwoFingerHoldAction = source.TwoFingerHoldAction;
         ThreeFingerHoldAction = source.ThreeFingerHoldAction;
         FourFingerHoldAction = source.FourFingerHoldAction;
+        LeftEdgeUpAction = source.LeftEdgeUpAction;
+        LeftEdgeDownAction = source.LeftEdgeDownAction;
+        RightEdgeUpAction = source.RightEdgeUpAction;
+        RightEdgeDownAction = source.RightEdgeDownAction;
         ThreeFingerClickAction = source.ThreeFingerClickAction;
         FourFingerClickAction = source.FourFingerClickAction;
         OuterCornersAction = source.OuterCornersAction;

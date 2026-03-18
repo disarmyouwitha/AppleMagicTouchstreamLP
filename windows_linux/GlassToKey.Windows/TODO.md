@@ -1,4 +1,6 @@
 ## Current:
+- Does BRIGHT_UP try to use normal brightness first before calling the script? on windows?
+
 New Gesture Category/collapsable `Edges`:
 - `Left Edge`: Slide one finger along the left edge.
 - `Right Edge`: Slide one finger along the right edge.
@@ -22,7 +24,8 @@ Add more `Forced Click` options:
 - Add `3-Finger force click`, `4-Finger force click`
 - Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
 -------
-- Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force) 
+- Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
+- 
 -------
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 - New gestures from FRAN!

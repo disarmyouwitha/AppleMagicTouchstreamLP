@@ -16,6 +16,7 @@ public static class GestureBindingCatalog
     public static IReadOnlyList<GestureSectionDefinition> Sections { get; } =
     [
         new GestureSectionDefinition("holds", "Holds", true),
+        new GestureSectionDefinition("edges", "Edges", false),
         new GestureSectionDefinition("swipes", "Swipes", false),
         new GestureSectionDefinition("triangles", "Triangles", false),
         new GestureSectionDefinition("clicks", "Clicks", false),
@@ -29,6 +30,11 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("four_finger_hold", "holds", "4-finger hold", "Chordal Shift"),
         new GestureBindingDefinition("inner_corners", "holds", "Inner corners", "None"),
         new GestureBindingDefinition("outer_corners", "holds", "Outer corners", "None"),
+
+        new GestureBindingDefinition("left_edge_up", "edges", "Left Edge Up", "None"),
+        new GestureBindingDefinition("left_edge_down", "edges", "Left Edge Down", "None"),
+        new GestureBindingDefinition("right_edge_up", "edges", "Right Edge Up", "None"),
+        new GestureBindingDefinition("right_edge_down", "edges", "Right Edge Down", "None"),
 
         new GestureBindingDefinition("three_finger_swipe_left", "swipes", "3-finger swipe left", "None"),
         new GestureBindingDefinition("three_finger_swipe_right", "swipes", "3-finger swipe right", "None"),
@@ -173,6 +179,10 @@ public static class GestureBindingCatalog
             "four_finger_hold" => settings.FourFingerHoldAction,
             "inner_corners" => settings.InnerCornersAction,
             "outer_corners" => settings.OuterCornersAction,
+            "left_edge_up" => settings.LeftEdgeUpAction,
+            "left_edge_down" => settings.LeftEdgeDownAction,
+            "right_edge_up" => settings.RightEdgeUpAction,
+            "right_edge_down" => settings.RightEdgeDownAction,
             "three_finger_swipe_left" => settings.ThreeFingerSwipeLeftAction,
             "three_finger_swipe_right" => settings.ThreeFingerSwipeRightAction,
             "three_finger_swipe_up" => settings.ThreeFingerSwipeUpAction,
@@ -220,6 +230,18 @@ public static class GestureBindingCatalog
                 return;
             case "outer_corners":
                 settings.OuterCornersAction = action;
+                return;
+            case "left_edge_up":
+                settings.LeftEdgeUpAction = action;
+                return;
+            case "left_edge_down":
+                settings.LeftEdgeDownAction = action;
+                return;
+            case "right_edge_up":
+                settings.RightEdgeUpAction = action;
+                return;
+            case "right_edge_down":
+                settings.RightEdgeDownAction = action;
                 return;
             case "three_finger_swipe_left":
                 settings.ThreeFingerSwipeLeftAction = action;

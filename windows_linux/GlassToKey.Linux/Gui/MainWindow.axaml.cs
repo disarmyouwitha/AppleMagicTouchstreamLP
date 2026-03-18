@@ -530,6 +530,7 @@ public partial class MainWindow : Window
         (string backgroundHex, string borderHex, string foregroundHex) = section.Id switch
         {
             "holds" => ("#1A8FB6CF", "#2F4251", "#8FB6CF"),
+            "edges" => ("#1A92B5B3", "#2F4C4A", "#92B5B3"),
             "swipes" => ("#1A86C9A9", "#2E4E43", "#86C9A9"),
             "triangles" => ("#1AD8B37A", "#5A4A2E", "#D8B37A"),
             "clicks" => ("#1AB7A3D9", "#4A3E62", "#B7A3D9"),

@@ -99,6 +99,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
         }
 
+        if (!RunEdgeSlideGestureTests(out string edgeFailure))
+        {
+            return new SelfTestResult(false, $"Edge slide tests failed: {edgeFailure}");
+        }
+
         if (!RunFiveFingerSwipeTests(out string fiveFingerFailure))
         {
             return new SelfTestResult(false, $"Five-finger swipe tests failed: {fiveFingerFailure}");
@@ -3385,6 +3390,254 @@ internal static class SelfTestRunner
         return true;
     }
 
+    private static bool RunEdgeSlideGestureTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        ushort topY = (ushort)Math.Clamp((int)Math.Round(0.08 * maxY), 1, maxY - 1);
+        ushort midY = (ushort)Math.Clamp((int)Math.Round(0.50 * maxY), 1, maxY - 1);
+        ushort bottomY = (ushort)Math.Clamp((int)Math.Round(0.92 * maxY), 1, maxY - 1);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        BindingIndex leftIndex = BindingIndex.Build(leftLayout, TrackpadSide.Left, 0, keymap, snapRadiusFraction: 0.0);
+        ushort leftX = 1;
+        ushort rightX = (ushort)Math.Max(1, maxX - 1);
+        double[] cancelYNorms =
+        {
+            topY / (double)maxY,
+            midY / (double)maxY,
+            bottomY / (double)maxY
+        };
+        if (!TryFindBindingFreeCoordinate(leftIndex, maxX, minXNorm: 0.10, maxXNorm: 0.24, cancelYNorms, out ushort leftDriftX))
+        {
+            failure = "failed to find a binding-free inward drift line for edge cancel";
+            return false;
+        }
+
+        TouchProcessorConfig edgeConfig = TouchProcessorConfig.Default with
+        {
+            LeftEdgeDownAction = "A",
+            LeftEdgeUpAction = "B",
+            RightEdgeDownAction = "A",
+            RightEdgeUpAction = "B",
+            SnapRadiusPercent = 0.0
+        };
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        void RunScenario(
+            KeymapStore scenarioKeymap,
+            KeyLayout scenarioLeftLayout,
+            KeyLayout scenarioRightLayout,
+            TouchProcessorConfig scenarioConfig,
+            ushort scenarioMaxX,
+            ushort scenarioMaxY,
+            InputFrame[] frames,
+            out List<string> events,
+            out List<string> snapshots)
+        {
+            TouchProcessorCore core = TouchProcessorFactory.CreateDefault(scenarioKeymap);
+            core.ConfigureLayouts(scenarioLeftLayout, scenarioRightLayout);
+            core.Configure(scenarioConfig);
+
+            DispatchEvent[] dispatchScratch = new DispatchEvent[32];
+            events = new List<string>();
+            snapshots = new List<string>(frames.Length);
+            long now = 0;
+            for (int i = 0; i < frames.Length; i++)
+            {
+                core.ProcessFrame(TrackpadSide.Left, in frames[i], scenarioMaxX, scenarioMaxY, now);
+                TouchProcessorSnapshot snapshot = core.Snapshot(now);
+                snapshots.Add(snapshot.ToSummary());
+
+                int drained = core.DrainDispatchEvents(dispatchScratch);
+                for (int j = 0; j < drained; j++)
+                {
+                    DispatchEvent dispatchEvent = dispatchScratch[j];
+                    events.Add($"f{i}:{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+                }
+
+                now += MsToTicks(i == frames.Length - 2 ? 12 : 25);
+            }
+        }
+
+        bool ExpectSingleTap(
+            string scenarioName,
+            InputFrame[] frames,
+            ushort expectedVirtualKey,
+            KeymapStore scenarioKeymap,
+            KeyLayout scenarioLeftLayout,
+            KeyLayout scenarioRightLayout,
+            TouchProcessorConfig scenarioConfig,
+            ushort scenarioMaxX,
+            ushort scenarioMaxY,
+            out string reason)
+        {
+            RunScenario(
+                scenarioKeymap,
+                scenarioLeftLayout,
+                scenarioRightLayout,
+                scenarioConfig,
+                scenarioMaxX,
+                scenarioMaxY,
+                frames,
+                out List<string> events,
+                out List<string> snapshots);
+
+            if (events.Count != 1 ||
+                !events[0].StartsWith($"f3:KeyTap:0x{expectedVirtualKey:X2}:", StringComparison.Ordinal))
+            {
+                reason = $"{scenarioName} expected KeyTap 0x{expectedVirtualKey:X2} (leftX={leftX}, rightX={rightX}, driftX={leftDriftX}, events=[{string.Join(", ", events)}], snapshots=[{string.Join(" | ", snapshots)}])";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        bool ExpectNoEvents(
+            string scenarioName,
+            InputFrame[] frames,
+            KeymapStore scenarioKeymap,
+            KeyLayout scenarioLeftLayout,
+            KeyLayout scenarioRightLayout,
+            TouchProcessorConfig scenarioConfig,
+            ushort scenarioMaxX,
+            ushort scenarioMaxY,
+            out string reason)
+        {
+            RunScenario(
+                scenarioKeymap,
+                scenarioLeftLayout,
+                scenarioRightLayout,
+                scenarioConfig,
+                scenarioMaxX,
+                scenarioMaxY,
+                frames,
+                out List<string> events,
+                out List<string> snapshots);
+
+            if (events.Count != 0)
+            {
+                reason = $"{scenarioName} expected no dispatch (leftX={leftX}, rightX={rightX}, driftX={leftDriftX}, events=[{string.Join(", ", events)}], snapshots=[{string.Join(" | ", snapshots)}])";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        if (!ExpectSingleTap(
+                "left-edge-down",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 300, x0: leftX, y0: topY),
+                    MakeFrame(contactCount: 1, id0: 300, x0: leftX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 300, x0: leftX, y0: bottomY),
+                    allUp
+                },
+                0x41,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "left-edge-up",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 301, x0: leftX, y0: bottomY),
+                    MakeFrame(contactCount: 1, id0: 301, x0: leftX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 301, x0: leftX, y0: topY),
+                    allUp
+                },
+                0x42,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "right-edge-down",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 302, x0: rightX, y0: topY),
+                    MakeFrame(contactCount: 1, id0: 302, x0: rightX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 302, x0: rightX, y0: bottomY),
+                    allUp
+                },
+                0x41,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "right-edge-up",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 303, x0: rightX, y0: bottomY),
+                    MakeFrame(contactCount: 1, id0: 303, x0: rightX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 303, x0: rightX, y0: topY),
+                    allUp
+                },
+                0x42,
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectNoEvents(
+                "left-edge-drift-cancel",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 304, x0: leftX, y0: topY),
+                    MakeFrame(contactCount: 1, id0: 304, x0: leftDriftX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 304, x0: leftDriftX, y0: bottomY),
+                    allUp
+                },
+                keymap,
+                leftLayout,
+                rightLayout,
+                edgeConfig,
+                maxX,
+                maxY,
+                out failure))
+        {
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
     private static bool RunFiveFingerSwipeTests(out string failure)
     {
         const ushort maxX = 7612;
@@ -3533,6 +3786,45 @@ internal static class SelfTestRunner
         }
 
         return topXNorm > 0 && bottomXNorm > 0;
+    }
+
+    private static bool TryFindBindingFreeCoordinate(
+        BindingIndex index,
+        ushort maxX,
+        double minXNorm,
+        double maxXNorm,
+        ReadOnlySpan<double> yNorms,
+        out ushort x)
+    {
+        x = 0;
+        int start = Math.Clamp((int)Math.Round(minXNorm * maxX), 1, maxX - 1);
+        int end = Math.Clamp((int)Math.Round(maxXNorm * maxX), 1, maxX - 1);
+        if (end < start)
+        {
+            (start, end) = (end, start);
+        }
+
+        for (int candidate = start; candidate <= end; candidate++)
+        {
+            double xNorm = candidate / (double)maxX;
+            bool clear = true;
+            for (int i = 0; i < yNorms.Length; i++)
+            {
+                if (index.HitTest(xNorm, yNorms[i]).Found)
+                {
+                    clear = false;
+                    break;
+                }
+            }
+
+            if (clear)
+            {
+                x = (ushort)candidate;
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private static (int Row, int Col, double DistSq) FindNearestKeyCenter(KeyLayout layout, double xNorm, double yNorm)

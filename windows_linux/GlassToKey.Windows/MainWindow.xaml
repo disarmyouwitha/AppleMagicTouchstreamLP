@@ -688,6 +688,64 @@
 
                 <Expander IsExpanded="False" Margin="0,8,0,0">
                   <Expander.Header>
+                    <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1A92B5B3" BorderBrush="#2F4C4A" BorderThickness="1">
+                      <TextBlock Text="Edges" Foreground="#92b5b3" FontSize="12" FontWeight="SemiBold" />
+                    </Border>
+                  </Expander.Header>
+                  <StackPanel Margin="0,6,0,0">
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Left Edge Up" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="LeftEdgeUpGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Left Edge Down" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="LeftEdgeDownGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Right Edge Up" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="RightEdgeUpGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Right Edge Down" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="RightEdgeDownGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                </Grid>
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="False" Margin="0,8,0,0">
+                  <Expander.Header>
                     <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1A86C9A9" BorderBrush="#2E4E43" BorderThickness="1">
                       <TextBlock Text="Swipes" Foreground="#86c9a9" FontSize="12" FontWeight="SemiBold" />
                     </Border>
