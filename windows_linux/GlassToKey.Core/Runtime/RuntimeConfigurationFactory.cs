@@ -73,7 +73,8 @@ public static class RuntimeConfigurationFactory
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
             ChordShiftEnabled = chordShiftEnabled,
-            HoldRepeatEnabled = settings.HoldRepeatEnabled
+            HoldRepeatEnabled = settings.HoldRepeatEnabled,
+            GestureRepeatCadenceMsById = GestureBindingCatalog.BuildRepeatCadenceMap(settings)
         };
     }
 

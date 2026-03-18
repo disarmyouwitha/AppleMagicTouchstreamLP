@@ -152,7 +152,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
                 HandleRepeatKeyDown(entry.KeyCode, entry.SemanticAction);
 
-                entry.NextTick = nowTicks + _repeatIntervalTicks;
+                entry.NextTick = nowTicks + entry.IntervalTicks;
             }
         }
     }
@@ -401,7 +401,12 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
         if ((dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 && dispatchEvent.RepeatToken != 0)
         {
-            ScheduleRepeat(dispatchEvent.RepeatToken, keyCode, dispatchEvent.TimestampTicks, dispatchEvent.SemanticAction);
+            ScheduleRepeat(
+                dispatchEvent.RepeatToken,
+                keyCode,
+                dispatchEvent.TimestampTicks,
+                dispatchEvent.RepeatProfile,
+                dispatchEvent.SemanticAction);
         }
     }
 
@@ -555,8 +560,15 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         return TryEmitKey(keyCode, isDown);
     }
 
-    private void ScheduleRepeat(ulong token, ushort keyCode, long timestampTicks, DispatchSemanticAction semanticAction)
+    private void ScheduleRepeat(
+        ulong token,
+        ushort keyCode,
+        long timestampTicks,
+        DispatchRepeatProfile repeatProfile,
+        DispatchSemanticAction semanticAction)
     {
+        long initialDelayTicks = GetRepeatInitialDelayTicks(repeatProfile);
+        long intervalTicks = GetRepeatIntervalTicks(repeatProfile);
         for (int index = 0; index < _repeatEntries.Length; index++)
         {
             ref RepeatEntry entry = ref _repeatEntries[index];
@@ -567,7 +579,8 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
             entry.KeyCode = keyCode;
             entry.SemanticAction = semanticAction;
-            entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
+            entry.NextTick = timestampTicks + initialDelayTicks;
+            entry.IntervalTicks = intervalTicks;
             return;
         }
 
@@ -583,7 +596,8 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             entry.Token = token;
             entry.KeyCode = keyCode;
             entry.SemanticAction = semanticAction;
-            entry.NextTick = timestampTicks + _repeatInitialDelayTicks;
+            entry.NextTick = timestampTicks + initialDelayTicks;
+            entry.IntervalTicks = intervalTicks;
             return;
         }
     }
@@ -762,6 +776,18 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         }
     }
 
+    private long GetRepeatInitialDelayTicks(DispatchRepeatProfile repeatProfile)
+    {
+        long ticks = repeatProfile.GetInitialDelayTicks();
+        return ticks > 0 ? ticks : _repeatInitialDelayTicks;
+    }
+
+    private long GetRepeatIntervalTicks(DispatchRepeatProfile repeatProfile)
+    {
+        long ticks = repeatProfile.GetIntervalTicks();
+        return ticks > 0 ? ticks : _repeatIntervalTicks;
+    }
+
     private void RecordSendFailure(Exception ex)
     {
         Interlocked.Increment(ref _sendFailures);
@@ -915,5 +941,6 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         public ushort KeyCode;
         public DispatchSemanticAction SemanticAction;
         public long NextTick;
+        public long IntervalTicks;
     }
 }

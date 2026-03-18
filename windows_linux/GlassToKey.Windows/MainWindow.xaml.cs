@@ -61,6 +61,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
+    private readonly Dictionary<string, ComboBox> _gestureActionCombosById = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TextBox> _gestureRepeatBoxesById = new(StringComparer.Ordinal);
     private readonly Dictionary<ToggleButton, ShortcutModifierSpec> _shortcutModifierSpecsByButton = new();
     private readonly Dictionary<ToggleButton, ShortcutModifierVariant> _shortcutModifierVariantsByButton = new();
     private readonly DispatcherTimer _shortcutModifierHoldTimer;
@@ -152,6 +154,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        RegisterGestureBindingControls();
         _shortcutModifierHoldTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
             Interval = TimeSpan.FromMilliseconds(450)
@@ -665,6 +668,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectedItem = TrackpadLayoutPreset.Selectable.Contains(_preset)
             ? _preset
             : TrackpadLayoutPreset.SixByThree;
+        LoadGestureRepeatCadenceSettingsIntoUi();
+        RefreshGestureRepeatCadenceAvailability();
         SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
@@ -702,6 +707,54 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         ClearSelectionForEditing();
         RefreshKeymapEditor();
+    }
+
+    private void RegisterGestureBindingControls()
+    {
+        RegisterGestureBindingControl("two_finger_hold", TwoFingerHoldGestureCombo, TwoFingerHoldGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_hold", ThreeFingerHoldGestureCombo, ThreeFingerHoldGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_hold", FourFingerHoldGestureCombo, FourFingerHoldGestureRepeatBox);
+        RegisterGestureBindingControl("inner_corners", InnerCornersGestureCombo, InnerCornersGestureRepeatBox);
+        RegisterGestureBindingControl("outer_corners", OuterCornersGestureCombo, OuterCornersGestureRepeatBox);
+        RegisterGestureBindingControl("left_edge_up", LeftEdgeUpGestureCombo, LeftEdgeUpGestureRepeatBox);
+        RegisterGestureBindingControl("left_edge_down", LeftEdgeDownGestureCombo, LeftEdgeDownGestureRepeatBox);
+        RegisterGestureBindingControl("right_edge_up", RightEdgeUpGestureCombo, RightEdgeUpGestureRepeatBox);
+        RegisterGestureBindingControl("right_edge_down", RightEdgeDownGestureCombo, RightEdgeDownGestureRepeatBox);
+        RegisterGestureBindingControl("top_edge_left", TopEdgeLeftGestureCombo, TopEdgeLeftGestureRepeatBox);
+        RegisterGestureBindingControl("top_edge_right", TopEdgeRightGestureCombo, TopEdgeRightGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_edge_left", BottomEdgeLeftGestureCombo, BottomEdgeLeftGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_edge_right", BottomEdgeRightGestureCombo, BottomEdgeRightGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_swipe_left", ThreeFingerSwipeLeftGestureCombo, ThreeFingerSwipeLeftGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_swipe_right", ThreeFingerSwipeRightGestureCombo, ThreeFingerSwipeRightGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_swipe_up", ThreeFingerSwipeUpGestureCombo, ThreeFingerSwipeUpGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_swipe_down", ThreeFingerSwipeDownGestureCombo, ThreeFingerSwipeDownGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_swipe_left", FourFingerSwipeLeftGestureCombo, FourFingerSwipeLeftGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_swipe_right", FourFingerSwipeRightGestureCombo, FourFingerSwipeRightGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_swipe_up", FourFingerSwipeUpGestureCombo, FourFingerSwipeUpGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_swipe_down", FourFingerSwipeDownGestureCombo, FourFingerSwipeDownGestureRepeatBox);
+        RegisterGestureBindingControl("five_finger_swipe_left", FiveFingerSwipeLeftGestureCombo, FiveFingerSwipeLeftGestureRepeatBox);
+        RegisterGestureBindingControl("five_finger_swipe_right", FiveFingerSwipeRightGestureCombo, FiveFingerSwipeRightGestureRepeatBox);
+        RegisterGestureBindingControl("five_finger_swipe_up", FiveFingerSwipeUpGestureCombo, FiveFingerSwipeUpGestureRepeatBox);
+        RegisterGestureBindingControl("five_finger_swipe_down", FiveFingerSwipeDownGestureCombo, FiveFingerSwipeDownGestureRepeatBox);
+        RegisterGestureBindingControl("top_left_triangle", TopLeftTriangleGestureCombo, TopLeftTriangleGestureRepeatBox);
+        RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo, TopRightTriangleGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo, BottomLeftTriangleGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_right_triangle", BottomRightTriangleGestureCombo, BottomRightTriangleGestureRepeatBox);
+        RegisterGestureBindingControl("three_finger_click", ThreeFingerClickGestureCombo, ThreeFingerClickGestureRepeatBox);
+        RegisterGestureBindingControl("four_finger_click", FourFingerClickGestureCombo, FourFingerClickGestureRepeatBox);
+        RegisterGestureBindingControl("upper_left_corner_click", UpperLeftCornerClickGestureCombo, UpperLeftCornerClickGestureRepeatBox);
+        RegisterGestureBindingControl("upper_right_corner_click", UpperRightCornerClickGestureCombo, UpperRightCornerClickGestureRepeatBox);
+        RegisterGestureBindingControl("lower_left_corner_click", LowerLeftCornerClickGestureCombo, LowerLeftCornerClickGestureRepeatBox);
+        RegisterGestureBindingControl("lower_right_corner_click", LowerRightCornerClickGestureCombo, LowerRightCornerClickGestureRepeatBox);
+        RegisterGestureBindingControl("force_click_1", ForceClick1GestureCombo, ForceClick1GestureRepeatBox);
+        RegisterGestureBindingControl("force_click_2", ForceClick2GestureCombo, ForceClick2GestureRepeatBox);
+        RegisterGestureBindingControl("force_click_3", ForceClick3GestureCombo, ForceClick3GestureRepeatBox);
+    }
+
+    private void RegisterGestureBindingControl(string bindingId, ComboBox combo, TextBox repeatBox)
+    {
+        _gestureActionCombosById[bindingId] = combo;
+        _gestureRepeatBoxesById[bindingId] = repeatBox;
     }
 
     private ListCollectionView CreateGroupedKeyActionView()
@@ -796,6 +849,64 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return UpperRightCornerClickGestureCombo;
         yield return LowerLeftCornerClickGestureCombo;
         yield return LowerRightCornerClickGestureCombo;
+    }
+
+    private void LoadGestureRepeatCadenceSettingsIntoUi()
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box))
+            {
+                box.Text = FormatGestureRepeatCadenceText(GestureBindingCatalog.GetRepeatCadenceMs(_settings, binding));
+            }
+        }
+    }
+
+    private void ApplyGestureRepeatCadenceSettingsFromUi()
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box))
+            {
+                GestureBindingCatalog.SetRepeatCadenceMs(_settings, binding, ReadGestureRepeatCadenceMs(box));
+            }
+        }
+    }
+
+    private void RefreshGestureRepeatCadenceAvailability()
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (!_gestureRepeatBoxesById.TryGetValue(binding.Id, out TextBox? box) ||
+                !_gestureActionCombosById.TryGetValue(binding.Id, out ComboBox? combo))
+            {
+                continue;
+            }
+
+            bool enabled = !string.Equals(
+                ReadGestureActionSelection(combo, binding.DefaultAction),
+                "None",
+                StringComparison.OrdinalIgnoreCase);
+            box.IsEnabled = enabled;
+        }
+    }
+
+    private static string FormatGestureRepeatCadenceText(int cadenceMs)
+    {
+        return cadenceMs > 0
+            ? cadenceMs.ToString(CultureInfo.InvariantCulture)
+            : string.Empty;
+    }
+
+    private static int ReadGestureRepeatCadenceMs(TextBox box)
+    {
+        string text = box.Text?.Trim() ?? string.Empty;
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+        {
+            return 0;
+        }
+
+        return GestureBindingCatalog.NormalizeRepeatCadenceMs(value);
     }
 
     private void InitializeActionCombo(ComboBox combo)
@@ -1025,8 +1136,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void HookTuningAutoApplyHandlers()
     {
-        TextBox[] boxes =
-        {
+        List<TextBox> boxes =
+        [
             HoldDurationBox,
             DragCancelBox,
             TypingGraceBox,
@@ -1040,7 +1151,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             ColumnOffsetXBox,
             ColumnOffsetYBox,
             ColumnRotationBox
-        };
+        ];
+
+        boxes.AddRange(_gestureRepeatBoxesById.Values);
 
         foreach (TextBox box in boxes)
         {
@@ -1097,6 +1210,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        RefreshGestureRepeatCadenceAvailability();
         ApplySettingsFromUi();
     }
 
@@ -1679,6 +1793,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.UpperRightCornerClickAction = ReadGestureActionSelection(UpperRightCornerClickGestureCombo, "None");
         _settings.LowerLeftCornerClickAction = ReadGestureActionSelection(LowerLeftCornerClickGestureCombo, "None");
         _settings.LowerRightCornerClickAction = ReadGestureActionSelection(LowerRightCornerClickGestureCombo, "None");
+        ApplyGestureRepeatCadenceSettingsFromUi();
+        RefreshGestureRepeatCadenceAvailability();
         SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;

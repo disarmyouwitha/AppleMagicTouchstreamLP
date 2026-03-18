@@ -1,5 +1,5 @@
 ## Current:
-- In `Gestures`: small textarea with [ms] placeholder text, that if above 0 it will repeat at that cadence? Please advise on the best UX for this.
+- In `Gestures`: add a small textarea with [ms] placeholder text, that if set above 0 it will repeat at that cadence? Please use your best taste and judgement on the best UX for this.
 
 - New Gesture Category/collapsable: `Corners`:
 - (Should be distinct enough from Triangles to differentiate)

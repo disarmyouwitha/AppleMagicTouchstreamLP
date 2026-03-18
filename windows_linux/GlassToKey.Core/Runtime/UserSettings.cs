@@ -65,6 +65,7 @@ public sealed class UserSettings
     public string UpperRightCornerClickAction { get; set; } = "None";
     public string LowerLeftCornerClickAction { get; set; } = "None";
     public string LowerRightCornerClickAction { get; set; } = "None";
+    public Dictionary<string, int>? GestureRepeatCadenceMsById { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool HapticsEnabled { get; set; } = true;
     public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
@@ -164,6 +165,7 @@ public sealed class UserSettings
         UpperRightCornerClickAction = source.UpperRightCornerClickAction;
         LowerLeftCornerClickAction = source.LowerLeftCornerClickAction;
         LowerRightCornerClickAction = source.LowerRightCornerClickAction;
+        GestureRepeatCadenceMsById = CloneGestureRepeatCadenceById(source.GestureRepeatCadenceMsById);
         HapticsEnabled = source.HapticsEnabled;
         HapticsStrength = source.HapticsStrength;
         HapticsMinIntervalMs = source.HapticsMinIntervalMs;
@@ -501,6 +503,13 @@ public sealed class UserSettings
         return source == null
             ? null
             : new Dictionary<string, string>(source, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, int>? CloneGestureRepeatCadenceById(Dictionary<string, int>? source)
+    {
+        return source == null
+            ? null
+            : new Dictionary<string, int>(source, StringComparer.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, double>? CloneKeyPaddingByLayout(Dictionary<string, double>? source)

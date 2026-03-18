@@ -104,6 +104,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Edge slide tests failed: {edgeFailure}");
         }
 
+        if (!RunGestureRepeatCadenceTests(out string gestureRepeatFailure))
+        {
+            return new SelfTestResult(false, $"Gesture repeat cadence tests failed: {gestureRepeatFailure}");
+        }
+
         if (!RunFiveFingerSwipeTests(out string fiveFingerFailure))
         {
             return new SelfTestResult(false, $"Five-finger swipe tests failed: {fiveFingerFailure}");
@@ -3806,6 +3811,95 @@ internal static class SelfTestRunner
         if (!core.Snapshot().TypingEnabled)
         {
             failure = "typing toggle did not switch back on after second five-finger swipe";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunGestureRepeatCadenceTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            ThreeFingerSwipeRightAction = "A",
+            GestureRepeatCadenceMsById = new System.Collections.Generic.Dictionary<string, int>(StringComparer.Ordinal)
+            {
+                ["three_finger_swipe_right"] = 120
+            }
+        });
+
+        DispatchEvent[] dispatchScratch = new DispatchEvent[16];
+        long now = 0;
+
+        InputFrame start = MakeFrame(
+            contactCount: 3,
+            id0: 500, x0: 900, y0: 1500,
+            id1: 501, x1: 1200, y1: 1550,
+            id2: 502, x2: 1500, y2: 1600);
+        InputFrame swipe = MakeFrame(
+            contactCount: 3,
+            id0: 500, x0: 2500, y0: 1500,
+            id1: 501, x1: 2800, y1: 1550,
+            id2: 502, x2: 3100, y2: 1600);
+        InputFrame hold = MakeFrame(
+            contactCount: 3,
+            id0: 500, x0: 2520, y0: 1500,
+            id1: 501, x1: 2820, y1: 1550,
+            id2: 502, x2: 3120, y2: 1600);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        core.ProcessFrame(TrackpadSide.Left, in start, maxX, maxY, now);
+        now += MsToTicks(20);
+        core.ProcessFrame(TrackpadSide.Left, in swipe, maxX, maxY, now);
+
+        int drained = core.DrainDispatchEvents(dispatchScratch);
+        if (drained != 1)
+        {
+            failure = $"gesture repeat expected 1 dispatch on trigger, got {drained}";
+            return false;
+        }
+
+        DispatchEvent keyDown = dispatchScratch[0];
+        if (keyDown.Kind != DispatchEventKind.KeyDown ||
+            keyDown.VirtualKey != 0x41 ||
+            (keyDown.Flags & DispatchEventFlags.Repeatable) == 0 ||
+            keyDown.RepeatToken == 0 ||
+            Math.Abs(keyDown.RepeatProfile.InitialDelayMs - 120.0) > 0.01 ||
+            Math.Abs(keyDown.RepeatProfile.IntervalMs - 120.0) > 0.01)
+        {
+            failure = $"gesture repeat trigger mismatch (kind={keyDown.Kind}, vk=0x{keyDown.VirtualKey:X2}, flags={keyDown.Flags}, token=0x{keyDown.RepeatToken:X}, initial={keyDown.RepeatProfile.InitialDelayMs}, interval={keyDown.RepeatProfile.IntervalMs})";
+            return false;
+        }
+
+        now += MsToTicks(40);
+        core.ProcessFrame(TrackpadSide.Left, in hold, maxX, maxY, now);
+        if (core.DrainDispatchEvents(dispatchScratch) != 0)
+        {
+            failure = "gesture repeat emitted extra core dispatch while still held";
+            return false;
+        }
+
+        now += MsToTicks(20);
+        core.ProcessFrame(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        drained = core.DrainDispatchEvents(dispatchScratch);
+        if (drained != 1)
+        {
+            failure = $"gesture repeat expected 1 dispatch on release, got {drained}";
+            return false;
+        }
+
+        DispatchEvent keyUp = dispatchScratch[0];
+        if (keyUp.Kind != DispatchEventKind.KeyUp ||
+            keyUp.VirtualKey != 0x41 ||
+            keyUp.RepeatToken != keyDown.RepeatToken)
+        {
+            failure = $"gesture repeat release mismatch (kind={keyUp.Kind}, vk=0x{keyUp.VirtualKey:X2}, token=0x{keyUp.RepeatToken:X}, expectedToken=0x{keyDown.RepeatToken:X})";
             return false;
         }
 

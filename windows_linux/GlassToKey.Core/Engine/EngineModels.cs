@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace GlassToKey;
@@ -236,7 +237,8 @@ internal readonly record struct TouchProcessorConfig(
     int ForceMin,
     int ForceCap,
     bool ChordShiftEnabled,
-    bool HoldRepeatEnabled)
+    bool HoldRepeatEnabled,
+    IReadOnlyDictionary<string, int>? GestureRepeatCadenceMsById)
 {
     public static TouchProcessorConfig Default => new(
         TrackpadWidthMm: 160.0,
@@ -290,5 +292,6 @@ internal readonly record struct TouchProcessorConfig(
         ForceMin: 0,
         ForceCap: 255,
         ChordShiftEnabled: true,
-        HoldRepeatEnabled: false);
+        HoldRepeatEnabled: false,
+        GestureRepeatCadenceMsById: null);
 }
