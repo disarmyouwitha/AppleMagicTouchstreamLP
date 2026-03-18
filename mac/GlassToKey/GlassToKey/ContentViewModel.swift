@@ -1961,8 +1961,8 @@ enum KeyActionCatalog {
     static let gestureThreeFingerTapLabel = "3-finger tap"
     static let gestureFourFingerHoldLabel = "4-finger hold"
     static let gestureInnerCornersHoldLabel = "Inner corners hold"
-    static let gestureFiveFingerSwipeLeftLabel = "5-finger swipe left"
-    static let gestureFiveFingerSwipeRightLabel = "5-finger swipe right"
+    static let gestureFiveFingerSwipeLeftLabel = "5-finger left"
+    static let gestureFiveFingerSwipeRightLabel = "5-finger right"
     static var noneAction: KeyAction {
         KeyAction(
             label: noneLabel,

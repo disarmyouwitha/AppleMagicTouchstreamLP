@@ -3031,14 +3031,14 @@ struct ContentView: View {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                         GridRow {
                             gesturePicker(
-                                "5-finger swipe left",
+                                "5-finger left",
                                 selection: $fiveFingerSwipeLeftGestureAction,
                                 fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
                             )
                         }
                         GridRow {
                             gesturePicker(
-                                "5-finger swipe right",
+                                "5-finger right",
                                 selection: $fiveFingerSwipeRightGestureAction,
                                 fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
                             )
