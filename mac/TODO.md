@@ -3,16 +3,19 @@
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
 - Can we make Gesture Tuning section scrollable??
+- ms cadence for gestures
 -------
 - Shift on same hand is broken.. 2-finger hold/2-finger tap related??
 - right click bugs bc 3 finger drag, lets fix!
     
 ## TODO:
 - Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
-- I think it was because early on i had you build a 2 key buffer before typing in the intent machine and I want to remove it.
+- I think it was because early on i had you build a 20ms key buffer before typing in the intent machine and I want to remove it.
+
 ^ tip switch like on windows?
 ^ capture
 ---
+- hold repeat
 - auto-reconnect not working correctly after sleep
 - .atpcap should capture keymap! that would be super helpful!
 ---

@@ -1295,8 +1295,7 @@ actor TouchProcessorEngine {
                        active.modifierKey == nil,
                        !active.didHold,
                        now - active.startTime >= holdMinDuration,
-                       (!isDragDetectionEnabled || active.maxDistanceSquared <= dragCancelDistanceSquared),
-                       initialContactPointIsInsideBinding(touchKey, binding: active.binding) {
+                       (!isDragDetectionEnabled || active.maxDistanceSquared <= dragCancelDistanceSquared) {
                         let dispatchInfo = makeDispatchInfo(
                             kind: .hold,
                             startTime: active.startTime,
@@ -1466,24 +1465,20 @@ actor TouchProcessorEngine {
                 if var pending = removedPending {
                     let distanceSquared = distanceSquared(from: pending.startPoint, to: point)
                     pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
-                    if intentAllowsTyping {
-                        _ = maybeSendPendingContinuousTap(
-                            pending,
-                            touchKey: touchKey,
-                            at: point,
-                            now: now,
-                            pressure: peakPressure
-                        )
-                    } else if shouldCommitTypingOnRelease(
+                    let sentContinuousTap = maybeSendPendingContinuousTap(
+                        pending,
                         touchKey: touchKey,
-                        binding: pending.binding,
-                        point: point,
-                        side: side
-                    ) {
-                        _ = maybeSendPendingContinuousTap(
-                            pending,
+                        at: point,
+                        now: now,
+                        pressure: peakPressure
+                    )
+                    if !sentContinuousTap {
+                        _ = maybeDispatchReleaseTap(
                             touchKey: touchKey,
-                            at: point,
+                            originalBinding: pending.binding,
+                            touchInfo: intentState.touches.value(for: touchKey),
+                            point: point,
+                            bindings: bindings,
                             now: now,
                             pressure: peakPressure
                         )
@@ -1505,31 +1500,34 @@ actor TouchProcessorEngine {
                         handleModifierUp(modifierKey, binding: active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
-                    } else if !active.didHold,
-                              now - active.startTime <= tapMaxDuration,
-                              (!isDragDetectionEnabled
-                               || releaseDistanceSquared <= dragCancelDistanceSquared) {
-                        if intentAllowsTyping || shouldCommitTypingOnRelease(
+                    } else if !active.didHold {
+                        _ = maybeDispatchReleaseTap(
                             touchKey: touchKey,
-                            binding: active.binding,
+                            originalBinding: active.binding,
+                            touchInfo: intentState.touches.value(for: touchKey),
                             point: point,
-                            side: side
-                        ) {
-                            let dispatchInfo = makeDispatchInfo(
-                                kind: .tap,
-                                startTime: active.startTime,
-                                maxDistanceSquared: active.maxDistanceSquared,
-                                now: now
-                            )
-                            triggerBinding(
-                                active.binding,
-                                touchKey: touchKey,
-                                dispatchInfo: dispatchInfo,
-                                pressure: peakPressure
-                            )
-                        }
+                            bindings: bindings,
+                            now: now,
+                            pressure: peakPressure,
+                            fallbackStartTime: active.startTime,
+                            fallbackMaxDistanceSquared: active.maxDistanceSquared
+                        )
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
+                }
+                if !hadPending, !hadActive {
+                    if maybeDispatchReleaseTap(
+                        touchKey: touchKey,
+                        originalBinding: nil,
+                        touchInfo: intentState.touches.value(for: touchKey),
+                        point: point,
+                        bindings: bindings,
+                        now: now,
+                        pressure: peakPressure
+                    ) {
+                        clearPeakPressure(for: touchKey)
+                        continue
+                    }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
@@ -1556,24 +1554,20 @@ actor TouchProcessorEngine {
                 if var pending = removedPending {
                     let distanceSquared = distanceSquared(from: pending.startPoint, to: point)
                     pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
-                    if intentAllowsTyping {
-                        _ = maybeSendPendingContinuousTap(
-                            pending,
-                            touchKey: touchKey,
-                            at: point,
-                            now: now,
-                            pressure: peakPressure
-                        )
-                    } else if shouldCommitTypingOnRelease(
+                    let sentContinuousTap = maybeSendPendingContinuousTap(
+                        pending,
                         touchKey: touchKey,
-                        binding: pending.binding,
-                        point: point,
-                        side: side
-                    ) {
-                        _ = maybeSendPendingContinuousTap(
-                            pending,
+                        at: point,
+                        now: now,
+                        pressure: peakPressure
+                    )
+                    if !sentContinuousTap {
+                        _ = maybeDispatchReleaseTap(
                             touchKey: touchKey,
-                            at: point,
+                            originalBinding: pending.binding,
+                            touchInfo: intentState.touches.value(for: touchKey),
+                            point: point,
+                            bindings: bindings,
                             now: now,
                             pressure: peakPressure
                         )
@@ -1594,6 +1588,20 @@ actor TouchProcessorEngine {
                         stopRepeat(for: touchKey)
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
+                }
+                if !hadPending, !hadActive {
+                    if maybeDispatchReleaseTap(
+                        touchKey: touchKey,
+                        originalBinding: nil,
+                        touchInfo: intentState.touches.value(for: touchKey),
+                        point: point,
+                        bindings: bindings,
+                        now: now,
+                        pressure: peakPressure
+                    ) {
+                        clearPeakPressure(for: touchKey)
+                        continue
+                    }
                 }
                 if !hadPending, !hadActive, resolveBinding() == nil {
                     if attemptSnapOnRelease(
@@ -2971,7 +2979,6 @@ actor TouchProcessorEngine {
                 allowTyping = false
             } else {
                 state.mode = .mouseCandidate(start: now)
-                suppressKeyProcessing(for: intentCurrentKeys)
                 allowTyping = false
             }
         case let .keyCandidate(start, _, _):
@@ -2998,7 +3005,6 @@ actor TouchProcessorEngine {
                 allowTyping = true
             } else if mouseSignal {
                 state.mode = .mouseActive
-                suppressKeyProcessing(for: intentCurrentKeys)
                 allowTyping = false
             } else {
                 allowTyping = true
@@ -3012,7 +3018,6 @@ actor TouchProcessorEngine {
             }
             if mouseSignal || now - start >= intentConfig.keyBufferSeconds {
                 state.mode = .mouseActive
-                suppressKeyProcessing(for: intentCurrentKeys)
                 allowTyping = false
             } else {
                 allowTyping = false
@@ -3442,27 +3447,6 @@ actor TouchProcessorEngine {
         onVoiceGestureChanged(isActive)
     }
 
-    private func shouldCommitTypingOnRelease(
-        touchKey: TouchKey,
-        binding: KeyBinding,
-        point: CGPoint,
-        side _: TrackpadSide
-    ) -> Bool {
-        var state = intentState
-        guard case .keyCandidate = state.mode else {
-            return false
-        }
-        let maxDistanceSquared = state.touches.value(for: touchKey)?.maxDistanceSquared ?? 0
-        guard maxDistanceSquared <= intentMoveThresholdSquared else { return false }
-        guard binding.hitGeometry.contains(point),
-              initialContactPointIsInsideBinding(touchKey, binding: binding) else {
-            return false
-        }
-        state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
-        intentState = state
-        return true
-    }
-
     private func updateIntentThresholdCache() {
         guard trackpadWidthMm > 0 else {
             unitsPerMillimeter = 1
@@ -3674,6 +3658,103 @@ actor TouchProcessorEngine {
         return true
     }
 
+    private func maybeDispatchReleaseTap(
+        touchKey: TouchKey,
+        originalBinding: KeyBinding?,
+        touchInfo: IntentTouchInfo?,
+        point: CGPoint,
+        bindings: BindingIndex,
+        now: TimeInterval,
+        pressure: Float,
+        fallbackStartTime: TimeInterval? = nil,
+        fallbackMaxDistanceSquared: CGFloat = 0
+    ) -> Bool {
+        guard isTapDispatchAllowedForCurrentIntent() else { return false }
+        let startTime = touchInfo?.startTime ?? fallbackStartTime ?? now
+        let releaseStartPoint = touchInitialContactPoint.value(for: touchKey) ?? point
+        let releaseDistanceSquared = distanceSquared(from: releaseStartPoint, to: point)
+        let maxDistanceSquared = max(
+            max(touchInfo?.maxDistanceSquared ?? 0, fallbackMaxDistanceSquared),
+            releaseDistanceSquared
+        )
+        guard now - startTime <= tapMaxDuration else { return false }
+        if isDragDetectionEnabled, releaseDistanceSquared > dragCancelDistance * dragCancelDistance {
+            return false
+        }
+
+        let dispatchInfo = makeDispatchInfo(
+            kind: .tap,
+            startTime: startTime,
+            maxDistanceSquared: maxDistanceSquared,
+            now: now
+        )
+
+        if let originalBinding {
+            if originalBinding.hitGeometry.contains(point) {
+                triggerBinding(
+                    originalBinding,
+                    touchKey: touchKey,
+                    dispatchInfo: dispatchInfo,
+                    pressure: pressure
+                )
+                return true
+            }
+            if let directBinding = binding(at: point, index: bindings) {
+                guard bindingsMatch(originalBinding, directBinding) else {
+                    return false
+                }
+                triggerBinding(
+                    directBinding,
+                    touchKey: touchKey,
+                    dispatchInfo: dispatchInfo,
+                    pressure: pressure
+                )
+                return true
+            }
+            return attemptSnapOnRelease(
+                touchKey: touchKey,
+                point: point,
+                bindings: bindings,
+                pressure: pressure
+            )
+        }
+
+        if let directBinding = binding(at: point, index: bindings) {
+            triggerBinding(
+                directBinding,
+                touchKey: touchKey,
+                dispatchInfo: dispatchInfo,
+                pressure: pressure
+            )
+            return true
+        }
+
+        return attemptSnapOnRelease(
+            touchKey: touchKey,
+            point: point,
+            bindings: bindings,
+            pressure: pressure
+        )
+    }
+
+    private func isTapDispatchAllowedForCurrentIntent() -> Bool {
+        switch intentState.mode {
+        case .gestureCandidate:
+            return false
+        case .idle, .keyCandidate, .typingCommitted, .mouseCandidate, .mouseActive:
+            return true
+        }
+    }
+
+    private func bindingsMatch(_ lhs: KeyBinding, _ rhs: KeyBinding) -> Bool {
+        if lhs.position != nil || rhs.position != nil {
+            return lhs.position == rhs.position
+        }
+        return lhs.side == rhs.side
+            && lhs.normalizedRect == rhs.normalizedRect
+            && lhs.label == rhs.label
+    }
+
     private func triggerBinding(
         _ binding: KeyBinding,
         touchKey: TouchKey?,
@@ -3800,13 +3881,6 @@ actor TouchProcessorEngine {
             deviceID = rightDeviceID
         }
         dispatchService.postHaptic(strength: hapticStrength, deviceID: deviceID)
-    }
-
-    private func initialContactPointIsInsideBinding(_ touchKey: TouchKey, binding: KeyBinding) -> Bool {
-        guard let startPoint = touchInitialContactPoint.value(for: touchKey) else {
-            return true
-        }
-        return binding.hitGeometry.contains(startPoint)
     }
 
     private func startRepeat(for touchKey: TouchKey, binding: KeyBinding) {
