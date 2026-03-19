@@ -3497,6 +3497,94 @@ internal static class SelfTestRunner
             return false;
         }
 
+        KeymapStore anchorStartKeymap = KeymapStore.LoadBundledDefault();
+        anchorStartKeymap.GetOrCreateCustomButtons(0).Add(new CustomButton
+        {
+            Id = "selftest-top-left-mo",
+            Side = TrackpadSide.Left,
+            Rect = new NormalizedRect(0.0, 0.0, 0.12, 0.14),
+            Primary = new KeyAction { Label = "MO(1)" },
+            Layer = 0
+        });
+
+        TouchProcessorCore anchorStartCore = TouchProcessorFactory.CreateDefault(anchorStartKeymap);
+        anchorStartCore.ConfigureLayouts(leftLayout, rightLayout);
+        anchorStartCore.Configure(anchorStartCore.CurrentConfig with
+        {
+            TopLeftCornerSwipeAction = "A",
+            TopLeftTriangleAction = "B",
+            SnapRadiusPercent = 0.0
+        });
+
+        bool ExpectSingleTapWithCore(
+            TouchProcessorCore scenarioCore,
+            string scenarioName,
+            InputFrame[] frames,
+            ushort expectedVirtualKey,
+            out string reason)
+        {
+            scenarioCore.ResetState();
+            int drainedBefore = scenarioCore.DrainDispatchEvents(dispatchScratch);
+            if (drainedBefore != 0)
+            {
+                reason = $"{scenarioName} expected empty queue before start, drained={drainedBefore}";
+                return false;
+            }
+
+            long now = 0;
+            for (int i = 0; i < frames.Length; i++)
+            {
+                scenarioCore.ProcessFrame(TrackpadSide.Left, in frames[i], maxX, maxY, now);
+                now += MsToTicks(25);
+            }
+
+            int drained = scenarioCore.DrainDispatchEvents(dispatchScratch);
+            if (drained != 1 ||
+                dispatchScratch[0].Kind != DispatchEventKind.KeyTap ||
+                dispatchScratch[0].VirtualKey != expectedVirtualKey)
+            {
+                reason = $"{scenarioName} expected KeyTap 0x{expectedVirtualKey:X2}, got {drained} events";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        ushort anchorStartX = (ushort)Math.Clamp((int)Math.Round(0.015 * maxX), 1, maxX - 1);
+        ushort anchorStartY = (ushort)Math.Clamp((int)Math.Round(0.02 * maxY), 1, maxY - 1);
+        if (!ExpectSingleTapWithCore(
+                anchorStartCore,
+                "corner-swipe-top-left-custom-mo-start",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 403, x0: anchorStartX, y0: anchorStartY),
+                    MakeFrame(contactCount: 1, id0: 403, x0: midX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 403, x0: cornerEndX, y0: cornerEndY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x41,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTapWithCore(
+                anchorStartCore,
+                "triangle-top-left-custom-mo-start",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 404, x0: anchorStartX, y0: anchorStartY),
+                    MakeFrame(contactCount: 1, id0: 404, x0: triangleTurnX, y0: triangleTurnY),
+                    MakeFrame(contactCount: 1, id0: 404, x0: triangleReturnX, y0: triangleReturnY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x42,
+                out failure))
+        {
+            return false;
+        }
+
         failure = string.Empty;
         return true;
     }

@@ -18,7 +18,7 @@ Add more `Forced Click` options:
 - Add `3-Finger force click`, `4-Finger force click`
 - Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
 
-Move `Force Clicks` into `clicks`
+Move `Force Clicks` into `Clicks`
 -------
 - New branch to test Accelerator bright / vol/ L / R
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)

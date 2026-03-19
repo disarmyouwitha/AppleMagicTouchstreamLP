@@ -3494,7 +3494,7 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out IntentTouchInfo touch);
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out ulong touchKey, out IntentTouchInfo touch);
         if (tipContactsInFrame != 1 || !hasSingleTouch)
         {
             if (gesture.DispatchState.DispatchDownSent)
@@ -3518,8 +3518,7 @@ internal sealed class TouchProcessorCore
         double yNorm = touch.LastYNorm;
         if (!gesture.Active)
         {
-            if (touch.KeyboardAnchor ||
-                !TryClassifyCornerSwipeCorner(xNorm, yNorm, out TriangleCorner corner))
+            if (!TryClassifyCornerSwipeCorner(xNorm, yNorm, out TriangleCorner corner))
             {
                 return;
             }
@@ -3536,6 +3535,7 @@ internal sealed class TouchProcessorCore
                 PriorityArmed: false,
                 MatchEligible: false,
                 Corner: corner,
+                SourceTouchKey: touchKey,
                 InwardXSign: IsLeftCorner(corner) ? 1 : -1,
                 InwardYSign: IsTopCorner(corner) ? 1 : -1,
                 StartedTicks: nowTicks,
@@ -3595,6 +3595,7 @@ internal sealed class TouchProcessorCore
         {
             gesture.MatchEligible = true;
             gesture.MatchTicks = nowTicks;
+            CancelGestureSourceTouch(gesture.SourceTouchKey, side, nowTicks);
         }
 
         if (!gesture.MatchEligible || gesture.DispatchState.DispatchDownSent)
@@ -3630,7 +3631,7 @@ internal sealed class TouchProcessorCore
             return;
         }
 
-        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out IntentTouchInfo touch);
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out ulong touchKey, out IntentTouchInfo touch);
         if (tipContactsInFrame != 1 || !hasSingleTouch)
         {
             if (gesture.DispatchState.DispatchDownSent)
@@ -3653,8 +3654,7 @@ internal sealed class TouchProcessorCore
         double yNorm = touch.LastYNorm;
         if (!gesture.Active)
         {
-            if (touch.KeyboardAnchor ||
-                !TryClassifyTriangleCorner(xNorm, yNorm, out TriangleCorner corner))
+            if (!TryClassifyTriangleCorner(xNorm, yNorm, out TriangleCorner corner))
             {
                 return;
             }
@@ -3673,6 +3673,7 @@ internal sealed class TouchProcessorCore
                 PriorityArmed: false,
                 ReturnedLaterally: false,
                 Corner: corner,
+                SourceTouchKey: touchKey,
                 OutboundXSign: outboundXSign,
                 OutboundYSign: outboundYSign,
                 StartedTicks: nowTicks,
@@ -3747,6 +3748,7 @@ internal sealed class TouchProcessorCore
         if (!gesture.DispatchState.DispatchDownSent &&
             IsTriangleMatch(in gesture, nowTicks))
         {
+            CancelGestureSourceTouch(gesture.SourceTouchKey, side, nowTicks);
             EngineKeyAction action = GetTriangleGestureAction(gesture.Corner);
             _ = TryBeginRepeatableGestureDispatch(
                 GetTriangleGestureBindingId(gesture.Corner),
@@ -4062,6 +4064,12 @@ internal sealed class TouchProcessorCore
 
     private bool TryGetSingleIntentTouchForSide(TrackpadSide side, out IntentTouchInfo touch)
     {
+        return TryGetSingleIntentTouchForSide(side, out _, out touch);
+    }
+
+    private bool TryGetSingleIntentTouchForSide(TrackpadSide side, out ulong touchKey, out IntentTouchInfo touch)
+    {
+        touchKey = 0;
         touch = default;
         bool found = false;
         for (int i = 0; i < _intentTouches.Capacity; i++)
@@ -4079,11 +4087,13 @@ internal sealed class TouchProcessorCore
 
             if (found)
             {
+                touchKey = 0;
                 touch = default;
                 return false;
             }
 
             found = true;
+            touchKey = _intentTouches.KeyAt(i);
             touch = candidate;
         }
 
@@ -4967,6 +4977,31 @@ internal sealed class TouchProcessorCore
             CornerClickTapZone.LowerRight => "lower_right_corner_click",
             _ => string.Empty
         };
+    }
+
+    private void CancelGestureSourceTouch(ulong touchKey, TrackpadSide side, long nowTicks)
+    {
+        if (touchKey == 0 ||
+            !_touchStates.TryGetValue(touchKey, out TouchBindingState state) ||
+            state.Side != side)
+        {
+            return;
+        }
+
+        if (state.MomentaryLayerTarget >= 0)
+        {
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
+            state.MomentaryLayerTarget = -1;
+        }
+
+        if (state.DispatchDownSent)
+        {
+            EndPressAction(ref state, nowTicks);
+        }
+
+        state.MaxDistanceMm = Math.Max(state.MaxDistanceMm, _config.DragCancelMm + 0.001);
+        state.HoldTriggered = false;
+        _touchStates.Set(touchKey, state);
     }
 
     private void EmitGestureAction(EngineKeyAction action, TrackpadSide side, ulong touchKey, long nowTicks)
@@ -6156,6 +6191,7 @@ internal sealed class TouchProcessorCore
             bool PriorityArmed,
             bool ReturnedLaterally,
             TriangleCorner Corner,
+            ulong SourceTouchKey,
             int OutboundXSign,
             int OutboundYSign,
             long StartedTicks,
@@ -6173,6 +6209,7 @@ internal sealed class TouchProcessorCore
             this.PriorityArmed = PriorityArmed;
             this.ReturnedLaterally = ReturnedLaterally;
             this.Corner = Corner;
+            this.SourceTouchKey = SourceTouchKey;
             this.OutboundXSign = OutboundXSign;
             this.OutboundYSign = OutboundYSign;
             this.StartedTicks = StartedTicks;
@@ -6192,6 +6229,7 @@ internal sealed class TouchProcessorCore
         public bool PriorityArmed;
         public bool ReturnedLaterally;
         public TriangleCorner Corner;
+        public ulong SourceTouchKey;
         public int OutboundXSign;
         public int OutboundYSign;
         public long StartedTicks;
@@ -6290,6 +6328,7 @@ internal sealed class TouchProcessorCore
             bool PriorityArmed,
             bool MatchEligible,
             TriangleCorner Corner,
+            ulong SourceTouchKey,
             int InwardXSign,
             int InwardYSign,
             long StartedTicks,
@@ -6306,6 +6345,7 @@ internal sealed class TouchProcessorCore
             this.PriorityArmed = PriorityArmed;
             this.MatchEligible = MatchEligible;
             this.Corner = Corner;
+            this.SourceTouchKey = SourceTouchKey;
             this.InwardXSign = InwardXSign;
             this.InwardYSign = InwardYSign;
             this.StartedTicks = StartedTicks;
@@ -6324,6 +6364,7 @@ internal sealed class TouchProcessorCore
         public bool PriorityArmed;
         public bool MatchEligible;
         public TriangleCorner Corner;
+        public ulong SourceTouchKey;
         public int InwardXSign;
         public int InwardYSign;
         public long StartedTicks;
