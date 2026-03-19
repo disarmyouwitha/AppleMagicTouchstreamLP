@@ -99,6 +99,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Corner hold tests failed: {cornerFailure}");
         }
 
+        if (!RunCornerSwipeGestureTests(out string cornerSwipeFailure))
+        {
+            return new SelfTestResult(false, $"Corner swipe tests failed: {cornerSwipeFailure}");
+        }
+
         if (!RunEdgeSlideGestureTests(out string edgeFailure))
         {
             return new SelfTestResult(false, $"Edge slide tests failed: {edgeFailure}");
@@ -3388,6 +3393,107 @@ internal static class SelfTestRunner
         if (cornerATaps != 1 || otherKeyTaps != 0 || cornerMouseClicks != 0)
         {
             failure = $"corner hold dispatch mismatch (A={cornerATaps}, otherKeyTaps={otherKeyTaps}, mouseClicks={cornerMouseClicks}, expected=1/0/0)";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunCornerSwipeGestureTests(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        if (!TryFindOuterCornerOffKeyPair(leftLayout, out double topXNorm, out double topYNorm, out _, out _))
+        {
+            failure = "failed to find off-key top-left corner point";
+            return false;
+        }
+
+        ushort startX = (ushort)Math.Clamp((int)Math.Round(topXNorm * maxX), 1, maxX - 1);
+        ushort startY = (ushort)Math.Clamp((int)Math.Round(topYNorm * maxY), 1, maxY - 1);
+        ushort midX = (ushort)Math.Clamp((int)Math.Round(0.11 * maxX), 1, maxX - 1);
+        ushort midY = (ushort)Math.Clamp((int)Math.Round(0.12 * maxY), 1, maxY - 1);
+        ushort cornerEndX = (ushort)Math.Clamp((int)Math.Round(0.18 * maxX), 1, maxX - 1);
+        ushort cornerEndY = (ushort)Math.Clamp((int)Math.Round(0.20 * maxY), 1, maxY - 1);
+        ushort triangleTurnX = (ushort)Math.Clamp((int)Math.Round(0.20 * maxX), 1, maxX - 1);
+        ushort triangleTurnY = (ushort)Math.Clamp((int)Math.Round(0.28 * maxY), 1, maxY - 1);
+        ushort triangleReturnX = (ushort)Math.Clamp((int)Math.Round(0.03 * maxX), 1, maxX - 1);
+        ushort triangleReturnY = (ushort)Math.Clamp((int)Math.Round(0.30 * maxY), 1, maxY - 1);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.ConfigureLayouts(leftLayout, rightLayout);
+        core.Configure(core.CurrentConfig with
+        {
+            TopLeftCornerSwipeAction = "A",
+            TopLeftTriangleAction = "B",
+            SnapRadiusPercent = 0.0
+        });
+
+        DispatchEvent[] dispatchScratch = new DispatchEvent[16];
+
+        bool ExpectSingleTap(string scenarioName, InputFrame[] frames, ushort expectedVirtualKey, out string reason)
+        {
+            core.ResetState();
+            int drainedBefore = core.DrainDispatchEvents(dispatchScratch);
+            if (drainedBefore != 0)
+            {
+                reason = $"{scenarioName} expected empty queue before start, drained={drainedBefore}";
+                return false;
+            }
+
+            long now = 0;
+            for (int i = 0; i < frames.Length; i++)
+            {
+                core.ProcessFrame(TrackpadSide.Left, in frames[i], maxX, maxY, now);
+                now += MsToTicks(25);
+            }
+
+            int drained = core.DrainDispatchEvents(dispatchScratch);
+            if (drained != 1 ||
+                dispatchScratch[0].Kind != DispatchEventKind.KeyTap ||
+                dispatchScratch[0].VirtualKey != expectedVirtualKey)
+            {
+                reason = $"{scenarioName} expected KeyTap 0x{expectedVirtualKey:X2}, got {drained} events";
+                return false;
+            }
+
+            reason = string.Empty;
+            return true;
+        }
+
+        if (!ExpectSingleTap(
+                "corner-swipe-top-left",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 401, x0: startX, y0: startY),
+                    MakeFrame(contactCount: 1, id0: 401, x0: midX, y0: midY),
+                    MakeFrame(contactCount: 1, id0: 401, x0: cornerEndX, y0: cornerEndY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x41,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "triangle-over-corner-top-left",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 402, x0: startX, y0: startY),
+                    MakeFrame(contactCount: 1, id0: 402, x0: triangleTurnX, y0: triangleTurnY),
+                    MakeFrame(contactCount: 1, id0: 402, x0: triangleReturnX, y0: triangleReturnY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x42,
+                out failure))
+        {
             return false;
         }
 

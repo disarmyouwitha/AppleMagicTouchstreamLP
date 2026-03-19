@@ -284,6 +284,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         BottomEdgeRightGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         OuterCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         InnerCornersGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopLeftCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopRightCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomLeftCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomRightCornerSwipeGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         TopLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         TopRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         BottomLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -569,6 +573,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string bottomEdgeRightAction = NormalizeGestureActionForUi(_settings.BottomEdgeRightAction, "None");
         string outerCornersAction = NormalizeGestureActionForUi(_settings.OuterCornersAction, "None");
         string innerCornersAction = NormalizeGestureActionForUi(_settings.InnerCornersAction, "None");
+        string topLeftCornerSwipeAction = NormalizeGestureActionForUi(_settings.TopLeftCornerSwipeAction, "None");
+        string topRightCornerSwipeAction = NormalizeGestureActionForUi(_settings.TopRightCornerSwipeAction, "None");
+        string bottomLeftCornerSwipeAction = NormalizeGestureActionForUi(_settings.BottomLeftCornerSwipeAction, "None");
+        string bottomRightCornerSwipeAction = NormalizeGestureActionForUi(_settings.BottomRightCornerSwipeAction, "None");
         string topLeftTriangleAction = NormalizeGestureActionForUi(_settings.TopLeftTriangleAction, "None");
         string topRightTriangleAction = NormalizeGestureActionForUi(_settings.TopRightTriangleAction, "None");
         string bottomLeftTriangleAction = NormalizeGestureActionForUi(_settings.BottomLeftTriangleAction, "None");
@@ -607,6 +615,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.BottomEdgeRightAction = bottomEdgeRightAction;
         _settings.OuterCornersAction = outerCornersAction;
         _settings.InnerCornersAction = innerCornersAction;
+        _settings.TopLeftCornerSwipeAction = topLeftCornerSwipeAction;
+        _settings.TopRightCornerSwipeAction = topRightCornerSwipeAction;
+        _settings.BottomLeftCornerSwipeAction = bottomLeftCornerSwipeAction;
+        _settings.BottomRightCornerSwipeAction = bottomRightCornerSwipeAction;
         _settings.TopLeftTriangleAction = topLeftTriangleAction;
         _settings.TopRightTriangleAction = topRightTriangleAction;
         _settings.BottomLeftTriangleAction = bottomLeftTriangleAction;
@@ -645,6 +657,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         BottomEdgeRightGestureCombo.SelectedValue = bottomEdgeRightAction;
         OuterCornersGestureCombo.SelectedValue = outerCornersAction;
         InnerCornersGestureCombo.SelectedValue = innerCornersAction;
+        TopLeftCornerSwipeGestureCombo.SelectedValue = topLeftCornerSwipeAction;
+        TopRightCornerSwipeGestureCombo.SelectedValue = topRightCornerSwipeAction;
+        BottomLeftCornerSwipeGestureCombo.SelectedValue = bottomLeftCornerSwipeAction;
+        BottomRightCornerSwipeGestureCombo.SelectedValue = bottomRightCornerSwipeAction;
         TopLeftTriangleGestureCombo.SelectedValue = topLeftTriangleAction;
         TopRightTriangleGestureCombo.SelectedValue = topRightTriangleAction;
         BottomLeftTriangleGestureCombo.SelectedValue = bottomLeftTriangleAction;
@@ -736,6 +752,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RegisterGestureBindingControl("five_finger_swipe_right", FiveFingerSwipeRightGestureCombo, FiveFingerSwipeRightGestureRepeatBox);
         RegisterGestureBindingControl("five_finger_swipe_up", FiveFingerSwipeUpGestureCombo, FiveFingerSwipeUpGestureRepeatBox);
         RegisterGestureBindingControl("five_finger_swipe_down", FiveFingerSwipeDownGestureCombo, FiveFingerSwipeDownGestureRepeatBox);
+        RegisterGestureBindingControl("top_left_corner_swipe", TopLeftCornerSwipeGestureCombo, TopLeftCornerSwipeGestureRepeatBox);
+        RegisterGestureBindingControl("top_right_corner_swipe", TopRightCornerSwipeGestureCombo, TopRightCornerSwipeGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_left_corner_swipe", BottomLeftCornerSwipeGestureCombo, BottomLeftCornerSwipeGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_right_corner_swipe", BottomRightCornerSwipeGestureCombo, BottomRightCornerSwipeGestureRepeatBox);
         RegisterGestureBindingControl("top_left_triangle", TopLeftTriangleGestureCombo, TopLeftTriangleGestureRepeatBox);
         RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo, TopRightTriangleGestureRepeatBox);
         RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo, BottomLeftTriangleGestureRepeatBox);
@@ -836,6 +856,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return BottomEdgeRightGestureCombo;
         yield return OuterCornersGestureCombo;
         yield return InnerCornersGestureCombo;
+        yield return TopLeftCornerSwipeGestureCombo;
+        yield return TopRightCornerSwipeGestureCombo;
+        yield return BottomLeftCornerSwipeGestureCombo;
+        yield return BottomRightCornerSwipeGestureCombo;
         yield return TopLeftTriangleGestureCombo;
         yield return TopRightTriangleGestureCombo;
         yield return BottomLeftTriangleGestureCombo;
@@ -1780,6 +1804,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.BottomEdgeRightAction = ReadGestureActionSelection(BottomEdgeRightGestureCombo, "None");
         _settings.OuterCornersAction = ReadGestureActionSelection(OuterCornersGestureCombo, "None");
         _settings.InnerCornersAction = ReadGestureActionSelection(InnerCornersGestureCombo, "None");
+        _settings.TopLeftCornerSwipeAction = ReadGestureActionSelection(TopLeftCornerSwipeGestureCombo, "None");
+        _settings.TopRightCornerSwipeAction = ReadGestureActionSelection(TopRightCornerSwipeGestureCombo, "None");
+        _settings.BottomLeftCornerSwipeAction = ReadGestureActionSelection(BottomLeftCornerSwipeGestureCombo, "None");
+        _settings.BottomRightCornerSwipeAction = ReadGestureActionSelection(BottomRightCornerSwipeGestureCombo, "None");
         _settings.TopLeftTriangleAction = ReadGestureActionSelection(TopLeftTriangleGestureCombo, "None");
         _settings.TopRightTriangleAction = ReadGestureActionSelection(TopRightTriangleGestureCombo, "None");
         _settings.BottomLeftTriangleAction = ReadGestureActionSelection(BottomLeftTriangleGestureCombo, "None");

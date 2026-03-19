@@ -1046,6 +1046,72 @@
 
                 <Expander IsExpanded="False" Margin="0,8,0,0">
                   <Expander.Header>
+                    <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1A72C2B5" BorderBrush="#355B56" BorderThickness="1">
+                      <TextBlock Text="Corners" Foreground="#72c2b5" FontSize="12" FontWeight="SemiBold" />
+                    </Border>
+                  </Expander.Header>
+                  <StackPanel Margin="0,6,0,0">
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="58" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Top Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="TopLeftCornerSwipeGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                  <TextBox x:Name="TopLeftCornerSwipeGestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="58" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Top Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="TopRightCornerSwipeGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                  <TextBox x:Name="TopRightCornerSwipeGestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="58" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Bottom Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="BottomLeftCornerSwipeGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                  <TextBox x:Name="BottomLeftCornerSwipeGestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
+                </Grid>
+                <Grid Margin="0,6,0,0">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="170" />
+                    <ColumnDefinition Width="58" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock Text="Bottom Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <ComboBox x:Name="BottomRightCornerSwipeGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
+                    <ComboBox.GroupStyle>
+                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
+                    </ComboBox.GroupStyle>
+                  </ComboBox>
+                  <TextBox x:Name="BottomRightCornerSwipeGestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
+                </Grid>
+                  </StackPanel>
+                </Expander>
+
+                <Expander IsExpanded="False" Margin="0,8,0,0">
+                  <Expander.Header>
                     <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1AD8B37A" BorderBrush="#5A4A2E" BorderThickness="1">
                       <TextBlock Text="Triangles" Foreground="#d8b37a" FontSize="12" FontWeight="SemiBold" />
                     </Border>
@@ -1151,7 +1217,7 @@
                     <ColumnDefinition Width="170" />
                     <ColumnDefinition Width="58" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Top Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Top Left Click" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="UpperLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
@@ -1165,7 +1231,7 @@
                     <ColumnDefinition Width="170" />
                     <ColumnDefinition Width="58" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Top Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Top Right Click" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="UpperRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
@@ -1179,7 +1245,7 @@
                     <ColumnDefinition Width="170" />
                     <ColumnDefinition Width="58" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Bottom Left" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Bottom Left Click" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="LowerLeftCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />
@@ -1193,7 +1259,7 @@
                     <ColumnDefinition Width="170" />
                     <ColumnDefinition Width="58" />
                   </Grid.ColumnDefinitions>
-                  <TextBlock Text="Bottom Right" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                  <TextBlock Text="Bottom Right Click" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <ComboBox x:Name="LowerRightCornerClickGestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
                     <ComboBox.GroupStyle>
                       <StaticResource ResourceKey="KeymapActionGroupStyle" />

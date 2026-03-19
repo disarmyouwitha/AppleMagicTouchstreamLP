@@ -33,6 +33,14 @@ internal sealed class TouchProcessorCore
     private const double TriangleMaxDurationMs = 3000.0;
     private const double TriangleTurnDotUpperBound = -0.15;
     private const double TriangleReturnDominanceRatio = 2.0;
+    private const double CornerSwipeStartCornerThreshold = 0.12;
+    private const double CornerSwipeArmDistanceMm = 10.0;
+    private const double CornerSwipeMinAxisTravelMm = 10.0;
+    private const double CornerSwipeTriggerDistanceMm = 24.0;
+    private const double CornerSwipeAxisBalanceRatio = 2.4;
+    private const double CornerSwipeMaxReverseTravelMm = 10.0;
+    private const double CornerSwipeTriangleDisambiguationMs = 120.0;
+    private const double CornerSwipeMaxDurationMs = 2000.0;
     private const double EdgeSlideStartThreshold = 0.03;
     private const double EdgeSlideStayThreshold = 0.08;
     private const double EdgeSlideArmDistanceMm = 10.0;
@@ -175,6 +183,10 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _fourFingerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
     private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightCornerSwipeGestureAction = EngineKeyAction.None;
     private EngineKeyAction _topLeftTriangleGestureAction = EngineKeyAction.None;
     private EngineKeyAction _topRightTriangleGestureAction = EngineKeyAction.None;
     private EngineKeyAction _bottomLeftTriangleGestureAction = EngineKeyAction.None;
@@ -186,6 +198,8 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _upperRightCornerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _lowerLeftCornerClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _lowerRightCornerClickGestureAction = EngineKeyAction.None;
+    private CornerSwipeGesture _cornerSwipeGestureLeft;
+    private CornerSwipeGesture _cornerSwipeGestureRight;
     private TriangleGesture _triangleGestureLeft;
     private TriangleGesture _triangleGestureRight;
     private EdgeSlideGesture _edgeSlideGestureLeft;
@@ -269,6 +283,15 @@ internal sealed class TouchProcessorCore
         {
             _triangleGestureLeft = default;
             _triangleGestureRight = default;
+        }
+
+        if (_topLeftCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _topRightCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _bottomLeftCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _bottomRightCornerSwipeGestureAction.Kind == EngineActionKind.None)
+        {
+            _cornerSwipeGestureLeft = default;
+            _cornerSwipeGestureRight = default;
         }
 
         if (_leftEdgeUpGestureAction.Kind == EngineActionKind.None &&
@@ -503,6 +526,8 @@ internal sealed class TouchProcessorCore
         _twoFingerHoldGesture = default;
         _threeFingerHoldGesture = default;
         _fourFingerHoldGesture = default;
+        _cornerSwipeGestureLeft = default;
+        _cornerSwipeGestureRight = default;
         _triangleGestureLeft = default;
         _triangleGestureRight = default;
         _forceClickGestureLeft = default;
@@ -759,6 +784,7 @@ internal sealed class TouchProcessorCore
         UpdateFourFingerHoldGesture(aggregate, timestampTicks);
         UpdateCornerHoldGesture(side, timestampTicks);
         UpdateEdgeSlideGesture(side, tipContactsInFrame, timestampTicks);
+        UpdateCornerSwipeGesture(side, tipContactsInFrame, timestampTicks);
         UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
         UpdateForceClickGesture(
             side,
@@ -1385,6 +1411,7 @@ internal sealed class TouchProcessorCore
         return IsThreePlusGesturePriorityActive(side) ||
                IsCornerGesturePriorityActive(side) ||
                IsEdgeSlideGesturePriorityActive(side) ||
+               IsCornerSwipeGesturePriorityActive(side) ||
                IsTriangleGesturePriorityActive(side) ||
                IsForceClickGesturePriorityActive(side) ||
                IsCornerClickTapGesturePriorityActive(side);
@@ -1433,6 +1460,12 @@ internal sealed class TouchProcessorCore
     {
         TriangleGesture gesture = side == TrackpadSide.Left ? _triangleGestureLeft : _triangleGestureRight;
         return gesture.Active && gesture.PriorityArmed;
+    }
+
+    private bool IsCornerSwipeGesturePriorityActive(TrackpadSide side)
+    {
+        CornerSwipeGesture gesture = side == TrackpadSide.Left ? _cornerSwipeGestureLeft : _cornerSwipeGestureRight;
+        return gesture.Active && gesture.CandidateValid && gesture.PriorityArmed;
     }
 
     private bool IsEdgeSlideGesturePriorityActive(TrackpadSide side)
@@ -3449,6 +3482,142 @@ internal sealed class TouchProcessorCore
         gesture.Triggered = true;
     }
 
+    private void UpdateCornerSwipeGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
+    {
+        ref CornerSwipeGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerSwipeGestureLeft
+            : ref _cornerSwipeGestureRight;
+        if (!AreCornerSwipeGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out IntentTouchInfo touch);
+        if (tipContactsInFrame != 1 || !hasSingleTouch)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                gesture.MatchEligible)
+            {
+                EngineKeyAction action = GetCornerSwipeGestureAction(gesture.Corner);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        double xNorm = touch.LastXNorm;
+        double yNorm = touch.LastYNorm;
+        if (!gesture.Active)
+        {
+            if (touch.KeyboardAnchor ||
+                !TryClassifyCornerSwipeCorner(xNorm, yNorm, out TriangleCorner corner))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetCornerSwipeGestureAction(corner);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            gesture = new CornerSwipeGesture(
+                Active: true,
+                CandidateValid: true,
+                PriorityArmed: false,
+                MatchEligible: false,
+                Corner: corner,
+                InwardXSign: IsLeftCorner(corner) ? 1 : -1,
+                InwardYSign: IsTopCorner(corner) ? 1 : -1,
+                StartedTicks: nowTicks,
+                MatchTicks: 0,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                PeakXNorm: xNorm,
+                PeakYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+
+        if (gesture.InwardXSign > 0)
+        {
+            gesture.PeakXNorm = Math.Max(gesture.PeakXNorm, xNorm);
+        }
+        else
+        {
+            gesture.PeakXNorm = Math.Min(gesture.PeakXNorm, xNorm);
+        }
+
+        if (gesture.InwardYSign > 0)
+        {
+            gesture.PeakYNorm = Math.Max(gesture.PeakYNorm, yNorm);
+        }
+        else
+        {
+            gesture.PeakYNorm = Math.Min(gesture.PeakYNorm, yNorm);
+        }
+
+        if (!gesture.PriorityArmed &&
+            TryMatchCornerSwipe(in gesture, CornerSwipeArmDistanceMm, CornerSwipeMinAxisTravelMm * 0.5))
+        {
+            gesture.PriorityArmed = true;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(CornerSwipeMaxDurationMs) ||
+            GetCornerSwipeReverseXTravelMm(in gesture) > CornerSwipeMaxReverseTravelMm ||
+            GetCornerSwipeReverseYTravelMm(in gesture) > CornerSwipeMaxReverseTravelMm)
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (!gesture.MatchEligible &&
+            TryMatchCornerSwipe(in gesture, CornerSwipeTriggerDistanceMm, CornerSwipeMinAxisTravelMm))
+        {
+            gesture.MatchEligible = true;
+            gesture.MatchTicks = nowTicks;
+        }
+
+        if (!gesture.MatchEligible || gesture.DispatchState.DispatchDownSent)
+        {
+            return;
+        }
+
+        bool hasTriangleOverlap = GetTriangleGestureAction(gesture.Corner).Kind != EngineActionKind.None;
+        if (hasTriangleOverlap &&
+            (nowTicks - gesture.MatchTicks) < MsToTicks(CornerSwipeTriangleDisambiguationMs))
+        {
+            return;
+        }
+
+        EngineKeyAction gestureAction = GetCornerSwipeGestureAction(gesture.Corner);
+        _ = TryBeginRepeatableGestureDispatch(
+            GetCornerSwipeGestureBindingId(gesture.Corner),
+            gestureAction,
+            side,
+            nowTicks,
+            ref gesture.DispatchState);
+    }
+
     private void UpdateTriangleGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
     {
         ref TriangleGesture gesture = ref side == TrackpadSide.Left
@@ -3929,6 +4098,14 @@ internal sealed class TouchProcessorCore
                _bottomRightTriangleGestureAction.Kind != EngineActionKind.None;
     }
 
+    private bool AreCornerSwipeGesturesEnabled()
+    {
+        return _topLeftCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _topRightCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightCornerSwipeGestureAction.Kind != EngineActionKind.None;
+    }
+
     private bool AreEdgeSlideGesturesEnabled()
     {
         return _leftEdgeUpGestureAction.Kind != EngineActionKind.None ||
@@ -3985,6 +4162,18 @@ internal sealed class TouchProcessorCore
             TriangleCorner.TopRight => _topRightTriangleGestureAction,
             TriangleCorner.BottomLeft => _bottomLeftTriangleGestureAction,
             TriangleCorner.BottomRight => _bottomRightTriangleGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction GetCornerSwipeGestureAction(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => _topLeftCornerSwipeGestureAction,
+            TriangleCorner.TopRight => _topRightCornerSwipeGestureAction,
+            TriangleCorner.BottomLeft => _bottomLeftCornerSwipeGestureAction,
+            TriangleCorner.BottomRight => _bottomRightCornerSwipeGestureAction,
             _ => EngineKeyAction.None
         };
     }
@@ -4074,6 +4263,40 @@ internal sealed class TouchProcessorCore
         return false;
     }
 
+    private static bool TryClassifyCornerSwipeCorner(double xNorm, double yNorm, out TriangleCorner corner)
+    {
+        bool left = xNorm <= CornerSwipeStartCornerThreshold;
+        bool right = xNorm >= (1.0 - CornerSwipeStartCornerThreshold);
+        bool top = yNorm <= CornerSwipeStartCornerThreshold;
+        bool bottom = yNorm >= (1.0 - CornerSwipeStartCornerThreshold);
+        if (top && left)
+        {
+            corner = TriangleCorner.TopLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            corner = TriangleCorner.TopRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            corner = TriangleCorner.BottomLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            corner = TriangleCorner.BottomRight;
+            return true;
+        }
+
+        corner = TriangleCorner.None;
+        return false;
+    }
+
     private static bool IsLeftCorner(TriangleCorner corner)
     {
         return corner is TriangleCorner.TopLeft or TriangleCorner.BottomLeft;
@@ -4121,6 +4344,33 @@ internal sealed class TouchProcessorCore
     private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, out EdgeSlideDirection direction)
     {
         return TryMatchEdgeSlide(in gesture, EdgeSlideTriggerDistanceMm, out direction);
+    }
+
+    private bool TryMatchCornerSwipe(in CornerSwipeGesture gesture, double minDistanceMm, double minAxisTravelMm)
+    {
+        if (!gesture.Active || !gesture.CandidateValid)
+        {
+            return false;
+        }
+
+        double inwardXTravelMm = GetCornerSwipeInwardXTravelMm(in gesture);
+        double inwardYTravelMm = GetCornerSwipeInwardYTravelMm(in gesture);
+        if (inwardXTravelMm < minAxisTravelMm ||
+            inwardYTravelMm < minAxisTravelMm)
+        {
+            return false;
+        }
+
+        double largerAxisTravelMm = Math.Max(inwardXTravelMm, inwardYTravelMm);
+        double smallerAxisTravelMm = Math.Min(inwardXTravelMm, inwardYTravelMm);
+        if (smallerAxisTravelMm <= 0.0001 ||
+            largerAxisTravelMm > (smallerAxisTravelMm * CornerSwipeAxisBalanceRatio))
+        {
+            return false;
+        }
+
+        double diagonalTravelMm = Math.Sqrt((inwardXTravelMm * inwardXTravelMm) + (inwardYTravelMm * inwardYTravelMm));
+        return diagonalTravelMm >= minDistanceMm;
     }
 
     private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, double minPrimaryTravelMm, out EdgeSlideDirection direction)
@@ -4183,6 +4433,30 @@ internal sealed class TouchProcessorCore
         }
 
         return EdgeSlideDirection.None;
+    }
+
+    private double GetCornerSwipeInwardXTravelMm(in CornerSwipeGesture gesture)
+    {
+        double inwardXNorm = (gesture.PeakXNorm - gesture.StartXNorm) * gesture.InwardXSign;
+        return inwardXNorm * _config.TrackpadWidthMm;
+    }
+
+    private double GetCornerSwipeInwardYTravelMm(in CornerSwipeGesture gesture)
+    {
+        double inwardYNorm = (gesture.PeakYNorm - gesture.StartYNorm) * gesture.InwardYSign;
+        return inwardYNorm * _config.TrackpadHeightMm;
+    }
+
+    private double GetCornerSwipeReverseXTravelMm(in CornerSwipeGesture gesture)
+    {
+        double reverseXNorm = (gesture.PeakXNorm - gesture.LastXNorm) * gesture.InwardXSign;
+        return Math.Max(0.0, reverseXNorm) * _config.TrackpadWidthMm;
+    }
+
+    private double GetCornerSwipeReverseYTravelMm(in CornerSwipeGesture gesture)
+    {
+        double reverseYNorm = (gesture.PeakYNorm - gesture.LastYNorm) * gesture.InwardYSign;
+        return Math.Max(0.0, reverseYNorm) * _config.TrackpadHeightMm;
     }
 
     private double GetEdgeSlidePrimaryTravelMm(in EdgeSlideGesture gesture, EdgeSlideDirection direction)
@@ -4631,6 +4905,18 @@ internal sealed class TouchProcessorCore
             TriangleCorner.TopRight => "top_right_triangle",
             TriangleCorner.BottomLeft => "bottom_left_triangle",
             TriangleCorner.BottomRight => "bottom_right_triangle",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetCornerSwipeGestureBindingId(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => "top_left_corner_swipe",
+            TriangleCorner.TopRight => "top_right_corner_swipe",
+            TriangleCorner.BottomLeft => "bottom_left_corner_swipe",
+            TriangleCorner.BottomRight => "bottom_right_corner_swipe",
             _ => string.Empty
         };
     }
@@ -5367,6 +5653,10 @@ internal sealed class TouchProcessorCore
         _fourFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerClickAction);
         _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
         _innerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.InnerCornersAction);
+        _topLeftCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftCornerSwipeAction);
+        _topRightCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightCornerSwipeAction);
+        _bottomLeftCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftCornerSwipeAction);
+        _bottomRightCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightCornerSwipeAction);
         _topLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftTriangleAction);
         _topRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightTriangleAction);
         _bottomLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftTriangleAction);
@@ -5416,6 +5706,10 @@ internal sealed class TouchProcessorCore
             FourFingerSwipeRightAction = NormalizeGestureAction(config.FourFingerSwipeRightAction, "None"),
             FourFingerSwipeUpAction = NormalizeGestureAction(config.FourFingerSwipeUpAction, "None"),
             FourFingerSwipeDownAction = NormalizeGestureAction(config.FourFingerSwipeDownAction, "None"),
+            TopLeftCornerSwipeAction = NormalizeGestureAction(config.TopLeftCornerSwipeAction, "None"),
+            TopRightCornerSwipeAction = NormalizeGestureAction(config.TopRightCornerSwipeAction, "None"),
+            BottomLeftCornerSwipeAction = NormalizeGestureAction(config.BottomLeftCornerSwipeAction, "None"),
+            BottomRightCornerSwipeAction = NormalizeGestureAction(config.BottomRightCornerSwipeAction, "None"),
             TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
             ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
             FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
@@ -5986,6 +6280,61 @@ internal sealed class TouchProcessorCore
         TopRight = 2,
         BottomLeft = 3,
         BottomRight = 4
+    }
+
+    private struct CornerSwipeGesture
+    {
+        public CornerSwipeGesture(
+            bool Active,
+            bool CandidateValid,
+            bool PriorityArmed,
+            bool MatchEligible,
+            TriangleCorner Corner,
+            int InwardXSign,
+            int InwardYSign,
+            long StartedTicks,
+            long MatchTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double PeakXNorm,
+            double PeakYNorm,
+            double LastXNorm,
+            double LastYNorm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.PriorityArmed = PriorityArmed;
+            this.MatchEligible = MatchEligible;
+            this.Corner = Corner;
+            this.InwardXSign = InwardXSign;
+            this.InwardYSign = InwardYSign;
+            this.StartedTicks = StartedTicks;
+            this.MatchTicks = MatchTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.PeakXNorm = PeakXNorm;
+            this.PeakYNorm = PeakYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool PriorityArmed;
+        public bool MatchEligible;
+        public TriangleCorner Corner;
+        public int InwardXSign;
+        public int InwardYSign;
+        public long StartedTicks;
+        public long MatchTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double PeakXNorm;
+        public double PeakYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public GestureDispatchState DispatchState;
     }
 
     private struct ForceClickGesture

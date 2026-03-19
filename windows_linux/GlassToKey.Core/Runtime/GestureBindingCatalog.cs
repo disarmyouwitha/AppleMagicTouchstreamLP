@@ -20,6 +20,7 @@ public static class GestureBindingCatalog
         new GestureSectionDefinition("holds", "Holds", true),
         new GestureSectionDefinition("edges", "Edges", false),
         new GestureSectionDefinition("swipes", "Swipes", false),
+        new GestureSectionDefinition("corners", "Corners", false),
         new GestureSectionDefinition("triangles", "Triangles", false),
         new GestureSectionDefinition("clicks", "Clicks", false),
         new GestureSectionDefinition("force_clicks", "Force Clicks", false)
@@ -55,6 +56,11 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("five_finger_swipe_up", "swipes", "5-finger up", "None"),
         new GestureBindingDefinition("five_finger_swipe_down", "swipes", "5-finger down", "None"),
 
+        new GestureBindingDefinition("top_left_corner_swipe", "corners", "Top Left", "None"),
+        new GestureBindingDefinition("top_right_corner_swipe", "corners", "Top Right", "None"),
+        new GestureBindingDefinition("bottom_left_corner_swipe", "corners", "Bottom Left", "None"),
+        new GestureBindingDefinition("bottom_right_corner_swipe", "corners", "Bottom Right", "None"),
+
         new GestureBindingDefinition("top_left_triangle", "triangles", "Top Left", "None"),
         new GestureBindingDefinition("top_right_triangle", "triangles", "Top Right", "None"),
         new GestureBindingDefinition("bottom_left_triangle", "triangles", "Bottom Left", "None"),
@@ -62,10 +68,10 @@ public static class GestureBindingCatalog
 
         new GestureBindingDefinition("three_finger_click", "clicks", "3-Finger Click", "None"),
         new GestureBindingDefinition("four_finger_click", "clicks", "4-Finger Click", "None"),
-        new GestureBindingDefinition("upper_left_corner_click", "clicks", "Top Left", "None"),
-        new GestureBindingDefinition("upper_right_corner_click", "clicks", "Top Right", "None"),
-        new GestureBindingDefinition("lower_left_corner_click", "clicks", "Bottom Left", "None"),
-        new GestureBindingDefinition("lower_right_corner_click", "clicks", "Bottom Right", "None"),
+        new GestureBindingDefinition("upper_left_corner_click", "clicks", "Top Left Click", "None"),
+        new GestureBindingDefinition("upper_right_corner_click", "clicks", "Top Right Click", "None"),
+        new GestureBindingDefinition("lower_left_corner_click", "clicks", "Bottom Left Click", "None"),
+        new GestureBindingDefinition("lower_right_corner_click", "clicks", "Bottom Right Click", "None"),
 
         new GestureBindingDefinition("force_click_1", "force_clicks", "Force Click1", "None"),
         new GestureBindingDefinition("force_click_2", "force_clicks", "Force Click2", "None"),
@@ -288,6 +294,10 @@ public static class GestureBindingCatalog
             "five_finger_swipe_right" => settings.FiveFingerSwipeRightAction,
             "five_finger_swipe_up" => settings.FiveFingerSwipeUpAction,
             "five_finger_swipe_down" => settings.FiveFingerSwipeDownAction,
+            "top_left_corner_swipe" => settings.TopLeftCornerSwipeAction,
+            "top_right_corner_swipe" => settings.TopRightCornerSwipeAction,
+            "bottom_left_corner_swipe" => settings.BottomLeftCornerSwipeAction,
+            "bottom_right_corner_swipe" => settings.BottomRightCornerSwipeAction,
             "top_left_triangle" => settings.TopLeftTriangleAction,
             "top_right_triangle" => settings.TopRightTriangleAction,
             "bottom_left_triangle" => settings.BottomLeftTriangleAction,
@@ -394,6 +404,18 @@ public static class GestureBindingCatalog
                 return;
             case "five_finger_swipe_down":
                 settings.FiveFingerSwipeDownAction = action;
+                return;
+            case "top_left_corner_swipe":
+                settings.TopLeftCornerSwipeAction = action;
+                return;
+            case "top_right_corner_swipe":
+                settings.TopRightCornerSwipeAction = action;
+                return;
+            case "bottom_left_corner_swipe":
+                settings.BottomLeftCornerSwipeAction = action;
+                return;
+            case "bottom_right_corner_swipe":
+                settings.BottomRightCornerSwipeAction = action;
                 return;
             case "top_left_triangle":
                 settings.TopLeftTriangleAction = action;

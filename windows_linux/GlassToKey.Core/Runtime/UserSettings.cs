@@ -39,6 +39,10 @@ public sealed class UserSettings
     public string FourFingerSwipeRightAction { get; set; } = "None";
     public string FourFingerSwipeUpAction { get; set; } = "None";
     public string FourFingerSwipeDownAction { get; set; } = "None";
+    public string TopLeftCornerSwipeAction { get; set; } = "None";
+    public string TopRightCornerSwipeAction { get; set; } = "None";
+    public string BottomLeftCornerSwipeAction { get; set; } = "None";
+    public string BottomRightCornerSwipeAction { get; set; } = "None";
     public string TwoFingerHoldAction { get; set; } = "None";
     public string ThreeFingerHoldAction { get; set; } = "None";
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
@@ -139,6 +143,10 @@ public sealed class UserSettings
         FourFingerSwipeRightAction = source.FourFingerSwipeRightAction;
         FourFingerSwipeUpAction = source.FourFingerSwipeUpAction;
         FourFingerSwipeDownAction = source.FourFingerSwipeDownAction;
+        TopLeftCornerSwipeAction = source.TopLeftCornerSwipeAction;
+        TopRightCornerSwipeAction = source.TopRightCornerSwipeAction;
+        BottomLeftCornerSwipeAction = source.BottomLeftCornerSwipeAction;
+        BottomRightCornerSwipeAction = source.BottomRightCornerSwipeAction;
         TwoFingerHoldAction = source.TwoFingerHoldAction;
         ThreeFingerHoldAction = source.ThreeFingerHoldAction;
         FourFingerHoldAction = source.FourFingerHoldAction;

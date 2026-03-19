@@ -1,6 +1,4 @@
 ## Current:
-- New branch to test Accelerator bright / vol/ L / R
-
 - New Gesture Category/collapsable: `Corners`:
 - (Should be distinct enough from Triangles to differentiate)
 - `Top Left`: Swipe in from the top-left corner with 1 finger
@@ -22,6 +20,7 @@ Add more `Forced Click` options:
 
 Move `Force Clicks` into `clicks`
 -------
+- New branch to test Accelerator bright / vol/ L / R
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
 - 
 -------
