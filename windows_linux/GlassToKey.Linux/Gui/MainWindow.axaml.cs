@@ -2182,6 +2182,8 @@ public partial class MainWindow : Window
         AddKeyActionChoice(options, "VOL_DOWN");
         AddKeyActionChoice(options, "BRIGHT_UP");
         AddKeyActionChoice(options, "BRIGHT_DOWN");
+        AddKeyActionChoice(options, "BRI_SCRIPT_UP");
+        AddKeyActionChoice(options, "BRI_SCRIPT_DOWN");
 
         AddActionSection(options, "Layers");
         AddKeyActionChoice(options, "TO(0)");

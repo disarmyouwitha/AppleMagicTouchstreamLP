@@ -237,6 +237,8 @@ internal static class LinuxSelfTestRunner
             !ValidateSemanticAlias("MUTE", DispatchSemanticCode.VolumeMute, LinuxEvdevCodes.KeyMute, out failure) ||
             !ValidateSemanticAlias("BRIGHT_UP", DispatchSemanticCode.BrightnessUp, LinuxEvdevCodes.KeyBrightnessUp, out failure) ||
             !ValidateSemanticAlias("BRIGHT_DOWN", DispatchSemanticCode.BrightnessDown, LinuxEvdevCodes.KeyBrightnessDown, out failure) ||
+            !ValidateSemanticAlias("BRI_SCRIPT_UP", DispatchSemanticCode.BrightnessUp, LinuxEvdevCodes.KeyBrightnessUp, out failure) ||
+            !ValidateSemanticAlias("BRI_SCRIPT_DOWN", DispatchSemanticCode.BrightnessDown, LinuxEvdevCodes.KeyBrightnessDown, out failure) ||
             !ValidateSemanticAlias("PLAY_PAUSE", DispatchSemanticCode.MediaPlayPause, LinuxEvdevCodes.KeyPlayPause, out failure) ||
             !ValidateSemanticAlias("NEXT_TRACK", DispatchSemanticCode.MediaNextTrack, LinuxEvdevCodes.KeyNextSong, out failure) ||
             !ValidateSemanticAlias("PREV_TRACK", DispatchSemanticCode.MediaPreviousTrack, LinuxEvdevCodes.KeyPreviousSong, out failure) ||

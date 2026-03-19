@@ -14,15 +14,25 @@ internal static class BrightnessController
 
     public static void StepUp()
     {
-        Step(direction: 1);
+        AdjustPhysicalBrightness(direction: 1);
     }
 
     public static void StepDown()
     {
-        Step(direction: -1);
+        AdjustPhysicalBrightness(direction: -1);
     }
 
-    private static void Step(int direction)
+    public static void StepScriptUp()
+    {
+        QueueInternalDisplayBrightnessStep(direction: 1);
+    }
+
+    public static void StepScriptDown()
+    {
+        QueueInternalDisplayBrightnessStep(direction: -1);
+    }
+
+    private static void AdjustPhysicalBrightness(int direction)
     {
         if (direction == 0)
         {
@@ -38,11 +48,6 @@ internal static class BrightnessController
 
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, callback, IntPtr.Zero);
         GC.KeepAlive(callback);
-
-        if (!adjusted)
-        {
-            QueueInternalDisplayBrightnessStep(direction);
-        }
     }
 
     private static void QueueInternalDisplayBrightnessStep(int direction)

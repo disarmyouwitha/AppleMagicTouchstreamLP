@@ -138,7 +138,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                     break;
                 }
 
-                if (!_suppressPhysicalOutput && TryDispatchSystemAction(keyTapVirtualKey))
+                if (!_suppressPhysicalOutput && TryDispatchSystemAction(dispatchEvent, keyTapVirtualKey))
                 {
                     break;
                 }
@@ -164,19 +164,43 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                 }
                 else
                 {
-            HandleKeyDownAutocorrect(dispatchEvent);
-            HandleKeyDown(
-                keyDownVirtualKey,
-                dispatchEvent.RepeatToken,
-                dispatchEvent.Flags,
-                dispatchEvent.TimestampTicks,
-                dispatchEvent.RepeatProfile,
-                dispatchEvent.SemanticAction);
-        }
-        break;
+                    if (!_suppressPhysicalOutput &&
+                        TryDispatchSystemAction(
+                            dispatchEvent,
+                            keyDownVirtualKey,
+                            allowRepeatScheduling: true,
+                            repeatToken: dispatchEvent.RepeatToken,
+                            flags: dispatchEvent.Flags,
+                            timestampTicks: dispatchEvent.TimestampTicks,
+                            repeatProfile: dispatchEvent.RepeatProfile))
+                    {
+                        break;
+                    }
+
+                    HandleKeyDownAutocorrect(dispatchEvent);
+                    HandleKeyDown(
+                        keyDownVirtualKey,
+                        dispatchEvent.RepeatToken,
+                        dispatchEvent.Flags,
+                        dispatchEvent.TimestampTicks,
+                        dispatchEvent.RepeatProfile,
+                        dispatchEvent.SemanticAction);
+                }
+                break;
             case DispatchEventKind.KeyUp:
                 if (TryResolveKeyVirtualKey(dispatchEvent, out ushort keyUpVirtualKey))
                 {
+                    if (!_suppressPhysicalOutput &&
+                        TryDispatchSystemAction(dispatchEvent, keyUpVirtualKey))
+                    {
+                        if (dispatchEvent.RepeatToken != 0)
+                        {
+                            CancelRepeat(dispatchEvent.RepeatToken);
+                        }
+
+                        break;
+                    }
+
                     if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
                     {
                         HandleChordKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken, dispatchEvent.SemanticAction);
@@ -669,6 +693,22 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             return;
         }
 
+        if (TryDispatchSystemAction(
+            new DispatchEvent(
+                TimestampTicks: 0,
+                Kind: DispatchEventKind.KeyDown,
+                VirtualKey: virtualKey,
+                MouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                Flags: DispatchEventFlags.None,
+                Side: TrackpadSide.Left,
+                DispatchLabel: string.Empty,
+                SemanticAction: semanticAction),
+            virtualKey))
+        {
+            return;
+        }
+
         // Keep autocorrect/key history behavior aligned with repeated character input.
         HandleKeyDownAutocorrect(new DispatchEvent(
             TimestampTicks: 0,
@@ -947,21 +987,54 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         return ticks > 0 ? ticks : _repeatIntervalTicks;
     }
 
-    private static bool TryDispatchSystemAction(ushort virtualKey)
+    private bool TryDispatchSystemAction(
+        in DispatchEvent dispatchEvent,
+        ushort virtualKey,
+        bool allowRepeatScheduling = false,
+        ulong repeatToken = 0,
+        DispatchEventFlags flags = DispatchEventFlags.None,
+        long timestampTicks = 0,
+        DispatchRepeatProfile repeatProfile = default)
     {
-        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessUp)
+        bool handled = dispatchEvent.SemanticAction.Label.Equals("BRIGHT_UP", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRIGHT_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRI_SCRIPT_UP", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRI_SCRIPT_DOWN", StringComparison.OrdinalIgnoreCase);
+
+        if (!handled)
         {
-            BrightnessController.StepUp();
+            return false;
+        }
+
+        if (allowRepeatScheduling &&
+            (flags & DispatchEventFlags.Repeatable) != 0 &&
+            repeatToken != 0)
+        {
+            ScheduleRepeat(repeatToken, virtualKey, timestampTicks, repeatProfile, dispatchEvent.SemanticAction);
+        }
+
+        if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+        {
             return true;
         }
 
-        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessDown)
+        switch (dispatchEvent.SemanticAction.Label.ToUpperInvariant())
         {
-            BrightnessController.StepDown();
-            return true;
+            case "BRIGHT_UP":
+                BrightnessController.StepUp();
+                return true;
+            case "BRIGHT_DOWN":
+                BrightnessController.StepDown();
+                return true;
+            case "BRI_SCRIPT_UP":
+                BrightnessController.StepScriptUp();
+                return true;
+            case "BRI_SCRIPT_DOWN":
+                BrightnessController.StepScriptDown();
+                return true;
+            default:
+                return false;
         }
-
-        return false;
     }
 
     private static bool TryResolveKeyVirtualKey(in DispatchEvent dispatchEvent, out ushort virtualKey)

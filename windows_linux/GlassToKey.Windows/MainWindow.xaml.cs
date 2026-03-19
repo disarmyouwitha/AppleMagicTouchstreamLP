@@ -2776,7 +2776,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "VOL_UP",
             "VOL_DOWN",
             "BRIGHT_UP",
-            "BRIGHT_DOWN"
+            "BRIGHT_DOWN",
+            "BRI_SCRIPT_UP",
+            "BRI_SCRIPT_DOWN"
         };
 
         for (int i = 0; i < modes.Length; i++)

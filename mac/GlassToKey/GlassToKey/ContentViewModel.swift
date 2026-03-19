@@ -1956,6 +1956,8 @@ enum KeyActionCatalog {
     static let volumeDownLabel = "VOL⬇️"
     static let brightnessUpLabel = "BRIGHT⬆️"
     static let brightnessDownLabel = "BRIGHT⬇️"
+    static let brightnessScriptUpLabel = "BRI_SCRIPT_UP"
+    static let brightnessScriptDownLabel = "BRI_SCRIPT_DOWN"
     static let chordalShiftLabel = "Chordal Shift"
     static let gestureTwoFingerTapLabel = "2-finger tap"
     static let gestureThreeFingerTapLabel = "3-finger tap"
@@ -2197,7 +2199,9 @@ enum KeyActionCatalog {
         KeyAction(label: volumeUpLabel, keyCode: 0, flags: 0, kind: .volumeUp),
         KeyAction(label: volumeDownLabel, keyCode: 0, flags: 0, kind: .volumeDown),
         KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
-        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
+        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown),
+        KeyAction(label: brightnessScriptUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
+        KeyAction(label: brightnessScriptDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
     ]
 
     private static let modeActions: [KeyAction] = [
@@ -2298,7 +2302,9 @@ enum KeyActionCatalog {
                 "BRIGHT_UP",
                 brightnessUpLabel,
                 "BRIGHT_DOWN",
-                brightnessDownLabel
+                brightnessDownLabel,
+                brightnessScriptUpLabel,
+                brightnessScriptDownLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
@@ -2496,7 +2502,23 @@ enum KeyActionCatalog {
                 kind: .brightnessUp
             )
         }
+        if normalizedLabel == brightnessScriptUpLabel {
+            return KeyAction(
+                label: label,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessUp
+            )
+        }
         if normalizedLabel == brightnessDownLabel {
+            return KeyAction(
+                label: label,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessDown
+            )
+        }
+        if normalizedLabel == brightnessScriptDownLabel {
             return KeyAction(
                 label: label,
                 keyCode: 0,

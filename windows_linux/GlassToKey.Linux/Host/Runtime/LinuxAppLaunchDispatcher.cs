@@ -13,6 +13,8 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     private const string EmojiActionLabel = "EMOJI";
     private const string BrightnessUpActionLabel = "BRIGHT_UP";
     private const string BrightnessDownActionLabel = "BRIGHT_DOWN";
+    private const string BrightnessScriptUpActionLabel = "BRI_SCRIPT_UP";
+    private const string BrightnessScriptDownActionLabel = "BRI_SCRIPT_DOWN";
     private const string EmojiPickerExecutable = "/usr/libexec/ibus-ui-emojier";
     private const string EmojiCopiedMessage = "Copied an emoji to your clipboard.";
     private const string XpropExecutable = "/usr/bin/xprop";
@@ -51,9 +53,9 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
 
     public void Dispatch(in DispatchEvent dispatchEvent)
     {
-        if (TryGetBrightnessDelta(dispatchEvent.SemanticAction, out double brightnessDelta))
+        if (TryGetBrightnessDelta(dispatchEvent.SemanticAction, out double brightnessDelta, out bool forceFallback))
         {
-            HandleBrightnessDispatch(dispatchEvent, brightnessDelta);
+            HandleBrightnessDispatch(dispatchEvent, brightnessDelta, forceFallback);
             return;
         }
 
@@ -123,14 +125,14 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
         _inner.SetLeftButtonState(pressed);
     }
 
-    private void HandleBrightnessDispatch(in DispatchEvent dispatchEvent, double brightnessDelta)
+    private void HandleBrightnessDispatch(in DispatchEvent dispatchEvent, double brightnessDelta, bool forceFallback)
     {
         if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
         {
             return;
         }
 
-        if (LinuxBrightnessController.ShouldUseNativeBrightnessPath())
+        if (!forceFallback && LinuxBrightnessController.ShouldUseNativeBrightnessPath())
         {
             _inner.Dispatch(in dispatchEvent);
             return;
@@ -424,21 +426,38 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
         return semanticAction.Label.Equals(EmojiActionLabel, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool TryGetBrightnessDelta(DispatchSemanticAction semanticAction, out double delta)
+    private static bool TryGetBrightnessDelta(DispatchSemanticAction semanticAction, out double delta, out bool forceFallback)
     {
         if (semanticAction.Label.Equals(BrightnessUpActionLabel, StringComparison.OrdinalIgnoreCase))
         {
             delta = 0.1;
+            forceFallback = false;
             return true;
         }
 
         if (semanticAction.Label.Equals(BrightnessDownActionLabel, StringComparison.OrdinalIgnoreCase))
         {
             delta = -0.1;
+            forceFallback = false;
+            return true;
+        }
+
+        if (semanticAction.Label.Equals(BrightnessScriptUpActionLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            delta = 0.1;
+            forceFallback = true;
+            return true;
+        }
+
+        if (semanticAction.Label.Equals(BrightnessScriptDownActionLabel, StringComparison.OrdinalIgnoreCase))
+        {
+            delta = -0.1;
+            forceFallback = true;
             return true;
         }
 
         delta = 0;
+        forceFallback = false;
         return false;
     }
 
