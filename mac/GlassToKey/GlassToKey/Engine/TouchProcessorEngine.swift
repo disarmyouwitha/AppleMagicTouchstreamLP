@@ -551,6 +551,7 @@ actor TouchProcessorEngine {
     private var intentState = IntentState()
     private var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
     private var intentConfig = IntentConfig()
+    private var currentProcessingTimestamp: TimeInterval?
     private var intentCurrentKeys = TouchTable<Bool>(minimumCapacity: 16)
     private var intentRemovalBuffer: [TouchKey] = []
     private var unitsPerMillimeter: CGFloat = 1.0
@@ -880,7 +881,9 @@ actor TouchProcessorEngine {
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
             return
         }
-        let now = Self.now()
+        let now = frame.timestamp
+        currentProcessingTimestamp = now
+        defer { currentProcessingTimestamp = nil }
         let touches = frame.touches
         let hasTouchData = !touches.isEmpty
         if !hasTouchData {
@@ -969,7 +972,9 @@ actor TouchProcessorEngine {
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
             return
         }
-        let now = Self.now()
+        let now = frame.timestamp
+        currentProcessingTimestamp = now
+        defer { currentProcessingTimestamp = nil }
         let touches = frame.rawTouches
         let hasTouchData = !touches.isEmpty
         if !hasTouchData {
@@ -1548,7 +1553,7 @@ actor TouchProcessorEngine {
                 }
                 clearPeakPressure(for: touchKey)
             case .notTouching:
-                touchInitialContactPoint.remove(touchKey)
+                let releaseStartPoint = touchInitialContactPoint.remove(touchKey)
                 let removedPending = removePendingTouch(for: touchKey)
                 let hadPending = removedPending != nil
                 if var pending = removedPending {
@@ -1580,12 +1585,27 @@ actor TouchProcessorEngine {
                 let removedActive = removeActiveTouch(for: touchKey)
                 let hadActive = removedActive != nil
                 if var active = removedActive {
-                    let distanceSquared = distanceSquared(from: active.startPoint, to: point)
-                    active.maxDistanceSquared = max(active.maxDistanceSquared, distanceSquared)
+                    let releaseDistanceSquared = distanceSquared(
+                        from: releaseStartPoint ?? active.startPoint,
+                        to: point
+                    )
+                    active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
                     if let modifierKey = active.modifierKey, active.modifierEngaged {
                         handleModifierUp(modifierKey, binding: active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
+                    } else if !active.didHold {
+                        _ = maybeDispatchReleaseTap(
+                            touchKey: touchKey,
+                            originalBinding: active.binding,
+                            touchInfo: intentState.touches.value(for: touchKey),
+                            point: point,
+                            bindings: bindings,
+                            now: now,
+                            pressure: peakPressure,
+                            fallbackStartTime: active.startTime,
+                            fallbackMaxDistanceSquared: active.maxDistanceSquared
+                        )
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
                 }
@@ -2243,7 +2263,7 @@ actor TouchProcessorEngine {
         #if DEBUG
         onDebugBindingDetected(binding)
         #endif
-        extendTypingGrace(for: binding.side, now: Self.now())
+        extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
         let modifierFlags = currentModifierFlags()
         let combinedFlags = flags.union(modifierFlags)
@@ -3099,7 +3119,7 @@ actor TouchProcessorEngine {
 
     @inline(__always)
     private func isTypingGraceActive(now: TimeInterval? = nil) -> Bool {
-        let currentNow = now ?? Self.now()
+        let currentNow = now ?? currentTime()
         if let deadline = typingGraceDeadline, currentNow < deadline {
             return true
         }
@@ -3257,7 +3277,7 @@ actor TouchProcessorEngine {
         case .fiveFingerSwipeRight:
             action = fiveFingerSwipeRightAction
         }
-        performGestureAction(action, now: Self.now(), side: side, visited: updatedVisited)
+        performGestureAction(action, now: currentTime(), side: side, visited: updatedVisited)
     }
 
     private func outerCornersHoldSide(
@@ -3468,7 +3488,7 @@ actor TouchProcessorEngine {
         switch state {
         case .starting, .making, .touching:
             if toggleTouchStarts.value(for: touchKey) == nil {
-                toggleTouchStarts.set(touchKey, Self.now())
+                toggleTouchStarts.set(touchKey, currentTime())
             }
         case .breaking, .leaving:
             let didStart = toggleTouchStarts.remove(touchKey)
@@ -3860,7 +3880,7 @@ actor TouchProcessorEngine {
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
-        extendTypingGrace(for: binding.side, now: Self.now())
+        extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
         sendKey(code: code, flags: flags, side: binding.side)
     }
@@ -4229,7 +4249,7 @@ actor TouchProcessorEngine {
 
     private func scheduleTypingGraceExpiry(deadline: TimeInterval) {
         typingGraceTask?.cancel()
-        let delay = max(0, deadline - Self.now())
+        let delay = max(0, deadline - currentTime())
         let nanoseconds = UInt64(delay * 1_000_000_000)
         typingGraceTask = Task { [weak self] in
             if nanoseconds > 0 {
@@ -4242,7 +4262,7 @@ actor TouchProcessorEngine {
     private func expireTypingGraceIfNeeded(deadline: TimeInterval) {
         guard let currentDeadline = typingGraceDeadline,
               currentDeadline == deadline,
-              Self.now() >= deadline else {
+              currentTime() >= deadline else {
             return
         }
         typingGraceDeadline = nil
@@ -4314,8 +4334,8 @@ actor TouchProcessorEngine {
         }
     }
 
-    private static func now() -> TimeInterval {
-        CACurrentMediaTime()
+    private func currentTime() -> TimeInterval {
+        currentProcessingTimestamp ?? CACurrentMediaTime()
     }
 
     private func notifyContactCounts() {
