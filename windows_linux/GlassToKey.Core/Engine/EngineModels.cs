@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 
 namespace GlassToKey;
@@ -210,6 +211,14 @@ internal readonly record struct TouchProcessorConfig(
     string TwoFingerHoldAction,
     string ThreeFingerHoldAction,
     string FourFingerHoldAction,
+    string LeftEdgeUpAction,
+    string LeftEdgeDownAction,
+    string RightEdgeUpAction,
+    string RightEdgeDownAction,
+    string TopEdgeLeftAction,
+    string TopEdgeRightAction,
+    string BottomEdgeLeftAction,
+    string BottomEdgeRightAction,
     string ThreeFingerClickAction,
     string FourFingerClickAction,
     string OuterCornersAction,
@@ -228,7 +237,8 @@ internal readonly record struct TouchProcessorConfig(
     int ForceMin,
     int ForceCap,
     bool ChordShiftEnabled,
-    bool HoldRepeatEnabled)
+    bool HoldRepeatEnabled,
+    IReadOnlyDictionary<string, int>? GestureRepeatCadenceMsById)
 {
     public static TouchProcessorConfig Default => new(
         TrackpadWidthMm: 160.0,
@@ -256,6 +266,14 @@ internal readonly record struct TouchProcessorConfig(
         TwoFingerHoldAction: "None",
         ThreeFingerHoldAction: "None",
         FourFingerHoldAction: "Chordal Shift",
+        LeftEdgeUpAction: "None",
+        LeftEdgeDownAction: "None",
+        RightEdgeUpAction: "None",
+        RightEdgeDownAction: "None",
+        TopEdgeLeftAction: "None",
+        TopEdgeRightAction: "None",
+        BottomEdgeLeftAction: "None",
+        BottomEdgeRightAction: "None",
         ThreeFingerClickAction: "None",
         FourFingerClickAction: "None",
         OuterCornersAction: "None",
@@ -274,5 +292,6 @@ internal readonly record struct TouchProcessorConfig(
         ForceMin: 0,
         ForceCap: 255,
         ChordShiftEnabled: true,
-        HoldRepeatEnabled: false);
+        HoldRepeatEnabled: false,
+        GestureRepeatCadenceMsById: null);
 }

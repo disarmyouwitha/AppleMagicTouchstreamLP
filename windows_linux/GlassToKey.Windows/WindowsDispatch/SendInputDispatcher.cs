@@ -138,7 +138,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                     break;
                 }
 
-                if (!_suppressPhysicalOutput && TryDispatchSystemAction(keyTapVirtualKey))
+                if (!_suppressPhysicalOutput && TryDispatchSystemAction(dispatchEvent, keyTapVirtualKey))
                 {
                     break;
                 }
@@ -164,18 +164,43 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                 }
                 else
                 {
+                    if (!_suppressPhysicalOutput &&
+                        TryDispatchSystemAction(
+                            dispatchEvent,
+                            keyDownVirtualKey,
+                            allowRepeatScheduling: true,
+                            repeatToken: dispatchEvent.RepeatToken,
+                            flags: dispatchEvent.Flags,
+                            timestampTicks: dispatchEvent.TimestampTicks,
+                            repeatProfile: dispatchEvent.RepeatProfile))
+                    {
+                        break;
+                    }
+
                     HandleKeyDownAutocorrect(dispatchEvent);
                     HandleKeyDown(
                         keyDownVirtualKey,
                         dispatchEvent.RepeatToken,
                         dispatchEvent.Flags,
                         dispatchEvent.TimestampTicks,
+                        dispatchEvent.RepeatProfile,
                         dispatchEvent.SemanticAction);
                 }
                 break;
             case DispatchEventKind.KeyUp:
                 if (TryResolveKeyVirtualKey(dispatchEvent, out ushort keyUpVirtualKey))
                 {
+                    if (!_suppressPhysicalOutput &&
+                        TryDispatchSystemAction(dispatchEvent, keyUpVirtualKey))
+                    {
+                        if (dispatchEvent.RepeatToken != 0)
+                        {
+                            CancelRepeat(dispatchEvent.RepeatToken);
+                        }
+
+                        break;
+                    }
+
                     if (IsShortcutKeyChord(dispatchEvent.SemanticAction))
                     {
                         HandleChordKeyUp(keyUpVirtualKey, dispatchEvent.RepeatToken, dispatchEvent.SemanticAction);
@@ -330,7 +355,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             }
 
             HandleRepeatKeyDown(_repeatEntries[i].VirtualKey, _repeatEntries[i].SemanticAction);
-            _repeatEntries[i].NextTick = nowTicks + _repeatIntervalTicks;
+            _repeatEntries[i].NextTick = nowTicks + _repeatEntries[i].IntervalTicks;
         }
     }
 
@@ -351,6 +376,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         ulong repeatToken,
         DispatchEventFlags flags,
         long timestampTicks,
+        DispatchRepeatProfile repeatProfile,
         DispatchSemanticAction semanticAction)
     {
         if (virtualKey == 0)
@@ -377,7 +403,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
 
         if ((flags & DispatchEventFlags.Repeatable) != 0 && repeatToken != 0)
         {
-            ScheduleRepeat(repeatToken, virtualKey, timestampTicks, semanticAction);
+            ScheduleRepeat(repeatToken, virtualKey, timestampTicks, repeatProfile, semanticAction);
         }
     }
 
@@ -417,6 +443,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
             dispatchEvent.RepeatToken,
             dispatchEvent.Flags,
             dispatchEvent.TimestampTicks,
+            dispatchEvent.RepeatProfile,
             dispatchEvent.SemanticAction);
     }
 
@@ -542,15 +569,23 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         }
     }
 
-    private void ScheduleRepeat(ulong token, ushort virtualKey, long timestampTicks, DispatchSemanticAction semanticAction)
+    private void ScheduleRepeat(
+        ulong token,
+        ushort virtualKey,
+        long timestampTicks,
+        DispatchRepeatProfile repeatProfile,
+        DispatchSemanticAction semanticAction)
     {
+        long initialDelayTicks = GetRepeatInitialDelayTicks(repeatProfile);
+        long intervalTicks = GetRepeatIntervalTicks(repeatProfile);
         for (int i = 0; i < _repeatEntries.Length; i++)
         {
             if (_repeatEntries[i].Active && _repeatEntries[i].Token == token)
             {
                 _repeatEntries[i].VirtualKey = virtualKey;
                 _repeatEntries[i].SemanticAction = semanticAction;
-                _repeatEntries[i].NextTick = timestampTicks + _repeatInitialDelayTicks;
+                _repeatEntries[i].NextTick = timestampTicks + initialDelayTicks;
+                _repeatEntries[i].IntervalTicks = intervalTicks;
                 return;
             }
         }
@@ -568,7 +603,8 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
                 Token = token,
                 VirtualKey = virtualKey,
                 SemanticAction = semanticAction,
-                NextTick = timestampTicks + _repeatInitialDelayTicks
+                NextTick = timestampTicks + initialDelayTicks,
+                IntervalTicks = intervalTicks
             };
             return;
         }
@@ -653,6 +689,22 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
     private void HandleRepeatKeyDown(ushort virtualKey, DispatchSemanticAction semanticAction)
     {
         if (virtualKey == 0)
+        {
+            return;
+        }
+
+        if (TryDispatchSystemAction(
+            new DispatchEvent(
+                TimestampTicks: 0,
+                Kind: DispatchEventKind.KeyDown,
+                VirtualKey: virtualKey,
+                MouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                Flags: DispatchEventFlags.None,
+                Side: TrackpadSide.Left,
+                DispatchLabel: string.Empty,
+                SemanticAction: semanticAction),
+            virtualKey))
         {
             return;
         }
@@ -923,21 +975,66 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         return (long)Math.Round(milliseconds * Stopwatch.Frequency / 1000.0);
     }
 
-    private static bool TryDispatchSystemAction(ushort virtualKey)
+    private long GetRepeatInitialDelayTicks(DispatchRepeatProfile repeatProfile)
     {
-        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessUp)
+        long ticks = repeatProfile.GetInitialDelayTicks();
+        return ticks > 0 ? ticks : _repeatInitialDelayTicks;
+    }
+
+    private long GetRepeatIntervalTicks(DispatchRepeatProfile repeatProfile)
+    {
+        long ticks = repeatProfile.GetIntervalTicks();
+        return ticks > 0 ? ticks : _repeatIntervalTicks;
+    }
+
+    private bool TryDispatchSystemAction(
+        in DispatchEvent dispatchEvent,
+        ushort virtualKey,
+        bool allowRepeatScheduling = false,
+        ulong repeatToken = 0,
+        DispatchEventFlags flags = DispatchEventFlags.None,
+        long timestampTicks = 0,
+        DispatchRepeatProfile repeatProfile = default)
+    {
+        bool handled = dispatchEvent.SemanticAction.Label.Equals("BRIGHT_UP", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRIGHT_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRI_SCRIPT_UP", StringComparison.OrdinalIgnoreCase) ||
+            dispatchEvent.SemanticAction.Label.Equals("BRI_SCRIPT_DOWN", StringComparison.OrdinalIgnoreCase);
+
+        if (!handled)
         {
-            BrightnessController.StepUp();
+            return false;
+        }
+
+        if (allowRepeatScheduling &&
+            (flags & DispatchEventFlags.Repeatable) != 0 &&
+            repeatToken != 0)
+        {
+            ScheduleRepeat(repeatToken, virtualKey, timestampTicks, repeatProfile, dispatchEvent.SemanticAction);
+        }
+
+        if (dispatchEvent.Kind == DispatchEventKind.KeyUp)
+        {
             return true;
         }
 
-        if (virtualKey == DispatchKeyResolver.VirtualKeyBrightnessDown)
+        switch (dispatchEvent.SemanticAction.Label.ToUpperInvariant())
         {
-            BrightnessController.StepDown();
-            return true;
+            case "BRIGHT_UP":
+                BrightnessController.StepUp();
+                return true;
+            case "BRIGHT_DOWN":
+                BrightnessController.StepDown();
+                return true;
+            case "BRI_SCRIPT_UP":
+                BrightnessController.StepScriptUp();
+                return true;
+            case "BRI_SCRIPT_DOWN":
+                BrightnessController.StepScriptDown();
+                return true;
+            default:
+                return false;
         }
-
-        return false;
     }
 
     private static bool TryResolveKeyVirtualKey(in DispatchEvent dispatchEvent, out ushort virtualKey)
@@ -1207,6 +1304,7 @@ internal sealed class SendInputDispatcher : IInputDispatcher, IAutocorrectContro
         public ushort VirtualKey;
         public DispatchSemanticAction SemanticAction;
         public long NextTick;
+        public long IntervalTicks;
     }
 
     private struct TapReleaseEntry

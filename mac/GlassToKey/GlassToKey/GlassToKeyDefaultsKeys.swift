@@ -33,4 +33,5 @@ enum GlassToKeyDefaultsKeys {
     static let innerCornersHoldGestureAction = "GlassToKey.innerCornersHoldGestureAction"
     static let fiveFingerSwipeLeftGestureAction = "GlassToKey.fiveFingerSwipeLeftGestureAction"
     static let fiveFingerSwipeRightGestureAction = "GlassToKey.fiveFingerSwipeRightGestureAction"
+    static let gestureRepeatCadenceMsById = "GlassToKey.gestureRepeatCadenceMsById"
 }

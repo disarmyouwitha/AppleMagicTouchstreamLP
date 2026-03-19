@@ -47,6 +47,14 @@ public static class RuntimeConfigurationFactory
             TwoFingerHoldAction = settings.TwoFingerHoldAction,
             ThreeFingerHoldAction = settings.ThreeFingerHoldAction,
             FourFingerHoldAction = settings.FourFingerHoldAction,
+            LeftEdgeUpAction = settings.LeftEdgeUpAction,
+            LeftEdgeDownAction = settings.LeftEdgeDownAction,
+            RightEdgeUpAction = settings.RightEdgeUpAction,
+            RightEdgeDownAction = settings.RightEdgeDownAction,
+            TopEdgeLeftAction = settings.TopEdgeLeftAction,
+            TopEdgeRightAction = settings.TopEdgeRightAction,
+            BottomEdgeLeftAction = settings.BottomEdgeLeftAction,
+            BottomEdgeRightAction = settings.BottomEdgeRightAction,
             ThreeFingerClickAction = settings.ThreeFingerClickAction,
             FourFingerClickAction = settings.FourFingerClickAction,
             OuterCornersAction = settings.OuterCornersAction,
@@ -65,7 +73,8 @@ public static class RuntimeConfigurationFactory
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
             ChordShiftEnabled = chordShiftEnabled,
-            HoldRepeatEnabled = settings.HoldRepeatEnabled
+            HoldRepeatEnabled = settings.HoldRepeatEnabled,
+            GestureRepeatCadenceMsById = GestureBindingCatalog.BuildRepeatCadenceMap(settings)
         };
     }
 

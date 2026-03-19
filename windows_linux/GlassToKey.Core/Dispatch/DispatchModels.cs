@@ -204,4 +204,5 @@ public readonly record struct DispatchEvent(
     DispatchEventFlags Flags,
     TrackpadSide Side,
     string DispatchLabel,
-    DispatchSemanticAction SemanticAction = default);
+    DispatchSemanticAction SemanticAction = default,
+    DispatchRepeatProfile RepeatProfile = default);

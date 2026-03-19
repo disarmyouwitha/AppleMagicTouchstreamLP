@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
@@ -8,21 +9,40 @@ namespace GlassToKey;
 
 internal static class BrightnessController
 {
-    private const int StepPercent = 5;
+    private const int NativeStepPercent = 10;
+    private const int ScriptStepPercent = 10;
     private static readonly object InternalBrightnessLock = new();
+    private static readonly InternalBrightnessHelper InternalBrightnessWorker = new();
     private static bool _internalWorkerRunning;
+    private static int _pendingInternalBrightnessDeltaPercent;
+
+    static BrightnessController()
+    {
+        AppDomain.CurrentDomain.ProcessExit += static (_, _) => InternalBrightnessWorker.Dispose();
+        AppDomain.CurrentDomain.DomainUnload += static (_, _) => InternalBrightnessWorker.Dispose();
+    }
 
     public static void StepUp()
     {
-        Step(direction: 1);
+        AdjustPhysicalBrightness(direction: 1);
     }
 
     public static void StepDown()
     {
-        Step(direction: -1);
+        AdjustPhysicalBrightness(direction: -1);
     }
 
-    private static void Step(int direction)
+    public static void StepScriptUp()
+    {
+        QueueInternalDisplayBrightnessStep(direction: 1);
+    }
+
+    public static void StepScriptDown()
+    {
+        QueueInternalDisplayBrightnessStep(direction: -1);
+    }
+
+    private static void AdjustPhysicalBrightness(int direction)
     {
         if (direction == 0)
         {
@@ -38,47 +58,36 @@ internal static class BrightnessController
 
         EnumDisplayMonitors(IntPtr.Zero, IntPtr.Zero, callback, IntPtr.Zero);
         GC.KeepAlive(callback);
-
-        if (!adjusted)
-        {
-            QueueInternalDisplayBrightnessStep(direction);
-        }
     }
 
     private static void QueueInternalDisplayBrightnessStep(int direction)
     {
-        if (direction == 0)
+        int deltaPercent = Math.Sign(direction) * ScriptStepPercent;
+        if (deltaPercent == 0)
         {
             return;
         }
 
-        int stepCount = Math.Sign(direction);
+        bool scheduleWorker = false;
         lock (InternalBrightnessLock)
         {
-            if (_internalWorkerRunning)
+            _pendingInternalBrightnessDeltaPercent = Math.Clamp(
+                _pendingInternalBrightnessDeltaPercent + deltaPercent,
+                -100,
+                100);
+            if (!_internalWorkerRunning)
             {
-                // Drop while busy: do not queue another WMI call if one is already in flight.
-                return;
+                _internalWorkerRunning = true;
+                scheduleWorker = true;
             }
-
-            _internalWorkerRunning = true;
         }
 
-        ThreadPool.QueueUserWorkItem(static state =>
+        if (!scheduleWorker)
         {
-            try
-            {
-                int queuedStepCount = state is int value ? value : 0;
-                _ = TryAdjustInternalDisplayBrightness(queuedStepCount);
-            }
-            finally
-            {
-                lock (InternalBrightnessLock)
-                {
-                    _internalWorkerRunning = false;
-                }
-            }
-        }, stepCount);
+            return;
+        }
+
+        ThreadPool.UnsafeQueueUserWorkItem(static _ => ProcessInternalBrightnessQueue(), null);
     }
 
     private static bool AdjustPhysicalMonitors(IntPtr hMonitor, int direction)
@@ -106,7 +115,7 @@ internal static class BrightnessController
                 }
 
                 uint span = max > min ? max - min : 0;
-                uint step = Math.Max(1u, (span * (uint)StepPercent + 99u) / 100u);
+                uint step = Math.Max(1u, (span * (uint)NativeStepPercent + 99u) / 100u);
                 int signedStep = direction > 0 ? (int)step : -(int)step;
                 int target = Math.Clamp((int)current + signedStep, (int)min, (int)max);
                 if ((uint)target == current)
@@ -128,75 +137,220 @@ internal static class BrightnessController
         return adjusted;
     }
 
-    private static bool TryAdjustInternalDisplayBrightness(int stepCount)
+    private static void ProcessInternalBrightnessQueue()
     {
-        int step = Math.Sign(stepCount) * StepPercent;
-        if (step == 0)
+        while (true)
         {
-            return false;
+            int deltaPercent;
+            lock (InternalBrightnessLock)
+            {
+                deltaPercent = _pendingInternalBrightnessDeltaPercent;
+                if (deltaPercent == 0)
+                {
+                    _internalWorkerRunning = false;
+                    return;
+                }
+
+                _pendingInternalBrightnessDeltaPercent = 0;
+            }
+
+            _ = InternalBrightnessWorker.TryAdjust(deltaPercent);
         }
-
-        string script =
-            "$step = " + step + "; " +
-            "$brightness = Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction SilentlyContinue; " +
-            "$methods = Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue; " +
-            "if ($null -eq $brightness -or $null -eq $methods) { exit 1 }; " +
-            "$current = @{}; " +
-            "foreach ($b in @($brightness)) { $current[$b.InstanceName] = [int]$b.CurrentBrightness }; " +
-            "$changed = $false; " +
-            "foreach ($m in @($methods)) { " +
-            "if (-not $current.ContainsKey($m.InstanceName)) { continue }; " +
-            "$value = $current[$m.InstanceName]; " +
-            "$target = [Math]::Min(100, [Math]::Max(0, $value + $step)); " +
-            "if ($target -eq $value) { continue }; " +
-            "Invoke-CimMethod -InputObject $m -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [byte]$target } -ErrorAction SilentlyContinue | Out-Null; " +
-            "$changed = $true " +
-            "}; " +
-            "if ($changed) { exit 0 } else { exit 1 }";
-
-        return TryRunPowerShell(script);
     }
 
-    private static bool TryRunPowerShell(string script)
+    private sealed class InternalBrightnessHelper : IDisposable
     {
-        string encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(script));
-        string arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encodedScript;
+        private const int StartupTimeoutMs = 1500;
+        private const int RequestTimeoutMs = 1500;
+        private readonly object _sync = new();
+        private Process? _process;
+        private StreamWriter? _input;
+        private StreamReader? _output;
 
-        ProcessStartInfo startInfo = new()
+        public bool TryAdjust(int deltaPercent)
         {
-            FileName = "powershell.exe",
-            Arguments = arguments,
-            UseShellExecute = false,
-            CreateNoWindow = true
-        };
-
-        try
-        {
-            using Process? process = Process.Start(startInfo);
-            if (process is null)
+            if (deltaPercent == 0)
             {
                 return false;
             }
 
-            if (!process.WaitForExit(1500))
+            lock (_sync)
+            {
+                if (!EnsureProcessLocked())
+                {
+                    return false;
+                }
+
+                if (TrySendDeltaLocked(deltaPercent))
+                {
+                    return true;
+                }
+
+                DisposeProcessLocked();
+                if (!EnsureProcessLocked())
+                {
+                    return false;
+                }
+
+                return TrySendDeltaLocked(deltaPercent);
+            }
+        }
+
+        public void Dispose()
+        {
+            lock (_sync)
+            {
+                DisposeProcessLocked();
+            }
+        }
+
+        private bool EnsureProcessLocked()
+        {
+            if (_process is { HasExited: false } && _input is not null && _output is not null)
+            {
+                return true;
+            }
+
+            DisposeProcessLocked();
+
+            string encodedScript = Convert.ToBase64String(Encoding.Unicode.GetBytes(BuildWorkerScript()));
+            ProcessStartInfo startInfo = new()
+            {
+                FileName = "powershell.exe",
+                Arguments = "-NoProfile -NonInteractive -WindowStyle Hidden -EncodedCommand " + encodedScript,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardInput = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
+            };
+
+            try
+            {
+                Process? process = Process.Start(startInfo);
+                if (process is null)
+                {
+                    return false;
+                }
+
+                _process = process;
+                _input = process.StandardInput;
+                _input.AutoFlush = true;
+                _output = process.StandardOutput;
+                string? ready = ReadLineWithTimeout(_output, StartupTimeoutMs);
+                if (!string.Equals(ready, "READY", StringComparison.Ordinal))
+                {
+                    DisposeProcessLocked();
+                    return false;
+                }
+
+                return true;
+            }
+            catch
+            {
+                DisposeProcessLocked();
+                return false;
+            }
+        }
+
+        private bool TrySendDeltaLocked(int deltaPercent)
+        {
+            if (_process is null || _input is null || _output is null)
+            {
+                return false;
+            }
+
+            try
+            {
+                _input.WriteLine(deltaPercent.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                string? response = ReadLineWithTimeout(_output, RequestTimeoutMs);
+                return string.Equals(response, "OK", StringComparison.Ordinal);
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private void DisposeProcessLocked()
+        {
+            try
+            {
+                _input?.Dispose();
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                _output?.Dispose();
+            }
+            catch
+            {
+            }
+
+            if (_process is not null)
             {
                 try
                 {
-                    process.Kill(entireProcessTree: true);
+                    if (!_process.HasExited)
+                    {
+                        _process.Kill(entireProcessTree: true);
+                        _process.WaitForExit(250);
+                    }
                 }
                 catch
                 {
-                    // Ignore kill failures; treating this as an unhandled path is enough.
                 }
 
-                return false;
+                _process.Dispose();
             }
 
-            return process.ExitCode == 0;
+            _process = null;
+            _input = null;
+            _output = null;
         }
-        catch
+
+        private static string? ReadLineWithTimeout(StreamReader reader, int timeoutMs)
         {
-            return false;
+            using CancellationTokenSource cts = new(timeoutMs);
+            try
+            {
+                return reader.ReadLineAsync(cts.Token).AsTask().GetAwaiter().GetResult();
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
+        private static string BuildWorkerScript()
+        {
+            return
+                "$ErrorActionPreference = 'SilentlyContinue'; " +
+                "$methods = @{}; " +
+                "foreach ($m in @(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightnessMethods -ErrorAction SilentlyContinue)) { $methods[$m.InstanceName] = $m }; " +
+                "[Console]::Out.WriteLine('READY'); [Console]::Out.Flush(); " +
+                "while (($line = [Console]::In.ReadLine()) -ne $null) { " +
+                "$delta = 0; " +
+                "if (-not [int]::TryParse($line, [ref]$delta) -or $delta -eq 0) { [Console]::Out.WriteLine('ERR'); [Console]::Out.Flush(); continue }; " +
+                "$brightness = @(Get-CimInstance -Namespace root/WMI -ClassName WmiMonitorBrightness -ErrorAction SilentlyContinue); " +
+                "if ($brightness.Count -eq 0 -or $methods.Count -eq 0) { [Console]::Out.WriteLine('MISS'); [Console]::Out.Flush(); continue }; " +
+                "$changed = $false; " +
+                "foreach ($b in $brightness) { " +
+                "if (-not $methods.ContainsKey($b.InstanceName)) { continue }; " +
+                "$current = [int]$b.CurrentBrightness; " +
+                "$target = [Math]::Min(100, [Math]::Max(0, $current + $delta)); " +
+                "if ($target -eq $current) { continue }; " +
+                "try { " +
+                "Invoke-CimMethod -InputObject $methods[$b.InstanceName] -MethodName WmiSetBrightness -Arguments @{ Timeout = 0; Brightness = [byte]$target } -ErrorAction Stop | Out-Null; " +
+                "$changed = $true " +
+                "} catch { } " +
+                "}; " +
+                "if ($changed) { [Console]::Out.WriteLine('OK') } else { [Console]::Out.WriteLine('MISS') }; " +
+                "[Console]::Out.Flush() " +
+                "}";
         }
     }
 

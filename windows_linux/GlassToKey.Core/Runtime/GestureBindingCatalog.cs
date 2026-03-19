@@ -13,9 +13,12 @@ public sealed record GestureBindingDefinition(
 
 public static class GestureBindingCatalog
 {
+    public const int MaxRepeatCadenceMs = 5000;
+
     public static IReadOnlyList<GestureSectionDefinition> Sections { get; } =
     [
         new GestureSectionDefinition("holds", "Holds", true),
+        new GestureSectionDefinition("edges", "Edges", false),
         new GestureSectionDefinition("swipes", "Swipes", false),
         new GestureSectionDefinition("triangles", "Triangles", false),
         new GestureSectionDefinition("clicks", "Clicks", false),
@@ -30,18 +33,27 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("inner_corners", "holds", "Inner corners", "None"),
         new GestureBindingDefinition("outer_corners", "holds", "Outer corners", "None"),
 
-        new GestureBindingDefinition("three_finger_swipe_left", "swipes", "3-finger swipe left", "None"),
-        new GestureBindingDefinition("three_finger_swipe_right", "swipes", "3-finger swipe right", "None"),
-        new GestureBindingDefinition("three_finger_swipe_up", "swipes", "3-finger swipe up", "None"),
-        new GestureBindingDefinition("three_finger_swipe_down", "swipes", "3-finger swipe down", "None"),
-        new GestureBindingDefinition("four_finger_swipe_left", "swipes", "4-finger swipe left", "None"),
-        new GestureBindingDefinition("four_finger_swipe_right", "swipes", "4-finger swipe right", "None"),
-        new GestureBindingDefinition("four_finger_swipe_up", "swipes", "4-finger swipe up", "None"),
-        new GestureBindingDefinition("four_finger_swipe_down", "swipes", "4-finger swipe down", "None"),
-        new GestureBindingDefinition("five_finger_swipe_left", "swipes", "5-finger swipe left", "Typing Toggle"),
-        new GestureBindingDefinition("five_finger_swipe_right", "swipes", "5-finger swipe right", "Typing Toggle"),
-        new GestureBindingDefinition("five_finger_swipe_up", "swipes", "5-finger swipe up", "None"),
-        new GestureBindingDefinition("five_finger_swipe_down", "swipes", "5-finger swipe down", "None"),
+        new GestureBindingDefinition("left_edge_up", "edges", "Left Edge Up", "None"),
+        new GestureBindingDefinition("left_edge_down", "edges", "Left Edge Down", "None"),
+        new GestureBindingDefinition("right_edge_up", "edges", "Right Edge Up", "None"),
+        new GestureBindingDefinition("right_edge_down", "edges", "Right Edge Down", "None"),
+        new GestureBindingDefinition("top_edge_left", "edges", "Top Edge Left", "None"),
+        new GestureBindingDefinition("top_edge_right", "edges", "Top Edge Right", "None"),
+        new GestureBindingDefinition("bottom_edge_left", "edges", "Bottom Edge Left", "None"),
+        new GestureBindingDefinition("bottom_edge_right", "edges", "Bottom Edge Right", "None"),
+
+        new GestureBindingDefinition("three_finger_swipe_left", "swipes", "3-finger left", "None"),
+        new GestureBindingDefinition("three_finger_swipe_right", "swipes", "3-finger right", "None"),
+        new GestureBindingDefinition("three_finger_swipe_up", "swipes", "3-finger up", "None"),
+        new GestureBindingDefinition("three_finger_swipe_down", "swipes", "3-finger down", "None"),
+        new GestureBindingDefinition("four_finger_swipe_left", "swipes", "4-finger left", "None"),
+        new GestureBindingDefinition("four_finger_swipe_right", "swipes", "4-finger right", "None"),
+        new GestureBindingDefinition("four_finger_swipe_up", "swipes", "4-finger up", "None"),
+        new GestureBindingDefinition("four_finger_swipe_down", "swipes", "4-finger down", "None"),
+        new GestureBindingDefinition("five_finger_swipe_left", "swipes", "5-finger left", "Typing Toggle"),
+        new GestureBindingDefinition("five_finger_swipe_right", "swipes", "5-finger right", "Typing Toggle"),
+        new GestureBindingDefinition("five_finger_swipe_up", "swipes", "5-finger up", "None"),
+        new GestureBindingDefinition("five_finger_swipe_down", "swipes", "5-finger down", "None"),
 
         new GestureBindingDefinition("top_left_triangle", "triangles", "Top Left", "None"),
         new GestureBindingDefinition("top_right_triangle", "triangles", "Top Right", "None"),
@@ -59,6 +71,8 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("force_click_2", "force_clicks", "Force Click2", "None"),
         new GestureBindingDefinition("force_click_3", "force_clicks", "Force Click3", "None")
     ];
+
+    private static readonly Dictionary<string, int> BindingIndexById = BuildBindingIndexById();
 
     public static IEnumerable<GestureBindingDefinition> EnumerateSectionBindings(string sectionId)
     {
@@ -115,6 +129,36 @@ public static class GestureBindingCatalog
         SetStoredAction(settings, binding.Id, NormalizeAction(action, binding.DefaultAction));
     }
 
+    public static int GetRepeatCadenceMs(UserSettings settings, GestureBindingDefinition binding)
+    {
+        if (settings == null)
+        {
+            throw new ArgumentNullException(nameof(settings));
+        }
+
+        if (binding == null)
+        {
+            throw new ArgumentNullException(nameof(binding));
+        }
+
+        return NormalizeRepeatCadenceMs(GetStoredRepeatCadenceMs(settings, binding.Id));
+    }
+
+    public static void SetRepeatCadenceMs(UserSettings settings, GestureBindingDefinition binding, int cadenceMs)
+    {
+        if (settings == null)
+        {
+            throw new ArgumentNullException(nameof(settings));
+        }
+
+        if (binding == null)
+        {
+            throw new ArgumentNullException(nameof(binding));
+        }
+
+        SetStoredRepeatCadenceMs(settings, binding.Id, NormalizeRepeatCadenceMs(cadenceMs));
+    }
+
     public static bool NormalizeSettings(UserSettings settings)
     {
         if (settings == null)
@@ -130,6 +174,13 @@ public static class GestureBindingCatalog
             if (!string.Equals(GetStoredAction(settings, binding.Id), normalized, StringComparison.Ordinal))
             {
                 SetStoredAction(settings, binding.Id, normalized);
+                changed = true;
+            }
+
+            int normalizedCadenceMs = NormalizeRepeatCadenceMs(GetStoredRepeatCadenceMs(settings, binding.Id));
+            if (GetStoredRepeatCadenceMs(settings, binding.Id) != normalizedCadenceMs)
+            {
+                SetStoredRepeatCadenceMs(settings, binding.Id, normalizedCadenceMs);
                 changed = true;
             }
         }
@@ -164,6 +215,50 @@ public static class GestureBindingCatalog
         return string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
     }
 
+    public static int NormalizeRepeatCadenceMs(int cadenceMs)
+    {
+        return Math.Clamp(cadenceMs, 0, MaxRepeatCadenceMs);
+    }
+
+    public static Dictionary<string, int>? BuildRepeatCadenceMap(UserSettings settings)
+    {
+        if (settings == null)
+        {
+            throw new ArgumentNullException(nameof(settings));
+        }
+
+        Dictionary<string, int>? map = null;
+        for (int index = 0; index < All.Count; index++)
+        {
+            GestureBindingDefinition binding = All[index];
+            int cadenceMs = GetRepeatCadenceMs(settings, binding);
+            if (cadenceMs <= 0)
+            {
+                continue;
+            }
+
+            map ??= new Dictionary<string, int>(StringComparer.Ordinal);
+            map[binding.Id] = cadenceMs;
+        }
+
+        return map;
+    }
+
+    public static int GetBindingIndex(string bindingId)
+    {
+        if (bindingId == null)
+        {
+            throw new ArgumentNullException(nameof(bindingId));
+        }
+
+        if (BindingIndexById.TryGetValue(bindingId, out int index))
+        {
+            return index;
+        }
+
+        throw new ArgumentOutOfRangeException(nameof(bindingId), bindingId, "Unknown gesture binding id.");
+    }
+
     private static string GetStoredAction(UserSettings settings, string bindingId)
     {
         return bindingId switch
@@ -173,6 +268,14 @@ public static class GestureBindingCatalog
             "four_finger_hold" => settings.FourFingerHoldAction,
             "inner_corners" => settings.InnerCornersAction,
             "outer_corners" => settings.OuterCornersAction,
+            "left_edge_up" => settings.LeftEdgeUpAction,
+            "left_edge_down" => settings.LeftEdgeDownAction,
+            "right_edge_up" => settings.RightEdgeUpAction,
+            "right_edge_down" => settings.RightEdgeDownAction,
+            "top_edge_left" => settings.TopEdgeLeftAction,
+            "top_edge_right" => settings.TopEdgeRightAction,
+            "bottom_edge_left" => settings.BottomEdgeLeftAction,
+            "bottom_edge_right" => settings.BottomEdgeRightAction,
             "three_finger_swipe_left" => settings.ThreeFingerSwipeLeftAction,
             "three_finger_swipe_right" => settings.ThreeFingerSwipeRightAction,
             "three_finger_swipe_up" => settings.ThreeFingerSwipeUpAction,
@@ -202,6 +305,17 @@ public static class GestureBindingCatalog
         };
     }
 
+    private static int GetStoredRepeatCadenceMs(UserSettings settings, string bindingId)
+    {
+        if (settings.GestureRepeatCadenceMsById != null &&
+            settings.GestureRepeatCadenceMsById.TryGetValue(bindingId, out int cadenceMs))
+        {
+            return cadenceMs;
+        }
+
+        return 0;
+    }
+
     private static void SetStoredAction(UserSettings settings, string bindingId, string action)
     {
         switch (bindingId)
@@ -220,6 +334,30 @@ public static class GestureBindingCatalog
                 return;
             case "outer_corners":
                 settings.OuterCornersAction = action;
+                return;
+            case "left_edge_up":
+                settings.LeftEdgeUpAction = action;
+                return;
+            case "left_edge_down":
+                settings.LeftEdgeDownAction = action;
+                return;
+            case "right_edge_up":
+                settings.RightEdgeUpAction = action;
+                return;
+            case "right_edge_down":
+                settings.RightEdgeDownAction = action;
+                return;
+            case "top_edge_left":
+                settings.TopEdgeLeftAction = action;
+                return;
+            case "top_edge_right":
+                settings.TopEdgeRightAction = action;
+                return;
+            case "bottom_edge_left":
+                settings.BottomEdgeLeftAction = action;
+                return;
+            case "bottom_edge_right":
+                settings.BottomEdgeRightAction = action;
                 return;
             case "three_finger_swipe_left":
                 settings.ThreeFingerSwipeLeftAction = action;
@@ -299,5 +437,28 @@ public static class GestureBindingCatalog
             default:
                 throw new ArgumentOutOfRangeException(nameof(bindingId), bindingId, "Unknown gesture binding id.");
         }
+    }
+
+    private static void SetStoredRepeatCadenceMs(UserSettings settings, string bindingId, int cadenceMs)
+    {
+        if (cadenceMs <= 0)
+        {
+            settings.GestureRepeatCadenceMsById?.Remove(bindingId);
+            return;
+        }
+
+        settings.GestureRepeatCadenceMsById ??= new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        settings.GestureRepeatCadenceMsById[bindingId] = cadenceMs;
+    }
+
+    private static Dictionary<string, int> BuildBindingIndexById()
+    {
+        Dictionary<string, int> indexById = new(StringComparer.Ordinal);
+        for (int index = 0; index < All.Count; index++)
+        {
+            indexById[All[index].Id] = index;
+        }
+
+        return indexById;
     }
 }

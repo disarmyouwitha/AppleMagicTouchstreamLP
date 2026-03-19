@@ -72,7 +72,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyDefaultsKeys.outerCornersHoldGestureAction,
         GlassToKeyDefaultsKeys.innerCornersHoldGestureAction,
         GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction,
-        GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction
+        GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction,
+        GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById
     ]
 
     func applicationDidFinishLaunching(_ notification: Notification) {

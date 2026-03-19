@@ -1,8 +1,33 @@
 ## Current:
-- `OS agnostic Import/Export` keymap to windows_linux,and mac! To start I want to use Windows as the GOLD STANDARD and I want to make sure that I can 1. export my Windows keymap and import it into Linux. 2. export my Linux keymap and import it into Windows! Please do a full analysis of the relevant code and pay careful attention to the seams of the program so that we can make a beautiful edit. Since windows_linux uses a shared core this should be a pretty easy first start!
-- Next I want you to force Mac into compliance: What does it need to accept the Windows/Linux keymap? Don't worry about preserving legacy Mac keymap support, I am nuking it and starting over from Windows GOLD standard.
+- New branch to test Accelerator bright / vol/ L / R
+
+- New Gesture Category/collapsable: `Corners`:
+- (Should be distinct enough from Triangles to differentiate)
+- `Top Left`: Swipe in from the top-left corner with 1 finger
+- `Top Right`:
+- `Bottom Left`:
+- `Bottom Right`:
+- Add `Top-left Click` from `Clicks`
+- Add `Top-Right Click` from `Clicks`
+- Add `Botom-left Click` from `Clicks`
+- Add `Bottom-right Click` from `Clicks`
+
+Add more `Forced Click` options:
+- `Top Left`: Force Click in top-left corner (Forced Click 1)
+- `Top Right`:
+- `Bottom Left`:
+- `Bottom Right`:
+- Add `3-Finger force click`, `4-Finger force click`
+- Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
+
+Move `Force Clicks` into `clicks`
+-------
+- Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
 - 
+-------
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
+- New gestures from FRAN!
+- Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
 ---
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
 - `Advanced Gestures Config` as it's own GUI like Config? (more breathing room to make the GUI more usable)
@@ -34,29 +59,3 @@
 
 # unrelated:
 - AI Tamagachi: something like a controlled openclaw.. It runs in the background and you take care of it and interact with it and feed it it will grow. As it grows, it can learn skills.. Maybe it starts to talk one day.. maybe it notices that the the user has a mic and it learns to listen? 
-
-
-# Unicode send??
-
-  Rework
-  If you want ñ to work regardless of Windows layout, the right rework is direct text injection, not
-  more AltGr logic.
-
-  What that would involve:
-
-  - Add a new action type for literal text, likely single-character first, instead of only VK/semantic
-    key actions.
-  - Extend parsing/storage/UI so a key can map to something like a text action rather than a shortcut
-    chord.
-  - Add a Windows dispatch path using Unicode SendInput instead of virtual-key/scancode injection.
-  - Decide semantics for hold/repeat. My recommendation: text actions should be tap-only at first.
-  - Add tests for parsing, engine dispatch, and Windows Unicode injection behavior.
-
-  In practice, Windows-only first is a moderate change, not huge. The existing system is VK/chord-
-  centric, so this is additive rather than a one-line fix. If you want the smallest useful version,
-  I’d implement:
-
-  - single-character Unicode text actions
-  - Windows dispatch only
-  - no shortcut-builder changes yet
-  - simple UI entry in the Primary/Hold action model

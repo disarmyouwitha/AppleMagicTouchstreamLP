@@ -126,6 +126,8 @@ struct ContentView: View {
     private var fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
     private var fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById)
+    private var storedGestureRepeatCadenceData = Data()
     static let trackpadWidthMM: CGFloat = 160.0
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
@@ -3031,14 +3033,14 @@ struct ContentView: View {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                         GridRow {
                             gesturePicker(
-                                "5-finger swipe left",
+                                "5-finger left",
                                 selection: $fiveFingerSwipeLeftGestureAction,
                                 fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
                             )
                         }
                         GridRow {
                             gesturePicker(
-                                "5-finger swipe right",
+                                "5-finger right",
                                 selection: $fiveFingerSwipeRightGestureAction,
                                 fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
                             )
@@ -3895,6 +3897,7 @@ struct ContentView: View {
         innerCornersHoldGestureAction = GlassToKeySettings.innerCornersHoldGestureActionLabel
         fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
         fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        storedGestureRepeatCadenceData = Data()
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
     }
 
@@ -3987,6 +3990,9 @@ struct ContentView: View {
             innerCornersHoldGestureAction: innerCornersHoldGestureAction,
             fiveFingerSwipeLeftGestureAction: fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
+            gestureRepeatCadenceMsById: GestureRepeatCadenceStorage.decode(
+                from: storedGestureRepeatCadenceData
+            ),
             keySpacingPercentByLayout: keySpacingPercentByLayout,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
@@ -4034,6 +4040,9 @@ struct ContentView: View {
         innerCornersHoldGestureAction = profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
         fiveFingerSwipeLeftGestureAction = profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
         fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        storedGestureRepeatCadenceData = GestureRepeatCadenceStorage.encode(
+            profile.gestureRepeatCadenceMsById
+        ) ?? Data()
         storedKeySpacingByLayoutData = LayoutKeySpacingStorage.encode(
             profile.keySpacingPercentByLayout ?? [:]
         ) ?? Data()

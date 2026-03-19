@@ -66,6 +66,7 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.innerCornersHoldGestureAction,
         GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction,
         GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction,
+        GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById,
         GlassToKeyDefaultsKeys.keySpacingByLayout,
         GlassToKeyDefaultsKeys.columnSettings,
         GlassToKeyDefaultsKeys.customButtons,
@@ -110,6 +111,11 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.innerCornersHoldGestureAction, forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction)
         defaults.set(profile.fiveFingerSwipeLeftGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
         defaults.set(profile.fiveFingerSwipeRightGestureAction, forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
+        if let encodedGestureRepeatCadence = GestureRepeatCadenceStorage.encode(
+            profile.gestureRepeatCadenceMsById
+        ) {
+            defaults.set(encodedGestureRepeatCadence, forKey: GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById)
+        }
         if let encodedKeySpacing = LayoutKeySpacingStorage.encode(
             profile.keySpacingPercentByLayout ?? [:]
         ) {

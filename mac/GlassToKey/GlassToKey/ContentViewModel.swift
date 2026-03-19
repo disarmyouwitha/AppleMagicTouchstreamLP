@@ -1956,13 +1956,15 @@ enum KeyActionCatalog {
     static let volumeDownLabel = "VOL⬇️"
     static let brightnessUpLabel = "BRIGHT⬆️"
     static let brightnessDownLabel = "BRIGHT⬇️"
+    static let brightnessScriptUpLabel = "BRI_SCRIPT_UP"
+    static let brightnessScriptDownLabel = "BRI_SCRIPT_DOWN"
     static let chordalShiftLabel = "Chordal Shift"
     static let gestureTwoFingerTapLabel = "2-finger tap"
     static let gestureThreeFingerTapLabel = "3-finger tap"
     static let gestureFourFingerHoldLabel = "4-finger hold"
     static let gestureInnerCornersHoldLabel = "Inner corners hold"
-    static let gestureFiveFingerSwipeLeftLabel = "5-finger swipe left"
-    static let gestureFiveFingerSwipeRightLabel = "5-finger swipe right"
+    static let gestureFiveFingerSwipeLeftLabel = "5-finger left"
+    static let gestureFiveFingerSwipeRightLabel = "5-finger right"
     static var noneAction: KeyAction {
         KeyAction(
             label: noneLabel,
@@ -2197,7 +2199,9 @@ enum KeyActionCatalog {
         KeyAction(label: volumeUpLabel, keyCode: 0, flags: 0, kind: .volumeUp),
         KeyAction(label: volumeDownLabel, keyCode: 0, flags: 0, kind: .volumeDown),
         KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
-        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
+        KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown),
+        KeyAction(label: brightnessScriptUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
+        KeyAction(label: brightnessScriptDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
     ]
 
     private static let modeActions: [KeyAction] = [
@@ -2298,7 +2302,9 @@ enum KeyActionCatalog {
                 "BRIGHT_UP",
                 brightnessUpLabel,
                 "BRIGHT_DOWN",
-                brightnessDownLabel
+                brightnessDownLabel,
+                brightnessScriptUpLabel,
+                brightnessScriptDownLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
@@ -2496,7 +2502,23 @@ enum KeyActionCatalog {
                 kind: .brightnessUp
             )
         }
+        if normalizedLabel == brightnessScriptUpLabel {
+            return KeyAction(
+                label: label,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessUp
+            )
+        }
         if normalizedLabel == brightnessDownLabel {
+            return KeyAction(
+                label: label,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessDown
+            )
+        }
+        if normalizedLabel == brightnessScriptDownLabel {
             return KeyAction(
                 label: label,
                 keyCode: 0,
@@ -2711,6 +2733,39 @@ enum KeyActionMappingStore {
 
 }
 
+enum GestureRepeatCadenceStorage {
+    private static let maxRepeatCadenceMs = 5000
+
+    static func decode(from data: Data) -> [String: Int]? {
+        guard !data.isEmpty,
+              let decoded = try? JSONDecoder().decode([String: Int].self, from: data) else { return nil }
+        return normalized(decoded)
+    }
+
+    static func encode(_ cadenceById: [String: Int]?) -> Data? {
+        guard let normalized = normalized(cadenceById),
+              !normalized.isEmpty,
+              let encoded = try? JSONEncoder().encode(normalized) else { return nil }
+        return encoded
+    }
+
+    static func normalized(_ cadenceById: [String: Int]?) -> [String: Int]? {
+        guard let cadenceById, !cadenceById.isEmpty else { return nil }
+
+        var normalized: [String: Int] = [:]
+        for (bindingId, cadenceMs) in cadenceById {
+            let trimmedBindingId = bindingId.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedBindingId.isEmpty else { continue }
+
+            let clampedCadenceMs = min(max(cadenceMs, 0), maxRepeatCadenceMs)
+            guard clampedCadenceMs > 0 else { continue }
+            normalized[trimmedBindingId] = clampedCadenceMs
+        }
+
+        return normalized.isEmpty ? nil : normalized
+    }
+}
+
 enum KeyGeometryStore {
     private static var allLayoutRawValues: [String] {
         TrackpadLayoutPreset.allCases.map(\.rawValue)
@@ -2793,6 +2848,7 @@ struct AppKeymapProfile: Codable {
     let innerCornersHoldGestureAction: String?
     let fiveFingerSwipeLeftGestureAction: String?
     let fiveFingerSwipeRightGestureAction: String?
+    let gestureRepeatCadenceMsById: [String: Int]?
     let keySpacingPercentByLayout: [String: Double]?
     let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
     let customButtonsByLayout: [String: [Int: [CustomButton]]]
@@ -2829,6 +2885,7 @@ struct AppKeymapProfile: Codable {
             innerCornersHoldGestureAction: GlassToKeySettings.innerCornersHoldGestureActionLabel,
             fiveFingerSwipeLeftGestureAction: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel,
             fiveFingerSwipeRightGestureAction: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel,
+            gestureRepeatCadenceMsById: nil,
             keySpacingPercentByLayout: [:],
             columnSettingsByLayout: [:],
             customButtonsByLayout: [:],
@@ -2961,6 +3018,9 @@ enum PortableKeymapInterop {
             innerCornersHoldGestureAction: settings.innerCornersAction ?? currentProfile.innerCornersHoldGestureAction,
             fiveFingerSwipeLeftGestureAction: settings.fiveFingerSwipeLeftAction ?? currentProfile.fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: settings.fiveFingerSwipeRightAction ?? currentProfile.fiveFingerSwipeRightGestureAction,
+            gestureRepeatCadenceMsById: GestureRepeatCadenceStorage.normalized(
+                settings.gestureRepeatCadenceMsById ?? currentProfile.gestureRepeatCadenceMsById
+            ),
             keySpacingPercentByLayout: keySpacingByLayout,
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: currentProfile.customButtonsByLayout,
@@ -2998,6 +3058,7 @@ enum PortableKeymapInterop {
                 innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
                 fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
                 fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+                gestureRepeatCadenceMsById: profile.gestureRepeatCadenceMsById,
                 keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
                 columnSettingsByLayout: profile.columnSettingsByLayout,
                 customButtonsByLayout: profile.customButtonsByLayout,
@@ -3122,6 +3183,7 @@ enum PortableKeymapInterop {
             innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
             fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+            gestureRepeatCadenceMsById: profile.gestureRepeatCadenceMsById,
             keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
             columnSettingsByLayout: profile.columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
@@ -3284,6 +3346,7 @@ enum PortableKeymapInterop {
         var intentMoveMm: Double?
         var intentVelocityMmPerSec: Double?
         var snapRadiusPercent: Double?
+        var gestureRepeatCadenceMsById: [String: Int]?
         var keyPaddingPercent: Double?
         var keyPaddingPercentByLayout: [String: Double]?
         var forceMin: Int?
@@ -3312,6 +3375,9 @@ enum PortableKeymapInterop {
             intentMoveMm = profile.intentMoveThresholdMm
             intentVelocityMmPerSec = profile.intentVelocityThresholdMmPerSec
             snapRadiusPercent = profile.snapRadiusPercent
+            gestureRepeatCadenceMsById = GestureRepeatCadenceStorage.normalized(
+                profile.gestureRepeatCadenceMsById
+            )
             keyPaddingPercent = profile.keySpacingPercentByLayout?[resolvedLayout.rawValue]
             keyPaddingPercentByLayout = profile.keySpacingPercentByLayout?.reduce(into: [:]) { result, entry in
                 result[portableLayoutName(fromMac: entry.key)] = entry.value
@@ -3344,6 +3410,7 @@ enum PortableKeymapInterop {
             case intentMoveMm = "IntentMoveMm"
             case intentVelocityMmPerSec = "IntentVelocityMmPerSec"
             case snapRadiusPercent = "SnapRadiusPercent"
+            case gestureRepeatCadenceMsById = "GestureRepeatCadenceMsById"
             case keyPaddingPercent = "KeyPaddingPercent"
             case keyPaddingPercentByLayout = "KeyPaddingPercentByLayout"
             case forceMin = "ForceMin"

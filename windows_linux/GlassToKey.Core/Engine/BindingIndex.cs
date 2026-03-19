@@ -387,6 +387,7 @@ internal static class EngineActionResolver
         }
 
         if (resolved.Equals("BRIGHT_UP", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRI_SCRIPT_UP", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("BRIGHTNESS_UP", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("BRIGHT\u2B06\uFE0F", StringComparison.Ordinal))
         {
@@ -398,6 +399,7 @@ internal static class EngineActionResolver
         }
 
         if (resolved.Equals("BRIGHT_DOWN", StringComparison.OrdinalIgnoreCase) ||
+            resolved.Equals("BRI_SCRIPT_DOWN", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("BRIGHTNESS_DOWN", StringComparison.OrdinalIgnoreCase) ||
             resolved.Equals("BRIGHT\u2B07\uFE0F", StringComparison.Ordinal))
         {

@@ -42,6 +42,14 @@ public sealed class UserSettings
     public string TwoFingerHoldAction { get; set; } = "None";
     public string ThreeFingerHoldAction { get; set; } = "None";
     public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string LeftEdgeUpAction { get; set; } = "None";
+    public string LeftEdgeDownAction { get; set; } = "None";
+    public string RightEdgeUpAction { get; set; } = "None";
+    public string RightEdgeDownAction { get; set; } = "None";
+    public string TopEdgeLeftAction { get; set; } = "None";
+    public string TopEdgeRightAction { get; set; } = "None";
+    public string BottomEdgeLeftAction { get; set; } = "None";
+    public string BottomEdgeRightAction { get; set; } = "None";
     public string ThreeFingerClickAction { get; set; } = "None";
     public string FourFingerClickAction { get; set; } = "None";
     public string OuterCornersAction { get; set; } = "None";
@@ -57,6 +65,7 @@ public sealed class UserSettings
     public string UpperRightCornerClickAction { get; set; } = "None";
     public string LowerLeftCornerClickAction { get; set; } = "None";
     public string LowerRightCornerClickAction { get; set; } = "None";
+    public Dictionary<string, int>? GestureRepeatCadenceMsById { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public bool HapticsEnabled { get; set; } = true;
     public uint HapticsStrength { get; set; } = 0x00026C00u | 0x15u;
     public int HapticsMinIntervalMs { get; set; } = 20;
@@ -133,6 +142,14 @@ public sealed class UserSettings
         TwoFingerHoldAction = source.TwoFingerHoldAction;
         ThreeFingerHoldAction = source.ThreeFingerHoldAction;
         FourFingerHoldAction = source.FourFingerHoldAction;
+        LeftEdgeUpAction = source.LeftEdgeUpAction;
+        LeftEdgeDownAction = source.LeftEdgeDownAction;
+        RightEdgeUpAction = source.RightEdgeUpAction;
+        RightEdgeDownAction = source.RightEdgeDownAction;
+        TopEdgeLeftAction = source.TopEdgeLeftAction;
+        TopEdgeRightAction = source.TopEdgeRightAction;
+        BottomEdgeLeftAction = source.BottomEdgeLeftAction;
+        BottomEdgeRightAction = source.BottomEdgeRightAction;
         ThreeFingerClickAction = source.ThreeFingerClickAction;
         FourFingerClickAction = source.FourFingerClickAction;
         OuterCornersAction = source.OuterCornersAction;
@@ -148,6 +165,7 @@ public sealed class UserSettings
         UpperRightCornerClickAction = source.UpperRightCornerClickAction;
         LowerLeftCornerClickAction = source.LowerLeftCornerClickAction;
         LowerRightCornerClickAction = source.LowerRightCornerClickAction;
+        GestureRepeatCadenceMsById = CloneGestureRepeatCadenceById(source.GestureRepeatCadenceMsById);
         HapticsEnabled = source.HapticsEnabled;
         HapticsStrength = source.HapticsStrength;
         HapticsMinIntervalMs = source.HapticsMinIntervalMs;
@@ -485,6 +503,13 @@ public sealed class UserSettings
         return source == null
             ? null
             : new Dictionary<string, string>(source, StringComparer.OrdinalIgnoreCase);
+    }
+
+    private static Dictionary<string, int>? CloneGestureRepeatCadenceById(Dictionary<string, int>? source)
+    {
+        return source == null
+            ? null
+            : new Dictionary<string, int>(source, StringComparer.OrdinalIgnoreCase);
     }
 
     private static Dictionary<string, double>? CloneKeyPaddingByLayout(Dictionary<string, double>? source)
