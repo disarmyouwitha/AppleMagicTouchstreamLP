@@ -1,28 +1,21 @@
 ## Current:
-- New Gesture Category/collapsable: `Corners`:
-- (Should be distinct enough from Triangles to differentiate)
-- `Top Left`: Swipe in from the top-left corner with 1 finger
-- `Top Right`:
-- `Bottom Left`:
-- `Bottom Right`:
-- Add `Top-left Click` from `Clicks`
-- Add `Top-Right Click` from `Clicks`
-- Add `Botom-left Click` from `Clicks`
-- Add `Bottom-right Click` from `Clicks`
-
-Add more `Forced Click` options:
+Add more `Force Click` options: (f:256 or whatever `Force Click1` is)
 - `Top Left`: Force Click in top-left corner (Forced Click 1)
 - `Top Right`:
 - `Bottom Left`:
 - `Bottom Right`:
-- Add `3-Finger force click`, `4-Finger force click`
-- Next to `Force Click 1`, etc, list the Force to set it off (example: f: 125)
+(You Should be able to extrapolate from Click gestures just applying more force)
 
-Move `Force Clicks` into `Clicks`
+Add more `Force Click` options: (f:256 or whatever `Force Click1` is)
+- Add `3-Finger click`
+- Add `4-Finger click`
+- Next to each option, list the Force to set it off (example: f: 125)
+
+- Are Triangles Corner swipes?
+- For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corner??
 -------
 - New branch to test Accelerator bright / vol/ L / R
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
-- 
 -------
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 - New gestures from FRAN!

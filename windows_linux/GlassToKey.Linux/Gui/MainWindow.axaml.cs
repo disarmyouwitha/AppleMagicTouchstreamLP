@@ -496,8 +496,14 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
 
+            int bindingIndex = 0;
             foreach (GestureBindingDefinition binding in GestureBindingCatalog.EnumerateSectionBindings(section.Id))
             {
+                if (TryGetGestureSubgroupLabel(section.Id, bindingIndex, out string? subgroupLabel))
+                {
+                    sectionPanel.Children.Add(BuildGestureSubgroupHeader(subgroupLabel));
+                }
+
                 Grid row = new()
                 {
                     Margin = new Thickness(0, 6, 0, 0),
@@ -518,6 +524,7 @@ public partial class MainWindow : Window
                 row.Children.Add(combo);
                 sectionPanel.Children.Add(row);
                 _gestureActionCombos.Add(binding.Id, combo);
+                bindingIndex++;
             }
 
             expander.Content = sectionPanel;
@@ -530,9 +537,9 @@ public partial class MainWindow : Window
         (string backgroundHex, string borderHex, string foregroundHex) = section.Id switch
         {
             "holds" => ("#1A8FB6CF", "#2F4251", "#8FB6CF"),
-            "edges" => ("#1A92B5B3", "#2F4C4A", "#92B5B3"),
+            "edges" => ("#1A77A7E8", "#334E73", "#77A7E8"),
             "swipes" => ("#1A86C9A9", "#2E4E43", "#86C9A9"),
-            "corners" => ("#1AA6C56A", "#324B22", "#A6C56A"),
+            "corners" => ("#1AE09B73", "#5C4335", "#E09B73"),
             "triangles" => ("#1AD8B37A", "#5A4A2E", "#D8B37A"),
             "clicks" => ("#1AB7A3D9", "#4A3E62", "#B7A3D9"),
             "force_clicks" => ("#1AD49A9A", "#5E3D3D", "#D49A9A"),
@@ -555,6 +562,55 @@ public partial class MainWindow : Window
                 FontWeight = FontWeight.SemiBold
             }
         };
+    }
+
+    private static bool TryGetGestureSubgroupLabel(string sectionId, int bindingIndex, out string? label)
+    {
+        label = null;
+        if (!string.Equals(sectionId, "swipes", StringComparison.Ordinal))
+        {
+            return false;
+        }
+
+        label = bindingIndex switch
+        {
+            0 => "3-Finger",
+            4 => "4-Finger",
+            8 => "5-Finger",
+            _ => null
+        };
+
+        return label != null;
+    }
+
+    private static Control BuildGestureSubgroupHeader(string label)
+    {
+        Grid row = new()
+        {
+            Margin = new Thickness(0, 4, 0, 2),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = label,
+            FontSize = 11,
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+
+        Border line = new()
+        {
+            Height = 1,
+            Margin = new Thickness(8, 0, 0, 0),
+            Background = new SolidColorBrush(Color.Parse("#2B2F33")),
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        };
+        Grid.SetColumn(line, 1);
+        row.Children.Add(line);
+        return row;
     }
 
     private ComboBox CreateGestureActionCombo()
