@@ -575,6 +575,11 @@ actor TouchProcessorEngine {
         var suppressKeyProcessing = false
     }
 
+    private struct QueuedRuntimeFrame {
+        let frame: RuntimeRawFrame
+        let captureRenderSnapshot: Bool
+    }
+
     private var intentState = IntentState()
     private var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
     private var intentConfig = IntentConfig()
@@ -587,6 +592,8 @@ actor TouchProcessorEngine {
     private var allowMouseTakeoverDuringTyping = false
     private var runtimeRenderSnapshot = RuntimeRenderSnapshot()
     private var runtimeCaptureFrameCount: UInt64 = 0
+    private var nextRuntimeSequence: UInt64 = 1
+    private var queuedRuntimeFrames: [UInt64: QueuedRuntimeFrame] = [:]
     private var typingGraceDeadline: TimeInterval?
     private var typingGraceTask: Task<Void, Never>?
     private var doubleTapDeadline: TimeInterval?
@@ -756,11 +763,18 @@ actor TouchProcessorEngine {
         _ frame: RuntimeRawFrame,
         captureRenderSnapshot: Bool
     ) -> RuntimeRenderSnapshot? {
-        processRuntimeRawFrame(frame)
-        runtimeCaptureFrameCount &+= 1
-        guard captureRenderSnapshot else { return nil }
-        updateRuntimeRenderSnapshot(from: frame)
-        return runtimeRenderSnapshot
+        guard frame.sequence >= nextRuntimeSequence else { return nil }
+        if frame.sequence != nextRuntimeSequence {
+            queuedRuntimeFrames[frame.sequence] = QueuedRuntimeFrame(
+                frame: frame,
+                captureRenderSnapshot: captureRenderSnapshot
+            )
+            return nil
+        }
+        return ingestContiguousRuntimeFrames(
+            startingWith: frame,
+            captureRenderSnapshot: captureRenderSnapshot
+        )
     }
 
     func reset(stopVoiceDictation: Bool) {
@@ -1152,6 +1166,8 @@ actor TouchProcessorEngine {
         contactFingerCountsBySide[.right] = 0
         runtimeRenderSnapshot = RuntimeRenderSnapshot()
         runtimeCaptureFrameCount = 0
+        nextRuntimeSequence = 1
+        queuedRuntimeFrames.removeAll(keepingCapacity: true)
         notifyContactCounts()
     }
 
@@ -4701,6 +4717,33 @@ actor TouchProcessorEngine {
         )
         runtimeRenderSnapshot.activeLayer = activeLayer
         runtimeRenderSnapshot.revision &+= 1
+    }
+
+    private func ingestContiguousRuntimeFrames(
+        startingWith initialFrame: RuntimeRawFrame,
+        captureRenderSnapshot initialCaptureRenderSnapshot: Bool
+    ) -> RuntimeRenderSnapshot? {
+        var frame = initialFrame
+        var captureRenderSnapshot = initialCaptureRenderSnapshot
+        var latestRenderSnapshot: RuntimeRenderSnapshot?
+
+        while true {
+            processRuntimeRawFrame(frame)
+            runtimeCaptureFrameCount &+= 1
+            if captureRenderSnapshot {
+                updateRuntimeRenderSnapshot(from: frame)
+                latestRenderSnapshot = runtimeRenderSnapshot
+            }
+            nextRuntimeSequence &+= 1
+
+            guard let next = queuedRuntimeFrames.removeValue(forKey: nextRuntimeSequence) else {
+                break
+            }
+            frame = next.frame
+            captureRenderSnapshot = next.captureRenderSnapshot
+        }
+
+        return latestRenderSnapshot
     }
 
     private static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {

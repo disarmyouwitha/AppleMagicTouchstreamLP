@@ -67,6 +67,7 @@ final class InputRuntimeService: @unchecked Sendable {
         let shouldStart = stateLock.withLockUnchecked { state in
             guard !state.isRunning else { return false }
             state.isRunning = true
+            state.sequence = 0
             return true
         }
         guard shouldStart else { return false }
@@ -207,16 +208,12 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         }
     }
 
-    func ingest(
-        _ rawFrame: RuntimeRawFrame,
-        runtimeEngine: TouchProcessorEngine
-    ) async -> Bool {
-        let shouldRecord = recordingLock.withLockUnchecked(\.self)
-        let renderSnapshot = await runtimeEngine.ingest(
-            rawFrame,
-            captureRenderSnapshot: shouldRecord
-        )
-        guard shouldRecord, let renderSnapshot else { return false }
+    func isRecordingEnabled() -> Bool {
+        recordingLock.withLockUnchecked(\.self)
+    }
+
+    @discardableResult
+    func consume(_ renderSnapshot: RuntimeRenderSnapshot) -> Bool {
         var updatedRevision: UInt64?
         snapshotLock.withLockUnchecked { snapshot in
             guard snapshot.revision != renderSnapshot.revision else { return }
@@ -229,6 +226,19 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         guard let revision = updatedRevision else { return false }
         continuationStore.continuation?.yield(revision)
         return true
+    }
+
+    func ingest(
+        _ rawFrame: RuntimeRawFrame,
+        runtimeEngine: TouchProcessorEngine
+    ) async -> Bool {
+        let shouldRecord = isRecordingEnabled()
+        let renderSnapshot = await runtimeEngine.ingest(
+            rawFrame,
+            captureRenderSnapshot: shouldRecord
+        )
+        guard shouldRecord, let renderSnapshot else { return false }
+        return consume(renderSnapshot)
     }
 }
 
@@ -487,8 +497,7 @@ final class RuntimeCommandService: @unchecked Sendable {
 final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     private struct LiveIngestState {
         var handlerID: UUID?
-        var drainTask: Task<Void, Never>?
-        var pendingFrames: [RuntimeRawFrame] = []
+        var generation: UInt64 = 0
     }
 
 #if DEBUG
@@ -522,12 +531,14 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     }
 
     private func ensureLiveFrameHandlerRegistered() {
-        let shouldRegister = liveIngestLock.withLockUnchecked { state in
-            state.handlerID == nil
+        let registerState = liveIngestLock.withLockUnchecked { state -> (Bool, UInt64) in
+            (state.handlerID == nil, state.generation)
         }
+        let shouldRegister = registerState.0
+        let generation = registerState.1
         guard shouldRegister else { return }
         let handlerID = inputRuntimeService.addFrameHandler { [weak self] rawFrame in
-            self?.enqueueLiveFrame(rawFrame)
+            self?.ingestLiveFrame(rawFrame, generation: generation)
         }
         liveIngestLock.withLockUnchecked { state in
             guard state.handlerID == nil else { return }
@@ -535,66 +546,41 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         }
     }
 
-    private func enqueueLiveFrame(_ rawFrame: RuntimeRawFrame) {
-        var shouldStartDrain = false
+    private func isLiveGenerationActive(_ generation: UInt64) -> Bool {
         liveIngestLock.withLockUnchecked { state in
-            guard state.handlerID != nil else { return }
-            state.pendingFrames.append(rawFrame)
-            if state.drainTask == nil {
-                shouldStartDrain = true
-            }
+            state.handlerID != nil && state.generation == generation
         }
-        guard shouldStartDrain else { return }
-        startLiveDrainTask()
     }
 
-    private func startLiveDrainTask() {
+    private func ingestLiveFrame(_ rawFrame: RuntimeRawFrame, generation: UInt64) {
+        guard isLiveGenerationActive(generation) else { return }
         let renderSnapshotService = renderSnapshotService
         let runtimeEngine = runtimeEngine
-        let liveIngestLock = self.liveIngestLock
+        let isGenerationActive = self.isLiveGenerationActive
 #if DEBUG
         let pipelineSignposter = pipelineSignposter
 #endif
-        let task = Task.detached(priority: .userInitiated) {
-            while !Task.isCancelled {
-                var batch: [RuntimeRawFrame] = []
-                let shouldFinish = liveIngestLock.withLockUnchecked { state -> Bool in
-                    if state.pendingFrames.isEmpty {
-                        state.drainTask = nil
-                        return true
-                    }
-                    swap(&batch, &state.pendingFrames)
-                    return false
-                }
-                if shouldFinish {
-                    break
-                }
-                for rawFrame in batch {
+        Task.detached(priority: .userInitiated) {
+            guard isGenerationActive(generation) else { return }
 #if DEBUG
-                    let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
-                    defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
-                    let ingestSignpostState = pipelineSignposter.beginInterval("EngineIngestV2")
-                    defer { pipelineSignposter.endInterval("EngineIngestV2", ingestSignpostState) }
+            let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
+            defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
+            let ingestSignpostState = pipelineSignposter.beginInterval("EngineIngestV2")
+            defer { pipelineSignposter.endInterval("EngineIngestV2", ingestSignpostState) }
 #endif
-                    let updated = await renderSnapshotService.ingest(
-                        rawFrame,
-                        runtimeEngine: runtimeEngine
-                    )
-                    if updated {
+            let shouldRecord = renderSnapshotService.isRecordingEnabled()
+            let renderSnapshot = await runtimeEngine.ingest(
+                rawFrame,
+                captureRenderSnapshot: shouldRecord
+            )
+            guard isGenerationActive(generation) else { return }
+            guard shouldRecord, let renderSnapshot else { return }
+            let updated = renderSnapshotService.consume(renderSnapshot)
+            if updated {
 #if DEBUG
-                        pipelineSignposter.emitEvent("SnapshotUpdateV2")
+                pipelineSignposter.emitEvent("SnapshotUpdateV2")
 #endif
-                    }
-                }
             }
-        }
-        let installed = liveIngestLock.withLockUnchecked { state -> Bool in
-            guard state.drainTask == nil else { return false }
-            state.drainTask = task
-            return true
-        }
-        if !installed {
-            task.cancel()
         }
     }
 
@@ -623,18 +609,15 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     }
 
     private func cancelLiveIngest() {
-        let (handlerID, drainTask) = liveIngestLock.withLockUnchecked { state in
+        let handlerID = liveIngestLock.withLockUnchecked { state in
             let handlerID = state.handlerID
-            let drainTask = state.drainTask
             state.handlerID = nil
-            state.drainTask = nil
-            state.pendingFrames.removeAll(keepingCapacity: true)
-            return (handlerID, drainTask)
+            state.generation &+= 1
+            return handlerID
         }
         if let handlerID {
             inputRuntimeService.removeFrameHandler(handlerID)
         }
-        drainTask?.cancel()
     }
 }
 
