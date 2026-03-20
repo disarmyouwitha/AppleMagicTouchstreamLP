@@ -1,4 +1,11 @@
 ## TODO
+- Can we make app packaging / signing simpler now that we don't have the framework as external?
+
+- I see we added a bunch of code to "Framework/OpenMultitouchSupportXCF/OpenMTManagerV2.m" I thought we were moving it into our app? Or does that not make sense? If we are leaving it out I want to remove all of the old stuff and just trim it to our tightly coupled code and anything left to be implemented~
+
+- Can we make a cruft pass and get rid of this BS? I don't want to keep anything around just for compatibilities sake - only if it belongs to the new code { • I’m patching the bridge now: adding a direct raw-frame callback API in OpenMTManagerV2, keeping the old listener API intact for compatibility, and changing callback lifecycle decisions to use “any raw consumers” rather
+  than only OpenMTListener. After that I’ll switch InputRuntimeService to this app-specific path. }
+
 - Does Chordal SHift gesture (4-finger hold) only trigger chordal shift when the toggle is enabled? I would like to remove the toggle entirely and ONLY trigger chordal shift if the gesture is set.
 - 4-finger hold is hella messed up
 

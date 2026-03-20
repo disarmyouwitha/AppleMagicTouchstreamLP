@@ -465,6 +465,30 @@ public struct OMSRawTouch: Sendable {
     public let angle: Float
     public let density: Float
     public let state: OpenMTState
+
+    public init(
+        id: Int32,
+        posX: Float,
+        posY: Float,
+        total: Float,
+        pressure: Float,
+        majorAxis: Float,
+        minorAxis: Float,
+        angle: Float,
+        density: Float,
+        state: OpenMTState
+    ) {
+        self.id = id
+        self.posX = posX
+        self.posY = posY
+        self.total = total
+        self.pressure = pressure
+        self.majorAxis = majorAxis
+        self.minorAxis = minorAxis
+        self.angle = angle
+        self.density = density
+        self.state = state
+    }
 }
 
 public final class OMSRawTouchFrame: @unchecked Sendable {

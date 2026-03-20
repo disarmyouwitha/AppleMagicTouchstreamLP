@@ -1,9 +1,10 @@
 import CoreGraphics
 import Foundation
 import OpenMultitouchSupport
+@preconcurrency import OpenMultitouchSupportXCF
 import os
 
-final class InputRuntimeService: @unchecked Sendable {
+final class InputRuntimeService {
     typealias RuntimeRawFrameHandler = @Sendable (RuntimeRawFrame) -> Void
 
     struct Metrics: Sendable {
@@ -24,12 +25,13 @@ final class InputRuntimeService: @unchecked Sendable {
 
     private struct State {
         var isRunning = false
-        var rawHandlerID: UUID?
+        var rawHandlerToken: UUID?
         var sequence: UInt64 = 0
+        var deviceIndexStore = RuntimeDeviceIndexStore()
         var metrics = Metrics()
     }
 
-    private let manager: OMSManager
+    private let rawManager: OpenMTManagerV2
     private let handlerLock = OSAllocatedUnfairLock<HandlerStore>(
         uncheckedState: HandlerStore()
     )
@@ -38,8 +40,8 @@ final class InputRuntimeService: @unchecked Sendable {
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
-    init(manager: OMSManager = .shared) {
-        self.manager = manager
+    init(rawManager: OpenMTManagerV2 = .sharedManager()) {
+        self.rawManager = rawManager
     }
 
     deinit {
@@ -68,38 +70,42 @@ final class InputRuntimeService: @unchecked Sendable {
             guard !state.isRunning else { return false }
             state.isRunning = true
             state.sequence = 0
+            state.deviceIndexStore = RuntimeDeviceIndexStore()
             return true
         }
         guard shouldStart else { return false }
 
-        guard manager.startListening() else {
+        guard let token = rawManager.addDirectRawFrameHandler({ [weak self] touches, count, timestamp, frame, deviceID in
+            self?.handleDirectRawFrame(
+                touches: touches,
+                count: Int(count),
+                timestamp: timestamp,
+                frame: Int(frame),
+                deviceID: deviceID
+            )
+        }) else {
             stateLock.withLockUnchecked { state in
                 state.isRunning = false
             }
             return false
         }
-
-        let handlerID = manager.addRawFrameHandler { [weak self] frame in
-            self?.handleRawFrame(frame)
-        }
         stateLock.withLockUnchecked { state in
-            state.rawHandlerID = handlerID
+            state.rawHandlerToken = token
         }
         return true
     }
 
     @discardableResult
     func stop() -> Bool {
-        let rawHandlerID = stateLock.withLockUnchecked { state -> UUID? in
+        let rawHandlerToken = stateLock.withLockUnchecked { state -> UUID? in
             guard state.isRunning else { return nil }
             state.isRunning = false
-            let handlerID = state.rawHandlerID
-            state.rawHandlerID = nil
-            return handlerID
+            let token = state.rawHandlerToken
+            state.rawHandlerToken = nil
+            return token
         }
-        guard let rawHandlerID else { return false }
-        manager.removeRawFrameHandler(rawHandlerID)
-        _ = manager.stopListening()
+        guard let rawHandlerToken else { return false }
+        rawManager.removeDirectRawFrameHandler(withToken: rawHandlerToken)
         return true
     }
 
@@ -130,15 +136,31 @@ final class InputRuntimeService: @unchecked Sendable {
         }
     }
 
-    private func handleRawFrame(_ frame: OMSRawTouchFrame) {
-        let sequence = stateLock.withLockUnchecked { state -> UInt64 in
-            guard state.isRunning else { return 0 }
+    fileprivate func handleDirectRawFrame(
+        touches: UnsafePointer<MTTouch>?,
+        count: Int,
+        timestamp: TimeInterval,
+        frame: Int,
+        deviceID: UInt64
+    ) {
+        let frameData = stateLock.withLockUnchecked {
+            state -> (sequence: UInt64, deviceIndex: Int)? in
+            guard state.isRunning else { return nil }
             state.sequence &+= 1
             state.metrics.ingestedFrames &+= 1
-            return state.sequence
+            let deviceIndex = state.deviceIndexStore.index(for: deviceID)
+            return (state.sequence, deviceIndex)
         }
-        guard sequence != 0 else { return }
-        let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
+        guard let frameData else { return }
+        _ = frame
+        let runtimeFrame = RuntimeRawFrame(
+            sequence: frameData.sequence,
+            timestamp: timestamp,
+            deviceNumericID: deviceID,
+            deviceIndex: frameData.deviceIndex,
+            touches: touches,
+            count: count
+        )
         emit(runtimeFrame)
     }
 
@@ -161,6 +183,49 @@ final class InputRuntimeService: @unchecked Sendable {
         stateLock.withLockUnchecked { state in
             state.metrics.emittedFrames &+= 1
         }
+    }
+}
+
+private struct RuntimeDeviceIndexStore: Sendable {
+    private var id0: UInt64?
+    private var id1: UInt64?
+    private var last0: UInt64 = 0
+    private var last1: UInt64 = 0
+    private var counter: UInt64 = 0
+
+    mutating func index(for deviceID: UInt64) -> Int {
+        if id0 == deviceID {
+            last0 = tick()
+            return 0
+        }
+        if id1 == deviceID {
+            last1 = tick()
+            return 1
+        }
+        let current = tick()
+        if id0 == nil {
+            id0 = deviceID
+            last0 = current
+            return 0
+        }
+        if id1 == nil {
+            id1 = deviceID
+            last1 = current
+            return 1
+        }
+        if last0 <= last1 {
+            id0 = deviceID
+            last0 = current
+            return 0
+        }
+        id1 = deviceID
+        last1 = current
+        return 1
+    }
+
+    private mutating func tick() -> UInt64 {
+        counter &+= 1
+        return counter
     }
 }
 

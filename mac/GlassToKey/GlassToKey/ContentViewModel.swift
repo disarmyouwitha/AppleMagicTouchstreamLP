@@ -867,7 +867,7 @@ final class ContentViewModel: ObservableObject {
     private var replayPlaybackTask: Task<Void, Never>?
 
     init() {
-        let inputRuntimeService = InputRuntimeService(manager: manager)
+        let inputRuntimeService = InputRuntimeService()
         renderSnapshotService = RuntimeRenderSnapshotService()
         touchRevisionUpdates = renderSnapshotService.revisionUpdates
         weak var weakSelf: ContentViewModel?
