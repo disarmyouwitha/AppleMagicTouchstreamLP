@@ -71,7 +71,6 @@ public static class RuntimeConfigurationFactory
             TopRightForceClickAction = settings.TopRightForceClickAction,
             BottomLeftForceClickAction = settings.BottomLeftForceClickAction,
             BottomRightForceClickAction = settings.BottomRightForceClickAction,
-            ForceClick1Action = settings.ForceClick1Action,
             ForceClick2Action = settings.ForceClick2Action,
             ForceClick3Action = settings.ForceClick3Action,
             UpperLeftCornerClickAction = settings.UpperLeftCornerClickAction,

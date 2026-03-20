@@ -66,7 +66,6 @@ public sealed class UserSettings
     public string TopRightForceClickAction { get; set; } = "None";
     public string BottomLeftForceClickAction { get; set; } = "None";
     public string BottomRightForceClickAction { get; set; } = "None";
-    public string ForceClick1Action { get; set; } = "None";
     public string ForceClick2Action { get; set; } = "None";
     public string ForceClick3Action { get; set; } = "None";
     public string UpperLeftCornerClickAction { get; set; } = "None";
@@ -175,7 +174,6 @@ public sealed class UserSettings
         TopRightForceClickAction = source.TopRightForceClickAction;
         BottomLeftForceClickAction = source.BottomLeftForceClickAction;
         BottomRightForceClickAction = source.BottomRightForceClickAction;
-        ForceClick1Action = source.ForceClick1Action;
         ForceClick2Action = source.ForceClick2Action;
         ForceClick3Action = source.ForceClick3Action;
         UpperLeftCornerClickAction = source.UpperLeftCornerClickAction;

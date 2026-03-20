@@ -79,8 +79,7 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("top_left_force_click", "force_clicks", "Top Left", "None"),
         new GestureBindingDefinition("top_right_force_click", "force_clicks", "Top Right", "None"),
         new GestureBindingDefinition("bottom_left_force_click", "force_clicks", "Bottom Left", "None"),
-        new GestureBindingDefinition("bottom_right_force_click", "force_clicks", "Bottom Right", "None"),
-        new GestureBindingDefinition("force_click_1", "force_clicks", "Force Click", "None")
+        new GestureBindingDefinition("bottom_right_force_click", "force_clicks", "Bottom Right", "None")
     ];
 
     private static readonly Dictionary<string, int> BindingIndexById = BuildBindingIndexById();
@@ -317,7 +316,6 @@ public static class GestureBindingCatalog
             "top_right_force_click" => settings.TopRightForceClickAction,
             "bottom_left_force_click" => settings.BottomLeftForceClickAction,
             "bottom_right_force_click" => settings.BottomRightForceClickAction,
-            "force_click_1" => settings.ForceClick1Action,
             "force_click_2" => settings.ForceClick2Action,
             "force_click_3" => settings.ForceClick3Action,
             _ => throw new ArgumentOutOfRangeException(nameof(bindingId), bindingId, "Unknown gesture binding id.")
@@ -467,9 +465,6 @@ public static class GestureBindingCatalog
                 return;
             case "bottom_right_force_click":
                 settings.BottomRightForceClickAction = action;
-                return;
-            case "force_click_1":
-                settings.ForceClick1Action = action;
                 return;
             case "force_click_2":
                 settings.ForceClick2Action = action;
