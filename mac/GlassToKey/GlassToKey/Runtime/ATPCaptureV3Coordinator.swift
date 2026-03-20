@@ -1212,14 +1212,14 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
     private let inputRuntimeService: InputRuntimeService
     private let runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService
-    private let runtimeEngine: EngineActorBoundary
+    private let runtimeEngine: TouchProcessorEngine
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
     init(
         inputRuntimeService: InputRuntimeService,
         runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService,
-        runtimeEngine: EngineActorBoundary,
+        runtimeEngine: TouchProcessorEngine,
         renderSnapshotService: RuntimeRenderSnapshotService
     ) {
         self.inputRuntimeService = inputRuntimeService
