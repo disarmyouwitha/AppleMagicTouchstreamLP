@@ -2,7 +2,6 @@
 
 #import "OpenMTManagerV2.h"
 #import "OpenMTInternal.h"
-#import "OpenMTListenerInternal.h"
 
 typedef struct {
     __unsafe_unretained OpenMTManagerV2 *manager;
@@ -23,11 +22,17 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (instancetype)initWithDeviceRef:(MTDeviceRef)deviceRef;
 @end
 
+@interface OpenMTDirectRawHandlerEntry : NSObject
+@property (nonatomic, strong, readonly) NSUUID *token;
+@property (nonatomic, copy, readonly) OpenMTDirectRawFrameHandler handler;
+- (instancetype)initWithHandler:(OpenMTDirectRawFrameHandler)handler;
+@end
+
 @interface OpenMTManagerV2 ()
 
 @property (strong, nonatomic) dispatch_queue_t stateQueue;
-@property (strong, nonatomic) NSMutableArray<OpenMTListener *> *rawListeners;
-@property (atomic, copy) NSArray<OpenMTListener *> *rawListenersSnapshot;
+@property (strong, nonatomic) NSMutableArray<OpenMTDirectRawHandlerEntry *> *directRawHandlers;
+@property (atomic, copy) NSArray<OpenMTDirectRawHandlerEntry *> *directRawHandlersSnapshot;
 @property (strong, nonatomic) NSArray<OpenMTDeviceInfo *> *availableDeviceInfos;
 @property (strong, nonatomic) NSArray<OpenMTDeviceInfo *> *activeDeviceInfos;
 @property (strong, nonatomic) NSMutableDictionary<NSNumber *, NSValue *> *deviceRefsByNumericID;
@@ -40,7 +45,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (MTDeviceRef)createDeviceRefForNumericID:(uint64_t)numericID;
 - (BOOL)refreshActiveDeviceRefs;
 - (void)clearActiveDeviceRefs;
-- (void)rebuildRawSnapshotPruningDead;
+- (BOOL)hasAnyRawConsumers;
 - (BOOL)startHandlingRawCallbacks;
 - (void)stopHandlingRawCallbacks;
 - (NSArray<OpenMTDeviceInfo *> *)resolveActiveDevicesFromAvailable:(NSArray<OpenMTDeviceInfo *> *)available
@@ -50,6 +55,18 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
                         timestamp:(double)timestamp
                             frame:(int)frame
                          deviceID:(uint64_t)deviceID;
+
+@end
+
+@implementation OpenMTDirectRawHandlerEntry
+
+- (instancetype)initWithHandler:(OpenMTDirectRawFrameHandler)handler {
+    if (self = [super init]) {
+        _token = [NSUUID UUID];
+        _handler = [handler copy];
+    }
+    return self;
+}
 
 @end
 
@@ -71,8 +88,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (instancetype)init {
     if (self = [super init]) {
         _stateQueue = dispatch_queue_create("com.kyome.openmt.v2.state", DISPATCH_QUEUE_SERIAL);
-        _rawListeners = NSMutableArray.new;
-        _rawListenersSnapshot = @[];
+        _directRawHandlers = NSMutableArray.new;
+        _directRawHandlersSnapshot = @[];
         _deviceRefsByNumericID = NSMutableDictionary.new;
         _callbackContextsByRef = NSMutableDictionary.new;
         _callbacksRunning = NO;
@@ -98,8 +115,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     [NSWorkspace.sharedWorkspace.notificationCenter removeObserver:self];
     [self withStateSync:^{
         [self stopHandlingRawCallbacks];
-        [self.rawListeners removeAllObjects];
-        self.rawListenersSnapshot = @[];
+        [self.directRawHandlers removeAllObjects];
+        self.directRawHandlersSnapshot = @[];
     }];
 }
 
@@ -225,14 +242,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     return didAddAny;
 }
 
-- (void)rebuildRawSnapshotPruningDead {
-    for (NSInteger i = self.rawListeners.count - 1; i >= 0; i--) {
-        OpenMTListener *listener = self.rawListeners[i];
-        if (listener.dead) {
-            [self.rawListeners removeObjectAtIndex:i];
-        }
-    }
-    self.rawListenersSnapshot = [self.rawListeners copy];
+- (BOOL)hasAnyRawConsumers {
+    return self.directRawHandlersSnapshot.count > 0;
 }
 
 - (BOOL)startHandlingRawCallbacks {
@@ -331,20 +342,16 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
                         timestamp:(double)timestamp
                             frame:(int)frame
                          deviceID:(uint64_t)deviceID {
-    NSArray<OpenMTListener *> *snapshot = self.rawListenersSnapshot;
-    if (snapshot.count == 0) {
+    NSArray<OpenMTDirectRawHandlerEntry *> *handlerSnapshot = self.directRawHandlersSnapshot;
+    if (handlerSnapshot.count == 0) {
         return;
     }
 
-    for (OpenMTListener *listener in snapshot) {
-        if (listener.dead || !listener.listening) {
+    for (OpenMTDirectRawHandlerEntry *entry in handlerSnapshot) {
+        if (!entry.handler) {
             continue;
         }
-        [listener listenToRawFrameWithTouches:touches
-                                        count:numTouches
-                                    timestamp:timestamp
-                                        frame:frame
-                                     deviceID:deviceID];
+        entry.handler(touches, numTouches, timestamp, frame, deviceID);
     }
 }
 
@@ -356,7 +363,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
         NSArray<OpenMTDeviceInfo *> *resolved = [self resolveActiveDevicesFromAvailable:devices
                                                                           previousActive:self.activeDeviceInfos];
 
-        BOOL hadListeners = self.rawListenersSnapshot.count > 0;
+        BOOL hadListeners = [self hasAnyRawConsumers];
         BOOL wasRunning = self.callbacksRunning;
         if (wasRunning) {
             [self stopHandlingRawCallbacks];
@@ -415,7 +422,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
             return;
         }
 
-        BOOL hadListeners = self.rawListenersSnapshot.count > 0;
+        BOOL hadListeners = [self hasAnyRawConsumers];
         if (self.callbacksRunning) {
             [self stopHandlingRawCallbacks];
         }
@@ -430,27 +437,45 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     return success;
 }
 
-- (OpenMTListener *)addRawListenerWithCallback:(OpenMTRawFrameCallback)callback {
-    __block OpenMTListener *listener = nil;
+- (NSUUID * _Nullable)addDirectRawFrameHandler:(OpenMTDirectRawFrameHandler)handler {
+    if (!handler) {
+        return nil;
+    }
+
+    __block OpenMTDirectRawHandlerEntry *entry = nil;
     [self withStateSync:^{
-        if (!self.class.systemSupportsMultitouch) {
-            return;
-        }
-        listener = [[OpenMTListener alloc] initWithRawCallback:callback];
-        [self.rawListeners addObject:listener];
-        [self rebuildRawSnapshotPruningDead];
-        if (!self.callbacksRunning) {
+        BOOL shouldStart = ![self hasAnyRawConsumers];
+        entry = [[OpenMTDirectRawHandlerEntry alloc] initWithHandler:handler];
+        [self.directRawHandlers addObject:entry];
+        self.directRawHandlersSnapshot = [self.directRawHandlers copy];
+        if (shouldStart) {
             [self startHandlingRawCallbacks];
         }
     }];
-    return listener;
+    return entry.token;
 }
 
-- (void)removeRawListener:(OpenMTListener *)listener {
+- (void)removeDirectRawFrameHandlerWithToken:(NSUUID *)token {
+    if (!token) {
+        return;
+    }
+
     [self withStateSync:^{
-        [self.rawListeners removeObject:listener];
-        [self rebuildRawSnapshotPruningDead];
-        if (self.rawListenersSnapshot.count == 0) {
+        NSInteger existingIndex = NSNotFound;
+        for (NSInteger i = 0; i < self.directRawHandlers.count; i++) {
+            OpenMTDirectRawHandlerEntry *entry = self.directRawHandlers[i];
+            if ([entry.token isEqual:token]) {
+                existingIndex = i;
+                break;
+            }
+        }
+        if (existingIndex == NSNotFound) {
+            return;
+        }
+
+        [self.directRawHandlers removeObjectAtIndex:existingIndex];
+        self.directRawHandlersSnapshot = [self.directRawHandlers copy];
+        if (![self hasAnyRawConsumers]) {
             [self stopHandlingRawCallbacks];
         }
     }];
@@ -474,7 +499,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (void)didWakeUp:(NSNotification *)note {
     (void)note;
     [self withStateAsync:^{
-        if (self.rawListenersSnapshot.count > 0) {
+        if ([self hasAnyRawConsumers]) {
             [self startHandlingRawCallbacks];
         }
     }];

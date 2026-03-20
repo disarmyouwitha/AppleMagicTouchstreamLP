@@ -76,6 +76,61 @@ struct RuntimeStatusSnapshot: Sendable {
 }
 
 extension RuntimeRawFrame {
+    init(
+        sequence: UInt64,
+        timestamp: TimeInterval,
+        deviceNumericID: UInt64,
+        deviceIndex: Int,
+        touches: UnsafePointer<MTTouch>?,
+        count: Int
+    ) {
+        self.sequence = sequence
+        self.timestamp = timestamp
+        self.deviceNumericID = deviceNumericID
+        self.deviceIndex = deviceIndex
+        guard let touches, count > 0 else {
+            self.contacts = []
+            self.rawTouches = []
+            return
+        }
+
+        var contacts: [RuntimeRawContact] = []
+        var rawTouches: [OMSRawTouch] = []
+        contacts.reserveCapacity(count)
+        rawTouches.reserveCapacity(count)
+        for index in 0..<count {
+            let touch = touches[index]
+            let openMTState = Self.mapOpenMTState(rawValue: touch.state)
+            rawTouches.append(OMSRawTouch(
+                id: Int32(touch.identifier),
+                posX: touch.normalizedPosition.position.x,
+                posY: touch.normalizedPosition.position.y,
+                total: touch.total,
+                pressure: touch.pressure,
+                majorAxis: touch.majorAxis,
+                minorAxis: touch.minorAxis,
+                angle: touch.angle,
+                density: touch.density,
+                state: openMTState
+            ))
+            if let state = Self.mapOMSState(openMTState) {
+                contacts.append(RuntimeRawContact(
+                    id: Int32(touch.identifier),
+                    posX: touch.normalizedPosition.position.x,
+                    posY: touch.normalizedPosition.position.y,
+                    pressure: touch.pressure,
+                    majorAxis: touch.majorAxis,
+                    minorAxis: touch.minorAxis,
+                    angle: touch.angle,
+                    density: touch.density,
+                    state: state
+                ))
+            }
+        }
+        self.contacts = contacts
+        self.rawTouches = rawTouches
+    }
+
     init(sequence: UInt64, frame: OMSRawTouchFrame) {
         self.sequence = sequence
         self.timestamp = frame.timestamp
@@ -98,7 +153,11 @@ extension RuntimeRawFrame {
         }
     }
 
-    private static func mapState(_ state: OpenMTState) -> OMSState? {
+    private static func mapOpenMTState(rawValue: MTTouchState) -> OpenMTState {
+        OpenMTState(rawValue: UInt(rawValue)) ?? .notTouching
+    }
+
+    private static func mapOMSState(_ state: OpenMTState) -> OMSState? {
         switch state {
         case .notTouching:
             return .notTouching
@@ -119,5 +178,9 @@ extension RuntimeRawFrame {
         @unknown default:
             return nil
         }
+    }
+
+    private static func mapState(_ state: OpenMTState) -> OMSState? {
+        mapOMSState(state)
     }
 }

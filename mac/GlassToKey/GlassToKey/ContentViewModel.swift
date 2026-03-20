@@ -867,7 +867,7 @@ final class ContentViewModel: ObservableObject {
     private var replayPlaybackTask: Task<Void, Never>?
 
     init() {
-        let inputRuntimeService = InputRuntimeService(manager: manager)
+        let inputRuntimeService = InputRuntimeService()
         renderSnapshotService = RuntimeRenderSnapshotService()
         touchRevisionUpdates = renderSnapshotService.revisionUpdates
         weak var weakSelf: ContentViewModel?
@@ -878,7 +878,8 @@ final class ContentViewModel: ObservableObject {
         }
         let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { _ in }
         let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { _ in }
-        let runtimeEngine = EngineActor(
+        let voiceGestureHandler: @Sendable (Bool) -> Void = { _ in }
+        let runtimeEngine = TouchProcessorEngine(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
                 Task { @MainActor in
@@ -892,7 +893,8 @@ final class ContentViewModel: ObservableObject {
             },
             onDebugBindingDetected: debugBindingHandler,
             onContactCountChanged: contactCountHandler,
-            onIntentStateChanged: intentStateHandler
+            onIntentStateChanged: intentStateHandler,
+            onVoiceGestureChanged: voiceGestureHandler
         )
         runtimeCommandService = RuntimeCommandService(runtimeEngine: runtimeEngine)
         runtimeLifecycleCoordinator = RuntimeLifecycleCoordinatorService(
