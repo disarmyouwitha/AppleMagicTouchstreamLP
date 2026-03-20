@@ -1379,20 +1379,6 @@
                   </ComboBox>
                   <TextBox x:Name="BottomRightForceClickGestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
                 </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="170" />
-                    <ColumnDefinition Width="58" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force Click" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <ComboBox x:Name="ForceClick1GestureCombo" Grid.Column="1" Height="24" Margin="8,0,0,0" DisplayMemberPath="Display" SelectedValuePath="Value" MaxDropDownHeight="420" ItemContainerStyle="{StaticResource KeymapActionComboItemStyle}">
-                    <ComboBox.GroupStyle>
-                      <StaticResource ResourceKey="KeymapActionGroupStyle" />
-                    </ComboBox.GroupStyle>
-                  </ComboBox>
-                  <TextBox x:Name="ForceClick1GestureRepeatBox" Grid.Column="2" Height="24" Margin="8,0,0,0" Width="50" HorizontalContentAlignment="Center" Style="{StaticResource WatermarkTextBoxStyle}" Tag="[ms]" ToolTip="Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable." />
-                </Grid>
                   </StackPanel>
                 </Expander>
 

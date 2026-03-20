@@ -1,14 +1,4 @@
 ## Current:
-- I think bottom-left and bottom-right triangles are implemented backwards? lol. Let me think about it and get you a pcap
-
-
-
-Add more `Force Click` options:
-- Add `2-Finger click` (Force above 125 should cancel `2-finger hold`?)
-- Add `3-Finger click`
-- Add `4-Finger click`
-
-- Are Triangles Corner swipes? (Maybe, if I can describe it clearly with a picture?)
 - For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corner? That would go hard for me
 -------
 - New branch to test Accelerator bright / vol/ L / R

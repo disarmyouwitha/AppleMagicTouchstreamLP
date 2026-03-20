@@ -50,7 +50,7 @@ internal sealed class TouchProcessorCore
     private const double EdgeSlideMaxDurationMs = 2500.0;
     private const double HoldGestureMoveCancelMm = 1.0;
     private const double ForceClickMaxDurationMs = 2000.0;
-    private const double CornerClickZoneThreshold = 0.14;
+    private const double CornerClickZoneThreshold = 0.20;
     private const int CornerClickForceThresholdNorm = 125;
     private const double CornerClickMaxDurationMs = 2000.0;
     private const int ChordShiftContactThreshold = 4;
