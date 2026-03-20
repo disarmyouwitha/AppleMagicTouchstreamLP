@@ -92,6 +92,7 @@
   - then launch the full tray host so the GUI becomes the active desktop path instead of leaving the headless runtime grabbing pointer input underneath it
 - Prefer the Apple `if01` `-event-mouse` node when multiple event nodes represent one physical device.
 - On the validated Ubuntu host, `EVIOCGABS` reports real ranges and Linux normalization should produce `MaxX=7612` and `MaxY=5065`.
+- Linux force-click tuning uses the Linux pressure range directly; the Linux GUI force-click threshold slider is `80..255` and the bundled Linux default threshold is `80`.
 - Over Bluetooth on the validated host, `/dev/input/by-id` may be absent; use `uniq` as the stable-id fallback.
 - Linux packaging should use the dedicated `glasstokey` group model rather than relying on `uaccess` alone.
 - Linux actuator writes use the raw 14-byte `0x53` report payload on the validated host.

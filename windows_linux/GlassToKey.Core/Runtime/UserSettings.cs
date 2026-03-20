@@ -89,6 +89,7 @@ public sealed class UserSettings
     public Dictionary<string, double>? KeyPaddingPercentByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
     public int ForceMin { get; set; }
     public int ForceCap { get; set; } = 255;
+    public int ForceClickThreshold { get; set; } = GestureBindingCatalog.ForceClickThresholdDefault;
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public Dictionary<string, Dictionary<int, List<ColumnLayoutSettings>>>? ColumnSettingsByLayoutLayer { get; set; }
     public Dictionary<string, List<ColumnLayoutSettings>>? ColumnSettingsByLayout { get; set; } = new(StringComparer.OrdinalIgnoreCase);
@@ -197,6 +198,7 @@ public sealed class UserSettings
         KeyPaddingPercentByLayout = CloneKeyPaddingByLayout(source.KeyPaddingPercentByLayout);
         ForceMin = source.ForceMin;
         ForceCap = source.ForceCap;
+        ForceClickThreshold = source.ForceClickThreshold;
         ColumnSettingsByLayoutLayer = source.ColumnSettingsByLayoutLayer == null
             ? null
             : CloneColumnSettingsByLayoutLayer(source.ColumnSettingsByLayoutLayer);
@@ -383,6 +385,16 @@ public sealed class UserSettings
         if (ForceCap < ForceMin)
         {
             ForceCap = ForceMin;
+            changed = true;
+        }
+
+        int normalizedForceClickThreshold = Math.Clamp(
+            ForceClickThreshold,
+            GestureBindingCatalog.ForceClickThresholdMinimum,
+            GestureBindingCatalog.ForceClickThresholdMaximum);
+        if (normalizedForceClickThreshold != ForceClickThreshold)
+        {
+            ForceClickThreshold = normalizedForceClickThreshold;
             changed = true;
         }
 

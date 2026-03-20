@@ -78,6 +78,7 @@ public static class RuntimeConfigurationFactory
             UpperRightCornerClickAction = settings.UpperRightCornerClickAction,
             LowerLeftCornerClickAction = settings.LowerLeftCornerClickAction,
             LowerRightCornerClickAction = settings.LowerRightCornerClickAction,
+            ForceClickThreshold = settings.ForceClickThreshold,
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
             ChordShiftEnabled = chordShiftEnabled,

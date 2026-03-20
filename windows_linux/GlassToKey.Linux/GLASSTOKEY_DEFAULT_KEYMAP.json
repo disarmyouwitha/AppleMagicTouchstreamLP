@@ -76,6 +76,7 @@
     },
     "ForceMin": 0,
     "ForceCap": 71,
+    "ForceClickThreshold": 80,
     "ColumnSettingsByLayout": {
       "6x3": [
         {

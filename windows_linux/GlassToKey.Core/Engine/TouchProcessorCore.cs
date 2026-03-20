@@ -49,9 +49,6 @@ internal sealed class TouchProcessorCore
     private const double EdgeSlideDirectionDominanceRatio = 2.0;
     private const double EdgeSlideMaxDurationMs = 2500.0;
     private const double HoldGestureMoveCancelMm = 1.0;
-    private const int ForceClick1ThresholdNorm = GestureBindingCatalog.ForceClick1ThresholdNorm;
-    private const int ForceClick2ThresholdNorm = GestureBindingCatalog.ForceClick2ThresholdNorm;
-    private const int ForceClick3ThresholdNorm = GestureBindingCatalog.ForceClick3ThresholdNorm;
     private const double ForceClickMaxDurationMs = 2000.0;
     private const double CornerClickZoneThreshold = 0.14;
     private const int CornerClickForceThresholdNorm = 125;
@@ -4162,9 +4159,7 @@ internal sealed class TouchProcessorCore
                _topRightForceClickGestureAction.Kind != EngineActionKind.None ||
                _bottomLeftForceClickGestureAction.Kind != EngineActionKind.None ||
                _bottomRightForceClickGestureAction.Kind != EngineActionKind.None ||
-               _forceClick1GestureAction.Kind != EngineActionKind.None ||
-               _forceClick2GestureAction.Kind != EngineActionKind.None ||
-               _forceClick3GestureAction.Kind != EngineActionKind.None;
+               _forceClick1GestureAction.Kind != EngineActionKind.None;
     }
 
     private bool IsConfiguredForceClickCornerZoneEnabled(CornerClickTapZone zone)
@@ -4233,34 +4228,20 @@ internal sealed class TouchProcessorCore
 
     private EngineKeyAction ResolveForceClickGestureAction(CornerClickTapZone zone, int peakForceNorm)
     {
-        if (peakForceNorm >= ForceClick1ThresholdNorm)
+        if (peakForceNorm < _config.ForceClickThreshold)
         {
-            EngineKeyAction cornerAction = GetCornerForceClickGestureAction(zone);
-            if (cornerAction.Kind != EngineActionKind.None)
-            {
-                return cornerAction;
-            }
+            return EngineKeyAction.None;
         }
 
-        if (peakForceNorm >= ForceClick3ThresholdNorm &&
-            _forceClick3GestureAction.Kind != EngineActionKind.None)
+        EngineKeyAction cornerAction = GetCornerForceClickGestureAction(zone);
+        if (cornerAction.Kind != EngineActionKind.None)
         {
-            return _forceClick3GestureAction;
+            return cornerAction;
         }
 
-        if (peakForceNorm >= ForceClick2ThresholdNorm &&
-            _forceClick2GestureAction.Kind != EngineActionKind.None)
-        {
-            return _forceClick2GestureAction;
-        }
-
-        if (peakForceNorm >= ForceClick1ThresholdNorm &&
-            _forceClick1GestureAction.Kind != EngineActionKind.None)
-        {
-            return _forceClick1GestureAction;
-        }
-
-        return EngineKeyAction.None;
+        return _forceClick1GestureAction.Kind != EngineActionKind.None
+            ? _forceClick1GestureAction
+            : EngineKeyAction.None;
     }
 
     private EngineKeyAction GetEdgeSlideGestureAction(EdgeSlideZone zone, EdgeSlideDirection direction)
@@ -5013,33 +4994,19 @@ internal sealed class TouchProcessorCore
 
     private string GetForceClickGestureBindingId(CornerClickTapZone zone, int peakForceNorm)
     {
-        if (peakForceNorm >= ForceClick1ThresholdNorm &&
-            GetCornerForceClickGestureAction(zone).Kind != EngineActionKind.None)
+        if (peakForceNorm < _config.ForceClickThreshold)
+        {
+            return string.Empty;
+        }
+
+        if (GetCornerForceClickGestureAction(zone).Kind != EngineActionKind.None)
         {
             return GetCornerForceClickBindingId(zone);
         }
 
-        return GetForceClickGestureBindingId(peakForceNorm);
-    }
-
-    private static string GetForceClickGestureBindingId(int peakForceNorm)
-    {
-        if (peakForceNorm >= ForceClick3ThresholdNorm)
-        {
-            return "force_click_3";
-        }
-
-        if (peakForceNorm >= ForceClick2ThresholdNorm)
-        {
-            return "force_click_2";
-        }
-
-        if (peakForceNorm >= ForceClick1ThresholdNorm)
-        {
-            return "force_click_1";
-        }
-
-        return string.Empty;
+        return _forceClick1GestureAction.Kind != EngineActionKind.None
+            ? "force_click_1"
+            : string.Empty;
     }
 
     private static string GetCornerClickTapBindingId(CornerClickTapZone zone)
@@ -5854,6 +5821,10 @@ internal sealed class TouchProcessorCore
             UpperRightCornerClickAction = NormalizeGestureAction(config.UpperRightCornerClickAction, "None"),
             LowerLeftCornerClickAction = NormalizeGestureAction(config.LowerLeftCornerClickAction, "None"),
             LowerRightCornerClickAction = NormalizeGestureAction(config.LowerRightCornerClickAction, "None"),
+            ForceClickThreshold = Math.Clamp(
+                config.ForceClickThreshold,
+                GestureBindingCatalog.ForceClickThresholdMinimum,
+                GestureBindingCatalog.ForceClickThresholdMaximum),
             ForceMin = Math.Clamp(config.ForceMin, 0, 255),
             ForceCap = Math.Clamp(config.ForceCap, 0, 255)
         };

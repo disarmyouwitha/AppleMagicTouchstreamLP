@@ -23,6 +23,7 @@ public partial class MainWindow : Window
 {
     private const int MaxSupportedLayer = 3;
     private const int LinuxForceSliderMaximum = 255;
+    private const int LinuxForceClickThresholdMinimum = 80;
     private const double TrackpadWidthMm = 160.0;
     private const double TrackpadHeightMm = 114.9;
     private const double KeyWidthMm = 18.0;
@@ -128,6 +129,8 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, ComboBox> _gestureActionCombos = new(StringComparer.Ordinal);
     private Slider? _hapticsStrengthSlider;
     private TextBlock? _hapticsStrengthValueText;
+    private Slider? _forceClickThresholdSlider;
+    private TextBlock? _forceClickThresholdValueText;
     private bool _allowExit;
     private bool _runtimeOwnedByTray;
     private bool _loadingScreen;
@@ -496,6 +499,11 @@ public partial class MainWindow : Window
                 HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
             };
 
+            if (string.Equals(section.Id, "force_clicks", StringComparison.Ordinal))
+            {
+                sectionPanel.Children.Add(BuildForceClickThresholdControl());
+            }
+
             int bindingIndex = 0;
             foreach (GestureBindingDefinition binding in GestureBindingCatalog.EnumerateSectionBindings(section.Id))
             {
@@ -562,6 +570,82 @@ public partial class MainWindow : Window
                 FontWeight = FontWeight.SemiBold
             }
         };
+    }
+
+    private Control BuildForceClickThresholdControl()
+    {
+        Grid row = new()
+        {
+            Margin = new Thickness(0, 6, 0, 0),
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        row.Children.Add(new TextBlock
+        {
+            Text = "Force Threshold",
+            VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center
+        });
+
+        StackPanel sliderPanel = new()
+        {
+            Margin = new Thickness(12, 0, 0, 0),
+            Spacing = 2,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        Grid.SetColumn(sliderPanel, 1);
+
+        Slider slider = new()
+        {
+            Minimum = LinuxForceClickThresholdMinimum,
+            Maximum = LinuxForceSliderMaximum,
+            TickFrequency = 1,
+            IsSnapToTickEnabled = true,
+            Height = 22,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch
+        };
+        sliderPanel.Children.Add(slider);
+
+        Grid labels = new()
+        {
+            Margin = new Thickness(0, 2, 0, 0)
+        };
+        labels.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+        labels.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+        labels.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+
+        labels.Children.Add(new TextBlock
+        {
+            Text = LinuxForceClickThresholdMinimum.ToString(CultureInfo.InvariantCulture),
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            FontSize = 10,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left
+        });
+
+        TextBlock valueText = new()
+        {
+            Foreground = new SolidColorBrush(Color.Parse("#8B949E")),
+            FontSize = 10,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center
+        };
+        Grid.SetColumn(valueText, 1);
+        labels.Children.Add(valueText);
+
+        labels.Children.Add(new TextBlock
+        {
+            Text = LinuxForceSliderMaximum.ToString(CultureInfo.InvariantCulture),
+            Foreground = new SolidColorBrush(Color.Parse("#6B7279")),
+            FontSize = 10,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+        });
+        Grid.SetColumn(labels.Children[^1], 2);
+
+        sliderPanel.Children.Add(labels);
+        row.Children.Add(sliderPanel);
+        _forceClickThresholdSlider = slider;
+        _forceClickThresholdValueText = valueText;
+        return row;
     }
 
     private static bool TryGetGestureSubgroupLabel(string sectionId, int bindingIndex, out string? label)
@@ -669,6 +753,10 @@ public partial class MainWindow : Window
         {
             _hapticsStrengthSlider.PropertyChanged += OnTypingTuningSliderPropertyChanged;
         }
+        if (_forceClickThresholdSlider != null)
+        {
+            _forceClickThresholdSlider.PropertyChanged += OnForceClickThresholdSliderPropertyChanged;
+        }
         _columnScaleXBox.LostFocus += OnColumnLayoutCommitted;
         _columnScaleYBox.LostFocus += OnColumnLayoutCommitted;
         _keyPaddingBox.LostFocus += OnColumnLayoutCommitted;
@@ -753,6 +841,7 @@ public partial class MainWindow : Window
         UserSettings profile = settings.GetSharedProfile();
         ApplyModeToggleControls(profile);
         ApplyTypingTuningControls(profile);
+        ApplyForceClickThresholdControl(profile);
 
         RenderKeymapPreview(configuration);
         RefreshColumnLayoutEditor();
@@ -834,6 +923,7 @@ public partial class MainWindow : Window
         settings.SharedProfile.LayoutPresetName = settings.LayoutPresetName;
         ApplyGestureSettingsFromUi(settings.SharedProfile);
         ApplyTypingTuningSettingsFromUi(settings.SharedProfile);
+        ApplyForceClickThresholdSettingsFromUi(settings.SharedProfile);
         settings.SharedProfile.KeyboardModeEnabled = _keyboardModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectEnabled = _autocorrectModeCheck.IsChecked == true;
         settings.SharedProfile.AutocorrectDryRunEnabled = false;
@@ -936,6 +1026,37 @@ public partial class MainWindow : Window
         UpdateTypingTuningSliderLabels();
     }
 
+    private void ApplyForceClickThresholdControl(UserSettings profile)
+    {
+        if (_forceClickThresholdSlider == null)
+        {
+            return;
+        }
+
+        int clamped = Math.Clamp(
+            profile.ForceClickThreshold,
+            LinuxForceClickThresholdMinimum,
+            LinuxForceSliderMaximum);
+        _forceClickThresholdSlider.Minimum = LinuxForceClickThresholdMinimum;
+        _forceClickThresholdSlider.Maximum = LinuxForceSliderMaximum;
+        _forceClickThresholdSlider.Value = clamped;
+        UpdateForceClickThresholdLabel();
+    }
+
+    private void ApplyForceClickThresholdSettingsFromUi(UserSettings profile)
+    {
+        if (_forceClickThresholdSlider == null)
+        {
+            return;
+        }
+
+        profile.ForceClickThreshold = Math.Clamp(
+            (int)Math.Round(_forceClickThresholdSlider.Value),
+            LinuxForceClickThresholdMinimum,
+            LinuxForceSliderMaximum);
+        UpdateForceClickThresholdLabel();
+    }
+
     private void ApplyTypingTuningSettingsFromUi(UserSettings profile)
     {
         foreach (TypingTuningTextFieldDefinition field in TypingTuningCatalog.TextFields)
@@ -1035,6 +1156,36 @@ public partial class MainWindow : Window
         }
 
         UpdateTypingTuningSliderLabels();
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
+    private void UpdateForceClickThresholdLabel()
+    {
+        if (_forceClickThresholdSlider == null || _forceClickThresholdValueText == null)
+        {
+            return;
+        }
+
+        int value = Math.Clamp(
+            (int)Math.Round(_forceClickThresholdSlider.Value),
+            LinuxForceClickThresholdMinimum,
+            LinuxForceSliderMaximum);
+        _forceClickThresholdValueText.Text = value.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private async void OnForceClickThresholdSliderPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs e)
+    {
+        if (e.Property != RangeBase.ValueProperty)
+        {
+            return;
+        }
+
+        UpdateForceClickThresholdLabel();
         if (_loadingScreen)
         {
             return;

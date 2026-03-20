@@ -31,6 +31,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double ControlsPaneExpandedWidth = 360.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
+    private const int WindowsForceClickThresholdMinimum = 150;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
     private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
@@ -255,6 +256,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         HapticsStrengthSlider.ValueChanged += OnHapticsStrengthChanged;
         ForceMinSlider.ValueChanged += OnForceThresholdSliderChanged;
         ForceCapSlider.ValueChanged += OnForceThresholdSliderChanged;
+        ForceClickThresholdSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         MxSpacingButton.Click += OnMxSpacingClicked;
@@ -292,9 +294,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TopRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         BottomLeftTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         BottomRightTriangleGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopLeftForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        TopRightForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomLeftForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
+        BottomRightForceClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ForceClick1GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ForceClick2GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
-        ForceClick3GestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ThreeFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         FourFingerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         UpperLeftCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -586,8 +590,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string bottomLeftForceClickAction = NormalizeGestureActionForUi(_settings.BottomLeftForceClickAction, "None");
         string bottomRightForceClickAction = NormalizeGestureActionForUi(_settings.BottomRightForceClickAction, "None");
         string forceClick1Action = NormalizeGestureActionForUi(_settings.ForceClick1Action, "None");
-        string forceClick2Action = NormalizeGestureActionForUi(_settings.ForceClick2Action, "None");
-        string forceClick3Action = NormalizeGestureActionForUi(_settings.ForceClick3Action, "None");
         string threeFingerClickAction = NormalizeGestureActionForUi(_settings.ThreeFingerClickAction, "None");
         string fourFingerClickAction = NormalizeGestureActionForUi(_settings.FourFingerClickAction, "None");
         string upperLeftCornerClickAction = NormalizeGestureActionForUi(_settings.UpperLeftCornerClickAction, "None");
@@ -632,8 +634,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.BottomLeftForceClickAction = bottomLeftForceClickAction;
         _settings.BottomRightForceClickAction = bottomRightForceClickAction;
         _settings.ForceClick1Action = forceClick1Action;
-        _settings.ForceClick2Action = forceClick2Action;
-        _settings.ForceClick3Action = forceClick3Action;
         _settings.ThreeFingerClickAction = threeFingerClickAction;
         _settings.FourFingerClickAction = fourFingerClickAction;
         _settings.UpperLeftCornerClickAction = upperLeftCornerClickAction;
@@ -678,8 +678,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         BottomLeftForceClickGestureCombo.SelectedValue = bottomLeftForceClickAction;
         BottomRightForceClickGestureCombo.SelectedValue = bottomRightForceClickAction;
         ForceClick1GestureCombo.SelectedValue = forceClick1Action;
-        ForceClick2GestureCombo.SelectedValue = forceClick2Action;
-        ForceClick3GestureCombo.SelectedValue = forceClick3Action;
         ThreeFingerClickGestureCombo.SelectedValue = threeFingerClickAction;
         FourFingerClickGestureCombo.SelectedValue = fourFingerClickAction;
         UpperLeftCornerClickGestureCombo.SelectedValue = upperLeftCornerClickAction;
@@ -783,8 +781,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RegisterGestureBindingControl("lower_left_corner_click", LowerLeftCornerClickGestureCombo, LowerLeftCornerClickGestureRepeatBox);
         RegisterGestureBindingControl("lower_right_corner_click", LowerRightCornerClickGestureCombo, LowerRightCornerClickGestureRepeatBox);
         RegisterGestureBindingControl("force_click_1", ForceClick1GestureCombo, ForceClick1GestureRepeatBox);
-        RegisterGestureBindingControl("force_click_2", ForceClick2GestureCombo, ForceClick2GestureRepeatBox);
-        RegisterGestureBindingControl("force_click_3", ForceClick3GestureCombo, ForceClick3GestureRepeatBox);
     }
 
     private void RegisterGestureBindingControl(string bindingId, ComboBox combo, TextBox repeatBox)
@@ -880,9 +876,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         yield return TopRightTriangleGestureCombo;
         yield return BottomLeftTriangleGestureCombo;
         yield return BottomRightTriangleGestureCombo;
+        yield return TopLeftForceClickGestureCombo;
+        yield return TopRightForceClickGestureCombo;
+        yield return BottomLeftForceClickGestureCombo;
+        yield return BottomRightForceClickGestureCombo;
         yield return ForceClick1GestureCombo;
-        yield return ForceClick2GestureCombo;
-        yield return ForceClick3GestureCombo;
         yield return ThreeFingerClickGestureCombo;
         yield return FourFingerClickGestureCombo;
         yield return UpperLeftCornerClickGestureCombo;
@@ -1828,9 +1826,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TopRightTriangleAction = ReadGestureActionSelection(TopRightTriangleGestureCombo, "None");
         _settings.BottomLeftTriangleAction = ReadGestureActionSelection(BottomLeftTriangleGestureCombo, "None");
         _settings.BottomRightTriangleAction = ReadGestureActionSelection(BottomRightTriangleGestureCombo, "None");
+        _settings.TopLeftForceClickAction = ReadGestureActionSelection(TopLeftForceClickGestureCombo, "None");
+        _settings.TopRightForceClickAction = ReadGestureActionSelection(TopRightForceClickGestureCombo, "None");
+        _settings.BottomLeftForceClickAction = ReadGestureActionSelection(BottomLeftForceClickGestureCombo, "None");
+        _settings.BottomRightForceClickAction = ReadGestureActionSelection(BottomRightForceClickGestureCombo, "None");
         _settings.ForceClick1Action = ReadGestureActionSelection(ForceClick1GestureCombo, "None");
-        _settings.ForceClick2Action = ReadGestureActionSelection(ForceClick2GestureCombo, "None");
-        _settings.ForceClick3Action = ReadGestureActionSelection(ForceClick3GestureCombo, "None");
         _settings.ThreeFingerClickAction = ReadGestureActionSelection(ThreeFingerClickGestureCombo, "None");
         _settings.FourFingerClickAction = ReadGestureActionSelection(FourFingerClickGestureCombo, "None");
         _settings.UpperLeftCornerClickAction = ReadGestureActionSelection(UpperLeftCornerClickGestureCombo, "None");
@@ -1883,6 +1883,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.KeyBufferMs = RuntimeConfigurationFactory.HardcodedKeyBufferMs;
         _settings.ForceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), 0, 255);
         _settings.ForceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), 0, 255);
+        _settings.ForceClickThreshold = (int)Math.Clamp(
+            Math.Round(ForceClickThresholdSlider.Value),
+            WindowsForceClickThresholdMinimum,
+            GestureBindingCatalog.ForceClickThresholdMaximum);
         UpdateForceThresholdLabels();
         ApplyHapticsStrengthFromUi();
 
@@ -2189,8 +2193,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         int forceMin = Math.Clamp(_settings.ForceMin, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         int forceCap = Math.Clamp(_settings.ForceCap, TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceClickThreshold = Math.Clamp(
+            _settings.ForceClickThreshold,
+            WindowsForceClickThresholdMinimum,
+            GestureBindingCatalog.ForceClickThresholdMaximum);
         ForceMinSlider.Value = forceMin;
         ForceCapSlider.Value = forceCap;
+        ForceClickThresholdSlider.Minimum = WindowsForceClickThresholdMinimum;
+        ForceClickThresholdSlider.Maximum = GestureBindingCatalog.ForceClickThresholdMaximum;
+        ForceClickThresholdSlider.Value = forceClickThreshold;
         UpdateForceThresholdLabels();
     }
 
@@ -2198,8 +2209,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         int forceMin = (int)Math.Clamp(Math.Round(ForceMinSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
         int forceCap = (int)Math.Clamp(Math.Round(ForceCapSlider.Value), TypingTuningCatalog.ForceMinimum, TypingTuningCatalog.ForceMaximum);
+        int forceClickThreshold = (int)Math.Clamp(
+            Math.Round(ForceClickThresholdSlider.Value),
+            WindowsForceClickThresholdMinimum,
+            GestureBindingCatalog.ForceClickThresholdMaximum);
         ForceMinValueText.Text = forceMin.ToString(CultureInfo.InvariantCulture);
         ForceCapValueText.Text = forceCap.ToString(CultureInfo.InvariantCulture);
+        ForceClickThresholdMinText.Text = WindowsForceClickThresholdMinimum.ToString(CultureInfo.InvariantCulture);
+        ForceClickThresholdValueText.Text = forceClickThreshold.ToString(CultureInfo.InvariantCulture);
+        ForceClickThresholdMaxText.Text = GestureBindingCatalog.ForceClickThresholdMaximum.ToString(CultureInfo.InvariantCulture);
     }
 
     private void ApplyHapticsStrengthFromUi()
