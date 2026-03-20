@@ -1102,11 +1102,13 @@ actor TouchProcessorEngine {
         let chordShiftSuppressed = chordShiftEnabled && isChordShiftActive(on: side)
         let cornersHoldEngaged = voiceDictationGestureState.holdCandidateActive
         var contactCount = 0
+        var frameTouchKeys = TouchTable<Bool>(minimumCapacity: max(16, touches.count * 2))
         for touch in touches {
             if Self.isContactState(touch.state) {
                 contactCount += 1
             }
             let touchKey = Self.makeTouchKey(deviceIndex: deviceIndex, id: touch.id)
+            frameTouchKeys.set(touchKey, true)
             let point: CGPoint
             if let cachedPoint = framePointCache.value(for: touchKey) {
                 point = cachedPoint
@@ -1485,7 +1487,9 @@ actor TouchProcessorEngine {
                             point: point,
                             bindings: bindings,
                             now: now,
-                            pressure: peakPressure
+                            pressure: peakPressure,
+                            fallbackStartTime: pending.startTime,
+                            fallbackMaxDistanceSquared: pending.maxDistanceSquared
                         )
                     }
                 }
@@ -1574,7 +1578,9 @@ actor TouchProcessorEngine {
                             point: point,
                             bindings: bindings,
                             now: now,
-                            pressure: peakPressure
+                            pressure: peakPressure,
+                            fallbackStartTime: pending.startTime,
+                            fallbackMaxDistanceSquared: pending.maxDistanceSquared
                         )
                     }
                 }
@@ -1647,11 +1653,154 @@ actor TouchProcessorEngine {
                 break
             }
         }
+        releaseStaleTouches(
+            deviceIndex: deviceIndex,
+            frameTouchKeys: frameTouchKeys,
+            bindings: bindings,
+            now: now
+        )
         contactFingerCountsBySide[side] = cachedContactCount(
             for: side,
             actualCount: contactCount,
             now: now
         )
+    }
+
+    private func releaseStaleTouches(
+        deviceIndex: Int,
+        frameTouchKeys: TouchTable<Bool>,
+        bindings: BindingIndex,
+        now: TimeInterval
+    ) {
+        intentRemovalBuffer.removeAll(keepingCapacity: true)
+        touchStates.forEach { touchKey, _ in
+            guard Self.touchKeyDeviceIndex(touchKey) == deviceIndex,
+                  frameTouchKeys.value(for: touchKey) == nil else {
+                return
+            }
+            intentRemovalBuffer.append(touchKey)
+        }
+
+        for touchKey in intentRemovalBuffer {
+            releaseMissingTouch(
+                touchKey: touchKey,
+                bindings: bindings,
+                now: now
+            )
+        }
+    }
+
+    private func releaseMissingTouch(
+        touchKey: TouchKey,
+        bindings: BindingIndex,
+        now: TimeInterval
+    ) {
+        let point = framePointCache.value(for: touchKey)
+            ?? touchInitialContactPoint.value(for: touchKey)
+            ?? activeTouch(for: touchKey)?.startPoint
+            ?? pendingTouch(for: touchKey)?.startPoint
+            ?? .zero
+        let peakPressure = peakPressureByTouch.value(for: touchKey) ?? 0
+
+        if momentaryLayerTouches.value(for: touchKey) != nil {
+            handleMomentaryLayerTouch(
+                touchKey: touchKey,
+                state: .notTouching,
+                targetLayer: nil,
+                bindingRect: nil
+            )
+        }
+        if layerToggleTouchStarts.value(for: touchKey) != nil {
+            handleLayerToggleTouch(
+                touchKey: touchKey,
+                state: .notTouching,
+                targetLayer: nil
+            )
+        }
+        if toggleTouchStarts.value(for: touchKey) != nil {
+            handleTypingToggleTouch(
+                touchKey: touchKey,
+                state: .notTouching,
+                point: point
+            )
+        }
+
+        let releaseStartPoint = touchInitialContactPoint.remove(touchKey)
+        let removedPending = removePendingTouch(for: touchKey)
+        let hadPending = removedPending != nil
+        if var pending = removedPending {
+            let distanceSquared = distanceSquared(from: pending.startPoint, to: point)
+            pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
+            let sentContinuousTap = maybeSendPendingContinuousTap(
+                pending,
+                touchKey: touchKey,
+                at: point,
+                now: now,
+                pressure: peakPressure
+            )
+            if !sentContinuousTap {
+                _ = maybeDispatchReleaseTap(
+                    touchKey: touchKey,
+                    originalBinding: pending.binding,
+                    touchInfo: nil,
+                    point: point,
+                    bindings: bindings,
+                    now: now,
+                    pressure: peakPressure,
+                    fallbackStartTime: pending.startTime,
+                    fallbackMaxDistanceSquared: pending.maxDistanceSquared
+                )
+            }
+        }
+
+        if disqualifiedTouches.remove(touchKey) != nil {
+            clearPeakPressure(for: touchKey)
+            framePointCache.remove(touchKey)
+            return
+        }
+
+        let removedActive = removeActiveTouch(for: touchKey)
+        let hadActive = removedActive != nil
+        if var active = removedActive {
+            let releaseDistanceSquared = distanceSquared(
+                from: releaseStartPoint ?? active.startPoint,
+                to: point
+            )
+            active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
+            if let modifierKey = active.modifierKey, active.modifierEngaged {
+                handleModifierUp(modifierKey, binding: active.binding)
+            } else if active.holdRepeatActive {
+                stopRepeat(for: touchKey)
+            } else if !active.didHold {
+                _ = maybeDispatchReleaseTap(
+                    touchKey: touchKey,
+                    originalBinding: active.binding,
+                    touchInfo: nil,
+                    point: point,
+                    bindings: bindings,
+                    now: now,
+                    pressure: peakPressure,
+                    fallbackStartTime: active.startTime,
+                    fallbackMaxDistanceSquared: active.maxDistanceSquared
+                )
+            }
+            endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
+        }
+
+        if !hadPending, !hadActive {
+            _ = maybeDispatchReleaseTap(
+                touchKey: touchKey,
+                originalBinding: nil,
+                touchInfo: nil,
+                point: point,
+                bindings: bindings,
+                now: now,
+                pressure: peakPressure
+            )
+        }
+
+        clearPeakPressure(for: touchKey)
+        framePointCache.remove(touchKey)
     }
 
     @inline(__always)
