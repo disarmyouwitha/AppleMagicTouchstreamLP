@@ -43,7 +43,7 @@ public final class OMSManager: Sendable {
 
     private let protectedCaptureManager: OSAllocatedUnfairLock<OpenMTManagerV2?>
     private let protectedHapticManager: OSAllocatedUnfairLock<OpenMTManager?>
-    private let protectedRawListener = OSAllocatedUnfairLock<OpenMTListener?>(uncheckedState: nil)
+    private let protectedRawHandlerToken = OSAllocatedUnfairLock<UUID?>(uncheckedState: nil)
     private let protectedTimestampEnabled = OSAllocatedUnfairLock<Bool>(uncheckedState: true)
     private let protectedDeviceIndexStore = OSAllocatedUnfairLock<DeviceIndexStore>(
         uncheckedState: DeviceIndexStore()
@@ -127,7 +127,7 @@ public final class OMSManager: Sendable {
     }
 
     public var isListening: Bool {
-        protectedRawListener.withLockUnchecked { $0 != nil }
+        protectedRawHandlerToken.withLockUnchecked { $0 != nil }
     }
 
     @discardableResult
@@ -181,10 +181,10 @@ public final class OMSManager: Sendable {
     @discardableResult
     public func startListening() -> Bool {
         guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
-              protectedRawListener.withLockUnchecked({ $0 == nil }) else {
+              protectedRawHandlerToken.withLockUnchecked({ $0 == nil }) else {
             return false
         }
-        let listener = captureManager.addRawListener(callback: { [weak self] touches, count, timestamp, frame, deviceID in
+        guard let token = captureManager.addDirectRawFrameHandler({ [weak self] touches, count, timestamp, frame, deviceID in
             self?.handleRawFrame(
                 touches: touches,
                 count: Int(count),
@@ -192,19 +192,21 @@ public final class OMSManager: Sendable {
                 frame: Int(frame),
                 deviceID: deviceID
             )
-        })
-        protectedRawListener.withLockUnchecked { $0 = listener }
+        }) else {
+            return false
+        }
+        protectedRawHandlerToken.withLockUnchecked { $0 = token }
         return true
     }
 
     @discardableResult
     public func stopListening() -> Bool {
         guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
-              let listener = protectedRawListener.withLockUnchecked(\.self) else {
+              let token = protectedRawHandlerToken.withLockUnchecked(\.self) else {
             return false
         }
-        captureManager.removeRawListener(listener)
-        protectedRawListener.withLockUnchecked { $0 = nil }
+        captureManager.removeDirectRawFrameHandler(withToken: token)
+        protectedRawHandlerToken.withLockUnchecked { $0 = nil }
         return true
     }
     
