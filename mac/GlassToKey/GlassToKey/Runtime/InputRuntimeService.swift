@@ -16,8 +16,8 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private struct State {
-        var task: Task<Void, Never>?
         var isRunning = false
+        var rawHandlerID: UUID?
         var sequence: UInt64 = 0
         var metrics = Metrics()
     }
@@ -37,7 +37,7 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     var rawFrameStream: AsyncStream<RuntimeRawFrame> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
+        AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let id = UUID()
             continuationLock.withLockUnchecked { store in
                 store.byID[id] = continuation
@@ -68,26 +68,26 @@ final class InputRuntimeService: @unchecked Sendable {
             return false
         }
 
-        let task = Task.detached(priority: .userInitiated) { [weak self] in
-            guard let self else { return }
-            await self.ingestLoop()
+        let handlerID = manager.addRawFrameHandler { [weak self] frame in
+            self?.handleRawFrame(frame)
         }
         stateLock.withLockUnchecked { state in
-            state.task = task
+            state.rawHandlerID = handlerID
         }
         return true
     }
 
     @discardableResult
     func stop() -> Bool {
-        let wasRunning = stateLock.withLockUnchecked { state -> Bool in
-            guard state.isRunning else { return false }
+        let rawHandlerID = stateLock.withLockUnchecked { state -> UUID? in
+            guard state.isRunning else { return nil }
             state.isRunning = false
-            state.task?.cancel()
-            state.task = nil
-            return true
+            let handlerID = state.rawHandlerID
+            state.rawHandlerID = nil
+            return handlerID
         }
-        guard wasRunning else { return false }
+        guard let rawHandlerID else { return false }
+        manager.removeRawFrameHandler(rawHandlerID)
         _ = manager.stopListening()
         return true
     }
@@ -100,21 +100,16 @@ final class InputRuntimeService: @unchecked Sendable {
         stateLock.withLockUnchecked(\.isRunning)
     }
 
-    private func ingestLoop() async {
-        for await frame in manager.rawTouchStream {
-            if Task.isCancelled {
-                frame.release()
-                return
-            }
-            let sequence = stateLock.withLockUnchecked { state in
-                state.sequence &+= 1
-                state.metrics.ingestedFrames &+= 1
-                return state.sequence
-            }
-            let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
-            emit(runtimeFrame)
-            frame.release()
+    private func handleRawFrame(_ frame: OMSRawTouchFrame) {
+        let sequence = stateLock.withLockUnchecked { state -> UInt64 in
+            guard state.isRunning else { return 0 }
+            state.sequence &+= 1
+            state.metrics.ingestedFrames &+= 1
+            return state.sequence
         }
+        guard sequence != 0 else { return }
+        let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
+        emit(runtimeFrame)
     }
 
     private func emit(_ frame: RuntimeRawFrame) {
