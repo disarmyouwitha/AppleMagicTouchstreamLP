@@ -3458,6 +3458,24 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return side == TrackpadSide.Left ? _lastDecoderProfileLeft : _lastDecoderProfileRight;
     }
 
+    private void UpdateDetectedDecoderProfile(TrackpadSide side, TrackpadDecoderProfile profile)
+    {
+        TrackpadDecoderProfile? previous = GetDetectedDecoderProfileForSide(side);
+        if (side == TrackpadSide.Left)
+        {
+            _lastDecoderProfileLeft = profile;
+        }
+        else
+        {
+            _lastDecoderProfileRight = profile;
+        }
+
+        if (!previous.HasValue || previous.Value != profile)
+        {
+            RefreshForceUiAvailability();
+        }
+    }
+
     private bool IsGestureBindingUiAvailable(string bindingId)
     {
         return !IsForceGestureBindingId(bindingId) || HasAnyPotentiallyForceCapableSelectedTrackpad();
@@ -5117,20 +5135,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
+        UpdateDetectedDecoderProfile(side, decoded.Profile);
         if (side == TrackpadSide.Left)
         {
-            _lastDecoderProfileLeft = decoded.Profile;
             _lastDecoderProfileLogLeftTicks = now;
         }
         else
         {
-            _lastDecoderProfileRight = decoded.Profile;
             _lastDecoderProfileLogRightTicks = now;
-        }
-
-        if (profileChanged)
-        {
-            RefreshForceUiAvailability();
         }
 
         int count = decoded.Frame.GetClampedContactCount();
@@ -5257,6 +5269,16 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         session.UpdateButtonState(in buttonState);
         ApplyReport(session, tag, in frame, side);
+    }
+
+    void IRuntimeFrameObserver.OnDecoderProfileDetected(TrackpadSide side, TrackpadDecoderProfile profile)
+    {
+        if (IsReplayMode)
+        {
+            return;
+        }
+
+        UpdateDetectedDecoderProfile(side, profile);
     }
 
     private void PostToEngine(TrackpadSide side, in InputFrame report, ushort maxX, ushort maxY, long timestampTicks)
