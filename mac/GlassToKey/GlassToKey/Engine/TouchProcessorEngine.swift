@@ -548,6 +548,38 @@ actor TouchProcessorEngine {
         var lastContactCount = 0
     }
 
+    private struct IntentFrameAnalysis {
+        var contactCount = 0
+        var onKeyCount = 0
+        var offKeyCount = 0
+        var maxVelocity: CGFloat = 0
+        var maxDistanceSquared: CGFloat = 0
+        var firstOnKeyTouchKey: TouchKey?
+        var hasKeyboardAnchor = false
+        var centroid: CGPoint?
+        var gestureContactCount = 0
+        var gestureCentroid: CGPoint?
+        var twoFingerTapDetected = false
+        var threeFingerTapDetected = false
+        var cornerHoldGestureEngaged = false
+    }
+
+    private struct IntentDecision {
+        var mode: IntentMode
+        var allowTyping: Bool
+        var lastContactCount: Int
+        var clearAwaitingSecondTap = false
+        var performTwoFingerTap = false
+        var performThreeFingerTap = false
+        var clearMomentaryLayers = false
+        var suppressKeyProcessing = false
+    }
+
+    private struct QueuedRuntimeFrame {
+        let frame: RuntimeRawFrame
+        let captureRenderSnapshot: Bool
+    }
+
     private var intentState = IntentState()
     private var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
     private var intentConfig = IntentConfig()
@@ -558,6 +590,10 @@ actor TouchProcessorEngine {
     private var intentMoveThresholdSquared: CGFloat = 0
     private var intentVelocityThreshold: CGFloat = 0
     private var allowMouseTakeoverDuringTyping = false
+    private var runtimeRenderSnapshot = RuntimeRenderSnapshot()
+    private var runtimeCaptureFrameCount: UInt64 = 0
+    private var nextRuntimeSequence: UInt64 = 1
+    private var queuedRuntimeFrames: [UInt64: QueuedRuntimeFrame] = [:]
     private var typingGraceDeadline: TimeInterval?
     private var typingGraceTask: Task<Void, Never>?
     private var doubleTapDeadline: TimeInterval?
@@ -692,7 +728,7 @@ actor TouchProcessorEngine {
         self.isListening = isListening
     }
 
-    func statusSnapshot() -> StatusSnapshot {
+    func processorStatusSnapshot() -> StatusSnapshot {
         let dispatchMetrics = dispatchService.snapshotMetrics()
         return StatusSnapshot(
             contactCounts: contactFingerCountsBySide,
@@ -703,6 +739,46 @@ actor TouchProcessorEngine {
             dispatchQueueDepth: dispatchMetrics.queueDepth,
             dispatchDrops: dispatchMetrics.drops
         )
+    }
+
+    func statusSnapshot() -> RuntimeStatusSnapshot {
+        let snapshot = processorStatusSnapshot()
+        return RuntimeStatusSnapshot(
+            intentBySide: SidePair(
+                left: Self.mapRuntimeIntent(snapshot.intentDisplays.left),
+                right: Self.mapRuntimeIntent(snapshot.intentDisplays.right)
+            ),
+            contactCountBySide: snapshot.contactCounts,
+            typingEnabled: snapshot.typingEnabled,
+            keyboardModeEnabled: snapshot.keyboardModeEnabled,
+            diagnostics: RuntimeDiagnosticsCounters(
+                captureFrames: runtimeCaptureFrameCount,
+                dispatchQueueDepth: snapshot.dispatchQueueDepth,
+                dispatchDrops: snapshot.dispatchDrops
+            )
+        )
+    }
+
+    func ingest(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool
+    ) -> RuntimeRenderSnapshot? {
+        guard frame.sequence >= nextRuntimeSequence else { return nil }
+        if frame.sequence != nextRuntimeSequence {
+            queuedRuntimeFrames[frame.sequence] = QueuedRuntimeFrame(
+                frame: frame,
+                captureRenderSnapshot: captureRenderSnapshot
+            )
+            return nil
+        }
+        return ingestContiguousRuntimeFrames(
+            startingWith: frame,
+            captureRenderSnapshot: captureRenderSnapshot
+        )
+    }
+
+    func reset(stopVoiceDictation: Bool) {
+        resetState(stopVoiceDictation: stopVoiceDictation)
     }
 
     func updateActiveDevices(
@@ -925,7 +1001,7 @@ actor TouchProcessorEngine {
             labels: rightLabels,
             canvasSize: trackpadSize
         )
-        let allowTypingGlobal = updateIntent(
+        let intentAnalysis = prepareIntentFrame(
             leftTouches: leftTouches,
             rightTouches: rightTouches,
             leftDeviceIndex: leftDeviceIndex,
@@ -934,6 +1010,11 @@ actor TouchProcessorEngine {
             leftBindings: leftBindings,
             rightBindings: rightBindings
         )
+        let previewIntentDecision = resolveIntentDecision(
+            for: intentAnalysis,
+            now: now
+        )
+        let allowTypingGlobal = previewIntentDecision.allowTyping
         let allowTypingLeft = allowTypingGlobal || isChordShiftActive(on: .right)
         let allowTypingRight = allowTypingGlobal || isChordShiftActive(on: .left)
         if isLeftDevice {
@@ -960,10 +1041,19 @@ actor TouchProcessorEngine {
                 intentAllowsTyping: allowTypingRight
             )
         }
+        let committedIntentDecision = resolveIntentDecision(
+            for: intentAnalysis,
+            now: now
+        )
+        applyIntentDecision(
+            committedIntentDecision,
+            analysis: intentAnalysis,
+            now: now
+        )
         notifyContactCounts()
     }
 
-    func processRuntimeRawFrame(_ frame: RuntimeRawFrame) {
+    private func processRuntimeRawFrame(_ frame: RuntimeRawFrame) {
         guard isListening,
               let leftLayout,
               let rightLayout else {
@@ -1016,7 +1106,7 @@ actor TouchProcessorEngine {
             labels: rightLabels,
             canvasSize: trackpadSize
         )
-        let allowTypingGlobal = updateIntent(
+        let intentAnalysis = prepareIntentFrame(
             leftTouches: leftTouches,
             rightTouches: rightTouches,
             leftDeviceIndex: leftDeviceIndex,
@@ -1025,6 +1115,11 @@ actor TouchProcessorEngine {
             leftBindings: leftBindings,
             rightBindings: rightBindings
         )
+        let previewIntentDecision = resolveIntentDecision(
+            for: intentAnalysis,
+            now: now
+        )
+        let allowTypingGlobal = previewIntentDecision.allowTyping
         let allowTypingLeft = allowTypingGlobal || isChordShiftActive(on: .right)
         let allowTypingRight = allowTypingGlobal || isChordShiftActive(on: .left)
         if isLeftDevice {
@@ -1051,6 +1146,15 @@ actor TouchProcessorEngine {
                 intentAllowsTyping: allowTypingRight
             )
         }
+        let committedIntentDecision = resolveIntentDecision(
+            for: intentAnalysis,
+            now: now
+        )
+        applyIntentDecision(
+            committedIntentDecision,
+            analysis: intentAnalysis,
+            now: now
+        )
         notifyContactCounts()
     }
 
@@ -1060,6 +1164,10 @@ actor TouchProcessorEngine {
         peakPressureByTouch.removeAll()
         contactFingerCountsBySide[.left] = 0
         contactFingerCountsBySide[.right] = 0
+        runtimeRenderSnapshot = RuntimeRenderSnapshot()
+        runtimeCaptureFrameCount = 0
+        nextRuntimeSequence = 1
+        queuedRuntimeFrames.removeAll(keepingCapacity: true)
         notifyContactCounts()
     }
 
@@ -1524,7 +1632,7 @@ actor TouchProcessorEngine {
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
                 }
-                if !hadPending, !hadActive {
+                if !hadPending, !hadActive, releaseStartPoint != nil {
                     if maybeDispatchReleaseTap(
                         touchKey: touchKey,
                         originalBinding: nil,
@@ -1538,7 +1646,7 @@ actor TouchProcessorEngine {
                         continue
                     }
                 }
-                if !hadPending, !hadActive, resolveBinding() == nil {
+                if !hadPending, !hadActive, releaseStartPoint != nil, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
@@ -1615,7 +1723,7 @@ actor TouchProcessorEngine {
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
                 }
-                if !hadPending, !hadActive {
+                if !hadPending, !hadActive, releaseStartPoint != nil {
                     if maybeDispatchReleaseTap(
                         touchKey: touchKey,
                         originalBinding: nil,
@@ -1629,7 +1737,7 @@ actor TouchProcessorEngine {
                         continue
                     }
                 }
-                if !hadPending, !hadActive, resolveBinding() == nil {
+                if !hadPending, !hadActive, releaseStartPoint != nil, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
@@ -1801,19 +1909,6 @@ actor TouchProcessorEngine {
 
         clearPeakPressure(for: touchKey)
         framePointCache.remove(touchKey)
-    }
-
-    @inline(__always)
-    private func forceRange() -> (min: Float, max: Float) {
-        let minForce = min(forceClickMin, forceClickCap)
-        let maxForce = max(forceClickMin, forceClickCap)
-        return (min: minForce, max: maxForce)
-    }
-
-    @inline(__always)
-    private func isPressureWithinForceRange(_ pressure: Float) -> Bool {
-        let range = forceRange()
-        return pressure >= range.min && pressure <= range.max
     }
 
     @inline(__always)
@@ -2405,9 +2500,8 @@ actor TouchProcessorEngine {
         _ binding: KeyBinding,
         altBinding: KeyBinding?,
         touchKey: TouchKey,
-        pressure: Float
+        pressure _: Float
     ) {
-        guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
         #if DEBUG
         onDebugBindingDetected(binding)
@@ -2776,7 +2870,7 @@ actor TouchProcessorEngine {
         postKey(binding: shiftBinding, keyDown: shouldBeDown)
     }
 
-    private func updateIntent(
+    private func prepareIntentFrame(
         leftTouches: [OMSRawTouch],
         rightTouches: [OMSRawTouch],
         leftDeviceIndex: Int?,
@@ -2784,18 +2878,18 @@ actor TouchProcessorEngine {
         now: TimeInterval,
         leftBindings: BindingIndex,
         rightBindings: BindingIndex
-    ) -> Bool {
+    ) -> IntentFrameAnalysis {
         framePointCache.removeAll(keepingCapacity: true)
         guard trackpadSize.width > 0,
               trackpadSize.height > 0 else {
-            intentState = IntentState()
-            updateIntentDisplayIfNeeded()
+            intentState.touches.removeAll()
+            intentCurrentKeys.removeAll(keepingCapacity: true)
             bindingCacheBySide[.left].removeAll(keepingCapacity: true)
             bindingCacheBySide[.right].removeAll(keepingCapacity: true)
-            return isTypingEnabled
+            return IntentFrameAnalysis()
         }
 
-        return updateIntentGlobal(
+        return analyzeIntentFrame(
             leftTouches: leftTouches,
             rightTouches: rightTouches,
             leftDeviceIndex: leftDeviceIndex,
@@ -2810,7 +2904,7 @@ actor TouchProcessorEngine {
         )
     }
 
-    private func updateIntentGlobal(
+    private func analyzeIntentFrame(
         leftTouches: [OMSRawTouch],
         rightTouches: [OMSRawTouch],
         leftDeviceIndex: Int?,
@@ -2822,26 +2916,17 @@ actor TouchProcessorEngine {
         velocityThreshold: CGFloat,
         unitsPerMm: CGFloat,
         bindingCacheBySide: inout SidePair<TouchTable<KeyBinding>>
-    ) -> Bool {
-        var state = intentState
-        let graceActive = isTypingGraceActive(now: now)
+    ) -> IntentFrameAnalysis {
         let keyboardOnly = keyboardModeEnabled && isTypingEnabled
         bindingCacheBySide[.left].removeAll(keepingCapacity: true)
         bindingCacheBySide[.right].removeAll(keepingCapacity: true)
 
-        var contactCount = 0
-        var onKeyCount = 0
-        var offKeyCount = 0
-        var maxVelocity: CGFloat = 0
-        var maxDistanceSquared: CGFloat = 0
+        var analysis = IntentFrameAnalysis()
         var sumX: CGFloat = 0
         var sumY: CGFloat = 0
-        var gestureContactCount = 0
         var gestureSumX: CGFloat = 0
         var gestureSumY: CGFloat = 0
-        var firstOnKeyTouchKey: TouchKey?
         intentCurrentKeys.removeAll(keepingCapacity: true)
-        var hasKeyboardAnchor = false
         var twoFingerTapDetected = false
         var threeFingerTapDetected = false
         let staggerWindow = max(tapClickCadenceSeconds, contactCountHoldDuration)
@@ -2857,7 +2942,7 @@ actor TouchProcessorEngine {
             )
             framePointCache.set(touchKey, point)
             if isChordState {
-                gestureContactCount += 1
+                analysis.gestureContactCount += 1
                 gestureSumX += point.x
                 gestureSumY += point.y
             }
@@ -2866,10 +2951,10 @@ actor TouchProcessorEngine {
             }
             let isMomentaryLayerTouch = momentaryLayerTouches.value(for: touchKey) != nil
             if isMomentaryLayerTouch {
-                hasKeyboardAnchor = true
+                analysis.hasKeyboardAnchor = true
                 return
             }
-            contactCount += 1
+            analysis.contactCount += 1
             sumX += point.x
             sumY += point.y
             intentCurrentKeys.set(touchKey, true)
@@ -2877,29 +2962,29 @@ actor TouchProcessorEngine {
             let binding = binding(at: point, index: bindings)
             if let binding {
                 bindingCacheBySide[side].set(touchKey, binding)
-                onKeyCount += 1
-                if firstOnKeyTouchKey == nil {
-                    firstOnKeyTouchKey = touchKey
+                analysis.onKeyCount += 1
+                if analysis.firstOnKeyTouchKey == nil {
+                    analysis.firstOnKeyTouchKey = touchKey
                 }
                 if modifierKey(for: binding) != nil || isContinuousKey(binding) {
-                    hasKeyboardAnchor = true
+                    analysis.hasKeyboardAnchor = true
                 }
             } else {
-                offKeyCount += 1
+                analysis.offKeyCount += 1
             }
 
-            if var info = state.touches.value(for: touchKey) {
+            if var info = intentState.touches.value(for: touchKey) {
                 let distanceSq = distanceSquared(from: info.startPoint, to: point)
                 info.maxDistanceSquared = max(info.maxDistanceSquared, distanceSq)
-                maxDistanceSquared = max(maxDistanceSquared, info.maxDistanceSquared)
+                analysis.maxDistanceSquared = max(analysis.maxDistanceSquared, info.maxDistanceSquared)
                 let dt = max(1.0 / 240.0, now - info.lastTime)
                 let velocity = sqrt(distanceSquared(from: info.lastPoint, to: point)) / dt
-                maxVelocity = max(maxVelocity, velocity)
+                analysis.maxVelocity = max(analysis.maxVelocity, velocity)
                 info.lastPoint = point
                 info.lastTime = now
-                state.touches.set(touchKey, info)
+                intentState.touches.set(touchKey, info)
             } else {
-                state.touches.set(touchKey, IntentTouchInfo(
+                intentState.touches.set(touchKey, IntentTouchInfo(
                     startPoint: point,
                     startTime: now,
                     lastPoint: point,
@@ -2941,9 +3026,9 @@ actor TouchProcessorEngine {
             doubleTapDeadline = nil
         } else if detectsThreeFingerTap,
                   intentCurrentKeys.count == 2,
-               state.touches.count == 3,
+               intentState.touches.count == 3,
                shouldTriggerTapClick(
-                state: state.touches,
+                state: intentState.touches,
                 now: now,
                 moveThresholdSquared: moveThresholdSquared,
                 fingerCount: 3
@@ -2951,9 +3036,9 @@ actor TouchProcessorEngine {
             threeFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
         } else if detectsThreeFingerTap,
                   intentCurrentKeys.count == 0,
-                      state.touches.count == 3,
+                      intentState.touches.count == 3,
                       shouldTriggerTapClick(
-                        state: state.touches,
+                        state: intentState.touches,
                         now: now,
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 3
@@ -2968,9 +3053,9 @@ actor TouchProcessorEngine {
             threeFingerTapCandidate = nil
         } else if detectsTwoFingerTap,
                   intentCurrentKeys.count == 1,
-                      state.touches.count == 2,
+                      intentState.touches.count == 2,
                       shouldTriggerTapClick(
-                        state: state.touches,
+                        state: intentState.touches,
                         now: now,
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
@@ -2978,9 +3063,9 @@ actor TouchProcessorEngine {
             twoFingerTapCandidate = TapCandidate(deadline: now + staggerWindow)
         } else if detectsTwoFingerTap,
                   intentCurrentKeys.count == 0,
-                      state.touches.count == 2,
+                      intentState.touches.count == 2,
                       shouldTriggerTapClick(
-                        state: state.touches,
+                        state: intentState.touches,
                         now: now,
                         moveThresholdSquared: moveThresholdSquared,
                         fingerCount: 2
@@ -3002,62 +3087,42 @@ actor TouchProcessorEngine {
             }
         }
 
-        if state.touches.count != intentCurrentKeys.count {
+        if intentState.touches.count != intentCurrentKeys.count {
             intentRemovalBuffer.removeAll(keepingCapacity: true)
-            state.touches.forEach { key, _ in
+            intentState.touches.forEach { key, _ in
                 if intentCurrentKeys.value(for: key) == nil {
                     intentRemovalBuffer.append(key)
                 }
             }
             for key in intentRemovalBuffer {
-                state.touches.remove(key)
+                intentState.touches.remove(key)
             }
         }
         let outerCornersHoldSide = outerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
         let innerCornersHoldSide = innerCornersHoldSide(leftTouches: leftTouches, rightTouches: rightTouches)
-        let cornerHoldGestureEngaged = updateCornerHoldGesture(
+        analysis.cornerHoldGestureEngaged = updateCornerHoldGesture(
             holdSide: outerCornersHoldSide ?? innerCornersHoldSide,
             kind: outerCornersHoldSide != nil ? .outer : .inner,
             now: now
         )
 
-        let centroid: CGPoint? = contactCount > 0
-            ? CGPoint(x: sumX / CGFloat(contactCount), y: sumY / CGFloat(contactCount))
+        analysis.centroid = analysis.contactCount > 0
+            ? CGPoint(x: sumX / CGFloat(analysis.contactCount), y: sumY / CGFloat(analysis.contactCount))
             : nil
-        let gestureCentroid: CGPoint? = gestureContactCount > 0
-            ? CGPoint(x: gestureSumX / CGFloat(gestureContactCount), y: gestureSumY / CGFloat(gestureContactCount))
+        analysis.gestureCentroid = analysis.gestureContactCount > 0
+            ? CGPoint(
+                x: gestureSumX / CGFloat(analysis.gestureContactCount),
+                y: gestureSumY / CGFloat(analysis.gestureContactCount)
+            )
             : nil
         updateFiveFingerSwipe(
-            contactCount: gestureContactCount,
-            centroid: gestureCentroid,
+            contactCount: analysis.gestureContactCount,
+            centroid: analysis.gestureCentroid,
             now: now,
             unitsPerMm: unitsPerMm
         )
-        let previousContactCount = state.lastContactCount
-        let secondFingerAppeared = contactCount > 1 && contactCount > previousContactCount
-        let anyOnKey = onKeyCount > 0
-        let anyOffKey = offKeyCount > 0
-        var centroidMoved = false
-        if case let .keyCandidate(_, _, startCentroid) = state.mode,
-           let centroid {
-            centroidMoved = distanceSquared(from: startCentroid, to: centroid) > moveThresholdSquared
-        }
-        let velocitySignal = maxVelocity > velocityThreshold
-            && maxDistanceSquared > (moveThresholdSquared * 0.25)
-        let mouseSignal = maxDistanceSquared > moveThresholdSquared
-            || velocitySignal
-            || (secondFingerAppeared && anyOffKey)
-            || centroidMoved
 
-        let wasTwoFingerTapDetected = twoFingerTapDetected
-        let isTypingCommitted: Bool
-        if case .typingCommitted = state.mode {
-            isTypingCommitted = true
-        } else {
-            isTypingCommitted = false
-        }
-        let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
-        if cornerHoldGestureEngaged {
+        if analysis.cornerHoldGestureEngaged {
             twoFingerTapCandidate = nil
             threeFingerTapCandidate = nil
             twoFingerTapDetected = false
@@ -3065,135 +3130,174 @@ actor TouchProcessorEngine {
             awaitingSecondTap = false
             doubleTapDeadline = nil
         }
-        guard contactCount > 0 else {
-            state.touches.removeAll()
-            if gestureContactCount == 0, !momentaryLayerTouches.isEmpty {
-                momentaryLayerTouches.removeAll()
-                updateActiveLayer()
-            }
-            if suppressTapClicks {
-                awaitingSecondTap = false
-                doubleTapDeadline = nil
-            } else if threeFingerTapDetected {
-                performGestureAction(threeFingerTapAction, now: now, side: nil)
-            } else if wasTwoFingerTapDetected {
-                performTwoFingerTapAction(now: now)
-            }
+        analysis.twoFingerTapDetected = twoFingerTapDetected
+        analysis.threeFingerTapDetected = threeFingerTapDetected
+        return analysis
+    }
+
+    private func resolveIntentDecision(
+        for analysis: IntentFrameAnalysis,
+        now: TimeInterval
+    ) -> IntentDecision {
+        let previousContactCount = intentState.lastContactCount
+        let graceActive = isTypingGraceActive(now: now)
+        let keyboardOnly = keyboardModeEnabled && isTypingEnabled
+        let secondFingerAppeared = analysis.contactCount > 1 && analysis.contactCount > previousContactCount
+        let centroidMoved: Bool
+        if case let .keyCandidate(_, _, startCentroid) = intentState.mode,
+           let centroid = analysis.centroid {
+            centroidMoved = distanceSquared(from: startCentroid, to: centroid) > intentMoveThresholdSquared
+        } else {
+            centroidMoved = false
+        }
+        let velocitySignal = analysis.maxVelocity > intentVelocityThreshold
+            && analysis.maxDistanceSquared > (intentMoveThresholdSquared * 0.25)
+        let mouseSignal = analysis.maxDistanceSquared > intentMoveThresholdSquared
+            || velocitySignal
+            || (secondFingerAppeared && analysis.offKeyCount > 0)
+            || centroidMoved
+        let isTypingCommitted: Bool
+        if case .typingCommitted = intentState.mode {
+            isTypingCommitted = true
+        } else {
+            isTypingCommitted = false
+        }
+        let suppressTapClicks = isTypingEnabled && (graceActive || isTypingCommitted)
+
+        guard analysis.contactCount > 0 else {
+            var mode: IntentMode = .idle
             if graceActive {
-                state.mode = .typingCommitted(untilAllUp: true)
-                intentState = state
-                updateIntentDisplayIfNeeded()
-                return true
+                mode = .typingCommitted(untilAllUp: true)
             }
-            state.mode = .idle
-            intentState = state
-            updateIntentDisplayIfNeeded()
-            return true
+            return IntentDecision(
+                mode: mode,
+                allowTyping: true,
+                lastContactCount: 0,
+                clearAwaitingSecondTap: suppressTapClicks,
+                performTwoFingerTap: !suppressTapClicks
+                    && !analysis.threeFingerTapDetected
+                    && analysis.twoFingerTapDetected,
+                performThreeFingerTap: !suppressTapClicks && analysis.threeFingerTapDetected,
+                clearMomentaryLayers: analysis.gestureContactCount == 0
+            )
         }
 
-        if cornerHoldGestureEngaged {
-            state.lastContactCount = contactCount
-            state.mode = .gestureCandidate(start: voiceDictationGestureState.holdStart > 0 ? voiceDictationGestureState.holdStart : now)
-            suppressKeyProcessing(for: intentCurrentKeys)
-            intentState = state
-            updateIntentDisplayIfNeeded()
-            return false
+        if analysis.cornerHoldGestureEngaged {
+            return IntentDecision(
+                mode: .gestureCandidate(
+                    start: voiceDictationGestureState.holdStart > 0
+                        ? voiceDictationGestureState.holdStart
+                        : now
+                ),
+                allowTyping: false,
+                lastContactCount: analysis.contactCount,
+                suppressKeyProcessing: true
+            )
         }
 
         if keyboardOnly {
-            state.lastContactCount = contactCount
-            state.mode = .typingCommitted(untilAllUp: true)
-            intentState = state
-            updateIntentDisplayIfNeeded()
-            return true
+            return IntentDecision(
+                mode: .typingCommitted(untilAllUp: true),
+                allowTyping: true,
+                lastContactCount: analysis.contactCount
+            )
         }
 
+        var nextMode = intentState.mode
         if let gestureStart = gestureCandidateStartTime(
-            for: state,
-            contactCount: contactCount,
+            for: intentState,
+            contactCount: analysis.contactCount,
             previousContactCount: previousContactCount
         ) {
-            state.mode = .gestureCandidate(start: gestureStart)
-            intentState = state
-            updateIntentDisplayIfNeeded()
-            return false
+            return IntentDecision(
+                mode: .gestureCandidate(start: gestureStart),
+                allowTyping: false,
+                lastContactCount: analysis.contactCount
+            )
         }
-        if case .gestureCandidate = state.mode,
-           contactCount < 2 {
-            state.mode = .idle
+        if case .gestureCandidate = nextMode,
+           analysis.contactCount < 2 {
+            nextMode = .idle
         }
 
-        state.lastContactCount = contactCount
-
-        // While typing grace is active, keep typing committed and skip mouse intent checks.
         if graceActive {
-            state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
-            intentState = state
-            updateIntentDisplayIfNeeded()
-            return true
+            return IntentDecision(
+                mode: .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping),
+                allowTyping: true,
+                lastContactCount: analysis.contactCount
+            )
         }
 
-        let typingAnchorActive = hasKeyboardAnchor && contactCount <= 1
+        let typingAnchorActive = analysis.hasKeyboardAnchor && analysis.contactCount <= 1
         let allowTyping: Bool
-        switch state.mode {
+        switch nextMode {
         case .idle:
-            if graceActive || typingAnchorActive {
-                state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
-                intentState = state
-                updateIntentDisplayIfNeeded()
-                return true
+            if typingAnchorActive {
+                nextMode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
+                return IntentDecision(
+                    mode: nextMode,
+                    allowTyping: true,
+                    lastContactCount: analysis.contactCount
+                )
             }
-            if anyOnKey && !mouseSignal, let touchKey = firstOnKeyTouchKey, let centroid {
-                state.mode = .keyCandidate(start: now, touchKey: touchKey, centroid: centroid)
+            if analysis.onKeyCount > 0,
+               !mouseSignal,
+               let touchKey = analysis.firstOnKeyTouchKey,
+               let centroid = analysis.centroid {
+                nextMode = .keyCandidate(start: now, touchKey: touchKey, centroid: centroid)
                 allowTyping = false
             } else {
-                state.mode = .mouseCandidate(start: now)
+                nextMode = .mouseCandidate(start: now)
                 allowTyping = false
             }
         case let .keyCandidate(start, _, _):
-            if graceActive || typingAnchorActive {
-                state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
-                intentState = state
-                updateIntentDisplayIfNeeded()
-                return true
+            if typingAnchorActive {
+                nextMode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
+                return IntentDecision(
+                    mode: nextMode,
+                    allowTyping: true,
+                    lastContactCount: analysis.contactCount
+                )
             }
             if mouseSignal {
-                state.mode = .mouseCandidate(start: now)
+                nextMode = .mouseCandidate(start: now)
                 allowTyping = false
             } else if now - start >= intentConfig.keyBufferSeconds {
-                state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
+                nextMode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
                 allowTyping = true
             } else {
                 allowTyping = false
             }
         case let .typingCommitted(untilAllUp):
-            if graceActive || typingAnchorActive {
-                state.mode = .typingCommitted(untilAllUp: untilAllUp)
+            if typingAnchorActive {
+                nextMode = .typingCommitted(untilAllUp: untilAllUp)
                 allowTyping = true
             } else if untilAllUp {
                 allowTyping = true
             } else if mouseSignal {
-                state.mode = .mouseActive
+                nextMode = .mouseActive
                 allowTyping = false
             } else {
                 allowTyping = true
             }
         case let .mouseCandidate(start):
-            if graceActive || typingAnchorActive {
-                state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
-                intentState = state
-                updateIntentDisplayIfNeeded()
-                return true
+            if typingAnchorActive {
+                nextMode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
+                return IntentDecision(
+                    mode: nextMode,
+                    allowTyping: true,
+                    lastContactCount: analysis.contactCount
+                )
             }
             if mouseSignal || now - start >= intentConfig.keyBufferSeconds {
-                state.mode = .mouseActive
+                nextMode = .mouseActive
                 allowTyping = false
             } else {
                 allowTyping = false
             }
         case .mouseActive:
-            if graceActive || typingAnchorActive {
-                state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
+            if typingAnchorActive {
+                nextMode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
                 allowTyping = true
             } else {
                 allowTyping = false
@@ -3202,9 +3306,38 @@ actor TouchProcessorEngine {
             allowTyping = false
         }
 
-        intentState = state
+        return IntentDecision(
+            mode: nextMode,
+            allowTyping: allowTyping,
+            lastContactCount: analysis.contactCount
+        )
+    }
+
+    private func applyIntentDecision(
+        _ decision: IntentDecision,
+        analysis: IntentFrameAnalysis,
+        now: TimeInterval
+    ) {
+        if decision.suppressKeyProcessing {
+            suppressKeyProcessing(for: intentCurrentKeys)
+        }
+        if analysis.contactCount == 0 {
+            if decision.clearMomentaryLayers, !momentaryLayerTouches.isEmpty {
+                momentaryLayerTouches.removeAll()
+                updateActiveLayer()
+            }
+            if decision.clearAwaitingSecondTap {
+                awaitingSecondTap = false
+                doubleTapDeadline = nil
+            } else if decision.performThreeFingerTap {
+                performGestureAction(threeFingerTapAction, now: now, side: nil)
+            } else if decision.performTwoFingerTap {
+                performTwoFingerTapAction(now: now)
+            }
+        }
+        intentState.lastContactCount = decision.lastContactCount
+        intentState.mode = decision.mode
         updateIntentDisplayIfNeeded()
-        return allowTyping
     }
 
     private func shouldTriggerTapClick(
@@ -4020,12 +4153,9 @@ actor TouchProcessorEngine {
         binding: KeyBinding,
         touchKey: TouchKey?,
         dispatchInfo: DispatchInfo? = nil,
-        pressure: Float? = nil
+        pressure _: Float? = nil
     ) {
         guard case let .key(code, flags) = binding.action else { return }
-        if let pressure, !isPressureWithinForceRange(pressure) {
-            return
-        }
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
@@ -4566,6 +4696,106 @@ actor TouchProcessorEngine {
 
     private func invalidateBindingsCache() {
         bindingsGeneration &+= 1
+    }
+
+    private func updateRuntimeRenderSnapshot(from frame: RuntimeRawFrame) {
+        let deviceIndex = frame.deviceIndex
+        let matchedLeft = leftDeviceIndex.map { $0 == deviceIndex } ?? false
+        let matchedRight = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        guard matchedLeft || matchedRight else { return }
+
+        let touches = Self.renderTouches(from: frame)
+        if matchedLeft {
+            runtimeRenderSnapshot.leftTouches = touches
+        }
+        if matchedRight {
+            runtimeRenderSnapshot.rightTouches = touches
+        }
+        runtimeRenderSnapshot.hasTransitionState = Self.hasTransitionState(
+            left: runtimeRenderSnapshot.leftTouches,
+            right: runtimeRenderSnapshot.rightTouches
+        )
+        runtimeRenderSnapshot.activeLayer = activeLayer
+        runtimeRenderSnapshot.revision &+= 1
+    }
+
+    private func ingestContiguousRuntimeFrames(
+        startingWith initialFrame: RuntimeRawFrame,
+        captureRenderSnapshot initialCaptureRenderSnapshot: Bool
+    ) -> RuntimeRenderSnapshot? {
+        var frame = initialFrame
+        var captureRenderSnapshot = initialCaptureRenderSnapshot
+        var latestRenderSnapshot: RuntimeRenderSnapshot?
+
+        while true {
+            processRuntimeRawFrame(frame)
+            runtimeCaptureFrameCount &+= 1
+            if captureRenderSnapshot {
+                updateRuntimeRenderSnapshot(from: frame)
+                latestRenderSnapshot = runtimeRenderSnapshot
+            }
+            nextRuntimeSequence &+= 1
+
+            guard let next = queuedRuntimeFrames.removeValue(forKey: nextRuntimeSequence) else {
+                break
+            }
+            frame = next.frame
+            captureRenderSnapshot = next.captureRenderSnapshot
+        }
+
+        return latestRenderSnapshot
+    }
+
+    private static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {
+        let deviceID = String(frame.deviceNumericID)
+        return frame.contacts.map { contact in
+            OMSTouchData(
+                deviceID: deviceID,
+                deviceIndex: frame.deviceIndex,
+                id: contact.id,
+                position: OMSPosition(x: contact.posX, y: contact.posY),
+                total: 0,
+                pressure: contact.pressure,
+                axis: OMSAxis(major: contact.majorAxis, minor: contact.minorAxis),
+                angle: contact.angle,
+                density: contact.density,
+                state: contact.state,
+                timestamp: frame.timestamp
+            )
+        }
+    }
+
+    private static func hasTransitionState(
+        left: [OMSTouchData],
+        right: [OMSTouchData]
+    ) -> Bool {
+        func containsTransition(_ touches: [OMSTouchData]) -> Bool {
+            for touch in touches {
+                switch touch.state {
+                case .starting, .breaking, .leaving:
+                    return true
+                default:
+                    break
+                }
+            }
+            return false
+        }
+        return containsTransition(left) || containsTransition(right)
+    }
+
+    private static func mapRuntimeIntent(_ intent: IntentDisplay) -> RuntimeIntentMode {
+        switch intent {
+        case .idle:
+            return .idle
+        case .keyCandidate:
+            return .keyCandidate
+        case .typing:
+            return .typing
+        case .mouse:
+            return .mouse
+        case .gesture:
+            return .gesture
+        }
     }
 
     func clearVisualCaches() {

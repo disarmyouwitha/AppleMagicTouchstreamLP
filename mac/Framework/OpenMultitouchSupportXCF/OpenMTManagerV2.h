@@ -3,9 +3,14 @@
 
 #import <Foundation/Foundation.h>
 #import <OpenMultitouchSupportXCF/OpenMTManager.h>
-#import <OpenMultitouchSupportXCF/OpenMTListener.h>
 
 NS_ASSUME_NONNULL_BEGIN
+
+typedef void (^OpenMTDirectRawFrameHandler)(const MTTouch *touches,
+                                            int numTouches,
+                                            double timestamp,
+                                            int frame,
+                                            uint64_t deviceID);
 
 @interface OpenMTManagerV2 : NSObject
 
@@ -17,8 +22,8 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)refreshAvailableDevices;
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos;
 
-- (OpenMTListener *)addRawListenerWithCallback:(OpenMTRawFrameCallback)callback;
-- (void)removeRawListener:(OpenMTListener *)listener;
+- (NSUUID * _Nullable)addDirectRawFrameHandler:(OpenMTDirectRawFrameHandler)handler;
+- (void)removeDirectRawFrameHandlerWithToken:(NSUUID *)token;
 - (BOOL)isListening;
 
 @end

@@ -39,9 +39,11 @@ public enum OMSHapticPattern: Int32, CaseIterable, Sendable {
 public final class OMSManager: Sendable {
     public static let shared = OMSManager()
 
+    public typealias RawTouchFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
+
     private let protectedCaptureManager: OSAllocatedUnfairLock<OpenMTManagerV2?>
     private let protectedHapticManager: OSAllocatedUnfairLock<OpenMTManager?>
-    private let protectedRawListener = OSAllocatedUnfairLock<OpenMTListener?>(uncheckedState: nil)
+    private let protectedRawHandlerToken = OSAllocatedUnfairLock<UUID?>(uncheckedState: nil)
     private let protectedTimestampEnabled = OSAllocatedUnfairLock<Bool>(uncheckedState: true)
     private let protectedDeviceIndexStore = OSAllocatedUnfairLock<DeviceIndexStore>(
         uncheckedState: DeviceIndexStore()
@@ -58,6 +60,13 @@ public final class OMSManager: Sendable {
     }
     private let rawContinuationStore = OSAllocatedUnfairLock<RawContinuationStore>(
         uncheckedState: RawContinuationStore()
+    )
+    private struct RawHandlerStore: Sendable {
+        var byID: [UUID: RawTouchFrameHandler] = [:]
+        var list: [RawTouchFrameHandler] = []
+    }
+    private let rawHandlerStore = OSAllocatedUnfairLock<RawHandlerStore>(
+        uncheckedState: RawHandlerStore()
     )
     private let rawBufferPool = OSAllocatedUnfairLock<[RawTouchBuffer]>(uncheckedState: [])
 #if DEBUG
@@ -84,7 +93,7 @@ public final class OMSManager: Sendable {
     }
 
     public var rawTouchStream: AsyncStream<OMSRawTouchFrame> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
+        AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let id = UUID()
             rawContinuationStore.withLockUnchecked { store in
                 store.byID[id] = continuation
@@ -100,7 +109,7 @@ public final class OMSManager: Sendable {
     }
 
     public func rawTouchStream(forDeviceIDs deviceIDs: Set<UInt64>) -> AsyncStream<OMSRawTouchFrame> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
+        AsyncStream(bufferingPolicy: .unbounded) { continuation in
             let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
                 for await frame in rawTouchStream {
                     if deviceIDs.contains(frame.deviceIDNumeric) {
@@ -118,7 +127,26 @@ public final class OMSManager: Sendable {
     }
 
     public var isListening: Bool {
-        protectedRawListener.withLockUnchecked { $0 != nil }
+        protectedRawHandlerToken.withLockUnchecked { $0 != nil }
+    }
+
+    @discardableResult
+    public func addRawFrameHandler(
+        _ handler: @escaping RawTouchFrameHandler
+    ) -> UUID {
+        let id = UUID()
+        rawHandlerStore.withLockUnchecked { store in
+            store.byID[id] = handler
+            store.list = Array(store.byID.values)
+        }
+        return id
+    }
+
+    public func removeRawFrameHandler(_ id: UUID) {
+        rawHandlerStore.withLockUnchecked { store in
+            store.byID.removeValue(forKey: id)
+            store.list = Array(store.byID.values)
+        }
     }
 
     public var isTimestampEnabled: Bool {
@@ -153,10 +181,10 @@ public final class OMSManager: Sendable {
     @discardableResult
     public func startListening() -> Bool {
         guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
-              protectedRawListener.withLockUnchecked({ $0 == nil }) else {
+              protectedRawHandlerToken.withLockUnchecked({ $0 == nil }) else {
             return false
         }
-        let listener = captureManager.addRawListener(callback: { [weak self] touches, count, timestamp, frame, deviceID in
+        guard let token = captureManager.addDirectRawFrameHandler({ [weak self] touches, count, timestamp, frame, deviceID in
             self?.handleRawFrame(
                 touches: touches,
                 count: Int(count),
@@ -164,19 +192,21 @@ public final class OMSManager: Sendable {
                 frame: Int(frame),
                 deviceID: deviceID
             )
-        })
-        protectedRawListener.withLockUnchecked { $0 = listener }
+        }) else {
+            return false
+        }
+        protectedRawHandlerToken.withLockUnchecked { $0 = token }
         return true
     }
 
     @discardableResult
     public func stopListening() -> Bool {
         guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
-              let listener = protectedRawListener.withLockUnchecked(\.self) else {
+              let token = protectedRawHandlerToken.withLockUnchecked(\.self) else {
             return false
         }
-        captureManager.removeRawListener(listener)
-        protectedRawListener.withLockUnchecked { $0 = nil }
+        captureManager.removeDirectRawFrameHandler(withToken: token)
+        protectedRawHandlerToken.withLockUnchecked { $0 = nil }
         return true
     }
     
@@ -303,11 +333,15 @@ public final class OMSManager: Sendable {
     }
 
     private func emitRawTouchFrame(_ frame: OMSRawTouchFrame) {
+        let handlers = rawHandlerStore.withLockUnchecked { $0.list }
         let continuations = rawContinuationStore.withLockUnchecked { $0.list }
+        for handler in handlers {
+            handler(frame)
+        }
         for continuation in continuations {
             _ = continuation.yield(frame)
         }
-        if continuations.isEmpty {
+        if handlers.isEmpty, continuations.isEmpty {
             frame.release()
         }
     }
@@ -433,6 +467,30 @@ public struct OMSRawTouch: Sendable {
     public let angle: Float
     public let density: Float
     public let state: OpenMTState
+
+    public init(
+        id: Int32,
+        posX: Float,
+        posY: Float,
+        total: Float,
+        pressure: Float,
+        majorAxis: Float,
+        minorAxis: Float,
+        angle: Float,
+        density: Float,
+        state: OpenMTState
+    ) {
+        self.id = id
+        self.posX = posX
+        self.posY = posY
+        self.total = total
+        self.pressure = pressure
+        self.majorAxis = majorAxis
+        self.minorAxis = minorAxis
+        self.angle = angle
+        self.density = density
+        self.state = state
+    }
 }
 
 public final class OMSRawTouchFrame: @unchecked Sendable {
