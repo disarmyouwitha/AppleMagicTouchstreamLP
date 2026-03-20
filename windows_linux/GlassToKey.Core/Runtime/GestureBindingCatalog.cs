@@ -14,6 +14,9 @@ public sealed record GestureBindingDefinition(
 public static class GestureBindingCatalog
 {
     public const int MaxRepeatCadenceMs = 5000;
+    public const int ForceClick1ThresholdNorm = 255;
+    public const int ForceClick2ThresholdNorm = 500;
+    public const int ForceClick3ThresholdNorm = 750;
 
     public static IReadOnlyList<GestureSectionDefinition> Sections { get; } =
     [
@@ -73,9 +76,13 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("lower_left_corner_click", "clicks", "Bottom Left", "None"),
         new GestureBindingDefinition("lower_right_corner_click", "clicks", "Bottom Right", "None"),
 
-        new GestureBindingDefinition("force_click_1", "force_clicks", "Force Click1", "None"),
-        new GestureBindingDefinition("force_click_2", "force_clicks", "Force Click2", "None"),
-        new GestureBindingDefinition("force_click_3", "force_clicks", "Force Click3", "None")
+        new GestureBindingDefinition("top_left_force_click", "force_clicks", $"Top Left (f: {ForceClick1ThresholdNorm})", "None"),
+        new GestureBindingDefinition("top_right_force_click", "force_clicks", $"Top Right (f: {ForceClick1ThresholdNorm})", "None"),
+        new GestureBindingDefinition("bottom_left_force_click", "force_clicks", $"Bottom Left (f: {ForceClick1ThresholdNorm})", "None"),
+        new GestureBindingDefinition("bottom_right_force_click", "force_clicks", $"Bottom Right (f: {ForceClick1ThresholdNorm})", "None"),
+        new GestureBindingDefinition("force_click_1", "force_clicks", $"Force Click 1 (f: {ForceClick1ThresholdNorm})", "None"),
+        new GestureBindingDefinition("force_click_2", "force_clicks", $"Force Click 2 (f: {ForceClick2ThresholdNorm})", "None"),
+        new GestureBindingDefinition("force_click_3", "force_clicks", $"Force Click 3 (f: {ForceClick3ThresholdNorm})", "None")
     ];
 
     private static readonly Dictionary<string, int> BindingIndexById = BuildBindingIndexById();
@@ -308,6 +315,10 @@ public static class GestureBindingCatalog
             "upper_right_corner_click" => settings.UpperRightCornerClickAction,
             "lower_left_corner_click" => settings.LowerLeftCornerClickAction,
             "lower_right_corner_click" => settings.LowerRightCornerClickAction,
+            "top_left_force_click" => settings.TopLeftForceClickAction,
+            "top_right_force_click" => settings.TopRightForceClickAction,
+            "bottom_left_force_click" => settings.BottomLeftForceClickAction,
+            "bottom_right_force_click" => settings.BottomRightForceClickAction,
             "force_click_1" => settings.ForceClick1Action,
             "force_click_2" => settings.ForceClick2Action,
             "force_click_3" => settings.ForceClick3Action,
@@ -446,6 +457,18 @@ public static class GestureBindingCatalog
                 return;
             case "lower_right_corner_click":
                 settings.LowerRightCornerClickAction = action;
+                return;
+            case "top_left_force_click":
+                settings.TopLeftForceClickAction = action;
+                return;
+            case "top_right_force_click":
+                settings.TopRightForceClickAction = action;
+                return;
+            case "bottom_left_force_click":
+                settings.BottomLeftForceClickAction = action;
+                return;
+            case "bottom_right_force_click":
+                settings.BottomRightForceClickAction = action;
                 return;
             case "force_click_1":
                 settings.ForceClick1Action = action;

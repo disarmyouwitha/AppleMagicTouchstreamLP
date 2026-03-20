@@ -581,6 +581,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string topRightTriangleAction = NormalizeGestureActionForUi(_settings.TopRightTriangleAction, "None");
         string bottomLeftTriangleAction = NormalizeGestureActionForUi(_settings.BottomLeftTriangleAction, "None");
         string bottomRightTriangleAction = NormalizeGestureActionForUi(_settings.BottomRightTriangleAction, "None");
+        string topLeftForceClickAction = NormalizeGestureActionForUi(_settings.TopLeftForceClickAction, "None");
+        string topRightForceClickAction = NormalizeGestureActionForUi(_settings.TopRightForceClickAction, "None");
+        string bottomLeftForceClickAction = NormalizeGestureActionForUi(_settings.BottomLeftForceClickAction, "None");
+        string bottomRightForceClickAction = NormalizeGestureActionForUi(_settings.BottomRightForceClickAction, "None");
         string forceClick1Action = NormalizeGestureActionForUi(_settings.ForceClick1Action, "None");
         string forceClick2Action = NormalizeGestureActionForUi(_settings.ForceClick2Action, "None");
         string forceClick3Action = NormalizeGestureActionForUi(_settings.ForceClick3Action, "None");
@@ -623,6 +627,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.TopRightTriangleAction = topRightTriangleAction;
         _settings.BottomLeftTriangleAction = bottomLeftTriangleAction;
         _settings.BottomRightTriangleAction = bottomRightTriangleAction;
+        _settings.TopLeftForceClickAction = topLeftForceClickAction;
+        _settings.TopRightForceClickAction = topRightForceClickAction;
+        _settings.BottomLeftForceClickAction = bottomLeftForceClickAction;
+        _settings.BottomRightForceClickAction = bottomRightForceClickAction;
         _settings.ForceClick1Action = forceClick1Action;
         _settings.ForceClick2Action = forceClick2Action;
         _settings.ForceClick3Action = forceClick3Action;
@@ -665,6 +673,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         TopRightTriangleGestureCombo.SelectedValue = topRightTriangleAction;
         BottomLeftTriangleGestureCombo.SelectedValue = bottomLeftTriangleAction;
         BottomRightTriangleGestureCombo.SelectedValue = bottomRightTriangleAction;
+        TopLeftForceClickGestureCombo.SelectedValue = topLeftForceClickAction;
+        TopRightForceClickGestureCombo.SelectedValue = topRightForceClickAction;
+        BottomLeftForceClickGestureCombo.SelectedValue = bottomLeftForceClickAction;
+        BottomRightForceClickGestureCombo.SelectedValue = bottomRightForceClickAction;
         ForceClick1GestureCombo.SelectedValue = forceClick1Action;
         ForceClick2GestureCombo.SelectedValue = forceClick2Action;
         ForceClick3GestureCombo.SelectedValue = forceClick3Action;
@@ -760,6 +772,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo, TopRightTriangleGestureRepeatBox);
         RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo, BottomLeftTriangleGestureRepeatBox);
         RegisterGestureBindingControl("bottom_right_triangle", BottomRightTriangleGestureCombo, BottomRightTriangleGestureRepeatBox);
+        RegisterGestureBindingControl("top_left_force_click", TopLeftForceClickGestureCombo, TopLeftForceClickGestureRepeatBox);
+        RegisterGestureBindingControl("top_right_force_click", TopRightForceClickGestureCombo, TopRightForceClickGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_left_force_click", BottomLeftForceClickGestureCombo, BottomLeftForceClickGestureRepeatBox);
+        RegisterGestureBindingControl("bottom_right_force_click", BottomRightForceClickGestureCombo, BottomRightForceClickGestureRepeatBox);
         RegisterGestureBindingControl("three_finger_click", ThreeFingerClickGestureCombo, ThreeFingerClickGestureRepeatBox);
         RegisterGestureBindingControl("four_finger_click", FourFingerClickGestureCombo, FourFingerClickGestureRepeatBox);
         RegisterGestureBindingControl("upper_left_corner_click", UpperLeftCornerClickGestureCombo, UpperLeftCornerClickGestureRepeatBox);

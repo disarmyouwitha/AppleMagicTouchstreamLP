@@ -49,9 +49,9 @@ internal sealed class TouchProcessorCore
     private const double EdgeSlideDirectionDominanceRatio = 2.0;
     private const double EdgeSlideMaxDurationMs = 2500.0;
     private const double HoldGestureMoveCancelMm = 1.0;
-    private const int ForceClick1ThresholdNorm = 255;
-    private const int ForceClick2ThresholdNorm = 500;
-    private const int ForceClick3ThresholdNorm = 750;
+    private const int ForceClick1ThresholdNorm = GestureBindingCatalog.ForceClick1ThresholdNorm;
+    private const int ForceClick2ThresholdNorm = GestureBindingCatalog.ForceClick2ThresholdNorm;
+    private const int ForceClick3ThresholdNorm = GestureBindingCatalog.ForceClick3ThresholdNorm;
     private const double ForceClickMaxDurationMs = 2000.0;
     private const double CornerClickZoneThreshold = 0.14;
     private const int CornerClickForceThresholdNorm = 125;
@@ -191,6 +191,10 @@ internal sealed class TouchProcessorCore
     private EngineKeyAction _topRightTriangleGestureAction = EngineKeyAction.None;
     private EngineKeyAction _bottomLeftTriangleGestureAction = EngineKeyAction.None;
     private EngineKeyAction _bottomRightTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightForceClickGestureAction = EngineKeyAction.None;
     private EngineKeyAction _forceClick1GestureAction = EngineKeyAction.None;
     private EngineKeyAction _forceClick2GestureAction = EngineKeyAction.None;
     private EngineKeyAction _forceClick3GestureAction = EngineKeyAction.None;
@@ -1479,7 +1483,7 @@ internal sealed class TouchProcessorCore
         ForceClickGesture gesture = side == TrackpadSide.Left ? _forceClickGestureLeft : _forceClickGestureRight;
         return gesture.Active &&
                gesture.CandidateValid &&
-               ResolveForceClickGestureAction(gesture.PeakForceNorm).Kind != EngineActionKind.None;
+               ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm).Kind != EngineActionKind.None;
     }
 
     private bool IsCornerClickTapGesturePriorityActive(TrackpadSide side)
@@ -3891,7 +3895,7 @@ internal sealed class TouchProcessorCore
                 gesture.CandidateValid &&
                 (nowTicks - gesture.StartedTicks) <= MsToTicks(ForceClickMaxDurationMs))
             {
-                EngineKeyAction action = ResolveForceClickGestureAction(gesture.PeakForceNorm);
+                EngineKeyAction action = ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm);
                 EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
             }
 
@@ -3909,6 +3913,7 @@ internal sealed class TouchProcessorCore
             gesture = new ForceClickGesture(
                 Active: true,
                 CandidateValid: true,
+                Zone: GetConfiguredForceClickCornerZone(xNorm, yNorm),
                 StartedTicks: nowTicks,
                 PeakForceNorm: Math.Max(0, forceNorm),
                 StartXNorm: xNorm,
@@ -3925,6 +3930,7 @@ internal sealed class TouchProcessorCore
         }
 
         gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        gesture.Zone = GetConfiguredForceClickCornerZone(xNorm, yNorm);
         gesture.LastXNorm = xNorm;
         gesture.LastYNorm = yNorm;
         double movementMm = DistanceMm(gesture.StartXNorm, gesture.StartYNorm, xNorm, yNorm);
@@ -3943,9 +3949,10 @@ internal sealed class TouchProcessorCore
 
         if (!gesture.DispatchState.DispatchDownSent)
         {
-            EngineKeyAction action = ResolveForceClickGestureAction(gesture.PeakForceNorm);
+            string bindingId = GetForceClickGestureBindingId(gesture.Zone, gesture.PeakForceNorm);
+            EngineKeyAction action = ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm);
             _ = TryBeginRepeatableGestureDispatch(
-                GetForceClickGestureBindingId(gesture.PeakForceNorm),
+                bindingId,
                 action,
                 side,
                 nowTicks,
@@ -4151,9 +4158,33 @@ internal sealed class TouchProcessorCore
 
     private bool AreForceClickGesturesEnabled()
     {
-        return _forceClick1GestureAction.Kind != EngineActionKind.None ||
+        return _topLeftForceClickGestureAction.Kind != EngineActionKind.None ||
+               _topRightForceClickGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftForceClickGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightForceClickGestureAction.Kind != EngineActionKind.None ||
+               _forceClick1GestureAction.Kind != EngineActionKind.None ||
                _forceClick2GestureAction.Kind != EngineActionKind.None ||
                _forceClick3GestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool IsConfiguredForceClickCornerZoneEnabled(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _topLeftForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.UpperRight => _topRightForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.LowerLeft => _bottomLeftForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.LowerRight => _bottomRightForceClickGestureAction.Kind != EngineActionKind.None,
+            _ => false
+        };
+    }
+
+    private CornerClickTapZone GetConfiguredForceClickCornerZone(double xNorm, double yNorm)
+    {
+        return TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone) &&
+               IsConfiguredForceClickCornerZoneEnabled(zone)
+            ? zone
+            : CornerClickTapZone.None;
     }
 
     private bool AreCornerClickTapGesturesEnabled()
@@ -4188,8 +4219,29 @@ internal sealed class TouchProcessorCore
         };
     }
 
-    private EngineKeyAction ResolveForceClickGestureAction(int peakForceNorm)
+    private EngineKeyAction GetCornerForceClickGestureAction(CornerClickTapZone zone)
     {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _topLeftForceClickGestureAction,
+            CornerClickTapZone.UpperRight => _topRightForceClickGestureAction,
+            CornerClickTapZone.LowerLeft => _bottomLeftForceClickGestureAction,
+            CornerClickTapZone.LowerRight => _bottomRightForceClickGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction ResolveForceClickGestureAction(CornerClickTapZone zone, int peakForceNorm)
+    {
+        if (peakForceNorm >= ForceClick1ThresholdNorm)
+        {
+            EngineKeyAction cornerAction = GetCornerForceClickGestureAction(zone);
+            if (cornerAction.Kind != EngineActionKind.None)
+            {
+                return cornerAction;
+            }
+        }
+
         if (peakForceNorm >= ForceClick3ThresholdNorm &&
             _forceClick3GestureAction.Kind != EngineActionKind.None)
         {
@@ -4947,6 +4999,29 @@ internal sealed class TouchProcessorCore
         };
     }
 
+    private static string GetCornerForceClickBindingId(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => "top_left_force_click",
+            CornerClickTapZone.UpperRight => "top_right_force_click",
+            CornerClickTapZone.LowerLeft => "bottom_left_force_click",
+            CornerClickTapZone.LowerRight => "bottom_right_force_click",
+            _ => string.Empty
+        };
+    }
+
+    private string GetForceClickGestureBindingId(CornerClickTapZone zone, int peakForceNorm)
+    {
+        if (peakForceNorm >= ForceClick1ThresholdNorm &&
+            GetCornerForceClickGestureAction(zone).Kind != EngineActionKind.None)
+        {
+            return GetCornerForceClickBindingId(zone);
+        }
+
+        return GetForceClickGestureBindingId(peakForceNorm);
+    }
+
     private static string GetForceClickGestureBindingId(int peakForceNorm)
     {
         if (peakForceNorm >= ForceClick3ThresholdNorm)
@@ -5696,6 +5771,10 @@ internal sealed class TouchProcessorCore
         _topRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightTriangleAction);
         _bottomLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftTriangleAction);
         _bottomRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightTriangleAction);
+        _topLeftForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftForceClickAction);
+        _topRightForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightForceClickAction);
+        _bottomLeftForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftForceClickAction);
+        _bottomRightForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightForceClickAction);
         _forceClick1GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick1Action);
         _forceClick2GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick2Action);
         _forceClick3GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick3Action);
@@ -5764,6 +5843,10 @@ internal sealed class TouchProcessorCore
             TopRightTriangleAction = NormalizeGestureAction(config.TopRightTriangleAction, "None"),
             BottomLeftTriangleAction = NormalizeGestureAction(config.BottomLeftTriangleAction, "None"),
             BottomRightTriangleAction = NormalizeGestureAction(config.BottomRightTriangleAction, "None"),
+            TopLeftForceClickAction = NormalizeGestureAction(config.TopLeftForceClickAction, "None"),
+            TopRightForceClickAction = NormalizeGestureAction(config.TopRightForceClickAction, "None"),
+            BottomLeftForceClickAction = NormalizeGestureAction(config.BottomLeftForceClickAction, "None"),
+            BottomRightForceClickAction = NormalizeGestureAction(config.BottomRightForceClickAction, "None"),
             ForceClick1Action = NormalizeGestureAction(config.ForceClick1Action, "None"),
             ForceClick2Action = NormalizeGestureAction(config.ForceClick2Action, "None"),
             ForceClick3Action = NormalizeGestureAction(config.ForceClick3Action, "None"),
@@ -6383,6 +6466,7 @@ internal sealed class TouchProcessorCore
         public ForceClickGesture(
             bool Active,
             bool CandidateValid,
+            CornerClickTapZone Zone,
             long StartedTicks,
             int PeakForceNorm,
             double StartXNorm,
@@ -6393,6 +6477,7 @@ internal sealed class TouchProcessorCore
         {
             this.Active = Active;
             this.CandidateValid = CandidateValid;
+            this.Zone = Zone;
             this.StartedTicks = StartedTicks;
             this.PeakForceNorm = PeakForceNorm;
             this.StartXNorm = StartXNorm;
@@ -6405,6 +6490,7 @@ internal sealed class TouchProcessorCore
 
         public bool Active;
         public bool CandidateValid;
+        public CornerClickTapZone Zone;
         public long StartedTicks;
         public int PeakForceNorm;
         public double StartXNorm;

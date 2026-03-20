@@ -1,4 +1,6 @@
 ## Current:
+- I think bottom-left and bottom-right triangles are implemented backwards? lol. Let me think about it and get you a pcap
+
 Add more `Force Click` options: (f:256 or whatever `Force Click1` is)
 - `Top Left`: Force Click in top-left corner (Forced Click 1)
 - `Top Right`:
@@ -12,8 +14,8 @@ Add more `Force Click` options: (f:256 or whatever `Force Click1` is)
 - Next to each option, list the Force to set it off (example: f: 125)
 
 - Are Triangles Corner swipes?
-- For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corner??
--------
+- For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corne
+-------$,
 - New branch to test Accelerator bright / vol/ L / R
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
 -------
