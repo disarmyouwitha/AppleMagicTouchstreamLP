@@ -868,13 +868,13 @@
                   </StackPanel>
                 </Expander>
 
-                <Expander x:Name="ForceClicksExpander" IsExpanded="False" Margin="0,8,0,0">
+                <Expander IsExpanded="False" Margin="0,8,0,0">
                   <Expander.Header>
                     <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1A86C9A9" BorderBrush="#2E4E43" BorderThickness="1">
                       <TextBlock Text="Swipes" Foreground="#86c9a9" FontSize="12" FontWeight="SemiBold" />
                     </Border>
                   </Expander.Header>
-                  <StackPanel x:Name="ForceClicksPanel" Margin="0,6,0,0">
+                  <StackPanel Margin="0,6,0,0">
                 <Grid Margin="0,4,0,2">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -1070,13 +1070,13 @@
                   </StackPanel>
                 </Expander>
 
-                <Expander IsExpanded="False" Margin="0,8,0,0">
+                <Expander x:Name="ForceClicksExpander" IsExpanded="False" Margin="0,8,0,0">
                   <Expander.Header>
                     <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1AE09B73" BorderBrush="#5C4335" BorderThickness="1">
                       <TextBlock Text="Corner Swipes" Foreground="#e09b73" FontSize="12" FontWeight="SemiBold" />
                     </Border>
                   </Expander.Header>
-                  <StackPanel Margin="0,6,0,0">
+                  <StackPanel x:Name="ForceClicksPanel" Margin="0,6,0,0">
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
