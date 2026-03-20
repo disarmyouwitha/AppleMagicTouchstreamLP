@@ -50,6 +50,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         new(TrackpadDecoderProfile.Official, "Official"),
         new(TrackpadDecoderProfile.Legacy, "Opensource")
     };
+    private static readonly string[] ForceGestureBindingIds =
+    [
+        "top_left_force_click",
+        "top_right_force_click",
+        "bottom_left_force_click",
+        "bottom_right_force_click",
+        "force_click_1"
+    ];
+    private const string ForceUnavailableToolTip = "Install Official Drivers to use Force settings";
 
     private readonly ReaderOptions _options;
     private readonly TouchRuntimeService? _runtimeService;
@@ -924,7 +933,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             bool enabled = !string.Equals(
                 ReadGestureActionSelection(combo, binding.DefaultAction),
                 "None",
-                StringComparison.OrdinalIgnoreCase);
+                StringComparison.OrdinalIgnoreCase) &&
+                IsGestureBindingUiAvailable(binding.Id);
             box.IsEnabled = enabled;
         }
     }
@@ -3269,6 +3279,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         SetDecoderProfileComboSelection(TrackpadSide.Left);
         SetDecoderProfileComboSelection(TrackpadSide.Right);
+        RefreshForceUiAvailability();
     }
 
     private void SetDecoderProfileComboSelection(TrackpadSide side)
@@ -3345,6 +3356,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         _runtimeService?.ApplyConfiguration(_settings, _keymap, _preset, _columnSettings, _activeLayer);
         ApplyPressurePolicyForSide(side);
+        RefreshForceUiAvailability();
     }
 
     private string? GetSelectedDevicePathForSide(TrackpadSide side)
@@ -3357,6 +3369,111 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private ComboBox GetDecoderProfileComboForSide(TrackpadSide side)
     {
         return side == TrackpadSide.Left ? LeftDecoderProfileCombo : RightDecoderProfileCombo;
+    }
+
+    private void RefreshForceUiAvailability()
+    {
+        bool forceAvailable = HasAnyPotentiallyForceCapableSelectedTrackpad();
+        string? unavailableToolTip = forceAvailable ? null : ForceUnavailableToolTip;
+
+        foreach (string bindingId in ForceGestureBindingIds)
+        {
+            if (_gestureActionCombosById.TryGetValue(bindingId, out ComboBox? combo))
+            {
+                combo.IsEnabled = forceAvailable;
+                combo.ToolTip = unavailableToolTip;
+                ToolTipService.SetShowOnDisabled(combo, !forceAvailable);
+            }
+
+            if (_gestureRepeatBoxesById.TryGetValue(bindingId, out TextBox? repeatBox))
+            {
+                repeatBox.ToolTip = unavailableToolTip;
+                ToolTipService.SetShowOnDisabled(repeatBox, !forceAvailable);
+            }
+        }
+
+        ForceClickThresholdSlider.IsEnabled = forceAvailable;
+        ForceClickThresholdSlider.ToolTip = unavailableToolTip;
+        ToolTipService.SetShowOnDisabled(ForceClickThresholdSlider, !forceAvailable);
+        ForceMinSlider.IsEnabled = forceAvailable;
+        ForceMinSlider.ToolTip = unavailableToolTip;
+        ToolTipService.SetShowOnDisabled(ForceMinSlider, !forceAvailable);
+        ForceCapSlider.IsEnabled = forceAvailable;
+        ForceCapSlider.ToolTip = unavailableToolTip;
+        ToolTipService.SetShowOnDisabled(ForceCapSlider, !forceAvailable);
+        ForceClicksExpander.ToolTip = unavailableToolTip;
+        ForceClicksExpander.Opacity = forceAvailable ? 1.0 : 0.38;
+        ForceClicksPanel.Opacity = forceAvailable ? 1.0 : 0.58;
+        ForceTypingTuningPanel.ToolTip = unavailableToolTip;
+        ForceTypingTuningPanel.Opacity = forceAvailable ? 1.0 : 0.38;
+        RefreshGestureRepeatCadenceAvailability();
+    }
+
+    private bool HasAnyPotentiallyForceCapableSelectedTrackpad()
+    {
+        return IsPotentiallyForceCapableSide(TrackpadSide.Left) ||
+               IsPotentiallyForceCapableSide(TrackpadSide.Right);
+    }
+
+    private bool IsPotentiallyForceCapableSide(TrackpadSide side)
+    {
+        string? devicePath = GetSelectedDevicePathForSide(side);
+        if (string.IsNullOrWhiteSpace(devicePath))
+        {
+            return false;
+        }
+
+        return GetEffectiveDecoderProfileForSide(side) != TrackpadDecoderProfile.Legacy;
+    }
+
+    private TrackpadDecoderProfile? GetEffectiveDecoderProfileForSide(TrackpadSide side)
+    {
+        ComboBox combo = GetDecoderProfileComboForSide(side);
+        if (combo.SelectedItem is DecoderProfileOption option)
+        {
+            if (option.Profile.HasValue)
+            {
+                return option.Profile.Value;
+            }
+
+            TrackpadDecoderProfile? detected = GetDetectedDecoderProfileForSide(side);
+            if (detected.HasValue)
+            {
+                return detected.Value;
+            }
+        }
+
+        string? devicePath = GetSelectedDevicePathForSide(side);
+        if (!string.IsNullOrWhiteSpace(devicePath) &&
+            TrackpadDecoderProfileResolver.TryGetConfiguredOverride(_decoderProfilesByPath, devicePath, out TrackpadDecoderProfile configured))
+        {
+            return configured;
+        }
+
+        return null;
+    }
+
+    private TrackpadDecoderProfile? GetDetectedDecoderProfileForSide(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left ? _lastDecoderProfileLeft : _lastDecoderProfileRight;
+    }
+
+    private bool IsGestureBindingUiAvailable(string bindingId)
+    {
+        return !IsForceGestureBindingId(bindingId) || HasAnyPotentiallyForceCapableSelectedTrackpad();
+    }
+
+    private static bool IsForceGestureBindingId(string bindingId)
+    {
+        for (int index = 0; index < ForceGestureBindingIds.Length; index++)
+        {
+            if (string.Equals(ForceGestureBindingIds[index], bindingId, StringComparison.Ordinal))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private HidDeviceInfo? FindDevice(string? path)
@@ -3413,6 +3530,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void StartReader(ReaderSession session, HidDeviceInfo? device, TrackpadSide side)
     {
         session.Reset();
+        ClearDetectedDecoderProfile(side);
         ApplyRequestedMaxRange(side, device);
 
         if (device == null || device.IsNone)
@@ -3434,6 +3552,22 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         session.SetDevice(device.Path!, device.DisplayName);
         UpdateHitDisplay(side, "--", null);
         ApplyPressurePolicyForSide(side);
+    }
+
+    private void ClearDetectedDecoderProfile(TrackpadSide side)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _lastDecoderProfileLeft = null;
+            _lastDecoderProfileLogLeftTicks = 0;
+        }
+        else
+        {
+            _lastDecoderProfileRight = null;
+            _lastDecoderProfileLogRightTicks = 0;
+        }
+
+        RefreshForceUiAvailability();
     }
 
     private void ApplyRequestedMaxRange(TrackpadSide side, HidDeviceInfo? device)
@@ -4992,6 +5126,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _lastDecoderProfileRight = decoded.Profile;
             _lastDecoderProfileLogRightTicks = now;
+        }
+
+        if (profileChanged)
+        {
+            RefreshForceUiAvailability();
         }
 
         int count = decoded.Frame.GetClampedContactCount();

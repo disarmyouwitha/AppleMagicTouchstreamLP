@@ -592,46 +592,48 @@
                   <TextBlock Text="Intent Velocity (mm/s)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
                   <TextBox x:Name="IntentVelocityBox" Grid.Column="1" Height="24" Margin="8,0,0,0" />
                 </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force Min" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                    <Slider x:Name="ForceMinSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
-                    <Grid Margin="0,2,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="0" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Left" />
-                      <TextBlock x:Name="ForceMinValueText" Grid.Column="1" Foreground="#8b949e" FontSize="10" HorizontalAlignment="Center" />
-                      <TextBlock Grid.Column="2" Text="255" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
-                    </Grid>
-                  </StackPanel>
-                </Grid>
-                <Grid Margin="0,6,0,0">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="*" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock Text="Force Max" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
-                  <StackPanel Grid.Column="1" Margin="8,0,0,0">
-                    <Slider x:Name="ForceCapSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
-                    <Grid Margin="0,2,0,0">
-                      <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                      </Grid.ColumnDefinitions>
-                      <TextBlock Text="0" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Left" />
-                      <TextBlock x:Name="ForceCapValueText" Grid.Column="1" Foreground="#8b949e" FontSize="10" HorizontalAlignment="Center" />
-                      <TextBlock Grid.Column="2" Text="255" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
-                    </Grid>
-                  </StackPanel>
-                </Grid>
+                <StackPanel x:Name="ForceTypingTuningPanel">
+                  <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Force Min" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                      <Slider x:Name="ForceMinSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
+                      <Grid Margin="0,2,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="0" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="ForceMinValueText" Grid.Column="1" Foreground="#8b949e" FontSize="10" HorizontalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="255" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
+                      </Grid>
+                    </StackPanel>
+                  </Grid>
+                  <Grid Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*" />
+                      <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Force Max" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="1" Margin="8,0,0,0">
+                      <Slider x:Name="ForceCapSlider" Minimum="0" Maximum="255" TickFrequency="1" IsSnapToTickEnabled="True" Height="22" />
+                      <Grid Margin="0,2,0,0">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="0" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Left" />
+                        <TextBlock x:Name="ForceCapValueText" Grid.Column="1" Foreground="#8b949e" FontSize="10" HorizontalAlignment="Center" />
+                        <TextBlock Grid.Column="2" Text="255" Foreground="#6b7279" FontSize="10" HorizontalAlignment="Right" />
+                      </Grid>
+                    </StackPanel>
+                  </Grid>
+                </StackPanel>
                 <Grid Margin="0,12,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -744,13 +746,13 @@
                   </StackPanel>
                 </Expander>
 
-                <Expander IsExpanded="False" Margin="0,8,0,0">
+                <Expander x:Name="ForceClicksExpander" IsExpanded="False" Margin="0,8,0,0">
                   <Expander.Header>
                     <Border Margin="10,0,0,0" Padding="8,2" CornerRadius="6" Background="#1A77A7E8" BorderBrush="#334E73" BorderThickness="1">
                       <TextBlock Text="Edges" Foreground="#77a7e8" FontSize="12" FontWeight="SemiBold" />
                     </Border>
                   </Expander.Header>
-                  <StackPanel Margin="0,6,0,0">
+                  <StackPanel x:Name="ForceClicksPanel" Margin="0,6,0,0">
                 <Grid Margin="0,6,0,0">
                   <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
