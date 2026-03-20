@@ -1524,7 +1524,7 @@ actor TouchProcessorEngine {
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
                 }
-                if !hadPending, !hadActive {
+                if !hadPending, !hadActive, releaseStartPoint != nil {
                     if maybeDispatchReleaseTap(
                         touchKey: touchKey,
                         originalBinding: nil,
@@ -1538,7 +1538,7 @@ actor TouchProcessorEngine {
                         continue
                     }
                 }
-                if !hadPending, !hadActive, resolveBinding() == nil {
+                if !hadPending, !hadActive, releaseStartPoint != nil, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
@@ -1615,7 +1615,7 @@ actor TouchProcessorEngine {
                     }
                     endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
                 }
-                if !hadPending, !hadActive {
+                if !hadPending, !hadActive, releaseStartPoint != nil {
                     if maybeDispatchReleaseTap(
                         touchKey: touchKey,
                         originalBinding: nil,
@@ -1629,7 +1629,7 @@ actor TouchProcessorEngine {
                         continue
                     }
                 }
-                if !hadPending, !hadActive, resolveBinding() == nil {
+                if !hadPending, !hadActive, releaseStartPoint != nil, resolveBinding() == nil {
                     if attemptSnapOnRelease(
                         touchKey: touchKey,
                         point: point,
@@ -1801,19 +1801,6 @@ actor TouchProcessorEngine {
 
         clearPeakPressure(for: touchKey)
         framePointCache.remove(touchKey)
-    }
-
-    @inline(__always)
-    private func forceRange() -> (min: Float, max: Float) {
-        let minForce = min(forceClickMin, forceClickCap)
-        let maxForce = max(forceClickMin, forceClickCap)
-        return (min: minForce, max: maxForce)
-    }
-
-    @inline(__always)
-    private func isPressureWithinForceRange(_ pressure: Float) -> Bool {
-        let range = forceRange()
-        return pressure >= range.min && pressure <= range.max
     }
 
     @inline(__always)
@@ -2405,9 +2392,8 @@ actor TouchProcessorEngine {
         _ binding: KeyBinding,
         altBinding: KeyBinding?,
         touchKey: TouchKey,
-        pressure: Float
+        pressure _: Float
     ) {
-        guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
         #if DEBUG
         onDebugBindingDetected(binding)
@@ -4020,12 +4006,9 @@ actor TouchProcessorEngine {
         binding: KeyBinding,
         touchKey: TouchKey?,
         dispatchInfo: DispatchInfo? = nil,
-        pressure: Float? = nil
+        pressure _: Float? = nil
     ) {
         guard case let .key(code, flags) = binding.action else { return }
-        if let pressure, !isPressureWithinForceRange(pressure) {
-            return
-        }
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif

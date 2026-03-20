@@ -1,4 +1,7 @@
 ## TODO
+- Does Chordal SHift gesture (4-finger hold) only trigger chordal shift when the toggle is enabled? I would like to remove the toggle entirely and ONLY trigger chordal shift if the gesture is set.
+- 4-finger hold is hella messed up
+
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 - Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
