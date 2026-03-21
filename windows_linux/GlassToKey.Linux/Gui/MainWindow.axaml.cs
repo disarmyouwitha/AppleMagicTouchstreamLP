@@ -31,6 +31,7 @@ public partial class MainWindow : Window
     private const double MinCustomButtonPercent = 5.0;
     private const string TerminalLauncherCommand = "x-terminal-emulator";
     private const string CustomActionSectionTitle = "Custom";
+    private const string ShortcutActionSectionTitle = "Shortcuts";
     private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
     private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
     private static readonly IDataTemplate ShortcutKeyChoiceTemplate = CreateShortcutKeyChoiceTemplate();
@@ -54,6 +55,7 @@ public partial class MainWindow : Window
     private readonly TextBlock _gestureShortcutTargetText;
     private readonly RadioButton _shortcutTargetPrimaryRadio;
     private readonly RadioButton _shortcutTargetHoldRadio;
+    private readonly RadioButton _shortcutTargetDropdownRadio;
     private readonly ToggleButton _gestureShortcutCtrlToggle;
     private readonly ToggleButton _gestureShortcutShiftToggle;
     private readonly ToggleButton _gestureShortcutAltToggle;
@@ -197,6 +199,7 @@ public partial class MainWindow : Window
         _gestureShortcutTargetText = RequireControl<TextBlock>("GestureShortcutTargetText");
         _shortcutTargetPrimaryRadio = RequireControl<RadioButton>("ShortcutTargetPrimaryRadio");
         _shortcutTargetHoldRadio = RequireControl<RadioButton>("ShortcutTargetHoldRadio");
+        _shortcutTargetDropdownRadio = RequireControl<RadioButton>("ShortcutTargetDropdownRadio");
         _gestureShortcutCtrlToggle = RequireControl<ToggleButton>("GestureShortcutCtrlToggle");
         _gestureShortcutShiftToggle = RequireControl<ToggleButton>("GestureShortcutShiftToggle");
         _gestureShortcutAltToggle = RequireControl<ToggleButton>("GestureShortcutAltToggle");
@@ -725,6 +728,7 @@ public partial class MainWindow : Window
         }
         _shortcutTargetPrimaryRadio.IsCheckedChanged += OnGestureShortcutEditorChanged;
         _shortcutTargetHoldRadio.IsCheckedChanged += OnGestureShortcutEditorChanged;
+        _shortcutTargetDropdownRadio.IsCheckedChanged += OnGestureShortcutEditorChanged;
         _gestureShortcutCtrlToggle.IsCheckedChanged += OnGestureShortcutEditorChanged;
         _gestureShortcutShiftToggle.IsCheckedChanged += OnGestureShortcutEditorChanged;
         _gestureShortcutAltToggle.IsCheckedChanged += OnGestureShortcutEditorChanged;
@@ -849,7 +853,7 @@ public partial class MainWindow : Window
 
         RenderKeymapPreview(configuration);
         RefreshColumnLayoutEditor();
-        ReloadKeymapActionChoices(configuration.Keymap, GestureBindingCatalog.EnumerateConfiguredActions(profile));
+        ReloadKeymapActionChoices(configuration.Keymap, GestureBindingCatalog.EnumerateConfiguredActions(profile), profile.ShortcutActions);
         ApplyGestureSelections(profile);
         int fallbackLayer = Math.Clamp(profile.ActiveLayer, 0, MaxSupportedLayer);
         List<LayerChoice> layerChoices = BuildLayerChoices();
@@ -1435,6 +1439,11 @@ public partial class MainWindow : Window
 
         if (sender is RadioButton)
         {
+            if (_shortcutTargetDropdownRadio.IsChecked == true && HasKeymapSelection())
+            {
+                ResetShortcutBuilderTargetToPrimary();
+            }
+
             RefreshGestureShortcutEditorUi();
             return;
         }
@@ -1494,7 +1503,9 @@ public partial class MainWindow : Window
     {
         string action = BuildActionBuilderAction(out string preview);
         _gestureShortcutPreviewText.Text = preview;
-        _gestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(action);
+        bool canApply = !string.IsNullOrEmpty(action) &&
+                        (HasKeymapSelection() || _shortcutTargetDropdownRadio.IsChecked == true);
+        _gestureShortcutApplyButton.IsEnabled = canApply;
     }
 
     private string BuildGestureShortcutAction()
@@ -1540,9 +1551,18 @@ public partial class MainWindow : Window
     private void OnGestureShortcutApplyClick(object? sender, RoutedEventArgs e)
     {
         string action = BuildActionBuilderAction(out string preview);
-        if (!HasKeymapSelection() || string.IsNullOrEmpty(action))
+        if (string.IsNullOrEmpty(action) || (!HasKeymapSelection() && _shortcutTargetDropdownRadio.IsChecked != true))
         {
             _gestureShortcutPreviewText.Text = preview;
+            return;
+        }
+
+        if (_shortcutTargetDropdownRadio.IsChecked == true)
+        {
+            EnsureActionChoice(action, ShortcutActionSectionTitle);
+            SaveShortcutLibraryAction(action);
+            RefreshActionChoiceBindings();
+            RefreshGestureShortcutEditorUi();
             return;
         }
 
@@ -1560,6 +1580,51 @@ public partial class MainWindow : Window
         return _shortcutTargetHoldRadio.IsChecked == true
             ? _keymapHoldCombo
             : _keymapPrimaryCombo;
+    }
+
+    private void ResetShortcutBuilderTargetToPrimary()
+    {
+        if (_shortcutTargetPrimaryRadio.IsChecked == true)
+        {
+            return;
+        }
+
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            _shortcutTargetPrimaryRadio.IsChecked = true;
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+    }
+
+    private void SaveShortcutLibraryAction(string action)
+    {
+        LinuxHostSettings settings = _runtime.LoadSettings();
+        UserSettings profile = settings.GetSharedProfile();
+        profile.ShortcutActions ??= new List<string>();
+        string normalized = GestureBindingCatalog.NormalizeAction(action, "None");
+        if (string.Equals(normalized, "None", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        for (int i = 0; i < profile.ShortcutActions.Count; i++)
+        {
+            if (string.Equals(profile.ShortcutActions[i], normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                profile.ShortcutActions[i] = normalized;
+                settings.Normalize();
+                _runtime.SaveSettings(settings);
+                return;
+            }
+        }
+
+        profile.ShortcutActions.Add(normalized);
+        settings.Normalize();
+        _runtime.SaveSettings(settings);
     }
 
     private void ClearGestureShortcutEditorState()
@@ -2098,7 +2163,10 @@ public partial class MainWindow : Window
         ClearCustomButtonGeometryEditorValues();
     }
 
-    private void ReloadKeymapActionChoices(KeymapStore keymap, IEnumerable<string>? additionalActions = null)
+    private void ReloadKeymapActionChoices(
+        KeymapStore keymap,
+        IEnumerable<string>? additionalActions = null,
+        IEnumerable<string>? shortcutActions = null)
     {
         string previousPrimary = ReadSelectedActionValue(_keymapPrimaryCombo, "None");
         string previousHold = ReadSelectedActionValue(_keymapHoldCombo, "None");
@@ -2138,6 +2206,14 @@ public partial class MainWindow : Window
             foreach (string action in additionalActions)
             {
                 EnsureActionChoice(nextChoices, nextLookup, action);
+            }
+        }
+
+        if (shortcutActions != null)
+        {
+            foreach (string action in shortcutActions)
+            {
+                EnsureActionChoice(nextChoices, nextLookup, action, ShortcutActionSectionTitle);
             }
         }
 
@@ -2187,13 +2263,14 @@ public partial class MainWindow : Window
 
     private bool EnsureActionChoice(string? action)
     {
-        return EnsureActionChoice(_keyActionChoices, _keyActionChoiceLookup, action);
+        return EnsureActionChoice(_keyActionChoices, _keyActionChoiceLookup, action, CustomActionSectionTitle);
     }
 
     private static bool EnsureActionChoice(
         List<KeyActionChoice> choices,
         HashSet<string> lookup,
-        string? action)
+        string? action,
+        string sectionTitle)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -2211,9 +2288,9 @@ public partial class MainWindow : Window
             return false;
         }
 
-        if (!HasActionSection(choices, CustomActionSectionTitle))
+        if (!HasActionSection(choices, sectionTitle))
         {
-            AddActionSection(choices, CustomActionSectionTitle);
+            AddActionSection(choices, sectionTitle);
         }
 
         choices.Add(KeyActionChoice.Action(value));
@@ -2818,6 +2895,7 @@ public partial class MainWindow : Window
             _customButtonDeleteButton.IsEnabled = true;
             _keyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
+            ResetShortcutBuilderTargetToPrimary();
 
             string buttonPrimary = string.IsNullOrWhiteSpace(selectedButton!.Primary?.Label) ? "None" : selectedButton.Primary.Label;
             string buttonHold = selectedButton.Hold?.Label ?? "None";
@@ -2875,6 +2953,7 @@ public partial class MainWindow : Window
         _customButtonsExpander.IsExpanded = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
+        ResetShortcutBuilderTargetToPrimary();
         string defaultLabel = layout.Labels[row][column];
         string storageKey = GridKeyPosition.StorageKey(side, row, column);
         KeyMapping mapping = _renderedKeymap.ResolveMapping(GetSelectedLayer(), storageKey, defaultLabel);

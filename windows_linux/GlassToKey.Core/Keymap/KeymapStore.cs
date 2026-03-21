@@ -435,6 +435,7 @@ public sealed class KeymapStore
                     mapping.Primary.Label = "None";
                 }
 
+                mapping.Hold = NormalizeOptionalAction(mapping.Hold);
                 mapping.HoldForceThreshold = NormalizeHoldForceThreshold(mapping.HoldForceThreshold);
 
                 target[mappingEntry.Key] = mapping;
@@ -505,7 +506,7 @@ public sealed class KeymapStore
             Side = input.Side,
             Rect = ClampCustomButtonRect(input.Rect),
             Primary = primary,
-            Hold = input.Hold,
+            Hold = NormalizeOptionalAction(input.Hold),
             HoldForceThreshold = NormalizeHoldForceThreshold(input.HoldForceThreshold),
             Layer = Math.Clamp(layer, 0, 7)
         };
@@ -714,6 +715,19 @@ public sealed class KeymapStore
         }
 
         return Math.Clamp(value, 0.1, 10.0);
+    }
+
+    private static KeyAction? NormalizeOptionalAction(KeyAction? action)
+    {
+        if (action == null || string.IsNullOrWhiteSpace(action.Label))
+        {
+            return null;
+        }
+
+        return new KeyAction
+        {
+            Label = action.Label.Trim()
+        };
     }
 
     private static int NormalizeHoldForceThreshold(int value)

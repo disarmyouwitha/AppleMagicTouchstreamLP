@@ -26,6 +26,7 @@ public sealed class UserSettings
     public bool MemorySaverEnabled { get; set; }
     public bool HoldRepeatEnabled { get; set; }
     public bool ThreeFingerDragEnabled { get; set; }
+    public List<string>? ShortcutActions { get; set; } = new();
     public string FiveFingerSwipeLeftAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeRightAction { get; set; } = "Typing Toggle";
     public string FiveFingerSwipeUpAction { get; set; } = "None";
@@ -133,6 +134,7 @@ public sealed class UserSettings
         MemorySaverEnabled = source.MemorySaverEnabled;
         HoldRepeatEnabled = source.HoldRepeatEnabled;
         ThreeFingerDragEnabled = source.ThreeFingerDragEnabled;
+        ShortcutActions = CloneShortcutActions(source.ShortcutActions);
         FiveFingerSwipeLeftAction = source.FiveFingerSwipeLeftAction;
         FiveFingerSwipeRightAction = source.FiveFingerSwipeRightAction;
         FiveFingerSwipeUpAction = source.FiveFingerSwipeUpAction;
@@ -298,6 +300,13 @@ public sealed class UserSettings
         if (normalizedAutocorrectMaxEditDistance != AutocorrectMaxEditDistance)
         {
             AutocorrectMaxEditDistance = normalizedAutocorrectMaxEditDistance;
+            changed = true;
+        }
+
+        List<string> normalizedShortcutActions = NormalizeShortcutActions(ShortcutActions, out bool shortcutActionsChanged);
+        if (shortcutActionsChanged || ShortcutActions == null)
+        {
+            ShortcutActions = normalizedShortcutActions;
             changed = true;
         }
 
@@ -529,6 +538,16 @@ public sealed class UserSettings
             : new Dictionary<string, string>(source, StringComparer.OrdinalIgnoreCase);
     }
 
+    private static List<string>? CloneShortcutActions(List<string>? source)
+    {
+        if (source == null)
+        {
+            return null;
+        }
+
+        return NormalizeShortcutActions(source, out _);
+    }
+
     private static Dictionary<string, int>? CloneGestureRepeatCadenceById(Dictionary<string, int>? source)
     {
         return source == null
@@ -614,6 +633,48 @@ public sealed class UserSettings
         }
 
         return changed;
+    }
+
+    private static List<string> NormalizeShortcutActions(List<string>? actions, out bool changed)
+    {
+        changed = false;
+        List<string> normalized = new();
+        if (actions == null)
+        {
+            return normalized;
+        }
+
+        HashSet<string> seen = new(StringComparer.OrdinalIgnoreCase);
+        for (int i = 0; i < actions.Count; i++)
+        {
+            string original = actions[i] ?? string.Empty;
+            string value = GestureBindingCatalog.NormalizeAction(original, "None");
+            if (string.Equals(value, "None", StringComparison.OrdinalIgnoreCase))
+            {
+                changed = true;
+                continue;
+            }
+
+            if (!seen.Add(value))
+            {
+                changed = true;
+                continue;
+            }
+
+            if (!string.Equals(original, value, StringComparison.Ordinal))
+            {
+                changed = true;
+            }
+
+            normalized.Add(value);
+        }
+
+        if (normalized.Count != actions.Count)
+        {
+            changed = true;
+        }
+
+        return normalized;
     }
 
     private static bool AreClose(double left, double right)

@@ -34,6 +34,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const int WindowsForceClickThresholdMinimum = 150;
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
+    private const string ShortcutActionSectionTitle = "Shortcuts";
     private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
     private static readonly Brush IntentCandidateBrush = CreateFrozenBrush("#f39c12");
     private static readonly Brush IntentTypingBrush = CreateFrozenBrush("#2ecc71");
@@ -69,6 +70,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private readonly ObservableCollection<KeyActionOption> _keyActionOptions = new();
     private readonly HashSet<string> _keyActionOptionLookup = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _deferredKeyActionOptions = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, (string Group, bool ForceGroup)> _deferredKeyActionOptionGroups = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<ComboBox, ListCollectionView> _actionViewsByCombo = new();
     private readonly Dictionary<string, ComboBox> _gestureActionCombosById = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TextBox> _gestureRepeatBoxesById = new(StringComparer.Ordinal);
@@ -315,6 +317,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LowerRightCornerClickGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
         ShortcutTargetPrimaryRadio.Checked += OnGestureShortcutEditorChanged;
         ShortcutTargetHoldRadio.Checked += OnGestureShortcutEditorChanged;
+        ShortcutTargetDropdownRadio.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutCtrlToggle.Checked += OnGestureShortcutEditorChanged;
         GestureShortcutCtrlToggle.Unchecked += OnGestureShortcutEditorChanged;
         GestureShortcutShiftToggle.Checked += OnGestureShortcutEditorChanged;
@@ -824,6 +827,14 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         foreach (string action in GestureBindingCatalog.EnumerateConfiguredActions(_settings))
         {
             EnsureActionOption(action);
+        }
+
+        if (_settings.ShortcutActions != null)
+        {
+            for (int i = 0; i < _settings.ShortcutActions.Count; i++)
+            {
+                EnsureActionOption(_settings.ShortcutActions[i], ShortcutActionSectionTitle, forceGroup: true);
+            }
         }
     }
 
@@ -1525,6 +1536,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         if (sender is RadioButton)
         {
+            if (ShortcutTargetDropdownRadio.IsChecked == true && HasKeymapSelection())
+            {
+                ResetShortcutBuilderTargetToPrimary();
+            }
+
             RefreshGestureShortcutEditorUi();
             return;
         }
@@ -1548,7 +1564,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     {
         string action = BuildActionBuilderAction(out string preview);
         GestureShortcutPreviewText.Text = preview;
-        GestureShortcutApplyButton.IsEnabled = HasKeymapSelection() && !string.IsNullOrEmpty(action);
+        bool canApply = !string.IsNullOrEmpty(action) &&
+                        (HasKeymapSelection() || ShortcutTargetDropdownRadio.IsChecked == true);
+        GestureShortcutApplyButton.IsEnabled = canApply;
     }
 
     private string BuildGestureShortcutAction()
@@ -1593,9 +1611,17 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void OnGestureShortcutApplyClicked(object sender, RoutedEventArgs e)
     {
         string action = BuildActionBuilderAction(out string preview);
-        if (!HasKeymapSelection() || string.IsNullOrEmpty(action))
+        if (string.IsNullOrEmpty(action) || (!HasKeymapSelection() && ShortcutTargetDropdownRadio.IsChecked != true))
         {
             GestureShortcutPreviewText.Text = preview;
+            return;
+        }
+
+        if (ShortcutTargetDropdownRadio.IsChecked == true)
+        {
+            EnsureActionOption(action, ShortcutActionSectionTitle, forceGroup: true);
+            SaveShortcutLibraryAction(action);
+            RefreshGestureShortcutEditorUi();
             return;
         }
 
@@ -1682,6 +1708,47 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         return ShortcutTargetHoldRadio.IsChecked == true
             ? KeymapHoldCombo
             : KeymapPrimaryCombo;
+    }
+
+    private void ResetShortcutBuilderTargetToPrimary()
+    {
+        if (ShortcutTargetPrimaryRadio.IsChecked == true)
+        {
+            return;
+        }
+
+        _suppressGestureShortcutEditorEvents = true;
+        try
+        {
+            ShortcutTargetPrimaryRadio.IsChecked = true;
+        }
+        finally
+        {
+            _suppressGestureShortcutEditorEvents = false;
+        }
+    }
+
+    private void SaveShortcutLibraryAction(string action)
+    {
+        string normalized = GestureBindingCatalog.NormalizeAction(action, "None");
+        if (string.Equals(normalized, "None", StringComparison.OrdinalIgnoreCase))
+        {
+            return;
+        }
+
+        _settings.ShortcutActions ??= new List<string>();
+        for (int i = 0; i < _settings.ShortcutActions.Count; i++)
+        {
+            if (string.Equals(_settings.ShortcutActions[i], normalized, StringComparison.OrdinalIgnoreCase))
+            {
+                _settings.ShortcutActions[i] = normalized;
+                _settings.Save();
+                return;
+            }
+        }
+
+        _settings.ShortcutActions.Add(normalized);
+        _settings.Save();
     }
 
     private bool HasKeymapSelection()
@@ -2912,7 +2979,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
     }
 
-    private void EnsureActionOption(string? action)
+    private void EnsureActionOption(string? action, string group = "Custom", bool forceGroup = false)
     {
         if (string.IsNullOrWhiteSpace(action))
         {
@@ -2925,20 +2992,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        if (!TryAddActionOption(normalized))
+        if (!TryAddActionOption(normalized, group, forceGroup))
         {
-            QueueDeferredActionOption(normalized);
+            QueueDeferredActionOption(normalized, group, forceGroup);
         }
     }
 
-    private bool TryAddActionOption(string action)
+    private bool TryAddActionOption(string action, string group, bool forceGroup)
     {
         try
         {
             _keyActionOptions.Add(new KeyActionOption(
                 action,
                 GetActionOptionDisplay(action),
-                GetActionOptionGroup(action, "Custom")));
+                forceGroup ? group : GetActionOptionGroup(action, group)));
             _keyActionOptionLookup.Add(action);
             RefreshActionComboViews();
             return true;
@@ -2950,7 +3017,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
     }
 
-    private void QueueDeferredActionOption(string action)
+    private void QueueDeferredActionOption(string action, string group, bool forceGroup)
     {
         if (string.IsNullOrWhiteSpace(action) || _keyActionOptionLookup.Contains(action))
         {
@@ -2958,6 +3025,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         }
 
         _deferredKeyActionOptions.Add(action);
+        _deferredKeyActionOptionGroups[action] = (group, forceGroup);
         if (_deferredKeyActionOptionsScheduled)
         {
             return;
@@ -2988,13 +3056,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
                 continue;
             }
 
-            if (TryAddActionOption(action))
+            (string group, bool forceGroup) = _deferredKeyActionOptionGroups.TryGetValue(action, out var metadata)
+                ? metadata
+                : ("Custom", false);
+            _deferredKeyActionOptionGroups.Remove(action);
+            if (TryAddActionOption(action, group, forceGroup))
             {
                 addedAny = true;
             }
             else
             {
                 _deferredKeyActionOptions.Add(action);
+                _deferredKeyActionOptionGroups[action] = (group, forceGroup);
             }
         }
 
@@ -3713,6 +3786,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             CustomButtonDeleteButton.IsEnabled = true;
             KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
+            ResetShortcutBuilderTargetToPrimary();
 
             string buttonPrimary = string.IsNullOrWhiteSpace(selectedButton.Primary?.Label) ? "None" : selectedButton.Primary.Label;
             string buttonHold = selectedButton.Hold?.Label ?? "None";
@@ -3766,6 +3840,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         CustomButtonsExpander.IsExpanded = false;
         SetCustomButtonGeometryEditorEnabled(false);
         ClearCustomButtonGeometryEditorValues();
+        ResetShortcutBuilderTargetToPrimary();
         string defaultLabel = layout.Labels[row][column];
         string storageKey = GridKeyPosition.StorageKey(side, row, column);
         KeyMapping mapping = _keymap.ResolveMapping(GetSelectedLayer(), storageKey, defaultLabel);

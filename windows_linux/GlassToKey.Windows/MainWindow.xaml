@@ -377,18 +377,26 @@
                       <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
                       </Grid.ColumnDefinitions>
                       <RadioButton x:Name="ShortcutTargetPrimaryRadio"
                                    GroupName="ShortcutTarget"
                                    Content="Primary"
                                    Foreground="#cfe6f5"
                                    IsChecked="True"
-                                   Margin="0,0,8,0" />
+                                    Margin="0,0,8,0" />
                       <RadioButton x:Name="ShortcutTargetHoldRadio"
                                    Grid.Column="1"
                                    GroupName="ShortcutTarget"
                                    Foreground="#cfe6f5"
-                                   Content="Hold" />
+                                   Content="Hold"
+                                   Margin="4,0,4,0" />
+                      <RadioButton x:Name="ShortcutTargetDropdownRadio"
+                                   Grid.Column="2"
+                                   GroupName="ShortcutTarget"
+                                   Foreground="#cfe6f5"
+                                   Content="Dropdown"
+                                   Margin="8,0,0,0" />
                     </Grid>
                     <Grid Margin="0,10,0,0">
                       <Grid.ColumnDefinitions>

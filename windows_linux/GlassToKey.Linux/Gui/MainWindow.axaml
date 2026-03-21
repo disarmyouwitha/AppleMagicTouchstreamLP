@@ -496,7 +496,7 @@
                                    FontSize="11"
                                    TextWrapping="Wrap"
                                    IsVisible="False" />
-                        <Grid ColumnDefinitions="*,*">
+                        <Grid ColumnDefinitions="*,*,*">
                           <RadioButton x:Name="ShortcutTargetPrimaryRadio"
                                        Classes="shortcutTargetRadio"
                                        GroupName="ShortcutTarget"
@@ -507,7 +507,14 @@
                                        Grid.Column="1"
                                        Classes="shortcutTargetRadio"
                                        GroupName="ShortcutTarget"
-                                       Content="Hold" />
+                                       Content="Hold"
+                                       Margin="4,0,4,0" />
+                          <RadioButton x:Name="ShortcutTargetDropdownRadio"
+                                       Grid.Column="2"
+                                       Classes="shortcutTargetRadio"
+                                       GroupName="ShortcutTarget"
+                                       Content="Dropdown"
+                                       Margin="8,0,0,0" />
                         </Grid>
                         <Grid ColumnDefinitions="*,*,*,*">
                           <Grid ColumnDefinitions="*,Auto">
