@@ -1,8 +1,8 @@
 ## Current:
-`Force Dependant keymap` make a key variable output depending on the force used (similar to hold) { In `Keymap Tuning` under `Hold Action` add an option: `Force Intead of Hold: (text field for force)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force) }
--------
+`Shortcut Builder`: Add "Dropdown" radio option [Primary, Hold, Dropdown] 
+If the new option `Dropdown` is selected it should save to the User Settings, and to the keymap when imported/exported in a cross-complatible way with Linux.
+
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
-- New gestures from FRAN!
 - Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
 
 
