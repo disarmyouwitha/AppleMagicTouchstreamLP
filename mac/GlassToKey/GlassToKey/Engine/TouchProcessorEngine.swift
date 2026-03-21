@@ -1295,31 +1295,16 @@ actor TouchProcessorEngine {
                             now: now
                         )
                         var updated = active
-                        if active.isContinuousKey {
-                            triggerBinding(
-                                active.binding,
-                                touchKey: touchKey,
-                                dispatchInfo: dispatchInfo,
+                        let holdDispatchBinding = active.holdBinding ?? active.binding
+                        if beginHoldRepeat(
+                                for: touchKey,
+                                binding: holdDispatchBinding,
                                 pressure: peakPressure
-                            )
-                            startRepeat(for: touchKey, binding: active.binding)
+                            ) {
                             updated.holdRepeatActive = true
-                        } else if let holdBinding = active.holdBinding {
-                            triggerBinding(
-                                holdBinding,
-                                touchKey: touchKey,
-                                dispatchInfo: dispatchInfo,
-                                pressure: peakPressure
-                            )
-                            if isContinuousKey(holdBinding) {
-                                startRepeat(for: touchKey, binding: holdBinding)
-                                updated.holdRepeatActive = true
-                            } else {
-                                updated.holdRepeatActive = false
-                            }
                         } else {
                             triggerBinding(
-                                active.binding,
+                                holdDispatchBinding,
                                 touchKey: touchKey,
                                 dispatchInfo: dispatchInfo,
                                 pressure: peakPressure
@@ -3768,6 +3753,14 @@ actor TouchProcessorEngine {
             || code == CGKeyCode(kVK_DownArrow)
     }
 
+    private func canHoldRepeat(binding: KeyBinding) -> Bool {
+        guard case let .key(code, _) = binding.action else { return false }
+        if modifierKey(for: binding) != nil {
+            return false
+        }
+        return code != CGKeyCode(kVK_Function)
+    }
+
     private func allowsPriorityTyping(for binding: KeyBinding) -> Bool {
         let state = intentState
         let isModifier = modifierKey(for: binding) != nil
@@ -4065,10 +4058,30 @@ actor TouchProcessorEngine {
         dispatchService.postHaptic(strength: hapticStrength, deviceID: deviceID)
     }
 
+    @discardableResult
+    private func beginHoldRepeat(
+        for touchKey: TouchKey,
+        binding: KeyBinding,
+        pressure: Float? = nil
+    ) -> Bool {
+        guard canHoldRepeat(binding: binding) else { return false }
+        if let pressure, !isPressureWithinForceRange(pressure) {
+            return false
+        }
+        #if DEBUG
+        onDebugBindingDetected(binding)
+        #endif
+        extendTypingGrace(for: binding.side, now: currentTime())
+        playHapticIfNeeded(on: binding.side, touchKey: touchKey)
+        startRepeat(for: touchKey, binding: binding)
+        return true
+    }
+
     private func startRepeat(for touchKey: TouchKey, binding: KeyBinding) {
         stopRepeat(for: touchKey)
         guard case let .key(code, flags) = binding.action else { return }
         let repeatFlags = flags.union(currentModifierFlags())
+        dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true)
         let initialDelay = repeatInitialDelay
         let interval = repeatInterval(for: binding.action)
         let token = RepeatToken()
@@ -4133,7 +4146,12 @@ actor TouchProcessorEngine {
                 continue
             }
             if entry.nextFire <= now {
-                dispatchService.postKeyStroke(code: entry.code, flags: entry.flags, token: entry.token)
+                dispatchService.postKey(
+                    code: entry.code,
+                    flags: entry.flags,
+                    keyDown: true,
+                    token: entry.token
+                )
                 var next = entry.nextFire
                 while next <= now {
                     next &+= entry.interval
@@ -4154,6 +4172,7 @@ actor TouchProcessorEngine {
     private func stopRepeat(for touchKey: TouchKey) {
         if let entry = repeatEntries.removeValue(forKey: touchKey) {
             entry.token.deactivate()
+            dispatchService.postKey(code: entry.code, flags: entry.flags, keyDown: false)
         }
         if repeatEntries.isEmpty {
             repeatLoopTask?.cancel()
