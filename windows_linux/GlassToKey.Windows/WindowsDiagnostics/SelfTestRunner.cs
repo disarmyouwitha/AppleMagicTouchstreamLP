@@ -3435,6 +3435,10 @@ internal static class SelfTestRunner
         ushort triangleTurnY = (ushort)Math.Clamp((int)Math.Round(0.28 * maxY), 1, maxY - 1);
         ushort triangleReturnX = (ushort)Math.Clamp((int)Math.Round(0.03 * maxX), 1, maxX - 1);
         ushort triangleReturnY = (ushort)Math.Clamp((int)Math.Round(0.30 * maxY), 1, maxY - 1);
+        ushort triangleAltTurnX = (ushort)Math.Clamp((int)Math.Round(0.27 * maxX), 1, maxX - 1);
+        ushort triangleAltTurnY = (ushort)Math.Clamp((int)Math.Round(0.25 * maxY), 1, maxY - 1);
+        ushort triangleAltReturnX = (ushort)Math.Clamp((int)Math.Round(0.30 * maxX), 1, maxX - 1);
+        ushort triangleAltReturnY = (ushort)Math.Clamp((int)Math.Round(0.03 * maxY), 1, maxY - 1);
 
         KeymapStore keymap = KeymapStore.LoadBundledDefault();
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
@@ -3500,6 +3504,21 @@ internal static class SelfTestRunner
                     MakeFrame(contactCount: 1, id0: 402, x0: startX, y0: startY),
                     MakeFrame(contactCount: 1, id0: 402, x0: triangleTurnX, y0: triangleTurnY),
                     MakeFrame(contactCount: 1, id0: 402, x0: triangleReturnX, y0: triangleReturnY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x42,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTap(
+                "triangle-over-corner-top-left-return-up",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 405, x0: startX, y0: startY),
+                    MakeFrame(contactCount: 1, id0: 405, x0: triangleAltTurnX, y0: triangleAltTurnY),
+                    MakeFrame(contactCount: 1, id0: 405, x0: triangleAltReturnX, y0: triangleAltReturnY),
                     MakeFrame(contactCount: 0)
                 },
                 0x42,
@@ -3588,6 +3607,22 @@ internal static class SelfTestRunner
                     MakeFrame(contactCount: 1, id0: 404, x0: anchorStartX, y0: anchorStartY),
                     MakeFrame(contactCount: 1, id0: 404, x0: triangleTurnX, y0: triangleTurnY),
                     MakeFrame(contactCount: 1, id0: 404, x0: triangleReturnX, y0: triangleReturnY),
+                    MakeFrame(contactCount: 0)
+                },
+                0x42,
+                out failure))
+        {
+            return false;
+        }
+
+        if (!ExpectSingleTapWithCore(
+                anchorStartCore,
+                "triangle-top-left-custom-mo-start-return-up",
+                new[]
+                {
+                    MakeFrame(contactCount: 1, id0: 406, x0: anchorStartX, y0: anchorStartY),
+                    MakeFrame(contactCount: 1, id0: 406, x0: triangleAltTurnX, y0: triangleAltTurnY),
+                    MakeFrame(contactCount: 1, id0: 406, x0: triangleAltReturnX, y0: triangleAltReturnY),
                     MakeFrame(contactCount: 0)
                 },
                 0x42,

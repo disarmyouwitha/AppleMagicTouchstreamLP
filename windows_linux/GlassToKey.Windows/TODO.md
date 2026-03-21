@@ -1,5 +1,8 @@
 ## Current:
-- For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corner? That would go hard for me
+- For `Triangle` swipes can we have them trigger regardless of which direction you turn, as long as you start on the right corner? That would go hard for me. I want it to be less strict, as long as it starts in one corner and then changes direction sharply.
+
+Here are examples of the new triangles to change the current classifiers.
+
 -------
 - New branch to test Accelerator bright / vol/ L / R
 - Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)

@@ -28,11 +28,9 @@ internal sealed class TouchProcessorCore
     private const double TriangleArmDyThreshold = 0.08;
     private const double TriangleFirstLegDxThreshold = 0.16;
     private const double TriangleFirstLegDyThreshold = 0.22;
-    private const double TriangleReturnDxThreshold = 0.14;
-    private const double TriangleEndNearStartXThreshold = 0.08;
+    private const double TriangleReturnAxisThreshold = 0.14;
     private const double TriangleMaxDurationMs = 3000.0;
-    private const double TriangleTurnDotUpperBound = -0.15;
-    private const double TriangleReturnDominanceRatio = 2.0;
+    private const double TriangleTurnDotUpperBound = 0.35;
     private const double CornerSwipeStartCornerThreshold = 0.12;
     private const double CornerSwipeArmDistanceMm = 10.0;
     private const double CornerSwipeMinAxisTravelMm = 10.0;
@@ -3676,7 +3674,7 @@ internal sealed class TouchProcessorCore
                 Active: true,
                 CandidateValid: true,
                 PriorityArmed: false,
-                ReturnedLaterally: false,
+                ReturnedTowardCorner: false,
                 Corner: corner,
                 SourceTouchKey: touchKey,
                 OutboundXSign: outboundXSign,
@@ -3685,9 +3683,11 @@ internal sealed class TouchProcessorCore
                 LastTicks: nowTicks,
                 StartXNorm: xNorm,
                 StartYNorm: yNorm,
-                TurnXNorm: xNorm,
-                TurnYAtTurnXNorm: yNorm,
-                ExtentYNorm: yNorm,
+                PeakProgressNorm: 0.0,
+                PeakXNorm: xNorm,
+                PeakYNorm: yNorm,
+                MaxXNorm: xNorm,
+                MaxYNorm: yNorm,
                 LastXNorm: xNorm,
                 LastYNorm: yNorm);
             return;
@@ -3704,32 +3704,30 @@ internal sealed class TouchProcessorCore
 
         if (gesture.OutboundXSign > 0)
         {
-            if (xNorm > gesture.TurnXNorm)
+            if (xNorm > gesture.MaxXNorm)
             {
-                gesture.TurnXNorm = xNorm;
-                gesture.TurnYAtTurnXNorm = yNorm;
+                gesture.MaxXNorm = xNorm;
             }
         }
-        else if (xNorm < gesture.TurnXNorm)
+        else if (xNorm < gesture.MaxXNorm)
         {
-            gesture.TurnXNorm = xNorm;
-            gesture.TurnYAtTurnXNorm = yNorm;
+            gesture.MaxXNorm = xNorm;
         }
 
         if (gesture.OutboundYSign > 0)
         {
-            if (yNorm > gesture.ExtentYNorm)
+            if (yNorm > gesture.MaxYNorm)
             {
-                gesture.ExtentYNorm = yNorm;
+                gesture.MaxYNorm = yNorm;
             }
         }
-        else if (yNorm < gesture.ExtentYNorm)
+        else if (yNorm < gesture.MaxYNorm)
         {
-            gesture.ExtentYNorm = yNorm;
+            gesture.MaxYNorm = yNorm;
         }
 
-        double outboundDx = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
-        double outboundDy = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        double outboundDx = (gesture.MaxXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double outboundDy = (gesture.MaxYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
         if (!gesture.PriorityArmed &&
             outboundDx >= TriangleArmDxThreshold &&
             outboundDy >= TriangleArmDyThreshold)
@@ -3737,10 +3735,20 @@ internal sealed class TouchProcessorCore
             gesture.PriorityArmed = true;
         }
 
-        double lateralReturnDx = (gesture.TurnXNorm - xNorm) * gesture.OutboundXSign;
-        if (lateralReturnDx >= TriangleReturnDxThreshold)
+        double outboundProgress = ((xNorm - gesture.StartXNorm) * gesture.OutboundXSign) +
+            ((yNorm - gesture.StartYNorm) * gesture.OutboundYSign);
+        if (outboundProgress > gesture.PeakProgressNorm)
         {
-            gesture.ReturnedLaterally = true;
+            gesture.PeakProgressNorm = outboundProgress;
+            gesture.PeakXNorm = xNorm;
+            gesture.PeakYNorm = yNorm;
+        }
+
+        double returnDx = (gesture.PeakXNorm - xNorm) * gesture.OutboundXSign;
+        double returnDy = (gesture.PeakYNorm - yNorm) * gesture.OutboundYSign;
+        if (Math.Max(returnDx, returnDy) >= TriangleReturnAxisThreshold)
+        {
+            gesture.ReturnedTowardCorner = true;
         }
 
         if ((nowTicks - gesture.StartedTicks) > MsToTicks(TriangleMaxDurationMs))
@@ -4619,18 +4627,18 @@ internal sealed class TouchProcessorCore
 
     private static bool IsTriangleMatch(in TriangleGesture gesture, long nowTicks)
     {
-        if (!gesture.Active || !gesture.CandidateValid || !gesture.PriorityArmed || !gesture.ReturnedLaterally)
+        if (!gesture.Active || !gesture.CandidateValid || !gesture.PriorityArmed || !gesture.ReturnedTowardCorner)
         {
             return false;
         }
 
-        double dxFirstLeg = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
-        double dyFirstLeg = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
-        double dxReturnLeg = (gesture.TurnXNorm - gesture.LastXNorm) * gesture.OutboundXSign;
+        double dxFirstLeg = (gesture.PeakXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double dyFirstLeg = (gesture.PeakYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        double dxReturnLeg = (gesture.PeakXNorm - gesture.LastXNorm) * gesture.OutboundXSign;
+        double dyReturnLeg = (gesture.PeakYNorm - gesture.LastYNorm) * gesture.OutboundYSign;
         if (dxFirstLeg < TriangleFirstLegDxThreshold ||
             dyFirstLeg < TriangleFirstLegDyThreshold ||
-            dxReturnLeg < TriangleReturnDxThreshold ||
-            Math.Abs(gesture.LastXNorm - gesture.StartXNorm) > TriangleEndNearStartXThreshold)
+            Math.Max(dxReturnLeg, dyReturnLeg) < TriangleReturnAxisThreshold)
         {
             return false;
         }
@@ -4640,10 +4648,10 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        double v1x = gesture.TurnXNorm - gesture.StartXNorm;
-        double v1y = gesture.TurnYAtTurnXNorm - gesture.StartYNorm;
-        double v2x = gesture.LastXNorm - gesture.TurnXNorm;
-        double v2y = gesture.LastYNorm - gesture.TurnYAtTurnXNorm;
+        double v1x = gesture.PeakXNorm - gesture.StartXNorm;
+        double v1y = gesture.PeakYNorm - gesture.StartYNorm;
+        double v2x = gesture.LastXNorm - gesture.PeakXNorm;
+        double v2y = gesture.LastYNorm - gesture.PeakYNorm;
         double v1Mag = Math.Sqrt((v1x * v1x) + (v1y * v1y));
         double v2Mag = Math.Sqrt((v2x * v2x) + (v2y * v2y));
         if (v1Mag <= 0.000001 || v2Mag <= 0.000001)
@@ -4657,7 +4665,7 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        return Math.Abs(v2x) >= (Math.Abs(v2y) * TriangleReturnDominanceRatio);
+        return true;
     }
 
     private bool TryGetCornerHoldPairCandidate(TrackpadSide side, out CornerZone zone, out long pairStartTicks)
@@ -6242,7 +6250,7 @@ internal sealed class TouchProcessorCore
             bool Active,
             bool CandidateValid,
             bool PriorityArmed,
-            bool ReturnedLaterally,
+            bool ReturnedTowardCorner,
             TriangleCorner Corner,
             ulong SourceTouchKey,
             int OutboundXSign,
@@ -6251,16 +6259,18 @@ internal sealed class TouchProcessorCore
             long LastTicks,
             double StartXNorm,
             double StartYNorm,
-            double TurnXNorm,
-            double TurnYAtTurnXNorm,
-            double ExtentYNorm,
+            double PeakProgressNorm,
+            double PeakXNorm,
+            double PeakYNorm,
+            double MaxXNorm,
+            double MaxYNorm,
             double LastXNorm,
             double LastYNorm)
         {
             this.Active = Active;
             this.CandidateValid = CandidateValid;
             this.PriorityArmed = PriorityArmed;
-            this.ReturnedLaterally = ReturnedLaterally;
+            this.ReturnedTowardCorner = ReturnedTowardCorner;
             this.Corner = Corner;
             this.SourceTouchKey = SourceTouchKey;
             this.OutboundXSign = OutboundXSign;
@@ -6269,9 +6279,11 @@ internal sealed class TouchProcessorCore
             this.LastTicks = LastTicks;
             this.StartXNorm = StartXNorm;
             this.StartYNorm = StartYNorm;
-            this.TurnXNorm = TurnXNorm;
-            this.TurnYAtTurnXNorm = TurnYAtTurnXNorm;
-            this.ExtentYNorm = ExtentYNorm;
+            this.PeakProgressNorm = PeakProgressNorm;
+            this.PeakXNorm = PeakXNorm;
+            this.PeakYNorm = PeakYNorm;
+            this.MaxXNorm = MaxXNorm;
+            this.MaxYNorm = MaxYNorm;
             this.LastXNorm = LastXNorm;
             this.LastYNorm = LastYNorm;
             this.DispatchState = default;
@@ -6280,7 +6292,7 @@ internal sealed class TouchProcessorCore
         public bool Active;
         public bool CandidateValid;
         public bool PriorityArmed;
-        public bool ReturnedLaterally;
+        public bool ReturnedTowardCorner;
         public TriangleCorner Corner;
         public ulong SourceTouchKey;
         public int OutboundXSign;
@@ -6289,9 +6301,11 @@ internal sealed class TouchProcessorCore
         public long LastTicks;
         public double StartXNorm;
         public double StartYNorm;
-        public double TurnXNorm;
-        public double TurnYAtTurnXNorm;
-        public double ExtentYNorm;
+        public double PeakProgressNorm;
+        public double PeakXNorm;
+        public double PeakYNorm;
+        public double MaxXNorm;
+        public double MaxYNorm;
         public double LastXNorm;
         public double LastYNorm;
         public GestureDispatchState DispatchState;
