@@ -485,6 +485,7 @@ actor TouchProcessorEngine {
     private var customKeyMappingsByLayer: LayeredKeyMappings = [:]
     private var touchStates = TouchTable<TouchState>()
     private var disqualifiedTouches = TouchTable<Bool>()
+    private var releaseHandledTouches = TouchTable<Bool>()
     private var leftShiftTouchCount = 0
     private var controlTouchCount = 0
     private var leftOptionTouchCount = 0
@@ -1120,6 +1121,14 @@ actor TouchProcessorEngine {
                 framePointCache.set(touchKey, computed)
                 point = computed
             }
+            if Self.isContactState(touch.state) {
+                releaseHandledTouches.remove(touchKey)
+            } else if Self.isTerminalReleaseState(touch.state),
+                      releaseHandledTouches.value(for: touchKey) != nil {
+                touchInitialContactPoint.remove(touchKey)
+                clearPeakPressure(for: touchKey)
+                continue
+            }
             var bindingAtPoint: KeyBinding?
             var didResolveBinding = false
             @inline(__always)
@@ -1555,6 +1564,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                releaseHandledTouches.set(touchKey, true)
                 clearPeakPressure(for: touchKey)
             case .notTouching:
                 let releaseStartPoint = touchInitialContactPoint.remove(touchKey)
@@ -1646,6 +1656,7 @@ actor TouchProcessorEngine {
                         #endif
                     }
                 }
+                releaseHandledTouches.set(touchKey, true)
                 clearPeakPressure(for: touchKey)
             case .hovering, .lingering:
                 break
@@ -2529,6 +2540,15 @@ actor TouchProcessorEngine {
     private static func isIntentContactState(_ state: OpenMTState) -> Bool {
         switch state {
         case .starting, .making, .touching, .breaking, .leaving:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static func isTerminalReleaseState(_ state: OpenMTState) -> Bool {
+        switch state {
+        case .breaking, .leaving, .notTouching:
             return true
         default:
             return false
@@ -4330,6 +4350,7 @@ actor TouchProcessorEngine {
         }
         touchStates.removeAll()
         disqualifiedTouches.removeAll()
+        releaseHandledTouches.removeAll()
         toggleTouchStarts.removeAll()
         layerToggleTouchStarts.removeAll()
         momentaryLayerTouches.removeAll()

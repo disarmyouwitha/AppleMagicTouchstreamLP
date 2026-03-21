@@ -8,20 +8,9 @@
 - Shift on same hand is broken.. 2-finger hold/2-finger tap related??
 - right click bugs bc 3 finger drag, lets fix!
 
-
-_
-• There’s a more fundamental mismatch surfacing now than the per-touch rules: the live mac path is callback → AsyncStream(bufferingNewest: 2) → another AsyncStream(bufferingNewest: 2) → actor ingest. That is materially
-  different from the Windows core’s direct frame processing, and it can silently drop frames under load, which would feel exactly like “I tapped repeatedly and only some letters ever existed.”
-_
     
 ## TODO:
-- Sometimes Mixed mode ignores taps for typing? Frustrating when starting to type having to hit the key multiple times to start typing mode.
-- I think it was because early on i had you build a 20ms key buffer before typing in the intent machine and I want to remove it.
-- in keyboard mode it is also really bad, so maybe it doesn’t have to do with Mixed mode, or the 20ms key buffer? Maybe it's hit detection after the anchor/keymap change? it feels TERRIBLE
-
-
-^ tip switch like on windows?
-^ capture
+- Chordal shift is broken on RHS.
 ---
 - hold repeat
 - auto-reconnect not working correctly after sleep
