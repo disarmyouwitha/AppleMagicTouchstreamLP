@@ -474,6 +474,7 @@ actor TouchProcessorEngine {
     private var keymapEditingEnabled = false
     private var isTypingEnabled = true
     private var keyboardModeEnabled = false
+    private var holdRepeatEnabled = false
     private var activeLayer: Int = 0
     private var persistentLayer: Int = 0
     private var leftDeviceIndex: Int?
@@ -854,6 +855,10 @@ actor TouchProcessorEngine {
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
+    }
+
+    func updateHoldRepeatEnabled(_ enabled: Bool) {
+        holdRepeatEnabled = enabled
     }
 
     func processRawFrame(_ frame: OMSRawTouchFrame) {
@@ -3754,6 +3759,7 @@ actor TouchProcessorEngine {
     }
 
     private func canHoldRepeat(binding: KeyBinding) -> Bool {
+        guard holdRepeatEnabled else { return false }
         guard case let .key(code, _) = binding.action else { return false }
         if modifierKey(for: binding) != nil {
             return false

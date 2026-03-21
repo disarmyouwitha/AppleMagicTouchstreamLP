@@ -15,6 +15,7 @@ enum GlassToKeySettings {
     static let tapClickCadenceMs: Double = 280.0
     static let snapRadiusPercent: Double = 35.0
     static let keyboardModeEnabled: Bool = false
+    static let holdRepeatEnabled: Bool = false
     static let runAtStartupEnabled: Bool = false
     static let twoFingerTapGestureActionLabel = KeyActionCatalog.leftClickLabel
     static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
@@ -55,6 +56,7 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.tapClickCadenceMs,
         GlassToKeyDefaultsKeys.snapRadiusPercent,
         GlassToKeyDefaultsKeys.keyboardModeEnabled,
+        GlassToKeyDefaultsKeys.holdRepeatEnabled,
         GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
         GlassToKeyDefaultsKeys.threeFingerTapGestureAction,
         GlassToKeyDefaultsKeys.twoFingerHoldGestureAction,
@@ -99,6 +101,7 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.tapClickCadenceMs, forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs)
         defaults.set(profile.snapRadiusPercent, forKey: GlassToKeyDefaultsKeys.snapRadiusPercent)
         defaults.set(profile.keyboardModeEnabled, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
+        defaults.set(profile.holdRepeatEnabled, forKey: GlassToKeyDefaultsKeys.holdRepeatEnabled)
         defaults.set(profile.twoFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
         defaults.set(profile.threeFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
         defaults.set(profile.twoFingerHoldGestureAction, forKey: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction)
@@ -435,6 +438,9 @@ final class GlassToKeyController: ObservableObject {
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
+        let holdRepeatEnabled = defaults.object(
+            forKey: GlassToKeyDefaultsKeys.holdRepeatEnabled
+        ) as? Bool ?? GlassToKeySettings.holdRepeatEnabled
         let twoFingerTapGestureActionLabel = defaults.string(
             forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction
         ) ?? GlassToKeySettings.twoFingerTapGestureActionLabel
@@ -505,6 +511,7 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         viewModel.updateGestureActions(
             twoFingerTap: twoFingerTapGestureAction,
             threeFingerTap: threeFingerTapGestureAction,

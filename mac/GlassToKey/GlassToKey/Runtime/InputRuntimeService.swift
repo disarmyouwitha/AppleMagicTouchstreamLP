@@ -410,6 +410,13 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateHoldRepeatEnabled(_ enabled: Bool) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateHoldRepeatEnabled(enabled)
+        }
+    }
+
     func setKeymapEditingEnabled(_ enabled: Bool) {
         let runtimeEngine = runtimeEngine
         Task {

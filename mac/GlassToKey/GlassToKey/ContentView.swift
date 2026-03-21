@@ -104,6 +104,8 @@ struct ContentView: View {
     private var snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.holdRepeatEnabled)
+    private var holdRepeatEnabled = GlassToKeySettings.holdRepeatEnabled
     @AppStorage(GlassToKeyDefaultsKeys.runAtStartupEnabled)
     private var runAtStartupEnabled = GlassToKeySettings.runAtStartupEnabled
     @AppStorage(GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
@@ -556,6 +558,9 @@ struct ContentView: View {
                 }
                 viewModel.updateKeyboardModeEnabled(newValue)
             }
+            .onChange(of: holdRepeatEnabled) { newValue in
+                viewModel.updateHoldRepeatEnabled(newValue)
+            }
             .onChange(of: runAtStartupEnabled) { newValue in
                 do {
                     try LaunchAtLoginManager.shared.setEnabled(newValue)
@@ -888,6 +893,7 @@ struct ContentView: View {
             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
             keyboardModeEnabled: $keyboardModeEnabled,
+            holdRepeatEnabled: $holdRepeatEnabled,
             runAtStartupEnabled: $runAtStartupEnabled,
             twoFingerTapGestureAction: $twoFingerTapGestureAction,
             threeFingerTapGestureAction: $threeFingerTapGestureAction,
@@ -1246,6 +1252,7 @@ struct ContentView: View {
         @Binding var tapClickCadenceMsSetting: Double
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
+        @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
@@ -1357,6 +1364,7 @@ struct ContentView: View {
                                 autocorrectEnabled: $autocorrectEnabled,
                                 snapRadiusPercentSetting: $snapRadiusPercentSetting,
                                 keyboardModeEnabled: $keyboardModeEnabled,
+                                holdRepeatEnabled: $holdRepeatEnabled,
                                 runAtStartupEnabled: $runAtStartupEnabled,
                                 autoResyncEnabled: $autoResyncEnabled
                             )
@@ -2612,6 +2620,7 @@ struct ContentView: View {
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
         @Binding var keyboardModeEnabled: Bool
+        @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
 
@@ -2651,6 +2660,12 @@ struct ContentView: View {
                         .labelsHidden()
                 }
                 GridRow {
+                    Text("Hold Repeat")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $holdRepeatEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .help("Repeats hold-enabled key actions while the touch stays held.")
                     Text("Auto-resync")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autoResyncEnabled)
@@ -3886,6 +3901,7 @@ struct ContentView: View {
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateSnapRadiusPercent(snapRadiusPercentSetting)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
+        viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.updateGestureActions(
@@ -3915,6 +3931,7 @@ struct ContentView: View {
         tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
         snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
+        holdRepeatEnabled = GlassToKeySettings.holdRepeatEnabled
         twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
         threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureActionLabel
         twoFingerHoldGestureAction = GlassToKeySettings.twoFingerHoldGestureActionLabel
@@ -4007,6 +4024,7 @@ struct ContentView: View {
             tapClickCadenceMs: tapClickCadenceMsSetting,
             snapRadiusPercent: snapRadiusPercentSetting,
             keyboardModeEnabled: keyboardModeEnabled,
+            holdRepeatEnabled: holdRepeatEnabled,
             twoFingerTapGestureAction: twoFingerTapGestureAction,
             threeFingerTapGestureAction: threeFingerTapGestureAction,
             twoFingerHoldGestureAction: twoFingerHoldGestureAction,
@@ -4056,6 +4074,7 @@ struct ContentView: View {
         tapClickCadenceMsSetting = profile.tapClickCadenceMs
         snapRadiusPercentSetting = profile.snapRadiusPercent
         keyboardModeEnabled = profile.keyboardModeEnabled
+        holdRepeatEnabled = profile.holdRepeatEnabled
         twoFingerTapGestureAction = normalizedGestureActionLabel(
             profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel,
             fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel

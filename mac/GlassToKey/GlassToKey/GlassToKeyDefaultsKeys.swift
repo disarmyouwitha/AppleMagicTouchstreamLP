@@ -22,6 +22,7 @@ enum GlassToKeyDefaultsKeys {
     static let autocorrectEnabled = "GlassToKey.autocorrectEnabled"
     static let snapRadiusPercent = "GlassToKey.snapRadiusPercent"
     static let keyboardModeEnabled = "GlassToKey.keyboardModeEnabled"
+    static let holdRepeatEnabled = "GlassToKey.holdRepeatEnabled"
     static let runAtStartupEnabled = "GlassToKey.runAtStartupEnabled"
     static let twoFingerTapGestureAction = "GlassToKey.twoFingerTapGestureAction"
     static let threeFingerTapGestureAction = "GlassToKey.threeFingerTapGestureAction"

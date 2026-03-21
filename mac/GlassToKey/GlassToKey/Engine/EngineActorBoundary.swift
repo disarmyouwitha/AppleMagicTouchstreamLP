@@ -36,6 +36,7 @@ protocol EngineActorBoundary: Sendable {
     func updateHapticStrength(_ normalized: Double) async
     func updateSnapRadiusPercent(_ percent: Double) async
     func updateKeyboardModeEnabled(_ enabled: Bool) async
+    func updateHoldRepeatEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
     func updateGestureActions(
@@ -199,6 +200,10 @@ actor EngineActor: EngineActorBoundary {
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
         await processor.updateKeyboardModeEnabled(enabled)
+    }
+
+    func updateHoldRepeatEnabled(_ enabled: Bool) async {
+        await processor.updateHoldRepeatEnabled(enabled)
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {
@@ -438,6 +443,10 @@ actor EngineActorStub: EngineActorBoundary {
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
         await impl.updateKeyboardModeEnabled(enabled)
+    }
+
+    func updateHoldRepeatEnabled(_ enabled: Bool) async {
+        await impl.updateHoldRepeatEnabled(enabled)
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {

@@ -63,6 +63,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyDefaultsKeys.autocorrectEnabled,
         GlassToKeyDefaultsKeys.snapRadiusPercent,
         GlassToKeyDefaultsKeys.keyboardModeEnabled,
+        GlassToKeyDefaultsKeys.holdRepeatEnabled,
         GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
         GlassToKeyDefaultsKeys.threeFingerTapGestureAction,
         GlassToKeyDefaultsKeys.twoFingerHoldGestureAction,

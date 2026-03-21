@@ -833,6 +833,7 @@ final class ContentViewModel: ObservableObject {
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
+    @Published var holdRepeatEnabled: Bool = false
     @Published private(set) var replayTimelineState: ReplayTimelineState?
     @Published private(set) var activeLayer: Int = 0
     private let isDragDetectionEnabled = true
@@ -1123,6 +1124,11 @@ final class ContentViewModel: ObservableObject {
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
         runtimeCommandService.updateKeyboardModeEnabled(enabled)
+    }
+
+    func updateHoldRepeatEnabled(_ enabled: Bool) {
+        holdRepeatEnabled = enabled
+        runtimeCommandService.updateHoldRepeatEnabled(enabled)
     }
 
     func updateGestureActions(
@@ -2839,6 +2845,7 @@ struct AppKeymapProfile: Codable {
     let tapClickCadenceMs: Double
     let snapRadiusPercent: Double
     let keyboardModeEnabled: Bool
+    let holdRepeatEnabled: Bool
     let twoFingerTapGestureAction: String?
     let threeFingerTapGestureAction: String?
     let twoFingerHoldGestureAction: String?
@@ -2875,6 +2882,7 @@ struct AppKeymapProfile: Codable {
             tapClickCadenceMs: GlassToKeySettings.tapClickCadenceMs,
             snapRadiusPercent: GlassToKeySettings.snapRadiusPercent,
             keyboardModeEnabled: GlassToKeySettings.keyboardModeEnabled,
+            holdRepeatEnabled: GlassToKeySettings.holdRepeatEnabled,
             twoFingerTapGestureAction: GlassToKeySettings.twoFingerTapGestureActionLabel,
             threeFingerTapGestureAction: GlassToKeySettings.threeFingerTapGestureActionLabel,
             twoFingerHoldGestureAction: GlassToKeySettings.twoFingerHoldGestureActionLabel,
@@ -3007,6 +3015,7 @@ enum PortableKeymapInterop {
             tapClickCadenceMs: currentProfile.tapClickCadenceMs,
             snapRadiusPercent: settings.snapRadiusPercent ?? currentProfile.snapRadiusPercent,
             keyboardModeEnabled: settings.keyboardModeEnabled ?? currentProfile.keyboardModeEnabled,
+            holdRepeatEnabled: settings.holdRepeatEnabled ?? currentProfile.holdRepeatEnabled,
             twoFingerTapGestureAction: currentProfile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: settings.threeFingerClickAction ?? currentProfile.threeFingerTapGestureAction,
             twoFingerHoldGestureAction: settings.twoFingerHoldAction ?? currentProfile.twoFingerHoldGestureAction,
@@ -3046,6 +3055,7 @@ enum PortableKeymapInterop {
                 tapClickCadenceMs: hostExtension.tapClickCadenceMs ?? profile.tapClickCadenceMs,
                 snapRadiusPercent: profile.snapRadiusPercent,
                 keyboardModeEnabled: profile.keyboardModeEnabled,
+                holdRepeatEnabled: profile.holdRepeatEnabled,
                 twoFingerTapGestureAction: hostExtension.twoFingerTapGestureAction ?? profile.twoFingerTapGestureAction,
                 threeFingerTapGestureAction: hostExtension.threeFingerTapGestureAction ?? profile.threeFingerTapGestureAction,
                 twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
@@ -3170,6 +3180,7 @@ enum PortableKeymapInterop {
             tapClickCadenceMs: profile.tapClickCadenceMs,
             snapRadiusPercent: profile.snapRadiusPercent,
             keyboardModeEnabled: profile.keyboardModeEnabled,
+            holdRepeatEnabled: profile.holdRepeatEnabled,
             twoFingerTapGestureAction: profile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: profile.threeFingerTapGestureAction,
             twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
@@ -3326,6 +3337,7 @@ enum PortableKeymapInterop {
         var activeLayer: Int?
         var layoutPresetName: String?
         var keyboardModeEnabled: Bool?
+        var holdRepeatEnabled: Bool?
         var autocorrectEnabled: Bool?
         var fiveFingerSwipeLeftAction: String?
         var fiveFingerSwipeRightAction: String?
@@ -3354,6 +3366,7 @@ enum PortableKeymapInterop {
             let resolvedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(profile.layoutPreset)
             layoutPresetName = portableLayoutName(fromMac: profile.layoutPreset)
             keyboardModeEnabled = profile.keyboardModeEnabled
+            holdRepeatEnabled = profile.holdRepeatEnabled
             autocorrectEnabled = profile.autocorrectEnabled
             fiveFingerSwipeLeftAction = profile.fiveFingerSwipeLeftGestureAction
             fiveFingerSwipeRightAction = profile.fiveFingerSwipeRightGestureAction
@@ -3388,6 +3401,7 @@ enum PortableKeymapInterop {
             case activeLayer = "ActiveLayer"
             case layoutPresetName = "LayoutPresetName"
             case keyboardModeEnabled = "KeyboardModeEnabled"
+            case holdRepeatEnabled = "HoldRepeatEnabled"
             case autocorrectEnabled = "AutocorrectEnabled"
             case fiveFingerSwipeLeftAction = "FiveFingerSwipeLeftAction"
             case fiveFingerSwipeRightAction = "FiveFingerSwipeRightAction"
