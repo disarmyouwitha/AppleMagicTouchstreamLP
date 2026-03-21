@@ -886,34 +886,30 @@ actor TouchProcessorEngine {
         currentProcessingTimestamp = now
         defer { currentProcessingTimestamp = nil }
         let touches = frame.touches
-        let hasTouchData = !touches.isEmpty
-        if !hasTouchData {
-            chordShiftState[.left] = ChordShiftState()
-            chordShiftState[.right] = ChordShiftState()
-            twoFingerHoldState[.left] = MultiFingerHoldState()
-            twoFingerHoldState[.right] = MultiFingerHoldState()
-            threeFingerHoldState[.left] = MultiFingerHoldState()
-            threeFingerHoldState[.right] = MultiFingerHoldState()
-            fourFingerHoldState[.left] = MultiFingerHoldState()
-            fourFingerHoldState[.right] = MultiFingerHoldState()
-            chordShiftLastContactTime[.left] = 0
-            chordShiftLastContactTime[.right] = 0
-            updateChordShiftKeyState()
-        }
         let deviceIndex = frame.deviceIndex
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        let activeSide: TrackpadSide? = if isLeftDevice {
+            .left
+        } else if isRightDevice {
+            .right
+        } else {
+            nil
+        }
+        let hasTouchData = !touches.isEmpty
+        if let activeSide {
+            if hasTouchData {
+                let summary = gestureContactSummary(in: touches)
+                updateTwoFingerHold(for: activeSide, summary: summary, now: now)
+                updateThreeFingerHold(for: activeSide, summary: summary, now: now)
+                updateFourFingerHold(for: activeSide, summary: summary, now: now)
+            } else {
+                resetGestureState(for: activeSide)
+            }
+            updateChordShiftKeyState()
+        }
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        let leftSummary = gestureContactSummary(in: leftTouches)
-        let rightSummary = gestureContactSummary(in: rightTouches)
-        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
-        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
-        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
-        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
-        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
-        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
-        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -977,34 +973,30 @@ actor TouchProcessorEngine {
         currentProcessingTimestamp = now
         defer { currentProcessingTimestamp = nil }
         let touches = frame.rawTouches
-        let hasTouchData = !touches.isEmpty
-        if !hasTouchData {
-            chordShiftState[.left] = ChordShiftState()
-            chordShiftState[.right] = ChordShiftState()
-            twoFingerHoldState[.left] = MultiFingerHoldState()
-            twoFingerHoldState[.right] = MultiFingerHoldState()
-            threeFingerHoldState[.left] = MultiFingerHoldState()
-            threeFingerHoldState[.right] = MultiFingerHoldState()
-            fourFingerHoldState[.left] = MultiFingerHoldState()
-            fourFingerHoldState[.right] = MultiFingerHoldState()
-            chordShiftLastContactTime[.left] = 0
-            chordShiftLastContactTime[.right] = 0
-            updateChordShiftKeyState()
-        }
         let deviceIndex = frame.deviceIndex
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        let activeSide: TrackpadSide? = if isLeftDevice {
+            .left
+        } else if isRightDevice {
+            .right
+        } else {
+            nil
+        }
+        let hasTouchData = !touches.isEmpty
+        if let activeSide {
+            if hasTouchData {
+                let summary = gestureContactSummary(in: touches)
+                updateTwoFingerHold(for: activeSide, summary: summary, now: now)
+                updateThreeFingerHold(for: activeSide, summary: summary, now: now)
+                updateFourFingerHold(for: activeSide, summary: summary, now: now)
+            } else {
+                resetGestureState(for: activeSide)
+            }
+            updateChordShiftKeyState()
+        }
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
-        let leftSummary = gestureContactSummary(in: leftTouches)
-        let rightSummary = gestureContactSummary(in: rightTouches)
-        updateTwoFingerHold(for: .left, summary: leftSummary, now: now)
-        updateTwoFingerHold(for: .right, summary: rightSummary, now: now)
-        updateThreeFingerHold(for: .left, summary: leftSummary, now: now)
-        updateThreeFingerHold(for: .right, summary: rightSummary, now: now)
-        updateFourFingerHold(for: .left, summary: leftSummary, now: now)
-        updateFourFingerHold(for: .right, summary: rightSummary, now: now)
-        updateChordShiftKeyState()
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -2612,8 +2604,27 @@ actor TouchProcessorEngine {
         chordShiftState[side] = state
     }
 
+    private func resetGestureState(for side: TrackpadSide) {
+        chordShiftState[side] = ChordShiftState()
+        twoFingerHoldState[side] = MultiFingerHoldState()
+        threeFingerHoldState[side] = MultiFingerHoldState()
+        fourFingerHoldState[side] = MultiFingerHoldState()
+        chordShiftLastContactTime[side] = 0
+    }
+
+    private func isChordShiftGestureAction(_ action: KeyAction) -> Bool {
+        if action.kind == .chordalShift {
+            return true
+        }
+        guard action.kind == .key, action.flags == 0 else {
+            return false
+        }
+        let code = CGKeyCode(action.keyCode)
+        return code == CGKeyCode(kVK_Shift) || code == CGKeyCode(kVK_RightShift)
+    }
+
     private var isChordShiftGestureActive: Bool {
-        chordShiftEnabled && fourFingerHoldAction.kind == .chordalShift
+        chordShiftEnabled && isChordShiftGestureAction(fourFingerHoldAction)
     }
 
     private func updateTwoFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
@@ -2742,7 +2753,7 @@ actor TouchProcessorEngine {
     }
 
     private func gestureHoldDelay(for action: KeyAction) -> TimeInterval {
-        action.kind == .chordalShift ? 0 : holdMinDuration
+        isChordShiftGestureAction(action) ? 0 : holdMinDuration
     }
 
     private func areSideTouchStartsSynchronizedForHold(
