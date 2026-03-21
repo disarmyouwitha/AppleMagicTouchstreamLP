@@ -151,6 +151,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         qos: .userInteractive
     )
     private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
+    private let transientMouseSuppressor = TransientMouseEventSuppressor()
 
     func postKeyStroke(
         code: CGKeyCode,
@@ -371,6 +372,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             }
             mouseDown.post(tap: .cghidEventTap)
             mouseUp.post(tap: .cghidEventTap)
+            transientMouseSuppressor.suppressAfterSyntheticRightClick()
         }
     }
 
@@ -495,6 +497,116 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             source = created
             return created
         }
+    }
+}
+
+private final class TransientMouseEventSuppressor: @unchecked Sendable {
+    private struct State {
+        var suppressionDeadline: CFAbsoluteTime = 0
+    }
+
+    private static let suppressionDuration: CFTimeInterval = 0.2
+
+    private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+    private let installLock = NSLock()
+    private var eventTap: CFMachPort?
+    private var runLoopSource: CFRunLoopSource?
+
+    func suppressAfterSyntheticRightClick() {
+        stateLock.withLockUnchecked { state in
+            let deadline = CFAbsoluteTimeGetCurrent() + Self.suppressionDuration
+            state.suppressionDeadline = max(state.suppressionDeadline, deadline)
+        }
+        ensureEventTap()
+    }
+
+    private func ensureEventTap() {
+        guard InputMonitoringPermission.hasListenAccess() else { return }
+        if Thread.isMainThread {
+            installEventTapIfNeeded()
+            return
+        }
+        DispatchQueue.main.sync {
+            installEventTapIfNeeded()
+        }
+    }
+
+    private func installEventTapIfNeeded() {
+        installLock.lock()
+        defer { installLock.unlock() }
+
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+            return
+        }
+
+        let mask = (1 << CGEventType.leftMouseDown.rawValue)
+            | (1 << CGEventType.leftMouseUp.rawValue)
+            | (1 << CGEventType.leftMouseDragged.rawValue)
+            | (1 << CGEventType.rightMouseDown.rawValue)
+            | (1 << CGEventType.rightMouseUp.rawValue)
+            | (1 << CGEventType.rightMouseDragged.rawValue)
+            | (1 << CGEventType.otherMouseDown.rawValue)
+            | (1 << CGEventType.otherMouseUp.rawValue)
+            | (1 << CGEventType.otherMouseDragged.rawValue)
+
+        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
+        guard let tap = CGEvent.tapCreate(
+            tap: .cgSessionEventTap,
+            place: .headInsertEventTap,
+            options: .defaultTap,
+            eventsOfInterest: CGEventMask(mask),
+            callback: Self.eventTapCallback,
+            userInfo: refcon
+        ) else {
+            return
+        }
+
+        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
+        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
+        eventTap = tap
+        runLoopSource = source
+        CGEvent.tapEnable(tap: tap, enable: true)
+    }
+
+    private func shouldSuppress(type: CGEventType) -> Bool {
+        guard Self.isSuppressible(type) else { return false }
+        let deadline = stateLock.withLockUnchecked { $0.suppressionDeadline }
+        return CFAbsoluteTimeGetCurrent() < deadline
+    }
+
+    private func reenableIfNeeded(for type: CGEventType) {
+        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
+        if let tap = eventTap {
+            CGEvent.tapEnable(tap: tap, enable: true)
+        }
+    }
+
+    private static func isSuppressible(_ type: CGEventType) -> Bool {
+        switch type {
+        case .leftMouseDown,
+             .leftMouseUp,
+             .leftMouseDragged,
+             .rightMouseDown,
+             .rightMouseUp,
+             .rightMouseDragged,
+             .otherMouseDown,
+             .otherMouseUp,
+             .otherMouseDragged:
+            return true
+        default:
+            return false
+        }
+    }
+
+    private static let eventTapCallback: CGEventTapCallBack = { _, type, event, refcon in
+        guard let refcon else { return Unmanaged.passUnretained(event) }
+        let suppressor = Unmanaged<TransientMouseEventSuppressor>.fromOpaque(refcon).takeUnretainedValue()
+        suppressor.reenableIfNeeded(for: type)
+        if suppressor.shouldSuppress(type: type) {
+            return nil
+        }
+        return Unmanaged.passUnretained(event)
     }
 }
 
