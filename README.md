@@ -60,7 +60,7 @@ Once I get time I would like to explore the possibility of extending the Opensou
 <hr>
 
 ## Intention
-<img src="touchstreamLP.jpg" width="900px">
+<img src="pics/touchstreamLP.jpg" width="900px">
 The Fingerworks TouchStreamLP was a flat, zero-force, gesture keyboard developed for people with RSI in 2002 — it was way before it’s time, and it was *totally rad* FingerWorks was acquired by Apple in 2005 and the TouchStreamLP was immediately discontinued, the technology becoming the basis for the iPhone’s touchscreen in 2007.
 
 **——So here we are——:** it has come full circle. ⭕️
@@ -69,6 +69,6 @@ I have been working to revive this ancient keyboard using the DNA of it’s own 
 
 Since it is built on the same technology, I thought it would be fun to try and create an open source version~
 
-<img src="apple-magic-touchstreamlp.jpg" />
+<img src="pics/apple-magic-touchstreamlp.jpg" />
 
-<img src="splatpad.jpg" />
+<img src="pics/splatpad.jpg" />
