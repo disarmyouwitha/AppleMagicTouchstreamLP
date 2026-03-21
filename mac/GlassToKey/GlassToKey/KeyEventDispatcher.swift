@@ -94,6 +94,10 @@ final class KeyEventDispatcher: @unchecked Sendable {
         dispatcher.postRightClickImmediate()
     }
 
+    func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
+        dispatcher.setThreeFingerHoldDragSuppression(enabled)
+    }
+
     func postMiddleClick() {
         dispatcher.postMiddleClick()
     }
@@ -128,6 +132,7 @@ private protocol KeyDispatching: Sendable {
     func postLeftClickImmediate(clickCount: Int)
     func postRightClick()
     func postRightClickImmediate()
+    func setThreeFingerHoldDragSuppression(_ enabled: Bool)
     func postMiddleClick()
     func postMiddleClickImmediate()
     func postText(_ text: String)
@@ -151,7 +156,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         qos: .userInteractive
     )
     private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
-    private let transientMouseSuppressor = TransientMouseEventSuppressor()
+    private let threeFingerHoldDragSuppressor = ThreeFingerHoldDragSuppressor()
 
     func postKeyStroke(
         code: CGKeyCode,
@@ -372,8 +377,11 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
             }
             mouseDown.post(tap: .cghidEventTap)
             mouseUp.post(tap: .cghidEventTap)
-            transientMouseSuppressor.suppressAfterSyntheticRightClick()
         }
+    }
+
+    func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
+        threeFingerHoldDragSuppressor.setEnabled(enabled)
     }
 
     func postMiddleClick() {
@@ -500,24 +508,23 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 }
 
-private final class TransientMouseEventSuppressor: @unchecked Sendable {
+private final class ThreeFingerHoldDragSuppressor: @unchecked Sendable {
     private struct State {
-        var suppressionDeadline: CFAbsoluteTime = 0
+        var isEnabled = false
     }
-
-    private static let suppressionDuration: CFTimeInterval = 0.2
 
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let installLock = NSLock()
     private var eventTap: CFMachPort?
     private var runLoopSource: CFRunLoopSource?
 
-    func suppressAfterSyntheticRightClick() {
+    func setEnabled(_ enabled: Bool) {
         stateLock.withLockUnchecked { state in
-            let deadline = CFAbsoluteTimeGetCurrent() + Self.suppressionDuration
-            state.suppressionDeadline = max(state.suppressionDeadline, deadline)
+            state.isEnabled = enabled
         }
-        ensureEventTap()
+        if enabled {
+            ensureEventTap()
+        }
     }
 
     private func ensureEventTap() {
@@ -543,12 +550,6 @@ private final class TransientMouseEventSuppressor: @unchecked Sendable {
         let mask = (1 << CGEventType.leftMouseDown.rawValue)
             | (1 << CGEventType.leftMouseUp.rawValue)
             | (1 << CGEventType.leftMouseDragged.rawValue)
-            | (1 << CGEventType.rightMouseDown.rawValue)
-            | (1 << CGEventType.rightMouseUp.rawValue)
-            | (1 << CGEventType.rightMouseDragged.rawValue)
-            | (1 << CGEventType.otherMouseDown.rawValue)
-            | (1 << CGEventType.otherMouseUp.rawValue)
-            | (1 << CGEventType.otherMouseDragged.rawValue)
 
         let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
         guard let tap = CGEvent.tapCreate(
@@ -571,8 +572,7 @@ private final class TransientMouseEventSuppressor: @unchecked Sendable {
 
     private func shouldSuppress(type: CGEventType) -> Bool {
         guard Self.isSuppressible(type) else { return false }
-        let deadline = stateLock.withLockUnchecked { $0.suppressionDeadline }
-        return CFAbsoluteTimeGetCurrent() < deadline
+        return stateLock.withLockUnchecked { $0.isEnabled }
     }
 
     private func reenableIfNeeded(for type: CGEventType) {
@@ -586,13 +586,7 @@ private final class TransientMouseEventSuppressor: @unchecked Sendable {
         switch type {
         case .leftMouseDown,
              .leftMouseUp,
-             .leftMouseDragged,
-             .rightMouseDown,
-             .rightMouseUp,
-             .rightMouseDragged,
-             .otherMouseDown,
-             .otherMouseUp,
-             .otherMouseDragged:
+             .leftMouseDragged:
             return true
         default:
             return false
@@ -601,7 +595,7 @@ private final class TransientMouseEventSuppressor: @unchecked Sendable {
 
     private static let eventTapCallback: CGEventTapCallBack = { _, type, event, refcon in
         guard let refcon else { return Unmanaged.passUnretained(event) }
-        let suppressor = Unmanaged<TransientMouseEventSuppressor>.fromOpaque(refcon).takeUnretainedValue()
+        let suppressor = Unmanaged<ThreeFingerHoldDragSuppressor>.fromOpaque(refcon).takeUnretainedValue()
         suppressor.reenableIfNeeded(for: type)
         if suppressor.shouldSuppress(type: type) {
             return nil
@@ -804,6 +798,10 @@ final class DispatchService: @unchecked Sendable {
 
     func postRightClick() {
         enqueue(.rightClick)
+    }
+
+    func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
+        keyDispatcher.setThreeFingerHoldDragSuppression(enabled)
     }
 
     func postMiddleClick() {

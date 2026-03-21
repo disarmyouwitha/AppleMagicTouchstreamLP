@@ -2633,6 +2633,20 @@ struct ContentView: View {
             )
         }
 
+        private func openThreeFingerDragSettings() {
+            let urls = [
+                "x-apple.systempreferences:com.apple.preference.universalaccess?Mouse",
+                "x-apple.systempreferences:com.apple.preference.universalaccess"
+            ]
+
+            for candidate in urls {
+                guard let url = URL(string: candidate) else { continue }
+                if NSWorkspace.shared.open(url) {
+                    return
+                }
+            }
+        }
+
         var body: some View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
@@ -2672,6 +2686,17 @@ struct ContentView: View {
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
                         .help("Polls every 8 seconds to detect disconnected trackpads.")
+                }
+                GridRow {
+                    Text("3-Finger Drag")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Button("Open Settings") {
+                        openThreeFingerDragSettings()
+                    }
+                    .buttonStyle(.bordered)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gridCellColumns(3)
+                    .help("Opens System Settings so you can choose Pointer Control > Trackpad Options > Dragging Style.")
                 }
             }
         }
