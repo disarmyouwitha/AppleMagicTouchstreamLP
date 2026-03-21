@@ -102,8 +102,6 @@ struct ContentView: View {
     private var tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
     @AppStorage(GlassToKeyDefaultsKeys.snapRadiusPercent)
     private var snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
-    @AppStorage(GlassToKeyDefaultsKeys.chordalShiftEnabled)
-    private var chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
     @AppStorage(GlassToKeyDefaultsKeys.keyboardModeEnabled)
     private var keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
     @AppStorage(GlassToKeyDefaultsKeys.runAtStartupEnabled)
@@ -309,6 +307,13 @@ struct ContentView: View {
         KeyActionCatalog.action(for: storedLabel)
             ?? KeyActionCatalog.action(for: fallbackLabel)
             ?? KeyActionCatalog.noneAction
+    }
+
+    private func normalizedGestureActionLabel(
+        _ storedLabel: String,
+        fallbackLabel: String
+    ) -> String {
+        resolvedGestureAction(storedLabel, fallbackLabel: fallbackLabel).pickerText
     }
 
     private func currentGestureActions(
@@ -543,9 +548,6 @@ struct ContentView: View {
             }
             .onChange(of: snapRadiusPercentSetting) { newValue in
                 viewModel.updateSnapRadiusPercent(newValue)
-            }
-            .onChange(of: chordalShiftEnabled) { newValue in
-                viewModel.updateChordalShiftEnabled(newValue)
             }
             .onChange(of: keyboardModeEnabled) { newValue in
                 if newValue && !InputMonitoringPermission.requestListenAccessIfNeeded() {
@@ -885,7 +887,6 @@ struct ContentView: View {
             autocorrectEnabled: $autocorrectEnabled,
             tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
             snapRadiusPercentSetting: $snapRadiusPercentSetting,
-            chordalShiftEnabled: $chordalShiftEnabled,
             keyboardModeEnabled: $keyboardModeEnabled,
             runAtStartupEnabled: $runAtStartupEnabled,
             twoFingerTapGestureAction: $twoFingerTapGestureAction,
@@ -1244,7 +1245,6 @@ struct ContentView: View {
         @Binding var autocorrectEnabled: Bool
         @Binding var tapClickCadenceMsSetting: Double
         @Binding var snapRadiusPercentSetting: Double
-        @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var twoFingerTapGestureAction: String
@@ -1356,7 +1356,6 @@ struct ContentView: View {
                             ModeTogglesSectionView(
                                 autocorrectEnabled: $autocorrectEnabled,
                                 snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                                chordalShiftEnabled: $chordalShiftEnabled,
                                 keyboardModeEnabled: $keyboardModeEnabled,
                                 runAtStartupEnabled: $runAtStartupEnabled,
                                 autoResyncEnabled: $autoResyncEnabled
@@ -2612,7 +2611,6 @@ struct ContentView: View {
     private struct ModeTogglesSectionView: View {
         @Binding var autocorrectEnabled: Bool
         @Binding var snapRadiusPercentSetting: Double
-        @Binding var chordalShiftEnabled: Bool
         @Binding var keyboardModeEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
@@ -2641,23 +2639,18 @@ struct ContentView: View {
                         .labelsHidden()
                 }
                 GridRow {
-                    Text("Chordal Shift")
-                        .frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $chordalShiftEnabled)
-                        .toggleStyle(SwitchToggleStyle())
-                        .labelsHidden()
                     Text("Snap Radius")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: snapRadiusEnabledBinding)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
-                }
-                GridRow {
                     Text("Run at Startup")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $runAtStartupEnabled)
                         .toggleStyle(SwitchToggleStyle())
                         .labelsHidden()
+                }
+                GridRow {
                     Text("Auto-resync")
                         .frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $autoResyncEnabled)
@@ -3836,8 +3829,44 @@ struct ContentView: View {
             viewModel.selectLeftDevice(leftDevice)
         }
         if let rightDevice = deviceForID(storedRightDeviceID) {
-        viewModel.selectRightDevice(rightDevice)
+            viewModel.selectRightDevice(rightDevice)
         }
+        twoFingerTapGestureAction = normalizedGestureActionLabel(
+            twoFingerTapGestureAction,
+            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
+        )
+        threeFingerTapGestureAction = normalizedGestureActionLabel(
+            threeFingerTapGestureAction,
+            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
+        )
+        twoFingerHoldGestureAction = normalizedGestureActionLabel(
+            twoFingerHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
+        )
+        threeFingerHoldGestureAction = normalizedGestureActionLabel(
+            threeFingerHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
+        )
+        fourFingerHoldGestureAction = normalizedGestureActionLabel(
+            fourFingerHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
+        )
+        outerCornersHoldGestureAction = normalizedGestureActionLabel(
+            outerCornersHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
+        )
+        innerCornersHoldGestureAction = normalizedGestureActionLabel(
+            innerCornersHoldGestureAction,
+            fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
+        )
+        fiveFingerSwipeLeftGestureAction = normalizedGestureActionLabel(
+            fiveFingerSwipeLeftGestureAction,
+            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+        )
+        fiveFingerSwipeRightGestureAction = normalizedGestureActionLabel(
+            fiveFingerSwipeRightGestureAction,
+            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        )
         viewModel.updateHoldThreshold(tapHoldDurationMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragCancelDistanceSetting))
         forceClickMinSetting = min(
@@ -3856,7 +3885,6 @@ struct ContentView: View {
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSecSetting)
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateSnapRadiusPercent(snapRadiusPercentSetting)
-        viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
@@ -3886,7 +3914,6 @@ struct ContentView: View {
         autocorrectEnabled = GlassToKeySettings.autocorrectEnabled
         tapClickCadenceMsSetting = GlassToKeySettings.tapClickCadenceMs
         snapRadiusPercentSetting = GlassToKeySettings.snapRadiusPercent
-        chordalShiftEnabled = GlassToKeySettings.chordalShiftEnabled
         keyboardModeEnabled = GlassToKeySettings.keyboardModeEnabled
         twoFingerTapGestureAction = GlassToKeySettings.twoFingerTapGestureActionLabel
         threeFingerTapGestureAction = GlassToKeySettings.threeFingerTapGestureActionLabel
@@ -3979,7 +4006,6 @@ struct ContentView: View {
             autocorrectEnabled: autocorrectEnabled,
             tapClickCadenceMs: tapClickCadenceMsSetting,
             snapRadiusPercent: snapRadiusPercentSetting,
-            chordalShiftEnabled: chordalShiftEnabled,
             keyboardModeEnabled: keyboardModeEnabled,
             twoFingerTapGestureAction: twoFingerTapGestureAction,
             threeFingerTapGestureAction: threeFingerTapGestureAction,
@@ -4029,17 +4055,43 @@ struct ContentView: View {
         autocorrectEnabled = profile.autocorrectEnabled
         tapClickCadenceMsSetting = profile.tapClickCadenceMs
         snapRadiusPercentSetting = profile.snapRadiusPercent
-        chordalShiftEnabled = profile.chordalShiftEnabled
         keyboardModeEnabled = profile.keyboardModeEnabled
-        twoFingerTapGestureAction = profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel
-        threeFingerTapGestureAction = profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel
-        twoFingerHoldGestureAction = profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
-        threeFingerHoldGestureAction = profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel
-        fourFingerHoldGestureAction = profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel
-        outerCornersHoldGestureAction = profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel
-        innerCornersHoldGestureAction = profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
-        fiveFingerSwipeLeftGestureAction = profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-        fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        twoFingerTapGestureAction = normalizedGestureActionLabel(
+            profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
+        )
+        threeFingerTapGestureAction = normalizedGestureActionLabel(
+            profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
+        )
+        twoFingerHoldGestureAction = normalizedGestureActionLabel(
+            profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
+        )
+        threeFingerHoldGestureAction = normalizedGestureActionLabel(
+            profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
+        )
+        fourFingerHoldGestureAction = normalizedGestureActionLabel(
+            profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
+        )
+        outerCornersHoldGestureAction = normalizedGestureActionLabel(
+            profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
+        )
+        innerCornersHoldGestureAction = normalizedGestureActionLabel(
+            profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
+        )
+        fiveFingerSwipeLeftGestureAction = normalizedGestureActionLabel(
+            profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+        )
+        fiveFingerSwipeRightGestureAction = normalizedGestureActionLabel(
+            profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel,
+            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        )
         storedGestureRepeatCadenceData = GestureRepeatCadenceStorage.encode(
             profile.gestureRepeatCadenceMsById
         ) ?? Data()

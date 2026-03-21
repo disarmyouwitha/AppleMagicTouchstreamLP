@@ -14,14 +14,13 @@ enum GlassToKeySettings {
     static let autocorrectMinWordLength: Int = 2
     static let tapClickCadenceMs: Double = 280.0
     static let snapRadiusPercent: Double = 35.0
-    static let chordalShiftEnabled: Bool = true
     static let keyboardModeEnabled: Bool = false
     static let runAtStartupEnabled: Bool = false
     static let twoFingerTapGestureActionLabel = KeyActionCatalog.leftClickLabel
     static let threeFingerTapGestureActionLabel = KeyActionCatalog.rightClickLabel
     static let twoFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
     static let threeFingerHoldGestureActionLabel = KeyActionCatalog.noneLabel
-    static let fourFingerHoldGestureActionLabel = KeyActionCatalog.chordalShiftLabel
+    static let fourFingerHoldGestureActionLabel = "Shift"
     static let outerCornersHoldGestureActionLabel = KeyActionCatalog.voiceLabel
     static let innerCornersHoldGestureActionLabel = KeyActionCatalog.noneLabel
     static let fiveFingerSwipeLeftGestureActionLabel = KeyActionCatalog.typingToggleLabel
@@ -55,7 +54,6 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.autocorrectEnabled,
         GlassToKeyDefaultsKeys.tapClickCadenceMs,
         GlassToKeyDefaultsKeys.snapRadiusPercent,
-        GlassToKeyDefaultsKeys.chordalShiftEnabled,
         GlassToKeyDefaultsKeys.keyboardModeEnabled,
         GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
         GlassToKeyDefaultsKeys.threeFingerTapGestureAction,
@@ -100,7 +98,6 @@ final class GlassToKeyController: ObservableObject {
         defaults.set(profile.autocorrectEnabled, forKey: GlassToKeyDefaultsKeys.autocorrectEnabled)
         defaults.set(profile.tapClickCadenceMs, forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs)
         defaults.set(profile.snapRadiusPercent, forKey: GlassToKeyDefaultsKeys.snapRadiusPercent)
-        defaults.set(profile.chordalShiftEnabled, forKey: GlassToKeyDefaultsKeys.chordalShiftEnabled)
         defaults.set(profile.keyboardModeEnabled, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
         defaults.set(profile.twoFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
         defaults.set(profile.threeFingerTapGestureAction, forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
@@ -435,9 +432,6 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.snapRadiusPercent
         )
-        let chordalShiftEnabled = defaults.object(
-            forKey: GlassToKeyDefaultsKeys.chordalShiftEnabled
-        ) as? Bool ?? GlassToKeySettings.chordalShiftEnabled
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
@@ -510,7 +504,6 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
         viewModel.updateSnapRadiusPercent(snapRadiusPercent)
-        viewModel.updateChordalShiftEnabled(chordalShiftEnabled)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateGestureActions(
             twoFingerTap: twoFingerTapGestureAction,

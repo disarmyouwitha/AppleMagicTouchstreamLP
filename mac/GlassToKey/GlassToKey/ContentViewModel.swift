@@ -1120,10 +1120,6 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateSnapRadiusPercent(percent)
     }
 
-    func updateChordalShiftEnabled(_ enabled: Bool) {
-        runtimeCommandService.updateChordalShiftEnabled(enabled)
-    }
-
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         keyboardModeEnabled = enabled
         runtimeCommandService.updateKeyboardModeEnabled(enabled)
@@ -1822,6 +1818,11 @@ struct KeyAction: Codable, Hashable {
         flags = try container.decode(UInt64.self, forKey: .flags)
         kind = try container.decodeIfPresent(KeyActionKind.self, forKey: .kind) ?? .key
         layer = try container.decodeIfPresent(Int.self, forKey: .layer)
+        if kind == .chordalShift || KeyActionCatalog.isChordalShiftAlias(label) {
+            if let normalized = KeyActionCatalog.action(for: KeyActionCatalog.chordalShiftLabel) {
+                self = normalized
+            }
+        }
     }
 
     func encode(to encoder: Encoder) throws {
@@ -2205,8 +2206,7 @@ enum KeyActionCatalog {
     ]
 
     private static let modeActions: [KeyAction] = [
-        KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle),
-        KeyAction(label: chordalShiftLabel, keyCode: 0, flags: 0, kind: .chordalShift)
+        KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle)
     ]
 
     static let presets: [KeyAction] = {
@@ -2314,7 +2314,6 @@ enum KeyActionCatalog {
                 "Cmd",
                 "Emoji",
                 voiceLabel,
-                chordalShiftLabel,
                 typingToggleLabel
             ]),
             (dashedHeader("Symbols & Punctuation"), [
@@ -2372,6 +2371,13 @@ enum KeyActionCatalog {
 
     static let primaryActionGroups: [ActionGroup] = sharedActionGroups
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
+
+    private static func isChordalShiftAlias(_ label: String) -> Bool {
+        let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.caseInsensitiveCompare(chordalShiftLabel) == .orderedSame
+            || trimmed.caseInsensitiveCompare("Chord Shift") == .orderedSame
+            || trimmed.caseInsensitiveCompare("ChordShift") == .orderedSame
+    }
 
     static func action(for label: String) -> KeyAction? {
         if let spec = AppLaunchActionHelper.parse(label) {
@@ -2534,13 +2540,8 @@ enum KeyActionCatalog {
                 kind: .typingToggle
             )
         }
-        if normalizedLabel == chordalShiftLabel {
-            return KeyAction(
-                label: label,
-                keyCode: 0,
-                flags: 0,
-                kind: .chordalShift
-            )
+        if isChordalShiftAlias(normalizedLabel) {
+            return action(for: "Shift")
         }
         if normalizedLabel == gestureInnerCornersHoldLabel {
             return KeyAction(
@@ -2837,7 +2838,6 @@ struct AppKeymapProfile: Codable {
     let autocorrectEnabled: Bool
     let tapClickCadenceMs: Double
     let snapRadiusPercent: Double
-    let chordalShiftEnabled: Bool
     let keyboardModeEnabled: Bool
     let twoFingerTapGestureAction: String?
     let threeFingerTapGestureAction: String?
@@ -2874,7 +2874,6 @@ struct AppKeymapProfile: Codable {
             autocorrectEnabled: GlassToKeySettings.autocorrectEnabled,
             tapClickCadenceMs: GlassToKeySettings.tapClickCadenceMs,
             snapRadiusPercent: GlassToKeySettings.snapRadiusPercent,
-            chordalShiftEnabled: GlassToKeySettings.chordalShiftEnabled,
             keyboardModeEnabled: GlassToKeySettings.keyboardModeEnabled,
             twoFingerTapGestureAction: GlassToKeySettings.twoFingerTapGestureActionLabel,
             threeFingerTapGestureAction: GlassToKeySettings.threeFingerTapGestureActionLabel,
@@ -3007,7 +3006,6 @@ enum PortableKeymapInterop {
             autocorrectEnabled: settings.autocorrectEnabled ?? currentProfile.autocorrectEnabled,
             tapClickCadenceMs: currentProfile.tapClickCadenceMs,
             snapRadiusPercent: settings.snapRadiusPercent ?? currentProfile.snapRadiusPercent,
-            chordalShiftEnabled: settings.chordShiftEnabled ?? currentProfile.chordalShiftEnabled,
             keyboardModeEnabled: settings.keyboardModeEnabled ?? currentProfile.keyboardModeEnabled,
             twoFingerTapGestureAction: currentProfile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: settings.threeFingerClickAction ?? currentProfile.threeFingerTapGestureAction,
@@ -3047,7 +3045,6 @@ enum PortableKeymapInterop {
                 autocorrectEnabled: profile.autocorrectEnabled,
                 tapClickCadenceMs: hostExtension.tapClickCadenceMs ?? profile.tapClickCadenceMs,
                 snapRadiusPercent: profile.snapRadiusPercent,
-                chordalShiftEnabled: profile.chordalShiftEnabled,
                 keyboardModeEnabled: profile.keyboardModeEnabled,
                 twoFingerTapGestureAction: hostExtension.twoFingerTapGestureAction ?? profile.twoFingerTapGestureAction,
                 threeFingerTapGestureAction: hostExtension.threeFingerTapGestureAction ?? profile.threeFingerTapGestureAction,
@@ -3172,7 +3169,6 @@ enum PortableKeymapInterop {
             autocorrectEnabled: profile.autocorrectEnabled,
             tapClickCadenceMs: profile.tapClickCadenceMs,
             snapRadiusPercent: profile.snapRadiusPercent,
-            chordalShiftEnabled: profile.chordalShiftEnabled,
             keyboardModeEnabled: profile.keyboardModeEnabled,
             twoFingerTapGestureAction: profile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: profile.threeFingerTapGestureAction,
@@ -3331,7 +3327,6 @@ enum PortableKeymapInterop {
         var layoutPresetName: String?
         var keyboardModeEnabled: Bool?
         var autocorrectEnabled: Bool?
-        var chordShiftEnabled: Bool?
         var fiveFingerSwipeLeftAction: String?
         var fiveFingerSwipeRightAction: String?
         var twoFingerHoldAction: String?
@@ -3360,7 +3355,6 @@ enum PortableKeymapInterop {
             layoutPresetName = portableLayoutName(fromMac: profile.layoutPreset)
             keyboardModeEnabled = profile.keyboardModeEnabled
             autocorrectEnabled = profile.autocorrectEnabled
-            chordShiftEnabled = profile.chordalShiftEnabled
             fiveFingerSwipeLeftAction = profile.fiveFingerSwipeLeftGestureAction
             fiveFingerSwipeRightAction = profile.fiveFingerSwipeRightGestureAction
             twoFingerHoldAction = profile.twoFingerHoldGestureAction
@@ -3395,7 +3389,6 @@ enum PortableKeymapInterop {
             case layoutPresetName = "LayoutPresetName"
             case keyboardModeEnabled = "KeyboardModeEnabled"
             case autocorrectEnabled = "AutocorrectEnabled"
-            case chordShiftEnabled = "ChordShiftEnabled"
             case fiveFingerSwipeLeftAction = "FiveFingerSwipeLeftAction"
             case fiveFingerSwipeRightAction = "FiveFingerSwipeRightAction"
             case twoFingerHoldAction = "TwoFingerHoldAction"

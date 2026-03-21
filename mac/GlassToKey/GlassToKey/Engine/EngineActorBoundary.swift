@@ -35,7 +35,6 @@ protocol EngineActorBoundary: Sendable {
     func updateForceClickCap(_ grams: Double) async
     func updateHapticStrength(_ normalized: Double) async
     func updateSnapRadiusPercent(_ percent: Double) async
-    func updateChordalShiftEnabled(_ enabled: Bool) async
     func updateKeyboardModeEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
@@ -196,10 +195,6 @@ actor EngineActor: EngineActorBoundary {
 
     func updateSnapRadiusPercent(_ percent: Double) async {
         await processor.updateSnapRadiusPercent(percent)
-    }
-
-    func updateChordalShiftEnabled(_ enabled: Bool) async {
-        await processor.updateChordalShiftEnabled(enabled)
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
@@ -439,10 +434,6 @@ actor EngineActorStub: EngineActorBoundary {
 
     func updateSnapRadiusPercent(_ percent: Double) async {
         await impl.updateSnapRadiusPercent(percent)
-    }
-
-    func updateChordalShiftEnabled(_ enabled: Bool) async {
-        await impl.updateChordalShiftEnabled(enabled)
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {

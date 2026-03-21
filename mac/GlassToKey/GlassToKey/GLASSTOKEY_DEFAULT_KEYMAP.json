@@ -15,7 +15,6 @@
   "Settings" : {
     "ActiveLayer" : 0,
     "AutocorrectEnabled" : false,
-    "ChordShiftEnabled" : true,
     "ColumnSettings" : [
       {
         "OffsetXPercent" : -10,
@@ -490,7 +489,7 @@
     "FiveFingerSwipeRightAction" : "Typing Toggle",
     "ForceCap" : 255,
     "ForceMin" : 0,
-    "FourFingerHoldAction" : "Chordal Shift",
+    "FourFingerHoldAction" : "Shift",
     "HoldDurationMs" : 220,
     "InnerCornersAction" : "None",
     "IntentMoveMm" : 3,
