@@ -82,7 +82,8 @@ internal readonly record struct EngineKeyAction(
 internal readonly record struct EngineKeyMapping(
     EngineKeyAction Primary,
     EngineKeyAction Hold,
-    bool HasHold);
+    bool HasHold,
+    int HoldForceThreshold);
 
 internal readonly record struct EngineKeyBinding(
     TrackpadSide Side,

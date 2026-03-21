@@ -64,6 +64,11 @@ internal static class SelfTestRunner
             return new SelfTestResult(false, $"Hold-triggered momentary-layer tests failed: {holdMomentaryFailure}");
         }
 
+        if (!RunForceTriggeredHoldTests(out string forceTriggeredHoldFailure))
+        {
+            return new SelfTestResult(false, $"Force-triggered hold tests failed: {forceTriggeredHoldFailure}");
+        }
+
         if (!RunTypingToggleDispatchResumeTests(out string typingToggleFailure))
         {
             return new SelfTestResult(false, $"Typing toggle tests failed: {typingToggleFailure}");
@@ -2820,6 +2825,83 @@ internal static class SelfTestRunner
         }
 
         failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunForceTriggeredHoldTests(out string failure)
+    {
+        failure = string.Empty;
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        string storageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
+        keymap.Mappings[0][storageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = new KeyAction { Label = "B" },
+            HoldForceThreshold = 600
+        };
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            HoldDurationMs = 120.0
+        });
+
+        using DispatchEventQueue queue = new(capacity: 128);
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        ushort maxX = 7612;
+        ushort maxY = 5065;
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+        NormalizedRect keyRect = leftLayout.Rects[0][2];
+        ushort keyX = (ushort)Math.Clamp((int)Math.Round((keyRect.X + (keyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort keyY = (ushort)Math.Clamp((int)Math.Round((keyRect.Y + (keyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        InputFrame allUp = MakeFrame(contactCount: 0);
+        InputFrame downNoForce = MakeFrame(contactCount: 1, id0: 501, x0: keyX, y0: keyY);
+        downNoForce.SetContact(0, new ContactFrame(501, keyX, keyY, 0x03, Pressure: 0, Phase: 0, HasForceData: true));
+        InputFrame stillBelowThreshold = MakeFrame(contactCount: 1, id0: 501, x0: keyX, y0: keyY);
+        stillBelowThreshold.SetContact(0, new ContactFrame(501, keyX, keyY, 0x03, Pressure: 40, Phase: 1, HasForceData: true));
+        InputFrame aboveThreshold = MakeFrame(contactCount: 1, id0: 501, x0: keyX, y0: keyY);
+        aboveThreshold.SetContact(0, new ContactFrame(501, keyX, keyY, 0x03, Pressure: 120, Phase: 2, HasForceData: true));
+
+        long now = 0;
+        actor.Post(TrackpadSide.Left, in downNoForce, maxX, maxY, now);
+        now += MsToTicks(180);
+        actor.Post(TrackpadSide.Left, in stillBelowThreshold, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in aboveThreshold, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int aTaps = 0;
+        int bTaps = 0;
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
+            {
+                continue;
+            }
+
+            if (dispatchEvent.VirtualKey == 0x41)
+            {
+                aTaps++;
+            }
+            else if (dispatchEvent.VirtualKey == 0x42)
+            {
+                bTaps++;
+            }
+        }
+
+        if (aTaps != 0 || bTaps != 1)
+        {
+            failure = $"force-triggered hold mismatch (aTaps={aTaps}, bTaps={bTaps}, expected=0/1)";
+            return false;
+        }
+
         return true;
     }
 

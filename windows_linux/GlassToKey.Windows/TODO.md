@@ -1,6 +1,5 @@
 ## Current:
-- Under `Hold Action` add an option: `Use Force: (text area for pressure)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force)
-- `Force Dependant keymap` make a key variable output depending on the force used (similar to hold)
+`Force Dependant keymap` make a key variable output depending on the force used (similar to hold) { In `Keymap Tuning` under `Hold Action` add an option: `Force Intead of Hold: (text field for force)` 0 would be off and X would be the force to trigger a "Hold" action. If Pressure > 0 don't fire hold action after X(ms) but only after X(force) }
 -------
 - Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
 - New gestures from FRAN!
@@ -28,6 +27,7 @@
 - `Handed Gestures`: Create Gestures (Left) and Gestures (Right) and make the gestures handed, instead of duplicate
 - `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)
 - `Tune` velocity / drag cancel on windows /w codex
+- `Typing Test`: Generate random words to type? lol.
 
 
 

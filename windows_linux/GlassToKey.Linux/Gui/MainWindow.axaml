@@ -420,7 +420,7 @@
                               HorizontalAlignment="Stretch">
                     <Grid HorizontalAlignment="Stretch"
                           ColumnDefinitions="*,*"
-                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto">
                       <TextBlock x:Name="KeymapSelectionText"
                                  Grid.ColumnSpan="2"
                                  IsVisible="False"
@@ -457,15 +457,25 @@
                               HorizontalAlignment="Stretch" />
 
                     <TextBlock Grid.Row="4"
+                               Text="Force Instead of Hold"
+                               Margin="0,8,0,0"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="KeymapHoldForceBox"
+                             Grid.Row="4"
+                             Grid.Column="1"
+                             Margin="12,8,0,0"
+                             ToolTip.Tip="0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached." />
+
+                    <TextBlock Grid.Row="5"
                                Text="Key Rotation (deg)"
                                Margin="0,8,0,0"
                                VerticalAlignment="Center" />
                     <TextBox x:Name="KeyRotationBox"
-                             Grid.Row="4"
+                             Grid.Row="5"
                              Grid.Column="1"
                              Margin="12,8,0,0" />
 
-                    <Separator Grid.Row="5"
+                    <Separator Grid.Row="6"
                                Grid.ColumnSpan="2"
                                Margin="0,8,0,2" />
                     </Grid>

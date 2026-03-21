@@ -329,6 +329,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                   </Grid.RowDefinitions>
 
                   <TextBlock Grid.Row="0" Grid.Column="0" Text="Layer" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
@@ -348,8 +349,11 @@
                     </ComboBox.GroupStyle>
                   </ComboBox>
 
-                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
-                  <TextBox x:Name="KeyRotationBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" />
+                  <TextBlock Grid.Row="3" Grid.Column="0" Text="Force Instead of Hold" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                  <TextBox x:Name="KeymapHoldForceBox" Grid.Row="3" Grid.Column="1" Height="24" Margin="8,8,0,0" ToolTip="0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached." />
+
+                  <TextBlock Grid.Row="4" Grid.Column="0" Text="Key Rotation (0-360 deg)" Foreground="#8b949e" FontSize="12" VerticalAlignment="Center" Margin="0,8,8,0" />
+                  <TextBox x:Name="KeyRotationBox" Grid.Row="4" Grid.Column="1" Height="24" Margin="8,8,0,0" />
                 </Grid>
                 <Border Margin="0,12,0,0"
                         Padding="12"

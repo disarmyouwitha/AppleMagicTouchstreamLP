@@ -239,7 +239,10 @@ internal static class EngineActionResolver
     {
         EngineKeyAction primary = ResolveActionLabel(mapping.Primary.Label, defaultLabel);
         EngineKeyAction hold = mapping.Hold == null ? EngineKeyAction.None : ResolveActionLabel(mapping.Hold.Label, defaultLabel);
-        return new EngineKeyMapping(primary, hold, mapping.Hold != null);
+        int holdForceThreshold = mapping.Hold == null
+            ? 0
+            : Math.Clamp(mapping.HoldForceThreshold, 0, ForceNormalizer.Max);
+        return new EngineKeyMapping(primary, hold, mapping.Hold != null, holdForceThreshold);
     }
 
     public static EngineKeyAction ResolveActionLabel(string? label, string fallbackLabel = "None")

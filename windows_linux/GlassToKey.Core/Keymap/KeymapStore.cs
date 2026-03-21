@@ -14,6 +14,7 @@ public sealed class KeyMapping
 {
     public KeyAction Primary { get; set; } = new();
     public KeyAction? Hold { get; set; }
+    public int HoldForceThreshold { get; set; }
 }
 
 public sealed class KeyGeometryOverride
@@ -30,6 +31,7 @@ public sealed class CustomButton
     public NormalizedRect Rect { get; set; } = new(0.41, 0.43, 0.18, 0.14);
     public KeyAction Primary { get; set; } = new() { Label = "Space" };
     public KeyAction? Hold { get; set; }
+    public int HoldForceThreshold { get; set; }
     public int Layer { get; set; }
 }
 
@@ -249,7 +251,8 @@ public sealed class KeymapStore
         return new KeyMapping
         {
             Primary = new KeyAction { Label = defaultLabel },
-            Hold = null
+            Hold = null,
+            HoldForceThreshold = 0
         };
     }
 
@@ -432,6 +435,8 @@ public sealed class KeymapStore
                     mapping.Primary.Label = "None";
                 }
 
+                mapping.HoldForceThreshold = NormalizeHoldForceThreshold(mapping.HoldForceThreshold);
+
                 target[mappingEntry.Key] = mapping;
             }
         }
@@ -501,6 +506,7 @@ public sealed class KeymapStore
             Rect = ClampCustomButtonRect(input.Rect),
             Primary = primary,
             Hold = input.Hold,
+            HoldForceThreshold = NormalizeHoldForceThreshold(input.HoldForceThreshold),
             Layer = Math.Clamp(layer, 0, 7)
         };
     }
@@ -708,5 +714,10 @@ public sealed class KeymapStore
         }
 
         return Math.Clamp(value, 0.1, 10.0);
+    }
+
+    private static int NormalizeHoldForceThreshold(int value)
+    {
+        return Math.Clamp(value, 0, ForceNormalizer.Max);
     }
 }

@@ -267,6 +267,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ForceClickThresholdSlider.ValueChanged += OnForceThresholdSliderChanged;
         KeymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         KeymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        KeymapHoldForceBox.LostKeyboardFocus += OnKeymapHoldForceCommitted;
         MxSpacingButton.Click += OnMxSpacingClicked;
         ChocSpacingButton.Click += OnChocSpacingClicked;
         FiveFingerSwipeLeftGestureCombo.SelectionChanged += OnGestureActionSelectionChanged;
@@ -335,6 +336,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         CustomButtonWidthBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
         CustomButtonHeightBox.LostKeyboardFocus += OnCustomButtonGeometryCommitted;
         KeyRotationBox.LostKeyboardFocus += OnKeyGeometryCommitted;
+        KeymapHoldForceBox.KeyDown += OnKeymapHoldForceKeyDown;
         CustomButtonXBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonYBox.KeyDown += OnCustomButtonGeometryKeyDown;
         CustomButtonWidthBox.KeyDown += OnCustomButtonGeometryKeyDown;
@@ -3707,6 +3709,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             CustomButtonsExpander.IsExpanded = true;
             KeymapPrimaryCombo.IsEnabled = true;
             KeymapHoldCombo.IsEnabled = true;
+            KeymapHoldForceBox.IsEnabled = true;
             CustomButtonDeleteButton.IsEnabled = true;
             KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
@@ -3717,6 +3720,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             EnsureActionOption(buttonHold);
             KeymapPrimaryCombo.SelectedValue = buttonPrimary;
             KeymapHoldCombo.SelectedValue = buttonHold;
+            KeymapHoldForceBox.Text = FormatNumber(selectedButton.HoldForceThreshold);
             CustomButtonXBox.Text = FormatNumber(selectedButton.Rect.X * 100.0);
             CustomButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
             CustomButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
@@ -3732,11 +3736,13 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             CustomButtonsExpander.IsExpanded = false;
             KeymapPrimaryCombo.IsEnabled = false;
             KeymapHoldCombo.IsEnabled = false;
+            KeymapHoldForceBox.IsEnabled = false;
             CustomButtonDeleteButton.IsEnabled = false;
             KeyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
             KeymapPrimaryCombo.SelectedValue = "None";
             KeymapHoldCombo.SelectedValue = "None";
+            KeymapHoldForceBox.Text = string.Empty;
             ClearCustomButtonGeometryEditorValues();
             KeyRotationBox.Text = string.Empty;
             _suppressKeymapActionEvents = false;
@@ -3754,6 +3760,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         KeymapPrimaryCombo.IsEnabled = true;
         KeymapHoldCombo.IsEnabled = true;
+        KeymapHoldForceBox.IsEnabled = true;
         CustomButtonDeleteButton.IsEnabled = false;
         KeyRotationBox.IsEnabled = true;
         CustomButtonsExpander.IsExpanded = false;
@@ -3768,6 +3775,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         EnsureActionOption(hold);
         KeymapPrimaryCombo.SelectedValue = primary;
         KeymapHoldCombo.SelectedValue = hold;
+        KeymapHoldForceBox.Text = FormatNumber(mapping.HoldForceThreshold);
         KeyRotationBox.Text = FormatNumber(_keymap.ResolveKeyGeometry(storageKey).RotationDegrees);
         _suppressKeymapActionEvents = false;
         RefreshGestureShortcutEditorUi();
@@ -3826,18 +3834,41 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RefreshGestureShortcutEditorUi();
     }
 
+    private void OnKeymapHoldForceCommitted(object sender, KeyboardFocusChangedEventArgs e)
+    {
+        if (_suppressKeymapActionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedKeymapOverride();
+    }
+
+    private void OnKeymapHoldForceKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _suppressKeymapActionEvents)
+        {
+            return;
+        }
+
+        ApplySelectedKeymapOverride();
+        e.Handled = true;
+    }
+
     private void ApplySelectedKeymapOverride()
     {
         int layer = GetSelectedLayer();
         string selectedPrimary = ReadGestureActionSelection(KeymapPrimaryCombo, "None");
         string selectedHold = ReadGestureActionSelection(KeymapHoldCombo, "None");
         string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
+        int holdForceThreshold = ReadKeymapHoldForceThreshold();
 
         if (TryGetSelectedCustomButton(out _, out CustomButton? selectedButton))
         {
             selectedButton.Primary ??= new KeyAction();
             selectedButton.Primary.Label = selectedPrimary;
             selectedButton.Hold = hold == null ? null : new KeyAction { Label = hold };
+            selectedButton.HoldForceThreshold = hold == null ? 0 : holdForceThreshold;
             selectedButton.Layer = layer;
 
             _keymap.Save();
@@ -3868,7 +3899,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         layerMap[storageKey] = new KeyMapping
         {
             Primary = new KeyAction { Label = primary },
-            Hold = hold == null ? null : new KeyAction { Label = hold }
+            Hold = hold == null ? null : new KeyAction { Label = hold },
+            HoldForceThreshold = hold == null ? 0 : holdForceThreshold
         };
 
         _keymap.Save();
@@ -3877,6 +3909,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         UpdateHitForSide(_left, TrackpadSide.Left);
         UpdateHitForSide(_right, TrackpadSide.Right);
         RefreshKeymapEditor();
+    }
+
+    private int ReadKeymapHoldForceThreshold()
+    {
+        int parsed = (int)Math.Round(ReadDouble(KeymapHoldForceBox, 0.0), MidpointRounding.AwayFromZero);
+        return Math.Clamp(parsed, 0, ForceNormalizer.Max);
     }
 
     private void ApplySelectedKeyGeometryFromUi()

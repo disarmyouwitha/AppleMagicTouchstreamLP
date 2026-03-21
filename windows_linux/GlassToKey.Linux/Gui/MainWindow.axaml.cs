@@ -50,6 +50,7 @@ public partial class MainWindow : Window
     private readonly ComboBox _keymapLayerCombo;
     private readonly ComboBox _keymapPrimaryCombo;
     private readonly ComboBox _keymapHoldCombo;
+    private readonly TextBox _keymapHoldForceBox;
     private readonly TextBlock _gestureShortcutTargetText;
     private readonly RadioButton _shortcutTargetPrimaryRadio;
     private readonly RadioButton _shortcutTargetHoldRadio;
@@ -192,6 +193,7 @@ public partial class MainWindow : Window
         _keymapLayerCombo = RequireControl<ComboBox>("KeymapLayerCombo");
         _keymapPrimaryCombo = RequireControl<ComboBox>("KeymapPrimaryCombo");
         _keymapHoldCombo = RequireControl<ComboBox>("KeymapHoldCombo");
+        _keymapHoldForceBox = RequireControl<TextBox>("KeymapHoldForceBox");
         _gestureShortcutTargetText = RequireControl<TextBlock>("GestureShortcutTargetText");
         _shortcutTargetPrimaryRadio = RequireControl<RadioButton>("ShortcutTargetPrimaryRadio");
         _shortcutTargetHoldRadio = RequireControl<RadioButton>("ShortcutTargetHoldRadio");
@@ -778,6 +780,8 @@ public partial class MainWindow : Window
         _keymapLayerCombo.SelectionChanged += OnKeymapLayerSelectionChanged;
         _keymapPrimaryCombo.SelectionChanged += OnKeymapActionSelectionChanged;
         _keymapHoldCombo.SelectionChanged += OnKeymapActionSelectionChanged;
+        _keymapHoldForceBox.LostFocus += OnKeymapHoldForceCommitted;
+        _keymapHoldForceBox.KeyDown += OnKeymapHoldForceKeyDown;
         _keyRotationBox.LostFocus += OnKeyGeometryCommitted;
         _keyRotationBox.KeyDown += OnKeyGeometryKeyDown;
         _customButtonAddLeftButton.Click += OnCustomButtonAddLeftClicked;
@@ -2791,6 +2795,7 @@ public partial class MainWindow : Window
             _keymapSelectionText.Text = "Selection: replay mode (editing disabled)";
             _keymapPrimaryCombo.IsEnabled = false;
             _keymapHoldCombo.IsEnabled = false;
+            _keymapHoldForceBox.IsEnabled = false;
             _customButtonDeleteButton.IsEnabled = false;
             _keyRotationBox.IsEnabled = false;
             _customButtonAddLeftButton.IsEnabled = false;
@@ -2809,6 +2814,7 @@ public partial class MainWindow : Window
             _keymapSelectionText.Text = $"Selection: custom button ({_selectedKeySide})";
             _keymapPrimaryCombo.IsEnabled = true;
             _keymapHoldCombo.IsEnabled = true;
+            _keymapHoldForceBox.IsEnabled = true;
             _customButtonDeleteButton.IsEnabled = true;
             _keyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(true);
@@ -2819,6 +2825,7 @@ public partial class MainWindow : Window
             EnsureActionChoice(buttonHold);
             SetActionComboSelection(_keymapPrimaryCombo, buttonPrimary);
             SetActionComboSelection(_keymapHoldCombo, buttonHold);
+            _keymapHoldForceBox.Text = FormatNumber(selectedButton.HoldForceThreshold);
             _customButtonXBox.Text = FormatNumber(selectedButton.Rect.X * 100.0);
             _customButtonYBox.Text = FormatNumber(selectedButton.Rect.Y * 100.0);
             _customButtonWidthBox.Text = FormatNumber(selectedButton.Rect.Width * 100.0);
@@ -2835,11 +2842,13 @@ public partial class MainWindow : Window
             _keymapSelectionText.Text = "Selection: none";
             _keymapPrimaryCombo.IsEnabled = false;
             _keymapHoldCombo.IsEnabled = false;
+            _keymapHoldForceBox.IsEnabled = false;
             _customButtonDeleteButton.IsEnabled = false;
             _keyRotationBox.IsEnabled = false;
             SetCustomButtonGeometryEditorEnabled(false);
             SetActionComboSelection(_keymapPrimaryCombo, "None");
             SetActionComboSelection(_keymapHoldCombo, "None");
+            _keymapHoldForceBox.Text = string.Empty;
             ClearCustomButtonGeometryEditorValues();
             _keyRotationBox.Text = string.Empty;
             _suppressKeymapEditorEvents = false;
@@ -2860,6 +2869,7 @@ public partial class MainWindow : Window
         _keymapSelectionText.Text = $"Selection: {side} r{row + 1} c{column + 1}";
         _keymapPrimaryCombo.IsEnabled = true;
         _keymapHoldCombo.IsEnabled = true;
+        _keymapHoldForceBox.IsEnabled = true;
         _customButtonDeleteButton.IsEnabled = false;
         _keyRotationBox.IsEnabled = true;
         _customButtonsExpander.IsExpanded = false;
@@ -2874,6 +2884,7 @@ public partial class MainWindow : Window
         EnsureActionChoice(hold);
         SetActionComboSelection(_keymapPrimaryCombo, primary);
         SetActionComboSelection(_keymapHoldCombo, hold);
+        _keymapHoldForceBox.Text = FormatNumber(mapping.HoldForceThreshold);
         _keyRotationBox.Text = FormatNumber(_renderedKeymap.ResolveKeyGeometry(storageKey).RotationDegrees);
         _suppressKeymapEditorEvents = false;
         RefreshGestureShortcutEditorUi();
@@ -2981,6 +2992,7 @@ public partial class MainWindow : Window
         string selectedPrimary = ReadActionSelection(_keymapPrimaryCombo, "None");
         string selectedHold = ReadActionSelection(_keymapHoldCombo, "None");
         string? hold = string.Equals(selectedHold, "None", StringComparison.OrdinalIgnoreCase) ? null : selectedHold;
+        int holdForceThreshold = ReadKeymapHoldForceThreshold();
 
         EnsureActionChoice(selectedPrimary);
         if (hold != null)
@@ -2993,6 +3005,7 @@ public partial class MainWindow : Window
             selectedButton!.Primary ??= new KeyAction();
             selectedButton.Primary.Label = selectedPrimary;
             selectedButton.Hold = hold == null ? null : new KeyAction { Label = hold };
+            selectedButton.HoldForceThreshold = hold == null ? 0 : holdForceThreshold;
             selectedButton.Layer = layer;
 
             if (!TryPersistEditedKeymap(out string error))
@@ -3022,7 +3035,8 @@ public partial class MainWindow : Window
         layerMap[storageKey] = new KeyMapping
         {
             Primary = new KeyAction { Label = selectedPrimary },
-            Hold = hold == null ? null : new KeyAction { Label = hold }
+            Hold = hold == null ? null : new KeyAction { Label = hold },
+            HoldForceThreshold = hold == null ? 0 : holdForceThreshold
         };
 
         if (!TryPersistEditedKeymap(out string saveError))
@@ -3033,6 +3047,33 @@ public partial class MainWindow : Window
 
         RefreshKeymapEditor();
         ApplyPreviewSnapshot(_previewSnapshot);
+    }
+
+    private void OnKeymapHoldForceCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedKeymapOverride();
+    }
+
+    private void OnKeymapHoldForceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _suppressKeymapEditorEvents || IsReplayMode)
+        {
+            return;
+        }
+
+        ApplySelectedKeymapOverride();
+        e.Handled = true;
+    }
+
+    private int ReadKeymapHoldForceThreshold()
+    {
+        int parsed = (int)Math.Round(ReadDouble(_keymapHoldForceBox, 0.0), MidpointRounding.AwayFromZero);
+        return Math.Clamp(parsed, 0, ForceNormalizer.Max);
     }
 
     private void ApplySelectedKeyGeometryFromUi()

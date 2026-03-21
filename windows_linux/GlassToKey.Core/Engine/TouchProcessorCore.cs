@@ -1067,15 +1067,14 @@ internal sealed class TouchProcessorCore
 
             if (existing.Lifecycle == EngineTouchLifecycle.Pending && existing.HasHoldAction)
             {
-                long holdTicks = MsToTicks(_config.HoldDurationMs);
+                BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+                EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
                 if (existing.MaxDistanceMm <= _config.DragCancelMm &&
                     !IsGestureDispatchPriorityActive(side) &&
-                    timestampTicks - existing.StartTicks >= holdTicks)
+                    IsHoldTriggerSatisfied(existingBinding.Mapping, in existing, timestampTicks))
                 {
                     existing.Lifecycle = EngineTouchLifecycle.Active;
                     existing.HoldTriggered = true;
-                    BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
-                    EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
                     EngineKeyAction holdAction = ResolveEffectiveHoldAction(existingBinding.Mapping);
                     if (holdAction.Kind == EngineActionKind.MomentaryLayer)
                     {
@@ -1088,7 +1087,7 @@ internal sealed class TouchProcessorCore
                             touchKey,
                             timestampTicks,
                             ref existing,
-                            existing.PeakForceNorm,
+                            ResolveBindingDispatchForceNorm(existingBinding.Mapping, in existing),
                             hapticOnDispatch: IsCustomBinding(existingBinding),
                             isHoldTriggeredAction: true);
                         if (!existing.DispatchDownSent)
@@ -1098,7 +1097,7 @@ internal sealed class TouchProcessorCore
                                 side,
                                 touchKey,
                                 timestampTicks,
-                                existing.PeakForceNorm,
+                                ResolveBindingDispatchForceNorm(existingBinding.Mapping, in existing),
                                 allowTypingDisabledOverride: IsMomentaryLayerActive(),
                                 hapticOnDispatch: IsCustomBinding(existingBinding));
                         }
@@ -1312,7 +1311,7 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
-                state.PeakForceNorm,
+                ResolveBindingDispatchForceNorm(binding.Mapping, in state),
                 allowTypingDisabledOverride: IsMomentaryLayerActive(),
                 hapticOnDispatch: IsCustomBinding(binding));
             return;
@@ -1334,7 +1333,7 @@ internal sealed class TouchProcessorCore
                 state.Side,
                 touchKey,
                 timestampTicks,
-                state.PeakForceNorm,
+                ResolveBindingDispatchForceNorm(directBinding.Mapping, in state),
                 allowTypingDisabledOverride: IsMomentaryLayerActive(),
                 hapticOnDispatch: IsCustomBinding(directBinding));
             return;
@@ -1351,7 +1350,7 @@ internal sealed class TouchProcessorCore
                     state.Side,
                     touchKey,
                     timestampTicks,
-                    state.PeakForceNorm,
+                    ResolveBindingDispatchForceNorm(snapped.Mapping, in state),
                     allowTypingDisabledOverride: IsMomentaryLayerActive(),
                     hapticOnDispatch: IsCustomBinding(snapped));
                 return;
@@ -1741,6 +1740,31 @@ internal sealed class TouchProcessorCore
         }
 
         return EngineKeyAction.None;
+    }
+
+    private bool IsHoldTriggerSatisfied(EngineKeyMapping mapping, in TouchBindingState state, long timestampTicks)
+    {
+        if (mapping.HasHold &&
+            mapping.HoldForceThreshold > 0 &&
+            state.PeakForceNorm > 0)
+        {
+            return state.PeakForceNorm >= mapping.HoldForceThreshold;
+        }
+
+        long holdTicks = MsToTicks(_config.HoldDurationMs);
+        return timestampTicks - state.StartTicks >= holdTicks;
+    }
+
+    private static int ResolveBindingDispatchForceNorm(EngineKeyMapping mapping, in TouchBindingState state)
+    {
+        if (mapping.HasHold &&
+            mapping.HoldForceThreshold > 0 &&
+            state.PeakForceNorm > 0)
+        {
+            return -1;
+        }
+
+        return state.PeakForceNorm;
     }
 
     private EngineKeyAction ResolveHoldActionForDispatch(EngineKeyAction action)
