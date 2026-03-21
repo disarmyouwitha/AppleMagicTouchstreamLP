@@ -2372,7 +2372,7 @@ enum KeyActionCatalog {
     static let primaryActionGroups: [ActionGroup] = sharedActionGroups
     static let holdActionGroups: [ActionGroup] = sharedActionGroups
 
-    private static func isChordalShiftAlias(_ label: String) -> Bool {
+    fileprivate static func isChordalShiftAlias(_ label: String) -> Bool {
         let trimmed = label.trimmingCharacters(in: .whitespacesAndNewlines)
         return trimmed.caseInsensitiveCompare(chordalShiftLabel) == .orderedSame
             || trimmed.caseInsensitiveCompare("Chord Shift") == .orderedSame

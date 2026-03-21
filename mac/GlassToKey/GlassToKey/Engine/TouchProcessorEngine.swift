@@ -1180,6 +1180,7 @@ actor TouchProcessorEngine {
                 switch touch.state {
                 case .breaking, .leaving, .notTouching:
                     disqualifiedTouches.remove(touchKey)
+                    releaseHandledTouches.set(touchKey, true)
                     touchInitialContactPoint.remove(touchKey)
                     clearPeakPressure(for: touchKey)
                 case .starting, .hovering, .making, .touching, .lingering:
@@ -1478,6 +1479,7 @@ actor TouchProcessorEngine {
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    releaseHandledTouches.set(touchKey, true)
                     clearPeakPressure(for: touchKey)
                     continue
                 }
@@ -1570,6 +1572,7 @@ actor TouchProcessorEngine {
                     }
                 }
                 if disqualifiedTouches.remove(touchKey) != nil {
+                    releaseHandledTouches.set(touchKey, true)
                     clearPeakPressure(for: touchKey)
                     continue
                 }
