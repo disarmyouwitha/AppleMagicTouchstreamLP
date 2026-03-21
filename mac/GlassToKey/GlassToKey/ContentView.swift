@@ -2657,7 +2657,7 @@ struct ContentView: View {
         }
 
         private func openThreeFingerDragSettings() {
-            let delays: [TimeInterval] = [0.0, 1.0, 2.0]
+            let delays: [TimeInterval] = [0.0, 2.0, 4.0]
             for delay in delays {
                 DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
                     _ = Self.runAppleScript(Self.trackpadOptionsRevealScript)
