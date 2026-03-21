@@ -403,13 +403,6 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
-    func updateChordalShiftEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateChordalShiftEnabled(enabled)
-        }
-    }
-
     func updateKeyboardModeEnabled(_ enabled: Bool) {
         let runtimeEngine = runtimeEngine
         Task {

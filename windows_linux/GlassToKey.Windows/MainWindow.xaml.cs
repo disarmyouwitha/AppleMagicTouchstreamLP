@@ -573,7 +573,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         string fourFingerSwipeDownAction = NormalizeGestureActionForUi(_settings.FourFingerSwipeDownAction, "None");
         string twoFingerHoldAction = NormalizeGestureActionForUi(_settings.TwoFingerHoldAction, "None");
         string threeFingerHoldAction = NormalizeGestureActionForUi(_settings.ThreeFingerHoldAction, "None");
-        string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Chordal Shift");
+        string fourFingerHoldAction = NormalizeGestureActionForUi(_settings.FourFingerHoldAction, "Shift");
         string leftEdgeUpAction = NormalizeGestureActionForUi(_settings.LeftEdgeUpAction, "None");
         string leftEdgeDownAction = NormalizeGestureActionForUi(_settings.LeftEdgeDownAction, "None");
         string rightEdgeUpAction = NormalizeGestureActionForUi(_settings.RightEdgeUpAction, "None");
@@ -700,7 +700,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             : TrackpadLayoutPreset.SixByThree;
         LoadGestureRepeatCadenceSettingsIntoUi();
         RefreshGestureRepeatCadenceAvailability();
-        SyncDerivedGestureToggleSettings();
         KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         _settings.AutocorrectDryRunEnabled = false;
@@ -1091,6 +1090,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
         }
 
+        if (GestureBindingCatalog.IsChordShiftGestureAction(value))
+        {
+            return "Shift";
+        }
+
         if (value.Equals("RAlt", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("RightAlt", StringComparison.OrdinalIgnoreCase) ||
             value.Equals("AltGr", StringComparison.OrdinalIgnoreCase))
@@ -1114,7 +1118,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private string NormalizeGestureActionForUi(string? action, string fallback)
     {
-        string normalized = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
+        string normalized = GestureBindingCatalog.NormalizeAction(action, fallback);
         EnsureActionOption(normalized);
         return normalized;
     }
@@ -1149,21 +1153,17 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (combo.SelectedValue is string selected &&
             !string.IsNullOrWhiteSpace(selected))
         {
-            return selected.Trim();
+            return GestureBindingCatalog.NormalizeAction(selected, fallback);
         }
 
-        if (TryResolveActionOption(combo.Text, out KeyActionOption? option))
+        string normalizedText = GestureBindingCatalog.NormalizeAction(combo.Text, fallback);
+        if (TryResolveActionOption(normalizedText, out KeyActionOption? option))
         {
             combo.SelectedValue = option.Value;
-            return option.Value;
+            return GestureBindingCatalog.NormalizeAction(option.Value, fallback);
         }
 
-        return fallback;
-    }
-
-    private void SyncDerivedGestureToggleSettings()
-    {
-        _settings.ChordShiftEnabled = GestureBindingCatalog.UsesChordShift(_settings);
+        return normalizedText;
     }
 
     private void SyncThreeFingerSwipeGestureAvailability()
@@ -1810,7 +1810,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.FourFingerSwipeDownAction = ReadGestureActionSelection(FourFingerSwipeDownGestureCombo, "None");
         _settings.TwoFingerHoldAction = ReadGestureActionSelection(TwoFingerHoldGestureCombo, "None");
         _settings.ThreeFingerHoldAction = ReadGestureActionSelection(ThreeFingerHoldGestureCombo, "None");
-        _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Chordal Shift");
+        _settings.FourFingerHoldAction = ReadGestureActionSelection(FourFingerHoldGestureCombo, "Shift");
         _settings.LeftEdgeUpAction = ReadGestureActionSelection(LeftEdgeUpGestureCombo, "None");
         _settings.LeftEdgeDownAction = ReadGestureActionSelection(LeftEdgeDownGestureCombo, "None");
         _settings.RightEdgeUpAction = ReadGestureActionSelection(RightEdgeUpGestureCombo, "None");
@@ -1841,7 +1841,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _settings.LowerRightCornerClickAction = ReadGestureActionSelection(LowerRightCornerClickGestureCombo, "None");
         ApplyGestureRepeatCadenceSettingsFromUi();
         RefreshGestureRepeatCadenceAvailability();
-        SyncDerivedGestureToggleSettings();
         _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.AutocorrectDryRunEnabled = false;
@@ -2783,7 +2782,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         string[] modes =
         {
-            "Chordal Shift",
             "Typing Toggle"
         };
 
@@ -2919,14 +2917,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        if (_keyActionOptionLookup.Contains(action))
+        string normalized = GestureBindingCatalog.NormalizeAction(action, "None");
+        if (_keyActionOptionLookup.Contains(normalized))
         {
             return;
         }
 
-        if (!TryAddActionOption(action))
+        if (!TryAddActionOption(normalized))
         {
-            QueueDeferredActionOption(action);
+            QueueDeferredActionOption(normalized);
         }
     }
 

@@ -62,7 +62,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyDefaultsKeys.autoResyncMissingTrackpads,
         GlassToKeyDefaultsKeys.autocorrectEnabled,
         GlassToKeyDefaultsKeys.snapRadiusPercent,
-        GlassToKeyDefaultsKeys.chordalShiftEnabled,
         GlassToKeyDefaultsKeys.keyboardModeEnabled,
         GlassToKeyDefaultsKeys.twoFingerTapGestureAction,
         GlassToKeyDefaultsKeys.threeFingerTapGestureAction,

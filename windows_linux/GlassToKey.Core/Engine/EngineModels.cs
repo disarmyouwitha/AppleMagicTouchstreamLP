@@ -244,7 +244,6 @@ internal readonly record struct TouchProcessorConfig(
     int ForceClickThreshold,
     int ForceMin,
     int ForceCap,
-    bool ChordShiftEnabled,
     bool HoldRepeatEnabled,
     IReadOnlyDictionary<string, int>? GestureRepeatCadenceMsById)
 {
@@ -277,7 +276,7 @@ internal readonly record struct TouchProcessorConfig(
         BottomRightCornerSwipeAction: "None",
         TwoFingerHoldAction: "None",
         ThreeFingerHoldAction: "None",
-        FourFingerHoldAction: "Chordal Shift",
+        FourFingerHoldAction: "Shift",
         LeftEdgeUpAction: "None",
         LeftEdgeDownAction: "None",
         RightEdgeUpAction: "None",
@@ -307,7 +306,6 @@ internal readonly record struct TouchProcessorConfig(
         ForceClickThreshold: GestureBindingCatalog.ForceClickThresholdDefault,
         ForceMin: 0,
         ForceCap: 255,
-        ChordShiftEnabled: true,
         HoldRepeatEnabled: false,
         GestureRepeatCadenceMsById: null);
 }

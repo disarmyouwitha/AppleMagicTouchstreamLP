@@ -1,7 +1,6 @@
 {
   "autoResyncMissingTrackpads" : true,
   "autocorrectEnabled" : false,
-  "chordalShiftEnabled" : true,
   "columnSettingsByLayout" : {
     "5x3" : [
       {

@@ -5,7 +5,6 @@
   "GlassToKey.autocorrectEnabled": false,
   "GlassToKey.autocorrectMinWordLength": 2,
   "GlassToKey.captureClicks": false,
-  "GlassToKey.chordalShiftEnabled": true,
   "GlassToKey.clickShieldWindowMs": 400.0,
   "GlassToKey.columnSettings": {
     "6x3": [

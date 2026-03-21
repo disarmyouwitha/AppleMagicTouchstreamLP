@@ -7,6 +7,8 @@ using GlassToKey.Platform.Linux.Models;
 
 public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController, IThreeFingerDragSink
 {
+    private const int KeyTapMinimumHoldMilliseconds = 20;
+
     private readonly LinuxUinputDevice _device;
     private readonly LinuxMagicTrackpadActuatorHaptics _haptics;
     private readonly DispatchRepeatProfile _repeatProfile;
@@ -14,7 +16,10 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
     private readonly int[] _modifierRefCounts = new int[256];
     private readonly bool[] _keyDown = new bool[256];
     private readonly RepeatEntry[] _repeatEntries = new RepeatEntry[64];
+    private readonly TapReleaseEntry[] _tapReleaseEntries = new TapReleaseEntry[32];
+    private readonly bool[] _tapHeldDown = new bool[256];
     private readonly object _gate = new();
+    private readonly long _keyTapMinimumHoldTicks;
     private readonly long _repeatInitialDelayTicks;
     private readonly long _repeatIntervalTicks;
     private long _dispatchCalls;
@@ -40,6 +45,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         _device = device;
         _haptics = new LinuxMagicTrackpadActuatorHaptics();
         _repeatProfile = repeatProfile;
+        _keyTapMinimumHoldTicks = MsToTicks(KeyTapMinimumHoldMilliseconds);
         _repeatInitialDelayTicks = _repeatProfile.GetInitialDelayTicks();
         _repeatIntervalTicks = _repeatProfile.GetIntervalTicks();
     }
@@ -142,6 +148,8 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
         lock (_gate)
         {
+            ProcessTapReleases(nowTicks);
+
             for (int index = 0; index < _repeatEntries.Length; index++)
             {
                 ref RepeatEntry entry = ref _repeatEntries[index];
@@ -171,17 +179,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                 return;
             }
 
-            for (int keyCode = 0; keyCode < _keyDown.Length; keyCode++)
-            {
-                if (_keyDown[keyCode])
-                {
-                    TrySendKeyCode((ushort)keyCode, isDown: false);
-                    _keyDown[keyCode] = false;
-                }
-            }
-
-            Array.Clear(_modifierRefCounts, 0, _modifierRefCounts.Length);
-            Array.Clear(_repeatEntries, 0, _repeatEntries.Length);
+            ReleaseAllHeldKeys();
             _autocorrect.Dispose();
             _haptics.Dispose();
             _disposed = true;
@@ -357,8 +355,7 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             return;
         }
 
-        TrySendKeyCode(keyCode, isDown: true);
-        TrySendKeyCode(keyCode, isDown: false);
+        SendKeyTap(keyCode);
     }
 
     private void HandleChordKeyTap(in DispatchEvent dispatchEvent)
@@ -384,6 +381,13 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
         if ((uint)keyCode < (uint)_keyDown.Length)
         {
+            if (_tapHeldDown[keyCode])
+            {
+                CancelTapRelease(keyCode);
+                _tapHeldDown[keyCode] = false;
+                _keyDown[keyCode] = true;
+            }
+
             if (!_keyDown[keyCode])
             {
                 if (!TrySendKeyCode(keyCode, isDown: true))
@@ -430,6 +434,13 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
 
         if ((uint)keyCode < (uint)_keyDown.Length)
         {
+            if (_tapHeldDown[keyCode])
+            {
+                CancelTapRelease(keyCode);
+                _tapHeldDown[keyCode] = false;
+                TrySendKeyCode(keyCode, isDown: false);
+            }
+
             if (!_keyDown[keyCode])
             {
                 return;
@@ -637,7 +648,162 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             return;
         }
 
+        if ((uint)keyCode < (uint)_tapHeldDown.Length && _tapHeldDown[keyCode])
+        {
+            CancelTapRelease(keyCode);
+            _tapHeldDown[keyCode] = false;
+        }
+
         TrySendKeyCode(keyCode, isDown: true);
+    }
+
+    private void ProcessTapReleases(long nowTicks)
+    {
+        for (int index = 0; index < _tapReleaseEntries.Length; index++)
+        {
+            if (!_tapReleaseEntries[index].Active || nowTicks < _tapReleaseEntries[index].ReleaseTick)
+            {
+                continue;
+            }
+
+            ushort keyCode = _tapReleaseEntries[index].KeyCode;
+            int keyIndex = keyCode;
+            if ((uint)keyIndex < (uint)_tapHeldDown.Length && _tapHeldDown[keyIndex])
+            {
+                _tapHeldDown[keyIndex] = false;
+                if (_modifierRefCounts[keyIndex] <= 0)
+                {
+                    TrySendKeyCode(keyCode, isDown: false);
+                }
+            }
+
+            _tapReleaseEntries[index] = default;
+        }
+    }
+
+    private void SendKeyTap(ushort keyCode)
+    {
+        if (keyCode == 0)
+        {
+            return;
+        }
+
+        int keyIndex = keyCode;
+        if ((uint)keyIndex >= (uint)_tapHeldDown.Length)
+        {
+            TrySendKeyCode(keyCode, isDown: true);
+            TrySendKeyCode(keyCode, isDown: false);
+            return;
+        }
+
+        if (_tapHeldDown[keyIndex])
+        {
+            CancelTapRelease(keyCode);
+            _tapHeldDown[keyIndex] = false;
+            TrySendKeyCode(keyCode, isDown: false);
+        }
+
+        if (!TrySendKeyCode(keyCode, isDown: true))
+        {
+            return;
+        }
+
+        _tapHeldDown[keyIndex] = true;
+        ScheduleTapRelease(keyCode, Stopwatch.GetTimestamp() + _keyTapMinimumHoldTicks);
+    }
+
+    private void ScheduleTapRelease(ushort keyCode, long releaseTick)
+    {
+        int firstFree = -1;
+        int oldestIndex = 0;
+        long oldestTick = long.MaxValue;
+
+        for (int index = 0; index < _tapReleaseEntries.Length; index++)
+        {
+            if (_tapReleaseEntries[index].Active)
+            {
+                if (_tapReleaseEntries[index].KeyCode == keyCode)
+                {
+                    _tapReleaseEntries[index].ReleaseTick = releaseTick;
+                    return;
+                }
+
+                if (_tapReleaseEntries[index].ReleaseTick < oldestTick)
+                {
+                    oldestTick = _tapReleaseEntries[index].ReleaseTick;
+                    oldestIndex = index;
+                }
+            }
+            else if (firstFree < 0)
+            {
+                firstFree = index;
+            }
+        }
+
+        int slot = firstFree >= 0 ? firstFree : oldestIndex;
+        if (firstFree < 0)
+        {
+            ushort replacedKeyCode = _tapReleaseEntries[slot].KeyCode;
+            int replacedKeyIndex = replacedKeyCode;
+            if ((uint)replacedKeyIndex < (uint)_tapHeldDown.Length && _tapHeldDown[replacedKeyIndex])
+            {
+                _tapHeldDown[replacedKeyIndex] = false;
+                if (_modifierRefCounts[replacedKeyIndex] <= 0)
+                {
+                    TrySendKeyCode(replacedKeyCode, isDown: false);
+                }
+            }
+        }
+
+        _tapReleaseEntries[slot] = new TapReleaseEntry
+        {
+            Active = true,
+            KeyCode = keyCode,
+            ReleaseTick = releaseTick
+        };
+    }
+
+    private void CancelTapRelease(ushort keyCode)
+    {
+        for (int index = 0; index < _tapReleaseEntries.Length; index++)
+        {
+            if (_tapReleaseEntries[index].Active && _tapReleaseEntries[index].KeyCode == keyCode)
+            {
+                _tapReleaseEntries[index] = default;
+                return;
+            }
+        }
+    }
+
+    private void ReleaseAllHeldKeys()
+    {
+        _autocorrect.ForceReset("release_all");
+        Array.Clear(_repeatEntries, 0, _repeatEntries.Length);
+
+        for (int index = 0; index < _tapReleaseEntries.Length; index++)
+        {
+            _tapReleaseEntries[index] = default;
+        }
+
+        for (int keyCode = 0; keyCode < _tapHeldDown.Length; keyCode++)
+        {
+            if (_tapHeldDown[keyCode] && !_keyDown[keyCode] && _modifierRefCounts[keyCode] <= 0)
+            {
+                TrySendKeyCode((ushort)keyCode, isDown: false);
+            }
+
+            _tapHeldDown[keyCode] = false;
+        }
+
+        for (int keyCode = 0; keyCode < _modifierRefCounts.Length; keyCode++)
+        {
+            if (_modifierRefCounts[keyCode] > 0 || _keyDown[keyCode])
+            {
+                TrySendKeyCode((ushort)keyCode, isDown: false);
+                _modifierRefCounts[keyCode] = 0;
+                _keyDown[keyCode] = false;
+            }
+        }
     }
 
     private void ProcessAutocorrectKeyInput(in DispatchEvent dispatchEvent)
@@ -760,6 +926,16 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             RecordSendFailure(ex);
             return false;
         }
+    }
+
+    private static long MsToTicks(double milliseconds)
+    {
+        if (milliseconds <= 0)
+        {
+            return 0;
+        }
+
+        return (long)Math.Round(milliseconds * Stopwatch.Frequency / 1000.0);
     }
 
     private bool TryEmitClick(ushort buttonCode)
@@ -942,5 +1118,12 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
         public DispatchSemanticAction SemanticAction;
         public long NextTick;
         public long IntervalTicks;
+    }
+
+    private struct TapReleaseEntry
+    {
+        public bool Active;
+        public ushort KeyCode;
+        public long ReleaseTick;
     }
 }

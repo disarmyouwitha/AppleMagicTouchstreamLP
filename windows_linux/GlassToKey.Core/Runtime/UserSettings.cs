@@ -20,7 +20,6 @@ public sealed class UserSettings
     public bool AutocorrectDryRunEnabled { get; set; }
     public string AutocorrectBlacklistCsv { get; set; } = string.Empty;
     public string AutocorrectOverridesCsv { get; set; } = string.Empty;
-    public bool ChordShiftEnabled { get; set; } = true;
     public bool TypingEnabled { get; set; } = true;
     public bool RunAtStartup { get; set; }
     public bool StartInTrayOnLaunch { get; set; }
@@ -45,7 +44,7 @@ public sealed class UserSettings
     public string BottomRightCornerSwipeAction { get; set; } = "None";
     public string TwoFingerHoldAction { get; set; } = "None";
     public string ThreeFingerHoldAction { get; set; } = "None";
-    public string FourFingerHoldAction { get; set; } = "Chordal Shift";
+    public string FourFingerHoldAction { get; set; } = "Shift";
     public string LeftEdgeUpAction { get; set; } = "None";
     public string LeftEdgeDownAction { get; set; } = "None";
     public string RightEdgeUpAction { get; set; } = "None";
@@ -128,7 +127,6 @@ public sealed class UserSettings
         AutocorrectDryRunEnabled = source.AutocorrectDryRunEnabled;
         AutocorrectBlacklistCsv = source.AutocorrectBlacklistCsv;
         AutocorrectOverridesCsv = source.AutocorrectOverridesCsv;
-        ChordShiftEnabled = source.ChordShiftEnabled;
         TypingEnabled = source.TypingEnabled;
         RunAtStartup = source.RunAtStartup;
         StartInTrayOnLaunch = source.StartInTrayOnLaunch;

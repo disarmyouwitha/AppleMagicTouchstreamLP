@@ -2196,7 +2196,7 @@ public partial class MainWindow : Window
             return false;
         }
 
-        string value = action.Trim();
+        string value = GestureBindingCatalog.NormalizeAction(action, "None");
         if (IsUnsupportedLayerActionChoice(value))
         {
             return false;
@@ -2325,7 +2325,6 @@ public partial class MainWindow : Window
 
         string[] modes =
         {
-            "Chordal Shift",
             "Typing Toggle"
         };
 
@@ -3230,7 +3229,7 @@ public partial class MainWindow : Window
             SetActionComboSelection(combo, fallback);
         }
 
-        return resolved;
+        return GestureBindingCatalog.NormalizeAction(resolved, fallback);
     }
 
     private static string ReadSelectedActionValue(ComboBox combo, string fallback)
@@ -4832,7 +4831,7 @@ public partial class MainWindow : Window
     {
         if (IsChordShiftActionLabel(action))
         {
-            return "Chordal Shift";
+            return "Shift";
         }
 
         if (TryGetSpecialActionDisplayLabel(action, out string label))
@@ -4869,7 +4868,8 @@ public partial class MainWindow : Window
         }
 
         string normalized = action.Trim();
-        return normalized.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+        return normalized.Equals("Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
                normalized.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
                normalized.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
     }
