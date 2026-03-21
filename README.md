@@ -6,14 +6,14 @@
 
 *The app will ask for elevated permissions on first run*
 
+## Linux:
+- Thanks to the Linux community, support for this device is already included in the mainline Linux kernel.
+
 ## Windows: **(*PREREQUISITE INSTALL)**
 - Supports both the Official Apple Bootcamp drivers and Opensource drivers!
 - **Please follow the <a href="windows_linux/GlassToKey.Windows/INSTALL.md" target="_NEW">DRIVER INSTALL GUIDE</a>!**
 
 ****If you can move your mouse and you can scroll with a 2-finger gesture — you already have drivers installed!***
-
-## Linux:
-- Thanks to the Linux community, support for this device is already included in the mainline Linux kernel.
 
 <hr>
 
