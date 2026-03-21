@@ -2623,14 +2623,148 @@ struct ContentView: View {
         @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
+        @State private var threeFingerDragStatus: ThreeFingerDragStatus = .unknown
 
         private let labelWidth: CGFloat = 140
+
+        private enum ThreeFingerDragStatus {
+            case enabled
+            case disabled
+            case unknown
+
+            var isEnabled: Bool {
+                switch self {
+                case .enabled:
+                    return true
+                case .disabled, .unknown:
+                    return false
+                }
+            }
+        }
 
         private var snapRadiusEnabledBinding: Binding<Bool> {
             Binding(
                 get: { snapRadiusPercentSetting > 0 },
                 set: { snapRadiusPercentSetting = $0 ? 100.0 : 0.0 }
             )
+        }
+
+        private var threeFingerDragEnabledBinding: Binding<Bool> {
+            Binding(
+                get: { threeFingerDragStatus.isEnabled },
+                set: { _ in }
+            )
+        }
+
+        private func openThreeFingerDragSettings() {
+            let delays: [TimeInterval] = [0.0, 2.0, 4.0]
+            for delay in delays {
+                DispatchQueue.global(qos: .userInitiated).asyncAfter(deadline: .now() + delay) {
+                    _ = Self.runAppleScript(Self.trackpadOptionsRevealScript)
+                }
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
+                for candidate in Self.trackpadSettingsFallbackURLs {
+                    guard let url = URL(string: candidate) else { continue }
+                    if NSWorkspace.shared.open(url) {
+                        return
+                    }
+                }
+            }
+        }
+
+        private static let trackpadSettingsFallbackURLs = [
+            "x-apple.systempreferences:com.apple.Accessibility-Settings.extension",
+            "x-apple.systempreferences:com.apple.Trackpad-Settings.extension"
+        ]
+
+        nonisolated private static var trackpadOptionsRevealScript: String {
+            """
+            tell application "System Settings"
+                activate
+                reveal anchor "AX_TRACKPAD_DRAGGING_BEHAVIOR" of pane id "com.apple.Accessibility-Settings.extension"
+            end tell
+            """
+        }
+
+        nonisolated private static func runAppleScript(_ script: String) -> Bool {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
+            process.arguments = appleScriptArguments(for: script)
+            process.standardOutput = Pipe()
+            process.standardError = Pipe()
+
+            do {
+                try process.run()
+                process.waitUntilExit()
+                return process.terminationStatus == 0
+            } catch {
+                return false
+            }
+        }
+
+        nonisolated private static func appleScriptArguments(for script: String) -> [String] {
+            script.split(whereSeparator: \.isNewline).flatMap { line in
+                ["-e", String(line)]
+            }
+        }
+
+        private func refreshThreeFingerDragStatus() {
+            threeFingerDragStatus = Self.detectedThreeFingerDragStatus()
+        }
+
+        private static func detectedThreeFingerDragStatus() -> ThreeFingerDragStatus {
+            let candidates: [Bool?] = [
+                readPreferenceBool(
+                    key: "com.apple.trackpad.threeFingerDragGesture",
+                    applicationID: kCFPreferencesAnyApplication,
+                    host: kCFPreferencesCurrentHost
+                ),
+                readPreferenceBool(
+                    key: "TrackpadThreeFingerDrag",
+                    applicationID: "com.apple.driver.AppleBluetoothMultitouch.trackpad" as CFString
+                ),
+                readPreferenceBool(
+                    key: "TrackpadThreeFingerDrag",
+                    applicationID: "com.apple.AppleMultitouchTrackpad" as CFString
+                )
+            ]
+
+            for value in candidates {
+                guard let value else { continue }
+                return value ? .enabled : .disabled
+            }
+            return .unknown
+        }
+
+        private static func readPreferenceBool(
+            key: String,
+            applicationID: CFString,
+            host: CFString = kCFPreferencesAnyHost
+        ) -> Bool? {
+            guard let value = CFPreferencesCopyValue(
+                key as CFString,
+                applicationID,
+                kCFPreferencesCurrentUser,
+                host
+            ) else {
+                return nil
+            }
+
+            if let number = value as? NSNumber {
+                return number.boolValue
+            }
+            if let text = value as? String {
+                switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+                case "1", "true", "yes", "on":
+                    return true
+                case "0", "false", "no", "off":
+                    return false
+                default:
+                    return nil
+                }
+            }
+            return nil
         }
 
         var body: some View {
@@ -2673,6 +2807,30 @@ struct ContentView: View {
                         .labelsHidden()
                         .help("Polls every 8 seconds to detect disconnected trackpads.")
                 }
+                GridRow {
+                    Text("3-Finger Drag")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: threeFingerDragEnabledBinding)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .disabled(true)
+                        .help("Reflects whether macOS Three Finger Drag appears enabled.")
+                    Button {
+                        openThreeFingerDragSettings()
+                    } label: {
+                        Text("3-Finger Drag")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .gridCellColumns(2)
+                    .help("Opens System Settings to Trackpad Options so you can change Dragging Style.")
+                }
+            }
+            .onAppear {
+                refreshThreeFingerDragStatus()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                refreshThreeFingerDragStatus()
             }
         }
     }

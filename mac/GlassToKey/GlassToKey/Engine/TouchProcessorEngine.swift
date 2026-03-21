@@ -688,6 +688,9 @@ actor TouchProcessorEngine {
 
     func setListening(_ isListening: Bool) {
         self.isListening = isListening
+        if !isListening {
+            dispatchService.setThreeFingerHoldDragSuppression(false)
+        }
     }
 
     func statusSnapshot() -> StatusSnapshot {
@@ -848,6 +851,7 @@ actor TouchProcessorEngine {
         chordShiftLastContactTime[.left] = 0
         chordShiftLastContactTime[.right] = 0
         updateChordShiftKeyState()
+        updateThreeFingerHoldDragSuppression()
         if outerCornersHold.kind != .voice, innerCornersHold.kind != .voice {
             stopVoiceDictationGesture()
         }
@@ -2565,6 +2569,7 @@ actor TouchProcessorEngine {
         threeFingerHoldState[side] = MultiFingerHoldState()
         fourFingerHoldState[side] = MultiFingerHoldState()
         chordShiftLastContactTime[side] = 0
+        updateThreeFingerHoldDragSuppression()
     }
 
     private func isChordShiftGestureAction(_ action: KeyAction) -> Bool {
@@ -2604,6 +2609,7 @@ actor TouchProcessorEngine {
             state: &threeFingerHoldState[side],
             now: now
         )
+        updateThreeFingerHoldDragSuppression()
     }
 
     private func updateFourFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
@@ -2726,6 +2732,17 @@ actor TouchProcessorEngine {
 
     private func gestureHoldDelay(for action: KeyAction) -> TimeInterval {
         isChordShiftGestureAction(action) ? 0 : holdMinDuration
+    }
+
+    private func updateThreeFingerHoldDragSuppression() {
+        let enabled = shouldSuppressDragDuringThreeFingerHold(threeFingerHoldState[.left])
+            || shouldSuppressDragDuringThreeFingerHold(threeFingerHoldState[.right])
+        dispatchService.setThreeFingerHoldDragSuppression(enabled)
+    }
+
+    private func shouldSuppressDragDuringThreeFingerHold(_ state: MultiFingerHoldState) -> Bool {
+        guard threeFingerHoldAction.kind != .none else { return false }
+        return state.active && !state.blockedUntilAllUp
     }
 
     private func areSideTouchStartsSynchronizedForHold(
