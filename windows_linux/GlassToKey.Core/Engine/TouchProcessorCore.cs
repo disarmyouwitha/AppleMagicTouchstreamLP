@@ -53,7 +53,6 @@ internal sealed class TouchProcessorCore
     private const double CornerClickZoneThreshold = 0.283;
     private const int CornerClickForceThresholdNorm = 125;
     private const double CornerClickMaxDurationMs = 2000.0;
-    private const int ChordShiftContactThreshold = 4;
     private const double ChordSourceStaleTimeoutMs = 200.0;
     private const double MultiFingerClickHoldGuardMs = 90.0;
     private const double MultiFingerClickForceVelocityThresholdPerSec = 1400.0;
@@ -127,6 +126,8 @@ internal sealed class TouchProcessorCore
     private long _lastFourPlusRightTicks = -1;
     private long _lastFivePlusLeftTicks = -1;
     private long _lastFivePlusRightTicks = -1;
+    private long _lastChordShiftSourceLeftTicks = -1;
+    private long _lastChordShiftSourceRightTicks = -1;
 
     private long _framesProcessed;
     private long _queueDrops;
@@ -220,6 +221,8 @@ internal sealed class TouchProcessorCore
     private double _rightPositiveForceVelocityPerSec;
     private bool _leftHoldBlockedUntilAllUpFromClick;
     private bool _rightHoldBlockedUntilAllUpFromClick;
+    private bool _twoFingerHoldUsesChordShift;
+    private bool _threeFingerHoldUsesChordShift;
     private bool _fourFingerHoldUsesChordShift;
     private bool _diagnosticsEnabled;
     private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
@@ -269,7 +272,7 @@ internal sealed class TouchProcessorCore
             InvalidateBindings();
         }
 
-        if (!_fourFingerHoldUsesChordShift)
+        if (!HasChordShiftHoldGesture())
         {
             _chordShiftLeft = false;
             _chordShiftRight = false;
@@ -507,6 +510,8 @@ internal sealed class TouchProcessorCore
         _lastFourPlusRightTicks = -1;
         _lastFivePlusLeftTicks = -1;
         _lastFivePlusRightTicks = -1;
+        _lastChordShiftSourceLeftTicks = -1;
+        _lastChordShiftSourceRightTicks = -1;
         _intentTraceFingerprint = 14695981039346656037ul;
         _transitionRingHead = 0;
         _transitionRingCount = 0;
@@ -583,6 +588,10 @@ internal sealed class TouchProcessorCore
         {
             _lastFrameLeftContacts = contactCountInFrame;
             _lastRawLeftContacts = tipContactsInFrame;
+            if (tipContactsInFrame > 0)
+            {
+                _lastChordShiftSourceLeftTicks = timestampTicks;
+            }
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusLeftTicks = timestampTicks;
@@ -596,6 +605,10 @@ internal sealed class TouchProcessorCore
         {
             _lastFrameRightContacts = contactCountInFrame;
             _lastRawRightContacts = tipContactsInFrame;
+            if (tipContactsInFrame > 0)
+            {
+                _lastChordShiftSourceRightTicks = timestampTicks;
+            }
             if (tipContactsInFrame >= FourFingerSwipeArmContacts)
             {
                 _lastFourPlusRightTicks = timestampTicks;
@@ -2753,13 +2766,6 @@ internal sealed class TouchProcessorCore
 
     private void UpdateFourFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
     {
-        if (_fourFingerHoldUsesChordShift)
-        {
-            EndMultiFingerHoldGestureDispatch(ref _fourFingerHoldGesture, nowTicks);
-            _fourFingerHoldGesture = default;
-            return;
-        }
-
         UpdateMultiFingerHoldGesture(
             ref _fourFingerHoldGesture,
             aggregate,
@@ -5492,77 +5498,16 @@ internal sealed class TouchProcessorCore
     {
         bool prevLeft = _chordShiftLeft;
         bool prevRight = _chordShiftRight;
-        if (!_config.ChordShiftEnabled || !_fourFingerHoldUsesChordShift)
-        {
-            _chordShiftLeft = false;
-            _chordShiftRight = false;
-            UpdateChordShiftKeyState(timestampTicks);
-            if (prevLeft || prevRight)
-            {
-                RecordDiagnostic(
-                    timestampTicks,
-                    EngineDiagnosticEventKind.ChordShiftState,
-                    TrackpadSide.Left,
-                    _intentMode,
-                    DispatchEventKind.None,
-                    DispatchSuppressReason.None,
-                    TypingToggleSource.Api,
-                    0,
-                    DispatchMouseButton.None,
-                    _typingEnabled,
-                    false,
-                    _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
-                    _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
-                    _intentTouches.Count,
-                    0,
-                    leftContacts,
-                    rightContacts,
-                    "disabled");
-            }
-            return;
-        }
-
-        bool rightStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Right);
-        bool leftStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Left);
-
-        // Latch chord-shift once 4+ contacts are present on a side.
-        // Keep it active until that source side fully releases (0 contacts).
-        if (rightContacts >= ChordShiftContactThreshold &&
-            (_chordShiftLeft || rightStationaryForHold))
-        {
-            _chordShiftLeft = true;
-        }
-        else if (rightContacts == 0)
-        {
-            _chordShiftLeft = false;
-        }
-
-        if (leftContacts >= ChordShiftContactThreshold &&
-            (_chordShiftRight || leftStationaryForHold))
-        {
-            _chordShiftRight = true;
-        }
-        else if (leftContacts == 0)
-        {
-            _chordShiftRight = false;
-        }
-
-        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
-        if (_chordShiftLeft &&
-            _lastFourPlusRightTicks >= 0 &&
-            staleTicks > 0 &&
-            (timestampTicks - _lastFourPlusRightTicks) > staleTicks)
-        {
-            _chordShiftLeft = false;
-        }
-
-        if (_chordShiftRight &&
-            _lastFourPlusLeftTicks >= 0 &&
-            staleTicks > 0 &&
-            (timestampTicks - _lastFourPlusLeftTicks) > staleTicks)
-        {
-            _chordShiftRight = false;
-        }
+        _chordShiftLeft = IsChordShiftSourceActive(
+            TrackpadSide.Right,
+            rightContacts,
+            prevLeft,
+            timestampTicks);
+        _chordShiftRight = IsChordShiftSourceActive(
+            TrackpadSide.Left,
+            leftContacts,
+            prevRight,
+            timestampTicks);
 
         UpdateChordShiftKeyState(timestampTicks);
         if (prevLeft != _chordShiftLeft || prevRight != _chordShiftRight)
@@ -5585,8 +5530,32 @@ internal sealed class TouchProcessorCore
                 0,
                 leftContacts,
                 rightContacts,
-                "latched");
+                _chordShiftLeft || _chordShiftRight ? "active" : "inactive");
         }
+    }
+
+    private bool IsChordShiftSourceActive(
+        TrackpadSide sourceSide,
+        int sourceContacts,
+        bool wasActive,
+        long timestampTicks)
+    {
+        if (!HasChordShiftHoldGestureForContactCount(sourceContacts))
+        {
+            return false;
+        }
+
+        long lastSourceTicks = sourceSide == TrackpadSide.Left
+            ? _lastChordShiftSourceLeftTicks
+            : _lastChordShiftSourceRightTicks;
+        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
+        if (lastSourceTicks < 0 ||
+            (staleTicks > 0 && (timestampTicks - lastSourceTicks) > staleTicks))
+        {
+            return false;
+        }
+
+        return wasActive || AreSideTouchesStationaryForHold(sourceSide);
     }
 
     private bool IsChordSourceSide(TrackpadSide side)
@@ -5661,7 +5630,7 @@ internal sealed class TouchProcessorCore
 
     private void UpdateChordShiftKeyState(long timestampTicks)
     {
-        bool shouldBeDown = _config.ChordShiftEnabled && _fourFingerHoldUsesChordShift && (_chordShiftLeft || _chordShiftRight);
+        bool shouldBeDown = _chordShiftLeft || _chordShiftRight;
         if (shouldBeDown == _chordShiftKeyDown)
         {
             return;
@@ -5719,9 +5688,15 @@ internal sealed class TouchProcessorCore
         _fourFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeRightAction);
         _fourFingerSwipeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeUpAction);
         _fourFingerSwipeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeDownAction);
-        _twoFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerHoldAction);
-        _threeFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerHoldAction);
+        _twoFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.TwoFingerHoldAction);
+        _threeFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.ThreeFingerHoldAction);
         _fourFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.FourFingerHoldAction);
+        _twoFingerHoldGestureAction = _twoFingerHoldUsesChordShift
+            ? EngineKeyAction.None
+            : EngineActionResolver.ResolveActionLabel(_config.TwoFingerHoldAction);
+        _threeFingerHoldGestureAction = _threeFingerHoldUsesChordShift
+            ? EngineKeyAction.None
+            : EngineActionResolver.ResolveActionLabel(_config.ThreeFingerHoldAction);
         _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
             ? EngineKeyAction.None
             : EngineActionResolver.ResolveActionLabel(_config.FourFingerHoldAction);
@@ -5764,9 +5739,28 @@ internal sealed class TouchProcessorCore
             return false;
         }
 
-        return action.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+        return action.Equals("Shift", StringComparison.OrdinalIgnoreCase) ||
+               action.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
                action.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
                action.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HasChordShiftHoldGesture()
+    {
+        return _twoFingerHoldUsesChordShift ||
+               _threeFingerHoldUsesChordShift ||
+               _fourFingerHoldUsesChordShift;
+    }
+
+    private bool HasChordShiftHoldGestureForContactCount(int contactCount)
+    {
+        return contactCount switch
+        {
+            2 => _twoFingerHoldUsesChordShift,
+            3 => _threeFingerHoldUsesChordShift,
+            4 => _fourFingerHoldUsesChordShift,
+            _ => false
+        };
     }
 
     private static TouchProcessorConfig NormalizeConfig(TouchProcessorConfig config)
@@ -5799,7 +5793,7 @@ internal sealed class TouchProcessorCore
             BottomRightCornerSwipeAction = NormalizeGestureAction(config.BottomRightCornerSwipeAction, "None"),
             TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
             ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
-            FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
+            FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Shift"),
             LeftEdgeUpAction = NormalizeGestureAction(config.LeftEdgeUpAction, "None"),
             LeftEdgeDownAction = NormalizeGestureAction(config.LeftEdgeDownAction, "None"),
             RightEdgeUpAction = NormalizeGestureAction(config.RightEdgeUpAction, "None"),

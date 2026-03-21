@@ -413,6 +413,11 @@ internal static class SelfTestRunner
         };
 
         TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            ThreeFingerHoldAction = "Shift",
+            FourFingerHoldAction = "None"
+        });
         using DispatchEventQueue queue = new();
         using TouchProcessorActor actor = new(core, dispatchQueue: queue);
 
@@ -626,13 +631,12 @@ internal static class SelfTestRunner
         long now = 0;
         InputFrame allUp = MakeFrame(contactCount: 0);
 
-        // Quick 4-finger tap on right side.
+        // Quick 3-finger tap on right side using Shift as the configured hold action.
         InputFrame rightChordTap = MakeFrame(
-            contactCount: 4,
+            contactCount: 3,
             id0: 330, x0: 900, y0: 1500,
             id1: 331, x1: 1200, y1: 1550,
-            id2: 332, x2: 1500, y2: 1600,
-            id3: 333, x3: 1800, y3: 1650);
+            id2: 332, x2: 1500, y2: 1600);
         actor.Post(TrackpadSide.Right, in rightChordTap, maxX, maxY, now);
 
         // Follow-up frame with only non-tip (hover/linger), should not keep chord shift latched.
@@ -2196,22 +2200,25 @@ internal static class SelfTestRunner
         ushort rightKeyY = (ushort)Math.Clamp((int)Math.Round((rightKeyRect.Y + (rightKeyRect.Height * 0.5)) * maxY), 1, maxY - 1);
 
         TouchProcessorCore chordShiftCore = TouchProcessorFactory.CreateDefault(chordShiftKeymap);
+        chordShiftCore.Configure(chordShiftCore.CurrentConfig with
+        {
+            ThreeFingerHoldAction = "Shift",
+            FourFingerHoldAction = "None"
+        });
         using DispatchEventQueue chordShiftQueue = new();
         using TouchProcessorActor chordShiftActor = new(chordShiftCore, dispatchQueue: chordShiftQueue);
 
         now = 0;
         InputFrame leftChordHold = MakeFrame(
-            contactCount: 4,
+            contactCount: 3,
             id0: 60, x0: 800, y0: 900,
             id1: 61, x1: 1200, y1: 1100,
-            id2: 62, x2: 1600, y2: 1300,
-            id3: 63, x3: 2000, y3: 1500);
+            id2: 62, x2: 1600, y2: 1300);
         InputFrame leftChordHoldMoved = MakeFrame(
-            contactCount: 4,
+            contactCount: 3,
             id0: 60, x0: 1200, y0: 900,
             id1: 61, x1: 1600, y1: 1100,
-            id2: 62, x2: 2000, y2: 1300,
-            id3: 63, x3: 2400, y3: 1500);
+            id2: 62, x2: 2000, y2: 1300);
         InputFrame rightKeyDown = MakeFrame(contactCount: 1, id0: 64, x0: rightKeyX, y0: rightKeyY);
         InputFrame rightKeyUp = MakeFrame(contactCount: 0);
 
@@ -2299,16 +2306,20 @@ internal static class SelfTestRunner
         };
 
         TouchProcessorCore chordSourceSuppressCore = TouchProcessorFactory.CreateDefault(chordSourceSuppressKeymap);
+        chordSourceSuppressCore.Configure(chordSourceSuppressCore.CurrentConfig with
+        {
+            ThreeFingerHoldAction = "Shift",
+            FourFingerHoldAction = "None"
+        });
         using DispatchEventQueue chordSourceSuppressQueue = new();
         using TouchProcessorActor chordSourceSuppressActor = new(chordSourceSuppressCore, dispatchQueue: chordSourceSuppressQueue);
 
         now = 0;
         InputFrame leftChordSuppressDown = MakeFrame(
-            contactCount: 4,
+            contactCount: 3,
             id0: 70, x0: keyX, y0: keyY,
             id1: 71, x1: 1200, y1: 1100,
-            id2: 72, x2: 1600, y2: 1300,
-            id3: 73, x3: 2000, y3: 1500);
+            id2: 72, x2: 1600, y2: 1300);
         InputFrame leftChordSuppressUp = MakeFrame(contactCount: 0);
         chordSourceSuppressActor.Post(TrackpadSide.Left, in leftChordSuppressDown, maxX, maxY, now);
         now += MsToTicks(220);
@@ -2417,7 +2428,7 @@ internal static class SelfTestRunner
             return false;
         }
 
-        if (settings.ForceMin != 0 || settings.ForceCap != 128)
+        if (settings.ForceMin != 0 || settings.ForceCap != 125)
         {
             failure = "bundled default settings should load bundled force thresholds";
             return false;

@@ -33,7 +33,7 @@ public static class GestureBindingCatalog
     [
         new GestureBindingDefinition("two_finger_hold", "holds", "2-finger hold", "None"),
         new GestureBindingDefinition("three_finger_hold", "holds", "3-finger hold", "None"),
-        new GestureBindingDefinition("four_finger_hold", "holds", "4-finger hold", "Chordal Shift"),
+        new GestureBindingDefinition("four_finger_hold", "holds", "4-finger hold", "Shift"),
         new GestureBindingDefinition("inner_corners", "holds", "Inner corners", "None"),
         new GestureBindingDefinition("outer_corners", "holds", "Outer corners", "None"),
 
@@ -195,13 +195,6 @@ public static class GestureBindingCatalog
             }
         }
 
-        bool chordShiftEnabled = UsesChordShift(settings);
-        if (settings.ChordShiftEnabled != chordShiftEnabled)
-        {
-            settings.ChordShiftEnabled = chordShiftEnabled;
-            changed = true;
-        }
-
         return changed;
     }
 
@@ -212,17 +205,29 @@ public static class GestureBindingCatalog
             throw new ArgumentNullException(nameof(settings));
         }
 
-        return IsChordShiftGestureAction(settings.FourFingerHoldAction);
+        return IsChordShiftGestureAction(settings.TwoFingerHoldAction) ||
+               IsChordShiftGestureAction(settings.ThreeFingerHoldAction) ||
+               IsChordShiftGestureAction(settings.FourFingerHoldAction);
     }
 
     public static bool IsChordShiftGestureAction(string? action)
     {
-        return string.Equals(action?.Trim(), "Chordal Shift", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        string normalized = action.Trim();
+        return normalized.Equals("Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
+               normalized.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
     }
 
     public static string NormalizeAction(string? action, string fallback)
     {
-        return string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
+        string normalized = string.IsNullOrWhiteSpace(action) ? fallback : action.Trim();
+        return IsChordShiftGestureAction(normalized) ? "Shift" : normalized;
     }
 
     public static int NormalizeRepeatCadenceMs(int cadenceMs)

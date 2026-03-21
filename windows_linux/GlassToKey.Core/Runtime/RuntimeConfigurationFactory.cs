@@ -18,8 +18,6 @@ public static class RuntimeConfigurationFactory
 
     internal static TouchProcessorConfig BuildTouchConfig(UserSettings settings)
     {
-        bool chordShiftEnabled = GestureBindingCatalog.UsesChordShift(settings);
-
         return TouchProcessorConfig.Default with
         {
             TrackpadWidthMm = TrackpadWidthMm,
@@ -80,7 +78,6 @@ public static class RuntimeConfigurationFactory
             ForceClickThreshold = settings.ForceClickThreshold,
             ForceMin = settings.ForceMin,
             ForceCap = settings.ForceCap,
-            ChordShiftEnabled = chordShiftEnabled,
             HoldRepeatEnabled = settings.HoldRepeatEnabled,
             GestureRepeatCadenceMsById = GestureBindingCatalog.BuildRepeatCadenceMap(settings)
         };
