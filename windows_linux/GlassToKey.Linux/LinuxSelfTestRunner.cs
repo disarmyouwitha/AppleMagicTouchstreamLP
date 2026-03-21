@@ -66,6 +66,16 @@ internal static class LinuxSelfTestRunner
             return new LinuxSelfTestResult(false, failure);
         }
 
+        if (!ValidateLinuxChordShiftDispatchSequence(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
+        if (!ValidateLinuxHeldModifierSequencing(out failure))
+        {
+            return new LinuxSelfTestResult(false, failure);
+        }
+
         if (!ValidateThreeFingerDragReleaseClearsLatchedContacts(out failure))
         {
             return new LinuxSelfTestResult(false, failure);
@@ -522,6 +532,248 @@ internal static class LinuxSelfTestRunner
         if (!string.Equals(snapshot.IntentMode, "MouseActive", StringComparison.Ordinal))
         {
             failure = $"Configured runtime host did not restore mouse takeover on startup (intent={snapshot.IntentMode}).";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxChordShiftDispatchSequence(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout rightLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: false);
+        NormalizedRect rightKeyRect = rightLayout.Rects[0][2];
+        ushort rightKeyX = (ushort)Math.Clamp((int)Math.Round((rightKeyRect.X + (rightKeyRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort rightKeyY = (ushort)Math.Clamp((int)Math.Round((rightKeyRect.Y + (rightKeyRect.Height * 0.5)) * maxY), 1, maxY - 1);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        string rightStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Right, 0, 2);
+        keymap.Mappings[0][rightStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "a" },
+            Hold = null
+        };
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        core.Configure(core.CurrentConfig with
+        {
+            ThreeFingerHoldAction = "Shift",
+            FourFingerHoldAction = "None"
+        });
+
+        using DispatchEventQueue queue = new();
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        long now = 0;
+        InputFrame leftChordHold = MakeMultiContactFrame(
+            (60, 800, 900),
+            (61, 1200, 1100),
+            (62, 1600, 1300));
+        InputFrame leftChordHoldMoved = MakeMultiContactFrame(
+            (60, 1200, 900),
+            (61, 1600, 1100),
+            (62, 2000, 1300));
+        InputFrame rightKeyDown = MakeFrame(contactCount: 1, x: rightKeyX, y: rightKeyY);
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        actor.Post(TrackpadSide.Left, in leftChordHold, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Left, in leftChordHoldMoved, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Right, in rightKeyDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Right, in allUp, maxX, maxY, now);
+
+        now += MsToTicks(320);
+        actor.Post(TrackpadSide.Right, in allUp, maxX, maxY, now);
+        now += MsToTicks(10);
+        actor.Post(TrackpadSide.Right, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        TouchProcessorSnapshot snapshot = actor.Snapshot();
+        bool sawShiftDown = false;
+        bool sawShiftedTap = false;
+        bool sawShiftUp = false;
+        int shiftDownCount = 0;
+
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (!sawShiftDown &&
+                dispatchEvent.Kind == DispatchEventKind.ModifierDown &&
+                dispatchEvent.VirtualKey == 0x10)
+            {
+                sawShiftDown = true;
+                shiftDownCount++;
+                continue;
+            }
+
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown &&
+                dispatchEvent.VirtualKey == 0x10)
+            {
+                shiftDownCount++;
+            }
+
+            if (sawShiftDown &&
+                !sawShiftedTap &&
+                dispatchEvent.Kind == DispatchEventKind.KeyTap &&
+                dispatchEvent.VirtualKey == 0x41)
+            {
+                sawShiftedTap = true;
+                continue;
+            }
+
+            if (sawShiftDown &&
+                sawShiftedTap &&
+                dispatchEvent.Kind == DispatchEventKind.ModifierUp &&
+                dispatchEvent.VirtualKey == 0x10)
+            {
+                sawShiftUp = true;
+                break;
+            }
+        }
+
+        if (!sawShiftDown || !sawShiftedTap || !sawShiftUp)
+        {
+            failure = "Linux chord-shift self-test did not observe the expected Shift down/key tap/up sequence.";
+            return false;
+        }
+
+        if (shiftDownCount != 1)
+        {
+            failure = $"Linux chord-shift self-test saw an unexpected number of Shift-down events ({shiftDownCount}).";
+            return false;
+        }
+
+        if (snapshot.ChordShiftRight)
+        {
+            failure = "Linux chord-shift self-test left the right-side chord shift latched after stale-source timeout.";
+            return false;
+        }
+
+        failure = string.Empty;
+        return true;
+    }
+
+    private static bool ValidateLinuxHeldModifierSequencing(out string failure)
+    {
+        const ushort maxX = 7612;
+        const ushort maxY = 5065;
+
+        TrackpadLayoutPreset preset = TrackpadLayoutPreset.SixByThree;
+        ColumnLayoutSettings[] columns = ColumnLayoutDefaults.DefaultSettings(preset.Columns);
+        KeyLayout leftLayout = LayoutBuilder.BuildLayout(preset, 160.0, 114.9, 18.0, 17.0, columns, mirrored: true);
+
+        KeymapStore keymap = KeymapStore.LoadBundledDefault();
+        string shiftStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 2);
+        string tapStorageKey = GridKeyPosition.StorageKey(TrackpadSide.Left, 0, 3);
+        keymap.Mappings[0][shiftStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "Shift" },
+            Hold = null
+        };
+        keymap.Mappings[0][tapStorageKey] = new KeyMapping
+        {
+            Primary = new KeyAction { Label = "A" },
+            Hold = null
+        };
+
+        TouchProcessorCore core = TouchProcessorFactory.CreateDefault(keymap);
+        using DispatchEventQueue queue = new();
+        using TouchProcessorActor actor = new(core, dispatchQueue: queue);
+
+        NormalizedRect shiftRect = leftLayout.Rects[0][2];
+        NormalizedRect tapRect = leftLayout.Rects[0][3];
+        ushort shiftX = (ushort)Math.Clamp((int)Math.Round((shiftRect.X + (shiftRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort shiftY = (ushort)Math.Clamp((int)Math.Round((shiftRect.Y + (shiftRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort tapX = (ushort)Math.Clamp((int)Math.Round((tapRect.X + (tapRect.Width * 0.5)) * maxX), 1, maxX - 1);
+        ushort tapY = (ushort)Math.Clamp((int)Math.Round((tapRect.Y + (tapRect.Height * 0.5)) * maxY), 1, maxY - 1);
+        ushort shiftDriftX = (ushort)Math.Clamp(shiftX + 500, 1, maxX - 1);
+
+        long now = 0;
+        InputFrame heldShiftDown = MakeMultiContactFrame((53, shiftX, shiftY));
+        InputFrame heldShiftDrift = MakeMultiContactFrame((53, shiftDriftX, shiftY));
+        InputFrame tap1Down = MakeMultiContactFrame((53, shiftDriftX, shiftY), (54, tapX, tapY));
+        InputFrame tap1Up = MakeMultiContactFrame((53, shiftDriftX, shiftY));
+        InputFrame tap2Down = MakeMultiContactFrame((53, shiftDriftX, shiftY), (55, tapX, tapY));
+        InputFrame tap2Up = MakeMultiContactFrame((53, shiftDriftX, shiftY));
+        InputFrame allUp = MakeFrame(contactCount: 0);
+
+        actor.Post(TrackpadSide.Left, in heldShiftDown, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in heldShiftDrift, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in tap1Down, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in tap1Up, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in tap2Down, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in tap2Up, maxX, maxY, now);
+        now += MsToTicks(8);
+        actor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        actor.WaitForIdle();
+
+        int eventIndex = 0;
+        int shiftDownIndex = -1;
+        int shiftUpIndex = -1;
+        int firstTapIndex = -1;
+        int lastTapIndex = -1;
+        int tapCount = 0;
+        bool earlyShiftUp = false;
+        List<string> events = [];
+
+        while (queue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            events.Add($"{dispatchEvent.Kind}:0x{dispatchEvent.VirtualKey:X2}:{dispatchEvent.DispatchLabel}");
+            if (dispatchEvent.Kind == DispatchEventKind.ModifierDown &&
+                dispatchEvent.VirtualKey == 0x10 &&
+                shiftDownIndex < 0)
+            {
+                shiftDownIndex = eventIndex;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.ModifierUp &&
+                     dispatchEvent.VirtualKey == 0x10)
+            {
+                if (tapCount < 2)
+                {
+                    earlyShiftUp = true;
+                }
+
+                if (shiftUpIndex < 0)
+                {
+                    shiftUpIndex = eventIndex;
+                }
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap &&
+                     dispatchEvent.VirtualKey == 0x41)
+            {
+                if (firstTapIndex < 0)
+                {
+                    firstTapIndex = eventIndex;
+                }
+
+                lastTapIndex = eventIndex;
+                tapCount++;
+            }
+
+            eventIndex++;
+        }
+
+        if (shiftDownIndex < 0 ||
+            shiftUpIndex < 0 ||
+            tapCount != 2 ||
+            firstTapIndex < 0 ||
+            lastTapIndex < 0 ||
+            shiftDownIndex > firstTapIndex ||
+            shiftUpIndex < lastTapIndex ||
+            earlyShiftUp)
+        {
+            failure = $"Linux held-modifier sequencing mismatch (downIdx={shiftDownIndex}, upIdx={shiftUpIndex}, firstTap={firstTapIndex}, lastTap={lastTapIndex}, tapCount={tapCount}, earlyUp={earlyShiftUp}, events=[{string.Join(", ", events)}]).";
             return false;
         }
 
@@ -1281,6 +1533,37 @@ internal static class LinuxSelfTestRunner
         }
 
         return frame;
+    }
+
+    private static InputFrame MakeMultiContactFrame(params (uint Id, ushort X, ushort Y)[] contacts)
+    {
+        InputFrame frame = new()
+        {
+            ArrivalQpcTicks = 0,
+            ReportId = 0xEE,
+            ScanTime = 0,
+            ContactCount = (byte)Math.Min(contacts.Length, InputFrame.MaxContacts),
+            IsButtonClicked = 0
+        };
+
+        int count = Math.Min(contacts.Length, InputFrame.MaxContacts);
+        for (int index = 0; index < count; index++)
+        {
+            (uint id, ushort x, ushort y) = contacts[index];
+            frame.SetContact(index, new ContactFrame(id, x, y, 0x03));
+        }
+
+        return frame;
+    }
+
+    private static long MsToTicks(double milliseconds)
+    {
+        if (milliseconds <= 0)
+        {
+            return 0;
+        }
+
+        return (long)Math.Round(milliseconds * Stopwatch.Frequency / 1000.0);
     }
 
     private static InputFrame MakeThreeFingerFrame(
