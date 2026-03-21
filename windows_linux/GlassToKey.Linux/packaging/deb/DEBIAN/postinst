@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -eu
+
+if ! getent group glasstokey >/dev/null 2>&1; then
+  groupadd --system glasstokey || true
+fi
+
+if command -v udevadm >/dev/null 2>&1; then
+  udevadm control --reload-rules || true
+  udevadm trigger || true
+fi
+
+if command -v systemctl >/dev/null 2>&1; then
+  systemctl daemon-reload || true
+fi
+
+cat <<'EOF'
+GlassToKey Linux install complete.
+
+[After install]:
+  1. Reconnect the trackpads or wait a few seconds for refreshed udev permissions on both
+     `/dev/input/event*` and the Magic Trackpad actuator `/dev/hidraw*` nodes.
+  2. Add the desktop user to the 'glasstokey' group:
+     sudo usermod -aG glasstokey $USER
+  3. Log out and back in so the new group membership applies.
+
+
+[Usage]:
+  glasstokey            # start tray GUI
+  glasstokey start      # start headless mode
+  glasstokey stop       # stop headless mode
+
+[Other Commands]:
+  glasstokey print-keymap
+  glasstokey list-devices
+  glasstokey bind-left [device-node-or-stable-id]
+  glasstokey bind-right [device-node-or-stable-id]
+  glasstokey print-udev-rules
+  glasstokey swap-sides
+  glasstokey doctor
+
+EOF

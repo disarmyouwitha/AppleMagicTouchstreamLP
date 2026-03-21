@@ -1,0 +1,13 @@
+{
+  "capturePath": "bluetooth-trackpad.atpcap",
+  "expected": {
+    "captureFingerprint": "0x50A131FC1937F27F",
+    "dispatchFingerprint": "0xB1CFAC371CEF393A",
+    "dispatchEvents": 2,
+    "intentTransitions": 20,
+    "framesSeen": 1364,
+    "framesParsed": 1363,
+    "framesDispatched": 1363,
+    "framesDropped": 0
+  }
+}

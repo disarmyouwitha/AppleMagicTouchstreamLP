@@ -1,0 +1,7022 @@
+using System;
+using System.Diagnostics;
+using System.Threading;
+
+namespace GlassToKey;
+
+internal sealed class TouchProcessorCore
+{
+    private const double DragReleasePointerGraceMs = 1500.0;
+    private const double FiveFingerSwipeThresholdMm = 8.0;
+    private const int FiveFingerSwipeArmContacts = 5;
+    private const int FiveFingerSwipeSustainContacts = 4;
+    private const int FiveFingerSwipeReleaseContacts = 2;
+    private const double ThreeFingerSwipeThresholdMm = 10.0;
+    private const int ThreeFingerSwipeArmContacts = 3;
+    private const int ThreeFingerSwipeSustainContacts = 2;
+    private const int ThreeFingerSwipeReleaseContacts = 1;
+    private const double FourFingerSwipeThresholdMm = 10.0;
+    private const int FourFingerSwipeArmContacts = 4;
+    private const int FourFingerSwipeSustainContacts = 3;
+    private const int FourFingerSwipeReleaseContacts = 1;
+    private const double DirectionalSwipeAxisDominanceRatio = 1.2;
+    private const double FourFingerDominanceSuppressMs = 180.0;
+    private const double FiveFingerDominanceSuppressMs = 180.0;
+    private const double SwipeChordCancelPreTriggerRatio = 0.35;
+    private const double TriangleStartCornerThreshold = 0.12;
+    private const double TriangleArmDxThreshold = 0.06;
+    private const double TriangleArmDyThreshold = 0.08;
+    private const double TriangleFirstLegDxThreshold = 0.16;
+    private const double TriangleFirstLegDyThreshold = 0.22;
+    private const double TriangleReturnDxThreshold = 0.14;
+    private const double TriangleEndNearStartXThreshold = 0.08;
+    private const double TriangleMaxDurationMs = 3000.0;
+    private const double TriangleTurnDotUpperBound = -0.15;
+    private const double TriangleReturnDominanceRatio = 2.0;
+    private const double CornerSwipeStartCornerThreshold = 0.12;
+    private const double CornerSwipeArmDistanceMm = 10.0;
+    private const double CornerSwipeMinAxisTravelMm = 10.0;
+    private const double CornerSwipeTriggerDistanceMm = 24.0;
+    private const double CornerSwipeAxisBalanceRatio = 2.4;
+    private const double CornerSwipeMaxReverseTravelMm = 10.0;
+    private const double CornerSwipeTriangleDisambiguationMs = 120.0;
+    private const double CornerSwipeMaxDurationMs = 2000.0;
+    private const double EdgeSlideStartThreshold = 0.03;
+    private const double EdgeSlideStayThreshold = 0.08;
+    private const double EdgeSlideArmDistanceMm = 10.0;
+    private const double EdgeSlideTriggerDistanceMm = 24.0;
+    private const double EdgeSlideMaxLateralTravelMm = 10.0;
+    private const double EdgeSlideDirectionDominanceRatio = 2.0;
+    private const double EdgeSlideMaxDurationMs = 2500.0;
+    private const double HoldGestureMoveCancelMm = 1.0;
+    private const double ForceClickMaxDurationMs = 2000.0;
+    private const double CornerClickZoneThreshold = 0.283;
+    private const int CornerClickForceThresholdNorm = 125;
+    private const double CornerClickMaxDurationMs = 2000.0;
+    private const int ChordShiftContactThreshold = 4;
+    private const double ChordSourceStaleTimeoutMs = 200.0;
+    private const double MultiFingerClickHoldGuardMs = 90.0;
+    private const double MultiFingerClickForceVelocityThresholdPerSec = 1400.0;
+    private const double ThreeFingerDragPixelsPerMm = 10.0;
+    private const ushort ShiftVirtualKey = 0x10;
+
+    private TouchProcessorConfig _config;
+    private readonly IntentTransition[] _transitionRing = new IntentTransition[256];
+    private int _transitionRingHead;
+    private int _transitionRingCount;
+
+    private TouchTable<IntentTouchInfo> _intentTouches = new(32);
+    private TouchTable<TouchBindingState> _touchStates = new(32);
+    private TouchTable<int> _momentaryLayerTouches = new(16);
+    private readonly ulong[] _removalBuffer = new ulong[32];
+
+    private KeyLayout _leftLayout;
+    private KeyLayout _rightLayout;
+    private KeymapStore _keymap;
+    private BindingIndex? _leftBindingIndex;
+    private BindingIndex? _rightBindingIndex;
+    private int _bindingsGeneration;
+    private int _bindingsLayer = -1;
+
+    private IntentMode _intentMode = IntentMode.Idle;
+    private int _lastContactCount;
+    private long _keyCandidateStartTicks;
+    private ulong _keyCandidateTouchKey;
+    private double _keyCandidateCentroidX;
+    private double _keyCandidateCentroidY;
+    private long _mouseCandidateStartTicks;
+    private long _gestureCandidateStartTicks;
+    private long _typingGraceDeadlineTicks;
+    private long _pointerSequenceGraceDeadlineTicks;
+    private bool _typingCommittedUntilAllUp;
+    private bool _typingCommittedByKeyboardOnly;
+    private bool _pointerSequenceGracePending;
+    private bool _pointerSequenceGraceActive;
+    private bool _hapticsOnKeyDispatch;
+
+    private bool _typingEnabled = true;
+    private bool _keyboardModeEnabled;
+    private bool _pointerIntentEnabled = true;
+    private bool _typingToggleActionsEnabled = true;
+    private int _persistentLayer;
+    private int _activeLayer;
+
+    private DirectionalSwipeState _fiveFingerSwipeLeft;
+    private DirectionalSwipeState _fiveFingerSwipeRight;
+    private DirectionalSwipeState _threeFingerSwipeStateLeft;
+    private DirectionalSwipeState _threeFingerSwipeStateRight;
+    private DirectionalSwipeState _fourFingerSwipeStateLeft;
+    private DirectionalSwipeState _fourFingerSwipeStateRight;
+
+    private bool _chordShiftLeft;
+    private bool _chordShiftRight;
+    private bool _chordShiftKeyDown;
+    private bool _threePlusGestureSuppressLeft;
+    private bool _threePlusGestureSuppressRight;
+    private CornerHoldGesture _cornerHoldGestureLeft;
+    private CornerHoldGesture _cornerHoldGestureRight;
+    private int _lastFrameLeftContacts;
+    private int _lastFrameRightContacts;
+    private int _lastRawLeftContacts;
+    private int _lastRawRightContacts;
+    private int _lastOnKeyLeftContacts;
+    private int _lastOnKeyRightContacts;
+    private bool _lastChordSuppressedLeft;
+    private bool _lastChordSuppressedRight;
+    private long _lastFourPlusLeftTicks = -1;
+    private long _lastFourPlusRightTicks = -1;
+    private long _lastFivePlusLeftTicks = -1;
+    private long _lastFivePlusRightTicks = -1;
+
+    private long _framesProcessed;
+    private long _queueDrops;
+    private long _releaseDroppedTotal;
+    private long _releaseDroppedGesturePriority;
+    private long _lastReleaseDroppedTicks;
+    private string _lastReleaseDroppedReason = string.Empty;
+    private long _snapAttempts;
+    private long _snapAccepted;
+    private long _snapRejected;
+    private ulong _intentTraceFingerprint = 14695981039346656037ul;
+    private readonly DispatchEvent[] _dispatchRing = new DispatchEvent[512];
+    private int _dispatchRingHead;
+    private int _dispatchRingCount;
+    private readonly PointerDragEffect[] _pointerDragRing = new PointerDragEffect[64];
+    private int _pointerDragRingHead;
+    private int _pointerDragRingCount;
+    private long _dispatchDrops;
+    private long _dispatchEnqueued;
+    private long _dispatchSuppressedTypingDisabled;
+    private long _dispatchSuppressedRingFull;
+    private bool _threeFingerDragEnabled;
+    private ThreeFingerDragState _threeFingerDragState;
+    private MultiFingerHoldGesture _twoFingerHoldGesture;
+    private MultiFingerHoldGesture _threeFingerHoldGesture;
+    private MultiFingerHoldGesture _fourFingerHoldGesture;
+    private EngineKeyAction _fiveFingerSwipeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fiveFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fiveFingerSwipeUpGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fiveFingerSwipeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerSwipeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerSwipeUpGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerSwipeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerSwipeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerSwipeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerSwipeUpGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerSwipeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _twoFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerHoldGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _leftEdgeUpGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _leftEdgeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _rightEdgeUpGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _rightEdgeDownGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topEdgeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topEdgeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomEdgeLeftGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomEdgeRightGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _threeFingerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _fourFingerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _outerCornersGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _innerCornersGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightCornerSwipeGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightTriangleGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topLeftForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _topRightForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomLeftForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _bottomRightForceClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _forceClick2GestureAction = EngineKeyAction.None;
+    private EngineKeyAction _forceClick3GestureAction = EngineKeyAction.None;
+    private EngineKeyAction _upperLeftCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _upperRightCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _lowerLeftCornerClickGestureAction = EngineKeyAction.None;
+    private EngineKeyAction _lowerRightCornerClickGestureAction = EngineKeyAction.None;
+    private CornerSwipeGesture _cornerSwipeGestureLeft;
+    private CornerSwipeGesture _cornerSwipeGestureRight;
+    private TriangleGesture _triangleGestureLeft;
+    private TriangleGesture _triangleGestureRight;
+    private EdgeSlideGesture _edgeSlideGestureLeft;
+    private EdgeSlideGesture _edgeSlideGestureRight;
+    private ForceClickGesture _forceClickGestureLeft;
+    private ForceClickGesture _forceClickGestureRight;
+    private CornerClickTapGesture _cornerClickTapGestureLeft;
+    private CornerClickTapGesture _cornerClickTapGestureRight;
+    private bool _leftButtonPressed;
+    private bool _rightButtonPressed;
+    private int _leftMaxTipContactsBeforeButtonDown;
+    private int _rightMaxTipContactsBeforeButtonDown;
+    private int _leftLastTipMaxForceNorm;
+    private int _rightLastTipMaxForceNorm;
+    private long _leftLastTipForceSampleTicks = -1;
+    private long _rightLastTipForceSampleTicks = -1;
+    private double _leftPositiveForceVelocityPerSec;
+    private double _rightPositiveForceVelocityPerSec;
+    private bool _leftHoldBlockedUntilAllUpFromClick;
+    private bool _rightHoldBlockedUntilAllUpFromClick;
+    private bool _fourFingerHoldUsesChordShift;
+    private bool _diagnosticsEnabled;
+    private readonly EngineDiagnosticEvent[] _diagnosticRing = new EngineDiagnosticEvent[8192];
+    private int _diagnosticRingHead;
+    private int _diagnosticRingCount;
+    private long _clockAnchorTimestampTicks;
+    private long _clockAnchorWallTicks;
+
+    public TouchProcessorCore(
+        KeyLayout leftLayout,
+        KeyLayout rightLayout,
+        KeymapStore keymap,
+        TouchProcessorConfig? config = null)
+    {
+        _leftLayout = leftLayout;
+        _rightLayout = rightLayout;
+        _keymap = keymap;
+        _config = NormalizeConfig(config ?? TouchProcessorConfig.Default);
+        RefreshGestureActionsFromConfig();
+    }
+
+    public TouchProcessorConfig CurrentConfig => _config;
+
+    public void ConfigureLayouts(KeyLayout leftLayout, KeyLayout rightLayout)
+    {
+        _leftLayout = leftLayout;
+        _rightLayout = rightLayout;
+        InvalidateBindings();
+    }
+
+    public void ConfigureKeymap(KeymapStore keymap)
+    {
+        _keymap = keymap;
+        InvalidateBindings();
+    }
+
+    public void Configure(TouchProcessorConfig config)
+    {
+        TouchProcessorConfig normalized = NormalizeConfig(config);
+        bool rebuildBindings =
+            Math.Abs(normalized.SnapRadiusPercent - _config.SnapRadiusPercent) > 0.0001 ||
+            Math.Abs(normalized.SnapAmbiguityRatio - _config.SnapAmbiguityRatio) > 0.0001;
+        _config = normalized;
+        RefreshGestureActionsFromConfig();
+        if (rebuildBindings)
+        {
+            InvalidateBindings();
+        }
+
+        if (!_fourFingerHoldUsesChordShift)
+        {
+            _chordShiftLeft = false;
+            _chordShiftRight = false;
+            UpdateChordShiftKeyState(Stopwatch.GetTimestamp());
+        }
+
+        if (_topLeftTriangleGestureAction.Kind == EngineActionKind.None &&
+            _topRightTriangleGestureAction.Kind == EngineActionKind.None &&
+            _bottomLeftTriangleGestureAction.Kind == EngineActionKind.None &&
+            _bottomRightTriangleGestureAction.Kind == EngineActionKind.None)
+        {
+            _triangleGestureLeft = default;
+            _triangleGestureRight = default;
+        }
+
+        if (_topLeftCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _topRightCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _bottomLeftCornerSwipeGestureAction.Kind == EngineActionKind.None &&
+            _bottomRightCornerSwipeGestureAction.Kind == EngineActionKind.None)
+        {
+            _cornerSwipeGestureLeft = default;
+            _cornerSwipeGestureRight = default;
+        }
+
+        if (_leftEdgeUpGestureAction.Kind == EngineActionKind.None &&
+            _leftEdgeDownGestureAction.Kind == EngineActionKind.None &&
+            _rightEdgeUpGestureAction.Kind == EngineActionKind.None &&
+            _rightEdgeDownGestureAction.Kind == EngineActionKind.None &&
+            _topEdgeLeftGestureAction.Kind == EngineActionKind.None &&
+            _topEdgeRightGestureAction.Kind == EngineActionKind.None &&
+            _bottomEdgeLeftGestureAction.Kind == EngineActionKind.None &&
+            _bottomEdgeRightGestureAction.Kind == EngineActionKind.None)
+        {
+            _edgeSlideGestureLeft = default;
+            _edgeSlideGestureRight = default;
+        }
+
+        if (_forceClick2GestureAction.Kind == EngineActionKind.None &&
+            _forceClick3GestureAction.Kind == EngineActionKind.None)
+        {
+            _forceClickGestureLeft = default;
+            _forceClickGestureRight = default;
+        }
+
+        if (_upperLeftCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _upperRightCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _lowerLeftCornerClickGestureAction.Kind == EngineActionKind.None &&
+            _lowerRightCornerClickGestureAction.Kind == EngineActionKind.None)
+        {
+            _cornerClickTapGestureLeft = default;
+            _cornerClickTapGestureRight = default;
+        }
+    }
+
+    public void SetPersistentLayer(int layer)
+    {
+        _persistentLayer = Math.Clamp(layer, 0, 7);
+        UpdateActiveLayer();
+    }
+
+    public void SetTypingEnabled(bool enabled)
+    {
+        SetTypingEnabledState(enabled, Stopwatch.GetTimestamp(), TypingToggleSource.Api);
+    }
+
+    public void SetKeyboardModeEnabled(bool enabled)
+    {
+        _keyboardModeEnabled = enabled;
+    }
+
+    public void SetPointerIntentEnabled(bool enabled)
+    {
+        _pointerIntentEnabled = enabled;
+        if (enabled)
+        {
+            return;
+        }
+
+        long nowTicks = Stopwatch.GetTimestamp();
+        if (_intentMode is IntentMode.MouseCandidate or IntentMode.MouseActive)
+        {
+            if (_intentTouches.Count > 0)
+            {
+                SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "pointer_intent_disabled");
+            }
+            else
+            {
+                TransitionTo(IntentMode.Idle, nowTicks, "pointer_intent_disabled");
+            }
+        }
+
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
+        _pointerSequenceGraceDeadlineTicks = 0;
+    }
+
+    public void SetThreeFingerDragEnabled(bool enabled)
+    {
+        if (_threeFingerDragEnabled == enabled)
+        {
+            return;
+        }
+
+        _threeFingerDragEnabled = enabled;
+        if (!enabled)
+        {
+            ReleaseThreeFingerDragState(Stopwatch.GetTimestamp(), armPointerIntentSequence: false);
+        }
+    }
+
+    public void ArmPointerIntentSequence(long timestampTicks)
+    {
+        if (!_pointerIntentEnabled)
+        {
+            return;
+        }
+
+        _pointerSequenceGracePending = true;
+        _pointerSequenceGraceActive = false;
+        _pointerSequenceGraceDeadlineTicks = timestampTicks + MsToTicks(DragReleasePointerGraceMs);
+    }
+
+    public void SetTypingToggleActionsEnabled(bool enabled)
+    {
+        _typingToggleActionsEnabled = enabled;
+    }
+
+    public void SetHapticsOnKeyDispatchEnabled(bool enabled)
+    {
+        _hapticsOnKeyDispatch = enabled;
+    }
+
+    public void SetDiagnosticsEnabled(bool enabled)
+    {
+        _diagnosticsEnabled = enabled;
+        if (!enabled)
+        {
+            _diagnosticRingHead = 0;
+            _diagnosticRingCount = 0;
+        }
+    }
+
+    public void RecordQueueDrop()
+    {
+        _queueDrops++;
+    }
+
+    public void RecordDispatchDrop()
+    {
+        _dispatchDrops++;
+    }
+
+    public int CopyDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        int count = Math.Min(destination.Length, _diagnosticRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_diagnosticRingHead - _diagnosticRingCount + _diagnosticRing.Length) % _diagnosticRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _diagnosticRing[(start + i) % _diagnosticRing.Length];
+        }
+
+        return count;
+    }
+
+    public int DrainDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        int count = Math.Min(destination.Length, _diagnosticRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_diagnosticRingHead - _diagnosticRingCount + _diagnosticRing.Length) % _diagnosticRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _diagnosticRing[(start + i) % _diagnosticRing.Length];
+        }
+
+        _diagnosticRingCount -= count;
+        if (_diagnosticRingCount == 0)
+        {
+            _diagnosticRingHead = 0;
+        }
+
+        return count;
+    }
+
+    public void ResetState()
+    {
+        EndAllGestureDispatches(Stopwatch.GetTimestamp());
+        _intentTouches.RemoveAll();
+        _touchStates.RemoveAll();
+        _momentaryLayerTouches.RemoveAll();
+        _intentMode = IntentMode.Idle;
+        _lastContactCount = 0;
+        _keyCandidateStartTicks = 0;
+        _keyCandidateTouchKey = 0;
+        _mouseCandidateStartTicks = 0;
+        _gestureCandidateStartTicks = 0;
+        _typingGraceDeadlineTicks = 0;
+        _pointerSequenceGraceDeadlineTicks = 0;
+        _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
+        _fiveFingerSwipeLeft = default;
+        _fiveFingerSwipeRight = default;
+        _threeFingerSwipeStateLeft = default;
+        _threeFingerSwipeStateRight = default;
+        _fourFingerSwipeStateLeft = default;
+        _fourFingerSwipeStateRight = default;
+        _chordShiftLeft = false;
+        _chordShiftRight = false;
+        _chordShiftKeyDown = false;
+        _threePlusGestureSuppressLeft = false;
+        _threePlusGestureSuppressRight = false;
+        _cornerHoldGestureLeft = default;
+        _cornerHoldGestureRight = default;
+        _edgeSlideGestureLeft = default;
+        _edgeSlideGestureRight = default;
+        _lastFrameLeftContacts = 0;
+        _lastFrameRightContacts = 0;
+        _lastRawLeftContacts = 0;
+        _lastRawRightContacts = 0;
+        _lastOnKeyLeftContacts = 0;
+        _lastOnKeyRightContacts = 0;
+        _lastChordSuppressedLeft = false;
+        _lastChordSuppressedRight = false;
+        _lastFourPlusLeftTicks = -1;
+        _lastFourPlusRightTicks = -1;
+        _lastFivePlusLeftTicks = -1;
+        _lastFivePlusRightTicks = -1;
+        _intentTraceFingerprint = 14695981039346656037ul;
+        _transitionRingHead = 0;
+        _transitionRingCount = 0;
+        _dispatchRingHead = 0;
+        _dispatchRingCount = 0;
+        _pointerDragRingHead = 0;
+        _pointerDragRingCount = 0;
+        _dispatchDrops = 0;
+        _dispatchEnqueued = 0;
+        _releaseDroppedTotal = 0;
+        _releaseDroppedGesturePriority = 0;
+        _lastReleaseDroppedTicks = 0;
+        _lastReleaseDroppedReason = string.Empty;
+        _dispatchSuppressedTypingDisabled = 0;
+        _dispatchSuppressedRingFull = 0;
+        _twoFingerHoldGesture = default;
+        _threeFingerHoldGesture = default;
+        _fourFingerHoldGesture = default;
+        _cornerSwipeGestureLeft = default;
+        _cornerSwipeGestureRight = default;
+        _triangleGestureLeft = default;
+        _triangleGestureRight = default;
+        _forceClickGestureLeft = default;
+        _forceClickGestureRight = default;
+        _cornerClickTapGestureLeft = default;
+        _cornerClickTapGestureRight = default;
+        _leftButtonPressed = false;
+        _rightButtonPressed = false;
+        _leftMaxTipContactsBeforeButtonDown = 0;
+        _rightMaxTipContactsBeforeButtonDown = 0;
+        _leftLastTipMaxForceNorm = 0;
+        _rightLastTipMaxForceNorm = 0;
+        _leftLastTipForceSampleTicks = -1;
+        _rightLastTipForceSampleTicks = -1;
+        _leftPositiveForceVelocityPerSec = 0;
+        _rightPositiveForceVelocityPerSec = 0;
+        _leftHoldBlockedUntilAllUpFromClick = false;
+        _rightHoldBlockedUntilAllUpFromClick = false;
+        _threeFingerDragState = default;
+        _diagnosticRingHead = 0;
+        _diagnosticRingCount = 0;
+        _clockAnchorTimestampTicks = 0;
+        _clockAnchorWallTicks = 0;
+    }
+
+    public void ProcessFrame(
+        TrackpadSide side,
+        in InputFrame frame,
+        ushort maxX,
+        ushort maxY,
+        long timestampTicks)
+    {
+        CaptureClockAnchor(timestampTicks);
+        _framesProcessed++;
+        EnsureBindingIndexes();
+        BindingIndex sideIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+        int contactCountInFrame = frame.GetClampedContactCount();
+        int tipContactsInFrame = 0;
+        int frameTipMaxForceNorm = 0;
+        for (int i = 0; i < contactCountInFrame; i++)
+        {
+            ContactFrame contact = frame.GetContact(i);
+            if (contact.TipSwitch)
+            {
+                tipContactsInFrame++;
+                if (contact.ForceNorm > frameTipMaxForceNorm)
+                {
+                    frameTipMaxForceNorm = contact.ForceNorm;
+                }
+            }
+        }
+
+        if (side == TrackpadSide.Left)
+        {
+            _lastFrameLeftContacts = contactCountInFrame;
+            _lastRawLeftContacts = tipContactsInFrame;
+            if (tipContactsInFrame >= FourFingerSwipeArmContacts)
+            {
+                _lastFourPlusLeftTicks = timestampTicks;
+            }
+            if (tipContactsInFrame >= FiveFingerSwipeArmContacts)
+            {
+                _lastFivePlusLeftTicks = timestampTicks;
+            }
+        }
+        else
+        {
+            _lastFrameRightContacts = contactCountInFrame;
+            _lastRawRightContacts = tipContactsInFrame;
+            if (tipContactsInFrame >= FourFingerSwipeArmContacts)
+            {
+                _lastFourPlusRightTicks = timestampTicks;
+            }
+            if (tipContactsInFrame >= FiveFingerSwipeArmContacts)
+            {
+                _lastFivePlusRightTicks = timestampTicks;
+            }
+        }
+        UpdateSideForceVelocity(side, frameTipMaxForceNorm, timestampTicks);
+        if (ProcessThreeFingerDragFrame(side, in frame, maxX, maxY, timestampTicks))
+        {
+            return;
+        }
+
+        UpdateMultiFingerClickGestures(
+            side,
+            tipContactsInFrame,
+            frame.IsButtonPressed,
+            timestampTicks);
+        if (tipContactsInFrame >= 3)
+        {
+            SetThreePlusGestureSuppress(side, enabled: true);
+        }
+        else if (!HasActiveTouchStateForSide(side))
+        {
+            SetThreePlusGestureSuppress(side, enabled: false);
+        }
+        UpdateChordShift(_lastRawLeftContacts, _lastRawRightContacts, timestampTicks);
+        double tipSumXNorm = 0;
+        double tipSumYNorm = 0;
+        Span<ulong> frameKeys = stackalloc ulong[InputFrame.MaxContacts];
+        int frameKeyCount = 0;
+        bool hasSingleTipSnapshot = false;
+        double singleTipXNorm = 0;
+        double singleTipYNorm = 0;
+        int singleTipForceNorm = 0;
+        bool singleTipKeyboardAnchor = false;
+        int singleTipSnapshotCount = 0;
+        int onKeyTipContactsInFrame = 0;
+        bool suppressSideForChordSource = IsChordSourceSide(side);
+        if (suppressSideForChordSource)
+        {
+            ClearTouchesForChordSourceSide(side, timestampTicks);
+        }
+        for (int i = 0; i < contactCountInFrame; i++)
+        {
+            ContactFrame contact = frame.GetContact(i);
+            if (!contact.TipSwitch)
+            {
+                // Treat non-tip hover/near-field contacts as released for intent and key lifecycle.
+                // Confidence can flicker even while a finger is visibly down, so don't gate keying on it.
+                continue;
+            }
+            double xNorm = SafeNormalize(contact.X, maxX);
+            double yNorm = SafeNormalize(contact.Y, maxY);
+            tipSumXNorm += xNorm;
+            tipSumYNorm += yNorm;
+            if (suppressSideForChordSource)
+            {
+                // Chord-source side acts as a shift anchor only; do not dispatch or track key touches.
+                continue;
+            }
+
+            ulong touchKey = MakeTouchKey(side, contact.Id);
+            frameKeys[frameKeyCount++] = touchKey;
+
+            EngineBindingHit hit = sideIndex.HitTest(xNorm, yNorm);
+            bool onKey = hit.Found;
+            if (onKey)
+            {
+                onKeyTipContactsInFrame++;
+            }
+
+            bool keyboardAnchor = false;
+            if (onKey)
+            {
+                EngineActionKind kind = sideIndex.Bindings[hit.BindingIndex].Mapping.Primary.Kind;
+                keyboardAnchor = kind is EngineActionKind.Modifier or EngineActionKind.Continuous or EngineActionKind.MomentaryLayer or EngineActionKind.KeyChord;
+            }
+            if (singleTipSnapshotCount == 0)
+            {
+                singleTipXNorm = xNorm;
+                singleTipYNorm = yNorm;
+                singleTipForceNorm = contact.ForceNorm;
+                singleTipKeyboardAnchor = keyboardAnchor;
+            }
+            singleTipSnapshotCount++;
+
+            if (_intentTouches.TryGetValue(touchKey, out IntentTouchInfo existing))
+            {
+                UpdateIntentTouch(ref existing, xNorm, yNorm, onKey, keyboardAnchor, timestampTicks);
+                _intentTouches.Set(touchKey, existing);
+            }
+            else
+            {
+                _intentTouches.Set(touchKey, new IntentTouchInfo(
+                    Side: side,
+                    StartXNorm: xNorm,
+                    StartYNorm: yNorm,
+                    LastXNorm: xNorm,
+                    LastYNorm: yNorm,
+                    StartTicks: timestampTicks,
+                    LastTicks: timestampTicks,
+                    MaxDistanceMm: 0,
+                    LastVelocityMmPerSec: 0,
+                    OnKey: onKey,
+                    KeyboardAnchor: keyboardAnchor,
+                    InitialBindingIndex: hit.Found ? hit.BindingIndex : -1));
+            }
+
+            HandleContactLifecycle(
+                touchKey,
+                side,
+                hit,
+                xNorm,
+                yNorm,
+                contact.ForceNorm,
+                timestampTicks);
+        }
+        hasSingleTipSnapshot = singleTipSnapshotCount == 1;
+        if (side == TrackpadSide.Left)
+        {
+            _lastOnKeyLeftContacts = onKeyTipContactsInFrame;
+            _lastChordSuppressedLeft = suppressSideForChordSource;
+        }
+        else
+        {
+            _lastOnKeyRightContacts = onKeyTipContactsInFrame;
+            _lastChordSuppressedRight = suppressSideForChordSource;
+        }
+
+        RemoveStaleTouchesForSide(side, frameKeys.Slice(0, frameKeyCount), timestampTicks);
+        if (tipContactsInFrame == 0 && !HasActiveTouchStateForSide(side))
+        {
+            SetThreePlusGestureSuppress(side, enabled: false);
+        }
+
+        string frameReason = "frame_end";
+        if (_diagnosticsEnabled)
+        {
+            int occupiedTouchStates = CountOccupiedTouchStates();
+            int occupiedIntentTouches = CountOccupiedIntentTouches();
+            frameReason =
+                $"frame_end onKey={onKeyTipContactsInFrame} frameKeys={frameKeyCount} states={_touchStates.Count}/{_intentTouches.Count} occ={occupiedTouchStates}/{occupiedIntentTouches}";
+        }
+
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.Frame,
+            side,
+            _intentMode,
+            DispatchEventKind.None,
+            DispatchSuppressReason.None,
+            TypingToggleSource.Api,
+            0,
+            DispatchMouseButton.None,
+            _typingEnabled,
+            suppressSideForChordSource,
+            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Active : _fiveFingerSwipeRight.Active,
+            side == TrackpadSide.Left ? _fiveFingerSwipeLeft.Triggered : _fiveFingerSwipeRight.Triggered,
+            contactCountInFrame,
+            tipContactsInFrame,
+            _lastRawLeftContacts,
+            _lastRawRightContacts,
+            frameReason);
+
+        IntentAggregate aggregate = BuildIntentAggregate();
+        if (tipContactsInFrame > 0)
+        {
+            double centroidX = tipSumXNorm / tipContactsInFrame;
+            double centroidY = tipSumYNorm / tipContactsInFrame;
+            UpdateFiveFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+            UpdateThreeFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+            UpdateFourFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+        }
+        else
+        {
+            UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
+            UpdateThreeFingerSwipe(side, 0, 0, 0, timestampTicks);
+            UpdateFourFingerSwipe(side, 0, 0, 0, timestampTicks);
+        }
+        UpdateTwoFingerHoldGesture(aggregate, timestampTicks);
+        UpdateThreeFingerHoldGesture(aggregate, timestampTicks);
+        UpdateFourFingerHoldGesture(aggregate, timestampTicks);
+        UpdateCornerHoldGesture(side, timestampTicks);
+        UpdateEdgeSlideGesture(side, tipContactsInFrame, timestampTicks);
+        UpdateCornerSwipeGesture(side, tipContactsInFrame, timestampTicks);
+        UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
+        UpdateForceClickGesture(
+            side,
+            tipContactsInFrame,
+            hasSingleTipSnapshot,
+            singleTipXNorm,
+            singleTipYNorm,
+            singleTipForceNorm,
+            singleTipKeyboardAnchor,
+            timestampTicks);
+        UpdateCornerClickTapGesture(
+            side,
+            tipContactsInFrame,
+            hasSingleTipSnapshot,
+            singleTipXNorm,
+            singleTipYNorm,
+            singleTipForceNorm,
+            singleTipKeyboardAnchor,
+            timestampTicks);
+        UpdateIntentState(aggregate, timestampTicks);
+    }
+
+    public TouchProcessorSnapshot Snapshot()
+    {
+        return Snapshot(EstimateNowTicks());
+    }
+
+    public TouchProcessorSnapshot Snapshot(long nowTicks)
+    {
+        IntentAggregate aggregate = BuildIntentAggregate();
+        RefreshPassiveIntentState(in aggregate, nowTicks);
+        return new TouchProcessorSnapshot(
+            IntentMode: _intentMode,
+            ActiveLayer: _activeLayer,
+            MomentaryLayerActive: IsMomentaryLayerActive(),
+            TypingEnabled: _typingEnabled,
+            KeyboardModeEnabled: _keyboardModeEnabled,
+            ContactCount: aggregate.ContactCount,
+            LeftContacts: aggregate.LeftContacts,
+            RightContacts: aggregate.RightContacts,
+            LastFrameLeftContacts: _lastFrameLeftContacts,
+            LastFrameRightContacts: _lastFrameRightContacts,
+            LastRawLeftContacts: _lastRawLeftContacts,
+            LastRawRightContacts: _lastRawRightContacts,
+            LastOnKeyLeftContacts: _lastOnKeyLeftContacts,
+            LastOnKeyRightContacts: _lastOnKeyRightContacts,
+            LastChordSuppressedLeft: _lastChordSuppressedLeft,
+            LastChordSuppressedRight: _lastChordSuppressedRight,
+            TouchStateCount: _touchStates.Count,
+            IntentTouchStateCount: _intentTouches.Count,
+            GesturePriorityLeft: IsGestureDispatchPriorityActive(TrackpadSide.Left),
+            GesturePriorityRight: IsGestureDispatchPriorityActive(TrackpadSide.Right),
+            FiveFingerSwipeTriggered: _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+            ChordShiftLeft: _chordShiftLeft,
+            ChordShiftRight: _chordShiftRight,
+            FramesProcessed: _framesProcessed,
+            QueueDrops: _queueDrops,
+            StaleTouchExpirations: 0,
+            ReleaseDroppedTotal: _releaseDroppedTotal,
+            ReleaseDroppedGesturePriority: _releaseDroppedGesturePriority,
+            LastReleaseDroppedTicks: _lastReleaseDroppedTicks,
+            LastReleaseDroppedReason: _lastReleaseDroppedReason,
+            DispatchEnqueued: _dispatchEnqueued,
+            DispatchSuppressedTypingDisabled: _dispatchSuppressedTypingDisabled,
+            DispatchSuppressedRingFull: _dispatchSuppressedRingFull,
+            SnapAttempts: _snapAttempts,
+            SnapAccepted: _snapAccepted,
+            SnapRejected: _snapRejected,
+            IntentTraceFingerprint: _intentTraceFingerprint);
+    }
+
+    private void CaptureClockAnchor(long timestampTicks)
+    {
+        _clockAnchorTimestampTicks = timestampTicks;
+        _clockAnchorWallTicks = Stopwatch.GetTimestamp();
+    }
+
+    private long EstimateNowTicks()
+    {
+        long anchorWallTicks = _clockAnchorWallTicks;
+        long wallNowTicks = Stopwatch.GetTimestamp();
+        if (anchorWallTicks == 0)
+        {
+            return wallNowTicks;
+        }
+
+        long elapsedTicks = wallNowTicks - anchorWallTicks;
+        if (elapsedTicks <= 0)
+        {
+            return _clockAnchorTimestampTicks;
+        }
+
+        long anchorTimestampTicks = _clockAnchorTimestampTicks;
+        if (anchorTimestampTicks > long.MaxValue - elapsedTicks)
+        {
+            return long.MaxValue;
+        }
+
+        return anchorTimestampTicks + elapsedTicks;
+    }
+
+    private void RefreshPassiveIntentState(in IntentAggregate aggregate, long nowTicks)
+    {
+        if (aggregate.ContactCount > 0)
+        {
+            // Keep grace deadline fresh when snapshots are read faster than frames arrive.
+            _ = IsTypingGraceActive(nowTicks);
+            return;
+        }
+
+        if (IsTypingGraceActive(nowTicks))
+        {
+            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "grace_snapshot");
+            _lastContactCount = 0;
+            return;
+        }
+
+        _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
+        _lastContactCount = 0;
+        TransitionTo(IntentMode.Idle, nowTicks, "all_up_snapshot");
+    }
+
+    public int CopyIntentTransitions(Span<IntentTransition> destination)
+    {
+        int count = Math.Min(destination.Length, _transitionRingCount);
+        if (count == 0)
+        {
+            return 0;
+        }
+
+        int start = (_transitionRingHead - _transitionRingCount + _transitionRing.Length) % _transitionRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _transitionRing[(start + i) % _transitionRing.Length];
+        }
+
+        return count;
+    }
+
+    public int DrainDispatchEvents(Span<DispatchEvent> destination)
+    {
+        int count = Math.Min(destination.Length, _dispatchRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_dispatchRingHead - _dispatchRingCount + _dispatchRing.Length) % _dispatchRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _dispatchRing[(start + i) % _dispatchRing.Length];
+        }
+
+        _dispatchRingCount -= count;
+        if (_dispatchRingCount == 0)
+        {
+            _dispatchRingHead = 0;
+        }
+
+        return count;
+    }
+
+    private void InvalidateBindings()
+    {
+        _bindingsGeneration++;
+        _leftBindingIndex = null;
+        _rightBindingIndex = null;
+    }
+
+    private void EnsureBindingIndexes()
+    {
+        if (_leftBindingIndex != null &&
+            _rightBindingIndex != null &&
+            _bindingsLayer == _activeLayer)
+        {
+            return;
+        }
+
+        _leftBindingIndex = BindingIndex.Build(_leftLayout, TrackpadSide.Left, _activeLayer, _keymap, snapRadiusFraction: _config.SnapRadiusPercent / 100.0);
+        _rightBindingIndex = BindingIndex.Build(_rightLayout, TrackpadSide.Right, _activeLayer, _keymap, snapRadiusFraction: _config.SnapRadiusPercent / 100.0);
+        _bindingsLayer = _activeLayer;
+    }
+
+    private void UpdateIntentTouch(ref IntentTouchInfo touch, double xNorm, double yNorm, bool onKey, bool keyboardAnchor, long nowTicks)
+    {
+        double distanceFromStartMm = DistanceMm(touch.StartXNorm, touch.StartYNorm, xNorm, yNorm);
+        if (distanceFromStartMm > touch.MaxDistanceMm)
+        {
+            touch.MaxDistanceMm = distanceFromStartMm;
+        }
+
+        long dtTicks = nowTicks - touch.LastTicks;
+        if (dtTicks < 1)
+        {
+            dtTicks = 1;
+        }
+
+        double dtSeconds = dtTicks / (double)Stopwatch.Frequency;
+        double deltaMm = DistanceMm(touch.LastXNorm, touch.LastYNorm, xNorm, yNorm);
+        touch.LastVelocityMmPerSec = deltaMm / dtSeconds;
+        touch.LastXNorm = xNorm;
+        touch.LastYNorm = yNorm;
+        touch.LastTicks = nowTicks;
+        touch.OnKey = onKey;
+        touch.KeyboardAnchor = keyboardAnchor;
+    }
+
+    private void HandleContactLifecycle(
+        ulong touchKey,
+        TrackpadSide side,
+        EngineBindingHit hit,
+        double xNorm,
+        double yNorm,
+        int forceNorm,
+        long timestampTicks)
+    {
+        if (_touchStates.TryGetValue(touchKey, out TouchBindingState existing))
+        {
+            existing.LastForceNorm = forceNorm;
+            existing.PeakForceNorm = Math.Max(existing.PeakForceNorm, forceNorm);
+            if (!existing.DispatchDownSent &&
+                hit.Found &&
+                (existing.BindingIndex < 0 ||
+                 (IsMomentaryLayerActive() && existing.BindingLayer != _activeLayer)))
+            {
+                // Allow a live touch to recover from an off-key start, and allow layer rebinding
+                // once MO() is active so same-side layer keys can recover without lift/re-touch.
+                BindingIndex rebindIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+                EngineKeyBinding rebound = rebindIndex.Bindings[hit.BindingIndex];
+                existing.BindingIndex = hit.BindingIndex;
+                existing.BindingLayer = _activeLayer;
+                existing.HasHoldAction = HasEffectiveHoldAction(rebound.Mapping);
+                existing.HoldTriggered = false;
+                existing.Lifecycle = EngineTouchLifecycle.Pending;
+                existing.StartTicks = timestampTicks;
+                existing.StartXNorm = xNorm;
+                existing.StartYNorm = yNorm;
+                existing.LastXNorm = xNorm;
+                existing.LastYNorm = yNorm;
+                existing.MaxDistanceMm = 0;
+                existing.PeakForceNorm = forceNorm;
+                if (!existing.HasHoldAction)
+                {
+                    if (!IsGestureDispatchPriorityActive(side) &&
+                        !ShouldDeferPressForEdgeSlideCandidate(side, xNorm, yNorm))
+                    {
+                        TryBeginPressAction(
+                            rebound.Mapping.Primary,
+                            touchKey,
+                            timestampTicks,
+                            ref existing,
+                            existing.PeakForceNorm,
+                            hapticOnDispatch: IsCustomBinding(rebound));
+                    }
+                }
+            }
+
+            double movementMm = DistanceMm(existing.StartXNorm, existing.StartYNorm, xNorm, yNorm);
+            existing.LastXNorm = xNorm;
+            existing.LastYNorm = yNorm;
+            existing.MaxDistanceMm = Math.Max(existing.MaxDistanceMm, movementMm);
+
+            if (existing.DispatchDownSent &&
+                existing.MaxDistanceMm > _config.DragCancelMm &&
+                ShouldCancelHeldDispatchOnDrag(in existing))
+            {
+                EndPressAction(ref existing, timestampTicks);
+            }
+
+            if (existing.Lifecycle == EngineTouchLifecycle.Pending && existing.HasHoldAction)
+            {
+                long holdTicks = MsToTicks(_config.HoldDurationMs);
+                if (existing.MaxDistanceMm <= _config.DragCancelMm &&
+                    !IsGestureDispatchPriorityActive(side) &&
+                    timestampTicks - existing.StartTicks >= holdTicks)
+                {
+                    existing.Lifecycle = EngineTouchLifecycle.Active;
+                    existing.HoldTriggered = true;
+                    BindingIndex existingIndex = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+                    EngineKeyBinding existingBinding = existingIndex.Bindings[existing.BindingIndex];
+                    EngineKeyAction holdAction = ResolveEffectiveHoldAction(existingBinding.Mapping);
+                    if (holdAction.Kind == EngineActionKind.MomentaryLayer)
+                    {
+                        ActivateMomentaryLayerTouch(touchKey, ref existing, holdAction.LayerTarget);
+                    }
+                    else
+                    {
+                        TryBeginPressAction(
+                            holdAction,
+                            touchKey,
+                            timestampTicks,
+                            ref existing,
+                            existing.PeakForceNorm,
+                            hapticOnDispatch: IsCustomBinding(existingBinding),
+                            isHoldTriggeredAction: true);
+                        if (!existing.DispatchDownSent)
+                        {
+                            ApplyReleaseAction(
+                                holdAction,
+                                side,
+                                touchKey,
+                                timestampTicks,
+                                existing.PeakForceNorm,
+                                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                                hapticOnDispatch: IsCustomBinding(existingBinding));
+                        }
+                    }
+                }
+            }
+
+            _touchStates.Set(touchKey, existing);
+            return;
+        }
+
+        if (!hit.Found)
+        {
+            if (!ShouldTrackOffKeyTouchForSnap())
+            {
+                return;
+            }
+
+            TouchBindingState offKey = new(
+                Side: side,
+                BindingIndex: -1,
+                BindingLayer: _activeLayer,
+                Lifecycle: EngineTouchLifecycle.Pending,
+                StartTicks: timestampTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0,
+                HasHoldAction: false,
+                HoldTriggered: false,
+                MomentaryLayerTarget: -1,
+                DispatchDownSent: false,
+                DispatchDownKind: DispatchEventKind.None,
+                DispatchDownVirtualKey: 0,
+                DispatchDownModifierVirtualKey: 0,
+                DispatchDownMouseButton: DispatchMouseButton.None,
+                RepeatToken: 0,
+                LastForceNorm: forceNorm,
+                PeakForceNorm: forceNorm,
+                DispatchDownLabel: string.Empty,
+                DispatchDownSemanticAction: DispatchSemanticAction.None);
+            _touchStates.Set(touchKey, offKey);
+            return;
+        }
+
+        BindingIndex index = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+        EngineKeyBinding binding = index.Bindings[hit.BindingIndex];
+        TouchBindingState next = new(
+            Side: side,
+            BindingIndex: hit.BindingIndex,
+            BindingLayer: _activeLayer,
+            Lifecycle: EngineTouchLifecycle.Pending,
+            StartTicks: timestampTicks,
+            StartXNorm: xNorm,
+            StartYNorm: yNorm,
+            LastXNorm: xNorm,
+            LastYNorm: yNorm,
+            MaxDistanceMm: 0,
+            HasHoldAction: HasEffectiveHoldAction(binding.Mapping),
+            HoldTriggered: false,
+            MomentaryLayerTarget: binding.Mapping.Primary.Kind == EngineActionKind.MomentaryLayer ? binding.Mapping.Primary.LayerTarget : -1,
+            DispatchDownSent: false,
+            DispatchDownKind: DispatchEventKind.None,
+            DispatchDownVirtualKey: 0,
+            DispatchDownModifierVirtualKey: 0,
+            DispatchDownMouseButton: DispatchMouseButton.None,
+            RepeatToken: 0,
+            LastForceNorm: forceNorm,
+            PeakForceNorm: forceNorm,
+            DispatchDownLabel: string.Empty,
+            DispatchDownSemanticAction: DispatchSemanticAction.None);
+
+        _touchStates.Set(touchKey, next);
+        if (next.MomentaryLayerTarget >= 0)
+        {
+            ActivateMomentaryLayerTouch(touchKey, ref next, next.MomentaryLayerTarget);
+            _touchStates.Set(touchKey, next);
+        }
+
+        if (!next.HasHoldAction)
+        {
+            if (!IsGestureDispatchPriorityActive(side) &&
+                !ShouldDeferPressForEdgeSlideCandidate(side, xNorm, yNorm))
+            {
+                TryBeginPressAction(
+                    binding.Mapping.Primary,
+                    touchKey,
+                    timestampTicks,
+                    ref next,
+                    next.PeakForceNorm,
+                    hapticOnDispatch: IsCustomBinding(binding));
+            }
+            _touchStates.Set(touchKey, next);
+        }
+    }
+
+    private void RemoveStaleTouchesForSide(TrackpadSide side, ReadOnlySpan<ulong> frameKeys, long timestampTicks)
+    {
+        int removalCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ulong key = _intentTouches.KeyAt(i);
+            if (TouchSideFromKey(key) != side)
+            {
+                continue;
+            }
+
+            if (Contains(frameKeys, key))
+            {
+                continue;
+            }
+
+            if (removalCount < _removalBuffer.Length)
+            {
+                _removalBuffer[removalCount++] = key;
+            }
+        }
+
+        for (int i = 0; i < removalCount; i++)
+        {
+            ulong key = _removalBuffer[i];
+            _intentTouches.Remove(key, out _);
+            HandleRelease(key, timestampTicks);
+        }
+    }
+
+    private void HandleRelease(ulong touchKey, long timestampTicks)
+    {
+        if (!_touchStates.Remove(touchKey, out TouchBindingState state))
+        {
+            return;
+        }
+
+        if (state.MomentaryLayerTarget >= 0)
+        {
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
+            RecordReleaseDropped(state.Side, EngineKeyAction.None, timestampTicks, "momentary_layer_release");
+            return;
+        }
+
+        bool hadDispatchDown = state.DispatchDownSent;
+        if (hadDispatchDown)
+        {
+            EndPressAction(ref state, timestampTicks);
+        }
+
+        BindingIndex index = state.Side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+        bool hasBoundBinding = state.BindingIndex >= 0 && state.BindingIndex < index.Bindings.Length;
+        EngineKeyBinding binding = default;
+        EngineKeyAction action = EngineKeyAction.None;
+        if (hasBoundBinding)
+        {
+            binding = index.Bindings[state.BindingIndex];
+            action = binding.Mapping.Primary;
+            if (state.HoldTriggered && binding.Mapping.HasHold)
+            {
+                action = binding.Mapping.Hold;
+            }
+        }
+
+        if (!hadDispatchDown &&
+            IsMomentaryLayerActive() &&
+            state.BindingLayer != _activeLayer)
+        {
+            EngineBindingHit reboundHit = index.HitTest(state.LastXNorm, state.LastYNorm);
+            if (reboundHit.Found)
+            {
+                state.BindingIndex = reboundHit.BindingIndex;
+                state.BindingLayer = _activeLayer;
+                hasBoundBinding = true;
+                binding = index.Bindings[reboundHit.BindingIndex];
+                action = binding.Mapping.Primary;
+                if (state.HoldTriggered && binding.Mapping.HasHold)
+                {
+                    action = binding.Mapping.Hold;
+                }
+            }
+        }
+
+        if (state.MaxDistanceMm > _config.DragCancelMm)
+        {
+            RecordReleaseDropped(state.Side, action, timestampTicks, "drag_cancel");
+            return;
+        }
+
+        if (hadDispatchDown)
+        {
+            return;
+        }
+        if (state.HoldTriggered)
+        {
+            RecordReleaseDropped(state.Side, action, timestampTicks, "hold_consumed");
+            return;
+        }
+        if (IsGestureDispatchPriorityActive(state.Side))
+        {
+            RecordReleaseDropped(state.Side, action, timestampTicks, "gesture_priority_active");
+            return;
+        }
+
+        if (hasBoundBinding && binding.Rect.Contains(state.LastXNorm, state.LastYNorm))
+        {
+            ApplyReleaseAction(
+                action,
+                state.Side,
+                touchKey,
+                timestampTicks,
+                state.PeakForceNorm,
+                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                hapticOnDispatch: IsCustomBinding(binding));
+            return;
+        }
+
+        // If release lands inside any key, treat it as a direct hit and skip snap logic.
+        EngineBindingHit directHit = index.HitTest(state.LastXNorm, state.LastYNorm);
+        if (directHit.Found)
+        {
+            if (hasBoundBinding && directHit.BindingIndex != state.BindingIndex)
+            {
+                RecordReleaseDropped(state.Side, action, timestampTicks, "drag_cross_key");
+                return;
+            }
+
+            EngineKeyBinding directBinding = index.Bindings[directHit.BindingIndex];
+            ApplyReleaseAction(
+                directBinding.Mapping.Primary,
+                state.Side,
+                touchKey,
+                timestampTicks,
+                state.PeakForceNorm,
+                allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                hapticOnDispatch: IsCustomBinding(directBinding));
+            return;
+        }
+
+        if (ShouldAttemptSnap())
+        {
+            _snapAttempts++;
+            if (TrySnapBinding(state.Side, state.LastXNorm, state.LastYNorm, out EngineKeyBinding snapped))
+            {
+                _snapAccepted++;
+                ApplyReleaseAction(
+                    snapped.Mapping.Primary,
+                    state.Side,
+                    touchKey,
+                    timestampTicks,
+                    state.PeakForceNorm,
+                    allowTypingDisabledOverride: IsMomentaryLayerActive(),
+                    hapticOnDispatch: IsCustomBinding(snapped));
+                return;
+            }
+
+            _snapRejected++;
+        }
+
+        RecordReleaseDropped(state.Side, action, timestampTicks, "off_key_no_snap");
+    }
+
+    private void RecordReleaseDropped(TrackpadSide side, EngineKeyAction action, long timestampTicks, string reason)
+    {
+        _releaseDroppedTotal++;
+        if (string.Equals(reason, "gesture_priority_active", StringComparison.Ordinal))
+        {
+            _releaseDroppedGesturePriority++;
+        }
+
+        _lastReleaseDroppedTicks = timestampTicks;
+        _lastReleaseDroppedReason = reason ?? string.Empty;
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.ReleaseDropped,
+            side,
+            _intentMode,
+            DispatchEventKind.None,
+            DispatchSuppressReason.None,
+            TypingToggleSource.Api,
+            action.VirtualKey,
+            action.MouseButton,
+            _typingEnabled,
+            false,
+            _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+            _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+            _intentTouches.Count,
+            0,
+            _lastRawLeftContacts,
+            _lastRawRightContacts,
+            reason ?? string.Empty,
+            dispatchLabel: action.Label);
+    }
+
+    private bool ShouldAttemptSnap()
+    {
+        if (_config.SnapRadiusPercent <= 0)
+        {
+            return false;
+        }
+
+        return _intentMode is IntentMode.KeyCandidate or IntentMode.TypingCommitted;
+    }
+
+    private bool ShouldTrackOffKeyTouchForSnap()
+    {
+        return ShouldAttemptSnap() || AreCornerGesturesEnabled();
+    }
+
+    private bool AreCornerGesturesEnabled()
+    {
+        return _outerCornersGestureAction.Kind != EngineActionKind.None ||
+               _innerCornersGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool IsGestureDispatchPriorityActive(TrackpadSide side)
+    {
+        return IsThreePlusGesturePriorityActive(side) ||
+               IsCornerGesturePriorityActive(side) ||
+               IsEdgeSlideGesturePriorityActive(side) ||
+               IsCornerSwipeGesturePriorityActive(side) ||
+               IsTriangleGesturePriorityActive(side) ||
+               IsForceClickGesturePriorityActive(side) ||
+               IsCornerClickTapGesturePriorityActive(side);
+    }
+
+    private bool IsThreePlusGesturePriorityActive(TrackpadSide side)
+    {
+        if (GetThreePlusGestureSuppress(side))
+        {
+            return true;
+        }
+
+        if (_twoFingerHoldGesture.Active && _twoFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        if (_threeFingerHoldGesture.Active && _threeFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        if (_fourFingerHoldGesture.Active && _fourFingerHoldGesture.Side == side)
+        {
+            return true;
+        }
+
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
+            ? ref _fiveFingerSwipeLeft
+            : ref _fiveFingerSwipeRight;
+        if (swipe.Active)
+        {
+            return true;
+        }
+
+        return false;
+    }
+
+    private bool IsCornerGesturePriorityActive(TrackpadSide side)
+    {
+        CornerHoldGesture gesture = side == TrackpadSide.Left ? _cornerHoldGestureLeft : _cornerHoldGestureRight;
+        return gesture.Active;
+    }
+
+    private bool IsTriangleGesturePriorityActive(TrackpadSide side)
+    {
+        TriangleGesture gesture = side == TrackpadSide.Left ? _triangleGestureLeft : _triangleGestureRight;
+        return gesture.Active && gesture.PriorityArmed;
+    }
+
+    private bool IsCornerSwipeGesturePriorityActive(TrackpadSide side)
+    {
+        CornerSwipeGesture gesture = side == TrackpadSide.Left ? _cornerSwipeGestureLeft : _cornerSwipeGestureRight;
+        return gesture.Active && gesture.CandidateValid && gesture.PriorityArmed;
+    }
+
+    private bool IsEdgeSlideGesturePriorityActive(TrackpadSide side)
+    {
+        EdgeSlideGesture gesture = side == TrackpadSide.Left ? _edgeSlideGestureLeft : _edgeSlideGestureRight;
+        return gesture.Active && gesture.CandidateValid && gesture.PriorityArmed;
+    }
+
+    private bool IsForceClickGesturePriorityActive(TrackpadSide side)
+    {
+        ForceClickGesture gesture = side == TrackpadSide.Left ? _forceClickGestureLeft : _forceClickGestureRight;
+        return gesture.Active &&
+               gesture.CandidateValid &&
+               ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm).Kind != EngineActionKind.None;
+    }
+
+    private bool IsCornerClickTapGesturePriorityActive(TrackpadSide side)
+    {
+        CornerClickTapGesture gesture = side == TrackpadSide.Left ? _cornerClickTapGestureLeft : _cornerClickTapGestureRight;
+        return gesture.Active && gesture.CandidateValid && gesture.ForceArmed;
+    }
+
+    private void SetThreePlusGestureSuppress(TrackpadSide side, bool enabled)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _threePlusGestureSuppressLeft = enabled;
+            return;
+        }
+
+        _threePlusGestureSuppressRight = enabled;
+    }
+
+    private bool GetThreePlusGestureSuppress(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left ? _threePlusGestureSuppressLeft : _threePlusGestureSuppressRight;
+    }
+
+    private bool HasActiveTouchStateForSide(TrackpadSide side)
+    {
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            if (_touchStates.ValueRefAt(i).Side == side)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TrySnapBinding(TrackpadSide side, double xNorm, double yNorm, out EngineKeyBinding binding)
+    {
+        BindingIndex index = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+        int count = index.SnapBindingIndices.Length;
+        if (count == 0)
+        {
+            binding = default;
+            return false;
+        }
+
+        float px = (float)xNorm;
+        float py = (float)yNorm;
+        int bestIndex = -1;
+        float bestDistanceSq = float.MaxValue;
+        int secondIndex = -1;
+        float secondDistanceSq = float.MaxValue;
+        for (int i = 0; i < count; i++)
+        {
+            float dx = px - index.SnapCentersX[i];
+            float dy = py - index.SnapCentersY[i];
+            float distanceSq = (dx * dx) + (dy * dy);
+            if (distanceSq < bestDistanceSq)
+            {
+                secondDistanceSq = bestDistanceSq;
+                secondIndex = bestIndex;
+                bestDistanceSq = distanceSq;
+                bestIndex = i;
+            }
+            else if (distanceSq < secondDistanceSq)
+            {
+                secondDistanceSq = distanceSq;
+                secondIndex = i;
+            }
+        }
+
+        if (bestIndex < 0 || bestDistanceSq > index.SnapRadiusSq[bestIndex])
+        {
+            binding = default;
+            return false;
+        }
+
+        int selected = bestIndex;
+        if (secondIndex >= 0 &&
+            secondDistanceSq <= index.SnapRadiusSq[secondIndex] &&
+            secondDistanceSq <= bestDistanceSq * (float)(_config.SnapAmbiguityRatio * _config.SnapAmbiguityRatio))
+        {
+            int bestBindingIndex = index.SnapBindingIndices[bestIndex];
+            int secondBindingIndex = index.SnapBindingIndices[secondIndex];
+            float edgeBest = DistanceSqToRectEdge(xNorm, yNorm, index.Bindings[bestBindingIndex].Rect);
+            float edgeSecond = DistanceSqToRectEdge(xNorm, yNorm, index.Bindings[secondBindingIndex].Rect);
+            if (edgeSecond < edgeBest)
+            {
+                selected = secondIndex;
+            }
+        }
+
+        binding = index.Bindings[index.SnapBindingIndices[selected]];
+        return true;
+    }
+
+    private void TryBeginPressAction(
+        EngineKeyAction action,
+        ulong touchKey,
+        long timestampTicks,
+        ref TouchBindingState state,
+        int forceNorm,
+        bool hapticOnDispatch,
+        bool isHoldTriggeredAction = false)
+    {
+        bool allowTypingDisabledOverride = IsMomentaryLayerActive();
+        switch (action.Kind)
+        {
+            case EngineActionKind.Modifier:
+                if (!CanDispatchModifierAction(action))
+                {
+                    return;
+                }
+
+                ApplyActionState(action, timestampTicks);
+                DispatchEventFlags modifierFlags =
+                    hapticOnDispatch && _hapticsOnKeyDispatch
+                        ? DispatchEventFlags.Haptic
+                        : DispatchEventFlags.None;
+                if (EnqueueDispatchEvent(
+                    DispatchEventKind.ModifierDown,
+                    action.VirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: 0,
+                    modifierFlags,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
+                {
+                    state.DispatchDownSent = true;
+                    state.DispatchDownKind = DispatchEventKind.ModifierDown;
+                    state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
+                    state.DispatchDownMouseButton = DispatchMouseButton.None;
+                    state.RepeatToken = 0;
+                    state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
+                }
+                break;
+            case EngineActionKind.Continuous:
+                if (!CanDispatchKeyAction(action))
+                {
+                    return;
+                }
+
+                ApplyActionState(action, timestampTicks);
+                DispatchEventFlags continuousFlags = DispatchEventFlags.Repeatable;
+                if (_hapticsOnKeyDispatch)
+                {
+                    continuousFlags |= DispatchEventFlags.Haptic;
+                }
+                if (EnqueueDispatchEvent(
+                    DispatchEventKind.KeyDown,
+                    action.VirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: touchKey,
+                    continuousFlags,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
+                {
+                    state.DispatchDownSent = true;
+                    state.DispatchDownKind = DispatchEventKind.KeyDown;
+                    state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
+                    state.DispatchDownMouseButton = DispatchMouseButton.None;
+                    state.RepeatToken = touchKey;
+                    state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
+                }
+                break;
+            case EngineActionKind.KeyChord:
+                if (!isHoldTriggeredAction ||
+                    !_config.HoldRepeatEnabled ||
+                    !CanDispatchKeyAction(action) ||
+                    !CanDispatchChordModifierAction(action))
+                {
+                    return;
+                }
+
+                ApplyActionState(action, timestampTicks);
+
+                DispatchEventFlags chordKeyDownFlags = DispatchEventFlags.Repeatable;
+                if (_hapticsOnKeyDispatch)
+                {
+                    chordKeyDownFlags |= DispatchEventFlags.Haptic;
+                }
+
+                if (EnqueueDispatchEvent(
+                    DispatchEventKind.KeyDown,
+                    action.VirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: touchKey,
+                    chordKeyDownFlags,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm))
+                {
+                    state.DispatchDownSent = true;
+                    state.DispatchDownKind = DispatchEventKind.KeyDown;
+                    state.DispatchDownVirtualKey = action.VirtualKey;
+                    state.DispatchDownModifierVirtualKey = 0;
+                    state.DispatchDownMouseButton = DispatchMouseButton.None;
+                    state.RepeatToken = touchKey;
+                    state.DispatchDownLabel = action.Label;
+                    state.DispatchDownSemanticAction = action.SemanticAction;
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private bool HasEffectiveHoldAction(EngineKeyMapping mapping)
+    {
+        if (mapping.HasHold)
+        {
+            return true;
+        }
+
+        return ShouldUsePrimaryAsHoldFallback(mapping.Primary);
+    }
+
+    private EngineKeyAction ResolveEffectiveHoldAction(EngineKeyMapping mapping)
+    {
+        if (mapping.HasHold)
+        {
+            return ResolveHoldActionForDispatch(mapping.Hold);
+        }
+
+        if (ShouldUsePrimaryAsHoldFallback(mapping.Primary))
+        {
+            return ResolveHoldActionForDispatch(mapping.Primary);
+        }
+
+        return EngineKeyAction.None;
+    }
+
+    private EngineKeyAction ResolveHoldActionForDispatch(EngineKeyAction action)
+    {
+        if (!_config.HoldRepeatEnabled ||
+            action.Kind != EngineActionKind.Key ||
+            !CanDispatchKeyAction(action))
+        {
+            return action;
+        }
+
+        return action with { Kind = EngineActionKind.Continuous };
+    }
+
+    private bool ShouldUsePrimaryAsHoldFallback(EngineKeyAction action)
+    {
+        if (!_config.HoldRepeatEnabled)
+        {
+            return false;
+        }
+
+        return action.Kind is EngineActionKind.Key or EngineActionKind.KeyChord;
+    }
+
+    private bool ShouldCancelHeldDispatchOnDrag(in TouchBindingState state)
+    {
+        // Held modifiers should stay pressed until touch-up, even if the anchor finger drifts.
+        if (state.DispatchDownKind == DispatchEventKind.ModifierDown)
+        {
+            return false;
+        }
+
+        // When hold-repeat is enabled, a triggered hold should continue repeating until lift,
+        // even if the finger jitters past drag-cancel distance.
+        if (state.HoldTriggered &&
+            _config.HoldRepeatEnabled &&
+            state.DispatchDownKind == DispatchEventKind.KeyDown &&
+            state.RepeatToken != 0)
+        {
+            return false;
+        }
+
+        return true;
+    }
+
+    private void EndPressAction(ref TouchBindingState state, long timestampTicks)
+    {
+        if (!state.DispatchDownSent)
+        {
+            return;
+        }
+
+        switch (state.DispatchDownKind)
+        {
+            case DispatchEventKind.ModifierDown:
+                EnqueueDispatchEvent(
+                    DispatchEventKind.ModifierUp,
+                    state.DispatchDownVirtualKey,
+                    DispatchMouseButton.None,
+                    repeatToken: 0,
+                    DispatchEventFlags.None,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
+                break;
+            case DispatchEventKind.KeyDown:
+                EnqueueDispatchEvent(
+                    DispatchEventKind.KeyUp,
+                    state.DispatchDownVirtualKey,
+                    DispatchMouseButton.None,
+                    state.RepeatToken,
+                    DispatchEventFlags.None,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
+                break;
+            case DispatchEventKind.MouseButtonDown:
+                EnqueueDispatchEvent(
+                    DispatchEventKind.MouseButtonUp,
+                    0,
+                    state.DispatchDownMouseButton,
+                    repeatToken: 0,
+                    DispatchEventFlags.None,
+                    state.Side,
+                    timestampTicks,
+                    dispatchLabel: state.DispatchDownLabel,
+                    semanticAction: state.DispatchDownSemanticAction);
+                break;
+            default:
+                break;
+        }
+
+        state.DispatchDownSent = false;
+        state.DispatchDownKind = DispatchEventKind.None;
+        state.DispatchDownVirtualKey = 0;
+        state.DispatchDownModifierVirtualKey = 0;
+        state.DispatchDownMouseButton = DispatchMouseButton.None;
+        state.RepeatToken = 0;
+        state.DispatchDownLabel = string.Empty;
+        state.DispatchDownSemanticAction = DispatchSemanticAction.None;
+    }
+
+    private void ApplyReleaseAction(
+        EngineKeyAction action,
+        TrackpadSide side,
+        ulong touchKey,
+        long timestampTicks,
+        int forceNorm = -1,
+        bool allowTypingDisabledOverride = false,
+        bool hapticOnDispatch = false)
+    {
+        ApplyActionState(action, timestampTicks);
+        EmitTapDispatch(action, side, touchKey, timestampTicks, forceNorm, allowTypingDisabledOverride, hapticOnDispatch);
+    }
+
+    private void EmitTapDispatch(
+        EngineKeyAction action,
+        TrackpadSide side,
+        ulong touchKey,
+        long timestampTicks,
+        int forceNorm,
+        bool allowTypingDisabledOverride,
+        bool hapticOnDispatch)
+    {
+        switch (action.Kind)
+        {
+            case EngineActionKind.Key:
+            case EngineActionKind.Continuous:
+                if (CanDispatchKeyAction(action))
+                {
+                    DispatchEventFlags keyTapFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.KeyTap,
+                        action.VirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: touchKey,
+                        keyTapFlags,
+                        side,
+                        timestampTicks,
+                        dispatchLabel: action.Label,
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
+                }
+                break;
+            case EngineActionKind.Modifier:
+                if (CanDispatchModifierAction(action))
+                {
+                    DispatchEventFlags modifierFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.ModifierDown,
+                        action.VirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: 0,
+                        modifierFlags,
+                        side,
+                        timestampTicks,
+                        dispatchLabel: action.Label,
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.ModifierUp,
+                        action.VirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: 0,
+                        DispatchEventFlags.None,
+                        side,
+                        timestampTicks,
+                        dispatchLabel: action.Label,
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
+                }
+                break;
+            case EngineActionKind.MouseButton:
+                if (action.MouseButton != DispatchMouseButton.None)
+                {
+                    DispatchEventFlags mouseFlags =
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None;
+                    int clickCount = IsDoubleClickActionLabel(action.Label) ? 2 : 1;
+                    for (int clickIndex = 0; clickIndex < clickCount; clickIndex++)
+                    {
+                        EnqueueDispatchEvent(
+                            DispatchEventKind.MouseButtonClick,
+                            0,
+                            action.MouseButton,
+                            repeatToken: 0,
+                            clickIndex == 0 ? mouseFlags : DispatchEventFlags.None,
+                            side,
+                            timestampTicks,
+                            dispatchLabel: action.Label,
+                            semanticAction: action.SemanticAction,
+                            forceNorm: forceNorm);
+                    }
+                }
+                break;
+            case EngineActionKind.AppLaunch:
+                EnqueueDispatchEvent(
+                    DispatchEventKind.AppLaunch,
+                    0,
+                    DispatchMouseButton.None,
+                    repeatToken: 0,
+                    hapticOnDispatch && _hapticsOnKeyDispatch
+                        ? DispatchEventFlags.Haptic
+                        : DispatchEventFlags.None,
+                    side,
+                    timestampTicks,
+                    dispatchLabel: action.Label,
+                    semanticAction: action.SemanticAction,
+                    allowTypingDisabledOverride: allowTypingDisabledOverride,
+                    forceNorm: forceNorm);
+                break;
+            case EngineActionKind.KeyChord:
+                if (CanDispatchChordModifierAction(action) && CanDispatchKeyAction(action))
+                {
+                    EnqueueDispatchEvent(
+                        DispatchEventKind.KeyTap,
+                        action.VirtualKey,
+                        DispatchMouseButton.None,
+                        repeatToken: touchKey,
+                        hapticOnDispatch && _hapticsOnKeyDispatch
+                            ? DispatchEventFlags.Haptic
+                            : DispatchEventFlags.None,
+                        side,
+                        timestampTicks,
+                        dispatchLabel: action.Label,
+                        semanticAction: action.SemanticAction,
+                        allowTypingDisabledOverride: allowTypingDisabledOverride,
+                        forceNorm: forceNorm);
+                }
+                break;
+            default:
+                break;
+        }
+    }
+
+    private static bool IsCustomBinding(EngineKeyBinding binding)
+    {
+        return binding.Row < 0;
+    }
+
+    private static bool IsDoubleClickActionLabel(string? label)
+    {
+        if (string.IsNullOrWhiteSpace(label))
+        {
+            return false;
+        }
+
+        return label.Equals("Double Click", StringComparison.OrdinalIgnoreCase) ||
+               label.Equals("DoubleClick", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private void ApplyActionState(EngineKeyAction action, long timestampTicks)
+    {
+        switch (action.Kind)
+        {
+            case EngineActionKind.TypingToggle:
+                if (_typingToggleActionsEnabled)
+                {
+                    SetTypingEnabledState(!_typingEnabled, timestampTicks, TypingToggleSource.KeyAction);
+                }
+                break;
+            case EngineActionKind.LayerSet:
+                _persistentLayer = Math.Clamp(action.LayerTarget, 0, 7);
+                UpdateActiveLayer();
+                break;
+            case EngineActionKind.LayerToggle:
+                _persistentLayer = _persistentLayer == action.LayerTarget ? 0 : Math.Clamp(action.LayerTarget, 0, 7);
+                UpdateActiveLayer();
+                break;
+            case EngineActionKind.MomentaryLayer:
+                break;
+            case EngineActionKind.Key:
+            case EngineActionKind.Continuous:
+            case EngineActionKind.Modifier:
+            case EngineActionKind.MouseButton:
+            case EngineActionKind.KeyChord:
+            case EngineActionKind.AppLaunch:
+                ExtendTypingGrace(timestampTicks);
+                break;
+            case EngineActionKind.None:
+            default:
+                break;
+        }
+    }
+
+    private void SetTypingEnabledState(bool enabled, long timestampTicks, TypingToggleSource source)
+    {
+        CaptureClockAnchor(timestampTicks);
+        if (_typingEnabled == enabled)
+        {
+            return;
+        }
+
+        _typingEnabled = enabled;
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.TypingToggle,
+            side: TrackpadSide.Left,
+            intentMode: _intentMode,
+            dispatchKind: DispatchEventKind.None,
+            suppressReason: DispatchSuppressReason.None,
+            toggleSource: source,
+            virtualKey: 0,
+            mouseButton: DispatchMouseButton.None,
+            typingEnabled: _typingEnabled,
+            chordSourceSuppressed: false,
+            fiveFingerActive: _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+            fiveFingerTriggered: _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+            contactCount: _intentTouches.Count,
+            tipContactCount: 0,
+            leftRawContacts: _lastRawLeftContacts,
+            rightRawContacts: _lastRawRightContacts,
+            reason: enabled ? "typing_enabled" : "typing_disabled");
+        if (!enabled)
+        {
+            ReleaseHeldStateForTypingDisable(timestampTicks);
+        }
+    }
+
+    private void ReleaseHeldStateForTypingDisable(long timestampTicks)
+    {
+        ReleaseThreeFingerDragState(timestampTicks, armPointerIntentSequence: false);
+        EndAllGestureDispatches(timestampTicks);
+
+        if (_chordShiftKeyDown)
+        {
+            EnqueueDispatchEvent(
+                DispatchEventKind.ModifierUp,
+                ShiftVirtualKey,
+                DispatchMouseButton.None,
+                repeatToken: 0,
+                DispatchEventFlags.None,
+                side: TrackpadSide.Left,
+                timestampTicks,
+                dispatchLabel: "ChordShift");
+            _chordShiftKeyDown = false;
+        }
+
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            TouchBindingState state = _touchStates.ValueRefAt(i);
+            if (state.DispatchDownSent)
+            {
+                EndPressAction(ref state, timestampTicks);
+            }
+        }
+
+        _touchStates.RemoveAll();
+        _intentTouches.RemoveAll();
+        _momentaryLayerTouches.RemoveAll();
+        _triangleGestureLeft = default;
+        _triangleGestureRight = default;
+        _forceClickGestureLeft = default;
+        _forceClickGestureRight = default;
+        _cornerClickTapGestureLeft = default;
+        _cornerClickTapGestureRight = default;
+        _typingGraceDeadlineTicks = 0;
+        _pointerSequenceGraceDeadlineTicks = 0;
+        _intentMode = IntentMode.Idle;
+        _typingCommittedUntilAllUp = false;
+        _typingCommittedByKeyboardOnly = false;
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceActive = false;
+        _lastContactCount = 0;
+        _chordShiftLeft = false;
+        _chordShiftRight = false;
+        UpdateActiveLayer();
+    }
+
+    private void EndAllGestureDispatches(long nowTicks)
+    {
+        EndMultiFingerHoldGestureDispatch(ref _twoFingerHoldGesture, nowTicks);
+        EndMultiFingerHoldGestureDispatch(ref _threeFingerHoldGesture, nowTicks);
+        EndMultiFingerHoldGestureDispatch(ref _fourFingerHoldGesture, nowTicks);
+        EndRepeatableGestureDispatch(ref _cornerHoldGestureLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _cornerHoldGestureRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _triangleGestureLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _triangleGestureRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _edgeSlideGestureLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _edgeSlideGestureRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _forceClickGestureLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _forceClickGestureRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _cornerClickTapGestureLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _cornerClickTapGestureRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _fiveFingerSwipeLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _fiveFingerSwipeRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _threeFingerSwipeStateLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _threeFingerSwipeStateRight.DispatchState, TrackpadSide.Right, nowTicks);
+        EndRepeatableGestureDispatch(ref _fourFingerSwipeStateLeft.DispatchState, TrackpadSide.Left, nowTicks);
+        EndRepeatableGestureDispatch(ref _fourFingerSwipeStateRight.DispatchState, TrackpadSide.Right, nowTicks);
+    }
+
+    private bool EnqueueDispatchEvent(
+        DispatchEventKind kind,
+        ushort virtualKey,
+        DispatchMouseButton mouseButton,
+        ulong repeatToken,
+        DispatchEventFlags flags,
+        TrackpadSide side,
+        long timestampTicks,
+        string dispatchLabel = "",
+        DispatchSemanticAction semanticAction = default,
+        bool allowTypingDisabledOverride = false,
+        int forceNorm = -1,
+        DispatchRepeatProfile repeatProfile = default)
+    {
+        if (_hapticsOnKeyDispatch && kind == DispatchEventKind.KeyTap)
+        {
+            flags |= DispatchEventFlags.Haptic;
+        }
+
+        string normalizedDispatchLabel = _diagnosticsEnabled
+            ? NormalizeDispatchLabel(kind, virtualKey, mouseButton, dispatchLabel)
+            : string.Empty;
+        if (!_typingEnabled && IsTypingSuppressedDispatch(kind) && !allowTypingDisabledOverride)
+        {
+            _dispatchSuppressedTypingDisabled++;
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.DispatchSuppressed,
+                side,
+                _intentMode,
+                kind,
+                DispatchSuppressReason.TypingDisabled,
+                TypingToggleSource.Api,
+                virtualKey,
+                mouseButton,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                "typing_disabled",
+                normalizedDispatchLabel);
+            return false;
+        }
+
+        if (forceNorm >= 0 &&
+            IsForceSuppressedDispatch(kind) &&
+            (_config.ForceCap <= 0 || forceNorm < _config.ForceMin || forceNorm > _config.ForceCap))
+        {
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.DispatchSuppressed,
+                side,
+                _intentMode,
+                kind,
+                DispatchSuppressReason.ForceThreshold,
+                TypingToggleSource.Api,
+                virtualKey,
+                mouseButton,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                "force_threshold",
+                normalizedDispatchLabel);
+            return false;
+        }
+
+        if (_dispatchRingCount >= _dispatchRing.Length)
+        {
+            _dispatchSuppressedRingFull++;
+            _dispatchDrops++;
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.DispatchSuppressed,
+                side,
+                _intentMode,
+                kind,
+                DispatchSuppressReason.DispatchRingFull,
+                TypingToggleSource.Api,
+                virtualKey,
+                mouseButton,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                "dispatch_ring_full",
+                normalizedDispatchLabel);
+            return false;
+        }
+
+        _dispatchRing[_dispatchRingHead] = new DispatchEvent(
+            timestampTicks,
+            kind,
+            virtualKey,
+            mouseButton,
+            repeatToken,
+            flags,
+            side,
+            normalizedDispatchLabel,
+            semanticAction,
+            repeatProfile);
+        _dispatchRingHead = (_dispatchRingHead + 1) % _dispatchRing.Length;
+        _dispatchRingCount++;
+        _dispatchEnqueued++;
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.DispatchEnqueued,
+            side,
+            _intentMode,
+            kind,
+            DispatchSuppressReason.None,
+            TypingToggleSource.Api,
+            virtualKey,
+            mouseButton,
+            _typingEnabled,
+            false,
+            _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+            _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+            _intentTouches.Count,
+            0,
+            _lastRawLeftContacts,
+            _lastRawRightContacts,
+            "dispatch_enqueued",
+            normalizedDispatchLabel);
+        return true;
+    }
+
+    private static string NormalizeDispatchLabel(
+        DispatchEventKind kind,
+        ushort virtualKey,
+        DispatchMouseButton mouseButton,
+        string dispatchLabel)
+    {
+        if (!string.IsNullOrWhiteSpace(dispatchLabel))
+        {
+            return dispatchLabel;
+        }
+
+        return kind switch
+        {
+            DispatchEventKind.MouseButtonClick => $"Mouse{mouseButton}Click",
+            DispatchEventKind.MouseButtonDown => $"Mouse{mouseButton}Down",
+            DispatchEventKind.MouseButtonUp => $"Mouse{mouseButton}Up",
+            DispatchEventKind.ModifierDown => $"ModifierDown({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.ModifierUp => $"ModifierUp({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.KeyDown => $"KeyDown({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.KeyUp => $"KeyUp({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.KeyTap => $"KeyTap({VirtualKeyLabel(virtualKey)})",
+            DispatchEventKind.AppLaunch => "AppLaunch",
+            _ => kind.ToString()
+        };
+    }
+
+    private static string VirtualKeyLabel(ushort virtualKey)
+    {
+        return virtualKey switch
+        {
+            0x08 => "Backspace",
+            0x09 => "Tab",
+            0x0D => "Enter",
+            0x10 => "Shift",
+            0x11 => "Ctrl",
+            0x12 => "Alt",
+            0x1B => "Esc",
+            0x20 => "Space",
+            0x25 => "Left",
+            0x26 => "Up",
+            0x27 => "Right",
+            0x28 => "Down",
+            0xBA => ";",
+            0xBB => "=",
+            0xBC => ",",
+            0xBD => "-",
+            0xBE => ".",
+            0xBF => "/",
+            0xC0 => "`",
+            0xDB => "[",
+            0xDC => "\\",
+            0xDD => "]",
+            0xDE => "'",
+            >= 0x30 and <= 0x39 => ((char)virtualKey).ToString(),
+            >= 0x41 and <= 0x5A => ((char)virtualKey).ToString(),
+            _ => $"VK_0x{virtualKey:X2}"
+        };
+    }
+
+    private static bool CanDispatchKeyAction(EngineKeyAction action)
+    {
+        return HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
+    }
+
+    private static bool CanDispatchModifierAction(EngineKeyAction action)
+    {
+        return HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
+    }
+
+    private static bool CanDispatchChordModifierAction(EngineKeyAction action)
+    {
+        return action.SemanticAction.Modifiers != DispatchModifierFlags.None ||
+            HasDispatchIdentity(action.SemanticAction.SecondaryCode, action.ModifierVirtualKey);
+    }
+
+    private static bool HasDispatchIdentity(DispatchSemanticCode semanticCode, ushort virtualKey)
+    {
+        return semanticCode != DispatchSemanticCode.None || virtualKey != 0;
+    }
+
+    private static bool IsTypingSuppressedDispatch(DispatchEventKind kind)
+    {
+        return kind is DispatchEventKind.KeyTap or
+            DispatchEventKind.KeyDown or
+            DispatchEventKind.ModifierDown or
+            DispatchEventKind.AppLaunch;
+    }
+
+    private static bool IsForceSuppressedDispatch(DispatchEventKind kind)
+    {
+        return kind is DispatchEventKind.KeyTap or
+            DispatchEventKind.KeyDown or
+            DispatchEventKind.ModifierDown or
+            DispatchEventKind.AppLaunch;
+    }
+
+    private bool IsMomentaryLayerActive()
+    {
+        for (int i = 0; i < _momentaryLayerTouches.Capacity; i++)
+        {
+            if (_momentaryLayerTouches.IsOccupiedAt(i))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void ActivateMomentaryLayerTouch(ulong touchKey, ref TouchBindingState state, int layerTarget)
+    {
+        state.MomentaryLayerTarget = Math.Clamp(layerTarget, 0, 7);
+        _momentaryLayerTouches.Set(touchKey, state.MomentaryLayerTarget);
+        UpdateActiveLayer();
+    }
+
+    private void DeactivateMomentaryLayerTouch(ulong touchKey, ref TouchBindingState state)
+    {
+        _momentaryLayerTouches.Remove(touchKey, out _);
+        state.MomentaryLayerTarget = -1;
+        UpdateActiveLayer();
+    }
+
+    private bool ShouldEnforceKeyboardOnlyMode()
+    {
+        return _keyboardModeEnabled && _typingEnabled && !IsMomentaryLayerActive();
+    }
+
+    private void UpdateActiveLayer()
+    {
+        int layer = _persistentLayer;
+        for (int i = 0; i < _momentaryLayerTouches.Capacity; i++)
+        {
+            if (!_momentaryLayerTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            layer = Math.Clamp(_momentaryLayerTouches.ValueRefAt(i), 0, 7);
+            break;
+        }
+
+        if (_activeLayer != layer)
+        {
+            _activeLayer = layer;
+            _bindingsLayer = -1;
+        }
+    }
+
+    private IntentAggregate BuildIntentAggregate()
+    {
+        int count = 0;
+        int onKey = 0;
+        int offKey = 0;
+        int leftCount = 0;
+        int rightCount = 0;
+        bool keyboardAnchor = false;
+        double sumX = 0;
+        double sumY = 0;
+        double maxDistanceMm = 0;
+        double maxVelocityMmPerSec = 0;
+        ulong firstOnKeyTouch = 0;
+        bool hasFirstOnKey = false;
+        long earliestStart = long.MaxValue;
+        long latestStart = long.MinValue;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ulong touchKey = _intentTouches.KeyAt(i);
+            IntentTouchInfo info = _intentTouches.ValueRefAt(i);
+            count++;
+            if (info.Side == TrackpadSide.Left) leftCount++;
+            if (info.Side == TrackpadSide.Right) rightCount++;
+            sumX += info.LastXNorm;
+            sumY += info.LastYNorm;
+            if (info.OnKey)
+            {
+                onKey++;
+                if (!hasFirstOnKey)
+                {
+                    hasFirstOnKey = true;
+                    firstOnKeyTouch = touchKey;
+                }
+            }
+            else
+            {
+                offKey++;
+            }
+
+            if (info.KeyboardAnchor)
+            {
+                keyboardAnchor = true;
+            }
+
+            if (info.MaxDistanceMm > maxDistanceMm)
+            {
+                maxDistanceMm = info.MaxDistanceMm;
+            }
+
+            if (info.LastVelocityMmPerSec > maxVelocityMmPerSec)
+            {
+                maxVelocityMmPerSec = info.LastVelocityMmPerSec;
+            }
+
+            if (info.StartTicks < earliestStart)
+            {
+                earliestStart = info.StartTicks;
+            }
+
+            if (info.StartTicks > latestStart)
+            {
+                latestStart = info.StartTicks;
+            }
+        }
+
+        return new IntentAggregate(
+            ContactCount: count,
+            LeftContacts: leftCount,
+            RightContacts: rightCount,
+            OnKeyCount: onKey,
+            OffKeyCount: offKey,
+            KeyboardAnchor: keyboardAnchor,
+            MaxDistanceMm: maxDistanceMm,
+            MaxVelocityMmPerSec: maxVelocityMmPerSec,
+            CentroidX: count == 0 ? 0 : sumX / count,
+            CentroidY: count == 0 ? 0 : sumY / count,
+            HasFirstOnKeyTouch: hasFirstOnKey,
+            FirstOnKeyTouch: firstOnKeyTouch,
+            EarliestStartTicks: earliestStart == long.MaxValue ? 0 : earliestStart,
+            LatestStartTicks: latestStart == long.MinValue ? 0 : latestStart);
+    }
+
+    private void UpdateIntentState(in IntentAggregate aggregate, long nowTicks)
+    {
+        bool graceActive = IsTypingGraceActive(nowTicks);
+        bool keyboardOnly = ShouldEnforceKeyboardOnlyMode();
+        bool pointerIntentEnabled = _pointerIntentEnabled;
+        bool pointerSequenceGracePending = IsPointerSequenceGracePending(nowTicks);
+        if (aggregate.ContactCount <= 0)
+        {
+            _pointerSequenceGraceActive = false;
+            if (graceActive)
+            {
+                SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "grace");
+            }
+            else
+            {
+                _typingCommittedByKeyboardOnly = false;
+                TransitionTo(IntentMode.Idle, nowTicks, "all_up");
+            }
+
+            _lastContactCount = 0;
+            return;
+        }
+
+        int previousContactCount = _lastContactCount;
+        if (pointerSequenceGracePending)
+        {
+            _pointerSequenceGracePending = false;
+            _pointerSequenceGraceActive = true;
+        }
+
+        bool forcePointerSequence = _pointerSequenceGraceActive && pointerIntentEnabled;
+        if (keyboardOnly)
+        {
+            _lastContactCount = aggregate.ContactCount;
+            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "keyboard_only", keyboardOnlyLock: true);
+            return;
+        }
+
+        if (_typingCommittedByKeyboardOnly && IsMomentaryLayerActive())
+        {
+            _typingCommittedByKeyboardOnly = false;
+            _typingCommittedUntilAllUp = false;
+        }
+
+        long keyBufferTicks = MsToTicks(_config.KeyBufferMs);
+        bool allowGestureCandidate = !aggregate.KeyboardAnchor;
+        if (allowGestureCandidate && TryGetGestureCandidateStartTicks(
+            aggregate.ContactCount,
+            previousContactCount,
+            aggregate.EarliestStartTicks,
+            aggregate.LatestStartTicks,
+            keyBufferTicks,
+            out long gestureStartTicks))
+        {
+            _gestureCandidateStartTicks = gestureStartTicks;
+            TransitionTo(IntentMode.GestureCandidate, nowTicks, "gesture_buffer");
+            _lastContactCount = aggregate.ContactCount;
+            return;
+        }
+
+        if (_intentMode == IntentMode.GestureCandidate && aggregate.ContactCount < 2)
+        {
+            TransitionTo(IntentMode.Idle, nowTicks, "gesture_exit");
+        }
+
+        _lastContactCount = aggregate.ContactCount;
+        bool secondFingerAppeared = aggregate.ContactCount > 1 && aggregate.ContactCount > previousContactCount;
+        bool centroidMoved = _intentMode == IntentMode.KeyCandidate &&
+                             DistanceMm(_keyCandidateCentroidX, _keyCandidateCentroidY, aggregate.CentroidX, aggregate.CentroidY) > _config.IntentMoveMm;
+        bool velocitySignal = aggregate.MaxVelocityMmPerSec > _config.IntentVelocityMmPerSec &&
+                              aggregate.MaxDistanceMm > (_config.IntentMoveMm * 0.25);
+        bool mouseSignal = aggregate.MaxDistanceMm > _config.IntentMoveMm ||
+                           aggregate.MaxDistanceMm > _config.DragCancelMm ||
+                           velocitySignal ||
+                           (secondFingerAppeared && aggregate.OffKeyCount > 0) ||
+                           centroidMoved;
+
+        bool typingAnchorActive = aggregate.KeyboardAnchor && aggregate.ContactCount <= 1;
+        if (graceActive)
+        {
+            SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "grace");
+            return;
+        }
+
+        switch (_intentMode)
+        {
+            case IntentMode.Idle:
+                if (typingAnchorActive)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
+                    return;
+                }
+
+                if (forcePointerSequence)
+                {
+                    _mouseCandidateStartTicks = nowTicks;
+                    TransitionTo(IntentMode.MouseCandidate, nowTicks, "drag_release_grace");
+                }
+                else if (aggregate.OnKeyCount > 0 && !mouseSignal && aggregate.HasFirstOnKeyTouch)
+                {
+                    _keyCandidateStartTicks = nowTicks;
+                    _keyCandidateTouchKey = aggregate.FirstOnKeyTouch;
+                    _keyCandidateCentroidX = aggregate.CentroidX;
+                    _keyCandidateCentroidY = aggregate.CentroidY;
+                    TransitionTo(IntentMode.KeyCandidate, nowTicks, "on_key");
+                }
+                else if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "off_key_pure_keyboard");
+                }
+                else
+                {
+                    _mouseCandidateStartTicks = nowTicks;
+                    TransitionTo(IntentMode.MouseCandidate, nowTicks, "off_key");
+                }
+                break;
+            case IntentMode.KeyCandidate:
+                if (typingAnchorActive)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
+                    return;
+                }
+
+                if (!pointerIntentEnabled && mouseSignal)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_signal_pure_keyboard");
+                }
+                else if (mouseSignal)
+                {
+                    _mouseCandidateStartTicks = nowTicks;
+                    TransitionTo(IntentMode.MouseCandidate, nowTicks, "mouse_signal");
+                }
+                else if (nowTicks - _keyCandidateStartTicks >= keyBufferTicks)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "candidate_elapsed");
+                }
+                break;
+            case IntentMode.TypingCommitted:
+                if (typingAnchorActive)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: _typingCommittedUntilAllUp, reason: "typing_anchor_hold");
+                    return;
+                }
+
+                if (_typingCommittedUntilAllUp)
+                {
+                    break;
+                }
+
+                if (!pointerIntentEnabled && mouseSignal)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_takeover_pure_keyboard");
+                }
+                else if (mouseSignal)
+                {
+                    TransitionTo(IntentMode.MouseActive, nowTicks, "mouse_takeover");
+                }
+                break;
+            case IntentMode.MouseCandidate:
+                if (typingAnchorActive)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
+                    return;
+                }
+
+                if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_candidate_pure_keyboard");
+                }
+                else if (mouseSignal || (nowTicks - _mouseCandidateStartTicks) >= keyBufferTicks)
+                {
+                    TransitionTo(IntentMode.MouseActive, nowTicks, "mouse_confirmed");
+                }
+                break;
+            case IntentMode.MouseActive:
+                if (typingAnchorActive)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "typing_anchor");
+                }
+                else if (!pointerIntentEnabled)
+                {
+                    SetTypingCommittedState(nowTicks, untilAllUp: false, reason: "mouse_active_pure_keyboard");
+                }
+                break;
+            case IntentMode.GestureCandidate:
+                break;
+            default:
+                break;
+        }
+    }
+
+    private void SetTypingCommittedState(long nowTicks, bool untilAllUp, string reason, bool keyboardOnlyLock = false)
+    {
+        _typingCommittedUntilAllUp = untilAllUp;
+        _typingCommittedByKeyboardOnly = keyboardOnlyLock;
+        TransitionTo(IntentMode.TypingCommitted, nowTicks, reason);
+    }
+
+    private static bool TryGetGestureCandidateStartTicks(
+        int contactCount,
+        int previousContactCount,
+        long earliestStartTicks,
+        long latestStartTicks,
+        long keyBufferTicks,
+        out long startTicks)
+    {
+        startTicks = 0;
+        if (contactCount >= 3)
+        {
+            if (previousContactCount == 2)
+            {
+                return false;
+            }
+
+            long startSpan = latestStartTicks - earliestStartTicks;
+            if (startSpan <= keyBufferTicks)
+            {
+                startTicks = earliestStartTicks;
+                return true;
+            }
+
+            return false;
+        }
+
+        if (contactCount >= 2 && previousContactCount <= 1)
+        {
+            long startSpan = latestStartTicks - earliestStartTicks;
+            if (startSpan <= keyBufferTicks)
+            {
+                startTicks = earliestStartTicks;
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private void UpdateFourFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        if (_fourFingerHoldUsesChordShift)
+        {
+            EndMultiFingerHoldGestureDispatch(ref _fourFingerHoldGesture, nowTicks);
+            _fourFingerHoldGesture = default;
+            return;
+        }
+
+        UpdateMultiFingerHoldGesture(
+            ref _fourFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 4,
+            _fourFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateTwoFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _twoFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 2,
+            _twoFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateThreeFingerHoldGesture(in IntentAggregate aggregate, long nowTicks)
+    {
+        UpdateMultiFingerHoldGesture(
+            ref _threeFingerHoldGesture,
+            aggregate,
+            requiredContactCount: 3,
+            _threeFingerHoldGestureAction,
+            nowTicks);
+    }
+
+    private void UpdateMultiFingerClickGestures(
+        TrackpadSide side,
+        int sideTipContacts,
+        bool buttonPressed,
+        long nowTicks)
+    {
+        if (sideTipContacts <= 0 && !buttonPressed)
+        {
+            ClearClickDerivedHoldBlock(side);
+        }
+
+        ref int maxContactsBeforeButtonDown = ref side == TrackpadSide.Left
+            ? ref _leftMaxTipContactsBeforeButtonDown
+            : ref _rightMaxTipContactsBeforeButtonDown;
+        ref bool wasPressed = ref side == TrackpadSide.Left
+            ? ref _leftButtonPressed
+            : ref _rightButtonPressed;
+        bool justPressed = !wasPressed && buttonPressed;
+        bool justReleased = wasPressed && !buttonPressed;
+        if (!buttonPressed && sideTipContacts <= 1)
+        {
+            // Prevent stale 3/4-finger state from leaking into later single-finger clicks.
+            maxContactsBeforeButtonDown = sideTipContacts;
+        }
+        else if (!buttonPressed && sideTipContacts > maxContactsBeforeButtonDown)
+        {
+            maxContactsBeforeButtonDown = sideTipContacts;
+        }
+        wasPressed = buttonPressed;
+        if (justReleased)
+        {
+            maxContactsBeforeButtonDown = sideTipContacts <= 0 ? 0 : sideTipContacts;
+        }
+
+        if (!justPressed)
+        {
+            return;
+        }
+
+        if ((side == TrackpadSide.Left ? _lastRawRightContacts : _lastRawLeftContacts) != 0)
+        {
+            return;
+        }
+
+        int effectiveTipContacts = sideTipContacts >= 2
+            ? Math.Max(sideTipContacts, maxContactsBeforeButtonDown)
+            : sideTipContacts;
+        EngineKeyAction action = GetMultiFingerClickAction(effectiveTipContacts);
+        if (action.Kind == EngineActionKind.None)
+        {
+            return;
+        }
+
+        EmitGestureAction(action, side, touchKey: 0, nowTicks);
+        SetClickDerivedHoldBlock(side, enabled: true);
+    }
+
+    private EngineKeyAction GetMultiFingerClickAction(int sideTipContacts)
+    {
+        if (sideTipContacts == 3)
+        {
+            return _threeFingerClickGestureAction;
+        }
+
+        if (sideTipContacts == 4)
+        {
+            return _fourFingerClickGestureAction;
+        }
+
+        return EngineKeyAction.None;
+    }
+
+    private void UpdateSideForceVelocity(TrackpadSide side, int frameTipMaxForceNorm, long nowTicks)
+    {
+        ref int lastForce = ref side == TrackpadSide.Left
+            ? ref _leftLastTipMaxForceNorm
+            : ref _rightLastTipMaxForceNorm;
+        ref long lastTicks = ref side == TrackpadSide.Left
+            ? ref _leftLastTipForceSampleTicks
+            : ref _rightLastTipForceSampleTicks;
+        ref double positiveVelocityPerSec = ref side == TrackpadSide.Left
+            ? ref _leftPositiveForceVelocityPerSec
+            : ref _rightPositiveForceVelocityPerSec;
+
+        if (lastTicks >= 0 && nowTicks > lastTicks)
+        {
+            long deltaTicks = nowTicks - lastTicks;
+            int deltaForce = frameTipMaxForceNorm - lastForce;
+            if (deltaForce > 0)
+            {
+                double dtSeconds = deltaTicks / (double)Stopwatch.Frequency;
+                positiveVelocityPerSec = dtSeconds <= 0 ? 0 : deltaForce / dtSeconds;
+            }
+            else
+            {
+                positiveVelocityPerSec = 0;
+            }
+        }
+        else
+        {
+            positiveVelocityPerSec = 0;
+        }
+
+        lastForce = frameTipMaxForceNorm;
+        lastTicks = nowTicks;
+    }
+
+    private bool ProcessThreeFingerDragFrame(
+        TrackpadSide side,
+        in InputFrame frame,
+        ushort maxX,
+        ushort maxY,
+        long timestampTicks)
+    {
+        if (!_threeFingerDragEnabled)
+        {
+            return false;
+        }
+
+        ref ThreeFingerDragState drag = ref _threeFingerDragState;
+        if (drag.AwaitingAllUp)
+        {
+            if (side != drag.Side)
+            {
+                return false;
+            }
+
+            if (HasPhysicalInput(in frame))
+            {
+                return true;
+            }
+
+            drag = default;
+            ArmPointerIntentSequence(timestampTicks);
+            return false;
+        }
+
+        if (!TryGetThreeFingerCentroidMm(in frame, maxX, maxY, out double centroidXMm, out double centroidYMm))
+        {
+            if (!drag.Candidate || side != drag.Side)
+            {
+                return false;
+            }
+
+            if (!drag.Active)
+            {
+                drag = default;
+                return false;
+            }
+
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonUp | PointerDragEffectKind.PointerActivity,
+                side,
+                timestampTicks);
+            ClearStateForThreeFingerDrag(side, timestampTicks);
+            drag.Active = false;
+            drag.Candidate = false;
+            if (HasPhysicalInput(in frame))
+            {
+                drag.AwaitingAllUp = true;
+                return true;
+            }
+
+            drag = default;
+            ArmPointerIntentSequence(timestampTicks);
+            return false;
+        }
+
+        if (drag.Candidate && side != drag.Side)
+        {
+            return false;
+        }
+
+        if (!drag.Candidate)
+        {
+            drag = new ThreeFingerDragState(
+                Candidate: true,
+                Active: false,
+                AwaitingAllUp: false,
+                Side: side,
+                AnchorCentroidXMm: centroidXMm,
+                AnchorCentroidYMm: centroidYMm,
+                LastCentroidXMm: centroidXMm,
+                LastCentroidYMm: centroidYMm,
+                PendingPixelsX: 0.0,
+                PendingPixelsY: 0.0);
+            return false;
+        }
+
+        double deltaFromAnchorX = centroidXMm - drag.AnchorCentroidXMm;
+        double deltaFromAnchorY = centroidYMm - drag.AnchorCentroidYMm;
+        double activationMoveMm = Math.Max(_config.DragCancelMm, _config.IntentMoveMm);
+        bool activateByMove = ((deltaFromAnchorX * deltaFromAnchorX) + (deltaFromAnchorY * deltaFromAnchorY)) >=
+                              (activationMoveMm * activationMoveMm);
+        if (!drag.Active && !activateByMove)
+        {
+            return false;
+        }
+
+        if (!drag.Active)
+        {
+            ClearStateForThreeFingerDrag(side, timestampTicks);
+            drag.Active = true;
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonDown | PointerDragEffectKind.PointerActivity,
+                side,
+                timestampTicks);
+        }
+
+        EmitThreeFingerDragMovement(ref drag, side, centroidXMm, centroidYMm, timestampTicks);
+        drag.LastCentroidXMm = centroidXMm;
+        drag.LastCentroidYMm = centroidYMm;
+        return true;
+    }
+
+    private void EmitThreeFingerDragMovement(
+        ref ThreeFingerDragState drag,
+        TrackpadSide side,
+        double centroidXMm,
+        double centroidYMm,
+        long timestampTicks)
+    {
+        drag.PendingPixelsX += (centroidXMm - drag.LastCentroidXMm) * ThreeFingerDragPixelsPerMm;
+        drag.PendingPixelsY += (centroidYMm - drag.LastCentroidYMm) * ThreeFingerDragPixelsPerMm;
+
+        int deltaXPixels = (int)drag.PendingPixelsX;
+        int deltaYPixels = (int)drag.PendingPixelsY;
+        if (deltaXPixels == 0 && deltaYPixels == 0)
+        {
+            return;
+        }
+
+        drag.PendingPixelsX -= deltaXPixels;
+        drag.PendingPixelsY -= deltaYPixels;
+        EmitPointerDragEffect(
+            PointerDragEffectKind.Move | PointerDragEffectKind.PointerActivity,
+            side,
+            timestampTicks,
+            deltaXPixels,
+            deltaYPixels);
+    }
+
+    private void ReleaseThreeFingerDragState(long timestampTicks, bool armPointerIntentSequence)
+    {
+        if (_threeFingerDragState.Active)
+        {
+            EmitPointerDragEffect(
+                PointerDragEffectKind.LeftButtonUp | PointerDragEffectKind.PointerActivity,
+                _threeFingerDragState.Side,
+                timestampTicks);
+        }
+
+        _threeFingerDragState = default;
+        if (armPointerIntentSequence)
+        {
+            ArmPointerIntentSequence(timestampTicks);
+        }
+    }
+
+    private void ClearStateForThreeFingerDrag(TrackpadSide side, long timestampTicks)
+    {
+        int removalCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ulong key = _intentTouches.KeyAt(i);
+            if (TouchSideFromKey(key) != side)
+            {
+                continue;
+            }
+
+            if (removalCount < _removalBuffer.Length)
+            {
+                _removalBuffer[removalCount++] = key;
+            }
+        }
+
+        for (int i = 0; i < removalCount; i++)
+        {
+            ulong key = _removalBuffer[i];
+            _intentTouches.Remove(key, out _);
+            CancelTouchWithoutReleaseAction(key, timestampTicks);
+        }
+
+        EndSideMultiFingerHoldGesture(ref _twoFingerHoldGesture, side, timestampTicks);
+        EndSideMultiFingerHoldGesture(ref _threeFingerHoldGesture, side, timestampTicks);
+        EndSideMultiFingerHoldGesture(ref _fourFingerHoldGesture, side, timestampTicks);
+        if (side == TrackpadSide.Left)
+        {
+            _cornerHoldGestureLeft = default;
+            _triangleGestureLeft = default;
+            _forceClickGestureLeft = default;
+            _cornerClickTapGestureLeft = default;
+            _leftHoldBlockedUntilAllUpFromClick = false;
+            _leftMaxTipContactsBeforeButtonDown = 0;
+            _leftButtonPressed = false;
+        }
+        else
+        {
+            _cornerHoldGestureRight = default;
+            _triangleGestureRight = default;
+            _forceClickGestureRight = default;
+            _cornerClickTapGestureRight = default;
+            _rightHoldBlockedUntilAllUpFromClick = false;
+            _rightMaxTipContactsBeforeButtonDown = 0;
+            _rightButtonPressed = false;
+        }
+    }
+
+    private static bool HasPhysicalInput(in InputFrame frame)
+    {
+        if (frame.IsButtonPressed)
+        {
+            return true;
+        }
+
+        int count = frame.GetClampedContactCount();
+        for (int i = 0; i < count; i++)
+        {
+            if (frame.GetContact(i).TipSwitch)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private bool TryGetThreeFingerCentroidMm(
+        in InputFrame frame,
+        ushort maxX,
+        ushort maxY,
+        out double centroidXMm,
+        out double centroidYMm)
+    {
+        centroidXMm = 0.0;
+        centroidYMm = 0.0;
+
+        double sumX = 0.0;
+        double sumY = 0.0;
+        int tipCount = 0;
+        int count = frame.GetClampedContactCount();
+        for (int i = 0; i < count; i++)
+        {
+            ContactFrame contact = frame.GetContact(i);
+            if (!contact.TipSwitch)
+            {
+                continue;
+            }
+
+            sumX += contact.X;
+            sumY += contact.Y;
+            tipCount++;
+        }
+
+        if (tipCount != 3)
+        {
+            return false;
+        }
+
+        double scaledMaxX = maxX == 0 ? 1.0 : maxX;
+        double scaledMaxY = maxY == 0 ? 1.0 : maxY;
+        centroidXMm = ((sumX / tipCount) / scaledMaxX) * _config.TrackpadWidthMm;
+        centroidYMm = ((sumY / tipCount) / scaledMaxY) * _config.TrackpadHeightMm;
+        return true;
+    }
+
+    private void EmitPointerDragEffect(
+        PointerDragEffectKind kind,
+        TrackpadSide side,
+        long timestampTicks,
+        int deltaXPixels = 0,
+        int deltaYPixels = 0)
+    {
+        if (_pointerDragRingCount >= _pointerDragRing.Length)
+        {
+            return;
+        }
+
+        _pointerDragRing[_pointerDragRingHead] = new PointerDragEffect(timestampTicks, side, kind, deltaXPixels, deltaYPixels);
+        _pointerDragRingHead = (_pointerDragRingHead + 1) % _pointerDragRing.Length;
+        _pointerDragRingCount++;
+    }
+
+    private void EndSideMultiFingerHoldGesture(ref MultiFingerHoldGesture gesture, TrackpadSide side, long nowTicks)
+    {
+        if (!gesture.Active || gesture.Side != side)
+        {
+            return;
+        }
+
+        EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
+        gesture = default;
+    }
+
+    private void SetClickDerivedHoldBlock(TrackpadSide side, bool enabled)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _leftHoldBlockedUntilAllUpFromClick = enabled;
+            return;
+        }
+
+        _rightHoldBlockedUntilAllUpFromClick = enabled;
+    }
+
+    private void ClearClickDerivedHoldBlock(TrackpadSide side)
+    {
+        if (side == TrackpadSide.Left)
+        {
+            _leftHoldBlockedUntilAllUpFromClick = false;
+            return;
+        }
+
+        _rightHoldBlockedUntilAllUpFromClick = false;
+    }
+
+    private bool IsClickDerivedHoldBlocked(TrackpadSide side)
+    {
+        return side == TrackpadSide.Left
+            ? _leftHoldBlockedUntilAllUpFromClick
+            : _rightHoldBlockedUntilAllUpFromClick;
+    }
+
+    private bool IsLikelyMultiFingerClickIntent(TrackpadSide side, int requiredContactCount, long nowTicks)
+    {
+        EngineKeyAction clickAction = GetMultiFingerClickAction(requiredContactCount);
+        if (clickAction.Kind == EngineActionKind.None)
+        {
+            return false;
+        }
+
+        if (IsClickDerivedHoldBlocked(side))
+        {
+            return true;
+        }
+
+        bool buttonPressed = side == TrackpadSide.Left ? _leftButtonPressed : _rightButtonPressed;
+        if (buttonPressed)
+        {
+            return true;
+        }
+
+        double positiveForceVelocity = side == TrackpadSide.Left
+            ? _leftPositiveForceVelocityPerSec
+            : _rightPositiveForceVelocityPerSec;
+        return positiveForceVelocity >= MultiFingerClickForceVelocityThresholdPerSec;
+    }
+
+    private void UpdateMultiFingerHoldGesture(
+        ref MultiFingerHoldGesture gesture,
+        in IntentAggregate aggregate,
+        int requiredContactCount,
+        EngineKeyAction action,
+        long nowTicks)
+    {
+        if (action.Kind == EngineActionKind.None ||
+            !TryGetEligibleHoldSide(in aggregate, requiredContactCount, out TrackpadSide side) ||
+            !AreSideTouchesStationaryForHold(side))
+        {
+            EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active || gesture.Side != side)
+        {
+            EndMultiFingerHoldGestureDispatch(ref gesture, nowTicks);
+            gesture = new MultiFingerHoldGesture(
+                Active: true,
+                Triggered: false,
+                Side: side,
+                StartedTicks: nowTicks);
+            return;
+        }
+
+        if (gesture.Triggered)
+        {
+            return;
+        }
+
+        long holdTicks = MsToTicks(_config.HoldDurationMs);
+        if (GetMultiFingerClickAction(requiredContactCount).Kind != EngineActionKind.None)
+        {
+            holdTicks += MsToTicks(MultiFingerClickHoldGuardMs);
+        }
+
+        if (nowTicks - gesture.StartedTicks < holdTicks)
+        {
+            return;
+        }
+
+        if (IsLikelyMultiFingerClickIntent(side, requiredContactCount, nowTicks))
+        {
+            return;
+        }
+
+        EngineKeyAction holdAction = ResolveHoldActionForDispatch(action);
+        string bindingId = GetMultiFingerHoldBindingId(requiredContactCount);
+        if (TryBeginRepeatableGestureDispatch(bindingId, holdAction, gesture.Side, nowTicks, ref gesture.DispatchState))
+        {
+            gesture.DispatchDownSent = true;
+            gesture.DispatchDownVirtualKey = gesture.DispatchState.DispatchDownVirtualKey;
+            gesture.RepeatToken = gesture.DispatchState.RepeatToken;
+            gesture.DispatchDownLabel = gesture.DispatchState.DispatchDownLabel;
+            gesture.DispatchDownSemanticAction = gesture.DispatchState.DispatchDownSemanticAction;
+        }
+        else if (holdAction.Kind == EngineActionKind.Continuous && CanDispatchKeyAction(holdAction))
+        {
+            ulong repeatToken = BuildMultiFingerHoldRepeatToken(gesture.Side, requiredContactCount);
+            if (EnqueueDispatchEvent(
+                DispatchEventKind.KeyDown,
+                holdAction.VirtualKey,
+                DispatchMouseButton.None,
+                repeatToken,
+                DispatchEventFlags.Repeatable,
+                gesture.Side,
+                nowTicks,
+                dispatchLabel: holdAction.Label,
+                semanticAction: holdAction.SemanticAction,
+                allowTypingDisabledOverride: true,
+                repeatProfile: default))
+            {
+                gesture.DispatchDownSent = true;
+                gesture.DispatchDownVirtualKey = holdAction.VirtualKey;
+                gesture.RepeatToken = repeatToken;
+                gesture.DispatchDownLabel = holdAction.Label;
+                gesture.DispatchDownSemanticAction = holdAction.SemanticAction;
+            }
+        }
+        else
+        {
+            EmitGestureAction(holdAction, gesture.Side, touchKey: 0, nowTicks: nowTicks);
+        }
+
+        gesture.Triggered = true;
+        MarkSideTouchStatesHoldConsumed(gesture.Side);
+    }
+
+    private void EndMultiFingerHoldGestureDispatch(ref MultiFingerHoldGesture gesture, long nowTicks)
+    {
+        if (!gesture.DispatchDownSent)
+        {
+            return;
+        }
+
+        EnqueueDispatchEvent(
+            DispatchEventKind.KeyUp,
+            gesture.DispatchDownVirtualKey,
+            DispatchMouseButton.None,
+            gesture.RepeatToken,
+            DispatchEventFlags.None,
+            gesture.Side,
+            nowTicks,
+            dispatchLabel: gesture.DispatchDownLabel,
+            semanticAction: gesture.DispatchDownSemanticAction,
+            allowTypingDisabledOverride: true);
+
+        gesture.DispatchDownSent = false;
+        gesture.DispatchDownVirtualKey = 0;
+        gesture.RepeatToken = 0;
+        gesture.DispatchDownLabel = string.Empty;
+        gesture.DispatchDownSemanticAction = DispatchSemanticAction.None;
+        gesture.DispatchState = default;
+    }
+
+    private static ulong BuildMultiFingerHoldRepeatToken(TrackpadSide side, int requiredContactCount)
+    {
+        ulong sideToken = side == TrackpadSide.Left ? 1ul : 2ul;
+        return 0xF000000000000000ul | ((ulong)(requiredContactCount & 0xFF) << 8) | sideToken;
+    }
+
+    private static bool TryGetEligibleHoldSide(in IntentAggregate aggregate, int requiredContactCount, out TrackpadSide side)
+    {
+        if (aggregate.LeftContacts == requiredContactCount && aggregate.RightContacts == 0)
+        {
+            side = TrackpadSide.Left;
+            return true;
+        }
+
+        if (aggregate.RightContacts == requiredContactCount && aggregate.LeftContacts == 0)
+        {
+            side = TrackpadSide.Right;
+            return true;
+        }
+
+        side = TrackpadSide.Left;
+        return false;
+    }
+
+    private bool AreSideTouchesStationaryForHold(TrackpadSide side)
+    {
+        int sideTouchCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref IntentTouchInfo touch = ref _intentTouches.ValueRefAt(i);
+            if (touch.Side != side)
+            {
+                continue;
+            }
+
+            sideTouchCount++;
+            if (touch.MaxDistanceMm > HoldGestureMoveCancelMm)
+            {
+                return false;
+            }
+        }
+
+        return sideTouchCount > 0;
+    }
+
+    private void MarkSideTouchStatesHoldConsumed(TrackpadSide side)
+    {
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ref TouchBindingState state = ref _touchStates.ValueRefAt(i);
+            if (state.Side == side)
+            {
+                state.HoldTriggered = true;
+            }
+        }
+    }
+
+    private void UpdateCornerHoldGesture(TrackpadSide side, long nowTicks)
+    {
+        ref CornerHoldGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerHoldGestureLeft
+            : ref _cornerHoldGestureRight;
+        if (!TryGetCornerHoldPairCandidate(side, out CornerZone zone, out long pairStartTicks))
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active || gesture.Zone != zone)
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = new CornerHoldGesture(
+                Active: true,
+                Triggered: false,
+                Side: side,
+                Zone: zone,
+                StartedTicks: pairStartTicks);
+            return;
+        }
+
+        if (pairStartTicks > gesture.StartedTicks)
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.StartedTicks = pairStartTicks;
+            gesture.Triggered = false;
+        }
+
+        if (gesture.Triggered)
+        {
+            return;
+        }
+
+        long holdTicks = MsToTicks(_config.HoldDurationMs);
+        if (nowTicks - gesture.StartedTicks < holdTicks)
+        {
+            return;
+        }
+
+        EngineKeyAction action = GetCornerGestureAction(zone);
+        if (action.Kind == EngineActionKind.None)
+        {
+            return;
+        }
+
+        if (!TryBeginRepeatableGestureDispatch(GetCornerHoldBindingId(zone), action, side, nowTicks, ref gesture.DispatchState))
+        {
+            EmitGestureAction(action, side, touchKey: 0, nowTicks);
+        }
+
+        gesture.Triggered = true;
+    }
+
+    private void UpdateCornerSwipeGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
+    {
+        ref CornerSwipeGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerSwipeGestureLeft
+            : ref _cornerSwipeGestureRight;
+        if (!AreCornerSwipeGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out ulong touchKey, out IntentTouchInfo touch);
+        if (tipContactsInFrame != 1 || !hasSingleTouch)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                gesture.MatchEligible)
+            {
+                EngineKeyAction action = GetCornerSwipeGestureAction(gesture.Corner);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        double xNorm = touch.LastXNorm;
+        double yNorm = touch.LastYNorm;
+        if (!gesture.Active)
+        {
+            if (!TryClassifyCornerSwipeCorner(xNorm, yNorm, out TriangleCorner corner))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetCornerSwipeGestureAction(corner);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            gesture = new CornerSwipeGesture(
+                Active: true,
+                CandidateValid: true,
+                PriorityArmed: false,
+                MatchEligible: false,
+                Corner: corner,
+                SourceTouchKey: touchKey,
+                InwardXSign: IsLeftCorner(corner) ? 1 : -1,
+                InwardYSign: IsTopCorner(corner) ? 1 : -1,
+                StartedTicks: nowTicks,
+                MatchTicks: 0,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                PeakXNorm: xNorm,
+                PeakYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+
+        if (gesture.InwardXSign > 0)
+        {
+            gesture.PeakXNorm = Math.Max(gesture.PeakXNorm, xNorm);
+        }
+        else
+        {
+            gesture.PeakXNorm = Math.Min(gesture.PeakXNorm, xNorm);
+        }
+
+        if (gesture.InwardYSign > 0)
+        {
+            gesture.PeakYNorm = Math.Max(gesture.PeakYNorm, yNorm);
+        }
+        else
+        {
+            gesture.PeakYNorm = Math.Min(gesture.PeakYNorm, yNorm);
+        }
+
+        if (!gesture.PriorityArmed &&
+            TryMatchCornerSwipe(in gesture, CornerSwipeArmDistanceMm, CornerSwipeMinAxisTravelMm * 0.5))
+        {
+            gesture.PriorityArmed = true;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(CornerSwipeMaxDurationMs) ||
+            GetCornerSwipeReverseXTravelMm(in gesture) > CornerSwipeMaxReverseTravelMm ||
+            GetCornerSwipeReverseYTravelMm(in gesture) > CornerSwipeMaxReverseTravelMm)
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (!gesture.MatchEligible &&
+            TryMatchCornerSwipe(in gesture, CornerSwipeTriggerDistanceMm, CornerSwipeMinAxisTravelMm))
+        {
+            gesture.MatchEligible = true;
+            gesture.MatchTicks = nowTicks;
+            CancelGestureSourceTouch(gesture.SourceTouchKey, side, nowTicks);
+        }
+
+        if (!gesture.MatchEligible || gesture.DispatchState.DispatchDownSent)
+        {
+            return;
+        }
+
+        bool hasTriangleOverlap = GetTriangleGestureAction(gesture.Corner).Kind != EngineActionKind.None;
+        if (hasTriangleOverlap &&
+            (nowTicks - gesture.MatchTicks) < MsToTicks(CornerSwipeTriangleDisambiguationMs))
+        {
+            return;
+        }
+
+        EngineKeyAction gestureAction = GetCornerSwipeGestureAction(gesture.Corner);
+        _ = TryBeginRepeatableGestureDispatch(
+            GetCornerSwipeGestureBindingId(gesture.Corner),
+            gestureAction,
+            side,
+            nowTicks,
+            ref gesture.DispatchState);
+    }
+
+    private void UpdateTriangleGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
+    {
+        ref TriangleGesture gesture = ref side == TrackpadSide.Left
+            ? ref _triangleGestureLeft
+            : ref _triangleGestureRight;
+        if (!AreTriangleGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out ulong touchKey, out IntentTouchInfo touch);
+        if (tipContactsInFrame != 1 || !hasSingleTouch)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                IsTriangleMatch(in gesture, nowTicks))
+            {
+                EngineKeyAction action = GetTriangleGestureAction(gesture.Corner);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        double xNorm = touch.LastXNorm;
+        double yNorm = touch.LastYNorm;
+        if (!gesture.Active)
+        {
+            if (!TryClassifyTriangleCorner(xNorm, yNorm, out TriangleCorner corner))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetTriangleGestureAction(corner);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            int outboundXSign = IsLeftCorner(corner) ? 1 : -1;
+            int outboundYSign = IsTopCorner(corner) ? 1 : -1;
+            gesture = new TriangleGesture(
+                Active: true,
+                CandidateValid: true,
+                PriorityArmed: false,
+                ReturnedLaterally: false,
+                Corner: corner,
+                SourceTouchKey: touchKey,
+                OutboundXSign: outboundXSign,
+                OutboundYSign: outboundYSign,
+                StartedTicks: nowTicks,
+                LastTicks: nowTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                TurnXNorm: xNorm,
+                TurnYAtTurnXNorm: yNorm,
+                ExtentYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.LastTicks = nowTicks;
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+
+        if (gesture.OutboundXSign > 0)
+        {
+            if (xNorm > gesture.TurnXNorm)
+            {
+                gesture.TurnXNorm = xNorm;
+                gesture.TurnYAtTurnXNorm = yNorm;
+            }
+        }
+        else if (xNorm < gesture.TurnXNorm)
+        {
+            gesture.TurnXNorm = xNorm;
+            gesture.TurnYAtTurnXNorm = yNorm;
+        }
+
+        if (gesture.OutboundYSign > 0)
+        {
+            if (yNorm > gesture.ExtentYNorm)
+            {
+                gesture.ExtentYNorm = yNorm;
+            }
+        }
+        else if (yNorm < gesture.ExtentYNorm)
+        {
+            gesture.ExtentYNorm = yNorm;
+        }
+
+        double outboundDx = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double outboundDy = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        if (!gesture.PriorityArmed &&
+            outboundDx >= TriangleArmDxThreshold &&
+            outboundDy >= TriangleArmDyThreshold)
+        {
+            gesture.PriorityArmed = true;
+        }
+
+        double lateralReturnDx = (gesture.TurnXNorm - xNorm) * gesture.OutboundXSign;
+        if (lateralReturnDx >= TriangleReturnDxThreshold)
+        {
+            gesture.ReturnedLaterally = true;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(TriangleMaxDurationMs))
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (!gesture.DispatchState.DispatchDownSent &&
+            IsTriangleMatch(in gesture, nowTicks))
+        {
+            CancelGestureSourceTouch(gesture.SourceTouchKey, side, nowTicks);
+            EngineKeyAction action = GetTriangleGestureAction(gesture.Corner);
+            _ = TryBeginRepeatableGestureDispatch(
+                GetTriangleGestureBindingId(gesture.Corner),
+                action,
+                side,
+                nowTicks,
+                ref gesture.DispatchState);
+        }
+    }
+
+    private void UpdateEdgeSlideGesture(TrackpadSide side, int tipContactsInFrame, long nowTicks)
+    {
+        ref EdgeSlideGesture gesture = ref side == TrackpadSide.Left
+            ? ref _edgeSlideGestureLeft
+            : ref _edgeSlideGestureRight;
+        if (!AreEdgeSlideGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        bool hasSingleTouch = TryGetSingleIntentTouchForSide(side, out IntentTouchInfo touch);
+        if (tipContactsInFrame != 1 || !hasSingleTouch)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                TryMatchEdgeSlide(in gesture, out EdgeSlideDirection direction))
+            {
+                EngineKeyAction action = GetEdgeSlideGestureAction(gesture.Zone, direction);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        double xNorm = touch.LastXNorm;
+        double yNorm = touch.LastYNorm;
+        if (!gesture.Active)
+        {
+            if (IsEdgeSlideBlockedAnchor(side, xNorm, yNorm) ||
+                !TryClassifyEdgeSlideZone(xNorm, yNorm, out EdgeSlideZone zone) ||
+                !IsEdgeSlideZoneEnabled(zone))
+            {
+                return;
+            }
+
+            gesture = new EdgeSlideGesture(
+                Active: true,
+                CandidateValid: true,
+                PriorityArmed: false,
+                Zone: zone,
+                StartedTicks: nowTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MinXNorm: xNorm,
+                MaxXNorm: xNorm,
+                MinYNorm: yNorm,
+                MaxYNorm: yNorm);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+        gesture.MinXNorm = Math.Min(gesture.MinXNorm, xNorm);
+        gesture.MaxXNorm = Math.Max(gesture.MaxXNorm, xNorm);
+        gesture.MinYNorm = Math.Min(gesture.MinYNorm, yNorm);
+        gesture.MaxYNorm = Math.Max(gesture.MaxYNorm, yNorm);
+
+        if (IsEdgeSlideBlockedAnchor(side, xNorm, yNorm) ||
+            !IsWithinEdgeSlideZone(gesture.Zone, xNorm, yNorm) ||
+            GetEdgeSlideLateralTravelMm(in gesture) > EdgeSlideMaxLateralTravelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(EdgeSlideMaxDurationMs))
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (!gesture.PriorityArmed &&
+            TryMatchEdgeSlide(in gesture, minPrimaryTravelMm: EdgeSlideArmDistanceMm, out _))
+        {
+            gesture.PriorityArmed = true;
+        }
+
+        if (!gesture.DispatchState.DispatchDownSent &&
+            TryMatchEdgeSlide(in gesture, out EdgeSlideDirection matchedDirection))
+        {
+            EngineKeyAction action = GetEdgeSlideGestureAction(gesture.Zone, matchedDirection);
+            _ = TryBeginRepeatableGestureDispatch(
+                GetEdgeSlideGestureBindingId(gesture.Zone, matchedDirection),
+                action,
+                side,
+                nowTicks,
+                ref gesture.DispatchState);
+        }
+    }
+
+    private void UpdateForceClickGesture(
+        TrackpadSide side,
+        int tipContactsInFrame,
+        bool hasSingleTipSnapshot,
+        double xNorm,
+        double yNorm,
+        int forceNorm,
+        bool keyboardAnchor,
+        long nowTicks)
+    {
+        ref ForceClickGesture gesture = ref side == TrackpadSide.Left
+            ? ref _forceClickGestureLeft
+            : ref _forceClickGestureRight;
+        if (!AreForceClickGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        if (tipContactsInFrame != 1 || !hasSingleTipSnapshot)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                (nowTicks - gesture.StartedTicks) <= MsToTicks(ForceClickMaxDurationMs))
+            {
+                EngineKeyAction action = ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active)
+        {
+            if (keyboardAnchor)
+            {
+                return;
+            }
+
+            gesture = new ForceClickGesture(
+                Active: true,
+                CandidateValid: true,
+                Zone: GetConfiguredForceClickCornerZone(xNorm, yNorm),
+                StartedTicks: nowTicks,
+                PeakForceNorm: Math.Max(0, forceNorm),
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        gesture.Zone = GetConfiguredForceClickCornerZone(xNorm, yNorm);
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+        double movementMm = DistanceMm(gesture.StartXNorm, gesture.StartYNorm, xNorm, yNorm);
+        if (movementMm > gesture.MaxDistanceMm)
+        {
+            gesture.MaxDistanceMm = movementMm;
+        }
+
+        if (gesture.MaxDistanceMm > _config.DragCancelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(ForceClickMaxDurationMs))
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (!gesture.DispatchState.DispatchDownSent)
+        {
+            string bindingId = GetForceClickGestureBindingId(gesture.Zone, gesture.PeakForceNorm);
+            EngineKeyAction action = ResolveForceClickGestureAction(gesture.Zone, gesture.PeakForceNorm);
+            _ = TryBeginRepeatableGestureDispatch(
+                bindingId,
+                action,
+                side,
+                nowTicks,
+                ref gesture.DispatchState);
+        }
+    }
+
+    private void UpdateCornerClickTapGesture(
+        TrackpadSide side,
+        int tipContactsInFrame,
+        bool hasSingleTipSnapshot,
+        double xNorm,
+        double yNorm,
+        int forceNorm,
+        bool keyboardAnchor,
+        long nowTicks)
+    {
+        ref CornerClickTapGesture gesture = ref side == TrackpadSide.Left
+            ? ref _cornerClickTapGestureLeft
+            : ref _cornerClickTapGestureRight;
+        if (!AreCornerClickTapGesturesEnabled())
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture = default;
+            return;
+        }
+
+        if (tipContactsInFrame != 1 || !hasSingleTipSnapshot)
+        {
+            if (gesture.DispatchState.DispatchDownSent)
+            {
+                EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            }
+            else if (tipContactsInFrame == 0 &&
+                gesture.Active &&
+                gesture.CandidateValid &&
+                gesture.ForceArmed &&
+                !IsCornerForceClickOverrideTriggered(gesture.Zone, gesture.PeakForceNorm) &&
+                (nowTicks - gesture.StartedTicks) <= MsToTicks(CornerClickMaxDurationMs))
+            {
+                EngineKeyAction action = GetCornerClickTapGestureAction(gesture.Zone);
+                EmitGestureAction(action, side, touchKey: 0, nowTicks: nowTicks);
+            }
+
+            gesture = default;
+            return;
+        }
+
+        if (!gesture.Active)
+        {
+            if (!TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone))
+            {
+                return;
+            }
+
+            EngineKeyAction action = GetCornerClickTapGestureAction(zone);
+            if (action.Kind == EngineActionKind.None)
+            {
+                return;
+            }
+
+            gesture = new CornerClickTapGesture(
+                Active: true,
+                CandidateValid: true,
+                ForceArmed: forceNorm >= CornerClickForceThresholdNorm,
+                PeakForceNorm: Math.Max(0, forceNorm),
+                Zone: zone,
+                StartedTicks: nowTicks,
+                StartXNorm: xNorm,
+                StartYNorm: yNorm,
+                LastXNorm: xNorm,
+                LastYNorm: yNorm,
+                MaxDistanceMm: 0);
+            return;
+        }
+
+        if (!gesture.CandidateValid)
+        {
+            return;
+        }
+
+        gesture.PeakForceNorm = Math.Max(gesture.PeakForceNorm, Math.Max(0, forceNorm));
+        if (!gesture.ForceArmed && gesture.PeakForceNorm >= CornerClickForceThresholdNorm)
+        {
+            gesture.ForceArmed = true;
+        }
+
+        if (IsCornerForceClickOverrideTriggered(gesture.Zone, gesture.PeakForceNorm))
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        gesture.LastXNorm = xNorm;
+        gesture.LastYNorm = yNorm;
+        double movementMm = DistanceMm(gesture.StartXNorm, gesture.StartYNorm, xNorm, yNorm);
+        if (movementMm > gesture.MaxDistanceMm)
+        {
+            gesture.MaxDistanceMm = movementMm;
+        }
+
+        if (gesture.MaxDistanceMm > _config.DragCancelMm ||
+            (nowTicks - gesture.StartedTicks) > MsToTicks(CornerClickMaxDurationMs) ||
+            !TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone currentZone) ||
+            currentZone != gesture.Zone)
+        {
+            EndRepeatableGestureDispatch(ref gesture.DispatchState, side, nowTicks);
+            gesture.CandidateValid = false;
+            return;
+        }
+
+        if (gesture.ForceArmed && !gesture.DispatchState.DispatchDownSent)
+        {
+            EngineKeyAction action = GetCornerClickTapGestureAction(gesture.Zone);
+            _ = TryBeginRepeatableGestureDispatch(
+                GetCornerClickTapBindingId(gesture.Zone),
+                action,
+                side,
+                nowTicks,
+                ref gesture.DispatchState);
+        }
+    }
+
+    private bool TryGetSingleIntentTouchForSide(TrackpadSide side, out IntentTouchInfo touch)
+    {
+        return TryGetSingleIntentTouchForSide(side, out _, out touch);
+    }
+
+    private bool TryGetSingleIntentTouchForSide(TrackpadSide side, out ulong touchKey, out IntentTouchInfo touch)
+    {
+        touchKey = 0;
+        touch = default;
+        bool found = false;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            IntentTouchInfo candidate = _intentTouches.ValueRefAt(i);
+            if (candidate.Side != side)
+            {
+                continue;
+            }
+
+            if (found)
+            {
+                touchKey = 0;
+                touch = default;
+                return false;
+            }
+
+            found = true;
+            touchKey = _intentTouches.KeyAt(i);
+            touch = candidate;
+        }
+
+        return found;
+    }
+
+    private bool AreTriangleGesturesEnabled()
+    {
+        return _topLeftTriangleGestureAction.Kind != EngineActionKind.None ||
+               _topRightTriangleGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftTriangleGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightTriangleGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool AreCornerSwipeGesturesEnabled()
+    {
+        return _topLeftCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _topRightCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftCornerSwipeGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightCornerSwipeGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool AreEdgeSlideGesturesEnabled()
+    {
+        return _leftEdgeUpGestureAction.Kind != EngineActionKind.None ||
+               _leftEdgeDownGestureAction.Kind != EngineActionKind.None ||
+               _rightEdgeUpGestureAction.Kind != EngineActionKind.None ||
+               _rightEdgeDownGestureAction.Kind != EngineActionKind.None ||
+               _topEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+               _topEdgeRightGestureAction.Kind != EngineActionKind.None ||
+               _bottomEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+               _bottomEdgeRightGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool IsEdgeSlideBlockedAnchor(TrackpadSide side, double xNorm, double yNorm)
+    {
+        BindingIndex index = side == TrackpadSide.Left ? _leftBindingIndex! : _rightBindingIndex!;
+        EngineBindingHit hit = index.HitTest(xNorm, yNorm);
+        if (!hit.Found)
+        {
+            return false;
+        }
+
+        EngineActionKind kind = index.Bindings[hit.BindingIndex].Mapping.Primary.Kind;
+        return kind is EngineActionKind.Modifier or EngineActionKind.MomentaryLayer or EngineActionKind.KeyChord;
+    }
+
+    private bool ShouldDeferPressForEdgeSlideCandidate(TrackpadSide side, double xNorm, double yNorm)
+    {
+        return AreEdgeSlideGesturesEnabled() &&
+               TryClassifyEdgeSlideZone(xNorm, yNorm, out EdgeSlideZone zone) &&
+               IsEdgeSlideZoneEnabled(zone) &&
+               !IsEdgeSlideBlockedAnchor(side, xNorm, yNorm);
+    }
+
+    private bool AreForceClickGesturesEnabled()
+    {
+        return _topLeftForceClickGestureAction.Kind != EngineActionKind.None ||
+               _topRightForceClickGestureAction.Kind != EngineActionKind.None ||
+               _bottomLeftForceClickGestureAction.Kind != EngineActionKind.None ||
+               _bottomRightForceClickGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool IsConfiguredForceClickCornerZoneEnabled(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _topLeftForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.UpperRight => _topRightForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.LowerLeft => _bottomLeftForceClickGestureAction.Kind != EngineActionKind.None,
+            CornerClickTapZone.LowerRight => _bottomRightForceClickGestureAction.Kind != EngineActionKind.None,
+            _ => false
+        };
+    }
+
+    private CornerClickTapZone GetConfiguredForceClickCornerZone(double xNorm, double yNorm)
+    {
+        return TryClassifyCornerClickTapZone(xNorm, yNorm, out CornerClickTapZone zone) &&
+               IsConfiguredForceClickCornerZoneEnabled(zone)
+            ? zone
+            : CornerClickTapZone.None;
+    }
+
+    private bool AreCornerClickTapGesturesEnabled()
+    {
+        return _upperLeftCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _upperRightCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _lowerLeftCornerClickGestureAction.Kind != EngineActionKind.None ||
+               _lowerRightCornerClickGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private EngineKeyAction GetTriangleGestureAction(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => _topLeftTriangleGestureAction,
+            TriangleCorner.TopRight => _topRightTriangleGestureAction,
+            TriangleCorner.BottomLeft => _bottomLeftTriangleGestureAction,
+            TriangleCorner.BottomRight => _bottomRightTriangleGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction GetCornerSwipeGestureAction(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => _topLeftCornerSwipeGestureAction,
+            TriangleCorner.TopRight => _topRightCornerSwipeGestureAction,
+            TriangleCorner.BottomLeft => _bottomLeftCornerSwipeGestureAction,
+            TriangleCorner.BottomRight => _bottomRightCornerSwipeGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction GetCornerForceClickGestureAction(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _topLeftForceClickGestureAction,
+            CornerClickTapZone.UpperRight => _topRightForceClickGestureAction,
+            CornerClickTapZone.LowerLeft => _bottomLeftForceClickGestureAction,
+            CornerClickTapZone.LowerRight => _bottomRightForceClickGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private bool IsCornerForceClickOverrideTriggered(CornerClickTapZone zone, int peakForceNorm)
+    {
+        return peakForceNorm >= _config.ForceClickThreshold &&
+               GetCornerForceClickGestureAction(zone).Kind != EngineActionKind.None;
+    }
+
+    private EngineKeyAction ResolveForceClickGestureAction(CornerClickTapZone zone, int peakForceNorm)
+    {
+        if (peakForceNorm < _config.ForceClickThreshold)
+        {
+            return EngineKeyAction.None;
+        }
+
+        EngineKeyAction cornerAction = GetCornerForceClickGestureAction(zone);
+        if (cornerAction.Kind != EngineActionKind.None)
+        {
+            return cornerAction;
+        }
+
+        return EngineKeyAction.None;
+    }
+
+    private EngineKeyAction GetEdgeSlideGestureAction(EdgeSlideZone zone, EdgeSlideDirection direction)
+    {
+        return (zone, direction) switch
+        {
+            (EdgeSlideZone.Left, EdgeSlideDirection.Up) => _leftEdgeUpGestureAction,
+            (EdgeSlideZone.Left, EdgeSlideDirection.Down) => _leftEdgeDownGestureAction,
+            (EdgeSlideZone.Right, EdgeSlideDirection.Up) => _rightEdgeUpGestureAction,
+            (EdgeSlideZone.Right, EdgeSlideDirection.Down) => _rightEdgeDownGestureAction,
+            (EdgeSlideZone.Top, EdgeSlideDirection.Left) => _topEdgeLeftGestureAction,
+            (EdgeSlideZone.Top, EdgeSlideDirection.Right) => _topEdgeRightGestureAction,
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Left) => _bottomEdgeLeftGestureAction,
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Right) => _bottomEdgeRightGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private EngineKeyAction GetCornerClickTapGestureAction(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => _upperLeftCornerClickGestureAction,
+            CornerClickTapZone.UpperRight => _upperRightCornerClickGestureAction,
+            CornerClickTapZone.LowerLeft => _lowerLeftCornerClickGestureAction,
+            CornerClickTapZone.LowerRight => _lowerRightCornerClickGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private static bool TryClassifyTriangleCorner(double xNorm, double yNorm, out TriangleCorner corner)
+    {
+        bool left = xNorm <= TriangleStartCornerThreshold;
+        bool right = xNorm >= (1.0 - TriangleStartCornerThreshold);
+        bool top = yNorm <= TriangleStartCornerThreshold;
+        bool bottom = yNorm >= (1.0 - TriangleStartCornerThreshold);
+        if (top && left)
+        {
+            corner = TriangleCorner.TopLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            corner = TriangleCorner.TopRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            corner = TriangleCorner.BottomLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            corner = TriangleCorner.BottomRight;
+            return true;
+        }
+
+        corner = TriangleCorner.None;
+        return false;
+    }
+
+    private static bool TryClassifyCornerSwipeCorner(double xNorm, double yNorm, out TriangleCorner corner)
+    {
+        bool left = xNorm <= CornerSwipeStartCornerThreshold;
+        bool right = xNorm >= (1.0 - CornerSwipeStartCornerThreshold);
+        bool top = yNorm <= CornerSwipeStartCornerThreshold;
+        bool bottom = yNorm >= (1.0 - CornerSwipeStartCornerThreshold);
+        if (top && left)
+        {
+            corner = TriangleCorner.TopLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            corner = TriangleCorner.TopRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            corner = TriangleCorner.BottomLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            corner = TriangleCorner.BottomRight;
+            return true;
+        }
+
+        corner = TriangleCorner.None;
+        return false;
+    }
+
+    private static bool IsLeftCorner(TriangleCorner corner)
+    {
+        return corner is TriangleCorner.TopLeft or TriangleCorner.BottomLeft;
+    }
+
+    private static bool IsTopCorner(TriangleCorner corner)
+    {
+        return corner is TriangleCorner.TopLeft or TriangleCorner.TopRight;
+    }
+
+    private static bool TryClassifyCornerClickTapZone(double xNorm, double yNorm, out CornerClickTapZone zone)
+    {
+        bool left = xNorm <= CornerClickZoneThreshold;
+        bool right = xNorm >= (1.0 - CornerClickZoneThreshold);
+        bool top = yNorm <= CornerClickZoneThreshold;
+        bool bottom = yNorm >= (1.0 - CornerClickZoneThreshold);
+        if (top && left)
+        {
+            zone = CornerClickTapZone.UpperLeft;
+            return true;
+        }
+
+        if (top && right)
+        {
+            zone = CornerClickTapZone.UpperRight;
+            return true;
+        }
+
+        if (bottom && left)
+        {
+            zone = CornerClickTapZone.LowerLeft;
+            return true;
+        }
+
+        if (bottom && right)
+        {
+            zone = CornerClickTapZone.LowerRight;
+            return true;
+        }
+
+        zone = CornerClickTapZone.None;
+        return false;
+    }
+
+    private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, out EdgeSlideDirection direction)
+    {
+        return TryMatchEdgeSlide(in gesture, EdgeSlideTriggerDistanceMm, out direction);
+    }
+
+    private bool TryMatchCornerSwipe(in CornerSwipeGesture gesture, double minDistanceMm, double minAxisTravelMm)
+    {
+        if (!gesture.Active || !gesture.CandidateValid)
+        {
+            return false;
+        }
+
+        double inwardXTravelMm = GetCornerSwipeInwardXTravelMm(in gesture);
+        double inwardYTravelMm = GetCornerSwipeInwardYTravelMm(in gesture);
+        if (inwardXTravelMm < minAxisTravelMm ||
+            inwardYTravelMm < minAxisTravelMm)
+        {
+            return false;
+        }
+
+        double largerAxisTravelMm = Math.Max(inwardXTravelMm, inwardYTravelMm);
+        double smallerAxisTravelMm = Math.Min(inwardXTravelMm, inwardYTravelMm);
+        if (smallerAxisTravelMm <= 0.0001 ||
+            largerAxisTravelMm > (smallerAxisTravelMm * CornerSwipeAxisBalanceRatio))
+        {
+            return false;
+        }
+
+        double diagonalTravelMm = Math.Sqrt((inwardXTravelMm * inwardXTravelMm) + (inwardYTravelMm * inwardYTravelMm));
+        return diagonalTravelMm >= minDistanceMm;
+    }
+
+    private bool TryMatchEdgeSlide(in EdgeSlideGesture gesture, double minPrimaryTravelMm, out EdgeSlideDirection direction)
+    {
+        direction = EdgeSlideDirection.None;
+        if (!gesture.Active || !gesture.CandidateValid)
+        {
+            return false;
+        }
+
+        double primaryDeltaMm = GetEdgeSlidePrimaryDeltaMm(in gesture);
+        if (Math.Abs(primaryDeltaMm) < 0.001)
+        {
+            return false;
+        }
+
+        direction = ResolveEdgeSlideDirection(gesture.Zone, primaryDeltaMm);
+        EngineKeyAction action = GetEdgeSlideGestureAction(gesture.Zone, direction);
+        if (action.Kind == EngineActionKind.None)
+        {
+            direction = EdgeSlideDirection.None;
+            return false;
+        }
+
+        double primaryTravelMm = GetEdgeSlidePrimaryTravelMm(in gesture, direction);
+        double lateralTravelMm = GetEdgeSlideLateralTravelMm(in gesture);
+        if (primaryTravelMm < minPrimaryTravelMm ||
+            primaryTravelMm < (lateralTravelMm * EdgeSlideDirectionDominanceRatio) ||
+            !IsWithinEdgeSlideZone(gesture.Zone, gesture.LastXNorm, gesture.LastYNorm))
+        {
+            direction = EdgeSlideDirection.None;
+            return false;
+        }
+
+        return true;
+    }
+
+    private double GetEdgeSlidePrimaryDeltaMm(in EdgeSlideGesture gesture)
+    {
+        return gesture.Zone switch
+        {
+            EdgeSlideZone.Left or EdgeSlideZone.Right =>
+                (gesture.LastYNorm - gesture.StartYNorm) * _config.TrackpadHeightMm,
+            EdgeSlideZone.Top or EdgeSlideZone.Bottom =>
+                (gesture.LastXNorm - gesture.StartXNorm) * _config.TrackpadWidthMm,
+            _ => 0.0
+        };
+    }
+
+    private static EdgeSlideDirection ResolveEdgeSlideDirection(EdgeSlideZone zone, double primaryDeltaMm)
+    {
+        if (zone is EdgeSlideZone.Left or EdgeSlideZone.Right)
+        {
+            return primaryDeltaMm < 0 ? EdgeSlideDirection.Up : EdgeSlideDirection.Down;
+        }
+
+        if (zone is EdgeSlideZone.Top or EdgeSlideZone.Bottom)
+        {
+            return primaryDeltaMm < 0 ? EdgeSlideDirection.Left : EdgeSlideDirection.Right;
+        }
+
+        return EdgeSlideDirection.None;
+    }
+
+    private double GetCornerSwipeInwardXTravelMm(in CornerSwipeGesture gesture)
+    {
+        double inwardXNorm = (gesture.PeakXNorm - gesture.StartXNorm) * gesture.InwardXSign;
+        return inwardXNorm * _config.TrackpadWidthMm;
+    }
+
+    private double GetCornerSwipeInwardYTravelMm(in CornerSwipeGesture gesture)
+    {
+        double inwardYNorm = (gesture.PeakYNorm - gesture.StartYNorm) * gesture.InwardYSign;
+        return inwardYNorm * _config.TrackpadHeightMm;
+    }
+
+    private double GetCornerSwipeReverseXTravelMm(in CornerSwipeGesture gesture)
+    {
+        double reverseXNorm = (gesture.PeakXNorm - gesture.LastXNorm) * gesture.InwardXSign;
+        return Math.Max(0.0, reverseXNorm) * _config.TrackpadWidthMm;
+    }
+
+    private double GetCornerSwipeReverseYTravelMm(in CornerSwipeGesture gesture)
+    {
+        double reverseYNorm = (gesture.PeakYNorm - gesture.LastYNorm) * gesture.InwardYSign;
+        return Math.Max(0.0, reverseYNorm) * _config.TrackpadHeightMm;
+    }
+
+    private double GetEdgeSlidePrimaryTravelMm(in EdgeSlideGesture gesture, EdgeSlideDirection direction)
+    {
+        double primaryNorm = direction switch
+        {
+            EdgeSlideDirection.Up => gesture.StartYNorm - gesture.MinYNorm,
+            EdgeSlideDirection.Down => gesture.MaxYNorm - gesture.StartYNorm,
+            EdgeSlideDirection.Left => gesture.StartXNorm - gesture.MinXNorm,
+            EdgeSlideDirection.Right => gesture.MaxXNorm - gesture.StartXNorm,
+            _ => 0.0
+        };
+
+        double axisMm = gesture.Zone is EdgeSlideZone.Left or EdgeSlideZone.Right
+            ? _config.TrackpadHeightMm
+            : _config.TrackpadWidthMm;
+        return Math.Max(0.0, primaryNorm * axisMm);
+    }
+
+    private double GetEdgeSlideLateralTravelMm(in EdgeSlideGesture gesture)
+    {
+        return gesture.Zone switch
+        {
+            EdgeSlideZone.Left or EdgeSlideZone.Right =>
+                Math.Max(0.0, (gesture.MaxXNorm - gesture.MinXNorm) * _config.TrackpadWidthMm),
+            EdgeSlideZone.Top or EdgeSlideZone.Bottom =>
+                Math.Max(0.0, (gesture.MaxYNorm - gesture.MinYNorm) * _config.TrackpadHeightMm),
+            _ => 0.0
+        };
+    }
+
+    private bool IsEdgeSlideZoneEnabled(EdgeSlideZone zone)
+    {
+        return zone switch
+        {
+            EdgeSlideZone.Left => _leftEdgeUpGestureAction.Kind != EngineActionKind.None ||
+                                  _leftEdgeDownGestureAction.Kind != EngineActionKind.None,
+            EdgeSlideZone.Right => _rightEdgeUpGestureAction.Kind != EngineActionKind.None ||
+                                   _rightEdgeDownGestureAction.Kind != EngineActionKind.None,
+            EdgeSlideZone.Top => _topEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+                                 _topEdgeRightGestureAction.Kind != EngineActionKind.None,
+            EdgeSlideZone.Bottom => _bottomEdgeLeftGestureAction.Kind != EngineActionKind.None ||
+                                    _bottomEdgeRightGestureAction.Kind != EngineActionKind.None,
+            _ => false
+        };
+    }
+
+    private static bool TryClassifyEdgeSlideZone(double xNorm, double yNorm, out EdgeSlideZone zone)
+    {
+        zone = EdgeSlideZone.None;
+        double bestDistance = double.PositiveInfinity;
+        if (xNorm <= EdgeSlideStartThreshold)
+        {
+            bestDistance = xNorm;
+            zone = EdgeSlideZone.Left;
+        }
+
+        if (xNorm >= (1.0 - EdgeSlideStartThreshold))
+        {
+            double distance = 1.0 - xNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Right;
+            }
+        }
+
+        if (yNorm <= EdgeSlideStartThreshold)
+        {
+            double distance = yNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Top;
+            }
+        }
+
+        if (yNorm >= (1.0 - EdgeSlideStartThreshold))
+        {
+            double distance = 1.0 - yNorm;
+            if (distance < bestDistance)
+            {
+                bestDistance = distance;
+                zone = EdgeSlideZone.Bottom;
+            }
+        }
+
+        return zone != EdgeSlideZone.None;
+    }
+
+    private static bool IsWithinEdgeSlideZone(EdgeSlideZone zone, double xNorm, double yNorm)
+    {
+        return zone switch
+        {
+            EdgeSlideZone.Left => xNorm <= EdgeSlideStayThreshold,
+            EdgeSlideZone.Right => xNorm >= (1.0 - EdgeSlideStayThreshold),
+            EdgeSlideZone.Top => yNorm <= EdgeSlideStayThreshold,
+            EdgeSlideZone.Bottom => yNorm >= (1.0 - EdgeSlideStayThreshold),
+            _ => false
+        };
+    }
+
+    private static bool IsTriangleMatch(in TriangleGesture gesture, long nowTicks)
+    {
+        if (!gesture.Active || !gesture.CandidateValid || !gesture.PriorityArmed || !gesture.ReturnedLaterally)
+        {
+            return false;
+        }
+
+        double dxFirstLeg = (gesture.TurnXNorm - gesture.StartXNorm) * gesture.OutboundXSign;
+        double dyFirstLeg = (gesture.ExtentYNorm - gesture.StartYNorm) * gesture.OutboundYSign;
+        double dxReturnLeg = (gesture.TurnXNorm - gesture.LastXNorm) * gesture.OutboundXSign;
+        if (dxFirstLeg < TriangleFirstLegDxThreshold ||
+            dyFirstLeg < TriangleFirstLegDyThreshold ||
+            dxReturnLeg < TriangleReturnDxThreshold ||
+            Math.Abs(gesture.LastXNorm - gesture.StartXNorm) > TriangleEndNearStartXThreshold)
+        {
+            return false;
+        }
+
+        if ((nowTicks - gesture.StartedTicks) > MsToTicks(TriangleMaxDurationMs))
+        {
+            return false;
+        }
+
+        double v1x = gesture.TurnXNorm - gesture.StartXNorm;
+        double v1y = gesture.TurnYAtTurnXNorm - gesture.StartYNorm;
+        double v2x = gesture.LastXNorm - gesture.TurnXNorm;
+        double v2y = gesture.LastYNorm - gesture.TurnYAtTurnXNorm;
+        double v1Mag = Math.Sqrt((v1x * v1x) + (v1y * v1y));
+        double v2Mag = Math.Sqrt((v2x * v2x) + (v2y * v2y));
+        if (v1Mag <= 0.000001 || v2Mag <= 0.000001)
+        {
+            return false;
+        }
+
+        double turnDot = ((v1x * v2x) + (v1y * v2y)) / (v1Mag * v2Mag);
+        if (turnDot > TriangleTurnDotUpperBound)
+        {
+            return false;
+        }
+
+        return Math.Abs(v2x) >= (Math.Abs(v2y) * TriangleReturnDominanceRatio);
+    }
+
+    private bool TryGetCornerHoldPairCandidate(TrackpadSide side, out CornerZone zone, out long pairStartTicks)
+    {
+        bool outerTop = false;
+        bool outerBottom = false;
+        bool innerTop = false;
+        bool innerBottom = false;
+        long outerTopStart = long.MaxValue;
+        long outerBottomStart = long.MaxValue;
+        long innerTopStart = long.MaxValue;
+        long innerBottomStart = long.MaxValue;
+
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (!_touchStates.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            TouchBindingState state = _touchStates.ValueRefAt(i);
+            if (state.Side != side)
+            {
+                continue;
+            }
+            if (state.MaxDistanceMm > HoldGestureMoveCancelMm)
+            {
+                continue;
+            }
+
+            CornerZone start = ClassifyCornerZone(side, state.StartXNorm, state.StartYNorm);
+            if (start == CornerZone.None)
+            {
+                continue;
+            }
+
+            CornerZone end = ClassifyCornerZone(side, state.LastXNorm, state.LastYNorm);
+            if (start != end)
+            {
+                continue;
+            }
+
+            bool top = IsTopCorner(state.StartYNorm);
+            bool bottom = IsBottomCorner(state.StartYNorm);
+            if (!top && !bottom)
+            {
+                continue;
+            }
+
+            if (start == CornerZone.Outer)
+            {
+                if (top)
+                {
+                    outerTop = true;
+                    outerTopStart = Math.Min(outerTopStart, state.StartTicks);
+                }
+                if (bottom)
+                {
+                    outerBottom = true;
+                    outerBottomStart = Math.Min(outerBottomStart, state.StartTicks);
+                }
+            }
+            else if (start == CornerZone.Inner)
+            {
+                if (top)
+                {
+                    innerTop = true;
+                    innerTopStart = Math.Min(innerTopStart, state.StartTicks);
+                }
+                if (bottom)
+                {
+                    innerBottom = true;
+                    innerBottomStart = Math.Min(innerBottomStart, state.StartTicks);
+                }
+            }
+        }
+
+        bool outerEligible = outerTop &&
+                             outerBottom &&
+                             _outerCornersGestureAction.Kind != EngineActionKind.None &&
+                             outerTopStart != long.MaxValue &&
+                             outerBottomStart != long.MaxValue;
+        bool innerEligible = innerTop &&
+                             innerBottom &&
+                             _innerCornersGestureAction.Kind != EngineActionKind.None &&
+                             innerTopStart != long.MaxValue &&
+                             innerBottomStart != long.MaxValue;
+        if (!outerEligible && !innerEligible)
+        {
+            zone = CornerZone.None;
+            pairStartTicks = 0;
+            return false;
+        }
+
+        CornerHoldGesture current = side == TrackpadSide.Left ? _cornerHoldGestureLeft : _cornerHoldGestureRight;
+        if (outerEligible && innerEligible)
+        {
+            if (current.Active && current.Zone == CornerZone.Inner)
+            {
+                zone = CornerZone.Inner;
+                pairStartTicks = Math.Max(innerTopStart, innerBottomStart);
+                return true;
+            }
+
+            zone = CornerZone.Outer;
+            pairStartTicks = Math.Max(outerTopStart, outerBottomStart);
+            return true;
+        }
+
+        if (outerEligible)
+        {
+            zone = CornerZone.Outer;
+            pairStartTicks = Math.Max(outerTopStart, outerBottomStart);
+            return true;
+        }
+
+        zone = CornerZone.Inner;
+        pairStartTicks = Math.Max(innerTopStart, innerBottomStart);
+        return true;
+    }
+
+    private EngineKeyAction GetCornerGestureAction(CornerZone zone)
+    {
+        return zone switch
+        {
+            CornerZone.Outer => _outerCornersGestureAction,
+            CornerZone.Inner => _innerCornersGestureAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private static bool IsTopCorner(double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        return yNorm <= cornerThreshold;
+    }
+
+    private static bool IsBottomCorner(double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        return yNorm >= (1.0 - cornerThreshold);
+    }
+
+    private static CornerZone ClassifyCornerZone(TrackpadSide side, double xNorm, double yNorm)
+    {
+        const double cornerThreshold = 0.16;
+        bool topOrBottom = yNorm <= cornerThreshold || yNorm >= (1.0 - cornerThreshold);
+        if (!topOrBottom)
+        {
+            return CornerZone.None;
+        }
+
+        bool nearLeft = xNorm <= cornerThreshold;
+        bool nearRight = xNorm >= (1.0 - cornerThreshold);
+        if (!nearLeft && !nearRight)
+        {
+            return CornerZone.None;
+        }
+
+        bool outer = side == TrackpadSide.Left ? nearLeft : nearRight;
+        if (outer)
+        {
+            return CornerZone.Outer;
+        }
+
+        bool inner = side == TrackpadSide.Left ? nearRight : nearLeft;
+        return inner ? CornerZone.Inner : CornerZone.None;
+    }
+
+    private static DispatchEventKind ToDiagnosticDispatchKind(EngineKeyAction action)
+    {
+        return action.Kind switch
+        {
+            EngineActionKind.Key or EngineActionKind.Continuous or EngineActionKind.KeyChord => DispatchEventKind.KeyTap,
+            EngineActionKind.Modifier => DispatchEventKind.ModifierDown,
+            EngineActionKind.MouseButton => DispatchEventKind.MouseButtonClick,
+            EngineActionKind.AppLaunch => DispatchEventKind.AppLaunch,
+            _ => DispatchEventKind.None
+        };
+    }
+
+    private int GetGestureRepeatCadenceMs(string bindingId)
+    {
+        if (string.IsNullOrWhiteSpace(bindingId) ||
+            _config.GestureRepeatCadenceMsById == null ||
+            !_config.GestureRepeatCadenceMsById.TryGetValue(bindingId, out int cadenceMs))
+        {
+            return 0;
+        }
+
+        return GestureBindingCatalog.NormalizeRepeatCadenceMs(cadenceMs);
+    }
+
+    private bool TryBeginRepeatableGestureDispatch(
+        string bindingId,
+        EngineKeyAction action,
+        TrackpadSide side,
+        long nowTicks,
+        ref GestureDispatchState dispatchState)
+    {
+        if (dispatchState.DispatchDownSent)
+        {
+            return true;
+        }
+
+        int cadenceMs = GetGestureRepeatCadenceMs(bindingId);
+        if (cadenceMs <= 0 || !CanRepeatGestureAction(action))
+        {
+            return false;
+        }
+
+        ApplyActionState(action, nowTicks);
+        ulong repeatToken = BuildGestureRepeatToken(bindingId, side);
+        if (!EnqueueDispatchEvent(
+                DispatchEventKind.KeyDown,
+                action.VirtualKey,
+                DispatchMouseButton.None,
+                repeatToken,
+                DispatchEventFlags.Repeatable,
+                side,
+                nowTicks,
+                dispatchLabel: action.Label,
+                semanticAction: action.SemanticAction,
+                allowTypingDisabledOverride: true,
+                repeatProfile: new DispatchRepeatProfile(cadenceMs, cadenceMs)))
+        {
+            return false;
+        }
+
+        dispatchState.DispatchDownSent = true;
+        dispatchState.DispatchDownVirtualKey = action.VirtualKey;
+        dispatchState.RepeatToken = repeatToken;
+        dispatchState.DispatchDownLabel = action.Label;
+        dispatchState.DispatchDownSemanticAction = action.SemanticAction;
+        return true;
+    }
+
+    private void EndRepeatableGestureDispatch(ref GestureDispatchState dispatchState, TrackpadSide side, long nowTicks)
+    {
+        if (!dispatchState.DispatchDownSent)
+        {
+            return;
+        }
+
+        EnqueueDispatchEvent(
+            DispatchEventKind.KeyUp,
+            dispatchState.DispatchDownVirtualKey,
+            DispatchMouseButton.None,
+            dispatchState.RepeatToken,
+            DispatchEventFlags.None,
+            side,
+            nowTicks,
+            dispatchLabel: dispatchState.DispatchDownLabel,
+            semanticAction: dispatchState.DispatchDownSemanticAction,
+            allowTypingDisabledOverride: true);
+
+        dispatchState = default;
+    }
+
+    private static bool CanRepeatGestureAction(EngineKeyAction action)
+    {
+        return action.Kind switch
+        {
+            EngineActionKind.Key or EngineActionKind.Continuous => CanDispatchKeyAction(action),
+            EngineActionKind.KeyChord => CanDispatchChordModifierAction(action) && CanDispatchKeyAction(action),
+            _ => false
+        };
+    }
+
+    private static ulong BuildGestureRepeatToken(string bindingId, TrackpadSide side)
+    {
+        ulong sideToken = side == TrackpadSide.Left ? 1ul : 2ul;
+        ulong bindingToken = (ulong)(GestureBindingCatalog.GetBindingIndex(bindingId) & 0xFFFF);
+        return 0xE000000000000000ul | (bindingToken << 8) | sideToken;
+    }
+
+    private static string GetMultiFingerHoldBindingId(int requiredContactCount)
+    {
+        return requiredContactCount switch
+        {
+            2 => "two_finger_hold",
+            3 => "three_finger_hold",
+            4 => "four_finger_hold",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetCornerHoldBindingId(CornerZone zone)
+    {
+        return zone switch
+        {
+            CornerZone.Inner => "inner_corners",
+            CornerZone.Outer => "outer_corners",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetTriangleGestureBindingId(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => "top_left_triangle",
+            TriangleCorner.TopRight => "top_right_triangle",
+            TriangleCorner.BottomLeft => "bottom_left_triangle",
+            TriangleCorner.BottomRight => "bottom_right_triangle",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetCornerSwipeGestureBindingId(TriangleCorner corner)
+    {
+        return corner switch
+        {
+            TriangleCorner.TopLeft => "top_left_corner_swipe",
+            TriangleCorner.TopRight => "top_right_corner_swipe",
+            TriangleCorner.BottomLeft => "bottom_left_corner_swipe",
+            TriangleCorner.BottomRight => "bottom_right_corner_swipe",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetEdgeSlideGestureBindingId(EdgeSlideZone zone, EdgeSlideDirection direction)
+    {
+        return (zone, direction) switch
+        {
+            (EdgeSlideZone.Left, EdgeSlideDirection.Up) => "left_edge_up",
+            (EdgeSlideZone.Left, EdgeSlideDirection.Down) => "left_edge_down",
+            (EdgeSlideZone.Right, EdgeSlideDirection.Up) => "right_edge_up",
+            (EdgeSlideZone.Right, EdgeSlideDirection.Down) => "right_edge_down",
+            (EdgeSlideZone.Top, EdgeSlideDirection.Left) => "top_edge_left",
+            (EdgeSlideZone.Top, EdgeSlideDirection.Right) => "top_edge_right",
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Left) => "bottom_edge_left",
+            (EdgeSlideZone.Bottom, EdgeSlideDirection.Right) => "bottom_edge_right",
+            _ => string.Empty
+        };
+    }
+
+    private static string GetCornerForceClickBindingId(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => "top_left_force_click",
+            CornerClickTapZone.UpperRight => "top_right_force_click",
+            CornerClickTapZone.LowerLeft => "bottom_left_force_click",
+            CornerClickTapZone.LowerRight => "bottom_right_force_click",
+            _ => string.Empty
+        };
+    }
+
+    private string GetForceClickGestureBindingId(CornerClickTapZone zone, int peakForceNorm)
+    {
+        if (peakForceNorm < _config.ForceClickThreshold)
+        {
+            return string.Empty;
+        }
+
+        if (GetCornerForceClickGestureAction(zone).Kind != EngineActionKind.None)
+        {
+            return GetCornerForceClickBindingId(zone);
+        }
+
+        return string.Empty;
+    }
+
+    private static string GetCornerClickTapBindingId(CornerClickTapZone zone)
+    {
+        return zone switch
+        {
+            CornerClickTapZone.UpperLeft => "upper_left_corner_click",
+            CornerClickTapZone.UpperRight => "upper_right_corner_click",
+            CornerClickTapZone.LowerLeft => "lower_left_corner_click",
+            CornerClickTapZone.LowerRight => "lower_right_corner_click",
+            _ => string.Empty
+        };
+    }
+
+    private void CancelGestureSourceTouch(ulong touchKey, TrackpadSide side, long nowTicks)
+    {
+        if (touchKey == 0 ||
+            !_touchStates.TryGetValue(touchKey, out TouchBindingState state) ||
+            state.Side != side)
+        {
+            return;
+        }
+
+        if (state.MomentaryLayerTarget >= 0)
+        {
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
+            state.MomentaryLayerTarget = -1;
+        }
+
+        if (state.DispatchDownSent)
+        {
+            EndPressAction(ref state, nowTicks);
+        }
+
+        state.MaxDistanceMm = Math.Max(state.MaxDistanceMm, _config.DragCancelMm + 0.001);
+        state.HoldTriggered = false;
+        _touchStates.Set(touchKey, state);
+    }
+
+    private void EmitGestureAction(EngineKeyAction action, TrackpadSide side, ulong touchKey, long nowTicks)
+    {
+        if (action.Kind == EngineActionKind.None)
+        {
+            return;
+        }
+
+        ApplyReleaseAction(
+            action,
+            side,
+            touchKey,
+            nowTicks,
+            forceNorm: -1,
+            allowTypingDisabledOverride: true,
+            hapticOnDispatch: false);
+    }
+
+    private void ExtendTypingGrace(long nowTicks)
+    {
+        long duration = MsToTicks(_config.TypingGraceMs);
+        _typingGraceDeadlineTicks = nowTicks + duration;
+        if (_intentMode != IntentMode.TypingCommitted)
+        {
+            SetTypingCommittedState(nowTicks, untilAllUp: true, reason: "typing_grace_extend");
+        }
+    }
+
+    private bool IsTypingGraceActive(long nowTicks)
+    {
+        if (_typingGraceDeadlineTicks == 0)
+        {
+            return false;
+        }
+
+        if (nowTicks < _typingGraceDeadlineTicks)
+        {
+            return true;
+        }
+
+        _typingGraceDeadlineTicks = 0;
+        return false;
+    }
+
+    private bool IsPointerSequenceGracePending(long nowTicks)
+    {
+        if (!_pointerSequenceGracePending)
+        {
+            return false;
+        }
+
+        if (_pointerSequenceGraceDeadlineTicks == 0 || nowTicks <= _pointerSequenceGraceDeadlineTicks)
+        {
+            return true;
+        }
+
+        _pointerSequenceGracePending = false;
+        _pointerSequenceGraceDeadlineTicks = 0;
+        return false;
+    }
+
+    private void UpdateFiveFingerSwipe(
+        TrackpadSide side,
+        int contactCount,
+        double centroidX,
+        double centroidY,
+        long timestampTicks)
+    {
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
+            ? ref _fiveFingerSwipeLeft
+            : ref _fiveFingerSwipeRight;
+        bool wasActive = swipe.Active;
+        bool wasTriggered = swipe.Triggered;
+
+        UpdateDirectionalSwipe(
+            ref swipe,
+            side,
+            contactCount,
+            centroidX,
+            centroidY,
+            timestampTicks,
+            armContacts: FiveFingerSwipeArmContacts,
+            sustainContacts: FiveFingerSwipeSustainContacts,
+            releaseContacts: FiveFingerSwipeReleaseContacts,
+            thresholdMm: FiveFingerSwipeThresholdMm,
+            leftAction: _fiveFingerSwipeLeftGestureAction,
+            rightAction: _fiveFingerSwipeRightGestureAction,
+            upAction: _fiveFingerSwipeUpGestureAction,
+            downAction: _fiveFingerSwipeDownGestureAction,
+            enabled: HasAnyFiveFingerSwipeAction(),
+            cancelChordShiftOnTrigger: false);
+
+        string? reason = null;
+        if (!wasActive && swipe.Active)
+        {
+            reason = "armed";
+        }
+        else if (wasActive && !swipe.Active)
+        {
+            reason = "released";
+        }
+        else if (!wasTriggered && swipe.Triggered)
+        {
+            reason = "triggered";
+        }
+
+        if (reason != null)
+        {
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.FiveFingerState,
+                side,
+                _intentMode,
+                DispatchEventKind.None,
+                DispatchSuppressReason.None,
+                TypingToggleSource.FiveFingerSwipe,
+                0,
+                DispatchMouseButton.None,
+                _typingEnabled,
+                false,
+                swipe.Active,
+                swipe.Triggered,
+                contactCount,
+                contactCount,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                reason);
+        }
+    }
+
+    private void UpdateThreeFingerSwipe(
+        TrackpadSide side,
+        int contactCount,
+        double centroidX,
+        double centroidY,
+        long timestampTicks)
+    {
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
+            ? ref _threeFingerSwipeStateLeft
+            : ref _threeFingerSwipeStateRight;
+        ref DirectionalSwipeState fourSwipe = ref side == TrackpadSide.Left
+            ? ref _fourFingerSwipeStateLeft
+            : ref _fourFingerSwipeStateRight;
+        if (contactCount >= FourFingerSwipeArmContacts ||
+            fourSwipe.Active ||
+            HadRecentFourPlusContactOnSide(side, timestampTicks))
+        {
+            EndRepeatableGestureDispatch(ref swipe.DispatchState, side, timestampTicks);
+            swipe = default;
+            return;
+        }
+
+        UpdateDirectionalSwipe(
+            ref swipe,
+            side,
+            contactCount,
+            centroidX,
+            centroidY,
+            timestampTicks,
+            armContacts: ThreeFingerSwipeArmContacts,
+            sustainContacts: ThreeFingerSwipeSustainContacts,
+            releaseContacts: ThreeFingerSwipeReleaseContacts,
+            thresholdMm: ThreeFingerSwipeThresholdMm,
+            leftAction: _threeFingerSwipeLeftGestureAction,
+            rightAction: _threeFingerSwipeRightGestureAction,
+            upAction: _threeFingerSwipeUpGestureAction,
+            downAction: _threeFingerSwipeDownGestureAction,
+            enabled: HasAnyThreeFingerSwipeAction(),
+            cancelChordShiftOnTrigger: false);
+    }
+
+    private void UpdateFourFingerSwipe(
+        TrackpadSide side,
+        int contactCount,
+        double centroidX,
+        double centroidY,
+        long timestampTicks)
+    {
+        ref DirectionalSwipeState swipe = ref side == TrackpadSide.Left
+            ? ref _fourFingerSwipeStateLeft
+            : ref _fourFingerSwipeStateRight;
+        ref DirectionalSwipeState fiveSwipe = ref side == TrackpadSide.Left
+            ? ref _fiveFingerSwipeLeft
+            : ref _fiveFingerSwipeRight;
+        bool fiveSwipeEnabled = HasAnyFiveFingerSwipeAction();
+        if (fiveSwipeEnabled &&
+            (contactCount >= FiveFingerSwipeArmContacts ||
+             fiveSwipe.Active ||
+             HadRecentFivePlusContactOnSide(side, timestampTicks)))
+        {
+            EndRepeatableGestureDispatch(ref swipe.DispatchState, side, timestampTicks);
+            swipe = default;
+            return;
+        }
+
+        UpdateDirectionalSwipe(
+            ref swipe,
+            side,
+            contactCount,
+            centroidX,
+            centroidY,
+            timestampTicks,
+            armContacts: FourFingerSwipeArmContacts,
+            sustainContacts: FourFingerSwipeSustainContacts,
+            releaseContacts: FourFingerSwipeReleaseContacts,
+            thresholdMm: FourFingerSwipeThresholdMm,
+            leftAction: _fourFingerSwipeLeftGestureAction,
+            rightAction: _fourFingerSwipeRightGestureAction,
+            upAction: _fourFingerSwipeUpGestureAction,
+            downAction: _fourFingerSwipeDownGestureAction,
+            enabled: HasAnyFourFingerSwipeAction(),
+            cancelChordShiftOnTrigger: true);
+    }
+
+    private void UpdateDirectionalSwipe(
+        ref DirectionalSwipeState swipe,
+        TrackpadSide side,
+        int contactCount,
+        double centroidX,
+        double centroidY,
+        long timestampTicks,
+        int armContacts,
+        int sustainContacts,
+        int releaseContacts,
+        double thresholdMm,
+        EngineKeyAction leftAction,
+        EngineKeyAction rightAction,
+        EngineKeyAction upAction,
+        EngineKeyAction downAction,
+        bool enabled,
+        bool cancelChordShiftOnTrigger)
+    {
+        if (!enabled)
+        {
+            EndRepeatableGestureDispatch(ref swipe.DispatchState, side, timestampTicks);
+            swipe = default;
+            return;
+        }
+
+        if (!swipe.Active)
+        {
+            if (contactCount >= armContacts)
+            {
+                swipe.Active = true;
+                swipe.Triggered = false;
+                swipe.StartX = centroidX;
+                swipe.StartY = centroidY;
+            }
+            return;
+        }
+
+        if (contactCount <= releaseContacts)
+        {
+            EndRepeatableGestureDispatch(ref swipe.DispatchState, side, timestampTicks);
+            swipe = default;
+            return;
+        }
+
+        if (contactCount < sustainContacts || swipe.Triggered)
+        {
+            return;
+        }
+
+        double dxMm = (centroidX - swipe.StartX) * _config.TrackpadWidthMm;
+        double dyMm = (centroidY - swipe.StartY) * _config.TrackpadHeightMm;
+        double absDxMm = Math.Abs(dxMm);
+        double absDyMm = Math.Abs(dyMm);
+        if (cancelChordShiftOnTrigger)
+        {
+            double cancelMoveThresholdMm = Math.Max(HoldGestureMoveCancelMm * 2.0, thresholdMm * SwipeChordCancelPreTriggerRatio);
+            if (absDxMm >= cancelMoveThresholdMm || absDyMm >= cancelMoveThresholdMm)
+            {
+                CancelChordShiftForSourceSide(side, timestampTicks);
+            }
+        }
+
+        if (absDxMm < thresholdMm && absDyMm < thresholdMm)
+        {
+            return;
+        }
+
+        SwipeDirection direction;
+        if (absDxMm >= thresholdMm && absDxMm >= absDyMm * DirectionalSwipeAxisDominanceRatio)
+        {
+            direction = dxMm >= 0 ? SwipeDirection.Right : SwipeDirection.Left;
+        }
+        else if (absDyMm >= thresholdMm && absDyMm >= absDxMm * DirectionalSwipeAxisDominanceRatio)
+        {
+            direction = dyMm >= 0 ? SwipeDirection.Down : SwipeDirection.Up;
+        }
+        else
+        {
+            return;
+        }
+
+        swipe.Triggered = true;
+        if (cancelChordShiftOnTrigger)
+        {
+            CancelChordShiftForSourceSide(side, timestampTicks);
+        }
+
+        EngineKeyAction action = ResolveDirectionalSwipeAction(direction, leftAction, rightAction, upAction, downAction);
+        string bindingId = direction switch
+        {
+            SwipeDirection.Left => armContacts switch
+            {
+                FiveFingerSwipeArmContacts => "five_finger_swipe_left",
+                FourFingerSwipeArmContacts => "four_finger_swipe_left",
+                _ => "three_finger_swipe_left"
+            },
+            SwipeDirection.Right => armContacts switch
+            {
+                FiveFingerSwipeArmContacts => "five_finger_swipe_right",
+                FourFingerSwipeArmContacts => "four_finger_swipe_right",
+                _ => "three_finger_swipe_right"
+            },
+            SwipeDirection.Up => armContacts switch
+            {
+                FiveFingerSwipeArmContacts => "five_finger_swipe_up",
+                FourFingerSwipeArmContacts => "four_finger_swipe_up",
+                _ => "three_finger_swipe_up"
+            },
+            SwipeDirection.Down => armContacts switch
+            {
+                FiveFingerSwipeArmContacts => "five_finger_swipe_down",
+                FourFingerSwipeArmContacts => "four_finger_swipe_down",
+                _ => "three_finger_swipe_down"
+            },
+            _ => string.Empty
+        };
+        if (!TryBeginRepeatableGestureDispatch(bindingId, action, side, timestampTicks, ref swipe.DispatchState))
+        {
+            EmitGestureAction(action, side, touchKey: 0, nowTicks: timestampTicks);
+        }
+    }
+
+    private bool HadRecentFourPlusContactOnSide(TrackpadSide side, long timestampTicks)
+    {
+        long last = side == TrackpadSide.Left ? _lastFourPlusLeftTicks : _lastFourPlusRightTicks;
+        if (last < 0)
+        {
+            return false;
+        }
+
+        long delta = timestampTicks - last;
+        if (delta < 0)
+        {
+            return false;
+        }
+
+        return delta <= MsToTicks(FourFingerDominanceSuppressMs);
+    }
+
+    private bool HadRecentFivePlusContactOnSide(TrackpadSide side, long timestampTicks)
+    {
+        long last = side == TrackpadSide.Left ? _lastFivePlusLeftTicks : _lastFivePlusRightTicks;
+        if (last < 0)
+        {
+            return false;
+        }
+
+        long delta = timestampTicks - last;
+        if (delta < 0)
+        {
+            return false;
+        }
+
+        return delta <= MsToTicks(FiveFingerDominanceSuppressMs);
+    }
+
+    private void CancelChordShiftForSourceSide(TrackpadSide sourceSide, long timestampTicks)
+    {
+        bool changed = false;
+        if (sourceSide == TrackpadSide.Left)
+        {
+            if (_chordShiftRight)
+            {
+                _chordShiftRight = false;
+                changed = true;
+            }
+        }
+        else if (_chordShiftLeft)
+        {
+            _chordShiftLeft = false;
+            changed = true;
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        UpdateChordShiftKeyState(timestampTicks);
+    }
+
+    private static EngineKeyAction ResolveDirectionalSwipeAction(
+        SwipeDirection direction,
+        EngineKeyAction leftAction,
+        EngineKeyAction rightAction,
+        EngineKeyAction upAction,
+        EngineKeyAction downAction)
+    {
+        return direction switch
+        {
+            SwipeDirection.Left => leftAction,
+            SwipeDirection.Right => rightAction,
+            SwipeDirection.Up => upAction,
+            SwipeDirection.Down => downAction,
+            _ => EngineKeyAction.None
+        };
+    }
+
+    private bool HasAnyThreeFingerSwipeAction()
+    {
+        return _threeFingerSwipeLeftGestureAction.Kind != EngineActionKind.None ||
+               _threeFingerSwipeRightGestureAction.Kind != EngineActionKind.None ||
+               _threeFingerSwipeUpGestureAction.Kind != EngineActionKind.None ||
+               _threeFingerSwipeDownGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool HasAnyFiveFingerSwipeAction()
+    {
+        return _fiveFingerSwipeLeftGestureAction.Kind != EngineActionKind.None ||
+               _fiveFingerSwipeRightGestureAction.Kind != EngineActionKind.None ||
+               _fiveFingerSwipeUpGestureAction.Kind != EngineActionKind.None ||
+               _fiveFingerSwipeDownGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private bool HasAnyFourFingerSwipeAction()
+    {
+        return _fourFingerSwipeLeftGestureAction.Kind != EngineActionKind.None ||
+               _fourFingerSwipeRightGestureAction.Kind != EngineActionKind.None ||
+               _fourFingerSwipeUpGestureAction.Kind != EngineActionKind.None ||
+               _fourFingerSwipeDownGestureAction.Kind != EngineActionKind.None;
+    }
+
+    private void UpdateChordShift(int leftContacts, int rightContacts, long timestampTicks)
+    {
+        bool prevLeft = _chordShiftLeft;
+        bool prevRight = _chordShiftRight;
+        if (!_config.ChordShiftEnabled || !_fourFingerHoldUsesChordShift)
+        {
+            _chordShiftLeft = false;
+            _chordShiftRight = false;
+            UpdateChordShiftKeyState(timestampTicks);
+            if (prevLeft || prevRight)
+            {
+                RecordDiagnostic(
+                    timestampTicks,
+                    EngineDiagnosticEventKind.ChordShiftState,
+                    TrackpadSide.Left,
+                    _intentMode,
+                    DispatchEventKind.None,
+                    DispatchSuppressReason.None,
+                    TypingToggleSource.Api,
+                    0,
+                    DispatchMouseButton.None,
+                    _typingEnabled,
+                    false,
+                    _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                    _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                    _intentTouches.Count,
+                    0,
+                    leftContacts,
+                    rightContacts,
+                    "disabled");
+            }
+            return;
+        }
+
+        bool rightStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Right);
+        bool leftStationaryForHold = AreSideTouchesStationaryForHold(TrackpadSide.Left);
+
+        // Latch chord-shift once 4+ contacts are present on a side.
+        // Keep it active until that source side fully releases (0 contacts).
+        if (rightContacts >= ChordShiftContactThreshold &&
+            (_chordShiftLeft || rightStationaryForHold))
+        {
+            _chordShiftLeft = true;
+        }
+        else if (rightContacts == 0)
+        {
+            _chordShiftLeft = false;
+        }
+
+        if (leftContacts >= ChordShiftContactThreshold &&
+            (_chordShiftRight || leftStationaryForHold))
+        {
+            _chordShiftRight = true;
+        }
+        else if (leftContacts == 0)
+        {
+            _chordShiftRight = false;
+        }
+
+        long staleTicks = MsToTicks(ChordSourceStaleTimeoutMs);
+        if (_chordShiftLeft &&
+            _lastFourPlusRightTicks >= 0 &&
+            staleTicks > 0 &&
+            (timestampTicks - _lastFourPlusRightTicks) > staleTicks)
+        {
+            _chordShiftLeft = false;
+        }
+
+        if (_chordShiftRight &&
+            _lastFourPlusLeftTicks >= 0 &&
+            staleTicks > 0 &&
+            (timestampTicks - _lastFourPlusLeftTicks) > staleTicks)
+        {
+            _chordShiftRight = false;
+        }
+
+        UpdateChordShiftKeyState(timestampTicks);
+        if (prevLeft != _chordShiftLeft || prevRight != _chordShiftRight)
+        {
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.ChordShiftState,
+                TrackpadSide.Left,
+                _intentMode,
+                DispatchEventKind.None,
+                DispatchSuppressReason.None,
+                TypingToggleSource.Api,
+                0,
+                DispatchMouseButton.None,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                leftContacts,
+                rightContacts,
+                "latched");
+        }
+    }
+
+    private bool IsChordSourceSide(TrackpadSide side)
+    {
+        // Reserve 5-finger contact sets for swipe gestures (typing toggle),
+        // instead of suppressing them as chord-source anchors.
+        if (side == TrackpadSide.Left &&
+            (_lastRawLeftContacts >= FiveFingerSwipeArmContacts ||
+             (_fiveFingerSwipeLeft.Active && _lastRawLeftContacts >= FiveFingerSwipeSustainContacts)))
+        {
+            return false;
+        }
+
+        if (side == TrackpadSide.Right &&
+            (_lastRawRightContacts >= FiveFingerSwipeArmContacts ||
+             (_fiveFingerSwipeRight.Active && _lastRawRightContacts >= FiveFingerSwipeSustainContacts)))
+        {
+            return false;
+        }
+
+        return side == TrackpadSide.Left ? _chordShiftRight : _chordShiftLeft;
+    }
+
+    private void ClearTouchesForChordSourceSide(TrackpadSide side, long timestampTicks)
+    {
+        int removalCount = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (!_intentTouches.IsOccupiedAt(i))
+            {
+                continue;
+            }
+
+            ulong key = _intentTouches.KeyAt(i);
+            if (TouchSideFromKey(key) != side)
+            {
+                continue;
+            }
+
+            if (removalCount < _removalBuffer.Length)
+            {
+                _removalBuffer[removalCount++] = key;
+            }
+        }
+
+        for (int i = 0; i < removalCount; i++)
+        {
+            ulong key = _removalBuffer[i];
+            _intentTouches.Remove(key, out _);
+            CancelTouchWithoutReleaseAction(key, timestampTicks);
+        }
+    }
+
+    private void CancelTouchWithoutReleaseAction(ulong touchKey, long timestampTicks)
+    {
+        if (!_touchStates.Remove(touchKey, out TouchBindingState state))
+        {
+            return;
+        }
+
+        if (state.MomentaryLayerTarget >= 0)
+        {
+            DeactivateMomentaryLayerTouch(touchKey, ref state);
+            return;
+        }
+
+        if (state.DispatchDownSent)
+        {
+            EndPressAction(ref state, timestampTicks);
+        }
+    }
+
+    private void UpdateChordShiftKeyState(long timestampTicks)
+    {
+        bool shouldBeDown = _config.ChordShiftEnabled && _fourFingerHoldUsesChordShift && (_chordShiftLeft || _chordShiftRight);
+        if (shouldBeDown == _chordShiftKeyDown)
+        {
+            return;
+        }
+
+        DispatchEventKind kind = shouldBeDown ? DispatchEventKind.ModifierDown : DispatchEventKind.ModifierUp;
+        if (EnqueueDispatchEvent(
+            kind,
+            ShiftVirtualKey,
+            DispatchMouseButton.None,
+            repeatToken: 0,
+            DispatchEventFlags.None,
+            side: TrackpadSide.Left,
+            timestampTicks,
+            dispatchLabel: "ChordShift",
+            semanticAction: new DispatchSemanticAction(
+                DispatchSemanticKind.Modifier,
+                "ChordShift",
+                DispatchSemanticCode.Shift)))
+        {
+            _chordShiftKeyDown = shouldBeDown;
+            RecordDiagnostic(
+                timestampTicks,
+                EngineDiagnosticEventKind.ChordShiftState,
+                TrackpadSide.Left,
+                _intentMode,
+                kind,
+                DispatchSuppressReason.None,
+                TypingToggleSource.Api,
+                ShiftVirtualKey,
+                DispatchMouseButton.None,
+                _typingEnabled,
+                false,
+                _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+                _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+                _intentTouches.Count,
+                0,
+                _lastRawLeftContacts,
+                _lastRawRightContacts,
+                shouldBeDown ? "shift_down" : "shift_up");
+        }
+    }
+
+    private void RefreshGestureActionsFromConfig()
+    {
+        _fiveFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeLeftAction);
+        _fiveFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeRightAction);
+        _fiveFingerSwipeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeUpAction);
+        _fiveFingerSwipeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeDownAction);
+        _threeFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerSwipeLeftAction);
+        _threeFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerSwipeRightAction);
+        _threeFingerSwipeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerSwipeUpAction);
+        _threeFingerSwipeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerSwipeDownAction);
+        _fourFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeLeftAction);
+        _fourFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeRightAction);
+        _fourFingerSwipeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeUpAction);
+        _fourFingerSwipeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerSwipeDownAction);
+        _twoFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.TwoFingerHoldAction);
+        _threeFingerHoldGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerHoldAction);
+        _fourFingerHoldUsesChordShift = IsChordShiftGestureLabel(_config.FourFingerHoldAction);
+        _fourFingerHoldGestureAction = _fourFingerHoldUsesChordShift
+            ? EngineKeyAction.None
+            : EngineActionResolver.ResolveActionLabel(_config.FourFingerHoldAction);
+        _leftEdgeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.LeftEdgeUpAction);
+        _leftEdgeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.LeftEdgeDownAction);
+        _rightEdgeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.RightEdgeUpAction);
+        _rightEdgeDownGestureAction = EngineActionResolver.ResolveActionLabel(_config.RightEdgeDownAction);
+        _topEdgeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopEdgeLeftAction);
+        _topEdgeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopEdgeRightAction);
+        _bottomEdgeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomEdgeLeftAction);
+        _bottomEdgeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomEdgeRightAction);
+        _threeFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.ThreeFingerClickAction);
+        _fourFingerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.FourFingerClickAction);
+        _outerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.OuterCornersAction);
+        _innerCornersGestureAction = EngineActionResolver.ResolveActionLabel(_config.InnerCornersAction);
+        _topLeftCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftCornerSwipeAction);
+        _topRightCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightCornerSwipeAction);
+        _bottomLeftCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftCornerSwipeAction);
+        _bottomRightCornerSwipeGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightCornerSwipeAction);
+        _topLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftTriangleAction);
+        _topRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightTriangleAction);
+        _bottomLeftTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftTriangleAction);
+        _bottomRightTriangleGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightTriangleAction);
+        _topLeftForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopLeftForceClickAction);
+        _topRightForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.TopRightForceClickAction);
+        _bottomLeftForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomLeftForceClickAction);
+        _bottomRightForceClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.BottomRightForceClickAction);
+        _forceClick2GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick2Action);
+        _forceClick3GestureAction = EngineActionResolver.ResolveActionLabel(_config.ForceClick3Action);
+        _upperLeftCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.UpperLeftCornerClickAction);
+        _upperRightCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.UpperRightCornerClickAction);
+        _lowerLeftCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.LowerLeftCornerClickAction);
+        _lowerRightCornerClickGestureAction = EngineActionResolver.ResolveActionLabel(_config.LowerRightCornerClickAction);
+    }
+
+    private static bool IsChordShiftGestureLabel(string? action)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return false;
+        }
+
+        return action.Equals("Chordal Shift", StringComparison.OrdinalIgnoreCase) ||
+               action.Equals("Chord Shift", StringComparison.OrdinalIgnoreCase) ||
+               action.Equals("ChordShift", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static TouchProcessorConfig NormalizeConfig(TouchProcessorConfig config)
+    {
+        return config with
+        {
+            HoldDurationMs = Math.Max(0, config.HoldDurationMs),
+            DragCancelMm = Math.Max(0, config.DragCancelMm),
+            TypingGraceMs = Math.Max(0, config.TypingGraceMs),
+            IntentMoveMm = Math.Max(0.1, config.IntentMoveMm),
+            IntentVelocityMmPerSec = Math.Max(1.0, config.IntentVelocityMmPerSec),
+            SnapRadiusPercent = Math.Clamp(config.SnapRadiusPercent, 0, 200),
+            SnapAmbiguityRatio = Math.Max(1.0, config.SnapAmbiguityRatio),
+            KeyBufferMs = Math.Max(0, config.KeyBufferMs),
+            FiveFingerSwipeLeftAction = NormalizeGestureAction(config.FiveFingerSwipeLeftAction, "Typing Toggle"),
+            FiveFingerSwipeRightAction = NormalizeGestureAction(config.FiveFingerSwipeRightAction, "Typing Toggle"),
+            FiveFingerSwipeUpAction = NormalizeGestureAction(config.FiveFingerSwipeUpAction, "None"),
+            FiveFingerSwipeDownAction = NormalizeGestureAction(config.FiveFingerSwipeDownAction, "None"),
+            ThreeFingerSwipeLeftAction = NormalizeGestureAction(config.ThreeFingerSwipeLeftAction, "None"),
+            ThreeFingerSwipeRightAction = NormalizeGestureAction(config.ThreeFingerSwipeRightAction, "None"),
+            ThreeFingerSwipeUpAction = NormalizeGestureAction(config.ThreeFingerSwipeUpAction, "None"),
+            ThreeFingerSwipeDownAction = NormalizeGestureAction(config.ThreeFingerSwipeDownAction, "None"),
+            FourFingerSwipeLeftAction = NormalizeGestureAction(config.FourFingerSwipeLeftAction, "None"),
+            FourFingerSwipeRightAction = NormalizeGestureAction(config.FourFingerSwipeRightAction, "None"),
+            FourFingerSwipeUpAction = NormalizeGestureAction(config.FourFingerSwipeUpAction, "None"),
+            FourFingerSwipeDownAction = NormalizeGestureAction(config.FourFingerSwipeDownAction, "None"),
+            TopLeftCornerSwipeAction = NormalizeGestureAction(config.TopLeftCornerSwipeAction, "None"),
+            TopRightCornerSwipeAction = NormalizeGestureAction(config.TopRightCornerSwipeAction, "None"),
+            BottomLeftCornerSwipeAction = NormalizeGestureAction(config.BottomLeftCornerSwipeAction, "None"),
+            BottomRightCornerSwipeAction = NormalizeGestureAction(config.BottomRightCornerSwipeAction, "None"),
+            TwoFingerHoldAction = NormalizeGestureAction(config.TwoFingerHoldAction, "None"),
+            ThreeFingerHoldAction = NormalizeGestureAction(config.ThreeFingerHoldAction, "None"),
+            FourFingerHoldAction = NormalizeGestureAction(config.FourFingerHoldAction, "Chordal Shift"),
+            LeftEdgeUpAction = NormalizeGestureAction(config.LeftEdgeUpAction, "None"),
+            LeftEdgeDownAction = NormalizeGestureAction(config.LeftEdgeDownAction, "None"),
+            RightEdgeUpAction = NormalizeGestureAction(config.RightEdgeUpAction, "None"),
+            RightEdgeDownAction = NormalizeGestureAction(config.RightEdgeDownAction, "None"),
+            TopEdgeLeftAction = NormalizeGestureAction(config.TopEdgeLeftAction, "None"),
+            TopEdgeRightAction = NormalizeGestureAction(config.TopEdgeRightAction, "None"),
+            BottomEdgeLeftAction = NormalizeGestureAction(config.BottomEdgeLeftAction, "None"),
+            BottomEdgeRightAction = NormalizeGestureAction(config.BottomEdgeRightAction, "None"),
+            ThreeFingerClickAction = NormalizeGestureAction(config.ThreeFingerClickAction, "None"),
+            FourFingerClickAction = NormalizeGestureAction(config.FourFingerClickAction, "None"),
+            OuterCornersAction = NormalizeGestureAction(config.OuterCornersAction, "None"),
+            InnerCornersAction = NormalizeGestureAction(config.InnerCornersAction, "None"),
+            TopLeftTriangleAction = NormalizeGestureAction(config.TopLeftTriangleAction, "None"),
+            TopRightTriangleAction = NormalizeGestureAction(config.TopRightTriangleAction, "None"),
+            BottomLeftTriangleAction = NormalizeGestureAction(config.BottomLeftTriangleAction, "None"),
+            BottomRightTriangleAction = NormalizeGestureAction(config.BottomRightTriangleAction, "None"),
+            TopLeftForceClickAction = NormalizeGestureAction(config.TopLeftForceClickAction, "None"),
+            TopRightForceClickAction = NormalizeGestureAction(config.TopRightForceClickAction, "None"),
+            BottomLeftForceClickAction = NormalizeGestureAction(config.BottomLeftForceClickAction, "None"),
+            BottomRightForceClickAction = NormalizeGestureAction(config.BottomRightForceClickAction, "None"),
+            ForceClick2Action = NormalizeGestureAction(config.ForceClick2Action, "None"),
+            ForceClick3Action = NormalizeGestureAction(config.ForceClick3Action, "None"),
+            UpperLeftCornerClickAction = NormalizeGestureAction(config.UpperLeftCornerClickAction, "None"),
+            UpperRightCornerClickAction = NormalizeGestureAction(config.UpperRightCornerClickAction, "None"),
+            LowerLeftCornerClickAction = NormalizeGestureAction(config.LowerLeftCornerClickAction, "None"),
+            LowerRightCornerClickAction = NormalizeGestureAction(config.LowerRightCornerClickAction, "None"),
+            ForceClickThreshold = Math.Clamp(
+                config.ForceClickThreshold,
+                GestureBindingCatalog.ForceClickThresholdMinimum,
+                GestureBindingCatalog.ForceClickThresholdMaximum),
+            ForceMin = Math.Clamp(config.ForceMin, 0, 255),
+            ForceCap = Math.Clamp(config.ForceCap, 0, 255)
+        };
+    }
+
+    private static string NormalizeGestureAction(string? action, string fallback)
+    {
+        if (string.IsNullOrWhiteSpace(action))
+        {
+            return fallback;
+        }
+
+        return action.Trim();
+    }
+
+    private void TransitionTo(IntentMode next, long timestampTicks, string reason)
+    {
+        if (_intentMode == next)
+        {
+            return;
+        }
+
+        IntentTransition transition = new(timestampTicks, _intentMode, next, reason);
+        _transitionRing[_transitionRingHead] = transition;
+        _transitionRingHead = (_transitionRingHead + 1) % _transitionRing.Length;
+        if (_transitionRingCount < _transitionRing.Length)
+        {
+            _transitionRingCount++;
+        }
+
+        _intentTraceFingerprint = Mix(_intentTraceFingerprint, (ulong)_intentMode);
+        _intentTraceFingerprint = Mix(_intentTraceFingerprint, (ulong)next);
+        _intentTraceFingerprint = Mix(_intentTraceFingerprint, StableStringHash(reason));
+        _intentMode = next;
+        RecordDiagnostic(
+            timestampTicks,
+            EngineDiagnosticEventKind.IntentTransition,
+            TrackpadSide.Left,
+            _intentMode,
+            DispatchEventKind.None,
+            DispatchSuppressReason.None,
+            TypingToggleSource.Api,
+            0,
+            DispatchMouseButton.None,
+            _typingEnabled,
+            false,
+            _fiveFingerSwipeLeft.Active || _fiveFingerSwipeRight.Active,
+            _fiveFingerSwipeLeft.Triggered || _fiveFingerSwipeRight.Triggered,
+            _intentTouches.Count,
+            0,
+            _lastRawLeftContacts,
+            _lastRawRightContacts,
+            reason);
+    }
+
+    private void RecordDiagnostic(
+        long timestampTicks,
+        EngineDiagnosticEventKind kind,
+        TrackpadSide side,
+        IntentMode intentMode,
+        DispatchEventKind dispatchKind,
+        DispatchSuppressReason suppressReason,
+        TypingToggleSource toggleSource,
+        ushort virtualKey,
+        DispatchMouseButton mouseButton,
+        bool typingEnabled,
+        bool chordSourceSuppressed,
+        bool fiveFingerActive,
+        bool fiveFingerTriggered,
+        int contactCount,
+        int tipContactCount,
+        int leftRawContacts,
+        int rightRawContacts,
+        string reason,
+        string dispatchLabel = "")
+    {
+        if (!_diagnosticsEnabled)
+        {
+            return;
+        }
+
+        _diagnosticRing[_diagnosticRingHead] = new EngineDiagnosticEvent(
+            timestampTicks,
+            kind,
+            side,
+            intentMode,
+            dispatchKind,
+            suppressReason,
+            toggleSource,
+            virtualKey,
+            mouseButton,
+            typingEnabled,
+            chordSourceSuppressed,
+            fiveFingerActive,
+            fiveFingerTriggered,
+            contactCount,
+            tipContactCount,
+            leftRawContacts,
+            rightRawContacts,
+            dispatchLabel,
+            reason);
+        _diagnosticRingHead = (_diagnosticRingHead + 1) % _diagnosticRing.Length;
+        if (_diagnosticRingCount < _diagnosticRing.Length)
+        {
+            _diagnosticRingCount++;
+        }
+    }
+
+    private static ulong MakeTouchKey(TrackpadSide side, uint contactId)
+    {
+        ulong sideBits = side == TrackpadSide.Left ? 0ul : 1ul;
+        return (sideBits << 32) | contactId;
+    }
+
+    private static TrackpadSide TouchSideFromKey(ulong key)
+    {
+        return ((key >> 32) & 1ul) == 0ul ? TrackpadSide.Left : TrackpadSide.Right;
+    }
+
+    private static bool Contains(ReadOnlySpan<ulong> values, ulong value)
+    {
+        for (int i = 0; i < values.Length; i++)
+        {
+            if (values[i] == value)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private int CountOccupiedTouchStates()
+    {
+        int count = 0;
+        for (int i = 0; i < _touchStates.Capacity; i++)
+        {
+            if (_touchStates.IsOccupiedAt(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    public int DrainPointerDragEffects(Span<PointerDragEffect> destination)
+    {
+        int count = Math.Min(destination.Length, _pointerDragRingCount);
+        if (count <= 0)
+        {
+            return 0;
+        }
+
+        int start = (_pointerDragRingHead - _pointerDragRingCount + _pointerDragRing.Length) % _pointerDragRing.Length;
+        for (int i = 0; i < count; i++)
+        {
+            destination[i] = _pointerDragRing[(start + i) % _pointerDragRing.Length];
+        }
+
+        _pointerDragRingCount -= count;
+        if (_pointerDragRingCount == 0)
+        {
+            _pointerDragRingHead = 0;
+        }
+
+        return count;
+    }
+
+    private int CountOccupiedIntentTouches()
+    {
+        int count = 0;
+        for (int i = 0; i < _intentTouches.Capacity; i++)
+        {
+            if (_intentTouches.IsOccupiedAt(i))
+            {
+                count++;
+            }
+        }
+
+        return count;
+    }
+
+    private static double SafeNormalize(ushort value, ushort max)
+    {
+        if (max == 0)
+        {
+            return 0;
+        }
+
+        return value / (double)max;
+    }
+
+    private double DistanceMm(double x1Norm, double y1Norm, double x2Norm, double y2Norm)
+    {
+        double dxMm = (x2Norm - x1Norm) * _config.TrackpadWidthMm;
+        double dyMm = (y2Norm - y1Norm) * _config.TrackpadHeightMm;
+        return Math.Sqrt((dxMm * dxMm) + (dyMm * dyMm));
+    }
+
+    private static float DistanceSqToRectEdge(double x, double y, NormalizedRect rect)
+    {
+        float px = (float)x;
+        float py = (float)y;
+        float minX = (float)rect.X;
+        float maxX = (float)(rect.X + rect.Width);
+        float minY = (float)rect.Y;
+        float maxY = (float)(rect.Y + rect.Height);
+        float dx = px < minX ? (minX - px) : (px > maxX ? (px - maxX) : 0);
+        float dy = py < minY ? (minY - py) : (py > maxY ? (py - maxY) : 0);
+        return (dx * dx) + (dy * dy);
+    }
+
+    private static long MsToTicks(double milliseconds)
+    {
+        if (milliseconds <= 0)
+        {
+            return 0;
+        }
+
+        return (long)Math.Round(milliseconds * Stopwatch.Frequency / 1000.0);
+    }
+
+    private static ulong Mix(ulong hash, ulong value)
+    {
+        hash ^= value;
+        hash *= 1099511628211ul;
+        return hash;
+    }
+
+    private static ulong StableStringHash(string text)
+    {
+        ulong hash = 14695981039346656037ul;
+        for (int i = 0; i < text.Length; i++)
+        {
+            ushort ch = text[i];
+            hash = Mix(hash, (byte)(ch & 0xFF));
+            hash = Mix(hash, (byte)((ch >> 8) & 0xFF));
+        }
+
+        return hash;
+    }
+
+    private readonly record struct IntentAggregate(
+        int ContactCount,
+        int LeftContacts,
+        int RightContacts,
+        int OnKeyCount,
+        int OffKeyCount,
+        bool KeyboardAnchor,
+        double MaxDistanceMm,
+        double MaxVelocityMmPerSec,
+        double CentroidX,
+        double CentroidY,
+        bool HasFirstOnKeyTouch,
+        ulong FirstOnKeyTouch,
+        long EarliestStartTicks,
+        long LatestStartTicks);
+
+    private struct IntentTouchInfo
+    {
+        public IntentTouchInfo(
+            TrackpadSide Side,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            long StartTicks,
+            long LastTicks,
+            double MaxDistanceMm,
+            double LastVelocityMmPerSec,
+            bool OnKey,
+            bool KeyboardAnchor,
+            int InitialBindingIndex)
+        {
+            this.Side = Side;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.StartTicks = StartTicks;
+            this.LastTicks = LastTicks;
+            this.MaxDistanceMm = MaxDistanceMm;
+            this.LastVelocityMmPerSec = LastVelocityMmPerSec;
+            this.OnKey = OnKey;
+            this.KeyboardAnchor = KeyboardAnchor;
+            this.InitialBindingIndex = InitialBindingIndex;
+        }
+
+        public TrackpadSide Side;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public long StartTicks;
+        public long LastTicks;
+        public double MaxDistanceMm;
+        public double LastVelocityMmPerSec;
+        public bool OnKey;
+        public bool KeyboardAnchor;
+        public int InitialBindingIndex;
+    }
+
+    private struct TouchBindingState
+    {
+        public TouchBindingState(
+            TrackpadSide Side,
+            int BindingIndex,
+            int BindingLayer,
+            EngineTouchLifecycle Lifecycle,
+            long StartTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MaxDistanceMm,
+            bool HasHoldAction,
+            bool HoldTriggered,
+            int MomentaryLayerTarget,
+            bool DispatchDownSent,
+            DispatchEventKind DispatchDownKind,
+            ushort DispatchDownVirtualKey,
+            ushort DispatchDownModifierVirtualKey,
+            DispatchMouseButton DispatchDownMouseButton,
+            ulong RepeatToken,
+            int LastForceNorm,
+            int PeakForceNorm,
+            string DispatchDownLabel,
+            DispatchSemanticAction DispatchDownSemanticAction)
+        {
+            this.Side = Side;
+            this.BindingIndex = BindingIndex;
+            this.BindingLayer = BindingLayer;
+            this.Lifecycle = Lifecycle;
+            this.StartTicks = StartTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MaxDistanceMm = MaxDistanceMm;
+            this.HasHoldAction = HasHoldAction;
+            this.HoldTriggered = HoldTriggered;
+            this.MomentaryLayerTarget = MomentaryLayerTarget;
+            this.DispatchDownSent = DispatchDownSent;
+            this.DispatchDownKind = DispatchDownKind;
+            this.DispatchDownVirtualKey = DispatchDownVirtualKey;
+            this.DispatchDownModifierVirtualKey = DispatchDownModifierVirtualKey;
+            this.DispatchDownMouseButton = DispatchDownMouseButton;
+            this.RepeatToken = RepeatToken;
+            this.LastForceNorm = LastForceNorm;
+            this.PeakForceNorm = PeakForceNorm;
+            this.DispatchDownLabel = DispatchDownLabel;
+            this.DispatchDownSemanticAction = DispatchDownSemanticAction;
+        }
+
+        public TrackpadSide Side;
+        public int BindingIndex;
+        public int BindingLayer;
+        public EngineTouchLifecycle Lifecycle;
+        public long StartTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MaxDistanceMm;
+        public bool HasHoldAction;
+        public bool HoldTriggered;
+        public int MomentaryLayerTarget;
+        public bool DispatchDownSent;
+        public DispatchEventKind DispatchDownKind;
+        public ushort DispatchDownVirtualKey;
+        public ushort DispatchDownModifierVirtualKey;
+        public DispatchMouseButton DispatchDownMouseButton;
+        public ulong RepeatToken;
+        public int LastForceNorm;
+        public int PeakForceNorm;
+        public string DispatchDownLabel;
+        public DispatchSemanticAction DispatchDownSemanticAction;
+    }
+
+    private struct MultiFingerHoldGesture
+    {
+        public MultiFingerHoldGesture(
+            bool Active,
+            bool Triggered,
+            TrackpadSide Side,
+            long StartedTicks)
+        {
+            this.Active = Active;
+            this.Triggered = Triggered;
+            this.Side = Side;
+            this.StartedTicks = StartedTicks;
+            this.DispatchDownSent = false;
+            this.DispatchDownVirtualKey = 0;
+            this.RepeatToken = 0;
+            this.DispatchDownLabel = string.Empty;
+            this.DispatchDownSemanticAction = DispatchSemanticAction.None;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool Triggered;
+        public TrackpadSide Side;
+        public long StartedTicks;
+        public bool DispatchDownSent;
+        public ushort DispatchDownVirtualKey;
+        public ulong RepeatToken;
+        public string DispatchDownLabel;
+        public DispatchSemanticAction DispatchDownSemanticAction;
+        public GestureDispatchState DispatchState;
+    }
+
+    private struct TriangleGesture
+    {
+        public TriangleGesture(
+            bool Active,
+            bool CandidateValid,
+            bool PriorityArmed,
+            bool ReturnedLaterally,
+            TriangleCorner Corner,
+            ulong SourceTouchKey,
+            int OutboundXSign,
+            int OutboundYSign,
+            long StartedTicks,
+            long LastTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double TurnXNorm,
+            double TurnYAtTurnXNorm,
+            double ExtentYNorm,
+            double LastXNorm,
+            double LastYNorm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.PriorityArmed = PriorityArmed;
+            this.ReturnedLaterally = ReturnedLaterally;
+            this.Corner = Corner;
+            this.SourceTouchKey = SourceTouchKey;
+            this.OutboundXSign = OutboundXSign;
+            this.OutboundYSign = OutboundYSign;
+            this.StartedTicks = StartedTicks;
+            this.LastTicks = LastTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.TurnXNorm = TurnXNorm;
+            this.TurnYAtTurnXNorm = TurnYAtTurnXNorm;
+            this.ExtentYNorm = ExtentYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool PriorityArmed;
+        public bool ReturnedLaterally;
+        public TriangleCorner Corner;
+        public ulong SourceTouchKey;
+        public int OutboundXSign;
+        public int OutboundYSign;
+        public long StartedTicks;
+        public long LastTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double TurnXNorm;
+        public double TurnYAtTurnXNorm;
+        public double ExtentYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public GestureDispatchState DispatchState;
+    }
+
+    private struct EdgeSlideGesture
+    {
+        public EdgeSlideGesture(
+            bool Active,
+            bool CandidateValid,
+            bool PriorityArmed,
+            EdgeSlideZone Zone,
+            long StartedTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MinXNorm,
+            double MaxXNorm,
+            double MinYNorm,
+            double MaxYNorm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.PriorityArmed = PriorityArmed;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MinXNorm = MinXNorm;
+            this.MaxXNorm = MaxXNorm;
+            this.MinYNorm = MinYNorm;
+            this.MaxYNorm = MaxYNorm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool PriorityArmed;
+        public EdgeSlideZone Zone;
+        public long StartedTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MinXNorm;
+        public double MaxXNorm;
+        public double MinYNorm;
+        public double MaxYNorm;
+        public GestureDispatchState DispatchState;
+    }
+
+    private enum EdgeSlideZone : byte
+    {
+        None = 0,
+        Left = 1,
+        Right = 2,
+        Top = 3,
+        Bottom = 4
+    }
+
+    private enum EdgeSlideDirection : byte
+    {
+        None = 0,
+        Up = 1,
+        Down = 2,
+        Left = 3,
+        Right = 4
+    }
+
+    private enum TriangleCorner : byte
+    {
+        None = 0,
+        TopLeft = 1,
+        TopRight = 2,
+        BottomLeft = 3,
+        BottomRight = 4
+    }
+
+    private struct CornerSwipeGesture
+    {
+        public CornerSwipeGesture(
+            bool Active,
+            bool CandidateValid,
+            bool PriorityArmed,
+            bool MatchEligible,
+            TriangleCorner Corner,
+            ulong SourceTouchKey,
+            int InwardXSign,
+            int InwardYSign,
+            long StartedTicks,
+            long MatchTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double PeakXNorm,
+            double PeakYNorm,
+            double LastXNorm,
+            double LastYNorm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.PriorityArmed = PriorityArmed;
+            this.MatchEligible = MatchEligible;
+            this.Corner = Corner;
+            this.SourceTouchKey = SourceTouchKey;
+            this.InwardXSign = InwardXSign;
+            this.InwardYSign = InwardYSign;
+            this.StartedTicks = StartedTicks;
+            this.MatchTicks = MatchTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.PeakXNorm = PeakXNorm;
+            this.PeakYNorm = PeakYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool PriorityArmed;
+        public bool MatchEligible;
+        public TriangleCorner Corner;
+        public ulong SourceTouchKey;
+        public int InwardXSign;
+        public int InwardYSign;
+        public long StartedTicks;
+        public long MatchTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double PeakXNorm;
+        public double PeakYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public GestureDispatchState DispatchState;
+    }
+
+    private struct ForceClickGesture
+    {
+        public ForceClickGesture(
+            bool Active,
+            bool CandidateValid,
+            CornerClickTapZone Zone,
+            long StartedTicks,
+            int PeakForceNorm,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MaxDistanceMm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+            this.PeakForceNorm = PeakForceNorm;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MaxDistanceMm = MaxDistanceMm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public CornerClickTapZone Zone;
+        public long StartedTicks;
+        public int PeakForceNorm;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MaxDistanceMm;
+        public GestureDispatchState DispatchState;
+    }
+
+    private struct CornerClickTapGesture
+    {
+        public CornerClickTapGesture(
+            bool Active,
+            bool CandidateValid,
+            bool ForceArmed,
+            int PeakForceNorm,
+            CornerClickTapZone Zone,
+            long StartedTicks,
+            double StartXNorm,
+            double StartYNorm,
+            double LastXNorm,
+            double LastYNorm,
+            double MaxDistanceMm)
+        {
+            this.Active = Active;
+            this.CandidateValid = CandidateValid;
+            this.ForceArmed = ForceArmed;
+            this.PeakForceNorm = PeakForceNorm;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+            this.StartXNorm = StartXNorm;
+            this.StartYNorm = StartYNorm;
+            this.LastXNorm = LastXNorm;
+            this.LastYNorm = LastYNorm;
+            this.MaxDistanceMm = MaxDistanceMm;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool CandidateValid;
+        public bool ForceArmed;
+        public int PeakForceNorm;
+        public CornerClickTapZone Zone;
+        public long StartedTicks;
+        public double StartXNorm;
+        public double StartYNorm;
+        public double LastXNorm;
+        public double LastYNorm;
+        public double MaxDistanceMm;
+        public GestureDispatchState DispatchState;
+    }
+
+    private enum CornerClickTapZone : byte
+    {
+        None = 0,
+        UpperLeft = 1,
+        UpperRight = 2,
+        LowerLeft = 3,
+        LowerRight = 4
+    }
+
+    private struct CornerHoldGesture
+    {
+        public CornerHoldGesture(
+            bool Active,
+            bool Triggered,
+            TrackpadSide Side,
+            CornerZone Zone,
+            long StartedTicks)
+        {
+            this.Active = Active;
+            this.Triggered = Triggered;
+            this.Side = Side;
+            this.Zone = Zone;
+            this.StartedTicks = StartedTicks;
+            this.DispatchState = default;
+        }
+
+        public bool Active;
+        public bool Triggered;
+        public TrackpadSide Side;
+        public CornerZone Zone;
+        public long StartedTicks;
+        public GestureDispatchState DispatchState;
+    }
+
+    private enum CornerZone : byte
+    {
+        None = 0,
+        Outer = 1,
+        Inner = 2
+    }
+
+    private enum SwipeDirection : byte
+    {
+        None = 0,
+        Left = 1,
+        Right = 2,
+        Up = 3,
+        Down = 4
+    }
+
+    private struct DirectionalSwipeState
+    {
+        public bool Active;
+        public bool Triggered;
+        public double StartX;
+        public double StartY;
+        public GestureDispatchState DispatchState;
+    }
+
+    private struct GestureDispatchState
+    {
+        public bool DispatchDownSent;
+        public ushort DispatchDownVirtualKey;
+        public ulong RepeatToken;
+        public string DispatchDownLabel;
+        public DispatchSemanticAction DispatchDownSemanticAction;
+    }
+
+    [Flags]
+    internal enum PointerDragEffectKind : byte
+    {
+        None = 0,
+        PointerActivity = 1 << 0,
+        Move = 1 << 1,
+        LeftButtonDown = 1 << 2,
+        LeftButtonUp = 1 << 3
+    }
+
+    internal readonly record struct PointerDragEffect(
+        long TimestampTicks,
+        TrackpadSide Side,
+        PointerDragEffectKind Kind,
+        int DeltaXPixels,
+        int DeltaYPixels);
+
+    private struct ThreeFingerDragState
+    {
+        public ThreeFingerDragState(
+            bool Candidate,
+            bool Active,
+            bool AwaitingAllUp,
+            TrackpadSide Side,
+            double AnchorCentroidXMm,
+            double AnchorCentroidYMm,
+            double LastCentroidXMm,
+            double LastCentroidYMm,
+            double PendingPixelsX,
+            double PendingPixelsY)
+        {
+            this.Candidate = Candidate;
+            this.Active = Active;
+            this.AwaitingAllUp = AwaitingAllUp;
+            this.Side = Side;
+            this.AnchorCentroidXMm = AnchorCentroidXMm;
+            this.AnchorCentroidYMm = AnchorCentroidYMm;
+            this.LastCentroidXMm = LastCentroidXMm;
+            this.LastCentroidYMm = LastCentroidYMm;
+            this.PendingPixelsX = PendingPixelsX;
+            this.PendingPixelsY = PendingPixelsY;
+        }
+
+        public bool Candidate;
+        public bool Active;
+        public bool AwaitingAllUp;
+        public TrackpadSide Side;
+        public double AnchorCentroidXMm;
+        public double AnchorCentroidYMm;
+        public double LastCentroidXMm;
+        public double LastCentroidYMm;
+        public double PendingPixelsX;
+        public double PendingPixelsY;
+    }
+
+}
+
+internal sealed class TouchProcessorActor : IDisposable
+{
+    private readonly TouchProcessorCore _core;
+    private readonly object _coreGate = new();
+    private readonly DispatchEventQueue? _dispatchQueue;
+    private readonly IThreeFingerDragSink? _threeFingerDragSink;
+    private readonly FrameEnvelope[] _queue;
+    private readonly object _gate = new();
+    private readonly AutoResetEvent _signal = new(false);
+    private readonly Thread _thread;
+    private bool _disposing;
+    private int _head;
+    private int _tail;
+    private int _count;
+    private long _postedCount;
+    private long _processedCount;
+
+    public TouchProcessorActor(
+        TouchProcessorCore core,
+        int queueCapacity = 2048,
+        DispatchEventQueue? dispatchQueue = null,
+        IThreeFingerDragSink? threeFingerDragSink = null)
+    {
+        _core = core;
+        _dispatchQueue = dispatchQueue;
+        _threeFingerDragSink = threeFingerDragSink;
+        _queue = new FrameEnvelope[Math.Max(16, queueCapacity)];
+        _thread = new Thread(RunLoop)
+        {
+            IsBackground = true,
+            Name = "GlassToKey.TouchProcessor"
+        };
+        _thread.Start();
+    }
+
+    public bool Post(TrackpadSide side, in InputFrame frame, ushort maxX, ushort maxY, long timestampTicks)
+    {
+        lock (_gate)
+        {
+            if (_disposing)
+            {
+                return false;
+            }
+
+            if (_count >= _queue.Length)
+            {
+                _core.RecordQueueDrop();
+                return false;
+            }
+
+            _queue[_tail] = new FrameEnvelope(side, frame, maxX, maxY, timestampTicks);
+            _tail = (_tail + 1) % _queue.Length;
+            _count++;
+            _postedCount++;
+            _signal.Set();
+            return true;
+        }
+    }
+
+    public void Configure(TouchProcessorConfig config)
+    {
+        lock (_coreGate)
+        {
+            _core.Configure(config);
+        }
+    }
+
+    public void ConfigureLayouts(KeyLayout leftLayout, KeyLayout rightLayout)
+    {
+        lock (_coreGate)
+        {
+            _core.ConfigureLayouts(leftLayout, rightLayout);
+        }
+    }
+
+    public void ConfigureKeymap(KeymapStore keymap)
+    {
+        lock (_coreGate)
+        {
+            _core.ConfigureKeymap(keymap);
+        }
+    }
+
+    public void SetPersistentLayer(int layer)
+    {
+        lock (_coreGate)
+        {
+            _core.SetPersistentLayer(layer);
+        }
+    }
+
+    public void SetTypingEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetTypingEnabled(enabled);
+        }
+    }
+
+    public void SetKeyboardModeEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetKeyboardModeEnabled(enabled);
+        }
+    }
+
+    public void SetPointerIntentEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetPointerIntentEnabled(enabled);
+        }
+    }
+
+    public void SetThreeFingerDragEnabled(bool enabled)
+    {
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[8];
+        lock (_coreGate)
+        {
+            _core.SetThreeFingerDragEnabled(enabled && _threeFingerDragSink != null);
+            while (true)
+            {
+                int drained = _core.DrainPointerDragEffects(dragScratchBuffer);
+                if (drained <= 0)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < drained; i++)
+                {
+                    ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                }
+            }
+        }
+    }
+
+    public void ArmPointerIntentSequence(long timestampTicks)
+    {
+        lock (_coreGate)
+        {
+            _core.ArmPointerIntentSequence(timestampTicks);
+        }
+    }
+
+    public void SetTypingToggleActionsEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetTypingToggleActionsEnabled(enabled);
+        }
+    }
+
+    public void SetHapticsOnKeyDispatchEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetHapticsOnKeyDispatchEnabled(enabled);
+        }
+    }
+
+    public void SetDiagnosticsEnabled(bool enabled)
+    {
+        lock (_coreGate)
+        {
+            _core.SetDiagnosticsEnabled(enabled);
+        }
+    }
+
+    public bool WaitForIdle(int timeoutMs = 2000)
+    {
+        Stopwatch sw = Stopwatch.StartNew();
+        while (sw.ElapsedMilliseconds < timeoutMs)
+        {
+            if (Volatile.Read(ref _processedCount) >= Volatile.Read(ref _postedCount))
+            {
+                return true;
+            }
+
+            Thread.Sleep(1);
+        }
+
+        return Volatile.Read(ref _processedCount) >= Volatile.Read(ref _postedCount);
+    }
+
+    public TouchProcessorSnapshot Snapshot()
+    {
+        lock (_coreGate)
+        {
+            return _core.Snapshot();
+        }
+    }
+
+    public void ResetState()
+    {
+        lock (_coreGate)
+        {
+            _core.ResetState();
+        }
+    }
+
+    public int CopyIntentTransitions(Span<IntentTransition> destination)
+    {
+        lock (_coreGate)
+        {
+            return _core.CopyIntentTransitions(destination);
+        }
+    }
+
+    public int CopyDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        lock (_coreGate)
+        {
+            return _core.CopyDiagnostics(destination);
+        }
+    }
+
+    public int DrainDiagnostics(Span<EngineDiagnosticEvent> destination)
+    {
+        lock (_coreGate)
+        {
+            return _core.DrainDiagnostics(destination);
+        }
+    }
+
+    public int DrainDispatchEvents(Span<DispatchEvent> destination)
+    {
+        lock (_coreGate)
+        {
+            return _core.DrainDispatchEvents(destination);
+        }
+    }
+
+    public void Dispose()
+    {
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[8];
+        lock (_coreGate)
+        {
+            _core.SetThreeFingerDragEnabled(false);
+            while (true)
+            {
+                int drained = _core.DrainPointerDragEffects(dragScratchBuffer);
+                if (drained <= 0)
+                {
+                    break;
+                }
+
+                for (int i = 0; i < drained; i++)
+                {
+                    ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                }
+            }
+        }
+
+        lock (_gate)
+        {
+            _disposing = true;
+            _signal.Set();
+        }
+
+        _thread.Join();
+        _signal.Dispose();
+    }
+
+    private void RunLoop()
+    {
+        DispatchEvent[] scratchBuffer = new DispatchEvent[16];
+        TouchProcessorCore.PointerDragEffect[] dragScratchBuffer = new TouchProcessorCore.PointerDragEffect[16];
+        while (true)
+        {
+            FrameEnvelope frame;
+            bool hasFrame = false;
+            lock (_gate)
+            {
+                if (_count > 0)
+                {
+                    frame = _queue[_head];
+                    _head = (_head + 1) % _queue.Length;
+                    _count--;
+                    hasFrame = true;
+                }
+                else if (_disposing)
+                {
+                    return;
+                }
+                else
+                {
+                    frame = default;
+                }
+            }
+
+            if (!hasFrame)
+            {
+                _signal.WaitOne(4);
+                continue;
+            }
+
+            InputFrame payload = frame.Frame;
+            lock (_coreGate)
+            {
+                _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
+                while (true)
+                {
+                    int drainedDragEffects = _core.DrainPointerDragEffects(dragScratchBuffer);
+                    if (drainedDragEffects <= 0)
+                    {
+                        break;
+                    }
+
+                    for (int i = 0; i < drainedDragEffects; i++)
+                    {
+                        ApplyPointerDragEffect(in dragScratchBuffer[i]);
+                    }
+                }
+
+                if (_dispatchQueue != null)
+                {
+                    while (true)
+                    {
+                        int drained = _core.DrainDispatchEvents(scratchBuffer);
+                        if (drained <= 0)
+                        {
+                            break;
+                        }
+
+                        for (int i = 0; i < drained; i++)
+                        {
+                            if (!_dispatchQueue.TryEnqueue(in scratchBuffer[i]))
+                            {
+                                _core.RecordDispatchDrop();
+                            }
+                        }
+                    }
+                }
+            }
+            Interlocked.Increment(ref _processedCount);
+        }
+    }
+
+    private void ApplyPointerDragEffect(in TouchProcessorCore.PointerDragEffect effect)
+    {
+        IThreeFingerDragSink? sink = _threeFingerDragSink;
+        if (sink == null)
+        {
+            return;
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.LeftButtonDown) != 0)
+        {
+            sink.SetLeftButtonState(true);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.LeftButtonUp) != 0)
+        {
+            sink.SetLeftButtonState(false);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.Move) != 0)
+        {
+            sink.MovePointerBy(effect.DeltaXPixels, effect.DeltaYPixels);
+        }
+
+        if ((effect.Kind & TouchProcessorCore.PointerDragEffectKind.PointerActivity) != 0)
+        {
+            sink.NotifyPointerActivity();
+        }
+    }
+
+    private readonly record struct FrameEnvelope(
+        TrackpadSide Side,
+        InputFrame Frame,
+        ushort MaxX,
+        ushort MaxY,
+        long TimestampTicks);
+}

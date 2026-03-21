@@ -1,0 +1,873 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        x:Class="GlassToKey.Linux.Gui.MainWindow"
+        Width="2640"
+        Height="1376"
+        MinWidth="1800"
+        MinHeight="660"
+        Title="GlassToKey Linux Control">
+  <Window.Resources>
+    <x:Double x:Key="TrackpadPreviewInnerWidth">700</x:Double>
+    <x:Double x:Key="TrackpadPreviewInnerHeight">420</x:Double>
+  </Window.Resources>
+  <Window.Styles>
+    <Style Selector="RadioButton.shortcutTargetRadio">
+      <Setter Property="Foreground" Value="#F7F2EA" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="RadioButton.shortcutTargetRadio:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle">
+      <Setter Property="Margin" Value="0" />
+      <Setter Property="Padding" Value="10,5" />
+      <Setter Property="Foreground" Value="#FFF8F0" />
+      <Setter Property="Background" Value="#1C2733" />
+      <Setter Property="BorderBrush" Value="#86C6EC" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:pointerover">
+      <Setter Property="Background" Value="#0F1418" />
+      <Setter Property="BorderBrush" Value="#BCEBFF" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:checked">
+      <Setter Property="Foreground" Value="#0F1418" />
+      <Setter Property="Background" Value="#A6E0FF" />
+      <Setter Property="BorderBrush" Value="#E6F7FF" />
+    </Style>
+    <Style Selector="ToggleButton.shortcutModifierToggle:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker">
+      <Setter Property="Width" Value="34" />
+      <Setter Property="MinWidth" Value="34" />
+      <Setter Property="Padding" Value="0,0,0,2" />
+      <Setter Property="Foreground" Value="#FFF8F0" />
+      <Setter Property="Background" Value="#1C2733" />
+      <Setter Property="BorderBrush" Value="#86C6EC" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="Bold" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="HorizontalContentAlignment" Value="Center" />
+      <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:pointerover">
+      <Setter Property="Background" Value="#0F1418" />
+      <Setter Property="BorderBrush" Value="#BCEBFF" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:pressed">
+      <Setter Property="Background" Value="#A6E0FF" />
+      <Setter Property="Foreground" Value="#0F1418" />
+      <Setter Property="BorderBrush" Value="#E6F7FF" />
+    </Style>
+    <Style Selector="Button.shortcutModifierPicker:disabled">
+      <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton">
+      <Setter Property="Foreground" Value="#16181B" />
+      <Setter Property="Background" Value="#F5E7CF" />
+      <Setter Property="BorderBrush" Value="#FFD28E" />
+      <Setter Property="BorderThickness" Value="2" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:pointerover">
+      <Setter Property="Background" Value="#11161B" />
+      <Setter Property="Foreground" Value="#FFF9F1" />
+      <Setter Property="BorderBrush" Value="#FFD28E" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:pressed">
+      <Setter Property="Background" Value="#E8C88F" />
+      <Setter Property="Foreground" Value="#11161B" />
+      <Setter Property="BorderBrush" Value="#11161B" />
+    </Style>
+    <Style Selector="Button.shortcutActionButton:disabled">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Foreground" Value="#6A5241" />
+      <Setter Property="Background" Value="#D8C4A4" />
+      <Setter Property="BorderBrush" Value="#A98552" />
+    </Style>
+    <Style Selector="Button.outlineActionButton">
+      <Setter Property="Foreground" Value="#11161B" />
+      <Setter Property="Background" Value="#FFF9F1" />
+      <Setter Property="BorderBrush" Value="#23303A" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.outlineActionButton /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#FFF9F1" />
+      <Setter Property="BorderBrush" Value="#23303A" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+    <Style Selector="Button.outlineActionButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#11161B" />
+      <Setter Property="BorderBrush" Value="#05080B" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="TextBlock.Foreground" Value="#FFF9F1" />
+    </Style>
+    <Style Selector="Button.outlineActionButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#E07845" />
+      <Setter Property="BorderBrush" Value="#11161B" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="TextBlock.Foreground" Value="#11161B" />
+    </Style>
+    <Style Selector="Button.shortcutApplyButton:disabled">
+      <Setter Property="Opacity" Value="1" />
+      <Setter Property="Foreground" Value="#6A5241" />
+      <Setter Property="ToolTip.Tip" Value="Disabled" />
+    </Style>
+    <Style Selector="Button.shortcutApplyButton:disabled /template/ ContentPresenter#PART_ContentPresenter">
+      <Setter Property="Background" Value="#D8C4A4" />
+      <Setter Property="BorderBrush" Value="#A98552" />
+      <Setter Property="BorderThickness" Value="1.5" />
+      <Setter Property="CornerRadius" Value="8" />
+      <Setter Property="TextBlock.Foreground" Value="#6A5241" />
+    </Style>
+    <Style Selector="TextBlock.shortcutFieldLabel">
+      <Setter Property="Foreground" Value="#F7F2EA" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+  </Window.Styles>
+  <Grid RowDefinitions="Auto,*">
+    <Border Background="#23303A" Padding="24,18">
+      <Grid ColumnDefinitions="*,Auto">
+        <StackPanel Spacing="4">
+          <TextBlock Text="GlassToKey Linux"
+                     FontSize="28"
+                     FontWeight="Bold"
+                     Foreground="#F7F2EA" />
+          <TextBlock x:Name="RuntimeTypingStatusText"
+                     FontSize="13"
+                     FontWeight="SemiBold"
+                     Foreground="#F7F2EA"
+                     Text="Typing: checking runtime..." />
+        </StackPanel>
+        <StackPanel Grid.Column="1"
+                    Spacing="10"
+                    VerticalAlignment="Center">
+          <StackPanel Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="10">
+            <Button x:Name="ImportSettingsButton" Classes="outlineActionButton" Content="Import Settings" />
+            <Button x:Name="ExportSettingsButton" Classes="outlineActionButton" Content="Export Settings" />
+          </StackPanel>
+          <StackPanel x:Name="ReplayPanel"
+                      IsVisible="False"
+                      Orientation="Horizontal"
+                      HorizontalAlignment="Right"
+                      Spacing="10">
+            <Button x:Name="ReplayToggleButton"
+                    Classes="headerAction"
+                    Content="Play" />
+            <TextBlock Text="Speed"
+                       VerticalAlignment="Center"
+                       Foreground="#F7F2EA" />
+            <ComboBox x:Name="ReplaySpeedCombo"
+                      Width="90"
+                      MinWidth="90" />
+            <Slider x:Name="ReplayTimelineSlider"
+                    Width="320"
+                    Minimum="0"
+                    Maximum="1000"
+                    VerticalAlignment="Center" />
+            <TextBlock x:Name="ReplayTimeText"
+                       VerticalAlignment="Center"
+                       Foreground="#F7F2EA"
+                       Text="0.00s / 0.00s" />
+            <Button x:Name="ReplayCloseButton"
+                    Content="Close Replay" />
+          </StackPanel>
+        </StackPanel>
+      </Grid>
+    </Border>
+
+    <Grid Grid.Row="1"
+          Margin="24"
+          RowDefinitions="Auto,*">
+      <Border Classes="panel">
+        <StackPanel Spacing="12">
+          <Grid ColumnDefinitions="*,*,Auto">
+            <StackPanel Spacing="8">
+              <TextBlock Text="Left trackpad" />
+              <ComboBox x:Name="LeftDeviceCombo" MinWidth="320" />
+            </StackPanel>
+            <StackPanel Grid.Column="1" Margin="16,0,0,0" Spacing="8">
+              <TextBlock Text="Right trackpad" />
+              <ComboBox x:Name="RightDeviceCombo" MinWidth="320" />
+            </StackPanel>
+            <Button x:Name="RefreshDevicesButton"
+                    Grid.Column="2"
+                    Margin="16,28,0,0"
+                    VerticalAlignment="Top"
+                    Classes="outlineActionButton"
+                    Content="Refresh Devices" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <Grid Grid.Row="1"
+            Margin="0,18,0,0"
+            ColumnDefinitions="2.8*,0.9*">
+          <Border Classes="panel">
+            <StackPanel Spacing="12">
+              <Grid ColumnDefinitions="*,*">
+                <Border Background="#FFF3E6"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10"
+                        MinWidth="{StaticResource TrackpadPreviewInnerWidth}">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Left Trackpad"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <Canvas x:Name="LeftPreviewCanvas"
+                            Width="{StaticResource TrackpadPreviewInnerWidth}"
+                            MinWidth="{StaticResource TrackpadPreviewInnerWidth}"
+                            Height="{StaticResource TrackpadPreviewInnerHeight}"
+                            Background="#FFF9F1" />
+                    <TextBlock x:Name="LeftPreviewText"
+                               TextWrapping="Wrap"
+                               Foreground="#5A4032" />
+                  </StackPanel>
+                </Border>
+
+                <Border Grid.Column="1"
+                        Margin="12,0,0,0"
+                        Background="#FFF3E6"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="10"
+                        MinWidth="{StaticResource TrackpadPreviewInnerWidth}">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Right Trackpad"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <Canvas x:Name="RightPreviewCanvas"
+                            Width="{StaticResource TrackpadPreviewInnerWidth}"
+                            MinWidth="{StaticResource TrackpadPreviewInnerWidth}"
+                            Height="{StaticResource TrackpadPreviewInnerHeight}"
+                            Background="#FFF9F1" />
+                    <TextBlock x:Name="RightPreviewText"
+                               TextWrapping="Wrap"
+                               Foreground="#5A4032" />
+                  </StackPanel>
+                </Border>
+              </Grid>
+
+              <Border Background="#0C0F12"
+                      BorderBrush="#2B2F33"
+                      BorderThickness="1"
+                      CornerRadius="12"
+                      Padding="12,10"
+                      Margin="0,8,0,0">
+                <StackPanel Spacing="6">
+                  <TextBlock Text="Typing Test"
+                             Foreground="#8B949E"
+                             FontSize="12" />
+                  <TextBox x:Name="TypingTestBox"
+                           Height="80"
+                           AcceptsReturn="True"
+                           TextWrapping="Wrap" />
+                </StackPanel>
+              </Border>
+            </StackPanel>
+          </Border>
+
+          <Border Grid.Column="1" Classes="panel" Margin="18,0,0,0">
+            <ScrollViewer VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollBarVisibility="Disabled">
+              <StackPanel Spacing="12"
+                          HorizontalAlignment="Stretch">
+                <TextBlock Classes="section" Text="Settings" />
+                <Grid ColumnDefinitions="*,*">
+                  <TextBlock Text="Layout preset"
+                             VerticalAlignment="Center" />
+                  <ComboBox x:Name="LayoutPresetCombo"
+                            Grid.Column="1"
+                            Margin="12,0,0,0"
+                            HorizontalAlignment="Stretch" />
+                </Grid>
+                <Expander Header="Column Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <Grid Margin="0,10,0,0"
+                        HorizontalAlignment="Stretch"
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Grid.Row="0"
+                               Margin="0,8,0,0"
+                               Text="Edit Column"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="ColumnLayoutColumnCombo"
+                              Grid.Row="0"
+                              Grid.Column="1"
+                              Margin="12,8,0,0"
+                              HorizontalAlignment="Stretch" />
+
+                  <TextBlock Grid.Row="1"
+                             Margin="0,8,0,0"
+                             Text="Column Spacing (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="KeyPaddingBox"
+                           Grid.Row="1"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="2"
+                             Margin="0,8,0,0"
+                             Text="Column Scale X (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleXBox"
+                           Grid.Row="2"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="3"
+                             Margin="0,8,0,0"
+                             Text="Column Scale Y (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnScaleYBox"
+                           Grid.Row="3"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="4"
+                             Margin="0,8,0,0"
+                             Text="Column X (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetXBox"
+                           Grid.Row="4"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="5"
+                             Margin="0,8,0,0"
+                             Text="Column Y (%)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnOffsetYBox"
+                           Grid.Row="5"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <TextBlock Grid.Row="6"
+                             Margin="0,8,0,0"
+                             Text="Rotation (0-360 deg)"
+                             VerticalAlignment="Center" />
+                  <TextBox x:Name="ColumnRotationBox"
+                           Grid.Row="6"
+                           Grid.Column="1"
+                           Margin="12,8,0,0" />
+
+                  <Grid Grid.Row="7"
+                        Grid.ColumnSpan="2"
+                        Margin="0,12,0,0"
+                        ColumnDefinitions="*,*">
+                    <Button x:Name="MxSpacingButton"
+                            Classes="outlineActionButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="mx size" />
+                    <Button x:Name="ChocSpacingButton"
+                            Grid.Column="1"
+                            Classes="outlineActionButton"
+                            Margin="8,0,0,0"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="choc size" />
+                  </Grid>
+
+                  <Grid Grid.Row="8"
+                        Grid.ColumnSpan="2"
+                        Margin="0,10,0,0"
+                        ColumnDefinitions="*,*">
+                    <Button x:Name="ColumnAutoSplayButton"
+                            Classes="outlineActionButton"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="Auto Splay (4+ Fingers)" />
+                    <Button x:Name="ColumnEvenSpaceButton"
+                            Grid.Column="1"
+                            Classes="outlineActionButton"
+                            Margin="8,0,0,0"
+                            HorizontalAlignment="Stretch"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Content="e v e n s p a c i n g" />
+                  </Grid>
+                  </Grid>
+                </Expander>
+                <Expander x:Name="KeymapTuningExpander"
+                          Header="Keymap Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <StackPanel Margin="0,10,0,0"
+                              Spacing="10"
+                              HorizontalAlignment="Stretch">
+                    <Grid HorizontalAlignment="Stretch"
+                          ColumnDefinitions="*,*"
+                          RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto">
+                      <TextBlock x:Name="KeymapSelectionText"
+                                 Grid.ColumnSpan="2"
+                                 IsVisible="False"
+                                 Text="Selection: none" />
+
+                    <TextBlock Grid.Row="1"
+                               Text="Layer"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="KeymapLayerCombo"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Margin="12,0,0,0"
+                              MinWidth="110"
+                              HorizontalAlignment="Stretch" />
+
+                    <TextBlock Grid.Row="2"
+                               Text="Primary Action"
+                               Margin="0,8,0,0"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="KeymapPrimaryCombo"
+                              Grid.Row="2"
+                              Grid.Column="1"
+                              Margin="12,8,0,0"
+                              HorizontalAlignment="Stretch" />
+
+                    <TextBlock Grid.Row="3"
+                               Text="Hold Action (optional)"
+                               Margin="0,8,0,0"
+                               VerticalAlignment="Center" />
+                    <ComboBox x:Name="KeymapHoldCombo"
+                              Grid.Row="3"
+                              Grid.Column="1"
+                              Margin="12,8,0,0"
+                              HorizontalAlignment="Stretch" />
+
+                    <TextBlock Grid.Row="4"
+                               Text="Key Rotation (deg)"
+                               Margin="0,8,0,0"
+                               VerticalAlignment="Center" />
+                    <TextBox x:Name="KeyRotationBox"
+                             Grid.Row="4"
+                             Grid.Column="1"
+                             Margin="12,8,0,0" />
+
+                    <Separator Grid.Row="5"
+                               Grid.ColumnSpan="2"
+                               Margin="0,8,0,2" />
+                    </Grid>
+
+                    <Border Background="#23303A"
+                            BorderBrush="#425866"
+                            BorderThickness="1"
+                            CornerRadius="10"
+                            Padding="12">
+                      <StackPanel Spacing="8">
+                        <TextBlock Text="Shortcut Builder"
+                                   Foreground="#F7F2EA"
+                                   FontSize="12"
+                                   FontWeight="SemiBold" />
+                        <TextBlock x:Name="GestureShortcutTargetText"
+                                   Text=""
+                                   Foreground="#D9C7B5"
+                                   FontSize="11"
+                                   TextWrapping="Wrap"
+                                   IsVisible="False" />
+                        <Grid ColumnDefinitions="*,*">
+                          <RadioButton x:Name="ShortcutTargetPrimaryRadio"
+                                       Classes="shortcutTargetRadio"
+                                       GroupName="ShortcutTarget"
+                                       Content="Primary"
+                                       IsChecked="True"
+                                       Margin="0,0,8,0" />
+                          <RadioButton x:Name="ShortcutTargetHoldRadio"
+                                       Grid.Column="1"
+                                       Classes="shortcutTargetRadio"
+                                       GroupName="ShortcutTarget"
+                                       Content="Hold" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*,*,*">
+                          <Grid ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutCtrlToggle"
+                                          Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
+                                          Content="Ctrl" />
+                            <Button x:Name="GestureShortcutCtrlPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="1"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutShiftToggle"
+                                          Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
+                                          Content="Shift" />
+                            <Button x:Name="GestureShortcutShiftPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="2"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutAltToggle"
+                                          Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
+                                          Content="Alt" />
+                            <Button x:Name="GestureShortcutAltPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                          <Grid Grid.Column="3"
+                                Margin="8,0,0,0"
+                                ColumnDefinitions="*,Auto">
+                            <ToggleButton x:Name="GestureShortcutWinToggle"
+                                          Classes="shortcutModifierToggle"
+                                          HorizontalAlignment="Stretch"
+                                          Content="Super" />
+                            <Button x:Name="GestureShortcutWinPickerButton"
+                                    Grid.Column="1"
+                                    Margin="6,0,0,0"
+                                    Classes="shortcutModifierPicker"
+                                    Content="v" />
+                          </Grid>
+                        </Grid>
+                        <TextBlock Text="Click a pill to toggle its generic modifier. Use v to choose left or right."
+                                   Foreground="#D9C7B5"
+                                   FontSize="11"
+                                   FontStyle="Italic"
+                                   TextAlignment="Center"
+                                   TextWrapping="Wrap" />
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <TextBlock Text="Key"
+                                     Classes="shortcutFieldLabel"
+                                     VerticalAlignment="Center" />
+                          <ComboBox x:Name="GestureShortcutKeyCombo"
+                                    Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    HorizontalAlignment="Stretch" />
+                          <Button x:Name="GestureShortcutApplyButton"
+                                  Classes="outlineActionButton shortcutApplyButton"
+                                  Grid.Column="2"
+                                  Margin="8,0,0,0"
+                                  Content="Apply" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                          <TextBlock Text="App"
+                                     Classes="shortcutFieldLabel"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="AppLauncherFileBox"
+                                   Grid.Column="1"
+                                   Margin="8,0,0,0"
+                                   HorizontalAlignment="Stretch"
+                                   Watermark="Executable, desktop entry, or URL" />
+                          <Button x:Name="AppLauncherBrowseButton"
+                                  Classes="outlineActionButton"
+                                  Grid.Column="2"
+                                  Margin="8,0,0,0"
+                                  Content="Browse" />
+                        </Grid>
+                        <TextBlock x:Name="GestureShortcutPreviewText"
+                                   Text="Shortcut: none"
+                                   Foreground="#F7F2EA"
+                                   FontSize="11" />
+                      </StackPanel>
+                    </Border>
+
+                    <Expander x:Name="CustomButtonsExpander"
+                              IsExpanded="False"
+                              HorizontalAlignment="Stretch"
+                              HorizontalContentAlignment="Stretch">
+                      <Expander.Header>
+                        <Border Margin="10,0,0,0"
+                                Padding="8,2"
+                                CornerRadius="6"
+                                Background="#1A8FB6CF"
+                                BorderBrush="#2F4251"
+                                BorderThickness="1">
+                          <TextBlock Text="Custom Buttons"
+                                     Foreground="#8FB6CF"
+                                     FontSize="12"
+                                     FontWeight="SemiBold" />
+                        </Border>
+                      </Expander.Header>
+                      <StackPanel Margin="0,10,0,0"
+                                  Spacing="8"
+                                  HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="*,*">
+                          <Button x:Name="CustomButtonAddLeftButton"
+                                  Classes="outlineActionButton"
+                                  Content="Add Left" />
+                          <Button x:Name="CustomButtonAddRightButton"
+                                  Grid.Column="1"
+                                  Classes="outlineActionButton"
+                                  Margin="8,0,0,0"
+                                  Content="Add Right" />
+                        </Grid>
+
+                        <Grid x:Name="CustomButtonGeometryGrid"
+                              ColumnDefinitions="*,*"
+                              RowDefinitions="Auto,Auto,Auto,Auto">
+                          <TextBlock Text="Custom X (%)"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="CustomButtonXBox"
+                                   Grid.Column="1"
+                                   Margin="12,0,0,0" />
+
+                          <TextBlock Grid.Row="1"
+                                     Margin="0,8,0,0"
+                                     Text="Custom Y (%)"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="CustomButtonYBox"
+                                   Grid.Row="1"
+                                   Grid.Column="1"
+                                   Margin="12,8,0,0" />
+
+                          <TextBlock Grid.Row="2"
+                                     Margin="0,8,0,0"
+                                     Text="Custom Width (%)"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="CustomButtonWidthBox"
+                                   Grid.Row="2"
+                                   Grid.Column="1"
+                                   Margin="12,8,0,0" />
+
+                          <TextBlock Grid.Row="3"
+                                     Margin="0,8,0,0"
+                                     Text="Custom Height (%)"
+                                     VerticalAlignment="Center" />
+                          <TextBox x:Name="CustomButtonHeightBox"
+                                   Grid.Row="3"
+                                   Grid.Column="1"
+                                   Margin="12,8,0,0" />
+                        </Grid>
+
+                        <Button x:Name="CustomButtonDeleteButton"
+                                Classes="outlineActionButton"
+                                HorizontalAlignment="Stretch"
+                                Content="Delete Selected" />
+                      </StackPanel>
+                    </Expander>
+                  </StackPanel>
+                </Expander>
+                <Expander Header="Typing Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <StackPanel x:Name="TypingTuningPanel"
+                              Margin="0,10,0,0"
+                              Spacing="8"
+                              HorizontalAlignment="Stretch" />
+                </Expander>
+                <Expander Header="Gesture Tuning"
+                          IsExpanded="False"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <StackPanel x:Name="GestureSectionsPanel"
+                              Margin="0,10,0,0"
+                              Spacing="8"
+                              HorizontalAlignment="Stretch" />
+                </Expander>
+                <Expander Header="Mode Toggles"
+                          IsExpanded="True"
+                          HorizontalAlignment="Stretch"
+                          HorizontalContentAlignment="Stretch">
+                  <Grid Margin="0,10,0,0"
+                        ColumnDefinitions="*,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto">
+                    <CheckBox x:Name="RunAtStartupCheck"
+                              Content="Run at Linux Startup" />
+                    <CheckBox x:Name="KeyboardModeCheck"
+                              Grid.Column="1"
+                              Margin="16,0,0,0"
+                              Content="Keyboard/Mouse" />
+                    <CheckBox x:Name="StartInTrayOnLaunchCheck"
+                              Grid.Row="1"
+                              Margin="0,8,0,0"
+                              Content="Start in tray on launch" />
+                    <CheckBox x:Name="HoldRepeatModeCheck"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Margin="16,8,0,0"
+                              Content="Hold Repeat" />
+                    <CheckBox x:Name="ThreeFingerDragModeCheck"
+                              Grid.Row="2"
+                              Margin="0,8,0,0"
+                              Content="3-Finger Drag" />
+                    <CheckBox x:Name="SnapRadiusModeCheck"
+                              Grid.Row="2"
+                              Grid.Column="1"
+                              Margin="16,8,0,0"
+                              Content="Snap Radius" />
+                    <CheckBox x:Name="AutocorrectModeCheck"
+                              Grid.Row="3"
+                              Margin="0,8,0,0"
+                              Content="Autocorrect" />
+                  </Grid>
+                </Expander>
+                <Border x:Name="AutocorrectStatusBorder"
+                        IsVisible="False"
+                        Background="#FFF6ED"
+                        BorderBrush="#D9C7B5"
+                        BorderThickness="1"
+                        CornerRadius="12"
+                        Padding="12"
+                        Margin="0,2,0,0">
+                  <StackPanel Spacing="8">
+                    <TextBlock Text="Autocorrect Status"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               Foreground="#5A4032" />
+                    <TextBlock x:Name="AutocorrectRuntimeStateText"
+                               FontSize="11"
+                               Foreground="#7A5C4A"
+                               TextWrapping="Wrap"
+                               Text="Waiting for the Linux runtime." />
+
+                  <Grid ColumnDefinitions="Auto,*"
+                        RowDefinitions="Auto,Auto,Auto,Auto,Auto">
+                    <TextBlock Text="Last corrected"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectLastCorrectedValueText"
+                               Grid.Column="1"
+                               Margin="12,0,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="1"
+                               Text="Current buffer"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectCurrentBufferValueText"
+                               Grid.Row="1"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="2"
+                               Text="Skip reason"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectSkipReasonValueText"
+                               Grid.Row="2"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="3"
+                               Text="Reset source"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectResetSourceValueText"
+                               Grid.Row="3"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+
+                    <TextBlock Grid.Row="4"
+                               Text="Recent words"
+                               Margin="0,4,0,0"
+                               FontSize="11"
+                               Foreground="#7A5C4A" />
+                    <TextBlock x:Name="AutocorrectWordHistoryValueText"
+                               Grid.Row="4"
+                               Grid.Column="1"
+                               Margin="12,4,0,0"
+                               FontSize="11"
+                               Foreground="#1E2328"
+                               Text="n/a"
+                               TextWrapping="Wrap" />
+                  </Grid>
+
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="Blacklist words (comma/newline)"
+                                 FontSize="11"
+                                 Foreground="#7A5C4A" />
+                      <TextBox x:Name="AutocorrectBlacklistBox"
+                               Height="56"
+                               AcceptsReturn="True"
+                               TextWrapping="Wrap" />
+                    </StackPanel>
+
+                    <StackPanel Spacing="4">
+                      <TextBlock Text="Always-correct map (wrong=right, comma/newline)"
+                                 FontSize="11"
+                                 Foreground="#7A5C4A" />
+                      <TextBox x:Name="AutocorrectOverridesBox"
+                               Height="64"
+                               AcceptsReturn="True"
+                               TextWrapping="Wrap" />
+                    </StackPanel>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </ScrollViewer>
+          </Border>
+        </Grid>
+    </Grid>
+
+    <Border x:Name="NoticeOverlay"
+            Grid.RowSpan="2"
+            IsVisible="False"
+            Background="#660C0F12">
+      <Grid HorizontalAlignment="Center"
+            VerticalAlignment="Center">
+        <Border Background="#FFF9F1"
+                BorderBrush="#D9C7B5"
+                BorderThickness="1"
+                CornerRadius="14"
+                Padding="18"
+                Width="620"
+                MaxWidth="620">
+          <StackPanel Spacing="14">
+            <TextBlock x:Name="NoticeTitleText"
+                       FontSize="18"
+                       FontWeight="SemiBold"
+                       Foreground="#1E2328" />
+            <TextBlock x:Name="NoticeMessageText"
+                       TextWrapping="Wrap"
+                       Foreground="#1E2328" />
+            <Button x:Name="NoticeCloseButton"
+                    HorizontalAlignment="Right"
+                    Classes="action"
+                    Content="Close" />
+          </StackPanel>
+        </Border>
+      </Grid>
+    </Border>
+  </Grid>
+</Window>

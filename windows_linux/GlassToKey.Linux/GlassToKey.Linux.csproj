@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>latest</LangVersion>
+    <EnableSharedPortReferences>true</EnableSharedPortReferences>
+    <RuntimeIdentifiers>linux-x64;linux-arm64</RuntimeIdentifiers>
+    <DefaultItemExcludes>$(DefaultItemExcludes);Host/**;Platform/**;Gui/**;packaging/**</DefaultItemExcludes>
+  </PropertyGroup>
+  <ItemGroup Condition="'$(EnableSharedPortReferences)' == 'true'">
+    <ProjectReference Include="..\GlassToKey.Core\GlassToKey.Core.csproj" />
+    <ProjectReference Include="Platform\GlassToKey.Platform.Linux.csproj" />
+    <ProjectReference Include="Host\GlassToKey.Linux.Host.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Update="GLASSTOKEY_DEFAULT_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+    <None Update="MY_KEYMAP.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
+      <ExcludeFromSingleFile>true</ExcludeFromSingleFile>
+    </None>
+  </ItemGroup>
+</Project>

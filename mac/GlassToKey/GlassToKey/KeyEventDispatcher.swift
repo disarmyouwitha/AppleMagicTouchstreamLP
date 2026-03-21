@@ -1,0 +1,799 @@
+import AppKit
+import Carbon
+import CoreGraphics
+import Foundation
+import OpenMultitouchSupport
+import os
+
+final class KeyEventDispatcher: @unchecked Sendable {
+    static let shared = KeyEventDispatcher()
+
+    enum SystemKey: Sendable {
+        case volumeUp
+        case volumeDown
+        case brightnessUp
+        case brightnessDown
+
+        var keyType: Int32 {
+            switch self {
+            case .volumeUp:
+                return 0
+            case .volumeDown:
+                return 1
+            case .brightnessUp:
+                return 2
+            case .brightnessDown:
+                return 3
+            }
+        }
+    }
+
+    private let dispatcher: KeyDispatching
+
+    private init() {
+        dispatcher = CGEventKeyDispatcher()
+    }
+
+    func postKeyStroke(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        dispatcher.postKeyStroke(code: code, flags: flags, altAscii: altAscii, token: token)
+    }
+
+    func postKeyStrokeImmediate(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        dispatcher.postKeyStrokeImmediate(code: code, flags: flags, altAscii: altAscii, token: token)
+    }
+
+    func postKey(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        dispatcher.postKey(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii, token: token)
+    }
+
+    func postKeyImmediate(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        dispatcher.postKeyImmediate(
+            code: code,
+            flags: flags,
+            keyDown: keyDown,
+            altAscii: altAscii,
+            token: token
+        )
+    }
+
+    func postLeftClick(clickCount: Int = 1) {
+        dispatcher.postLeftClick(clickCount: clickCount)
+    }
+
+    func postLeftClickImmediate(clickCount: Int = 1) {
+        dispatcher.postLeftClickImmediate(clickCount: clickCount)
+    }
+
+    func postRightClick() {
+        dispatcher.postRightClick()
+    }
+
+    func postRightClickImmediate() {
+        dispatcher.postRightClickImmediate()
+    }
+
+    func postMiddleClick() {
+        dispatcher.postMiddleClick()
+    }
+
+    func postMiddleClickImmediate() {
+        dispatcher.postMiddleClickImmediate()
+    }
+
+    func postText(_ text: String) {
+        dispatcher.postText(text)
+    }
+
+    func postTextImmediate(_ text: String) {
+        dispatcher.postTextImmediate(text)
+    }
+
+    func postSystemKey(_ key: SystemKey) {
+        dispatcher.postSystemKey(key)
+    }
+
+    func postSystemKeyImmediate(_ key: SystemKey) {
+        dispatcher.postSystemKeyImmediate(key)
+    }
+}
+
+private protocol KeyDispatching: Sendable {
+    func postKeyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+    func postKeyStrokeImmediate(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+    func postKey(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+    func postKeyImmediate(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+    func postLeftClick(clickCount: Int)
+    func postLeftClickImmediate(clickCount: Int)
+    func postRightClick()
+    func postRightClickImmediate()
+    func postMiddleClick()
+    func postMiddleClickImmediate()
+    func postText(_ text: String)
+    func postTextImmediate(_ text: String)
+    func postSystemKey(_ key: KeyEventDispatcher.SystemKey)
+    func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey)
+}
+
+private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
+    private static let globeKeyCode = CGKeyCode(kVK_Function)
+    private static let globeModifierFlag = CGEventFlags.maskSecondaryFn
+    private static let emojiTriggerCode = CGKeyCode(kVK_Space)
+    private static let emojiTriggerFlags: CGEventFlags = [.maskCommand, .maskControl]
+    private static let mediaKeyDownState = Int32(0xA)
+    private static let mediaKeyUpState = Int32(0xB)
+    private static let mediaKeySubtype: Int16 = 8
+    private static let mediaModifierFlags = NSEvent.ModifierFlags(rawValue: 0xA00)
+
+    private let queue = DispatchQueue(
+        label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
+        qos: .userInteractive
+    )
+    private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
+
+    func postKeyStroke(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        altAscii: UInt8,
+        token: RepeatToken? = nil
+    ) {
+        queue.async { [self] in
+            postKeyStrokeImmediate(code: code, flags: flags, altAscii: altAscii, token: token)
+        }
+    }
+
+    func postKeyStrokeImmediate(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        altAscii: UInt8,
+        token: RepeatToken? = nil
+    ) {
+        guard token?.isActive ?? true else { return }
+        autoreleasepool {
+            guard token?.isActive ?? true else { return }
+            guard let source = ensureEventSource() else {
+                return
+            }
+            guard let keyDown = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: code,
+                keyDown: true
+            ),
+            let keyUp = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: code,
+                keyDown: false
+            ) else {
+                return
+            }
+            if code == Self.globeKeyCode {
+                guard let emojiDown = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: Self.emojiTriggerCode,
+                    keyDown: true
+                ),
+                let emojiUp = CGEvent(
+                    keyboardEventSource: source,
+                    virtualKey: Self.emojiTriggerCode,
+                    keyDown: false
+                ) else {
+                    return
+                }
+                AutocorrectEngine.shared.recordDispatchedKey(
+                    code: Self.emojiTriggerCode,
+                    flags: Self.emojiTriggerFlags,
+                    keyDown: true,
+                    altAscii: 0
+                )
+                emojiDown.flags = Self.emojiTriggerFlags
+                emojiUp.flags = Self.emojiTriggerFlags
+                emojiDown.post(tap: .cghidEventTap)
+                emojiUp.post(tap: .cghidEventTap)
+                return
+            }
+            AutocorrectEngine.shared.recordDispatchedKey(
+                code: code,
+                flags: resolvedFlags(for: code, flags: flags, keyDown: true),
+                keyDown: true,
+                altAscii: altAscii
+            )
+            configureKeyboardEvent(keyDown, code: code, keyDown: true, flags: flags)
+            configureKeyboardEvent(keyUp, code: code, keyDown: false, flags: flags)
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
+        }
+    }
+
+    func postKey(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool,
+        altAscii: UInt8,
+        token: RepeatToken? = nil
+    ) {
+        queue.async { [self] in
+            postKeyImmediate(
+                code: code,
+                flags: flags,
+                keyDown: keyDown,
+                altAscii: altAscii,
+                token: token
+            )
+        }
+    }
+
+    func postKeyImmediate(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool,
+        altAscii: UInt8,
+        token: RepeatToken? = nil
+    ) {
+        guard token?.isActive ?? true else { return }
+        autoreleasepool {
+            guard token?.isActive ?? true else { return }
+            guard let source = ensureEventSource() else {
+                return
+            }
+            guard let event = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: code,
+                keyDown: keyDown
+            ) else {
+                return
+            }
+            if keyDown {
+                AutocorrectEngine.shared.recordDispatchedKey(
+                    code: code,
+                    flags: resolvedFlags(for: code, flags: flags, keyDown: true),
+                    keyDown: true,
+                    altAscii: altAscii
+                )
+            }
+            configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
+            event.post(tap: .cghidEventTap)
+        }
+    }
+
+    @inline(__always)
+    private func configureKeyboardEvent(
+        _ event: CGEvent,
+        code: CGKeyCode,
+        keyDown: Bool,
+        flags: CGEventFlags
+    ) {
+        if code == Self.globeKeyCode {
+            event.type = .flagsChanged
+        }
+        event.flags = resolvedFlags(for: code, flags: flags, keyDown: keyDown)
+    }
+
+    @inline(__always)
+    private func resolvedFlags(
+        for code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool
+    ) -> CGEventFlags {
+        guard code == Self.globeKeyCode else { return flags }
+        var resolved = flags
+        if keyDown {
+            resolved.insert(Self.globeModifierFlag)
+        } else {
+            resolved.remove(Self.globeModifierFlag)
+        }
+        return resolved
+    }
+
+    func postLeftClick(clickCount: Int) {
+        queue.async { [self] in
+            postLeftClickImmediate(clickCount: clickCount)
+        }
+    }
+
+    func postLeftClickImmediate(clickCount: Int) {
+        autoreleasepool {
+            guard let source = ensureEventSource() else {
+                return
+            }
+            let location = CGEvent(source: nil)?.location ?? .zero
+            let clampedCount = max(1, clickCount)
+            var currentCount = 1
+            while currentCount <= clampedCount {
+                guard let mouseDown = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: .leftMouseDown,
+                    mouseCursorPosition: location,
+                    mouseButton: .left
+                ),
+                let mouseUp = CGEvent(
+                    mouseEventSource: source,
+                    mouseType: .leftMouseUp,
+                    mouseCursorPosition: location,
+                    mouseButton: .left
+                ) else {
+                    return
+                }
+                mouseDown.setIntegerValueField(.mouseEventClickState, value: Int64(currentCount))
+                mouseUp.setIntegerValueField(.mouseEventClickState, value: Int64(currentCount))
+                mouseDown.post(tap: .cghidEventTap)
+                mouseUp.post(tap: .cghidEventTap)
+                currentCount += 1
+            }
+        }
+    }
+
+    func postRightClick() {
+        queue.async { [self] in
+            postRightClickImmediate()
+        }
+    }
+
+    func postRightClickImmediate() {
+        autoreleasepool {
+            guard let source = ensureEventSource() else {
+                return
+            }
+            let location = CGEvent(source: nil)?.location ?? .zero
+            guard let mouseDown = CGEvent(
+                mouseEventSource: source,
+                mouseType: .rightMouseDown,
+                mouseCursorPosition: location,
+                mouseButton: .right
+            ),
+            let mouseUp = CGEvent(
+                mouseEventSource: source,
+                mouseType: .rightMouseUp,
+                mouseCursorPosition: location,
+                mouseButton: .right
+            ) else {
+                return
+            }
+            mouseDown.post(tap: .cghidEventTap)
+            mouseUp.post(tap: .cghidEventTap)
+        }
+    }
+
+    func postMiddleClick() {
+        queue.async { [self] in
+            postMiddleClickImmediate()
+        }
+    }
+
+    func postMiddleClickImmediate() {
+        autoreleasepool {
+            guard let source = ensureEventSource() else {
+                return
+            }
+            let location = CGEvent(source: nil)?.location ?? .zero
+            guard let mouseDown = CGEvent(
+                mouseEventSource: source,
+                mouseType: .otherMouseDown,
+                mouseCursorPosition: location,
+                mouseButton: .center
+            ),
+            let mouseUp = CGEvent(
+                mouseEventSource: source,
+                mouseType: .otherMouseUp,
+                mouseCursorPosition: location,
+                mouseButton: .center
+            ) else {
+                return
+            }
+            mouseDown.post(tap: .cghidEventTap)
+            mouseUp.post(tap: .cghidEventTap)
+        }
+    }
+
+    func postText(_ text: String) {
+        guard !text.isEmpty else { return }
+        queue.async { [self] in
+            postTextImmediate(text)
+        }
+    }
+
+    func postTextImmediate(_ text: String) {
+        guard !text.isEmpty else { return }
+        autoreleasepool {
+            guard let source = ensureEventSource() else {
+                return
+            }
+            guard let keyDown = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: 0,
+                keyDown: true
+            ),
+            let keyUp = CGEvent(
+                keyboardEventSource: source,
+                virtualKey: 0,
+                keyDown: false
+            ) else {
+                return
+            }
+            let utf16 = Array(text.utf16)
+            utf16.withUnsafeBufferPointer { buffer in
+                guard let baseAddress = buffer.baseAddress else { return }
+                keyDown.keyboardSetUnicodeString(
+                    stringLength: buffer.count,
+                    unicodeString: baseAddress
+                )
+                keyUp.keyboardSetUnicodeString(
+                    stringLength: buffer.count,
+                    unicodeString: baseAddress
+                )
+            }
+            keyDown.post(tap: .cghidEventTap)
+            keyUp.post(tap: .cghidEventTap)
+        }
+    }
+
+    func postSystemKey(_ key: KeyEventDispatcher.SystemKey) {
+        queue.async { [self] in
+            postSystemKeyImmediate(key)
+        }
+    }
+
+    func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey) {
+        autoreleasepool {
+            postSystemEvent(key, keyDown: true)
+            postSystemEvent(key, keyDown: false)
+        }
+    }
+
+    @inline(__always)
+    private func postSystemEvent(
+        _ key: KeyEventDispatcher.SystemKey,
+        keyDown: Bool
+    ) {
+        let keyState = keyDown ? Self.mediaKeyDownState : Self.mediaKeyUpState
+        let data1 = Int((key.keyType << 16) | (keyState << 8))
+        guard let event = NSEvent.otherEvent(
+            with: .systemDefined,
+            location: .zero,
+            modifierFlags: Self.mediaModifierFlags,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            windowNumber: 0,
+            context: nil,
+            subtype: Self.mediaKeySubtype,
+            data1: data1,
+            data2: -1
+        )?.cgEvent else {
+            return
+        }
+        event.post(tap: .cghidEventTap)
+    }
+
+    @inline(__always)
+    private func ensureEventSource() -> CGEventSource? {
+        eventSourceLock.withLockUnchecked { source in
+            if let source {
+                return source
+            }
+            guard let created = CGEventSource(stateID: .hidSystemState) else {
+                return nil
+            }
+            source = created
+            return created
+        }
+    }
+}
+
+private final class AppLaunchDispatcher: @unchecked Sendable {
+    func open(_ actionLabel: String) {
+        guard let spec = AppLaunchActionHelper.parse(actionLabel) else { return }
+
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        process.arguments = launchArguments(for: spec)
+        try? process.run()
+    }
+
+    private func launchArguments(for spec: AppLaunchActionSpec) -> [String] {
+        var arguments = [spec.fileName]
+        let appArguments = tokenizeArguments(spec.arguments)
+        if !appArguments.isEmpty {
+            arguments.append("--args")
+            arguments.append(contentsOf: appArguments)
+        }
+        return arguments
+    }
+
+    private func tokenizeArguments(_ text: String) -> [String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [] }
+
+        var arguments: [String] = []
+        var current = ""
+        var quote: Character?
+        var escaped = false
+
+        for character in trimmed {
+            if escaped {
+                current.append(character)
+                escaped = false
+                continue
+            }
+
+            if character == "\\" {
+                escaped = true
+                continue
+            }
+
+            if let activeQuote = quote {
+                if character == activeQuote {
+                    self.flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+                    quote = nil
+                } else {
+                    current.append(character)
+                }
+                continue
+            }
+
+            if character == "\"" || character == "'" {
+                quote = character
+                continue
+            }
+
+            if character.isWhitespace {
+                flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+                continue
+            }
+
+            current.append(character)
+        }
+
+        flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
+        return arguments
+    }
+
+    private func flushCurrentArgumentIfNeeded(into arguments: inout [String], current: inout String) {
+        guard !current.isEmpty else { return }
+        arguments.append(current)
+        current.removeAll(keepingCapacity: true)
+    }
+}
+
+final class DispatchService: @unchecked Sendable {
+    struct Metrics: Sendable {
+        var queueDepth: Int = 0
+        var drops: UInt64 = 0
+    }
+
+    static let shared = DispatchService()
+
+    private static let defaultQueueCapacity = 1024
+
+    private enum Command {
+        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+        case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case appLaunch(String)
+        case leftClick(clickCount: Int)
+        case rightClick
+        case middleClick
+        case systemKey(KeyEventDispatcher.SystemKey)
+        case haptic(strength: Double, deviceID: String?)
+    }
+
+    private struct RingQueue {
+        private var storage: [Command?]
+        private(set) var head: Int = 0
+        private(set) var tail: Int = 0
+        private(set) var count: Int = 0
+
+        init(capacity: Int) {
+            storage = Array(repeating: nil, count: max(16, capacity))
+        }
+
+        mutating func enqueue(_ command: Command) -> Bool {
+            guard count < storage.count else { return false }
+            storage[tail] = command
+            tail = (tail + 1) % storage.count
+            count += 1
+            return true
+        }
+
+        mutating func dequeue() -> Command? {
+            guard count > 0, let command = storage[head] else {
+                return nil
+            }
+            storage[head] = nil
+            head = (head + 1) % storage.count
+            count -= 1
+            return command
+        }
+
+        mutating func removeAll() {
+            guard count > 0 else {
+                head = 0
+                tail = 0
+                return
+            }
+            for index in storage.indices {
+                storage[index] = nil
+            }
+            head = 0
+            tail = 0
+            count = 0
+        }
+    }
+
+    private struct State {
+        var queue = RingQueue(capacity: DispatchService.defaultQueueCapacity)
+        var isPumpScheduled = false
+        var drops: UInt64 = 0
+    }
+
+    private let keyDispatcher: KeyEventDispatcher
+    private let appLaunchDispatcher = AppLaunchDispatcher()
+    private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+    private let dispatchQueue = DispatchQueue(
+        label: "com.kyome.GlassToKey.DispatchPump",
+        qos: .userInteractive
+    )
+
+    init(keyDispatcher: KeyEventDispatcher = .shared) {
+        self.keyDispatcher = keyDispatcher
+    }
+
+    func postKeyStroke(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        enqueue(.keyStroke(code: code, flags: flags, altAscii: altAscii, token: token))
+    }
+
+    func postKey(
+        code: CGKeyCode,
+        flags: CGEventFlags,
+        keyDown: Bool,
+        altAscii: UInt8 = 0,
+        token: RepeatToken? = nil
+    ) {
+        enqueue(
+            .key(
+                code: code,
+                flags: flags,
+                keyDown: keyDown,
+                altAscii: altAscii,
+                token: token
+            )
+        )
+    }
+
+    func postAppLaunch(_ actionLabel: String) {
+        enqueue(.appLaunch(actionLabel))
+    }
+
+    func postLeftClick(clickCount: Int = 1) {
+        enqueue(.leftClick(clickCount: clickCount))
+    }
+
+    func postRightClick() {
+        enqueue(.rightClick)
+    }
+
+    func postMiddleClick() {
+        enqueue(.middleClick)
+    }
+
+    func postVolumeUp() {
+        enqueue(.systemKey(.volumeUp))
+    }
+
+    func postVolumeDown() {
+        enqueue(.systemKey(.volumeDown))
+    }
+
+    func postBrightnessUp() {
+        enqueue(.systemKey(.brightnessUp))
+    }
+
+    func postBrightnessDown() {
+        enqueue(.systemKey(.brightnessDown))
+    }
+
+    func postHaptic(strength: Double, deviceID: String?) {
+        enqueue(.haptic(strength: strength, deviceID: deviceID))
+    }
+
+    func snapshotMetrics() -> Metrics {
+        stateLock.withLockUnchecked { state in
+            Metrics(queueDepth: state.queue.count, drops: state.drops)
+        }
+    }
+
+    func clearQueue() {
+        stateLock.withLockUnchecked { state in
+            state.queue.removeAll()
+        }
+    }
+
+    private func enqueue(_ command: Command) {
+        var shouldSchedulePump = false
+        stateLock.withLockUnchecked { state in
+            guard state.queue.enqueue(command) else {
+                state.drops &+= 1
+                return
+            }
+            if !state.isPumpScheduled {
+                state.isPumpScheduled = true
+                shouldSchedulePump = true
+            }
+        }
+
+        guard shouldSchedulePump else { return }
+        dispatchQueue.async { [weak self] in
+            self?.drainQueue()
+        }
+    }
+
+    private func drainQueue() {
+        while let command = popNextCommand() {
+            dispatch(command)
+        }
+    }
+
+    private func popNextCommand() -> Command? {
+        stateLock.withLockUnchecked { state in
+            guard let command = state.queue.dequeue() else {
+                state.isPumpScheduled = false
+                return nil
+            }
+            return command
+        }
+    }
+
+    private func dispatch(_ command: Command) {
+        switch command {
+        case let .keyStroke(code, flags, altAscii, token):
+            keyDispatcher.postKeyStrokeImmediate(
+                code: code,
+                flags: flags,
+                altAscii: altAscii,
+                token: token
+            )
+        case let .key(code, flags, keyDown, altAscii, token):
+            keyDispatcher.postKeyImmediate(
+                code: code,
+                flags: flags,
+                keyDown: keyDown,
+                altAscii: altAscii,
+                token: token
+            )
+        case let .appLaunch(actionLabel):
+            appLaunchDispatcher.open(actionLabel)
+        case let .leftClick(clickCount):
+            keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
+        case .rightClick:
+            keyDispatcher.postRightClickImmediate()
+        case .middleClick:
+            keyDispatcher.postMiddleClickImmediate()
+        case let .systemKey(key):
+            keyDispatcher.postSystemKeyImmediate(key)
+        case let .haptic(strength, deviceID):
+            _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
+        }
+    }
+}

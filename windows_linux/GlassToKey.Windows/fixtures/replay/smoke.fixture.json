@@ -1,0 +1,9 @@
+{
+  "capturePath": "smoke.atpcap",
+  "expected": {
+    "framesSeen": 2,
+    "framesParsed": 1,
+    "framesDispatched": 1,
+    "framesDropped": 1
+  }
+}
