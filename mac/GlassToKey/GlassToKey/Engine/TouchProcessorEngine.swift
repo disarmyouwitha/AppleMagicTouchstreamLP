@@ -3759,12 +3759,14 @@ actor TouchProcessorEngine {
     }
 
     private func canHoldRepeat(binding: KeyBinding) -> Bool {
-        guard holdRepeatEnabled else { return false }
         guard case let .key(code, _) = binding.action else { return false }
         if modifierKey(for: binding) != nil {
             return false
         }
-        return code != CGKeyCode(kVK_Function)
+        if code == CGKeyCode(kVK_Function) {
+            return false
+        }
+        return isContinuousKey(binding) || holdRepeatEnabled
     }
 
     private func allowsPriorityTyping(for binding: KeyBinding) -> Bool {

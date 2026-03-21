@@ -1,6 +1,5 @@
 ## TODO
-- hold repeat
-- right click bugs bc 3 finger drag, lets fix!
+- 3-Finger Hold assigned to Right-Click bugs out because of Mac's 3-finger drag.. Can I make them coexist? I am able to do it in ../windows_linux because we implemented our own 3-finger drag.. but I would like to avoid that if possible because mac already does it at the OS level!
 -------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
