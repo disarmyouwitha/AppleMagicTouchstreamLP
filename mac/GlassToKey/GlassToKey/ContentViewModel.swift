@@ -2304,9 +2304,7 @@ enum KeyActionCatalog {
                 volumeUpLabel,
                 volumeDownLabel,
                 brightnessUpLabel,
-                brightnessDownLabel,
-                brightnessScriptUpLabel,
-                brightnessScriptDownLabel
+                brightnessDownLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
