@@ -57,6 +57,7 @@ public static class RuntimeConfigurationFactory
             TopEdgeRightAction = settings.TopEdgeRightAction,
             BottomEdgeLeftAction = settings.BottomEdgeLeftAction,
             BottomEdgeRightAction = settings.BottomEdgeRightAction,
+            ThreeFingerTapAction = settings.ThreeFingerTapAction,
             ThreeFingerClickAction = settings.ThreeFingerClickAction,
             FourFingerClickAction = settings.FourFingerClickAction,
             OuterCornersAction = settings.OuterCornersAction,

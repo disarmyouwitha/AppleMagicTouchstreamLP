@@ -3319,6 +3319,41 @@ internal static class SelfTestRunner
             return false;
         }
 
+        TouchProcessorCore tapCore = TouchProcessorFactory.CreateDefault(keymap);
+        tapCore.Configure(tapCore.CurrentConfig with
+        {
+            ThreeFingerTapAction = "A"
+        });
+        using DispatchEventQueue tapQueue = new(capacity: 2048);
+        using TouchProcessorActor tapActor = new(tapCore, dispatchQueue: tapQueue);
+
+        now = 0;
+        InputFrame threeTapDown = MakeFrame(contactCount: 3, id0: 251, x0: key0X, y0: key0Y, id1: 252, x1: key1X, y1: key1Y, id2: 253, x2: key2X, y2: key2Y);
+        tapActor.Post(TrackpadSide.Left, in threeTapDown, maxX, maxY, now);
+        now += MsToTicks(70);
+        tapActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        tapActor.WaitForIdle();
+
+        int tapATaps = 0;
+        int tapUnexpectedDispatches = 0;
+        while (tapQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                tapATaps++;
+            }
+            else
+            {
+                tapUnexpectedDispatches++;
+            }
+        }
+
+        if (tapATaps != 1 || tapUnexpectedDispatches != 0)
+        {
+            failure = $"three-finger tap mismatch (aTaps={tapATaps}, unexpected={tapUnexpectedDispatches}, expected=1/0)";
+            return false;
+        }
+
         // When both 3-finger hold and 3-finger click are mapped, click path should not emit hold.
         TouchProcessorCore clickVsHoldCore = TouchProcessorFactory.CreateDefault(keymap);
         clickVsHoldCore.Configure(clickVsHoldCore.CurrentConfig with
@@ -3380,6 +3415,50 @@ internal static class SelfTestRunner
         if (clickVsHoldLeftClicks != 1 || clickVsHoldKeyTapA != 1 || clickVsHoldOtherKeyTaps != 0)
         {
             failure = $"click-vs-hold mismatch (leftClicks={clickVsHoldLeftClicks}, holdATaps={clickVsHoldKeyTapA}, otherKeyTaps={clickVsHoldOtherKeyTaps}, expected=1/1/0)";
+            return false;
+        }
+
+        TouchProcessorCore tapVsHoldCore = TouchProcessorFactory.CreateDefault(keymap);
+        tapVsHoldCore.Configure(tapVsHoldCore.CurrentConfig with
+        {
+            HoldDurationMs = 40.0,
+            ThreeFingerHoldAction = "B",
+            ThreeFingerTapAction = "A"
+        });
+        using DispatchEventQueue tapVsHoldQueue = new(capacity: 2048);
+        using TouchProcessorActor tapVsHoldActor = new(tapVsHoldCore, dispatchQueue: tapVsHoldQueue);
+
+        now = 0;
+        InputFrame threeTapHoldCandidateDown = MakeFrame(contactCount: 3, id0: 261, x0: key0X, y0: key0Y, id1: 262, x1: key1X, y1: key1Y, id2: 263, x2: key2X, y2: key2Y);
+        tapVsHoldActor.Post(TrackpadSide.Left, in threeTapHoldCandidateDown, maxX, maxY, now);
+        now += MsToTicks(150); // past hold+guard; tap intent should still suppress hold.
+        tapVsHoldActor.Post(TrackpadSide.Left, in threeTapHoldCandidateDown, maxX, maxY, now);
+        now += MsToTicks(10);
+        tapVsHoldActor.Post(TrackpadSide.Left, in allUp, maxX, maxY, now);
+        tapVsHoldActor.WaitForIdle();
+
+        int tapVsHoldATaps = 0;
+        int tapVsHoldBTaps = 0;
+        int tapVsHoldOtherDispatches = 0;
+        while (tapVsHoldQueue.TryDequeue(out DispatchEvent dispatchEvent, waitMs: 0))
+        {
+            if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x41)
+            {
+                tapVsHoldATaps++;
+            }
+            else if (dispatchEvent.Kind == DispatchEventKind.KeyTap && dispatchEvent.VirtualKey == 0x42)
+            {
+                tapVsHoldBTaps++;
+            }
+            else
+            {
+                tapVsHoldOtherDispatches++;
+            }
+        }
+
+        if (tapVsHoldATaps != 1 || tapVsHoldBTaps != 0 || tapVsHoldOtherDispatches != 0)
+        {
+            failure = $"tap-vs-hold mismatch (aTaps={tapVsHoldATaps}, bTaps={tapVsHoldBTaps}, unexpected={tapVsHoldOtherDispatches}, expected=1/0/0)";
             return false;
         }
 

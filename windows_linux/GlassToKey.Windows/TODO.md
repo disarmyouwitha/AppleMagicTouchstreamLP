@@ -1,18 +1,13 @@
 ## Current:
-`Shortcut Builder`: Add "Dropdown" radio option [Primary, Hold, Dropdown] 
-If the new option `Dropdown` is selected it should save to the User Settings, and to the keymap when imported/exported in a cross-complatible way with Linux.
-
-- Can we add `3-finger tap` Gesture? this one should be easy to differentiate between typing fast, right? (Do you need an .atpcap?). If no 3-finger tap is set, it should not try to determine if an action is a 3-finger tap, so the hot path can stay hoter if no action is set.
-- Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
+- `Click & Drag Columns` allow user to drag columns around if "edit keymap" is enabled. Show different toggles if `edit keymap` is enabled? (more consistent GUI /w mac?)
 
 
 ## TODO:
 - `Keyboard / Mouse` mode should just be about state machine
 - `Suppress Mouse in Keyboard mode` should be an OPTION *******
-- `Click & Drag Columns` allow user to drag columns around if "edit keymap" is enabled. Show different toggles if `edit keymap` is enabled? (more consistent GUI /w mac?)
 ---
-- When the config opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
-
+- Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
+- When the `config` opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 
 
 ## ICONIC:
@@ -28,6 +23,11 @@ If the new option `Dropdown` is selected it should save to the User Settings, an
 - `Gesture as a modifier state`: 5-finger hold RHS (Gesture State) + 3-finger swipe LHS moves arrow keys L/R (settable)
 - `Tune` velocity / drag cancel on windows /w codex
 - `Typing Test`: Generate random words to type? lol.
+
+
+
+
+
 
 
 

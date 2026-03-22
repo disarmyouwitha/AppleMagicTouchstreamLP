@@ -46,6 +46,7 @@
     "TopEdgeRightAction": "None",
     "BottomEdgeLeftAction": "None",
     "BottomEdgeRightAction": "None",
+    "ThreeFingerTapAction": "None",
     "ThreeFingerClickAction": "None",
     "FourFingerClickAction": "None",
     "OuterCornersAction": "None",

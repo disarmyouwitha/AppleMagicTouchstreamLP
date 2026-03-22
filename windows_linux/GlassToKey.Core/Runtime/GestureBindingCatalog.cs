@@ -69,12 +69,13 @@ public static class GestureBindingCatalog
         new GestureBindingDefinition("bottom_left_triangle", "triangles", "Bottom Left", "None"),
         new GestureBindingDefinition("bottom_right_triangle", "triangles", "Bottom Right", "None"),
 
-        new GestureBindingDefinition("three_finger_click", "clicks", "3-Finger", "None"),
-        new GestureBindingDefinition("four_finger_click", "clicks", "4-Finger", "None"),
         new GestureBindingDefinition("upper_left_corner_click", "clicks", "Top Left", "None"),
         new GestureBindingDefinition("upper_right_corner_click", "clicks", "Top Right", "None"),
         new GestureBindingDefinition("lower_left_corner_click", "clicks", "Bottom Left", "None"),
         new GestureBindingDefinition("lower_right_corner_click", "clicks", "Bottom Right", "None"),
+        new GestureBindingDefinition("three_finger_tap", "clicks", "3-Finger Tap", "None"),
+        new GestureBindingDefinition("three_finger_click", "clicks", "3-Finger Click", "None"),
+        new GestureBindingDefinition("four_finger_click", "clicks", "4-Finger Click", "None"),
 
         new GestureBindingDefinition("top_left_force_click", "force_clicks", "Top Left", "None"),
         new GestureBindingDefinition("top_right_force_click", "force_clicks", "Top Right", "None"),
@@ -311,6 +312,7 @@ public static class GestureBindingCatalog
             "top_right_triangle" => settings.TopRightTriangleAction,
             "bottom_left_triangle" => settings.BottomLeftTriangleAction,
             "bottom_right_triangle" => settings.BottomRightTriangleAction,
+            "three_finger_tap" => settings.ThreeFingerTapAction,
             "three_finger_click" => settings.ThreeFingerClickAction,
             "four_finger_click" => settings.FourFingerClickAction,
             "upper_left_corner_click" => settings.UpperLeftCornerClickAction,
@@ -440,6 +442,9 @@ public static class GestureBindingCatalog
                 return;
             case "bottom_right_triangle":
                 settings.BottomRightTriangleAction = action;
+                return;
+            case "three_finger_tap":
+                settings.ThreeFingerTapAction = action;
                 return;
             case "three_finger_click":
                 settings.ThreeFingerClickAction = action;
