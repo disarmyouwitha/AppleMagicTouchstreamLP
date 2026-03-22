@@ -4617,12 +4617,24 @@ actor TouchProcessorEngine {
         case .middleClick:
             dispatchService.postMiddleClick()
         case .volumeUp:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
             dispatchService.postVolumeUp()
         case .volumeDown:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
             dispatchService.postVolumeDown()
         case .brightnessUp:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
             dispatchService.postBrightnessUp()
         case .brightnessDown:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
             dispatchService.postBrightnessDown()
         case .voice:
             toggleVoiceDictationSession()
@@ -5396,30 +5408,14 @@ actor TouchProcessorEngine {
             initialDelay: initialDelay,
             interval: interval,
             fireInitial: {
-                switch systemKey {
-                case .volumeUp:
-                    dispatchService.postVolumeUp()
-                case .volumeDown:
-                    dispatchService.postVolumeDown()
-                case .brightnessUp:
-                    dispatchService.postBrightnessUp()
-                case .brightnessDown:
-                    dispatchService.postBrightnessDown()
-                }
+                dispatchService.postSystemKey(systemKey, keyDown: true)
             },
             fire: { _ in
-                switch systemKey {
-                case .volumeUp:
-                    dispatchService.postVolumeUp()
-                case .volumeDown:
-                    dispatchService.postVolumeDown()
-                case .brightnessUp:
-                    dispatchService.postBrightnessUp()
-                case .brightnessDown:
-                    dispatchService.postBrightnessDown()
-                }
+                dispatchService.postSystemKey(systemKey, keyDown: true)
             },
-            stop: {}
+            stop: {
+                dispatchService.postSystemKey(systemKey, keyDown: false)
+            }
         )
     }
 

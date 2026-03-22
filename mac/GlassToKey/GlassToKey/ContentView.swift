@@ -3652,14 +3652,6 @@ struct ContentView: View {
             }
         }
 
-        private var gestureSeparator: some View {
-            Rectangle()
-                .fill(Color.secondary.opacity(0.14))
-                .frame(height: 1)
-                .padding(.leading, 6)
-                .padding(.vertical, 6)
-        }
-
         private func gestureSubsectionHeader(_ title: String) -> some View {
             HStack(spacing: 8) {
                 Text(title)
@@ -3682,7 +3674,6 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
-                        gestureSeparator
                         gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerTap)
                     }
                 } label: {
@@ -3695,13 +3686,9 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("2-finger hold", selection: $twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.twoFingerHold)
-                        gestureSeparator
                         gesturePicker("3-finger hold", selection: $threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerHold)
-                        gestureSeparator
                         gesturePicker("4-finger hold", selection: $fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerHold)
-                        gestureSeparator
                         gesturePicker("Inner corners", selection: $innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel, repeatBindingId: GestureBindingID.innerCornersHold)
-                        gestureSeparator
                         gesturePicker("Outer corners", selection: $outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel, repeatBindingId: GestureBindingID.outerCornersHold)
                     }
                 } label: {
@@ -3713,20 +3700,17 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
+                        gestureSubsectionHeader("Left Side")
                         gesturePicker("Left up", selection: $leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeUp)
-                        gestureSeparator
                         gesturePicker("Left down", selection: $leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeDown)
-                        gestureSeparator
+                        gestureSubsectionHeader("Right Side")
                         gesturePicker("Right up", selection: $rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeUp)
-                        gestureSeparator
                         gesturePicker("Right down", selection: $rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeDown)
-                        gestureSeparator
+                        gestureSubsectionHeader("Top Side")
                         gesturePicker("Top left", selection: $topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeLeft)
-                        gestureSeparator
                         gesturePicker("Top right", selection: $topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeRight)
-                        gestureSeparator
+                        gestureSubsectionHeader("Bottom Side")
                         gesturePicker("Bottom left", selection: $bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeLeft)
-                        gestureSeparator
                         gesturePicker("Bottom right", selection: $bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeRight)
                     }
                 } label: {
@@ -3740,27 +3724,18 @@ struct ContentView: View {
                     VStack(alignment: .leading, spacing: 0) {
                         gestureSubsectionHeader("3-Finger")
                         gesturePicker("3-finger left", selection: $threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeLeft, disabled: systemThreeFingerDragEnabled)
-                        gestureSeparator
                         gesturePicker("3-finger right", selection: $threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeRight, disabled: systemThreeFingerDragEnabled)
-                        gestureSeparator
                         gesturePicker("3-finger up", selection: $threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeUp, disabled: systemThreeFingerDragEnabled)
-                        gestureSeparator
                         gesturePicker("3-finger down", selection: $threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeDown, disabled: systemThreeFingerDragEnabled)
                         gestureSubsectionHeader("4-Finger")
                         gesturePicker("4-finger left", selection: $fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeLeft)
-                        gestureSeparator
                         gesturePicker("4-finger right", selection: $fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeRight)
-                        gestureSeparator
                         gesturePicker("4-finger up", selection: $fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeUp)
-                        gestureSeparator
                         gesturePicker("4-finger down", selection: $fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeDown)
                         gestureSubsectionHeader("5-Finger")
                         gesturePicker("5-finger left", selection: $fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeLeft)
-                        gestureSeparator
                         gesturePicker("5-finger right", selection: $fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeRight)
-                        gestureSeparator
                         gesturePicker("5-finger up", selection: $fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeUp)
-                        gestureSeparator
                         gesturePicker("5-finger down", selection: $fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeDown)
                     }
                 } label: {
@@ -3773,11 +3748,8 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("Top Left", selection: $topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.topLeftCornerSwipe)
-                        gestureSeparator
                         gesturePicker("Top Right", selection: $topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.topRightCornerSwipe)
-                        gestureSeparator
                         gesturePicker("Bottom Left", selection: $bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftCornerSwipe)
-                        gestureSeparator
                         gesturePicker("Bottom Right", selection: $bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightCornerSwipe)
                     }
                 } label: {
@@ -3790,11 +3762,8 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("Top Left", selection: $topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topLeftTriangle)
-                        gestureSeparator
                         gesturePicker("Top Right", selection: $topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topRightTriangle)
-                        gestureSeparator
                         gesturePicker("Bottom Left", selection: $bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftTriangle)
-                        gestureSeparator
                         gesturePicker("Bottom Right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightTriangle)
                     }
                 } label: {
@@ -3807,15 +3776,10 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("Top Left", selection: $upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperLeftCornerClick)
-                        gestureSeparator
                         gesturePicker("Top Right", selection: $upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperRightCornerClick)
-                        gestureSeparator
                         gesturePicker("Bottom Left", selection: $lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerLeftCornerClick)
-                        gestureSeparator
                         gesturePicker("Bottom Right", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerRightCornerClick)
-                        gestureSeparator
                         gesturePicker("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerClick)
-                        gestureSeparator
                         gesturePicker("4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerClick)
                     }
                 } label: {
@@ -3828,11 +3792,8 @@ struct ContentView: View {
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
                         gesturePicker("Top Left", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topLeftForceClick)
-                        gestureSeparator
                         gesturePicker("Top Right", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topRightForceClick)
-                        gestureSeparator
                         gesturePicker("Bottom Left", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftForceClick)
-                        gestureSeparator
                         gesturePicker("Bottom Right", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightForceClick)
                     }
                 } label: {

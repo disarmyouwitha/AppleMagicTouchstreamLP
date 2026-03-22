@@ -1,13 +1,12 @@
 ## Current:
-- Implement (ms) repeat for Gestures, just like ../windows_linux
+- Move `Taps` into `Clicks` at the bottom, "2-Finger Tap", "3-Finger Tap"
+- - Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Click`
 - Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
----
 - Force Clicks needs a slider where you set what force is Force.
 - Force Instead of Hold
----
+------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
-- Can we make right section scrollable??
 
     
 ## TODO:
