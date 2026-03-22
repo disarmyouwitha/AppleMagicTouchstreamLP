@@ -75,6 +75,77 @@ enum GlassToKeySettings {
     }
 }
 
+enum SystemThreeFingerDragDetector {
+    enum Status {
+        case enabled
+        case disabled
+        case unknown
+
+        var isEnabled: Bool {
+            switch self {
+            case .enabled:
+                return true
+            case .disabled, .unknown:
+                return false
+            }
+        }
+    }
+
+    static func detectedStatus() -> Status {
+        let candidates: [Bool?] = [
+            readPreferenceBool(
+                key: "com.apple.trackpad.threeFingerDragGesture",
+                applicationID: kCFPreferencesAnyApplication,
+                host: kCFPreferencesCurrentHost
+            ),
+            readPreferenceBool(
+                key: "TrackpadThreeFingerDrag",
+                applicationID: "com.apple.driver.AppleBluetoothMultitouch.trackpad" as CFString
+            ),
+            readPreferenceBool(
+                key: "TrackpadThreeFingerDrag",
+                applicationID: "com.apple.AppleMultitouchTrackpad" as CFString
+            )
+        ]
+
+        for value in candidates {
+            guard let value else { continue }
+            return value ? .enabled : .disabled
+        }
+        return .unknown
+    }
+
+    private static func readPreferenceBool(
+        key: String,
+        applicationID: CFString,
+        host: CFString = kCFPreferencesAnyHost
+    ) -> Bool? {
+        guard let value = CFPreferencesCopyValue(
+            key as CFString,
+            applicationID,
+            kCFPreferencesCurrentUser,
+            host
+        ) else {
+            return nil
+        }
+
+        if let number = value as? NSNumber {
+            return number.boolValue
+        }
+        if let text = value as? String {
+            switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
+            case "1", "true", "yes", "on":
+                return true
+            case "0", "false", "no", "off":
+                return false
+            default:
+                return nil
+            }
+        }
+        return nil
+    }
+}
+
 @MainActor
 final class GlassToKeyController: ObservableObject {
     private static let portableBundledDefaultKeys: [String] = [
@@ -583,7 +654,8 @@ final class GlassToKeyController: ObservableObject {
     }
 
     private func resolvedGestureActions(from defaults: UserDefaults) -> GestureActionSet {
-        GestureActionSet(
+        let systemThreeFingerDragEnabled = SystemThreeFingerDragDetector.detectedStatus().isEnabled
+        return GestureActionSet(
             twoFingerTap: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
             threeFingerTap: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
             twoFingerHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
@@ -599,10 +671,10 @@ final class GlassToKeyController: ObservableObject {
             topEdgeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel),
             bottomEdgeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel),
             bottomEdgeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel),
-            threeFingerSwipeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel),
-            threeFingerSwipeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel),
-            threeFingerSwipeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel),
-            threeFingerSwipeDown: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel),
+            threeFingerSwipeLeft: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel),
+            threeFingerSwipeRight: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel),
+            threeFingerSwipeUp: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel),
+            threeFingerSwipeDown: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel),
             fourFingerSwipeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel),
             fourFingerSwipeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel),
             fourFingerSwipeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel),

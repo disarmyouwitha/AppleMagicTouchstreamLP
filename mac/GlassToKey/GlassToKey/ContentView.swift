@@ -77,6 +77,7 @@ struct ContentView: View {
     @State private var rightGridLabelInfo: [[GridLabel]] = []
     @State private var replayScrubValue: Double = 0
     @State private var replayScrubInProgress = false
+    @State private var systemThreeFingerDragEnabled = SystemThreeFingerDragDetector.detectedStatus().isEnabled
     @AppStorage(GlassToKeyDefaultsKeys.leftDeviceID) private var storedLeftDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.rightDeviceID) private var storedRightDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.columnSettings) private var storedColumnSettingsData = Data()
@@ -391,7 +392,19 @@ struct ContentView: View {
     }
 
     private func currentGestureActions() -> GestureActionSet {
-        GestureActionSet(
+        let resolvedThreeFingerSwipeLeft = systemThreeFingerDragEnabled
+            ? KeyActionCatalog.noneAction
+            : resolvedGestureAction(threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel)
+        let resolvedThreeFingerSwipeRight = systemThreeFingerDragEnabled
+            ? KeyActionCatalog.noneAction
+            : resolvedGestureAction(threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel)
+        let resolvedThreeFingerSwipeUp = systemThreeFingerDragEnabled
+            ? KeyActionCatalog.noneAction
+            : resolvedGestureAction(threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel)
+        let resolvedThreeFingerSwipeDown = systemThreeFingerDragEnabled
+            ? KeyActionCatalog.noneAction
+            : resolvedGestureAction(threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel)
+        return GestureActionSet(
             twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
             threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
             twoFingerHold: resolvedGestureAction(twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
@@ -407,10 +420,10 @@ struct ContentView: View {
             topEdgeRight: resolvedGestureAction(topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel),
             bottomEdgeLeft: resolvedGestureAction(bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel),
             bottomEdgeRight: resolvedGestureAction(bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel),
-            threeFingerSwipeLeft: resolvedGestureAction(threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel),
-            threeFingerSwipeRight: resolvedGestureAction(threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel),
-            threeFingerSwipeUp: resolvedGestureAction(threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel),
-            threeFingerSwipeDown: resolvedGestureAction(threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel),
+            threeFingerSwipeLeft: resolvedThreeFingerSwipeLeft,
+            threeFingerSwipeRight: resolvedThreeFingerSwipeRight,
+            threeFingerSwipeUp: resolvedThreeFingerSwipeUp,
+            threeFingerSwipeDown: resolvedThreeFingerSwipeDown,
             fourFingerSwipeLeft: resolvedGestureAction(fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel),
             fourFingerSwipeRight: resolvedGestureAction(fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel),
             fourFingerSwipeUp: resolvedGestureAction(fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel),
@@ -486,7 +499,8 @@ struct ContentView: View {
             topLeftForceClickGestureAction,
             topRightForceClickGestureAction,
             bottomLeftForceClickGestureAction,
-            bottomRightForceClickGestureAction
+            bottomRightForceClickGestureAction,
+            systemThreeFingerDragEnabled ? "1" : "0"
         ].joined(separator: "\u{1F}")
     }
 
@@ -944,6 +958,7 @@ struct ContentView: View {
             bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
             bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
             autoResyncEnabled: $storedAutoResyncMissingTrackpads,
+            systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled,
             onAddCustomButton: { side in
                 addCustomButton(side: side)
             },
@@ -1375,6 +1390,7 @@ struct ContentView: View {
         @Binding var bottomLeftForceClickGestureAction: String
         @Binding var bottomRightForceClickGestureAction: String
         @Binding var autoResyncEnabled: Bool
+        @Binding var systemThreeFingerDragEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
@@ -1491,7 +1507,8 @@ struct ContentView: View {
                                 topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
                                 topRightForceClickGestureAction: $topRightForceClickGestureAction,
                                 bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
-                                bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction
+                                bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
+                                systemThreeFingerDragEnabled: systemThreeFingerDragEnabled
                             )
                         } label: {
                             Text("Gesture Tuning")
@@ -1513,7 +1530,8 @@ struct ContentView: View {
                                 keyboardModeEnabled: $keyboardModeEnabled,
                                 holdRepeatEnabled: $holdRepeatEnabled,
                                 runAtStartupEnabled: $runAtStartupEnabled,
-                                autoResyncEnabled: $autoResyncEnabled
+                                autoResyncEnabled: $autoResyncEnabled,
+                                systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled
                             )
                         } label: {
                             Text("Mode Toggles")
@@ -2770,24 +2788,10 @@ struct ContentView: View {
         @Binding var holdRepeatEnabled: Bool
         @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
-        @State private var threeFingerDragStatus: ThreeFingerDragStatus = .unknown
+        @Binding var systemThreeFingerDragEnabled: Bool
+        @State private var threeFingerDragStatus: SystemThreeFingerDragDetector.Status = .unknown
 
         private let labelWidth: CGFloat = 140
-
-        private enum ThreeFingerDragStatus {
-            case enabled
-            case disabled
-            case unknown
-
-            var isEnabled: Bool {
-                switch self {
-                case .enabled:
-                    return true
-                case .disabled, .unknown:
-                    return false
-                }
-            }
-        }
 
         private var snapRadiusEnabledBinding: Binding<Bool> {
             Binding(
@@ -2857,61 +2861,9 @@ struct ContentView: View {
         }
 
         private func refreshThreeFingerDragStatus() {
-            threeFingerDragStatus = Self.detectedThreeFingerDragStatus()
-        }
-
-        private static func detectedThreeFingerDragStatus() -> ThreeFingerDragStatus {
-            let candidates: [Bool?] = [
-                readPreferenceBool(
-                    key: "com.apple.trackpad.threeFingerDragGesture",
-                    applicationID: kCFPreferencesAnyApplication,
-                    host: kCFPreferencesCurrentHost
-                ),
-                readPreferenceBool(
-                    key: "TrackpadThreeFingerDrag",
-                    applicationID: "com.apple.driver.AppleBluetoothMultitouch.trackpad" as CFString
-                ),
-                readPreferenceBool(
-                    key: "TrackpadThreeFingerDrag",
-                    applicationID: "com.apple.AppleMultitouchTrackpad" as CFString
-                )
-            ]
-
-            for value in candidates {
-                guard let value else { continue }
-                return value ? .enabled : .disabled
-            }
-            return .unknown
-        }
-
-        private static func readPreferenceBool(
-            key: String,
-            applicationID: CFString,
-            host: CFString = kCFPreferencesAnyHost
-        ) -> Bool? {
-            guard let value = CFPreferencesCopyValue(
-                key as CFString,
-                applicationID,
-                kCFPreferencesCurrentUser,
-                host
-            ) else {
-                return nil
-            }
-
-            if let number = value as? NSNumber {
-                return number.boolValue
-            }
-            if let text = value as? String {
-                switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-                case "1", "true", "yes", "on":
-                    return true
-                case "0", "false", "no", "off":
-                    return false
-                default:
-                    return nil
-                }
-            }
-            return nil
+            let status = SystemThreeFingerDragDetector.detectedStatus()
+            threeFingerDragStatus = status
+            systemThreeFingerDragEnabled = status.isEnabled
         }
 
         var body: some View {
@@ -3256,6 +3208,7 @@ struct ContentView: View {
         @Binding var topRightForceClickGestureAction: String
         @Binding var bottomLeftForceClickGestureAction: String
         @Binding var bottomRightForceClickGestureAction: String
+        let systemThreeFingerDragEnabled: Bool
         @State private var tapsExpanded = false
         @State private var holdsExpanded = true
         @State private var edgesExpanded = false
@@ -3283,7 +3236,8 @@ struct ContentView: View {
         private func gesturePicker(
             _ title: String,
             selection: Binding<String>,
-            fallbackLabel: String
+            fallbackLabel: String,
+            disabled: Bool = false
         ) -> some View {
             EqualSplitFormRow {
                 Text(title)
@@ -3306,6 +3260,8 @@ struct ContentView: View {
                 .pickerStyle(MenuPickerStyle())
                 .labelsHidden()
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .disabled(disabled)
+                .help(disabled ? "Disabled while macOS Three Finger Drag is enabled." : "")
             }
         }
 
@@ -3314,21 +3270,25 @@ struct ContentView: View {
             _ firstTitle: String,
             selection firstSelection: Binding<String>,
             fallbackLabel firstFallbackLabel: String,
+            disabled firstDisabled: Bool = false,
             _ secondTitle: String? = nil,
             selection secondSelection: Binding<String>? = nil,
-            fallbackLabel secondFallbackLabel: String? = nil
+            fallbackLabel secondFallbackLabel: String? = nil,
+            disabled secondDisabled: Bool = false
         ) -> some View {
             GridRow {
                 gesturePicker(
                     firstTitle,
                     selection: firstSelection,
-                    fallbackLabel: firstFallbackLabel
+                    fallbackLabel: firstFallbackLabel,
+                    disabled: firstDisabled
                 )
                 if let secondTitle, let secondSelection, let secondFallbackLabel {
                     gesturePicker(
                         secondTitle,
                         selection: secondSelection,
-                        fallbackLabel: secondFallbackLabel
+                        fallbackLabel: secondFallbackLabel,
+                        disabled: secondDisabled
                     )
                 }
             }
@@ -3382,8 +3342,8 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                        gestureGridRow("3-finger left", selection: $threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel, "3-finger right", selection: $threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel)
-                        gestureGridRow("3-finger up", selection: $threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel, "3-finger down", selection: $threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel)
+                        gestureGridRow("3-finger left", selection: $threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel, disabled: systemThreeFingerDragEnabled, "3-finger right", selection: $threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel, disabled: systemThreeFingerDragEnabled)
+                        gestureGridRow("3-finger up", selection: $threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel, disabled: systemThreeFingerDragEnabled, "3-finger down", selection: $threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel, disabled: systemThreeFingerDragEnabled)
                         gestureGridRow("4-finger left", selection: $fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel, "4-finger right", selection: $fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel)
                         gestureGridRow("4-finger up", selection: $fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel, "4-finger down", selection: $fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel)
                         gestureGridRow("5-finger left", selection: $fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel, "5-finger right", selection: $fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel)
