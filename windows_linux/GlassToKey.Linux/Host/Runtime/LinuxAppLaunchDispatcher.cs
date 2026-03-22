@@ -10,6 +10,7 @@ namespace GlassToKey.Linux.Runtime;
 
 internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatcherDiagnosticsProvider, IAutocorrectController, IThreeFingerDragSink
 {
+    private const int BrightnessRepeatCapacity = 16;
     private const string EmojiActionLabel = "EMOJI";
     private const string BrightnessUpActionLabel = "BRIGHT_UP";
     private const string BrightnessDownActionLabel = "BRIGHT_DOWN";
@@ -44,6 +45,8 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     ];
 
     private readonly LinuxUinputDispatcher _inner;
+    private readonly object _brightnessRepeatGate = new();
+    private readonly BrightnessRepeatEntry[] _brightnessRepeatEntries = new BrightnessRepeatEntry[BrightnessRepeatCapacity];
     private int _emojiPickerActive;
 
     public LinuxAppLaunchDispatcher(LinuxUinputDispatcher inner)
@@ -78,6 +81,7 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
     public void Tick(long nowTicks)
     {
         _inner.Tick(nowTicks);
+        ProcessBrightnessRepeats(nowTicks);
     }
 
     public void Dispose()
@@ -127,11 +131,6 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
 
     private void HandleBrightnessDispatch(in DispatchEvent dispatchEvent, double brightnessDelta, bool forceFallback)
     {
-        if (dispatchEvent.Kind != DispatchEventKind.KeyTap)
-        {
-            return;
-        }
-
         if (!forceFallback)
         {
             if (LinuxBrightnessController.ShouldUseNativeBrightnessPath())
@@ -142,6 +141,34 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
             return;
         }
 
+        switch (dispatchEvent.Kind)
+        {
+            case DispatchEventKind.KeyTap:
+                QueueBrightnessAdjustment(brightnessDelta);
+                return;
+            case DispatchEventKind.KeyDown:
+                if ((dispatchEvent.Flags & DispatchEventFlags.Repeatable) != 0 &&
+                    dispatchEvent.RepeatToken != 0)
+                {
+                    ScheduleBrightnessRepeat(dispatchEvent.RepeatToken, brightnessDelta, dispatchEvent.TimestampTicks, dispatchEvent.RepeatProfile);
+                }
+
+                QueueBrightnessAdjustment(brightnessDelta);
+                return;
+            case DispatchEventKind.KeyUp:
+                if (dispatchEvent.RepeatToken != 0)
+                {
+                    CancelBrightnessRepeat(dispatchEvent.RepeatToken);
+                }
+
+                return;
+            default:
+                return;
+        }
+    }
+
+    private void QueueBrightnessAdjustment(double brightnessDelta)
+    {
         if (!LinuxBrightnessController.CanUseXrandrFallback())
         {
             return;
@@ -151,6 +178,83 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
             static state => LinuxBrightnessController.AdjustBrightnessBy((double)state!),
             brightnessDelta,
             preferLocal: false);
+    }
+
+    private void ProcessBrightnessRepeats(long nowTicks)
+    {
+        if (!LinuxBrightnessController.CanUseXrandrFallback())
+        {
+            return;
+        }
+
+        lock (_brightnessRepeatGate)
+        {
+            for (int index = 0; index < _brightnessRepeatEntries.Length; index++)
+            {
+                ref BrightnessRepeatEntry entry = ref _brightnessRepeatEntries[index];
+                if (!entry.Active || nowTicks < entry.NextTick)
+                {
+                    continue;
+                }
+
+                QueueBrightnessAdjustment(entry.Delta);
+                entry.NextTick = nowTicks + entry.IntervalTicks;
+            }
+        }
+    }
+
+    private void ScheduleBrightnessRepeat(ulong token, double delta, long timestampTicks, DispatchRepeatProfile repeatProfile)
+    {
+        long initialDelayTicks = repeatProfile.GetInitialDelayTicks();
+        long intervalTicks = repeatProfile.GetIntervalTicks();
+
+        lock (_brightnessRepeatGate)
+        {
+            for (int index = 0; index < _brightnessRepeatEntries.Length; index++)
+            {
+                ref BrightnessRepeatEntry entry = ref _brightnessRepeatEntries[index];
+                if (!entry.Active || entry.Token != token)
+                {
+                    continue;
+                }
+
+                entry.Delta = delta;
+                entry.NextTick = timestampTicks + initialDelayTicks;
+                entry.IntervalTicks = intervalTicks;
+                return;
+            }
+
+            for (int index = 0; index < _brightnessRepeatEntries.Length; index++)
+            {
+                ref BrightnessRepeatEntry entry = ref _brightnessRepeatEntries[index];
+                if (entry.Active)
+                {
+                    continue;
+                }
+
+                entry.Active = true;
+                entry.Token = token;
+                entry.Delta = delta;
+                entry.NextTick = timestampTicks + initialDelayTicks;
+                entry.IntervalTicks = intervalTicks;
+                return;
+            }
+        }
+    }
+
+    private void CancelBrightnessRepeat(ulong token)
+    {
+        lock (_brightnessRepeatGate)
+        {
+            for (int index = 0; index < _brightnessRepeatEntries.Length; index++)
+            {
+                if (_brightnessRepeatEntries[index].Active && _brightnessRepeatEntries[index].Token == token)
+                {
+                    _brightnessRepeatEntries[index] = default;
+                    return;
+                }
+            }
+        }
     }
 
     private void HandleEmojiDispatch(in DispatchEvent dispatchEvent)
@@ -463,6 +567,15 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
         delta = 0;
         forceFallback = false;
         return false;
+    }
+
+    private struct BrightnessRepeatEntry
+    {
+        public bool Active;
+        public ulong Token;
+        public double Delta;
+        public long NextTick;
+        public long IntervalTicks;
     }
 
     private static void TryLaunch(AppLaunchActionSpec spec)
