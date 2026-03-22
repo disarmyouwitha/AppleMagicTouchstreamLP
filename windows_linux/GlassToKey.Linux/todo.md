@@ -1,5 +1,4 @@
 # Test Linux Restart:
-- Linux does not respect `open in tray` and always opens in fullscreen
 - Test `open after restart` in linux by restarting
 - Test typing password after restart in Linux type shit.
 - Test this again, but from headless startup (like Login from startup)
@@ -22,10 +21,16 @@
 
 # TODO:
 - Add Linux Equivalents for: `System & Media`: VOICE (or like Windows Dictation)
--`Test` 5-finger Up "D" is triggering Choral shift on it's own side?
+
+
+
+
+
+
+
+# TEST
+dotnet run --project GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release
+
 
 # NUKE
 pkill -f 'GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj'
-
-# live run
-dotnet run --project GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release
