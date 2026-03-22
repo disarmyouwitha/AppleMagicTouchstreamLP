@@ -98,7 +98,6 @@ final class TrackpadSurfaceView: NSView {
     private var leftTouches: [OMSTouchData] = []
     private var rightTouches: [OMSTouchData] = []
 
-    var editModeEnabled = false
     var selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
 
     var snapshot: TrackpadSurfaceSnapshot = .empty {
@@ -179,7 +178,6 @@ final class TrackpadSurfaceView: NSView {
     }
 
     override func mouseDown(with event: NSEvent) {
-        guard editModeEnabled else { return }
         let point = convert(event.locationInWindow, from: nil)
         guard let selectionEvent = selectionEvent(at: point) else { return }
         selectionHandler?(selectionEvent)
@@ -265,7 +263,7 @@ final class TrackpadSurfaceView: NSView {
             trackpadSize: trackpadSize
         )
         drawTouches(touches, origin: origin, trackpadSize: trackpadSize)
-        if snapshot.replayModeEnabled && !editModeEnabled,
+        if snapshot.replayModeEnabled && selectedKey == nil && selectedButtonID == nil,
            let highlightedRect = replayHitRect(
                layout: layout,
                customButtons: customButtons,
@@ -724,7 +722,6 @@ final class TrackpadSurfaceView: NSView {
 struct TrackpadSurfaceRepresentable: NSViewRepresentable {
     let snapshot: TrackpadSurfaceSnapshot
     let viewModel: ContentViewModel
-    let editModeEnabled: Bool
     let selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
 
     @MainActor
@@ -736,7 +733,6 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         private var lastTouchRevision: UInt64 = 0
         private var lastDisplayUpdateTime: TimeInterval = 0
         private var lastDisplayedHadTouches = false
-        private var editModeEnabled = false
 
         deinit {
             touchUpdateTask?.cancel()
@@ -744,11 +740,9 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
 
         func attach(
             surfaceView: TrackpadSurfaceView,
-            viewModel: ContentViewModel,
-            editModeEnabled: Bool
+            viewModel: ContentViewModel
         ) {
             self.surfaceView = surfaceView
-            self.editModeEnabled = editModeEnabled
             let viewModelChanged = self.viewModel !== viewModel
             self.viewModel = viewModel
             if viewModelChanged || touchUpdateTask == nil {
@@ -833,12 +827,10 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
         view.snapshot = snapshot
-        view.editModeEnabled = editModeEnabled
         view.selectionHandler = selectionHandler
         context.coordinator.attach(
             surfaceView: view,
-            viewModel: viewModel,
-            editModeEnabled: editModeEnabled
+            viewModel: viewModel
         )
         return view
     }
@@ -849,12 +841,10 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             nsView.setFrameSize(size)
         }
         nsView.snapshot = snapshot
-        nsView.editModeEnabled = editModeEnabled
         nsView.selectionHandler = selectionHandler
         context.coordinator.attach(
             surfaceView: nsView,
-            viewModel: viewModel,
-            editModeEnabled: editModeEnabled
+            viewModel: viewModel
         )
     }
 

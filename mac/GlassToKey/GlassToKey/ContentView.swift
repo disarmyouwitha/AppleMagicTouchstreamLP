@@ -56,7 +56,6 @@ struct ContentView: View {
     @State private var testText = ""
     @State private var autocorrectCurrentBufferText = "<empty>"
     @State private var autocorrectLastCorrectedText = "none"
-    @State private var editModeEnabled = false
     @State private var columnSettings: [ColumnLayoutSettings]
     @State private var leftLayout: ContentViewModel.Layout
     @State private var rightLayout: ContentViewModel.Layout
@@ -593,7 +592,6 @@ struct ContentView: View {
                 applySavedSettings()
                 refreshActionGroupCaches()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
-                viewModel.setKeymapEditingEnabled(editModeEnabled)
                 AutocorrectEngine.shared.setStatusUpdateHandler { snapshot in
                     DispatchQueue.main.async {
                         applyAutocorrectStatusSnapshot(snapshot)
@@ -603,14 +601,6 @@ struct ContentView: View {
             .onDisappear {
                 persistConfig()
                 AutocorrectEngine.shared.setStatusUpdateHandler(nil)
-            }
-            .onChange(of: editModeEnabled) { enabled in
-                if !enabled {
-                    selectedButtonID = nil
-                    selectedGridKey = nil
-                }
-                viewModel.setStatusVisualsEnabled(!enabled)
-                viewModel.setKeymapEditingEnabled(enabled)
             }
             .onChange(of: columnSettings) { newValue in
                 normalizeEditColumnIndex(for: newValue.count)
@@ -756,9 +746,6 @@ struct ContentView: View {
                 viewModel.setAutoResyncEnabled(newValue)
             }
             .onReceive(viewModel.$replayTimelineState) { state in
-                if state != nil, editModeEnabled {
-                    editModeEnabled = false
-                }
                 if let state, !replayScrubInProgress {
                     replayScrubValue = max(state.currentTimeSeconds, 0)
                 }
@@ -784,9 +771,7 @@ struct ContentView: View {
     @ViewBuilder
     private var headerView: some View {
         HeaderControlsView(
-            editModeEnabled: $editModeEnabled,
             statusViewModel: viewModel.statusViewModel,
-            replayModeEnabled: viewModel.replayTimelineState != nil,
             onImportKeymap: importKeymap,
             onExportKeymap: exportKeymap
         )
@@ -896,7 +881,6 @@ struct ContentView: View {
                 leftGridLabelInfo: leftGridLabelInfo,
                 rightGridLabelInfo: rightGridLabelInfo,
                 customButtons: customButtons,
-                editModeEnabled: $editModeEnabled,
                 lastHitLeft: viewModel.debugLastHitLeft,
                 lastHitRight: viewModel.debugLastHitRight,
                 selectedButtonID: $selectedButtonID,
@@ -933,7 +917,6 @@ struct ContentView: View {
             buttonSelection: buttonInspectorSelection,
             keySelection: keyInspectorSelection,
             selectionRevision: inspectorSelectionRevision,
-            editModeEnabled: editModeEnabled,
             layerSelection: layerSelectionBinding,
             tapHoldDurationMs: $tapHoldDurationMs,
             dragCancelDistanceSetting: $dragCancelDistanceSetting,
@@ -1177,9 +1160,7 @@ struct ContentView: View {
     }
 
     private struct HeaderControlsView: View {
-        @Binding var editModeEnabled: Bool
         @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
-        let replayModeEnabled: Bool
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
 
@@ -1203,9 +1184,6 @@ struct ContentView: View {
                     onExportKeymap()
                 }
                 .buttonStyle(.bordered)
-                Toggle("Edit Keymap", isOn: $editModeEnabled)
-                    .toggleStyle(SwitchToggleStyle())
-                    .disabled(replayModeEnabled)
             }
         }
 
@@ -1287,7 +1265,6 @@ struct ContentView: View {
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
-        @Binding var editModeEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
@@ -1310,7 +1287,6 @@ struct ContentView: View {
                             leftGridLabelInfo: leftGridLabelInfo,
                             rightGridLabelInfo: rightGridLabelInfo,
                             customButtons: customButtons,
-                            editModeEnabled: $editModeEnabled,
                             lastHitLeft: lastHitLeft,
                             lastHitRight: lastHitRight,
                             selectedButtonID: $selectedButtonID,
@@ -1360,12 +1336,11 @@ struct ContentView: View {
                 .frame(width: 0, height: 0)
                 .keyboardShortcut(.escape, modifiers: [])
                 .buttonStyle(.borderless)
-                .disabled(!editModeEnabled)
+                .disabled(selectedButtonID == nil && selectedGridKey == nil)
             }
         }
 
         private func clearSelection() {
-            guard editModeEnabled else { return }
             selectedGridKey = nil
             selectedButtonID = nil
         }
@@ -1384,7 +1359,6 @@ struct ContentView: View {
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
-        let editModeEnabled: Bool
         let layerSelection: Binding<Int>
         @Binding var tapHoldDurationMs: Double
         @Binding var dragCancelDistanceSetting: Double
@@ -1452,7 +1426,7 @@ struct ContentView: View {
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
         @State private var gestureTuningExpanded = false
-        @State private var columnTuningExpanded = true
+        @State private var columnTuningExpanded = false
         @State private var keymapTuningExpanded = false
         let onAddCustomButton: (TrackpadSide) -> Void
         let onRemoveCustomButton: (UUID) -> Void
@@ -1490,181 +1464,175 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
-                    if !editModeEnabled {
-                        CollapsibleSection(
-                            isExpanded: $typingTuningExpanded
-                        ) {
-                            TypingTuningSectionView(
-                                tapHoldDurationMs: $tapHoldDurationMs,
-                                dragCancelDistanceSetting: $dragCancelDistanceSetting,
-                                forceClickMinSetting: $forceClickMinSetting,
-                                forceClickCapSetting: $forceClickCapSetting,
-                                hapticStrengthSetting: $hapticStrengthSetting,
-                                typingGraceMsSetting: $typingGraceMsSetting,
-                                intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
-                                intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
-                                tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
-                                onRestoreDefaults: onRestoreDefaults
-                            )
-                        } label: {
-                            Text("Typing Tuning")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
+                    CollapsibleSection(
+                        isExpanded: $columnTuningExpanded
+                    ) {
+                        ColumnTuningSectionView(
+                            layoutOption: layoutOption,
+                            columnSettings: columnSettings,
+                            selection: columnSelection,
+                            columnSpacingPercent: $columnSpacingPercent,
+                            editColumnIndex: $editColumnIndex,
+                            onUpdateColumn: onUpdateColumn,
+                            onApplyMxSpacing: onApplyMxSpacing,
+                            onApplyChocSpacing: onApplyChocSpacing,
+                            onAutoSplay: onAutoSplayColumns,
+                            onEvenSpacing: onEvenSpaceColumns
                         )
-
-                        CollapsibleSection(
-                            isExpanded: $gestureTuningExpanded
-                        ) {
-                            GestureTuningSectionView(
-                                actionGroups: gestureActionGroups,
-                                twoFingerTapGestureAction: $twoFingerTapGestureAction,
-                                threeFingerTapGestureAction: $threeFingerTapGestureAction,
-                                twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
-                                threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
-                                fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
-                                outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
-                                innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
-                                leftEdgeUpGestureAction: $leftEdgeUpGestureAction,
-                                leftEdgeDownGestureAction: $leftEdgeDownGestureAction,
-                                rightEdgeUpGestureAction: $rightEdgeUpGestureAction,
-                                rightEdgeDownGestureAction: $rightEdgeDownGestureAction,
-                                topEdgeLeftGestureAction: $topEdgeLeftGestureAction,
-                                topEdgeRightGestureAction: $topEdgeRightGestureAction,
-                                bottomEdgeLeftGestureAction: $bottomEdgeLeftGestureAction,
-                                bottomEdgeRightGestureAction: $bottomEdgeRightGestureAction,
-                                threeFingerSwipeLeftGestureAction: $threeFingerSwipeLeftGestureAction,
-                                threeFingerSwipeRightGestureAction: $threeFingerSwipeRightGestureAction,
-                                threeFingerSwipeUpGestureAction: $threeFingerSwipeUpGestureAction,
-                                threeFingerSwipeDownGestureAction: $threeFingerSwipeDownGestureAction,
-                                fourFingerSwipeLeftGestureAction: $fourFingerSwipeLeftGestureAction,
-                                fourFingerSwipeRightGestureAction: $fourFingerSwipeRightGestureAction,
-                                fourFingerSwipeUpGestureAction: $fourFingerSwipeUpGestureAction,
-                                fourFingerSwipeDownGestureAction: $fourFingerSwipeDownGestureAction,
-                                fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
-                                fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
-                                fiveFingerSwipeUpGestureAction: $fiveFingerSwipeUpGestureAction,
-                                fiveFingerSwipeDownGestureAction: $fiveFingerSwipeDownGestureAction,
-                                topLeftCornerSwipeGestureAction: $topLeftCornerSwipeGestureAction,
-                                topRightCornerSwipeGestureAction: $topRightCornerSwipeGestureAction,
-                                bottomLeftCornerSwipeGestureAction: $bottomLeftCornerSwipeGestureAction,
-                                bottomRightCornerSwipeGestureAction: $bottomRightCornerSwipeGestureAction,
-                                topLeftTriangleGestureAction: $topLeftTriangleGestureAction,
-                                topRightTriangleGestureAction: $topRightTriangleGestureAction,
-                                bottomLeftTriangleGestureAction: $bottomLeftTriangleGestureAction,
-                                bottomRightTriangleGestureAction: $bottomRightTriangleGestureAction,
-                                upperLeftCornerClickGestureAction: $upperLeftCornerClickGestureAction,
-                                upperRightCornerClickGestureAction: $upperRightCornerClickGestureAction,
-                                lowerLeftCornerClickGestureAction: $lowerLeftCornerClickGestureAction,
-                                lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
-                                threeFingerClickGestureAction: $threeFingerClickGestureAction,
-                                fourFingerClickGestureAction: $fourFingerClickGestureAction,
-                                forceClickThresholdSetting: $forceClickThresholdSetting,
-                                topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
-                                topRightForceClickGestureAction: $topRightForceClickGestureAction,
-                                bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
-                                bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
-                                gestureRepeatCadenceData: $gestureRepeatCadenceData,
-                                systemThreeFingerDragEnabled: systemThreeFingerDragEnabled
-                            )
-                        } label: {
-                            Text("Gesture Tuning")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
-                        )
-
-                        CollapsibleSection(
-                            isExpanded: $modeTogglesExpanded
-                        ) {
-                            ModeTogglesSectionView(
-                                autocorrectEnabled: $autocorrectEnabled,
-                                snapRadiusPercentSetting: $snapRadiusPercentSetting,
-                                keyboardModeEnabled: $keyboardModeEnabled,
-                                holdRepeatEnabled: $holdRepeatEnabled,
-                                runAtStartupEnabled: $runAtStartupEnabled,
-                                autoResyncEnabled: $autoResyncEnabled,
-                                systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled
-                            )
-                        } label: {
-                            Text("Mode Toggles")
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                        }
-                        .padding(12)
-                        .background(
-                            RoundedRectangle(cornerRadius: 12)
-                                .fill(Color.primary.opacity(0.05))
-                        )
+                    } label: {
+                        Text("Column Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
 
-                    if editModeEnabled {
-                        VStack(alignment: .leading, spacing: 12) {
-                            CollapsibleSection(
-                                isExpanded: $columnTuningExpanded
-                            ) {
-                                ColumnTuningSectionView(
-                                    layoutOption: layoutOption,
-                                    columnSettings: columnSettings,
-                                    selection: columnSelection,
-                                    columnSpacingPercent: $columnSpacingPercent,
-                                    editColumnIndex: $editColumnIndex,
-                                    onUpdateColumn: onUpdateColumn,
-                                    onApplyMxSpacing: onApplyMxSpacing,
-                                    onApplyChocSpacing: onApplyChocSpacing,
-                                    onAutoSplay: onAutoSplayColumns,
-                                    onEvenSpacing: onEvenSpaceColumns
-                                )
-                            } label: {
-                                Text("Column Tuning")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.primary.opacity(0.05))
-                            )
-
-                            CollapsibleSection(
-                                isExpanded: $keymapTuningExpanded
-                            ) {
-                                ButtonTuningSectionView(
-                                    buttonSelection: buttonSelection,
-                                    keySelection: keySelection,
-                                    selectionRevision: selectionRevision,
-                                    primaryActionGroups: primaryActionGroups,
-                                    holdActionGroups: holdActionGroups,
-                                    layerSelection: layerSelection,
-                                    onAddCustomButton: onAddCustomButton,
-                                    onRemoveCustomButton: onRemoveCustomButton,
-                                    onClearTouchState: onClearTouchState,
-                                    onUpdateButton: onUpdateButton,
-                                    onUpdateKeyMapping: onUpdateKeyMapping,
-                                    keyRotationDegrees: keyRotationDegrees,
-                                    onUpdateKeyRotation: onUpdateKeyRotation,
-                                    onSaveShortcutLibraryAction: onSaveShortcutLibraryAction
-                                )
-                            } label: {
-                                Text("Keymap Tuning")
-                                    .font(.subheadline)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .padding(12)
-                            .background(
-                                RoundedRectangle(cornerRadius: 12)
-                                    .fill(Color.primary.opacity(0.05))
-                            )
-                        }
+                    CollapsibleSection(
+                        isExpanded: $keymapTuningExpanded
+                    ) {
+                        ButtonTuningSectionView(
+                            buttonSelection: buttonSelection,
+                            keySelection: keySelection,
+                            selectionRevision: selectionRevision,
+                            primaryActionGroups: primaryActionGroups,
+                            holdActionGroups: holdActionGroups,
+                            layerSelection: layerSelection,
+                            onAddCustomButton: onAddCustomButton,
+                            onRemoveCustomButton: onRemoveCustomButton,
+                            onClearTouchState: onClearTouchState,
+                            onUpdateButton: onUpdateButton,
+                            onUpdateKeyMapping: onUpdateKeyMapping,
+                            keyRotationDegrees: keyRotationDegrees,
+                            onUpdateKeyRotation: onUpdateKeyRotation,
+                            onSaveShortcutLibraryAction: onSaveShortcutLibraryAction
+                        )
+                    } label: {
+                        Text("Keymap Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
                     }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    CollapsibleSection(
+                        isExpanded: $typingTuningExpanded
+                    ) {
+                        TypingTuningSectionView(
+                            tapHoldDurationMs: $tapHoldDurationMs,
+                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                            forceClickMinSetting: $forceClickMinSetting,
+                            forceClickCapSetting: $forceClickCapSetting,
+                            hapticStrengthSetting: $hapticStrengthSetting,
+                            typingGraceMsSetting: $typingGraceMsSetting,
+                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
+                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
+                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                            onRestoreDefaults: onRestoreDefaults
+                        )
+                    } label: {
+                        Text("Typing Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    CollapsibleSection(
+                        isExpanded: $gestureTuningExpanded
+                    ) {
+                        GestureTuningSectionView(
+                            actionGroups: gestureActionGroups,
+                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                            twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
+                            threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
+                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                            outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
+                            innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
+                            leftEdgeUpGestureAction: $leftEdgeUpGestureAction,
+                            leftEdgeDownGestureAction: $leftEdgeDownGestureAction,
+                            rightEdgeUpGestureAction: $rightEdgeUpGestureAction,
+                            rightEdgeDownGestureAction: $rightEdgeDownGestureAction,
+                            topEdgeLeftGestureAction: $topEdgeLeftGestureAction,
+                            topEdgeRightGestureAction: $topEdgeRightGestureAction,
+                            bottomEdgeLeftGestureAction: $bottomEdgeLeftGestureAction,
+                            bottomEdgeRightGestureAction: $bottomEdgeRightGestureAction,
+                            threeFingerSwipeLeftGestureAction: $threeFingerSwipeLeftGestureAction,
+                            threeFingerSwipeRightGestureAction: $threeFingerSwipeRightGestureAction,
+                            threeFingerSwipeUpGestureAction: $threeFingerSwipeUpGestureAction,
+                            threeFingerSwipeDownGestureAction: $threeFingerSwipeDownGestureAction,
+                            fourFingerSwipeLeftGestureAction: $fourFingerSwipeLeftGestureAction,
+                            fourFingerSwipeRightGestureAction: $fourFingerSwipeRightGestureAction,
+                            fourFingerSwipeUpGestureAction: $fourFingerSwipeUpGestureAction,
+                            fourFingerSwipeDownGestureAction: $fourFingerSwipeDownGestureAction,
+                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
+                            fiveFingerSwipeUpGestureAction: $fiveFingerSwipeUpGestureAction,
+                            fiveFingerSwipeDownGestureAction: $fiveFingerSwipeDownGestureAction,
+                            topLeftCornerSwipeGestureAction: $topLeftCornerSwipeGestureAction,
+                            topRightCornerSwipeGestureAction: $topRightCornerSwipeGestureAction,
+                            bottomLeftCornerSwipeGestureAction: $bottomLeftCornerSwipeGestureAction,
+                            bottomRightCornerSwipeGestureAction: $bottomRightCornerSwipeGestureAction,
+                            topLeftTriangleGestureAction: $topLeftTriangleGestureAction,
+                            topRightTriangleGestureAction: $topRightTriangleGestureAction,
+                            bottomLeftTriangleGestureAction: $bottomLeftTriangleGestureAction,
+                            bottomRightTriangleGestureAction: $bottomRightTriangleGestureAction,
+                            upperLeftCornerClickGestureAction: $upperLeftCornerClickGestureAction,
+                            upperRightCornerClickGestureAction: $upperRightCornerClickGestureAction,
+                            lowerLeftCornerClickGestureAction: $lowerLeftCornerClickGestureAction,
+                            lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
+                            threeFingerClickGestureAction: $threeFingerClickGestureAction,
+                            fourFingerClickGestureAction: $fourFingerClickGestureAction,
+                            forceClickThresholdSetting: $forceClickThresholdSetting,
+                            topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
+                            topRightForceClickGestureAction: $topRightForceClickGestureAction,
+                            bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
+                            bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
+                            gestureRepeatCadenceData: $gestureRepeatCadenceData,
+                            systemThreeFingerDragEnabled: systemThreeFingerDragEnabled
+                        )
+                    } label: {
+                        Text("Gesture Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
+
+                    CollapsibleSection(
+                        isExpanded: $modeTogglesExpanded
+                    ) {
+                        ModeTogglesSectionView(
+                            autocorrectEnabled: $autocorrectEnabled,
+                            snapRadiusPercentSetting: $snapRadiusPercentSetting,
+                            keyboardModeEnabled: $keyboardModeEnabled,
+                            holdRepeatEnabled: $holdRepeatEnabled,
+                            runAtStartupEnabled: $runAtStartupEnabled,
+                            autoResyncEnabled: $autoResyncEnabled,
+                            systemThreeFingerDragEnabled: $systemThreeFingerDragEnabled
+                        )
+                    } label: {
+                        Text("Mode Toggles")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
                 }
                 .overlay(alignment: .top) {
                     VerticalScrollViewConfigurator()
@@ -1673,13 +1641,8 @@ struct ContentView: View {
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
             .frame(width: 420)
-            .onChange(of: editModeEnabled) { enabled in
-                guard enabled else { return }
-                columnTuningExpanded = true
-                keymapTuningExpanded = false
-            }
             .onChange(of: keySelection?.key.storageKey) { newValue in
-                guard editModeEnabled, newValue != nil else { return }
+                guard newValue != nil else { return }
                 keymapTuningExpanded = true
             }
         }
@@ -3950,7 +3913,6 @@ struct ContentView: View {
         let leftGridLabelInfo: [[GridLabel]]
         let rightGridLabelInfo: [[GridLabel]]
         let customButtons: [CustomButton]
-        @Binding var editModeEnabled: Bool
         let lastHitLeft: ContentViewModel.DebugHit?
         let lastHitRight: ContentViewModel.DebugHit?
         @Binding var selectedButtonID: UUID?
@@ -3991,27 +3953,24 @@ struct ContentView: View {
                             rightLabels: surfaceLabels(from: rightGridLabelInfo),
                             leftCustomButtons: leftButtons,
                             rightCustomButtons: rightButtons,
-                            selectedLeftKey: editModeEnabled ? surfaceKeySelection(from: selectedLeftKey) : nil,
-                            selectedRightKey: editModeEnabled ? surfaceKeySelection(from: selectedRightKey) : nil,
-                            selectedLeftButtonID: editModeEnabled ? selectedButton(for: leftButtons)?.id : nil,
-                            selectedRightButtonID: editModeEnabled ? selectedButton(for: rightButtons)?.id : nil
+                            selectedLeftKey: surfaceKeySelection(from: selectedLeftKey),
+                            selectedRightKey: surfaceKeySelection(from: selectedRightKey),
+                            selectedLeftButtonID: selectedButton(for: leftButtons)?.id,
+                            selectedRightButtonID: selectedButton(for: rightButtons)?.id
                         ),
                         viewModel: viewModel,
-                        editModeEnabled: editModeEnabled,
                         selectionHandler: surfaceSelectionChanged
                     )
                     .frame(width: combinedWidth, height: trackpadSize.height)
-                    if !editModeEnabled {
-                        if let hit = lastHitLeft {
-                            LastHitHighlightLayer(lastHit: hit)
-                                .frame(width: trackpadSize.width, height: trackpadSize.height)
-                                .offset(x: 0, y: 0)
-                        }
-                        if let hit = lastHitRight {
-                            LastHitHighlightLayer(lastHit: hit)
-                                .frame(width: trackpadSize.width, height: trackpadSize.height)
-                                .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
-                        }
+                    if let hit = lastHitLeft {
+                        LastHitHighlightLayer(lastHit: hit)
+                            .frame(width: trackpadSize.width, height: trackpadSize.height)
+                            .offset(x: 0, y: 0)
+                    }
+                    if let hit = lastHitRight {
+                        LastHitHighlightLayer(lastHit: hit)
+                            .frame(width: trackpadSize.width, height: trackpadSize.height)
+                            .offset(x: trackpadSize.width + trackpadSpacing, y: 0)
                     }
                 }
                 .frame(width: combinedWidth, height: trackpadSize.height)
@@ -4041,7 +4000,6 @@ struct ContentView: View {
         }
 
         private func surfaceSelectionChanged(_ selection: TrackpadSurfaceSelectionEvent) {
-            guard editModeEnabled else { return }
             viewModel.clearTouchState()
             onSelectionInteraction()
             switch selection.target {
@@ -4702,7 +4660,7 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
-        viewModel.setStatusVisualsEnabled(!editModeEnabled)
+        viewModel.setStatusVisualsEnabled(true)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
         normalizeStoredShortcutActions()
@@ -5365,9 +5323,6 @@ struct ContentView: View {
     }
 
     private func addCustomButton(side: TrackpadSide) {
-        if !editModeEnabled {
-            editModeEnabled = true
-        }
         let action = KeyActionCatalog.action(for: "Space") ?? KeyActionCatalog.presets.first
         guard let action else { return }
         let newButton = CustomButton(
