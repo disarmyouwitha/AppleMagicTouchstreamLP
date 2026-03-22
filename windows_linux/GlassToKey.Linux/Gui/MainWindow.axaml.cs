@@ -130,6 +130,7 @@ public partial class MainWindow : Window
     private readonly Dictionary<string, Slider> _typingTuningSliders = new(StringComparer.Ordinal);
     private readonly Dictionary<string, TextBlock> _typingTuningSliderValueTexts = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ComboBox> _gestureActionCombos = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, TextBox> _gestureRepeatBoxes = new(StringComparer.Ordinal);
     private Slider? _hapticsStrengthSlider;
     private TextBlock? _hapticsStrengthValueText;
     private Slider? _forceClickThresholdSlider;
@@ -485,6 +486,7 @@ public partial class MainWindow : Window
     {
         _gestureSectionsPanel.Children.Clear();
         _gestureActionCombos.Clear();
+        _gestureRepeatBoxes.Clear();
 
         foreach (GestureSectionDefinition section in GestureBindingCatalog.Sections)
         {
@@ -524,6 +526,7 @@ public partial class MainWindow : Window
                 };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 row.Children.Add(new TextBlock
                 {
@@ -535,8 +538,13 @@ public partial class MainWindow : Window
                 Grid.SetColumn(combo, 1);
                 combo.Margin = new Thickness(12, 0, 0, 0);
                 row.Children.Add(combo);
+                TextBox repeatBox = CreateGestureRepeatCadenceTextBox();
+                Grid.SetColumn(repeatBox, 2);
+                repeatBox.Margin = new Thickness(12, 0, 0, 0);
+                row.Children.Add(repeatBox);
                 sectionPanel.Children.Add(row);
                 _gestureActionCombos.Add(binding.Id, combo);
+                _gestureRepeatBoxes.Add(binding.Id, repeatBox);
                 bindingIndex++;
             }
 
@@ -713,6 +721,21 @@ public partial class MainWindow : Window
         };
     }
 
+    private static TextBox CreateGestureRepeatCadenceTextBox()
+    {
+        TextBox box = new()
+        {
+            Width = 58,
+            MinWidth = 58,
+            HorizontalContentAlignment = Avalonia.Layout.HorizontalAlignment.Center,
+            VerticalContentAlignment = Avalonia.Layout.VerticalAlignment.Center,
+            Watermark = "[ms]"
+        };
+        box.TextAlignment = TextAlignment.Center;
+        ToolTip.SetTip(box, "Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable.");
+        return box;
+    }
+
     private void WireEvents()
     {
         RequireControl<Button>("RefreshDevicesButton").Click += OnRefreshDevicesClick;
@@ -724,7 +747,12 @@ public partial class MainWindow : Window
         _columnLayoutColumnCombo.SelectionChanged += OnColumnLayoutSelectionChanged;
         foreach (ComboBox combo in _gestureActionCombos.Values)
         {
-            combo.SelectionChanged += OnLiveSettingsSelectionChanged;
+            combo.SelectionChanged += OnGestureActionSelectionChanged;
+        }
+        foreach (TextBox box in _gestureRepeatBoxes.Values)
+        {
+            box.LostFocus += OnGestureRepeatCadenceCommitted;
+            box.KeyDown += OnGestureRepeatCadenceKeyDown;
         }
         _shortcutTargetPrimaryRadio.IsCheckedChanged += OnGestureShortcutEditorChanged;
         _shortcutTargetHoldRadio.IsCheckedChanged += OnGestureShortcutEditorChanged;
@@ -893,6 +921,38 @@ public partial class MainWindow : Window
         await SaveLiveSettingsAsync();
     }
 
+    private async void OnGestureActionSelectionChanged(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_loadingScreen || _suppressKeymapEditorEvents)
+        {
+            return;
+        }
+
+        RefreshGestureRepeatCadenceAvailability();
+        await SaveLiveSettingsAsync();
+    }
+
+    private async void OnGestureRepeatCadenceCommitted(object? sender, RoutedEventArgs e)
+    {
+        if (_loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+    }
+
+    private async void OnGestureRepeatCadenceKeyDown(object? sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.Enter || _loadingScreen)
+        {
+            return;
+        }
+
+        await SaveLiveSettingsAsync();
+        e.Handled = true;
+    }
+
     private async void OnModeToggleChanged(object? sender, RoutedEventArgs e)
     {
         if (_loadingScreen)
@@ -998,6 +1058,7 @@ public partial class MainWindow : Window
         SetGestureActionComboEnabled("three_finger_swipe_right", enableThreeFingerSwipes);
         SetGestureActionComboEnabled("three_finger_swipe_up", enableThreeFingerSwipes);
         SetGestureActionComboEnabled("three_finger_swipe_down", enableThreeFingerSwipes);
+        RefreshGestureRepeatCadenceAvailability();
     }
 
     private void SetGestureActionComboEnabled(string bindingId, bool isEnabled)
@@ -1210,8 +1271,14 @@ public partial class MainWindow : Window
             {
                 SetActionComboSelection(combo, GestureBindingCatalog.GetAction(profile, binding));
             }
+
+            if (_gestureRepeatBoxes.TryGetValue(binding.Id, out TextBox? repeatBox))
+            {
+                repeatBox.Text = FormatGestureRepeatCadenceText(GestureBindingCatalog.GetRepeatCadenceMs(profile, binding));
+            }
         }
 
+        RefreshGestureRepeatCadenceAvailability();
         RefreshGestureShortcutEditorUi();
     }
 
@@ -1226,8 +1293,47 @@ public partial class MainWindow : Window
 
             string action = ReadActionSelection(combo, binding.DefaultAction);
             GestureBindingCatalog.SetAction(profile, binding, action);
+            if (_gestureRepeatBoxes.TryGetValue(binding.Id, out TextBox? repeatBox))
+            {
+                GestureBindingCatalog.SetRepeatCadenceMs(profile, binding, ReadGestureRepeatCadenceMs(repeatBox));
+            }
+
             EnsureActionChoice(action);
         }
+    }
+
+    private void RefreshGestureRepeatCadenceAvailability()
+    {
+        foreach (GestureBindingDefinition binding in GestureBindingCatalog.All)
+        {
+            if (!_gestureActionCombos.TryGetValue(binding.Id, out ComboBox? combo) ||
+                !_gestureRepeatBoxes.TryGetValue(binding.Id, out TextBox? repeatBox))
+            {
+                continue;
+            }
+
+            bool enabled = combo.IsEnabled &&
+                !string.Equals(ReadActionSelection(combo, binding.DefaultAction), "None", StringComparison.OrdinalIgnoreCase);
+            repeatBox.IsEnabled = enabled;
+        }
+    }
+
+    private static string FormatGestureRepeatCadenceText(int cadenceMs)
+    {
+        return cadenceMs > 0
+            ? cadenceMs.ToString(CultureInfo.InvariantCulture)
+            : string.Empty;
+    }
+
+    private static int ReadGestureRepeatCadenceMs(TextBox box)
+    {
+        string text = box.Text?.Trim() ?? string.Empty;
+        if (!int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value))
+        {
+            return 0;
+        }
+
+        return GestureBindingCatalog.NormalizeRepeatCadenceMs(value);
     }
 
     private void InitializeGestureShortcutEditor()
