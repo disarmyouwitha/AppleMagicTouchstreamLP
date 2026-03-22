@@ -1,5 +1,5 @@
 ## Current:
-- Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
+- Can we add colored highlights like on "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 ---
 - Add Legit "Screenshot" shortcut that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4
