@@ -1,5 +1,5 @@
 ## Current:
-- Add Legit "Screenshot" shortcut that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4
+- Add Legit "Screenshot" shortcut that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4, Linux equivalent?
 
     
 ## TODO:
