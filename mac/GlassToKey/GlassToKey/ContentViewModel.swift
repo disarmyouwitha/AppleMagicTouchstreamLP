@@ -489,6 +489,44 @@ struct ShortcutActionSpec: Hashable {
     }
 }
 
+enum ShortcutActionLibraryStorage {
+    private static let decoder = JSONDecoder()
+    private static let encoder = JSONEncoder()
+
+    static func normalized(_ actions: [String]?) -> [String] {
+        guard let actions else { return [] }
+
+        var normalized: [String] = []
+        var seen = Set<String>()
+
+        for actionLabel in actions {
+            guard let action = KeyActionCatalog.action(for: actionLabel),
+                  action.kind != .none else {
+                continue
+            }
+
+            let canonicalLabel = action.label
+            let dedupeKey = canonicalLabel.lowercased()
+            guard seen.insert(dedupeKey).inserted else { continue }
+            normalized.append(canonicalLabel)
+        }
+
+        return normalized
+    }
+
+    static func decode(from data: Data) -> [String]? {
+        guard !data.isEmpty else { return [] }
+        guard let decoded = try? decoder.decode([String].self, from: data) else {
+            return nil
+        }
+        return normalized(decoded)
+    }
+
+    static func encode(_ actions: [String]?) -> Data? {
+        try? encoder.encode(normalized(actions))
+    }
+}
+
 enum ShortcutActionHelper {
     private static let keyEntries: [(String, CGKeyCode)] = [
         ("A", CGKeyCode(kVK_ANSI_A)),
@@ -3024,6 +3062,7 @@ struct AppKeymapProfile: Codable {
     let snapRadiusPercent: Double
     let keyboardModeEnabled: Bool
     let holdRepeatEnabled: Bool
+    let shortcutActions: [String]
     let twoFingerTapGestureAction: String?
     let threeFingerTapGestureAction: String?
     let twoFingerHoldGestureAction: String?
@@ -3098,6 +3137,7 @@ struct AppKeymapProfile: Codable {
             snapRadiusPercent: GlassToKeySettings.snapRadiusPercent,
             keyboardModeEnabled: GlassToKeySettings.keyboardModeEnabled,
             holdRepeatEnabled: GlassToKeySettings.holdRepeatEnabled,
+            shortcutActions: [],
             twoFingerTapGestureAction: GlassToKeySettings.twoFingerTapGestureActionLabel,
             threeFingerTapGestureAction: GlassToKeySettings.threeFingerTapGestureActionLabel,
             twoFingerHoldGestureAction: GlassToKeySettings.twoFingerHoldGestureActionLabel,
@@ -3224,6 +3264,23 @@ enum PortableKeymapInterop {
         var profile = currentProfile
         let resolvedLayout = macLayoutName(fromPortable: settings.layoutPresetName) ?? currentProfile.layoutPreset
         let activeLayer = KeyLayerConfig.clamped(settings.activeLayer ?? currentProfile.activeLayer ?? KeyLayerConfig.baseLayer)
+        let shortcutActions: [String]
+        if let importedShortcutActions = settings.shortcutActions {
+            var unsupportedShortcutLabels = Set<String>()
+            let resolvedShortcutActions = importedShortcutActions.compactMap { label in
+                resolveImportedAction(
+                    label,
+                    unsupportedLabels: &unsupportedShortcutLabels,
+                    allowNil: true
+                )?.label
+            }
+            guard unsupportedShortcutLabels.isEmpty else {
+                throw PortableKeymapImportError.unsupportedActions(Array(unsupportedShortcutLabels))
+            }
+            shortcutActions = ShortcutActionLibraryStorage.normalized(resolvedShortcutActions)
+        } else {
+            shortcutActions = ShortcutActionLibraryStorage.normalized(currentProfile.shortcutActions)
+        }
 
         var keySpacingByLayout = currentProfile.keySpacingPercentByLayout ?? [:]
         if let importedSpacingByLayout = settings.keyPaddingPercentByLayout {
@@ -3271,6 +3328,7 @@ enum PortableKeymapInterop {
             snapRadiusPercent: settings.snapRadiusPercent ?? currentProfile.snapRadiusPercent,
             keyboardModeEnabled: settings.keyboardModeEnabled ?? currentProfile.keyboardModeEnabled,
             holdRepeatEnabled: settings.holdRepeatEnabled ?? currentProfile.holdRepeatEnabled,
+            shortcutActions: shortcutActions,
             twoFingerTapGestureAction: currentProfile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: settings.threeFingerTapAction
                 ?? settings.threeFingerClickAction
@@ -3350,6 +3408,7 @@ enum PortableKeymapInterop {
                 snapRadiusPercent: profile.snapRadiusPercent,
                 keyboardModeEnabled: profile.keyboardModeEnabled,
                 holdRepeatEnabled: profile.holdRepeatEnabled,
+                shortcutActions: profile.shortcutActions,
                 twoFingerTapGestureAction: hostExtension.twoFingerTapGestureAction ?? profile.twoFingerTapGestureAction,
                 threeFingerTapGestureAction: hostExtension.threeFingerTapGestureAction ?? profile.threeFingerTapGestureAction,
                 twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
@@ -3525,6 +3584,7 @@ enum PortableKeymapInterop {
             snapRadiusPercent: profile.snapRadiusPercent,
             keyboardModeEnabled: profile.keyboardModeEnabled,
             holdRepeatEnabled: profile.holdRepeatEnabled,
+            shortcutActions: profile.shortcutActions,
             twoFingerTapGestureAction: profile.twoFingerTapGestureAction,
             threeFingerTapGestureAction: profile.threeFingerTapGestureAction,
             twoFingerHoldGestureAction: profile.twoFingerHoldGestureAction,
@@ -3724,6 +3784,7 @@ enum PortableKeymapInterop {
         var keyboardModeEnabled: Bool?
         var holdRepeatEnabled: Bool?
         var autocorrectEnabled: Bool?
+        var shortcutActions: [String]?
         var threeFingerTapAction: String?
         var fiveFingerSwipeLeftAction: String?
         var fiveFingerSwipeRightAction: String?
@@ -3790,6 +3851,7 @@ enum PortableKeymapInterop {
             keyboardModeEnabled = profile.keyboardModeEnabled
             holdRepeatEnabled = profile.holdRepeatEnabled
             autocorrectEnabled = profile.autocorrectEnabled
+            shortcutActions = ShortcutActionLibraryStorage.normalized(profile.shortcutActions)
             threeFingerTapAction = profile.threeFingerTapGestureAction
             fiveFingerSwipeLeftAction = profile.fiveFingerSwipeLeftGestureAction
             fiveFingerSwipeRightAction = profile.fiveFingerSwipeRightGestureAction
@@ -3862,6 +3924,7 @@ enum PortableKeymapInterop {
             case keyboardModeEnabled = "KeyboardModeEnabled"
             case holdRepeatEnabled = "HoldRepeatEnabled"
             case autocorrectEnabled = "AutocorrectEnabled"
+            case shortcutActions = "ShortcutActions"
             case threeFingerTapAction = "ThreeFingerTapAction"
             case fiveFingerSwipeLeftAction = "FiveFingerSwipeLeftAction"
             case fiveFingerSwipeRightAction = "FiveFingerSwipeRightAction"

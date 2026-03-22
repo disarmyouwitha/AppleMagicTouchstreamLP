@@ -89,6 +89,7 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.customButtons) private var storedCustomButtonsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.keyMappings) private var storedKeyMappingsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.keyGeometry) private var storedKeyGeometryData = Data()
+    @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var storedShortcutActionsData = Data()
     @AppStorage(GlassToKeyDefaultsKeys.autoResyncMissingTrackpads) private var storedAutoResyncMissingTrackpads = false
     @AppStorage(GlassToKeyDefaultsKeys.tapHoldDuration) private var tapHoldDurationMs: Double = GlassToKeySettings.tapHoldDurationMs
     @AppStorage(GlassToKeyDefaultsKeys.dragCancelDistance) private var dragCancelDistanceSetting: Double = GlassToKeySettings.dragCancelDistanceMm
@@ -747,6 +748,10 @@ struct ContentView: View {
             .onChange(of: storedCustomButtonsData) { _ in
                 refreshActionGroupCaches()
             }
+            .onChange(of: storedShortcutActionsData) { _ in
+                normalizeStoredShortcutActions()
+                refreshActionGroupCaches()
+            }
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
             }
@@ -1017,6 +1022,7 @@ struct ContentView: View {
             onUpdateKeyRotation: { key, rotationDegrees in
                 updateKeyRotationAndSelection(for: key, rotationDegrees: rotationDegrees)
             },
+            onSaveShortcutLibraryAction: saveShortcutLibraryAction,
             onRestoreDefaults: restoreTypingTuningDefaults,
             onApplyMxSpacing: {
                 applyKeySizePreset(
@@ -1044,20 +1050,36 @@ struct ContentView: View {
     private func mergedActionGroups(
         baseGroups: [KeyActionCatalog.ActionGroup]
     ) -> [KeyActionCatalog.ActionGroup] {
-        let customActions = collectedCustomActions(excluding: baseGroups)
-        guard !customActions.isEmpty else { return baseGroups }
-        return baseGroups + [
-            KeyActionCatalog.ActionGroup(title: "Saved Custom Actions", actions: customActions)
-        ]
+        let shortcutActions = shortcutLibraryActions()
+        let customActions = collectedCustomActions(
+            excluding: baseGroups,
+            excludingActions: Set(shortcutActions)
+        )
+
+        var groups = baseGroups
+        if !shortcutActions.isEmpty {
+            groups.append(KeyActionCatalog.ActionGroup(title: "Shortcuts", actions: shortcutActions))
+        }
+        if !customActions.isEmpty {
+            groups.append(
+                KeyActionCatalog.ActionGroup(
+                    title: "Saved Custom Actions",
+                    actions: customActions
+                )
+            )
+        }
+        return groups
     }
 
     private func collectedCustomActions(
-        excluding groups: [KeyActionCatalog.ActionGroup]
+        excluding groups: [KeyActionCatalog.ActionGroup],
+        excludingActions: Set<KeyAction> = []
     ) -> [KeyAction] {
         var actions = Set<KeyAction>()
 
         func add(_ action: KeyAction?) {
             guard let action, action.kind != .none else { return }
+            guard !excludingActions.contains(action) else { return }
             let existsInBaseGroups = groups.contains { group in
                 group.actions.contains(action)
             }
@@ -1146,6 +1168,12 @@ struct ContentView: View {
         return actions.sorted {
             $0.pickerText.localizedCaseInsensitiveCompare($1.pickerText) == .orderedAscending
         }
+    }
+
+    private func shortcutLibraryActions() -> [KeyAction] {
+        ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData)?
+            .compactMap(KeyActionCatalog.action(for:))
+            ?? []
     }
 
     private struct HeaderControlsView: View {
@@ -1434,6 +1462,7 @@ struct ContentView: View {
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
+        let onSaveShortcutLibraryAction: (KeyAction) -> Void
         let onRestoreDefaults: () -> Void
         let onApplyMxSpacing: () -> Void
         let onApplyChocSpacing: () -> Void
@@ -1621,7 +1650,8 @@ struct ContentView: View {
                                     onUpdateButton: onUpdateButton,
                                     onUpdateKeyMapping: onUpdateKeyMapping,
                                     keyRotationDegrees: keyRotationDegrees,
-                                    onUpdateKeyRotation: onUpdateKeyRotation
+                                    onUpdateKeyRotation: onUpdateKeyRotation,
+                                    onSaveShortcutLibraryAction: onSaveShortcutLibraryAction
                                 )
                             } label: {
                                 Text("Keymap Tuning")
@@ -2100,6 +2130,7 @@ struct ContentView: View {
         private enum ActionBuilderTarget: String, CaseIterable, Identifiable {
             case primary = "Primary"
             case hold = "Hold"
+            case dropdown = "Dropdown"
 
             var id: String { rawValue }
         }
@@ -2237,6 +2268,7 @@ struct ContentView: View {
         let onUpdateKeyMapping: (SelectedGridKey, (inout KeyMapping) -> Void) -> Void
         let keyRotationDegrees: (SelectedGridKey) -> Double
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
+        let onSaveShortcutLibraryAction: (KeyAction) -> Void
         @State private var actionBuilderTarget: ActionBuilderTarget = .primary
         @State private var shortcutModifiers: [ShortcutModifier: ShortcutModifierVariant] = [:]
         @State private var shortcutModifierPicker: ShortcutModifier?
@@ -2249,6 +2281,10 @@ struct ContentView: View {
 
         private var hasEditableSelection: Bool {
             buttonSelection != nil || keySelection != nil
+        }
+
+        private var canEditActionBuilder: Bool {
+            hasEditableSelection || actionBuilderTarget == .dropdown
         }
 
         private var primaryActionBinding: Binding<KeyAction> {
@@ -2390,7 +2426,12 @@ struct ContentView: View {
         }
 
         private var targetAction: KeyAction {
-            actionBuilderTarget == .hold ? selectedHoldAction : selectedPrimaryAction
+            switch actionBuilderTarget {
+            case .primary, .dropdown:
+                return selectedPrimaryAction
+            case .hold:
+                return selectedHoldAction
+            }
         }
 
         private func actionGroups(for action: KeyAction, hold: Bool) -> [KeyActionCatalog.ActionGroup] {
@@ -2474,7 +2515,7 @@ struct ContentView: View {
         }
 
         private func presentShortcutModifierPicker(for modifier: ShortcutModifier) {
-            guard hasEditableSelection else { return }
+            guard canEditActionBuilder else { return }
             suppressShortcutModifierTap = modifier
             shortcutModifierPicker = modifier
         }
@@ -2528,7 +2569,7 @@ struct ContentView: View {
                     )
             }
             .buttonStyle(.plain)
-            .disabled(!hasEditableSelection)
+            .disabled(!canEditActionBuilder)
             .simultaneousGesture(
                 LongPressGesture(minimumDuration: 0.35)
                     .onEnded { _ in
@@ -2604,9 +2645,15 @@ struct ContentView: View {
 
         private func syncActionBuilderFromSelection() {
             guard hasEditableSelection else {
-                clearShortcutBuilderState()
-                appLaunchTarget = ""
-                appLaunchArguments = ""
+                if actionBuilderTarget != .dropdown {
+                    clearShortcutBuilderState()
+                    appLaunchTarget = ""
+                    appLaunchArguments = ""
+                }
+                return
+            }
+
+            guard actionBuilderTarget != .dropdown else {
                 return
             }
 
@@ -2634,10 +2681,13 @@ struct ContentView: View {
             switch actionBuilderTarget {
             case .primary:
                 primaryActionBinding.wrappedValue = action
+                syncActionBuilderFromSelection()
             case .hold:
                 holdActionBinding.wrappedValue = action
+                syncActionBuilderFromSelection()
+            case .dropdown:
+                onSaveShortcutLibraryAction(action)
             }
-            syncActionBuilderFromSelection()
         }
 
         private func browseForAppTarget() {
@@ -2769,7 +2819,6 @@ struct ContentView: View {
                     }
                     .pickerStyle(.segmented)
                     .labelsHidden()
-                    .disabled(!hasEditableSelection)
                     HStack(spacing: 8) {
                         ForEach(ShortcutModifier.ordered, id: \.self) { modifier in
                             shortcutModifierButton(modifier)
@@ -2790,13 +2839,13 @@ struct ContentView: View {
                         }
                         .pickerStyle(MenuPickerStyle())
                         .labelsHidden()
-                        .disabled(!hasEditableSelection)
+                        .disabled(!canEditActionBuilder)
                         Button("Apply") {
                             applyBuiltAction()
                         }
                         .buttonStyle(.bordered)
                         .frame(width: shortcutBuilderActionButtonWidth)
-                        .disabled(!hasEditableSelection || builtAction == nil)
+                        .disabled(!canEditActionBuilder || builtAction == nil)
                     }
                     HStack(spacing: 8) {
                         Text("App")
@@ -2804,13 +2853,13 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                         TextField("App, file, folder, or URL", text: appLaunchTargetBinding)
                             .textFieldStyle(.roundedBorder)
-                            .disabled(!hasEditableSelection)
+                            .disabled(!canEditActionBuilder)
                         Button("Browse") {
                             browseForAppTarget()
                         }
                         .buttonStyle(.bordered)
                         .frame(width: shortcutBuilderActionButtonWidth)
-                        .disabled(!hasEditableSelection)
+                        .disabled(!canEditActionBuilder)
                     }
                     Text(actionBuilderPreview)
                         .font(.caption2)
@@ -2878,12 +2927,15 @@ struct ContentView: View {
                 syncActionBuilderFromSelection()
             }
             .onChange(of: selectionIdentity) { _ in
+                guard actionBuilderTarget != .dropdown else { return }
                 syncActionBuilderFromSelection()
             }
             .onChange(of: selectionRevision) { _ in
+                guard actionBuilderTarget != .dropdown else { return }
                 syncActionBuilderFromSelection()
             }
             .onChange(of: actionBuilderTarget) { _ in
+                guard actionBuilderTarget != .dropdown else { return }
                 syncActionBuilderFromSelection()
             }
             .onChange(of: selectedPrimaryAction) { _ in
@@ -4653,6 +4705,7 @@ struct ContentView: View {
         viewModel.setStatusVisualsEnabled(!editModeEnabled)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
+        normalizeStoredShortcutActions()
         let resolvedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(storedLayoutPreset)
         layoutOption = resolvedLayout
         selectedGridKey = nil
@@ -4874,6 +4927,7 @@ struct ContentView: View {
             ?? [:]
         let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(from: storedColumnSettingsData) ?? [:]
         let customButtonsByLayout = LayoutCustomButtonStorage.decode(from: storedCustomButtonsData) ?? [:]
+        let shortcutActions = ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData) ?? []
         let mappings = KeyActionMappingStore.decodeLayoutNormalized(storedKeyMappingsData)
             ?? normalizedLayoutMappingsWithCurrentRuntime()
         let keyGeometryByLayout = KeyGeometryStore.decodeLayoutNormalized(storedKeyGeometryData)
@@ -4899,6 +4953,7 @@ struct ContentView: View {
             snapRadiusPercent: snapRadiusPercentSetting,
             keyboardModeEnabled: keyboardModeEnabled,
             holdRepeatEnabled: holdRepeatEnabled,
+            shortcutActions: shortcutActions,
             twoFingerTapGestureAction: twoFingerTapGestureAction,
             threeFingerTapGestureAction: threeFingerTapGestureAction,
             twoFingerHoldGestureAction: twoFingerHoldGestureAction,
@@ -4986,6 +5041,7 @@ struct ContentView: View {
         snapRadiusPercentSetting = profile.snapRadiusPercent
         keyboardModeEnabled = profile.keyboardModeEnabled
         holdRepeatEnabled = profile.holdRepeatEnabled
+        storedShortcutActionsData = ShortcutActionLibraryStorage.encode(profile.shortcutActions) ?? Data()
         twoFingerTapGestureAction = profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel
         threeFingerTapGestureAction = profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel
         twoFingerHoldGestureAction = profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
@@ -5049,6 +5105,19 @@ struct ContentView: View {
         if let activeLayer = profile.activeLayer {
             viewModel.setPersistentLayer(activeLayer)
         }
+    }
+
+    private func normalizeStoredShortcutActions() {
+        let normalized = ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData) ?? []
+        let encoded = ShortcutActionLibraryStorage.encode(normalized) ?? Data()
+        guard encoded != storedShortcutActionsData else { return }
+        storedShortcutActionsData = encoded
+    }
+
+    private func saveShortcutLibraryAction(_ action: KeyAction) {
+        var actions = ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData) ?? []
+        actions.append(action.label)
+        storedShortcutActionsData = ShortcutActionLibraryStorage.encode(actions) ?? Data()
     }
 
     private func showKeymapAlert(

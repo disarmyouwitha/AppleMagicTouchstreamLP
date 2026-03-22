@@ -49,6 +49,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyDefaultsKeys.columnSettings,
         GlassToKeyDefaultsKeys.customButtons,
         GlassToKeyDefaultsKeys.keyMappings,
+        GlassToKeyDefaultsKeys.shortcutActions,
         GlassToKeyDefaultsKeys.tapHoldDuration,
         GlassToKeyDefaultsKeys.dragCancelDistance,
         GlassToKeyDefaultsKeys.forceClickMin,

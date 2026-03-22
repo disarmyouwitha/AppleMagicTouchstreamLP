@@ -216,6 +216,7 @@ final class GlassToKeyController: ObservableObject {
         GlassToKeyDefaultsKeys.columnSettings,
         GlassToKeyDefaultsKeys.customButtons,
         GlassToKeyDefaultsKeys.keyMappings,
+        GlassToKeyDefaultsKeys.shortcutActions,
         GlassToKeyDefaultsKeys.keyGeometry
     ]
 
@@ -313,6 +314,9 @@ final class GlassToKeyController: ObservableObject {
         if let keyMappings = profile.keyMappingsByLayout,
            let encodedMappings = KeyActionMappingStore.encode(KeyActionMappingStore.normalized(keyMappings)) {
             defaults.set(encodedMappings, forKey: GlassToKeyDefaultsKeys.keyMappings)
+        }
+        if let encodedShortcutActions = ShortcutActionLibraryStorage.encode(profile.shortcutActions) {
+            defaults.set(encodedShortcutActions, forKey: GlassToKeyDefaultsKeys.shortcutActions)
         }
         if let keyGeometry = profile.keyGeometryByLayout,
            let encodedGeometry = KeyGeometryStore.encode(KeyGeometryStore.normalized(keyGeometry)) {

@@ -1,10 +1,11 @@
 ## Current:
-- Shortcut Builder: Add to Dropdown (import/export compatible with ../windows_linux) see how this is implemented there.
+In `Shortcut Builder`: Add an option: "Primary", "Hold", Add: "Dropdown". This is implemented in ../windows_linus so please see how this is implemented there. Basically, if Dropdown is selected, instead of adding the Shortcut to a key, it will add it to a small list in the UserSettings that gets added to a `Shortcuts` section of the Action Dropdown (import/export should remain cross-compatible with  see how this is implemented there.)
 ------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 ---
 - Add Legit "Screenshot" shortcut that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4
+- Test removing "edit keymap" and making Mac more like Windows!
 
     
 ## TODO:
