@@ -132,9 +132,13 @@ internal sealed class LinuxAppLaunchDispatcher : IInputDispatcher, IInputDispatc
             return;
         }
 
-        if (!forceFallback && LinuxBrightnessController.ShouldUseNativeBrightnessPath())
+        if (!forceFallback)
         {
-            _inner.Dispatch(in dispatchEvent);
+            if (LinuxBrightnessController.ShouldUseNativeBrightnessPath())
+            {
+                _inner.Dispatch(in dispatchEvent);
+            }
+
             return;
         }
 

@@ -695,10 +695,19 @@
                               Spacing="8"
                               HorizontalAlignment="Stretch" />
                 </Expander>
-                <Expander Header="Gesture Tuning"
-                          IsExpanded="False"
+                <Expander IsExpanded="False"
                           HorizontalAlignment="Stretch"
                           HorizontalContentAlignment="Stretch">
+                  <Expander.Header>
+                    <Grid ColumnDefinitions="Auto,Auto">
+                      <TextBlock Text="Gesture Tuning" />
+                      <TextBlock Grid.Column="1"
+                                 Margin="10,0,0,0"
+                                 Foreground="#6B7279"
+                                 FontSize="11"
+                                 Text="Repeat [ms], blank = off" />
+                    </Grid>
+                  </Expander.Header>
                   <StackPanel x:Name="GestureSectionsPanel"
                               Margin="0,10,0,0"
                               Spacing="8"

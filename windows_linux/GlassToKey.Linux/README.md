@@ -41,6 +41,7 @@ Current CLI/runtime features:
 - `watch-runtime`, `capture-atpcap`, and `run-engine` now report binding-state transitions so disconnect/rebind churn is visible during live Linux runs
 - the Linux host now ships its own bundled `GLASSTOKEY_DEFAULT_KEYMAP.json`, and the embedded bundled keymap payload has been translated away from Windows-only defaults like `EMOJI`, `LWin`, and `Win+H`
 - `VOL_UP`, `VOL_DOWN`, `BRIGHT_UP`, and `BRIGHT_DOWN` now resolve through semantic codes and Linux evdev output mappings instead of relying on Windows VK fallback
+- Linux brightness handling is intentionally split: `BRIGHT_UP` / `BRIGHT_DOWN` stay on the native evdev brightness-key path only, while `BRI_SCRIPT_UP` / `BRI_SCRIPT_DOWN` stay on the `xrandr` fallback path only
 - Linux semantic coverage now also includes mute/media transport, lock keys, print/pause/menu, and F13-F24
 - Linux now also triggers Magic Trackpad haptics through the validated actuator hidraw interface when the device exposes that interface and permissions allow write access
 - On the current Ubuntu 24.04 host, live runtime haptics has now been validated end-to-end on both tested USB trackpads:

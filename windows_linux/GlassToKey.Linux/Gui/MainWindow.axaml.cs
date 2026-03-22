@@ -514,7 +514,8 @@ public partial class MainWindow : Window
             int bindingIndex = 0;
             foreach (GestureBindingDefinition binding in GestureBindingCatalog.EnumerateSectionBindings(section.Id))
             {
-                if (TryGetGestureSubgroupLabel(section.Id, bindingIndex, out string? subgroupLabel))
+                if (TryGetGestureSubgroupLabel(section.Id, bindingIndex, out string? subgroupLabel) &&
+                    subgroupLabel != null)
                 {
                     sectionPanel.Children.Add(BuildGestureSubgroupHeader(subgroupLabel));
                 }

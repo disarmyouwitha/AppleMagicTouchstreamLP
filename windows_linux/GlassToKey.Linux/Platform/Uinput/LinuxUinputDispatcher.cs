@@ -654,7 +654,15 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
             _tapHeldDown[keyCode] = false;
         }
 
-        TrySendKeyCode(keyCode, isDown: true);
+        // Linux evdev won't reliably turn repeated "down while already down" events into
+        // immediate repeats, so pulse the key at the requested cadence instead of relying on
+        // typematic behavior from the compositor or toolkit.
+        TrySendKeyCode(keyCode, isDown: false);
+        if (TrySendKeyCode(keyCode, isDown: true) &&
+            (uint)keyCode < (uint)_keyDown.Length)
+        {
+            _keyDown[keyCode] = true;
+        }
     }
 
     private void ProcessTapReleases(long nowTicks)
