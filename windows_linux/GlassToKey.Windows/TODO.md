@@ -1,5 +1,4 @@
 ## TODO:
-- When the `config` opens, it opens maximized Can we have it opened windowed, unless the user maximizes it — and then remember their choice? Or would we have to add a bunch of nonsense to track that? (It wont be worth it in that case)
 - Take another look at `FingerWorks` Gestures, like `PINCH` for copy!
 
 
