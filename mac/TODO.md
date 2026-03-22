@@ -1,7 +1,5 @@
 ## Current:
 - Shortcut Builder: Add to Dropdown (import/export compatible with ../windows_linux) see how this is implemented there.
-- Force Clicks needs a slider where you set what force is Force. (Like in ../windows_linux please check it out)
-- Force Instead of Hold
 ------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..

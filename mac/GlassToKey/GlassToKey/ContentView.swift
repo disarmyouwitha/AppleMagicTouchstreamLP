@@ -2294,12 +2294,18 @@ struct ContentView: View {
                     if let selection = buttonSelection {
                         onUpdateButton(selection.button.id) { button in
                             button.hold = resolvedHold
+                            if resolvedHold == nil {
+                                button.holdForceThreshold = 0
+                            }
                         }
                         return
                     }
                     if let selection = keySelection {
                         onUpdateKeyMapping(selection.key) { mapping in
                             mapping.hold = resolvedHold
+                            if resolvedHold == nil {
+                                mapping.holdForceThreshold = 0
+                            }
                         }
                     }
                 }
@@ -2310,6 +2316,41 @@ struct ContentView: View {
             Binding(
                 get: { holdActionBinding.wrappedValue ?? KeyActionCatalog.noneAction },
                 set: { holdActionBinding.wrappedValue = $0 }
+            )
+        }
+
+        private var holdForceThresholdBinding: Binding<Double> {
+            Binding(
+                get: {
+                    if let selection = buttonSelection {
+                        return Double(selection.button.holdForceThreshold)
+                    }
+                    if let selection = keySelection {
+                        return Double(selection.mapping.holdForceThreshold)
+                    }
+                    return 0
+                },
+                set: { newValue in
+                    let clamped = KeyMapping.normalizedHoldForceThreshold(
+                        Int(
+                            min(
+                                max(newValue, ContentView.forceClickRange.lowerBound),
+                                ContentView.forceClickRange.upperBound
+                            ).rounded()
+                        )
+                    )
+                    if let selection = buttonSelection {
+                        onUpdateButton(selection.button.id) { button in
+                            button.holdForceThreshold = button.hold == nil ? 0 : clamped
+                        }
+                        return
+                    }
+                    if let selection = keySelection {
+                        onUpdateKeyMapping(selection.key) { mapping in
+                            mapping.holdForceThreshold = mapping.hold == nil ? 0 : clamped
+                        }
+                    }
+                }
             )
         }
 
@@ -2698,6 +2739,19 @@ struct ContentView: View {
                     )
                 }
                 EqualSplitFormRow {
+                    Text("Force Instead of Hold")
+                } field: {
+                    TextField(
+                        "",
+                        value: holdForceThresholdBinding,
+                        formatter: ContentView.forceClickFormatter
+                    )
+                    .textFieldStyle(.roundedBorder)
+                    .frame(maxWidth: .infinity)
+                    .disabled(!hasEditableSelection)
+                    .help("0 keeps timed hold. When this is above 0 and force data is present, hold fires only after this force threshold is reached.")
+                }
+                EqualSplitFormRow {
                     Text("Key Rotation (0-360 deg)")
                 } field: {
                     TextField("", value: keyRotationBinding, formatter: ContentView.rotationDegreesFormatter)
@@ -2720,7 +2774,7 @@ struct ContentView: View {
                             shortcutModifierButton(modifier)
                         }
                     }
-                    Text("Click to toggle. Hold to choose generic, left, or right. Right Option also accepts AltGr labels.")
+                    Text("Click to toggle. Hold to choose generic, left, or right.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
@@ -3597,6 +3651,7 @@ struct ContentView: View {
             selection: Binding<String>,
             fallbackLabel: String,
             repeatBindingId: String? = nil,
+            showsRepeatCadenceField: Bool = true,
             disabled: Bool = false
         ) -> some View {
             let currentAction = selectedAction(selection, fallbackLabel: fallbackLabel)
@@ -3646,7 +3701,7 @@ struct ContentView: View {
                     .opacity(disabled ? 0.65 : 1.0)
                     .help(disabled ? "Disabled while macOS Three Finger Drag is enabled." : "")
 
-                    if let repeatBindingId {
+                    if showsRepeatCadenceField, let repeatBindingId {
                         TextField(
                             "",
                             text: gestureRepeatCadenceTextBinding(for: repeatBindingId),
@@ -3761,10 +3816,10 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
-                        gesturePicker("Top Left", selection: $topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topLeftTriangle)
-                        gesturePicker("Top Right", selection: $topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topRightTriangle)
-                        gesturePicker("Bottom Left", selection: $bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftTriangle)
-                        gesturePicker("Bottom Right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightTriangle)
+                        gesturePicker("Top Left", selection: $topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topLeftTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topRightTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightTriangle, showsRepeatCadenceField: false)
                     }
                 } label: {
                     Text("Triangles")
@@ -3775,12 +3830,12 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
-                        gesturePicker("Top Left", selection: $upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperLeftCornerClick)
-                        gesturePicker("Top Right", selection: $upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperRightCornerClick)
-                        gesturePicker("Bottom Left", selection: $lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerLeftCornerClick)
-                        gesturePicker("Bottom Right", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerRightCornerClick)
-                        gesturePicker("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerClick)
-                        gesturePicker("4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerClick)
+                        gesturePicker("Top Left", selection: $upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperLeftCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperRightCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerLeftCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerRightCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerClick, showsRepeatCadenceField: false)
+                        gesturePicker("4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerClick, showsRepeatCadenceField: false)
                         gestureSubsectionHeader("Taps")
                         gesturePicker("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
                         gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
@@ -3812,10 +3867,10 @@ struct ContentView: View {
                                 .frame(width: 44, alignment: .trailing)
                             }
                         }
-                        gesturePicker("Top Left", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topLeftForceClick)
-                        gesturePicker("Top Right", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topRightForceClick)
-                        gesturePicker("Bottom Left", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftForceClick)
-                        gesturePicker("Bottom Right", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightForceClick)
+                        gesturePicker("Top Left", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topLeftForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topRightForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightForceClick, showsRepeatCadenceField: false)
                     }
                 } label: {
                     Text("Force Clicks")

@@ -704,6 +704,7 @@ final class ContentViewModel: ObservableObject {
         let position: GridKeyPosition?
         let side: TrackpadSide
         let holdAction: KeyAction?
+        let holdForceThreshold: Float
 
         init(
             rect: CGRect,
@@ -713,7 +714,8 @@ final class ContentViewModel: ObservableObject {
             action: KeyBindingAction,
             position: GridKeyPosition?,
             side: TrackpadSide,
-            holdAction: KeyAction?
+            holdAction: KeyAction?,
+            holdForceThreshold: Float = 0
         ) {
             self.rect = rect
             self.normalizedRect = normalizedRect
@@ -724,6 +726,7 @@ final class ContentViewModel: ObservableObject {
             self.position = position
             self.side = side
             self.holdAction = holdAction
+            self.holdForceThreshold = max(0, holdForceThreshold)
         }
     }
 
@@ -1989,6 +1992,44 @@ extension KeyAction {
 struct KeyMapping: Codable, Hashable {
     var primary: KeyAction
     var hold: KeyAction?
+    var holdForceThreshold: Int
+
+    private enum CodingKeys: String, CodingKey {
+        case primary
+        case hold
+        case holdForceThreshold
+    }
+
+    init(
+        primary: KeyAction,
+        hold: KeyAction?,
+        holdForceThreshold: Int = 0
+    ) {
+        self.primary = primary
+        self.hold = hold
+        self.holdForceThreshold = Self.normalizedHoldForceThreshold(holdForceThreshold)
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        primary = try container.decode(KeyAction.self, forKey: .primary)
+        hold = try container.decodeIfPresent(KeyAction.self, forKey: .hold)
+        let decodedThreshold = try container.decodeIfPresent(Int.self, forKey: .holdForceThreshold) ?? 0
+        holdForceThreshold = hold == nil ? 0 : Self.normalizedHoldForceThreshold(decodedThreshold)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(primary, forKey: .primary)
+        try container.encodeIfPresent(hold, forKey: .hold)
+        if hold != nil {
+            try container.encode(holdForceThreshold, forKey: .holdForceThreshold)
+        }
+    }
+
+    static func normalizedHoldForceThreshold(_ value: Int) -> Int {
+        min(max(value, 0), 255)
+    }
 }
 
 struct CustomButton: Identifiable, Codable, Hashable {
@@ -1997,6 +2038,7 @@ struct CustomButton: Identifiable, Codable, Hashable {
     var rect: NormalizedRect
     var action: KeyAction
     var hold: KeyAction?
+    var holdForceThreshold: Int
     var layer: Int
 
     private enum CodingKeys: String, CodingKey {
@@ -2005,6 +2047,7 @@ struct CustomButton: Identifiable, Codable, Hashable {
         case rect
         case action
         case hold
+        case holdForceThreshold
         case layer
     }
 
@@ -2014,6 +2057,7 @@ struct CustomButton: Identifiable, Codable, Hashable {
         rect: NormalizedRect,
         action: KeyAction,
         hold: KeyAction?,
+        holdForceThreshold: Int = 0,
         layer: Int = 0
     ) {
         self.id = id
@@ -2021,6 +2065,7 @@ struct CustomButton: Identifiable, Codable, Hashable {
         self.rect = rect
         self.action = action
         self.hold = hold
+        self.holdForceThreshold = hold == nil ? 0 : KeyMapping.normalizedHoldForceThreshold(holdForceThreshold)
         self.layer = layer
     }
 
@@ -2031,6 +2076,8 @@ struct CustomButton: Identifiable, Codable, Hashable {
         rect = try container.decode(NormalizedRect.self, forKey: .rect)
         action = try container.decode(KeyAction.self, forKey: .action)
         hold = try container.decodeIfPresent(KeyAction.self, forKey: .hold)
+        let decodedThreshold = try container.decodeIfPresent(Int.self, forKey: .holdForceThreshold) ?? 0
+        holdForceThreshold = hold == nil ? 0 : KeyMapping.normalizedHoldForceThreshold(decodedThreshold)
         layer = try container.decodeIfPresent(Int.self, forKey: .layer) ?? 0
     }
 
@@ -2041,6 +2088,9 @@ struct CustomButton: Identifiable, Codable, Hashable {
         try container.encode(rect, forKey: .rect)
         try container.encode(action, forKey: .action)
         try container.encodeIfPresent(hold, forKey: .hold)
+        if hold != nil {
+            try container.encode(holdForceThreshold, forKey: .holdForceThreshold)
+        }
         try container.encode(layer, forKey: .layer)
     }
 }
@@ -3388,7 +3438,15 @@ enum PortableKeymapInterop {
                         unsupportedLabels: &unsupportedLabels,
                         allowNil: true
                     )
-                    output[storageKey] = KeyMapping(primary: primary, hold: hold)
+                    output[storageKey] = KeyMapping(
+                        primary: primary,
+                        hold: hold,
+                        holdForceThreshold: hold == nil
+                            ? 0
+                            : KeyMapping.normalizedHoldForceThreshold(
+                                portableMapping.holdForceThreshold ?? 0
+                            )
+                    )
                 }
                 mappedLayers[clampedLayer] = output
             }
@@ -3418,6 +3476,11 @@ enum PortableKeymapInterop {
                         rect: rect,
                         action: primary,
                         hold: hold,
+                        holdForceThreshold: hold == nil
+                            ? 0
+                            : KeyMapping.normalizedHoldForceThreshold(
+                                portableButton.holdForceThreshold ?? 0
+                            ),
                         layer: clampedLayer
                     )
                 }
@@ -3533,7 +3596,8 @@ enum PortableKeymapInterop {
                 result[entry.key] = entry.value.reduce(into: [:]) { mappingResult, pair in
                     mappingResult[pair.key] = PortableKeyMapping(
                         primary: PortableKeyAction(label: portableLabel(for: pair.value.primary)),
-                        hold: pair.value.hold.map { PortableKeyAction(label: portableLabel(for: $0)) }
+                        hold: pair.value.hold.map { PortableKeyAction(label: portableLabel(for: $0)) },
+                        holdForceThreshold: pair.value.hold == nil ? 0 : pair.value.holdForceThreshold
                     )
                 }
             }
@@ -3547,6 +3611,7 @@ enum PortableKeymapInterop {
                         rect: PortableNormalizedRect(normalizedRect: button.rect),
                         primary: PortableKeyAction(label: portableLabel(for: button.action)),
                         hold: button.hold.map { PortableKeyAction(label: portableLabel(for: $0)) },
+                        holdForceThreshold: button.hold == nil ? 0 : button.holdForceThreshold,
                         layer: entry.key
                     )
                 }
@@ -3883,10 +3948,12 @@ enum PortableKeymapInterop {
     private struct PortableKeyMapping: Codable {
         var primary: PortableKeyAction?
         var hold: PortableKeyAction?
+        var holdForceThreshold: Int?
 
         private enum CodingKeys: String, CodingKey {
             case primary = "Primary"
             case hold = "Hold"
+            case holdForceThreshold = "HoldForceThreshold"
         }
     }
 
@@ -3904,6 +3971,7 @@ enum PortableKeymapInterop {
         var rect: PortableNormalizedRect
         var primary: PortableKeyAction?
         var hold: PortableKeyAction?
+        var holdForceThreshold: Int?
         var layer: Int?
 
         var uuid: UUID {
@@ -3920,6 +3988,7 @@ enum PortableKeymapInterop {
             case rect = "Rect"
             case primary = "Primary"
             case hold = "Hold"
+            case holdForceThreshold = "HoldForceThreshold"
             case layer = "Layer"
         }
 
@@ -3929,6 +3998,7 @@ enum PortableKeymapInterop {
             rect: PortableNormalizedRect,
             primary: PortableKeyAction,
             hold: PortableKeyAction?,
+            holdForceThreshold: Int,
             layer: Int
         ) {
             self.id = id
@@ -3936,6 +4006,7 @@ enum PortableKeymapInterop {
             self.rect = rect
             self.primary = primary
             self.hold = hold
+            self.holdForceThreshold = hold == nil ? 0 : KeyMapping.normalizedHoldForceThreshold(holdForceThreshold)
             self.layer = layer
         }
     }

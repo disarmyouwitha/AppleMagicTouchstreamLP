@@ -524,6 +524,7 @@ actor TouchProcessorEngine {
     private var tapMaxDuration: TimeInterval = 0.2
     private var holdMinDuration: TimeInterval = 0.2
     private var dragCancelDistance: CGFloat = 2.5
+    private let clickActuationForce: Float = 125
     private var forceClickMin: Float = 0
     private var forceClickCap: Float = 255
     private var forceClickThreshold: Float = Float(GlassToKeySettings.forceClickThreshold)
@@ -1621,7 +1622,12 @@ actor TouchProcessorEngine {
                     if intentAllowsTyping,
                        active.modifierKey == nil,
                        !active.didHold,
-                       now - active.startTime >= holdMinDuration,
+                       isHoldTriggerSatisfied(
+                            for: active.binding,
+                            pressure: peakPressure,
+                            startTime: active.startTime,
+                            now: now
+                       ),
                        (!isDragDetectionEnabled || active.maxDistanceSquared <= dragCancelDistanceSquared) {
                         let dispatchInfo = makeDispatchInfo(
                             kind: .hold,
@@ -1631,10 +1637,14 @@ actor TouchProcessorEngine {
                         )
                         var updated = active
                         let holdDispatchBinding = active.holdBinding ?? active.binding
+                        let dispatchPressure = holdDispatchPressure(
+                            for: active.binding,
+                            pressure: peakPressure
+                        )
                         if beginHoldRepeat(
                                 for: touchKey,
                                 binding: holdDispatchBinding,
-                                pressure: peakPressure
+                                pressure: dispatchPressure
                             ) {
                             updated.holdRepeatActive = true
                         } else {
@@ -1642,7 +1652,7 @@ actor TouchProcessorEngine {
                                 holdDispatchBinding,
                                 touchKey: touchKey,
                                 dispatchInfo: dispatchInfo,
-                                pressure: peakPressure
+                                pressure: dispatchPressure
                             )
                             updated.holdRepeatActive = false
                         }
@@ -2329,7 +2339,8 @@ actor TouchProcessorEngine {
                 action: action,
                 position: nil,
                 side: button.side,
-                holdAction: button.hold
+                holdAction: button.hold,
+                holdForceThreshold: button.hold == nil ? 0 : Float(button.holdForceThreshold)
             )
             customBindings.append(binding)
             customGrid?.insert(binding)
@@ -2358,6 +2369,9 @@ actor TouchProcessorEngine {
         let holdAction = layout.allowHoldBindings
             ? holdAction(for: position, label: label)
             : nil
+        let holdForceThreshold = layout.allowHoldBindings
+            ? holdForceThreshold(for: position)
+            : 0
         return makeBinding(
             for: action,
             rect: rect,
@@ -2365,7 +2379,8 @@ actor TouchProcessorEngine {
             canvasSize: canvasSize,
             position: position,
             side: position.side,
-            holdAction: holdAction
+            holdAction: holdAction,
+            holdForceThreshold: holdForceThreshold
         )
     }
 
@@ -2385,6 +2400,15 @@ actor TouchProcessorEngine {
         return KeyActionCatalog.holdAction(for: label)
     }
 
+    private func holdForceThreshold(for position: GridKeyPosition?) -> Float {
+        guard let position else { return 0 }
+        let layerMappings = customKeyMappingsByLayer[activeLayer] ?? [:]
+        guard let mapping = layerMappings[position.storageKey], mapping.hold != nil else {
+            return 0
+        }
+        return Float(mapping.holdForceThreshold)
+    }
+
     private func makeBinding(
         for action: KeyAction,
         rect: CGRect,
@@ -2392,7 +2416,8 @@ actor TouchProcessorEngine {
         canvasSize: CGSize,
         position: GridKeyPosition?,
         side: TrackpadSide,
-        holdAction: KeyAction? = nil
+        holdAction: KeyAction? = nil,
+        holdForceThreshold: Float = 0
     ) -> KeyBinding? {
         switch action.kind {
         case .key:
@@ -2405,7 +2430,8 @@ actor TouchProcessorEngine {
                 action: .key(code: CGKeyCode(action.keyCode), flags: flags),
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .appLaunch:
             return KeyBinding(
@@ -2416,7 +2442,8 @@ actor TouchProcessorEngine {
                 action: .appLaunch(action.label),
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .leftClick:
             return KeyBinding(
@@ -2427,7 +2454,8 @@ actor TouchProcessorEngine {
                 action: .leftClick,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .doubleClick:
             return KeyBinding(
@@ -2438,7 +2466,8 @@ actor TouchProcessorEngine {
                 action: .doubleClick,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .rightClick:
             return KeyBinding(
@@ -2449,7 +2478,8 @@ actor TouchProcessorEngine {
                 action: .rightClick,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .middleClick:
             return KeyBinding(
@@ -2460,7 +2490,8 @@ actor TouchProcessorEngine {
                 action: .middleClick,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .volumeUp:
             return KeyBinding(
@@ -2471,7 +2502,8 @@ actor TouchProcessorEngine {
                 action: .volumeUp,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .volumeDown:
             return KeyBinding(
@@ -2482,7 +2514,8 @@ actor TouchProcessorEngine {
                 action: .volumeDown,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .brightnessUp:
             return KeyBinding(
@@ -2493,7 +2526,8 @@ actor TouchProcessorEngine {
                 action: .brightnessUp,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .brightnessDown:
             return KeyBinding(
@@ -2504,7 +2538,8 @@ actor TouchProcessorEngine {
                 action: .brightnessDown,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .voice:
             return KeyBinding(
@@ -2515,7 +2550,8 @@ actor TouchProcessorEngine {
                 action: .voice,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .typingToggle:
             return KeyBinding(
@@ -2526,7 +2562,8 @@ actor TouchProcessorEngine {
                 action: .typingToggle,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .chordalShift:
             return KeyBinding(
@@ -2537,7 +2574,8 @@ actor TouchProcessorEngine {
                 action: .chordalShift,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureTwoFingerTap:
             return KeyBinding(
@@ -2548,7 +2586,8 @@ actor TouchProcessorEngine {
                 action: .gestureTwoFingerTap,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureThreeFingerTap:
             return KeyBinding(
@@ -2559,7 +2598,8 @@ actor TouchProcessorEngine {
                 action: .gestureThreeFingerTap,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureFourFingerHold:
             return KeyBinding(
@@ -2570,7 +2610,8 @@ actor TouchProcessorEngine {
                 action: .gestureFourFingerHold,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureInnerCornersHold:
             return KeyBinding(
@@ -2581,7 +2622,8 @@ actor TouchProcessorEngine {
                 action: .gestureInnerCornersHold,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureFiveFingerSwipeLeft:
             return KeyBinding(
@@ -2592,7 +2634,8 @@ actor TouchProcessorEngine {
                 action: .gestureFiveFingerSwipeLeft,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .gestureFiveFingerSwipeRight:
             return KeyBinding(
@@ -2603,7 +2646,8 @@ actor TouchProcessorEngine {
                 action: .gestureFiveFingerSwipeRight,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .layerMomentary:
             return KeyBinding(
@@ -2614,7 +2658,8 @@ actor TouchProcessorEngine {
                 action: .layerMomentary(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .layerToggle:
             return KeyBinding(
@@ -2625,7 +2670,8 @@ actor TouchProcessorEngine {
                 action: .layerToggle(KeyLayerConfig.clamped(action.layer ?? 1)),
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         case .none:
             return KeyBinding(
@@ -2636,7 +2682,8 @@ actor TouchProcessorEngine {
                 action: .none,
                 position: position,
                 side: side,
-                holdAction: holdAction
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
             )
         }
     }
@@ -3956,7 +4003,7 @@ actor TouchProcessorEngine {
         if !state.forceTriggeredForCurrentPress,
            action.kind != .none,
            let pressure = currentPeakPressureForSide(side),
-           pressure >= forceClickThreshold {
+           isClickActuationSatisfied(pressure) {
             state.forceTriggeredForCurrentPress = true
             state.repeatBindingId = bindingId
             performGestureAction(action, now: now, side: side, bindingId: bindingId)
@@ -4199,7 +4246,7 @@ actor TouchProcessorEngine {
                   cornerClickAction(for: corner).kind != .none else { return }
             state.active = true
             state.candidateValid = true
-            state.forceArmed = touch.pressure >= forceClickThreshold
+            state.forceArmed = isClickActuationSatisfied(touch.pressure)
             state.corner = corner
             state.startTime = now
             state.startX = point.x
@@ -4216,14 +4263,15 @@ actor TouchProcessorEngine {
             return
         }
         state.peakPressure = max(state.peakPressure, max(0, touch.pressure))
-        state.forceArmed = state.forceArmed || state.peakPressure >= forceClickThreshold
+        state.forceArmed = state.forceArmed || isClickActuationSatisfied(state.peakPressure)
         state.lastX = point.x
         state.lastY = point.y
         state.maxDistanceMm = max(state.maxDistanceMm, normalizedDistanceMm(from: CGPoint(x: state.startX, y: state.startY), to: point))
         if state.maxDistanceMm > dragCancelDistance
             || now - state.startTime > cornerClickMaxDuration
             || classifyCorner(point, threshold: cornerClickZoneThreshold) != state.corner
-            || cornerForceClickOverrideAction(for: state.corner).kind != .none && isPressureWithinForceRange(state.peakPressure) {
+            || cornerForceClickOverrideAction(for: state.corner).kind != .none
+                && isForceClickGestureTriggered(state.peakPressure) {
             state.candidateValid = false
         }
         cornerClickState[side] = state
@@ -4275,7 +4323,7 @@ actor TouchProcessorEngine {
             return
         }
         if !state.triggered,
-           isPressureWithinForceRange(state.peakPressure),
+           isForceClickGestureTriggered(state.peakPressure),
            let corner = state.corner,
            forceClickAction(for: corner).kind != .none {
             state.triggered = true
@@ -5050,6 +5098,37 @@ actor TouchProcessorEngine {
             return false
         }
         return isContinuousKey(binding) || holdRepeatEnabled
+    }
+
+    private func isHoldTriggerSatisfied(
+        for binding: KeyBinding,
+        pressure: Float,
+        startTime: TimeInterval,
+        now: TimeInterval
+    ) -> Bool {
+        if binding.holdForceThreshold > 0, pressure > 0 {
+            return pressure >= binding.holdForceThreshold
+        }
+        return now - startTime >= holdMinDuration
+    }
+
+    private func holdDispatchPressure(for binding: KeyBinding, pressure: Float) -> Float? {
+        if binding.holdForceThreshold > 0, pressure > 0 {
+            return nil
+        }
+        return pressure
+    }
+
+    private func isClickActuationSatisfied(_ pressure: Float) -> Bool {
+        pressure >= clickActuationForce
+    }
+
+    private func isForceClickThresholdSatisfied(_ pressure: Float) -> Bool {
+        pressure >= forceClickThreshold
+    }
+
+    private func isForceClickGestureTriggered(_ pressure: Float) -> Bool {
+        isForceClickThresholdSatisfied(pressure) && isPressureWithinForceRange(pressure)
     }
 
     private func allowsPriorityTyping(for binding: KeyBinding) -> Bool {
