@@ -1,5 +1,4 @@
 ## Current:
-- I want to do a little experiment.. we have improved the GUI a lot and I don't think we need the "Edit Keymap" toggle, and we can move the collapsable sections into the main section in this order: [Column Tuning, Keymap Tuning, Typing Tuning, Gesture Tuning, Mode Toggles] with only Mode Toggles expanded by default.
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
 ---
