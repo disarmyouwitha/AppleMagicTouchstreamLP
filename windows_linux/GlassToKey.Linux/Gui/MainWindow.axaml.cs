@@ -490,6 +490,10 @@ public partial class MainWindow : Window
 
         foreach (GestureSectionDefinition section in GestureBindingCatalog.Sections)
         {
+            bool showRepeatCadence = !string.Equals(section.Id, "triangles", StringComparison.Ordinal) &&
+                                     !string.Equals(section.Id, "clicks", StringComparison.Ordinal) &&
+                                     !string.Equals(section.Id, "force_clicks", StringComparison.Ordinal);
+
             Expander expander = new()
             {
                 IsExpanded = section.IsExpandedByDefault,
@@ -527,7 +531,6 @@ public partial class MainWindow : Window
                 };
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
                 row.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
-                row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
 
                 row.Children.Add(new TextBlock
                 {
@@ -539,13 +542,17 @@ public partial class MainWindow : Window
                 Grid.SetColumn(combo, 1);
                 combo.Margin = new Thickness(12, 0, 0, 0);
                 row.Children.Add(combo);
-                TextBox repeatBox = CreateGestureRepeatCadenceTextBox();
-                Grid.SetColumn(repeatBox, 2);
-                repeatBox.Margin = new Thickness(12, 0, 0, 0);
-                row.Children.Add(repeatBox);
                 sectionPanel.Children.Add(row);
                 _gestureActionCombos.Add(binding.Id, combo);
-                _gestureRepeatBoxes.Add(binding.Id, repeatBox);
+                if (showRepeatCadence)
+                {
+                    row.ColumnDefinitions.Add(new ColumnDefinition { Width = GridLength.Auto });
+                    TextBox repeatBox = CreateGestureRepeatCadenceTextBox();
+                    Grid.SetColumn(repeatBox, 2);
+                    repeatBox.Margin = new Thickness(12, 0, 0, 0);
+                    row.Children.Add(repeatBox);
+                    _gestureRepeatBoxes.Add(binding.Id, repeatBox);
+                }
                 bindingIndex++;
             }
 
@@ -665,6 +672,21 @@ public partial class MainWindow : Window
     private static bool TryGetGestureSubgroupLabel(string sectionId, int bindingIndex, out string? label)
     {
         label = null;
+
+        if (string.Equals(sectionId, "edges", StringComparison.Ordinal))
+        {
+            label = bindingIndex switch
+            {
+                0 => "Left Edge",
+                2 => "Right Edge",
+                4 => "Top Edge",
+                6 => "Bottom Edge",
+                _ => null
+            };
+
+            return label != null;
+        }
+
         if (!string.Equals(sectionId, "swipes", StringComparison.Ordinal))
         {
             return false;

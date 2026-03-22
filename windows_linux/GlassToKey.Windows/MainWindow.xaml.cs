@@ -778,27 +778,30 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         RegisterGestureBindingControl("top_right_corner_swipe", TopRightCornerSwipeGestureCombo, TopRightCornerSwipeGestureRepeatBox);
         RegisterGestureBindingControl("bottom_left_corner_swipe", BottomLeftCornerSwipeGestureCombo, BottomLeftCornerSwipeGestureRepeatBox);
         RegisterGestureBindingControl("bottom_right_corner_swipe", BottomRightCornerSwipeGestureCombo, BottomRightCornerSwipeGestureRepeatBox);
-        RegisterGestureBindingControl("top_left_triangle", TopLeftTriangleGestureCombo, TopLeftTriangleGestureRepeatBox);
-        RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo, TopRightTriangleGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo, BottomLeftTriangleGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_right_triangle", BottomRightTriangleGestureCombo, BottomRightTriangleGestureRepeatBox);
-        RegisterGestureBindingControl("top_left_force_click", TopLeftForceClickGestureCombo, TopLeftForceClickGestureRepeatBox);
-        RegisterGestureBindingControl("top_right_force_click", TopRightForceClickGestureCombo, TopRightForceClickGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_left_force_click", BottomLeftForceClickGestureCombo, BottomLeftForceClickGestureRepeatBox);
-        RegisterGestureBindingControl("bottom_right_force_click", BottomRightForceClickGestureCombo, BottomRightForceClickGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_tap", ThreeFingerTapGestureCombo, ThreeFingerTapGestureRepeatBox);
-        RegisterGestureBindingControl("three_finger_click", ThreeFingerClickGestureCombo, ThreeFingerClickGestureRepeatBox);
-        RegisterGestureBindingControl("four_finger_click", FourFingerClickGestureCombo, FourFingerClickGestureRepeatBox);
-        RegisterGestureBindingControl("upper_left_corner_click", UpperLeftCornerClickGestureCombo, UpperLeftCornerClickGestureRepeatBox);
-        RegisterGestureBindingControl("upper_right_corner_click", UpperRightCornerClickGestureCombo, UpperRightCornerClickGestureRepeatBox);
-        RegisterGestureBindingControl("lower_left_corner_click", LowerLeftCornerClickGestureCombo, LowerLeftCornerClickGestureRepeatBox);
-        RegisterGestureBindingControl("lower_right_corner_click", LowerRightCornerClickGestureCombo, LowerRightCornerClickGestureRepeatBox);
+        RegisterGestureBindingControl("top_left_triangle", TopLeftTriangleGestureCombo);
+        RegisterGestureBindingControl("top_right_triangle", TopRightTriangleGestureCombo);
+        RegisterGestureBindingControl("bottom_left_triangle", BottomLeftTriangleGestureCombo);
+        RegisterGestureBindingControl("bottom_right_triangle", BottomRightTriangleGestureCombo);
+        RegisterGestureBindingControl("top_left_force_click", TopLeftForceClickGestureCombo);
+        RegisterGestureBindingControl("top_right_force_click", TopRightForceClickGestureCombo);
+        RegisterGestureBindingControl("bottom_left_force_click", BottomLeftForceClickGestureCombo);
+        RegisterGestureBindingControl("bottom_right_force_click", BottomRightForceClickGestureCombo);
+        RegisterGestureBindingControl("three_finger_tap", ThreeFingerTapGestureCombo);
+        RegisterGestureBindingControl("three_finger_click", ThreeFingerClickGestureCombo);
+        RegisterGestureBindingControl("four_finger_click", FourFingerClickGestureCombo);
+        RegisterGestureBindingControl("upper_left_corner_click", UpperLeftCornerClickGestureCombo);
+        RegisterGestureBindingControl("upper_right_corner_click", UpperRightCornerClickGestureCombo);
+        RegisterGestureBindingControl("lower_left_corner_click", LowerLeftCornerClickGestureCombo);
+        RegisterGestureBindingControl("lower_right_corner_click", LowerRightCornerClickGestureCombo);
     }
 
-    private void RegisterGestureBindingControl(string bindingId, ComboBox combo, TextBox repeatBox)
+    private void RegisterGestureBindingControl(string bindingId, ComboBox combo, TextBox? repeatBox = null)
     {
         _gestureActionCombosById[bindingId] = combo;
-        _gestureRepeatBoxesById[bindingId] = repeatBox;
+        if (repeatBox != null)
+        {
+            _gestureRepeatBoxesById[bindingId] = repeatBox;
+        }
     }
 
     private ListCollectionView CreateGroupedKeyActionView()
