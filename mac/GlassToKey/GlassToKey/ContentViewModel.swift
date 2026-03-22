@@ -1135,6 +1135,12 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateGestureActions(actions)
     }
 
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) {
+        runtimeCommandService.updateGestureRepeatCadenceMsById(
+            GestureRepeatCadenceStorage.normalized(cadenceById)
+        )
+    }
+
     func setKeymapEditingEnabled(_ enabled: Bool) {
         guard keymapEditingEnabled != enabled else { return }
         keymapEditingEnabled = enabled
@@ -1867,6 +1873,101 @@ struct GestureActionSet {
     var topRightForceClick: KeyAction
     var bottomLeftForceClick: KeyAction
     var bottomRightForceClick: KeyAction
+}
+
+enum GestureBindingID {
+    static let twoFingerTap = "two_finger_tap"
+    static let threeFingerTap = "three_finger_tap"
+    static let twoFingerHold = "two_finger_hold"
+    static let threeFingerHold = "three_finger_hold"
+    static let fourFingerHold = "four_finger_hold"
+    static let outerCornersHold = "outer_corners"
+    static let innerCornersHold = "inner_corners"
+    static let leftEdgeUp = "left_edge_up"
+    static let leftEdgeDown = "left_edge_down"
+    static let rightEdgeUp = "right_edge_up"
+    static let rightEdgeDown = "right_edge_down"
+    static let topEdgeLeft = "top_edge_left"
+    static let topEdgeRight = "top_edge_right"
+    static let bottomEdgeLeft = "bottom_edge_left"
+    static let bottomEdgeRight = "bottom_edge_right"
+    static let threeFingerSwipeLeft = "three_finger_swipe_left"
+    static let threeFingerSwipeRight = "three_finger_swipe_right"
+    static let threeFingerSwipeUp = "three_finger_swipe_up"
+    static let threeFingerSwipeDown = "three_finger_swipe_down"
+    static let fourFingerSwipeLeft = "four_finger_swipe_left"
+    static let fourFingerSwipeRight = "four_finger_swipe_right"
+    static let fourFingerSwipeUp = "four_finger_swipe_up"
+    static let fourFingerSwipeDown = "four_finger_swipe_down"
+    static let fiveFingerSwipeLeft = "five_finger_swipe_left"
+    static let fiveFingerSwipeRight = "five_finger_swipe_right"
+    static let fiveFingerSwipeUp = "five_finger_swipe_up"
+    static let fiveFingerSwipeDown = "five_finger_swipe_down"
+    static let topLeftCornerSwipe = "top_left_corner_swipe"
+    static let topRightCornerSwipe = "top_right_corner_swipe"
+    static let bottomLeftCornerSwipe = "bottom_left_corner_swipe"
+    static let bottomRightCornerSwipe = "bottom_right_corner_swipe"
+    static let topLeftTriangle = "top_left_triangle"
+    static let topRightTriangle = "top_right_triangle"
+    static let bottomLeftTriangle = "bottom_left_triangle"
+    static let bottomRightTriangle = "bottom_right_triangle"
+    static let upperLeftCornerClick = "upper_left_corner_click"
+    static let upperRightCornerClick = "upper_right_corner_click"
+    static let lowerLeftCornerClick = "lower_left_corner_click"
+    static let lowerRightCornerClick = "lower_right_corner_click"
+    static let threeFingerClick = "three_finger_click"
+    static let fourFingerClick = "four_finger_click"
+    static let topLeftForceClick = "top_left_force_click"
+    static let topRightForceClick = "top_right_force_click"
+    static let bottomLeftForceClick = "bottom_left_force_click"
+    static let bottomRightForceClick = "bottom_right_force_click"
+
+    static let windowsRepeatCadenceBindingIDs: Set<String> = [
+        threeFingerTap,
+        twoFingerHold,
+        threeFingerHold,
+        fourFingerHold,
+        outerCornersHold,
+        innerCornersHold,
+        leftEdgeUp,
+        leftEdgeDown,
+        rightEdgeUp,
+        rightEdgeDown,
+        topEdgeLeft,
+        topEdgeRight,
+        bottomEdgeLeft,
+        bottomEdgeRight,
+        threeFingerSwipeLeft,
+        threeFingerSwipeRight,
+        threeFingerSwipeUp,
+        threeFingerSwipeDown,
+        fourFingerSwipeLeft,
+        fourFingerSwipeRight,
+        fourFingerSwipeUp,
+        fourFingerSwipeDown,
+        fiveFingerSwipeLeft,
+        fiveFingerSwipeRight,
+        fiveFingerSwipeUp,
+        fiveFingerSwipeDown,
+        topLeftCornerSwipe,
+        topRightCornerSwipe,
+        bottomLeftCornerSwipe,
+        bottomRightCornerSwipe,
+        topLeftTriangle,
+        topRightTriangle,
+        bottomLeftTriangle,
+        bottomRightTriangle,
+        upperLeftCornerClick,
+        upperRightCornerClick,
+        lowerLeftCornerClick,
+        lowerRightCornerClick,
+        threeFingerClick,
+        fourFingerClick,
+        topLeftForceClick,
+        topRightForceClick,
+        bottomLeftForceClick,
+        bottomRightForceClick
+    ]
 }
 
 extension KeyAction {

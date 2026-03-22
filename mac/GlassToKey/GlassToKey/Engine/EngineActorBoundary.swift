@@ -40,6 +40,7 @@ protocol EngineActorBoundary: Sendable {
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
     func updateGestureActions(_ actions: GestureActionSet) async
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async
     func clearVisualCaches() async
     func reset(stopVoiceDictation: Bool) async
 }
@@ -206,6 +207,10 @@ actor EngineActor: EngineActorBoundary {
 
     func updateGestureActions(_ actions: GestureActionSet) async {
         await processor.updateGestureActions(actions)
+    }
+
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async {
+        await processor.updateGestureRepeatCadenceMsById(cadenceById)
     }
 
     func clearVisualCaches() async {
@@ -429,6 +434,10 @@ actor EngineActorStub: EngineActorBoundary {
 
     func updateGestureActions(_ actions: GestureActionSet) async {
         await impl.updateGestureActions(actions)
+    }
+
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async {
+        await impl.updateGestureRepeatCadenceMsById(cadenceById)
     }
 
     func clearVisualCaches() async {

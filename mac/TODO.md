@@ -1,5 +1,5 @@
-- Why is it like 700mb ram to add all of these dropdowns? Why is swift like this? Is it impossible to add a simple dropdown without nuking the entire runtime? this fucking sucks. Windows and Linux ARE NOT like this so why is mac like this? I can't move forward until this is resolved
-- Implement (ms) repeat just like ../windows_linux
+## Current:
+- Implement (ms) repeat for Gestures, just like ../windows_linux
 - Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
 ---
 - Force Clicks needs a slider where you set what force is Force.
@@ -7,14 +7,13 @@
 ---
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
-- Add gestures (and collapsable sub-menu) to Gesture Tuning: Corners, Clicks, Force Clicks, Triangles
-- Can we make Gesture Tuning section scrollable??
-- ms cadence for gestures
+- Can we make right section scrollable??
 
     
 ## TODO:
+- FULLY adopt and `ingest OMS framework` with much `tighter coupling` into Mac glass the key; Change ./release to simplify notorizing and signing since we wont have nested frameworks!
+-------
 - "Memory saver" doesn't keep Typing Toggle state from before restart???
-- FULLY adopt and ingest OMS framework with much tighter coupling into Mac glass the key
 - auto-reconnect not working correctly after sleep
 - .atpcap should capture keymap! that would be super helpful!
 ---

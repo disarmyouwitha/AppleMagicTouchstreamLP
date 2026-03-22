@@ -438,6 +438,13 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateGestureRepeatCadenceMsById(cadenceById)
+        }
+    }
+
     func clearVisualCaches() {
         let runtimeEngine = runtimeEngine
         Task {

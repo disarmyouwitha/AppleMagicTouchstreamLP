@@ -134,6 +134,16 @@ actor TouchProcessorEngine {
         var nextFire: UInt64
     }
 
+    private struct GestureRepeatKey: Hashable {
+        let bindingId: String
+        let side: TrackpadSide?
+    }
+
+    private enum RepeatOwner: Hashable {
+        case touch(TouchKey)
+        case gesture(GestureRepeatKey)
+    }
+
     private enum TouchState {
         case pending(PendingTouch)
         case active(ActiveTouch)
@@ -486,6 +496,7 @@ actor TouchProcessorEngine {
     private var isTypingEnabled = true
     private var keyboardModeEnabled = false
     private var holdRepeatEnabled = false
+    private var gestureRepeatCadenceMsById: [String: Int] = [:]
     private var activeLayer: Int = 0
     private var persistentLayer: Int = 0
     private var leftDeviceIndex: Int?
@@ -503,7 +514,7 @@ actor TouchProcessorEngine {
     private var leftOptionTouchCount = 0
     private var rightOptionTouchCount = 0
     private var commandTouchCount = 0
-    private var repeatEntries: [TouchKey: RepeatEntry] = [:]
+    private var repeatEntries: [RepeatOwner: RepeatEntry] = [:]
     private var repeatLoopTask: Task<Void, Never>?
     private var toggleTouchStarts = TouchTable<TimeInterval>()
     private var layerToggleTouchStarts = TouchTable<Int>()
@@ -731,6 +742,7 @@ actor TouchProcessorEngine {
         var triggered: Bool = false
         var startX: CGFloat = 0
         var startY: CGFloat = 0
+        var repeatBindingId: String?
     }
     private enum SwipeDirection {
         case left
@@ -763,6 +775,7 @@ actor TouchProcessorEngine {
         var maxX: CGFloat = 0
         var minY: CGFloat = 0
         var maxY: CGFloat = 0
+        var repeatBindingId: String?
     }
     private struct CornerSwipeState {
         var active = false
@@ -775,6 +788,7 @@ actor TouchProcessorEngine {
         var peakY: CGFloat = 0
         var lastX: CGFloat = 0
         var lastY: CGFloat = 0
+        var repeatBindingId: String?
     }
     private struct TriangleGestureState {
         var active = false
@@ -789,6 +803,7 @@ actor TouchProcessorEngine {
         var maxY: CGFloat = 0
         var lastX: CGFloat = 0
         var lastY: CGFloat = 0
+        var repeatBindingId: String?
     }
     private struct ThreeFingerTapState {
         var active = false
@@ -797,6 +812,7 @@ actor TouchProcessorEngine {
         var startX: CGFloat = 0
         var startY: CGFloat = 0
         var maxDistanceMm: CGFloat = 0
+        var repeatBindingId: String?
     }
     private struct CornerClickState {
         var active = false
@@ -810,6 +826,7 @@ actor TouchProcessorEngine {
         var lastY: CGFloat = 0
         var maxDistanceMm: CGFloat = 0
         var peakPressure: Float = 0
+        var repeatBindingId: String?
     }
     private struct ForceClickState {
         var active = false
@@ -823,10 +840,12 @@ actor TouchProcessorEngine {
         var maxDistanceMm: CGFloat = 0
         var peakPressure: Float = 0
         var triggered = false
+        var repeatBindingId: String?
     }
     private struct MultiFingerClickState {
         var maxContactsSeen = 0
         var forceTriggeredForCurrentPress = false
+        var repeatBindingId: String?
     }
     private var threeFingerSwipeState = SidePair(left: DirectionalSwipeState(), right: DirectionalSwipeState())
     private var fourFingerSwipeState = SidePair(left: DirectionalSwipeState(), right: DirectionalSwipeState())
@@ -871,6 +890,7 @@ actor TouchProcessorEngine {
         var startTime: TimeInterval = 0
         var startCentroid: CGPoint = .zero
         var blockedUntilAllUp: Bool = false
+        var repeatBindingId: String?
     }
 
     private struct GestureContactSummary {
@@ -888,6 +908,7 @@ actor TouchProcessorEngine {
         var isDictating = false
         var side: TrackpadSide?
         var kind: CornerHoldGestureKind = .outer
+        var repeatBindingId: String?
     }
     private var chordShiftActivationCount = SidePair(left: 0, right: 0)
     private var twoFingerHoldState = SidePair(left: MultiFingerHoldState(), right: MultiFingerHoldState())
@@ -1070,6 +1091,7 @@ actor TouchProcessorEngine {
     }
 
     func updateGestureActions(_ actions: GestureActionSet) {
+        stopAllGestureRepeats()
         twoFingerTapAction = actions.twoFingerTap
         threeFingerTapAction = actions.threeFingerTap
         twoFingerHoldAction = actions.twoFingerHold
@@ -1156,6 +1178,11 @@ actor TouchProcessorEngine {
         if actions.outerCornersHold.kind != .voice, actions.innerCornersHold.kind != .voice {
             stopVoiceDictationGesture()
         }
+    }
+
+    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) {
+        gestureRepeatCadenceMsById = GestureRepeatCadenceStorage.normalized(cadenceById) ?? [:]
+        stopAllGestureRepeats()
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
@@ -2878,6 +2905,7 @@ actor TouchProcessorEngine {
     }
 
     private func resetGestureState(for side: TrackpadSide) {
+        stopAllGestureRepeats(on: side)
         chordShiftActivationCount[side] = 0
         twoFingerHoldState[side] = MultiFingerHoldState()
         threeFingerHoldState[side] = MultiFingerHoldState()
@@ -2919,6 +2947,7 @@ actor TouchProcessorEngine {
         updateMultiFingerHold(
             for: side,
             summary: summary,
+            bindingId: GestureBindingID.twoFingerHold,
             requiredContactCount: 2,
             action: twoFingerHoldAction,
             state: &twoFingerHoldState[side],
@@ -2930,6 +2959,7 @@ actor TouchProcessorEngine {
         updateMultiFingerHold(
             for: side,
             summary: summary,
+            bindingId: GestureBindingID.threeFingerHold,
             requiredContactCount: 3,
             action: threeFingerHoldAction,
             state: &threeFingerHoldState[side],
@@ -2941,6 +2971,7 @@ actor TouchProcessorEngine {
     private func updateFourFingerHold(for side: TrackpadSide, summary: GestureContactSummary, now: TimeInterval) {
         let action = fourFingerHoldAction
         guard action.kind != .none else {
+            stopGestureRepeatIfNeeded(fourFingerHoldState[side].repeatBindingId, side: side)
             fourFingerHoldState[side] = MultiFingerHoldState()
             return
         }
@@ -2948,6 +2979,7 @@ actor TouchProcessorEngine {
         updateMultiFingerHold(
             for: side,
             summary: summary,
+            bindingId: GestureBindingID.fourFingerHold,
             requiredContactCount: 4,
             action: action,
             state: &fourFingerHoldState[side],
@@ -2958,6 +2990,7 @@ actor TouchProcessorEngine {
     private func updateMultiFingerHold(
         for side: TrackpadSide,
         summary: GestureContactSummary,
+        bindingId: String,
         requiredContactCount: Int,
         action: KeyAction,
         state: inout MultiFingerHoldState,
@@ -2966,6 +2999,7 @@ actor TouchProcessorEngine {
         let contactCount = summary.count
         let usesChordShift = isChordShiftGestureAction(action)
         guard action.kind != .none else {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             if state.triggered, usesChordShift {
                 chordShiftActivationCount[side] = max(0, chordShiftActivationCount[side] - 1)
             }
@@ -2975,6 +3009,7 @@ actor TouchProcessorEngine {
 
         if contactCount == 0 {
             if state.blockedUntilAllUp {
+                stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
                 if state.triggered, usesChordShift {
                     chordShiftActivationCount[side] = max(0, chordShiftActivationCount[side] - 1)
                 }
@@ -2984,6 +3019,7 @@ actor TouchProcessorEngine {
             if state.active {
                 let elapsed = now - chordShiftLastContactTime[side]
                 if elapsed >= contactCountHoldDuration {
+                    stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
                     if state.triggered, usesChordShift {
                         chordShiftActivationCount[side] = max(0, chordShiftActivationCount[side] - 1)
                     }
@@ -3003,6 +3039,7 @@ actor TouchProcessorEngine {
 
         if state.active {
             if contactCount != requiredContactCount {
+                stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
                 if state.triggered, usesChordShift {
                     chordShiftActivationCount[side] = max(0, chordShiftActivationCount[side] - 1)
                 }
@@ -3014,6 +3051,7 @@ actor TouchProcessorEngine {
 
             let holdCancelThreshold = holdGestureMoveCancelMm * unitsPerMillimeter
             if distanceSquared(from: state.startCentroid, to: summary.centroid) > (holdCancelThreshold * holdCancelThreshold) {
+                stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
                 if state.triggered, usesChordShift {
                     chordShiftActivationCount[side] = max(0, chordShiftActivationCount[side] - 1)
                 }
@@ -3025,10 +3063,11 @@ actor TouchProcessorEngine {
             let holdDelay = gestureHoldDelay(for: action)
             if !state.triggered, holdDelay > 0, now - state.startTime >= holdDelay {
                 state.triggered = true
+                state.repeatBindingId = bindingId
                 if usesChordShift {
                     chordShiftActivationCount[side] += 1
                 } else {
-                    performGestureAction(action, now: now, side: side)
+                    performGestureAction(action, now: now, side: side, bindingId: bindingId)
                 }
             }
             return
@@ -3046,10 +3085,11 @@ actor TouchProcessorEngine {
         let holdDelay = gestureHoldDelay(for: action)
         if holdDelay <= 0 {
             state.triggered = true
+            state.repeatBindingId = bindingId
             if usesChordShift {
                 chordShiftActivationCount[side] += 1
             } else {
-                performGestureAction(action, now: now, side: side)
+                performGestureAction(action, now: now, side: side, bindingId: bindingId)
             }
             return
         }
@@ -3415,7 +3455,12 @@ actor TouchProcessorEngine {
                 awaitingSecondTap = false
                 doubleTapDeadline = nil
             } else if threeFingerTapDetected {
-                performGestureAction(threeFingerTapAction, now: now, side: nil)
+                performGestureAction(
+                    threeFingerTapAction,
+                    now: now,
+                    side: nil,
+                    bindingId: GestureBindingID.threeFingerTap
+                )
             } else if wasTwoFingerTapDetected {
                 performTwoFingerTapAction(now: now)
             }
@@ -3646,6 +3691,10 @@ actor TouchProcessorEngine {
         armContacts: Int,
         sustainContacts: Int,
         releaseContacts: Int,
+        leftBindingId: String,
+        rightBindingId: String,
+        upBindingId: String,
+        downBindingId: String,
         leftAction: KeyAction,
         rightAction: KeyAction,
         upAction: KeyAction,
@@ -3657,6 +3706,7 @@ actor TouchProcessorEngine {
             || upAction.kind != .none
             || downAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state = DirectionalSwipeState()
             return
         }
@@ -3670,6 +3720,7 @@ actor TouchProcessorEngine {
             return
         }
         if summary.count <= releaseContacts {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state = DirectionalSwipeState()
             return
         }
@@ -3682,16 +3733,30 @@ actor TouchProcessorEngine {
         let absDx = abs(dx)
         let absDy = abs(dy)
         let action: KeyAction
+        let bindingId: String
         if absDx >= threshold, absDx >= absDy * directionalSwipeAxisDominanceRatio {
-            action = dx >= 0 ? rightAction : leftAction
+            if dx >= 0 {
+                action = rightAction
+                bindingId = rightBindingId
+            } else {
+                action = leftAction
+                bindingId = leftBindingId
+            }
         } else if absDy >= threshold, absDy >= absDx * directionalSwipeAxisDominanceRatio {
-            action = dy >= 0 ? downAction : upAction
+            if dy >= 0 {
+                action = downAction
+                bindingId = downBindingId
+            } else {
+                action = upAction
+                bindingId = upBindingId
+            }
         } else {
             return
         }
         guard action.kind != .none else { return }
         state.triggered = true
-        performGestureAction(action, now: now, side: side)
+        state.repeatBindingId = bindingId
+        performGestureAction(action, now: now, side: side, bindingId: bindingId)
     }
 
     private func updateThreeFingerDirectionalSwipe(
@@ -3702,6 +3767,7 @@ actor TouchProcessorEngine {
         if summary.count >= 4
             || fourFingerSwipeState[side].active
             || hadRecentFourPlusContact(on: side, now: now) {
+            stopGestureRepeatIfNeeded(threeFingerSwipeState[side].repeatBindingId, side: side)
             threeFingerSwipeState[side] = DirectionalSwipeState()
             return
         }
@@ -3712,6 +3778,10 @@ actor TouchProcessorEngine {
             armContacts: 3,
             sustainContacts: 2,
             releaseContacts: 1,
+            leftBindingId: GestureBindingID.threeFingerSwipeLeft,
+            rightBindingId: GestureBindingID.threeFingerSwipeRight,
+            upBindingId: GestureBindingID.threeFingerSwipeUp,
+            downBindingId: GestureBindingID.threeFingerSwipeDown,
             leftAction: threeFingerSwipeLeftAction,
             rightAction: threeFingerSwipeRightAction,
             upAction: threeFingerSwipeUpAction,
@@ -3733,6 +3803,7 @@ actor TouchProcessorEngine {
            (summary.count >= 5
             || fiveFingerSwipeState[side].active
             || hadRecentFivePlusContact(on: side, now: now)) {
+            stopGestureRepeatIfNeeded(fourFingerSwipeState[side].repeatBindingId, side: side)
             fourFingerSwipeState[side] = DirectionalSwipeState()
             return
         }
@@ -3743,6 +3814,10 @@ actor TouchProcessorEngine {
             armContacts: 4,
             sustainContacts: 3,
             releaseContacts: 1,
+            leftBindingId: GestureBindingID.fourFingerSwipeLeft,
+            rightBindingId: GestureBindingID.fourFingerSwipeRight,
+            upBindingId: GestureBindingID.fourFingerSwipeUp,
+            downBindingId: GestureBindingID.fourFingerSwipeDown,
             leftAction: fourFingerSwipeLeftAction,
             rightAction: fourFingerSwipeRightAction,
             upAction: fourFingerSwipeUpAction,
@@ -3763,6 +3838,10 @@ actor TouchProcessorEngine {
             armContacts: 5,
             sustainContacts: 4,
             releaseContacts: 1,
+            leftBindingId: GestureBindingID.fiveFingerSwipeLeft,
+            rightBindingId: GestureBindingID.fiveFingerSwipeRight,
+            upBindingId: GestureBindingID.fiveFingerSwipeUp,
+            downBindingId: GestureBindingID.fiveFingerSwipeDown,
             leftAction: fiveFingerSwipeLeftAction,
             rightAction: fiveFingerSwipeRightAction,
             upAction: fiveFingerSwipeUpAction,
@@ -3803,6 +3882,7 @@ actor TouchProcessorEngine {
         now: TimeInterval
     ) {
         guard threeFingerTapAction.kind != .none else {
+            stopGestureRepeatIfNeeded(threeFingerTapStateBySide[side].repeatBindingId, side: side)
             threeFingerTapStateBySide[side] = ThreeFingerTapState()
             return
         }
@@ -3831,8 +3911,15 @@ actor TouchProcessorEngine {
            summary.count < 3,
            now - state.startTime <= threeFingerTapMaxDuration,
            state.maxDistanceMm <= threeFingerTapMaxMovementMm {
-            performGestureAction(threeFingerTapAction, now: now, side: side)
+            state.repeatBindingId = GestureBindingID.threeFingerTap
+            performGestureAction(
+                threeFingerTapAction,
+                now: now,
+                side: side,
+                bindingId: GestureBindingID.threeFingerTap
+            )
         }
+        stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
         threeFingerTapStateBySide[side] = ThreeFingerTapState()
     }
 
@@ -3843,26 +3930,32 @@ actor TouchProcessorEngine {
     ) {
         var state = multiFingerClickState[side]
         if summary.count <= 0 {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state = MultiFingerClickState()
             multiFingerClickState[side] = state
             return
         }
         state.maxContactsSeen = max(state.maxContactsSeen, summary.count)
         let action: KeyAction
+        let bindingId: String?
         switch state.maxContactsSeen {
         case 3:
             action = threeFingerClickAction
+            bindingId = GestureBindingID.threeFingerClick
         case 4:
             action = fourFingerClickAction
+            bindingId = GestureBindingID.fourFingerClick
         default:
             action = KeyActionCatalog.noneAction
+            bindingId = nil
         }
         if !state.forceTriggeredForCurrentPress,
            action.kind != .none,
            let pressure = currentPeakPressureForSide(side),
            pressure >= cornerClickForceThreshold {
             state.forceTriggeredForCurrentPress = true
-            performGestureAction(action, now: now, side: side)
+            state.repeatBindingId = bindingId
+            performGestureAction(action, now: now, side: side, bindingId: bindingId)
         }
         multiFingerClickState[side] = state
     }
@@ -3883,10 +3976,12 @@ actor TouchProcessorEngine {
             || topEdgeLeftAction.kind != .none || topEdgeRightAction.kind != .none
             || bottomEdgeLeftAction.kind != .none || bottomEdgeRightAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(edgeSlideState[side].repeatBindingId, side: side)
             edgeSlideState[side] = EdgeSlideState()
             return
         }
         guard let touch else {
+            stopGestureRepeatIfNeeded(edgeSlideState[side].repeatBindingId, side: side)
             edgeSlideState[side] = EdgeSlideState()
             return
         }
@@ -3921,15 +4016,18 @@ actor TouchProcessorEngine {
         if !isWithinEdgeZone(state.zone, point)
             || edgeSlideLateralTravelMm(state) > edgeSlideMaxLateralTravelMm
             || now - state.startTime > edgeSlideMaxDuration {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state.candidateValid = false
             edgeSlideState[side] = state
             return
         }
         if let direction = matchedEdgeSlideDirection(state),
+           let bindingId = edgeSlideBindingId(for: state.zone, direction: direction),
            let action = edgeSlideAction(for: state.zone, direction: direction),
            action.kind != .none {
             state.candidateValid = false
-            performGestureAction(action, now: now, side: side)
+            state.repeatBindingId = bindingId
+            performGestureAction(action, now: now, side: side, bindingId: bindingId)
         }
         edgeSlideState[side] = state
     }
@@ -3939,10 +4037,12 @@ actor TouchProcessorEngine {
         let enabled = topLeftCornerSwipeAction.kind != .none || topRightCornerSwipeAction.kind != .none
             || bottomLeftCornerSwipeAction.kind != .none || bottomRightCornerSwipeAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(cornerSwipeState[side].repeatBindingId, side: side)
             cornerSwipeState[side] = CornerSwipeState()
             return
         }
         guard let touch else {
+            stopGestureRepeatIfNeeded(cornerSwipeState[side].repeatBindingId, side: side)
             cornerSwipeState[side] = CornerSwipeState()
             return
         }
@@ -3974,6 +4074,7 @@ actor TouchProcessorEngine {
         if now - state.startTime > cornerSwipeMaxDuration
             || cornerSwipeReverseTravelXmm(state) > cornerSwipeMaxReverseTravelMm
             || cornerSwipeReverseTravelYmm(state) > cornerSwipeMaxReverseTravelMm {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state.candidateValid = false
             cornerSwipeState[side] = state
             return
@@ -3981,7 +4082,14 @@ actor TouchProcessorEngine {
         if cornerSwipeMatches(state, minDistanceMm: cornerSwipeTriggerDistanceMm),
            cornerSwipeAction(for: state.corner).kind != .none {
             state.candidateValid = false
-            performGestureAction(cornerSwipeAction(for: state.corner), now: now, side: side)
+            let bindingId = cornerSwipeBindingId(for: state.corner)
+            state.repeatBindingId = bindingId
+            performGestureAction(
+                cornerSwipeAction(for: state.corner),
+                now: now,
+                side: side,
+                bindingId: bindingId
+            )
         }
         cornerSwipeState[side] = state
     }
@@ -3991,10 +4099,12 @@ actor TouchProcessorEngine {
         let enabled = topLeftTriangleAction.kind != .none || topRightTriangleAction.kind != .none
             || bottomLeftTriangleAction.kind != .none || bottomRightTriangleAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(triangleGestureState[side].repeatBindingId, side: side)
             triangleGestureState[side] = TriangleGestureState()
             return
         }
         guard let touch else {
+            stopGestureRepeatIfNeeded(triangleGestureState[side].repeatBindingId, side: side)
             triangleGestureState[side] = TriangleGestureState()
             return
         }
@@ -4034,13 +4144,21 @@ actor TouchProcessorEngine {
             state.peakY = point.y
         }
         if now - state.startTime > triangleMaxDuration {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state.candidateValid = false
             triangleGestureState[side] = state
             return
         }
         if triangleMatches(state), triangleAction(for: state.corner).kind != .none {
             state.candidateValid = false
-            performGestureAction(triangleAction(for: state.corner), now: now, side: side)
+            let bindingId = triangleBindingId(for: state.corner)
+            state.repeatBindingId = bindingId
+            performGestureAction(
+                triangleAction(for: state.corner),
+                now: now,
+                side: side,
+                bindingId: bindingId
+            )
         }
         triangleGestureState[side] = state
     }
@@ -4050,6 +4168,7 @@ actor TouchProcessorEngine {
         let enabled = upperLeftCornerClickAction.kind != .none || upperRightCornerClickAction.kind != .none
             || lowerLeftCornerClickAction.kind != .none || lowerRightCornerClickAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(cornerClickState[side].repeatBindingId, side: side)
             cornerClickState[side] = CornerClickState()
             return
         }
@@ -4057,8 +4176,16 @@ actor TouchProcessorEngine {
             if state.active, state.candidateValid, state.forceArmed,
                cornerForceClickOverrideAction(for: state.corner).kind == .none,
                cornerClickAction(for: state.corner).kind != .none {
-                performGestureAction(cornerClickAction(for: state.corner), now: now, side: side)
+                let bindingId = cornerClickBindingId(for: state.corner)
+                state.repeatBindingId = bindingId
+                performGestureAction(
+                    cornerClickAction(for: state.corner),
+                    now: now,
+                    side: side,
+                    bindingId: bindingId
+                )
             }
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             cornerClickState[side] = CornerClickState()
             return
         }
@@ -4103,10 +4230,12 @@ actor TouchProcessorEngine {
         let enabled = topLeftForceClickAction.kind != .none || topRightForceClickAction.kind != .none
             || bottomLeftForceClickAction.kind != .none || bottomRightForceClickAction.kind != .none
         guard enabled else {
+            stopGestureRepeatIfNeeded(forceClickState[side].repeatBindingId, side: side)
             forceClickState[side] = ForceClickState()
             return
         }
         guard let touch else {
+            stopGestureRepeatIfNeeded(forceClickState[side].repeatBindingId, side: side)
             forceClickState[side] = ForceClickState()
             return
         }
@@ -4136,6 +4265,7 @@ actor TouchProcessorEngine {
         state.maxDistanceMm = max(state.maxDistanceMm, normalizedDistanceMm(from: CGPoint(x: state.startX, y: state.startY), to: point))
         state.peakPressure = max(state.peakPressure, max(0, touch.pressure))
         if state.maxDistanceMm > dragCancelDistance || now - state.startTime > forceClickMaxDuration {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: side)
             state.candidateValid = false
             forceClickState[side] = state
             return
@@ -4146,7 +4276,14 @@ actor TouchProcessorEngine {
            forceClickAction(for: corner).kind != .none {
             state.triggered = true
             state.candidateValid = false
-            performGestureAction(forceClickAction(for: corner), now: now, side: side)
+            let bindingId = forceClickBindingId(for: corner)
+            state.repeatBindingId = bindingId
+            performGestureAction(
+                forceClickAction(for: corner),
+                now: now,
+                side: side,
+                bindingId: bindingId
+            )
         }
         forceClickState[side] = state
     }
@@ -4230,6 +4367,29 @@ actor TouchProcessorEngine {
             return bottomEdgeLeftAction
         case (.bottom, .right):
             return bottomEdgeRightAction
+        default:
+            return nil
+        }
+    }
+
+    private func edgeSlideBindingId(for zone: EdgeGestureZone, direction: SwipeDirection) -> String? {
+        switch (zone, direction) {
+        case (.left, .up):
+            return GestureBindingID.leftEdgeUp
+        case (.left, .down):
+            return GestureBindingID.leftEdgeDown
+        case (.right, .up):
+            return GestureBindingID.rightEdgeUp
+        case (.right, .down):
+            return GestureBindingID.rightEdgeDown
+        case (.top, .left):
+            return GestureBindingID.topEdgeLeft
+        case (.top, .right):
+            return GestureBindingID.topEdgeRight
+        case (.bottom, .left):
+            return GestureBindingID.bottomEdgeLeft
+        case (.bottom, .right):
+            return GestureBindingID.bottomEdgeRight
         default:
             return nil
         }
@@ -4322,6 +4482,19 @@ actor TouchProcessorEngine {
         }
     }
 
+    private func cornerSwipeBindingId(for corner: CornerGestureZone) -> String {
+        switch corner {
+        case .topLeft:
+            return GestureBindingID.topLeftCornerSwipe
+        case .topRight:
+            return GestureBindingID.topRightCornerSwipe
+        case .bottomLeft:
+            return GestureBindingID.bottomLeftCornerSwipe
+        case .bottomRight:
+            return GestureBindingID.bottomRightCornerSwipe
+        }
+    }
+
     private func triangleAction(for corner: CornerGestureZone) -> KeyAction {
         switch corner {
         case .topLeft:
@@ -4332,6 +4505,19 @@ actor TouchProcessorEngine {
             return bottomLeftTriangleAction
         case .bottomRight:
             return bottomRightTriangleAction
+        }
+    }
+
+    private func triangleBindingId(for corner: CornerGestureZone) -> String {
+        switch corner {
+        case .topLeft:
+            return GestureBindingID.topLeftTriangle
+        case .topRight:
+            return GestureBindingID.topRightTriangle
+        case .bottomLeft:
+            return GestureBindingID.bottomLeftTriangle
+        case .bottomRight:
+            return GestureBindingID.bottomRightTriangle
         }
     }
 
@@ -4348,6 +4534,19 @@ actor TouchProcessorEngine {
         }
     }
 
+    private func cornerClickBindingId(for corner: CornerGestureZone) -> String {
+        switch corner {
+        case .topLeft:
+            return GestureBindingID.upperLeftCornerClick
+        case .topRight:
+            return GestureBindingID.upperRightCornerClick
+        case .bottomLeft:
+            return GestureBindingID.lowerLeftCornerClick
+        case .bottomRight:
+            return GestureBindingID.lowerRightCornerClick
+        }
+    }
+
     private func forceClickAction(for corner: CornerGestureZone) -> KeyAction {
         switch corner {
         case .topLeft:
@@ -4358,6 +4557,19 @@ actor TouchProcessorEngine {
             return bottomLeftForceClickAction
         case .bottomRight:
             return bottomRightForceClickAction
+        }
+    }
+
+    private func forceClickBindingId(for corner: CornerGestureZone) -> String {
+        switch corner {
+        case .topLeft:
+            return GestureBindingID.topLeftForceClick
+        case .topRight:
+            return GestureBindingID.topRightForceClick
+        case .bottomLeft:
+            return GestureBindingID.bottomLeftForceClick
+        case .bottomRight:
+            return GestureBindingID.bottomRightForceClick
         }
     }
 
@@ -4381,13 +4593,14 @@ actor TouchProcessorEngine {
         }
         awaitingSecondTap = false
         doubleTapDeadline = nil
-        performGestureAction(action, now: now, side: nil)
+        performGestureAction(action, now: now, side: nil, bindingId: GestureBindingID.twoFingerTap)
     }
 
     private func performGestureAction(
         _ action: KeyAction,
         now _: TimeInterval,
         side: TrackpadSide?,
+        bindingId: String? = nil,
         visited: Set<GestureSlot> = []
     ) {
         switch action.kind {
@@ -4418,17 +4631,17 @@ actor TouchProcessorEngine {
         case .chordalShift:
             break
         case .gestureTwoFingerTap:
-            triggerGestureSlot(.twoFingerTap, side: side, visited: visited)
+            triggerGestureSlot(.twoFingerTap, side: side, bindingId: bindingId, visited: visited)
         case .gestureThreeFingerTap:
-            triggerGestureSlot(.threeFingerTap, side: side, visited: visited)
+            triggerGestureSlot(.threeFingerTap, side: side, bindingId: bindingId, visited: visited)
         case .gestureFourFingerHold:
-            triggerGestureSlot(.fourFingerHold, side: side, visited: visited)
+            triggerGestureSlot(.fourFingerHold, side: side, bindingId: bindingId, visited: visited)
         case .gestureInnerCornersHold:
-            triggerGestureSlot(.innerCornersHold, side: side, visited: visited)
+            triggerGestureSlot(.innerCornersHold, side: side, bindingId: bindingId, visited: visited)
         case .gestureFiveFingerSwipeLeft:
-            triggerGestureSlot(.fiveFingerSwipeLeft, side: side, visited: visited)
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: side, bindingId: bindingId, visited: visited)
         case .gestureFiveFingerSwipeRight:
-            triggerGestureSlot(.fiveFingerSwipeRight, side: side, visited: visited)
+            triggerGestureSlot(.fiveFingerSwipeRight, side: side, bindingId: bindingId, visited: visited)
         case .key, .layerMomentary, .layerToggle:
             guard let binding = makeBinding(
                 for: action,
@@ -4440,11 +4653,19 @@ actor TouchProcessorEngine {
             ) else {
                 return
             }
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
             triggerBinding(binding, touchKey: nil)
         }
     }
 
-    private func triggerGestureSlot(_ slot: GestureSlot, side: TrackpadSide?, visited: Set<GestureSlot>) {
+    private func triggerGestureSlot(
+        _ slot: GestureSlot,
+        side: TrackpadSide?,
+        bindingId: String?,
+        visited: Set<GestureSlot>
+    ) {
         guard !visited.contains(slot) else { return }
         var updatedVisited = visited
         updatedVisited.insert(slot)
@@ -4463,7 +4684,13 @@ actor TouchProcessorEngine {
         case .fiveFingerSwipeRight:
             action = fiveFingerSwipeRightAction
         }
-        performGestureAction(action, now: currentTime(), side: side, visited: updatedVisited)
+        performGestureAction(
+            action,
+            now: currentTime(),
+            side: side,
+            bindingId: bindingId,
+            visited: updatedVisited
+        )
     }
 
     private func outerCornersHoldSide(
@@ -4575,13 +4802,16 @@ actor TouchProcessorEngine {
     ) -> Bool {
         var state = voiceDictationGestureState
         let action = kind == .outer ? outerCornersHoldAction : innerCornersHoldAction
+        let bindingId = kind == .outer ? GestureBindingID.outerCornersHold : GestureBindingID.innerCornersHold
         if let holdSide {
             if !state.holdCandidateActive || state.side != holdSide || state.kind != kind {
+                stopGestureRepeatIfNeeded(state.repeatBindingId, side: state.side)
                 state.holdCandidateActive = true
                 state.holdDidToggle = false
                 state.holdStart = now
                 state.side = holdSide
                 state.kind = kind
+                state.repeatBindingId = nil
             } else if !state.holdDidToggle, now - state.holdStart >= gestureHoldDelay(for: action) {
                 state.holdDidToggle = true
                 if action.kind == .voice {
@@ -4598,16 +4828,19 @@ actor TouchProcessorEngine {
                         endVoiceDictationSession()
                         state = voiceDictationGestureState
                     }
-                    performGestureAction(action, now: now, side: holdSide)
+                    state.repeatBindingId = bindingId
+                    performGestureAction(action, now: now, side: holdSide, bindingId: bindingId)
                 }
                 playHapticIfNeeded(on: holdSide)
             }
         } else {
+            stopGestureRepeatIfNeeded(state.repeatBindingId, side: state.side)
             state.holdCandidateActive = false
             state.holdDidToggle = false
             state.holdStart = 0
             state.side = nil
             state.kind = .outer
+            state.repeatBindingId = nil
         }
         voiceDictationGestureState = state
         updateVoiceGestureActivity()
@@ -5010,17 +5243,17 @@ actor TouchProcessorEngine {
         case .chordalShift:
             break
         case .gestureTwoFingerTap:
-            triggerGestureSlot(.twoFingerTap, side: binding.side, visited: [])
+            triggerGestureSlot(.twoFingerTap, side: binding.side, bindingId: nil, visited: [])
         case .gestureThreeFingerTap:
-            triggerGestureSlot(.threeFingerTap, side: binding.side, visited: [])
+            triggerGestureSlot(.threeFingerTap, side: binding.side, bindingId: nil, visited: [])
         case .gestureFourFingerHold:
-            triggerGestureSlot(.fourFingerHold, side: binding.side, visited: [])
+            triggerGestureSlot(.fourFingerHold, side: binding.side, bindingId: nil, visited: [])
         case .gestureInnerCornersHold:
-            triggerGestureSlot(.innerCornersHold, side: binding.side, visited: [])
+            triggerGestureSlot(.innerCornersHold, side: binding.side, bindingId: nil, visited: [])
         case .gestureFiveFingerSwipeLeft:
-            triggerGestureSlot(.fiveFingerSwipeLeft, side: binding.side, visited: [])
+            triggerGestureSlot(.fiveFingerSwipeLeft, side: binding.side, bindingId: nil, visited: [])
         case .gestureFiveFingerSwipeRight:
-            triggerGestureSlot(.fiveFingerSwipeRight, side: binding.side, visited: [])
+            triggerGestureSlot(.fiveFingerSwipeRight, side: binding.side, bindingId: nil, visited: [])
         case .none:
             break
         case .key:
@@ -5115,20 +5348,28 @@ actor TouchProcessorEngine {
         #endif
         extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-        startRepeat(for: touchKey, binding: binding)
+        startRepeat(
+            for: .touch(touchKey),
+            binding: binding,
+            initialDelay: repeatInitialDelay,
+            interval: repeatInterval(for: binding.action)
+        )
         return true
     }
 
-    private func startRepeat(for touchKey: TouchKey, binding: KeyBinding) {
-        stopRepeat(for: touchKey)
+    private func startRepeat(
+        for owner: RepeatOwner,
+        binding: KeyBinding,
+        initialDelay: UInt64,
+        interval: UInt64
+    ) {
+        stopRepeat(for: owner)
         guard case let .key(code, flags) = binding.action else { return }
         let repeatFlags = flags.union(currentModifierFlags())
         dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true)
-        let initialDelay = repeatInitialDelay
-        let interval = repeatInterval(for: binding.action)
         let token = RepeatToken()
         let nextFire = Self.nowUptimeNanoseconds() &+ initialDelay
-        repeatEntries[touchKey] = RepeatEntry(
+        repeatEntries[owner] = RepeatEntry(
             code: code,
             flags: repeatFlags,
             token: token,
@@ -5181,7 +5422,7 @@ actor TouchProcessorEngine {
 
     private func fireRepeats(now: UInt64) async {
         guard !repeatEntries.isEmpty else { return }
-        var toRemove: [TouchKey] = []
+        var toRemove: [RepeatOwner] = []
         for (key, var entry) in repeatEntries {
             if !entry.token.isActive {
                 toRemove.append(key)
@@ -5211,8 +5452,8 @@ actor TouchProcessorEngine {
         }
     }
 
-    private func stopRepeat(for touchKey: TouchKey) {
-        if let entry = repeatEntries.removeValue(forKey: touchKey) {
+    private func stopRepeat(for owner: RepeatOwner) {
+        if let entry = repeatEntries.removeValue(forKey: owner) {
             entry.token.deactivate()
             dispatchService.postKey(code: entry.code, flags: entry.flags, keyDown: false)
         }
@@ -5220,6 +5461,79 @@ actor TouchProcessorEngine {
             repeatLoopTask?.cancel()
             repeatLoopTask = nil
         }
+    }
+
+    private func stopRepeat(for touchKey: TouchKey) {
+        stopRepeat(for: .touch(touchKey))
+    }
+
+    private func stopGestureRepeat(bindingId: String, side: TrackpadSide?) {
+        stopRepeat(for: .gesture(GestureRepeatKey(bindingId: bindingId, side: side)))
+    }
+
+    private func stopGestureRepeatIfNeeded(_ bindingId: String?, side: TrackpadSide?) {
+        guard let bindingId else { return }
+        stopGestureRepeat(bindingId: bindingId, side: side)
+    }
+
+    private func stopAllGestureRepeats(on side: TrackpadSide? = nil) {
+        let owners = repeatEntries.keys.filter { owner in
+            guard case let .gesture(key) = owner else { return false }
+            guard let side else { return true }
+            return key.side == side
+        }
+        for owner in owners {
+            stopRepeat(for: owner)
+        }
+    }
+
+    private func stopAllGestureRepeats() {
+        stopAllGestureRepeats(on: nil)
+    }
+
+    private func canRepeatGestureAction(_ action: KeyAction) -> Bool {
+        guard action.kind == .key else { return false }
+        let code = CGKeyCode(action.keyCode)
+        if code == CGKeyCode(kVK_Function) {
+            return false
+        }
+        return code != CGKeyCode(kVK_Shift)
+            && code != CGKeyCode(kVK_RightShift)
+            && code != CGKeyCode(kVK_Control)
+            && code != CGKeyCode(kVK_Option)
+            && code != CGKeyCode(kVK_RightOption)
+            && code != CGKeyCode(kVK_Command)
+    }
+
+    @discardableResult
+    private func tryBeginRepeatableGestureDispatch(
+        bindingId: String?,
+        action: KeyAction,
+        side: TrackpadSide?
+    ) -> Bool {
+        guard let bindingId,
+              let cadenceMs = gestureRepeatCadenceMsById[bindingId],
+              cadenceMs > 0,
+              canRepeatGestureAction(action),
+              let binding = makeBinding(
+                for: action,
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
+                position: nil,
+                side: side ?? .left
+              ) else {
+            return false
+        }
+
+        let owner = RepeatOwner.gesture(GestureRepeatKey(bindingId: bindingId, side: side))
+        if repeatEntries[owner] != nil {
+            return true
+        }
+
+        let cadenceNs = UInt64(cadenceMs) * 1_000_000
+        startRepeat(for: owner, binding: binding, initialDelay: cadenceNs, interval: cadenceNs)
+        return true
     }
 
     private func handleModifierDown(_ modifierKey: ModifierKey, binding: KeyBinding) {
@@ -5296,6 +5610,7 @@ actor TouchProcessorEngine {
     }
 
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
+        stopAllGestureRepeats()
         chordShiftActivationCount[.left] = 0
         chordShiftActivationCount[.right] = 0
         chordShiftLastContactTime[.left] = 0
