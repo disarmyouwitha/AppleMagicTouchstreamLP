@@ -121,20 +121,6 @@ final class KeyEventDispatcher: @unchecked Sendable {
     func postSystemKeyImmediate(_ key: SystemKey) {
         dispatcher.postSystemKeyImmediate(key)
     }
-
-    func postSystemKey(
-        _ key: SystemKey,
-        keyDown: Bool
-    ) {
-        dispatcher.postSystemKey(key, keyDown: keyDown)
-    }
-
-    func postSystemKeyImmediate(
-        _ key: SystemKey,
-        keyDown: Bool
-    ) {
-        dispatcher.postSystemKeyImmediate(key, keyDown: keyDown)
-    }
 }
 
 private protocol KeyDispatching: Sendable {
@@ -153,8 +139,6 @@ private protocol KeyDispatching: Sendable {
     func postTextImmediate(_ text: String)
     func postSystemKey(_ key: KeyEventDispatcher.SystemKey)
     func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey)
-    func postSystemKey(_ key: KeyEventDispatcher.SystemKey, keyDown: Bool)
-    func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey, keyDown: Bool)
 }
 
 private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
@@ -166,6 +150,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let mediaKeyUpState = Int32(0xB)
     private static let mediaKeySubtype: Int16 = 8
     private static let mediaModifierFlags = NSEvent.ModifierFlags(rawValue: 0xA00)
+    private static let mediaTapDwellSeconds: TimeInterval = 0.012
 
     private let queue = DispatchQueue(
         label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
@@ -481,26 +466,9 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
 
     func postSystemKeyImmediate(_ key: KeyEventDispatcher.SystemKey) {
         autoreleasepool {
-            postSystemKeyImmediate(key, keyDown: true)
-            postSystemKeyImmediate(key, keyDown: false)
-        }
-    }
-
-    func postSystemKey(
-        _ key: KeyEventDispatcher.SystemKey,
-        keyDown: Bool
-    ) {
-        queue.async { [self] in
-            postSystemKeyImmediate(key, keyDown: keyDown)
-        }
-    }
-
-    func postSystemKeyImmediate(
-        _ key: KeyEventDispatcher.SystemKey,
-        keyDown: Bool
-    ) {
-        autoreleasepool {
-            postSystemEvent(key, keyDown: keyDown)
+            postSystemEvent(key, keyDown: true)
+            Thread.sleep(forTimeInterval: Self.mediaTapDwellSeconds)
+            postSystemEvent(key, keyDown: false)
         }
     }
 
@@ -731,7 +699,6 @@ final class DispatchService: @unchecked Sendable {
         case rightClick
         case middleClick
         case systemKey(KeyEventDispatcher.SystemKey)
-        case systemKeyState(KeyEventDispatcher.SystemKey, keyDown: Bool)
         case haptic(strength: Double, deviceID: String?)
     }
 
@@ -859,13 +826,6 @@ final class DispatchService: @unchecked Sendable {
         enqueue(.systemKey(.brightnessDown))
     }
 
-    func postSystemKey(
-        _ key: KeyEventDispatcher.SystemKey,
-        keyDown: Bool
-    ) {
-        enqueue(.systemKeyState(key, keyDown: keyDown))
-    }
-
     func postHaptic(strength: Double, deviceID: String?) {
         enqueue(.haptic(strength: strength, deviceID: deviceID))
     }
@@ -944,8 +904,6 @@ final class DispatchService: @unchecked Sendable {
             keyDispatcher.postMiddleClickImmediate()
         case let .systemKey(key):
             keyDispatcher.postSystemKeyImmediate(key)
-        case let .systemKeyState(key, keyDown):
-            keyDispatcher.postSystemKeyImmediate(key, keyDown: keyDown)
         case let .haptic(strength, deviceID):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
         }

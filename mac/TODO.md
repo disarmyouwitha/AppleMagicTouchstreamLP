@@ -12,6 +12,7 @@
 
     
 ## TODO:
+- Typing feels bad bro.. did we re-introduce that 2-key buffer before typing?
 - FULLY adopt and `ingest OMS framework` with much `tighter coupling` into Mac glass the key; Change ./release to simplify notorizing and signing since we wont have nested frameworks!
 -------
 - "Memory saver" doesn't keep Typing Toggle state from before restart???

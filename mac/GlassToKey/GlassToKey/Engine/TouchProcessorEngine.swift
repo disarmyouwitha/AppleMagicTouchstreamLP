@@ -5408,14 +5408,31 @@ actor TouchProcessorEngine {
             initialDelay: initialDelay,
             interval: interval,
             fireInitial: {
-                dispatchService.postSystemKey(systemKey, keyDown: true)
+                switch systemKey {
+                case .volumeUp:
+                    dispatchService.postVolumeUp()
+                case .volumeDown:
+                    dispatchService.postVolumeDown()
+                case .brightnessUp:
+                    dispatchService.postBrightnessUp()
+                case .brightnessDown:
+                    dispatchService.postBrightnessDown()
+                }
             },
             fire: { _ in
-                dispatchService.postSystemKey(systemKey, keyDown: true)
-            },
-            stop: {
-                dispatchService.postSystemKey(systemKey, keyDown: false)
+                switch systemKey {
+                case .volumeUp:
+                    dispatchService.postVolumeUp()
+                case .volumeDown:
+                    dispatchService.postVolumeDown()
+                case .brightnessUp:
+                    dispatchService.postBrightnessUp()
+                case .brightnessDown:
+                    dispatchService.postBrightnessDown()
+                }
             }
+            ,
+            stop: {}
         )
     }
 
