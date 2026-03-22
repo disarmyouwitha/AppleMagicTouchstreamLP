@@ -1,6 +1,8 @@
 ## Current:
-- Move `Taps` into `Clicks` at the bottom, "2-Finger Tap", "3-Finger Tap"
-- - Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Click`
+- GUI edits are fire but the  VOL_UP, VOL_DOWN, BRIGHT_UP, and BRIGHT_DOWN keys still do not repeat. They must be special keys that need to be treated differently. I am able to do this by repeatedly pressing the key so you
+  can probably do something like that!
+- Move the following `Taps` into `Clicks` below "Bottom Right": "2-Finger Tap", "3-Finger Tap" and get rid of the Taps collapsable in Gestures. 
+- - Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Tap`
 - Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
 - Force Clicks needs a slider where you set what force is Force.
 - Force Instead of Hold
