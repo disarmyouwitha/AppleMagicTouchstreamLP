@@ -32,7 +32,7 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 - I would turn off "tap to click" at the OS level (Or turn on Keyboard/Mouse mode)
 - In Keyboard mode Mouse clicks are disabled.
 - 5-finger left/right swipes will toggle Typing Mode on/off!
-- Shift is assigned to 4-finger hold gesture, holding it on 1 side will shift characters on the other side!
+- You can assign Shift to Hold gestures so holding it on 1 side will shift characters on the other side!
 - If Snap Radius is enabled, taps near keys (but not on them) will snap to the nearest key during typing
 
 **You can use just 1 Trackpad!**
@@ -43,19 +43,10 @@ Right-clicking the indicator opens tray actions: Config, Capture, Replay, Restar
 **Windows/Linux Haptics:**
 - Working over USB!!!
 - **~I do not see a path forward for Bluetooth Haptics outside of Mac!~**
-- Maybe through extending the Opensource driver, now that Vito has BT working?
- https://github.com/vitoplantamura/MagicTrackpad2ForWindows
 
 ## GESTURES:
 - I have been adding Gestures that you can set in the Gesture Tuning config!
 - I am open to adding Gestures/Actions - just add a comment to issue https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/issues/16 with your idea or a .atpcap capture!
-
-## FUTURE:
-Lots to do in the TODO! For now I am working on feature parity between Mac, Windows and Linux, and to really hone the controls~
-
-Once I get time I would like to explore the possibility of extending the Opensource driver to add missing per-finger Force (and possibly Haptics over BT for Windows) which would help support the community but also help this project! =]
-
-**Special thank you to @FRANF23 and @InternOne1306 for being my very early adopters and helping me test!!**
 
 <hr>
 
@@ -72,3 +63,5 @@ Since it is built on the same technology, I thought it would be fun to try and c
 <img src="pics/apple-magic-touchstreamlp.jpg" />
 
 <img src="pics/splatpad.jpg" />
+
+**Special thank you to @FRANF23 and @InternOne1306 for being my very early adopters and helping me test!!**
