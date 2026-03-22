@@ -2664,16 +2664,18 @@ struct ContentView: View {
             clearShortcutBuilderState()
         }
 
-        private func highlightedSectionLabel(_ title: String) -> some View {
-            Text(title)
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(Color.accentColor)
-                .padding(.horizontal, 8)
-                .padding(.vertical, 4)
-                .background(
-                    Capsule()
-                        .fill(Color.accentColor.opacity(0.12))
-                )
+        private func subsectionHeader(_ title: String) -> some View {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(maxWidth: .infinity, minHeight: 1, maxHeight: 1)
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 6)
         }
 
         @ViewBuilder
@@ -2774,7 +2776,7 @@ struct ContentView: View {
                         .disabled(keySelection == nil)
                 }
                 VStack(alignment: .leading, spacing: 8) {
-                    highlightedSectionLabel("Shortcut Builder")
+                    subsectionHeader("Shortcut Builder")
                     Picker("", selection: $actionBuilderTarget) {
                         ForEach(ActionBuilderTarget.allCases) { target in
                             Text(target.rawValue).tag(target)
@@ -2828,7 +2830,7 @@ struct ContentView: View {
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                 }
-                highlightedSectionLabel("Custom Buttons")
+                subsectionHeader("Custom Buttons")
                 addButtonsRow
                 if let selection = buttonSelection {
                     VStack(alignment: .leading, spacing: 6) {
@@ -3749,6 +3751,64 @@ struct ContentView: View {
             .padding(.bottom, 6)
         }
 
+        private struct GestureSectionPalette {
+            let fill: Color
+            let border: Color
+            let foreground: Color
+
+            static let holds = GestureSectionPalette(
+                fill: Color(.sRGB, red: 143.0 / 255.0, green: 182.0 / 255.0, blue: 207.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 47.0 / 255.0, green: 66.0 / 255.0, blue: 81.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 143.0 / 255.0, green: 182.0 / 255.0, blue: 207.0 / 255.0, opacity: 1.0)
+            )
+            static let edges = GestureSectionPalette(
+                fill: Color(.sRGB, red: 119.0 / 255.0, green: 167.0 / 255.0, blue: 232.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 51.0 / 255.0, green: 78.0 / 255.0, blue: 115.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 119.0 / 255.0, green: 167.0 / 255.0, blue: 232.0 / 255.0, opacity: 1.0)
+            )
+            static let swipes = GestureSectionPalette(
+                fill: Color(.sRGB, red: 134.0 / 255.0, green: 201.0 / 255.0, blue: 169.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 46.0 / 255.0, green: 78.0 / 255.0, blue: 67.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 134.0 / 255.0, green: 201.0 / 255.0, blue: 169.0 / 255.0, opacity: 1.0)
+            )
+            static let cornerSwipes = GestureSectionPalette(
+                fill: Color(.sRGB, red: 224.0 / 255.0, green: 155.0 / 255.0, blue: 115.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 92.0 / 255.0, green: 67.0 / 255.0, blue: 53.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 224.0 / 255.0, green: 155.0 / 255.0, blue: 115.0 / 255.0, opacity: 1.0)
+            )
+            static let triangles = GestureSectionPalette(
+                fill: Color(.sRGB, red: 216.0 / 255.0, green: 179.0 / 255.0, blue: 122.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 90.0 / 255.0, green: 74.0 / 255.0, blue: 46.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 216.0 / 255.0, green: 179.0 / 255.0, blue: 122.0 / 255.0, opacity: 1.0)
+            )
+            static let clicks = GestureSectionPalette(
+                fill: Color(.sRGB, red: 183.0 / 255.0, green: 163.0 / 255.0, blue: 217.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 74.0 / 255.0, green: 62.0 / 255.0, blue: 98.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 183.0 / 255.0, green: 163.0 / 255.0, blue: 217.0 / 255.0, opacity: 1.0)
+            )
+            static let forceClicks = GestureSectionPalette(
+                fill: Color(.sRGB, red: 212.0 / 255.0, green: 154.0 / 255.0, blue: 154.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 94.0 / 255.0, green: 61.0 / 255.0, blue: 61.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 212.0 / 255.0, green: 154.0 / 255.0, blue: 154.0 / 255.0, opacity: 1.0)
+            )
+        }
+
+        private func gestureSectionLabel(_ title: String, palette: GestureSectionPalette) -> some View {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.foreground)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(palette.fill)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(palette.border, lineWidth: 1)
+                )
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 CollapsibleSection(
@@ -3763,7 +3823,7 @@ struct ContentView: View {
                         gesturePicker("Outer corners", selection: $outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel, repeatBindingId: GestureBindingID.outerCornersHold)
                     }
                 } label: {
-                    Text("Holds")
+                    gestureSectionLabel("Holds", palette: .holds)
                 }
 
                 CollapsibleSection(
@@ -3785,7 +3845,7 @@ struct ContentView: View {
                         gesturePicker("Bottom right", selection: $bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeRight)
                     }
                 } label: {
-                    Text("Edges")
+                    gestureSectionLabel("Edges", palette: .edges)
                 }
 
                 CollapsibleSection(
@@ -3810,7 +3870,7 @@ struct ContentView: View {
                         gesturePicker("5-finger down", selection: $fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeDown)
                     }
                 } label: {
-                    Text("Swipes")
+                    gestureSectionLabel("Swipes", palette: .swipes)
                 }
 
                 CollapsibleSection(
@@ -3824,7 +3884,7 @@ struct ContentView: View {
                         gesturePicker("Bottom Right", selection: $bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightCornerSwipe)
                     }
                 } label: {
-                    Text("Corner Swipes")
+                    gestureSectionLabel("Corner Swipes", palette: .cornerSwipes)
                 }
 
                 CollapsibleSection(
@@ -3838,7 +3898,7 @@ struct ContentView: View {
                         gesturePicker("Bottom Right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightTriangle, showsRepeatCadenceField: false)
                     }
                 } label: {
-                    Text("Triangles")
+                    gestureSectionLabel("Triangles", palette: .triangles)
                 }
 
                 CollapsibleSection(
@@ -3857,7 +3917,7 @@ struct ContentView: View {
                         gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
                     }
                 } label: {
-                    Text("Clicks")
+                    gestureSectionLabel("Clicks", palette: .clicks)
                 }
 
                 CollapsibleSection(
@@ -3889,7 +3949,7 @@ struct ContentView: View {
                         gesturePicker("Bottom Right", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightForceClick, showsRepeatCadenceField: false)
                     }
                 } label: {
-                    Text("Force Clicks")
+                    gestureSectionLabel("Force Clicks", palette: .forceClicks)
                 }
             }
             .sheet(item: $activeChooser) { chooser in
