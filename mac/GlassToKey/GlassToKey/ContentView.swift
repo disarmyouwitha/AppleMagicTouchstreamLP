@@ -2079,6 +2079,126 @@ struct ContentView: View {
             var id: String { rawValue }
         }
 
+        private struct ActionChooserState: Identifiable {
+            let id = UUID()
+            let title: String
+            let actionGroups: [KeyActionCatalog.ActionGroup]
+            let selection: Binding<KeyAction>
+        }
+
+        private struct ActionChooserSheet: View {
+            let title: String
+            let actionGroups: [KeyActionCatalog.ActionGroup]
+            let selection: Binding<KeyAction>
+
+            @Environment(\.dismiss) private var dismiss
+            @State private var searchText = ""
+
+            private var selectedAction: KeyAction {
+                selection.wrappedValue
+            }
+
+            private var filteredActionGroups: [KeyActionCatalog.ActionGroup] {
+                let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedSearch.isEmpty else { return actionGroups }
+                return actionGroups.compactMap { group in
+                    let filteredActions = group.actions.filter { action in
+                        action.label.localizedCaseInsensitiveContains(trimmedSearch)
+                            || action.pickerText.localizedCaseInsensitiveContains(trimmedSearch)
+                    }
+                    guard !filteredActions.isEmpty else { return nil }
+                    return KeyActionCatalog.ActionGroup(title: group.title, actions: filteredActions)
+                }
+            }
+
+            private func choose(_ action: KeyAction) {
+                selection.wrappedValue = action
+                dismiss()
+            }
+
+            var body: some View {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(title)
+                                .font(.headline)
+                            Text("Current: \(selectedAction.pickerText)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            dismiss()
+                        }
+                    }
+
+                    TextField("Filter actions", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+
+                    if filteredActionGroups.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text("No matching actions")
+                                .font(.headline)
+                            Text("Try a different search.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 14) {
+                                ForEach(filteredActionGroups) { group in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(group.title)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            ForEach(group.actions, id: \.self) { action in
+                                                Button {
+                                                    choose(action)
+                                                } label: {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: action == selectedAction ? "checkmark.circle.fill" : "circle")
+                                                            .font(.system(size: 12, weight: .semibold))
+                                                            .foregroundStyle(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor
+                                                                    : Color.secondary
+                                                            )
+                                                        Text(action.pickerText)
+                                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                                            .multilineTextAlignment(.leading)
+                                                    }
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 7)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor.opacity(0.12)
+                                                                    : Color.clear
+                                                            )
+                                                    )
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(minWidth: 460, idealWidth: 540, minHeight: 420, idealHeight: 560)
+            }
+        }
+
         let buttonSelection: ButtonInspectorSelection?
         let keySelection: KeyInspectorSelection?
         let selectionRevision: Int
@@ -2099,6 +2219,7 @@ struct ContentView: View {
         @State private var shortcutKeyLabel = ""
         @State private var appLaunchTarget = ""
         @State private var appLaunchArguments = ""
+        @State private var activeActionChooser: ActionChooserState?
         private let shortcutBuilderActionButtonWidth: CGFloat = 84
 
         private var hasEditableSelection: Bool {
@@ -2158,6 +2279,13 @@ struct ContentView: View {
                         }
                     }
                 }
+            )
+        }
+
+        private var holdActionMenuBinding: Binding<KeyAction> {
+            Binding(
+                get: { holdActionBinding.wrappedValue ?? KeyActionCatalog.noneAction },
+                set: { holdActionBinding.wrappedValue = $0 }
             )
         }
 
@@ -2469,6 +2597,45 @@ struct ContentView: View {
                 )
         }
 
+        @ViewBuilder
+        private func actionChooserButton(
+            title: String,
+            selection: Binding<KeyAction>,
+            actionGroups: [KeyActionCatalog.ActionGroup]
+        ) -> some View {
+            let currentAction = selection.wrappedValue
+            Button {
+                activeActionChooser = ActionChooserState(
+                    title: title,
+                    actionGroups: actionGroups,
+                    selection: selection
+                )
+            } label: {
+                HStack(spacing: 8) {
+                    Text(currentAction.pickerText)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .multilineTextAlignment(.leading)
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 11, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 8)
+            .background(
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(Color(nsColor: .controlBackgroundColor))
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 8)
+                    .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
+            )
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .disabled(!hasEditableSelection)
+            .opacity(hasEditableSelection ? 1.0 : 0.65)
+        }
+
         var body: some View {
             let primaryGroups = actionGroups(for: selectedPrimaryAction, hold: false)
             let holdGroups = actionGroups(for: selectedHoldAction, hold: true)
@@ -2489,36 +2656,20 @@ struct ContentView: View {
                 EqualSplitFormRow {
                     Text("Primary Action")
                 } field: {
-                    Picker("", selection: primaryActionBinding) {
-                        ForEach(primaryGroups.indices, id: \.self) { index in
-                            let group = primaryGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action)
-                            }
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .labelsHidden()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .disabled(!hasEditableSelection)
+                    actionChooserButton(
+                        title: "Primary Action",
+                        selection: primaryActionBinding,
+                        actionGroups: primaryGroups
+                    )
                 }
                 EqualSplitFormRow {
                     Text("Hold Action")
                 } field: {
-                    Picker("", selection: holdActionBinding) {
-                        ForEach(holdGroups.indices, id: \.self) { index in
-                            let group = holdGroups[index]
-                            ContentView.pickerGroupHeader(group.title)
-                            ForEach(group.actions, id: \.self) { action in
-                                ContentView.pickerLabel(for: action).tag(action as KeyAction?)
-                            }
-                        }
-                    }
-                    .pickerStyle(MenuPickerStyle())
-                    .labelsHidden()
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .disabled(!hasEditableSelection)
+                    actionChooserButton(
+                        title: "Hold Action",
+                        selection: holdActionMenuBinding,
+                        actionGroups: holdGroups
+                    )
                 }
                 EqualSplitFormRow {
                     Text("Key Rotation (0-360 deg)")
@@ -2663,6 +2814,13 @@ struct ContentView: View {
                 if actionBuilderTarget == .hold {
                     syncActionBuilderFromSelection()
                 }
+            }
+            .sheet(item: $activeActionChooser) { chooser in
+                ActionChooserSheet(
+                    title: chooser.title,
+                    actionGroups: chooser.actionGroups,
+                    selection: chooser.selection
+                )
             }
         }
 
