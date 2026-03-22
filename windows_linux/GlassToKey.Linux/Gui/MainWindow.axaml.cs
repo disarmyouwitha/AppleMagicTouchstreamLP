@@ -32,6 +32,8 @@ public partial class MainWindow : Window
     private const string TerminalLauncherCommand = "x-terminal-emulator";
     private const string CustomActionSectionTitle = "Custom";
     private const string ShortcutActionSectionTitle = "Shortcuts";
+    private const string ScreenshotActionLabel = "Screenshot";
+    private const string ScreenshotActionValue = "Shift+PrintScreen";
     private static readonly string TerminalActionValue = AppLaunchActionHelper.CreateActionLabel(TerminalLauncherCommand);
     private static readonly IDataTemplate KeyActionChoiceTemplate = CreateKeyActionChoiceTemplate();
     private static readonly IDataTemplate ShortcutKeyChoiceTemplate = CreateShortcutKeyChoiceTemplate();
@@ -2614,6 +2616,7 @@ public partial class MainWindow : Window
         AddKeyActionChoice(options, "BRIGHT_DOWN");
         AddKeyActionChoice(options, "BRI_SCRIPT_UP");
         AddKeyActionChoice(options, "BRI_SCRIPT_DOWN");
+        AddKeyActionChoice(options, ScreenshotActionValue);
 
         AddActionSection(options, "Layers");
         AddKeyActionChoice(options, "TO(0)");
@@ -5091,6 +5094,11 @@ public partial class MainWindow : Window
 
     private static string GetActionDisplayLabel(string action)
     {
+        if (string.Equals(action, ScreenshotActionValue, StringComparison.OrdinalIgnoreCase))
+        {
+            return ScreenshotActionLabel;
+        }
+
         if (IsChordShiftActionLabel(action))
         {
             return "Shift";

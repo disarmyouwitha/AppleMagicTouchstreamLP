@@ -2540,9 +2540,6 @@ enum KeyActionCatalog {
                 brightnessUpLabel,
                 brightnessDownLabel
             ]),
-            (dashedHeader("Shortcuts"), [
-                screenshotShortcutLabel
-            ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
                 "Ctrl",
@@ -2550,6 +2547,7 @@ enum KeyActionCatalog {
                 altGrLabel,
                 "Cmd",
                 "Emoji",
+                screenshotShortcutLabel,
                 voiceLabel,
                 typingToggleLabel
             ]),

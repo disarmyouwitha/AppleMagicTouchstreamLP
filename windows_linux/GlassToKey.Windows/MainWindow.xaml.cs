@@ -35,6 +35,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const ushort DefaultMaxX = 7612;
     private const ushort DefaultMaxY = 5065;
     private const string ShortcutActionSectionTitle = "Shortcuts";
+    private const string ScreenshotActionLabel = "Screenshot";
+    private const string ScreenshotActionValue = "Shift+Win+S";
     private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
     private static readonly Brush IntentCandidateBrush = CreateFrozenBrush("#f39c12");
     private static readonly Brush IntentTypingBrush = CreateFrozenBrush("#2ecc71");
@@ -1107,6 +1109,11 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private static string GetNormalizedActionDisplayLabel(string value)
     {
+        if (string.Equals(value, ScreenshotActionValue, StringComparison.OrdinalIgnoreCase))
+        {
+            return ScreenshotActionLabel;
+        }
+
         if (DispatchShortcutHelper.TryReadShortcut(value, out DispatchModifierFlags modifiers, out string keyLabel))
         {
             return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
@@ -2931,6 +2938,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             AddKeyActionOption(options, systemAndMedia[i], "System & Media");
         }
+
+        AddKeyActionOption(options, ScreenshotActionValue, "System & Media");
 
         AddKeyActionOption(options, "TO(0)", "Layers");
         for (int layer = 1; layer <= 3; layer++)
