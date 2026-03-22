@@ -3831,16 +3831,16 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
-                        gestureSubsectionHeader("Left Side")
+                        gestureSubsectionHeader("Left Edge")
                         gesturePicker("Left up", selection: $leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeUp)
                         gesturePicker("Left down", selection: $leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeDown)
-                        gestureSubsectionHeader("Right Side")
+                        gestureSubsectionHeader("Right Edge")
                         gesturePicker("Right up", selection: $rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeUp)
                         gesturePicker("Right down", selection: $rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeDown)
-                        gestureSubsectionHeader("Top Side")
+                        gestureSubsectionHeader("Top Edge")
                         gesturePicker("Top left", selection: $topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeLeft)
                         gesturePicker("Top right", selection: $topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeRight)
-                        gestureSubsectionHeader("Bottom Side")
+                        gestureSubsectionHeader("Bottom Edge")
                         gesturePicker("Bottom left", selection: $bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeLeft)
                         gesturePicker("Bottom right", selection: $bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeRight)
                     }
