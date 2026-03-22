@@ -1805,6 +1805,9 @@ struct KeyAction: Codable, Hashable {
             case .appLaunch:
                 return AppLaunchActionHelper.keymapDisplayLabel(for: label)
             default:
+                if KeyActionCatalog.isScreenshotShortcutLabel(label) {
+                    return KeyActionCatalog.screenshotLabel
+                }
                 if let spec = KeyActionCatalog.shortcutSpec(for: self) {
                     return spec.displayLabel
                 }
@@ -1819,6 +1822,9 @@ struct KeyAction: Codable, Hashable {
             case .appLaunch:
                 return AppLaunchActionHelper.displayLabel(for: label)
             default:
+                if KeyActionCatalog.isScreenshotShortcutLabel(label) {
+                    return KeyActionCatalog.screenshotLabel
+                }
                 if let spec = KeyActionCatalog.shortcutSpec(for: self) {
                     return spec.displayLabel
                 }
@@ -2175,6 +2181,8 @@ enum KeyActionCatalog {
     static let voiceLabel = "Voice"
     static let typingToggleLabel = "Typing Toggle"
     static let typingToggleDisplayLabel = "Typing\nToggle"
+    static let screenshotLabel = "Screenshot"
+    static let screenshotShortcutLabel = "Shift+Cmd+4"
     static let noneLabel = "None"
     static let leftClickLabel = "Left Click"
     static let doubleClickLabel = "Double Click"
@@ -2436,6 +2444,11 @@ enum KeyActionCatalog {
         KeyAction(label: typingToggleLabel, keyCode: 0, flags: 0, kind: .typingToggle)
     ]
 
+    static func isScreenshotShortcutLabel(_ label: String) -> Bool {
+        label.trimmingCharacters(in: .whitespacesAndNewlines)
+            .caseInsensitiveCompare(screenshotShortcutLabel) == .orderedSame
+    }
+
     static let presets: [KeyAction] = {
         var items = uniqueActions(from: bindingsByLabel)
         items.append(contentsOf: mouseActions)
@@ -2526,6 +2539,9 @@ enum KeyActionCatalog {
                 volumeDownLabel,
                 brightnessUpLabel,
                 brightnessDownLabel
+            ]),
+            (dashedHeader("Shortcuts"), [
+                screenshotShortcutLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
