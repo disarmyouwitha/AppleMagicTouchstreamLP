@@ -3162,6 +3162,132 @@ struct ContentView: View {
     }
 
     private struct GestureTuningSectionView: View {
+        private struct GestureChooserState: Identifiable {
+            let id = UUID()
+            let title: String
+            let fallbackLabel: String
+            let selection: Binding<String>
+        }
+
+        private struct GestureActionChooserSheet: View {
+            let title: String
+            let actionGroups: [KeyActionCatalog.ActionGroup]
+            let selection: Binding<String>
+            let fallbackLabel: String
+
+            @Environment(\.dismiss) private var dismiss
+            @State private var searchText = ""
+
+            private var selectedAction: KeyAction {
+                KeyActionCatalog.action(for: selection.wrappedValue)
+                    ?? KeyActionCatalog.action(for: fallbackLabel)
+                    ?? KeyActionCatalog.noneAction
+            }
+
+            private var filteredActionGroups: [KeyActionCatalog.ActionGroup] {
+                let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedSearch.isEmpty else { return actionGroups }
+                return actionGroups.compactMap { group in
+                    let filteredActions = group.actions.filter { action in
+                        action.label.localizedCaseInsensitiveContains(trimmedSearch)
+                            || action.pickerText.localizedCaseInsensitiveContains(trimmedSearch)
+                    }
+                    guard !filteredActions.isEmpty else { return nil }
+                    return KeyActionCatalog.ActionGroup(
+                        title: group.title,
+                        actions: filteredActions
+                    )
+                }
+            }
+
+            private func choose(_ action: KeyAction) {
+                selection.wrappedValue = action.label
+                dismiss()
+            }
+
+            var body: some View {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(title)
+                                .font(.headline)
+                            Text("Current: \(selectedAction.pickerText)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            dismiss()
+                        }
+                    }
+
+                    TextField("Filter actions", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+
+                    if filteredActionGroups.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text("No matching actions")
+                                .font(.headline)
+                            Text("Try a different search.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 14) {
+                                ForEach(filteredActionGroups) { group in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(group.title)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            ForEach(group.actions, id: \.self) { action in
+                                                Button {
+                                                    choose(action)
+                                                } label: {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: action == selectedAction ? "checkmark.circle.fill" : "circle")
+                                                            .font(.system(size: 12, weight: .semibold))
+                                                            .foregroundStyle(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor
+                                                                    : Color.secondary
+                                                            )
+                                                        Text(action.pickerText)
+                                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                                            .multilineTextAlignment(.leading)
+                                                    }
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 7)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor.opacity(0.12)
+                                                                    : Color.clear
+                                                            )
+                                                    )
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(minWidth: 460, idealWidth: 540, minHeight: 420, idealHeight: 560)
+            }
+        }
+
         let actionGroups: [KeyActionCatalog.ActionGroup]
         @Binding var twoFingerTapGestureAction: String
         @Binding var threeFingerTapGestureAction: String
@@ -3217,19 +3343,15 @@ struct ContentView: View {
         @State private var trianglesExpanded = false
         @State private var clicksExpanded = false
         @State private var forceClicksExpanded = false
+        @State private var activeChooser: GestureChooserState?
 
-        private func gestureBinding(
+        private func selectedAction(
             _ rawValue: Binding<String>,
             fallbackLabel: String
-        ) -> Binding<KeyAction> {
-            Binding(
-                get: {
-                    KeyActionCatalog.action(for: rawValue.wrappedValue)
-                        ?? KeyActionCatalog.action(for: fallbackLabel)
-                        ?? KeyActionCatalog.noneAction
-                },
-                set: { rawValue.wrappedValue = $0.label }
-            )
+        ) -> KeyAction {
+            KeyActionCatalog.action(for: rawValue.wrappedValue)
+                ?? KeyActionCatalog.action(for: fallbackLabel)
+                ?? KeyActionCatalog.noneAction
         }
 
         @ViewBuilder
@@ -3239,28 +3361,40 @@ struct ContentView: View {
             fallbackLabel: String,
             disabled: Bool = false
         ) -> some View {
+            let currentAction = selectedAction(selection, fallbackLabel: fallbackLabel)
             EqualSplitFormRow {
                 Text(title)
             } field: {
-                Picker(
-                    "",
-                    selection: gestureBinding(
-                        selection,
-                        fallbackLabel: fallbackLabel
+                Button {
+                    activeChooser = GestureChooserState(
+                        title: title,
+                        fallbackLabel: fallbackLabel,
+                        selection: selection
                     )
-                ) {
-                    ForEach(actionGroups.indices, id: \.self) { index in
-                        let group = actionGroups[index]
-                        ContentView.pickerGroupHeader(group.title)
-                        ForEach(group.actions, id: \.self) { action in
-                            ContentView.pickerLabel(for: action).tag(action)
-                        }
+                } label: {
+                    HStack(spacing: 8) {
+                        Text(currentAction.pickerText)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .multilineTextAlignment(.leading)
+                        Image(systemName: "chevron.down")
+                            .font(.system(size: 11, weight: .semibold))
+                            .foregroundStyle(.secondary)
                     }
                 }
-                .pickerStyle(MenuPickerStyle())
-                .labelsHidden()
+                .buttonStyle(.plain)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 8)
+                .background(
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(Color(nsColor: .controlBackgroundColor))
+                )
+                .overlay(
+                    RoundedRectangle(cornerRadius: 8)
+                        .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
+                )
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .disabled(disabled)
+                .opacity(disabled ? 0.65 : 1.0)
                 .help(disabled ? "Disabled while macOS Three Finger Drag is enabled." : "")
             }
         }
@@ -3401,6 +3535,14 @@ struct ContentView: View {
                 } label: {
                     Text("Force Clicks")
                 }
+            }
+            .sheet(item: $activeChooser) { chooser in
+                GestureActionChooserSheet(
+                    title: chooser.title,
+                    actionGroups: actionGroups,
+                    selection: chooser.selection,
+                    fallbackLabel: chooser.fallbackLabel
+                )
             }
         }
     }

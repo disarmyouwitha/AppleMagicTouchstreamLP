@@ -1,9 +1,9 @@
+- Why is it like 700mb ram to add all of these dropdowns? Why is swift like this? Is it impossible to add a simple dropdown without nuking the entire runtime? this fucking sucks. Windows and Linux ARE NOT like this so why is mac like this? I can't move forward until this is resolved
+- Implement (ms) repeat just like ../windows_linux
 - Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
 ---
-- Implement (ms) repeat just like ../windows_linux
-- 4-finger triggers 3-finger, etc
-- issue with 3-finger and 4-finger click (or remove?)
 - Force Clicks needs a slider where you set what force is Force.
+- Force Instead of Hold
 ---
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
