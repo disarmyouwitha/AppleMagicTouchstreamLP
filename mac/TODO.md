@@ -1,14 +1,15 @@
 ## Current:
-- GUI edits are fire but the  VOL_UP, VOL_DOWN, BRIGHT_UP, and BRIGHT_DOWN keys still do not repeat. They must be special keys that need to be treated differently. I am able to do this by repeatedly pressing the key so you
-  can probably do something like that!
 - Move the following `Taps` into `Clicks` below "Bottom Right": "2-Finger Tap", "3-Finger Tap" and get rid of the Taps collapsable in Gestures. 
-- - Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Tap`
+- Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Tap`
+---
 - Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
 - Force Clicks needs a slider where you set what force is Force.
 - Force Instead of Hold
 ------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?
 - ^ Then I want to decide on a better theme for Shorcut Builder I hate that blue, lol. Its so un-mac looking..
+---
+- Add Legit "Screenshot" shortcut that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4
 
     
 ## TODO:

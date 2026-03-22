@@ -3518,7 +3518,6 @@ struct ContentView: View {
         @Binding var bottomRightForceClickGestureAction: String
         @Binding var gestureRepeatCadenceData: Data
         let systemThreeFingerDragEnabled: Bool
-        @State private var tapsExpanded = false
         @State private var holdsExpanded = true
         @State private var edgesExpanded = false
         @State private var swipesExpanded = false
@@ -3669,18 +3668,6 @@ struct ContentView: View {
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 CollapsibleSection(
-                    isExpanded: $tapsExpanded,
-                    topSpacing: 4
-                ) {
-                    VStack(alignment: .leading, spacing: 0) {
-                        gesturePicker("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
-                        gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerTap)
-                    }
-                } label: {
-                    Text("Taps")
-                }
-
-                CollapsibleSection(
                     isExpanded: $holdsExpanded,
                     topSpacing: 4
                 ) {
@@ -3781,6 +3768,9 @@ struct ContentView: View {
                         gesturePicker("Bottom Right", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerRightCornerClick)
                         gesturePicker("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerClick)
                         gesturePicker("4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerClick)
+                        gestureSubsectionHeader("Taps")
+                        gesturePicker("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
+                        gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
                     }
                 } label: {
                     Text("Clicks")
