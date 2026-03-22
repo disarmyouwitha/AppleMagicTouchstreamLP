@@ -2266,6 +2266,19 @@ public partial class MainWindow : Window
         return EnsureActionChoice(_keyActionChoices, _keyActionChoiceLookup, action, CustomActionSectionTitle);
     }
 
+    private bool EnsureActionChoice(string? action, string sectionTitle)
+    {
+        return EnsureActionChoice(_keyActionChoices, _keyActionChoiceLookup, action, sectionTitle);
+    }
+
+    private static bool EnsureActionChoice(
+        List<KeyActionChoice> choices,
+        HashSet<string> lookup,
+        string? action)
+    {
+        return EnsureActionChoice(choices, lookup, action, CustomActionSectionTitle);
+    }
+
     private static bool EnsureActionChoice(
         List<KeyActionChoice> choices,
         HashSet<string> lookup,

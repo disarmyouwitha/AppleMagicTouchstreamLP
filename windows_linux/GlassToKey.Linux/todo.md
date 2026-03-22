@@ -26,3 +26,6 @@
 
 # NUKE
 pkill -f 'GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj'
+
+# live run
+dotnet run --project GlassToKey.Linux/Gui/GlassToKey.Linux.Gui.csproj -c Release
