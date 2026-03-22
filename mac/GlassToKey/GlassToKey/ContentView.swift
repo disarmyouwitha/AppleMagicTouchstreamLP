@@ -226,6 +226,7 @@ struct ContentView: View {
     fileprivate static let dragCancelDistanceRange: ClosedRange<Double> = 1.0...30.0
     fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 0.0...500.0
     fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
+    fileprivate static let forceClickThresholdRange: ClosedRange<Double> = 130.0...500.0
     fileprivate static let hapticStrengthRange: ClosedRange<Double> = 0.0...100.0
     fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
     fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
@@ -687,7 +688,7 @@ struct ContentView: View {
                 viewModel.updateForceClickCap(clamped)
             }
             .onChange(of: forceClickThresholdSetting) { newValue in
-                let clamped = min(max(newValue, Self.forceClickRange.lowerBound), Self.forceClickRange.upperBound)
+                let clamped = min(max(newValue, Self.forceClickThresholdRange.lowerBound), Self.forceClickThresholdRange.upperBound)
                 if clamped != newValue {
                     forceClickThresholdSetting = clamped
                     return
@@ -3855,7 +3856,7 @@ struct ContentView: View {
                             HStack(spacing: 8) {
                                 Slider(
                                     value: $forceClickThresholdSetting,
-                                    in: ContentView.forceClickRange,
+                                    in: ContentView.forceClickThresholdRange,
                                     step: 1
                                 )
                                 .frame(maxWidth: .infinity)
@@ -4684,8 +4685,8 @@ struct ContentView: View {
             Self.forceClickRange.upperBound
         )
         forceClickThresholdSetting = min(
-            max(forceClickThresholdSetting, Self.forceClickRange.lowerBound),
-            Self.forceClickRange.upperBound
+            max(forceClickThresholdSetting, Self.forceClickThresholdRange.lowerBound),
+            Self.forceClickThresholdRange.upperBound
         )
         viewModel.updateForceClickMin(forceClickMinSetting)
         viewModel.updateForceClickCap(forceClickCapSetting)

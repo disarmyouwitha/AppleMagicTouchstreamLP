@@ -6,7 +6,7 @@ enum GlassToKeySettings {
     static let dragCancelDistanceMm: Double = 8.0
     static let forceClickMin: Double = 0.0
     static let forceClickCap: Double = 120.0
-    static let forceClickThreshold: Double = 125.0
+    static let forceClickThreshold: Double = 250.0
     static let hapticStrengthPercent: Double = 40.0
     static let typingGraceMs: Double = 1000.0
     static let intentMoveThresholdMm: Double = 3.0
@@ -632,7 +632,7 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
         let clampedForceMin = max(0, min(255, forceMin))
         let clampedForceCap = max(clampedForceMin, min(255, forceCap))
-        let clampedForceClickThreshold = max(0, min(255, forceClickThreshold))
+        let clampedForceClickThreshold = max(130, min(500, forceClickThreshold))
         viewModel.updateForceClickMin(clampedForceMin)
         viewModel.updateForceClickCap(clampedForceCap)
         viewModel.updateForceClickThreshold(clampedForceClickThreshold)

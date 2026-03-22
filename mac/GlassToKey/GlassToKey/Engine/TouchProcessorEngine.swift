@@ -1074,7 +1074,7 @@ actor TouchProcessorEngine {
     }
 
     func updateForceClickThreshold(_ grams: Double) {
-        forceClickThreshold = Float(min(max(grams, 0), 255))
+        forceClickThreshold = Float(min(max(grams, 130), 500))
     }
 
     func updateHapticStrength(_ normalized: Double) {
@@ -4225,7 +4225,6 @@ actor TouchProcessorEngine {
         }
         guard let touch else {
             if state.active, state.candidateValid, state.forceArmed,
-               cornerForceClickOverrideAction(for: state.corner).kind == .none,
                cornerClickAction(for: state.corner).kind != .none {
                 let bindingId = cornerClickBindingId(for: state.corner)
                 state.repeatBindingId = bindingId
