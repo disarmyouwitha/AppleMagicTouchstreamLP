@@ -18,7 +18,7 @@
 <hr>
 
 ## Usage
-**I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Releases</a>!**
+### I have posted installers under <a href="https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/releases/tag/beta">Releases</a>!
 
 It can't hurt to submit an Issue or PR but this is just a fun side project I am working on with Codex, so it's something you might have to fork and extend! 
 
