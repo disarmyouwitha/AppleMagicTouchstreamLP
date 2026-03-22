@@ -127,11 +127,11 @@ actor TouchProcessorEngine {
     }
 
     private struct RepeatEntry {
-        let code: CGKeyCode
-        let flags: CGEventFlags
         let token: RepeatToken
         let interval: UInt64
         var nextFire: UInt64
+        let fire: @Sendable (RepeatToken) -> Void
+        let stop: @Sendable () -> Void
     }
 
     private struct GestureRepeatKey: Hashable {
@@ -5365,16 +5365,81 @@ actor TouchProcessorEngine {
     ) {
         stopRepeat(for: owner)
         guard case let .key(code, flags) = binding.action else { return }
+        let dispatchService = self.dispatchService
         let repeatFlags = flags.union(currentModifierFlags())
-        dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true)
+        startRepeatEntry(
+            for: owner,
+            initialDelay: initialDelay,
+            interval: interval,
+            fireInitial: {
+                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true)
+            },
+            fire: { token in
+                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true, token: token)
+            },
+            stop: {
+                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: false)
+            }
+        )
+    }
+
+    private func startSystemKeyRepeat(
+        for owner: RepeatOwner,
+        systemKey: KeyEventDispatcher.SystemKey,
+        initialDelay: UInt64,
+        interval: UInt64
+    ) {
+        stopRepeat(for: owner)
+        let dispatchService = self.dispatchService
+        startRepeatEntry(
+            for: owner,
+            initialDelay: initialDelay,
+            interval: interval,
+            fireInitial: {
+                switch systemKey {
+                case .volumeUp:
+                    dispatchService.postVolumeUp()
+                case .volumeDown:
+                    dispatchService.postVolumeDown()
+                case .brightnessUp:
+                    dispatchService.postBrightnessUp()
+                case .brightnessDown:
+                    dispatchService.postBrightnessDown()
+                }
+            },
+            fire: { _ in
+                switch systemKey {
+                case .volumeUp:
+                    dispatchService.postVolumeUp()
+                case .volumeDown:
+                    dispatchService.postVolumeDown()
+                case .brightnessUp:
+                    dispatchService.postBrightnessUp()
+                case .brightnessDown:
+                    dispatchService.postBrightnessDown()
+                }
+            },
+            stop: {}
+        )
+    }
+
+    private func startRepeatEntry(
+        for owner: RepeatOwner,
+        initialDelay: UInt64,
+        interval: UInt64,
+        fireInitial: @escaping @Sendable () -> Void,
+        fire: @escaping @Sendable (RepeatToken) -> Void,
+        stop: @escaping @Sendable () -> Void
+    ) {
+        fireInitial()
         let token = RepeatToken()
         let nextFire = Self.nowUptimeNanoseconds() &+ initialDelay
         repeatEntries[owner] = RepeatEntry(
-            code: code,
-            flags: repeatFlags,
             token: token,
             interval: interval,
-            nextFire: nextFire
+            nextFire: nextFire,
+            fire: fire,
+            stop: stop
         )
         ensureRepeatLoop()
     }
@@ -5429,12 +5494,7 @@ actor TouchProcessorEngine {
                 continue
             }
             if entry.nextFire <= now {
-                dispatchService.postKey(
-                    code: entry.code,
-                    flags: entry.flags,
-                    keyDown: true,
-                    token: entry.token
-                )
+                entry.fire(entry.token)
                 var next = entry.nextFire
                 while next <= now {
                     next &+= entry.interval
@@ -5455,7 +5515,7 @@ actor TouchProcessorEngine {
     private func stopRepeat(for owner: RepeatOwner) {
         if let entry = repeatEntries.removeValue(forKey: owner) {
             entry.token.deactivate()
-            dispatchService.postKey(code: entry.code, flags: entry.flags, keyDown: false)
+            entry.stop()
         }
         if repeatEntries.isEmpty {
             repeatLoopTask?.cancel()
@@ -5492,17 +5552,23 @@ actor TouchProcessorEngine {
     }
 
     private func canRepeatGestureAction(_ action: KeyAction) -> Bool {
-        guard action.kind == .key else { return false }
-        let code = CGKeyCode(action.keyCode)
-        if code == CGKeyCode(kVK_Function) {
+        switch action.kind {
+        case .volumeUp, .volumeDown, .brightnessUp, .brightnessDown:
+            return true
+        case .key:
+            let code = CGKeyCode(action.keyCode)
+            if code == CGKeyCode(kVK_Function) {
+                return false
+            }
+            return code != CGKeyCode(kVK_Shift)
+                && code != CGKeyCode(kVK_RightShift)
+                && code != CGKeyCode(kVK_Control)
+                && code != CGKeyCode(kVK_Option)
+                && code != CGKeyCode(kVK_RightOption)
+                && code != CGKeyCode(kVK_Command)
+        default:
             return false
         }
-        return code != CGKeyCode(kVK_Shift)
-            && code != CGKeyCode(kVK_RightShift)
-            && code != CGKeyCode(kVK_Control)
-            && code != CGKeyCode(kVK_Option)
-            && code != CGKeyCode(kVK_RightOption)
-            && code != CGKeyCode(kVK_Command)
     }
 
     @discardableResult
@@ -5514,15 +5580,7 @@ actor TouchProcessorEngine {
         guard let bindingId,
               let cadenceMs = gestureRepeatCadenceMsById[bindingId],
               cadenceMs > 0,
-              canRepeatGestureAction(action),
-              let binding = makeBinding(
-                for: action,
-                rect: .zero,
-                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
-                canvasSize: .zero,
-                position: nil,
-                side: side ?? .left
-              ) else {
+              canRepeatGestureAction(action) else {
             return false
         }
 
@@ -5532,8 +5590,35 @@ actor TouchProcessorEngine {
         }
 
         let cadenceNs = UInt64(cadenceMs) * 1_000_000
-        startRepeat(for: owner, binding: binding, initialDelay: cadenceNs, interval: cadenceNs)
-        return true
+        switch action.kind {
+        case .key:
+            guard let binding = makeBinding(
+                for: action,
+                rect: .zero,
+                normalizedRect: NormalizedRect(x: 0, y: 0, width: 0, height: 0),
+                canvasSize: .zero,
+                position: nil,
+                side: side ?? .left
+            ) else {
+                return false
+            }
+            startRepeat(for: owner, binding: binding, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .volumeUp:
+            startSystemKeyRepeat(for: owner, systemKey: .volumeUp, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .volumeDown:
+            startSystemKeyRepeat(for: owner, systemKey: .volumeDown, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .brightnessUp:
+            startSystemKeyRepeat(for: owner, systemKey: .brightnessUp, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .brightnessDown:
+            startSystemKeyRepeat(for: owner, systemKey: .brightnessDown, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        default:
+            return false
+        }
     }
 
     private func handleModifierDown(_ modifierKey: ModifierKey, binding: KeyBinding) {
