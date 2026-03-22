@@ -1131,28 +1131,8 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateHoldRepeatEnabled(enabled)
     }
 
-    func updateGestureActions(
-        twoFingerTap: KeyAction,
-        threeFingerTap: KeyAction,
-        twoFingerHold: KeyAction,
-        threeFingerHold: KeyAction,
-        fourFingerHold: KeyAction,
-        outerCornersHold: KeyAction,
-        innerCornersHold: KeyAction,
-        fiveFingerSwipeLeft: KeyAction,
-        fiveFingerSwipeRight: KeyAction
-    ) {
-        runtimeCommandService.updateGestureActions(
-            twoFingerTap: twoFingerTap,
-            threeFingerTap: threeFingerTap,
-            twoFingerHold: twoFingerHold,
-            threeFingerHold: threeFingerHold,
-            fourFingerHold: fourFingerHold,
-            outerCornersHold: outerCornersHold,
-            innerCornersHold: innerCornersHold,
-            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
-            fiveFingerSwipeRight: fiveFingerSwipeRight
-        )
+    func updateGestureActions(_ actions: GestureActionSet) {
+        runtimeCommandService.updateGestureActions(actions)
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) {
@@ -1839,6 +1819,54 @@ struct KeyAction: Codable, Hashable {
         try container.encode(kind, forKey: .kind)
         try container.encodeIfPresent(layer, forKey: .layer)
     }
+}
+
+struct GestureActionSet {
+    var twoFingerTap: KeyAction
+    var threeFingerTap: KeyAction
+    var twoFingerHold: KeyAction
+    var threeFingerHold: KeyAction
+    var fourFingerHold: KeyAction
+    var outerCornersHold: KeyAction
+    var innerCornersHold: KeyAction
+    var leftEdgeUp: KeyAction
+    var leftEdgeDown: KeyAction
+    var rightEdgeUp: KeyAction
+    var rightEdgeDown: KeyAction
+    var topEdgeLeft: KeyAction
+    var topEdgeRight: KeyAction
+    var bottomEdgeLeft: KeyAction
+    var bottomEdgeRight: KeyAction
+    var threeFingerSwipeLeft: KeyAction
+    var threeFingerSwipeRight: KeyAction
+    var threeFingerSwipeUp: KeyAction
+    var threeFingerSwipeDown: KeyAction
+    var fourFingerSwipeLeft: KeyAction
+    var fourFingerSwipeRight: KeyAction
+    var fourFingerSwipeUp: KeyAction
+    var fourFingerSwipeDown: KeyAction
+    var fiveFingerSwipeLeft: KeyAction
+    var fiveFingerSwipeRight: KeyAction
+    var fiveFingerSwipeUp: KeyAction
+    var fiveFingerSwipeDown: KeyAction
+    var topLeftCornerSwipe: KeyAction
+    var topRightCornerSwipe: KeyAction
+    var bottomLeftCornerSwipe: KeyAction
+    var bottomRightCornerSwipe: KeyAction
+    var topLeftTriangle: KeyAction
+    var topRightTriangle: KeyAction
+    var bottomLeftTriangle: KeyAction
+    var bottomRightTriangle: KeyAction
+    var upperLeftCornerClick: KeyAction
+    var upperRightCornerClick: KeyAction
+    var lowerLeftCornerClick: KeyAction
+    var lowerRightCornerClick: KeyAction
+    var threeFingerClick: KeyAction
+    var fourFingerClick: KeyAction
+    var topLeftForceClick: KeyAction
+    var topRightForceClick: KeyAction
+    var bottomLeftForceClick: KeyAction
+    var bottomRightForceClick: KeyAction
 }
 
 extension KeyAction {
@@ -2847,8 +2875,44 @@ struct AppKeymapProfile: Codable {
     let fourFingerHoldGestureAction: String?
     let outerCornersHoldGestureAction: String?
     let innerCornersHoldGestureAction: String?
+    let leftEdgeUpGestureAction: String?
+    let leftEdgeDownGestureAction: String?
+    let rightEdgeUpGestureAction: String?
+    let rightEdgeDownGestureAction: String?
+    let topEdgeLeftGestureAction: String?
+    let topEdgeRightGestureAction: String?
+    let bottomEdgeLeftGestureAction: String?
+    let bottomEdgeRightGestureAction: String?
+    let threeFingerSwipeLeftGestureAction: String?
+    let threeFingerSwipeRightGestureAction: String?
+    let threeFingerSwipeUpGestureAction: String?
+    let threeFingerSwipeDownGestureAction: String?
+    let fourFingerSwipeLeftGestureAction: String?
+    let fourFingerSwipeRightGestureAction: String?
+    let fourFingerSwipeUpGestureAction: String?
+    let fourFingerSwipeDownGestureAction: String?
     let fiveFingerSwipeLeftGestureAction: String?
     let fiveFingerSwipeRightGestureAction: String?
+    let fiveFingerSwipeUpGestureAction: String?
+    let fiveFingerSwipeDownGestureAction: String?
+    let topLeftCornerSwipeGestureAction: String?
+    let topRightCornerSwipeGestureAction: String?
+    let bottomLeftCornerSwipeGestureAction: String?
+    let bottomRightCornerSwipeGestureAction: String?
+    let topLeftTriangleGestureAction: String?
+    let topRightTriangleGestureAction: String?
+    let bottomLeftTriangleGestureAction: String?
+    let bottomRightTriangleGestureAction: String?
+    let upperLeftCornerClickGestureAction: String?
+    let upperRightCornerClickGestureAction: String?
+    let lowerLeftCornerClickGestureAction: String?
+    let lowerRightCornerClickGestureAction: String?
+    let threeFingerClickGestureAction: String?
+    let fourFingerClickGestureAction: String?
+    let topLeftForceClickGestureAction: String?
+    let topRightForceClickGestureAction: String?
+    let bottomLeftForceClickGestureAction: String?
+    let bottomRightForceClickGestureAction: String?
     let gestureRepeatCadenceMsById: [String: Int]?
     let keySpacingPercentByLayout: [String: Double]?
     let columnSettingsByLayout: [String: [ColumnLayoutSettings]]
@@ -2884,8 +2948,44 @@ struct AppKeymapProfile: Codable {
             fourFingerHoldGestureAction: GlassToKeySettings.fourFingerHoldGestureActionLabel,
             outerCornersHoldGestureAction: GlassToKeySettings.outerCornersHoldGestureActionLabel,
             innerCornersHoldGestureAction: GlassToKeySettings.innerCornersHoldGestureActionLabel,
+            leftEdgeUpGestureAction: GlassToKeySettings.leftEdgeUpGestureActionLabel,
+            leftEdgeDownGestureAction: GlassToKeySettings.leftEdgeDownGestureActionLabel,
+            rightEdgeUpGestureAction: GlassToKeySettings.rightEdgeUpGestureActionLabel,
+            rightEdgeDownGestureAction: GlassToKeySettings.rightEdgeDownGestureActionLabel,
+            topEdgeLeftGestureAction: GlassToKeySettings.topEdgeLeftGestureActionLabel,
+            topEdgeRightGestureAction: GlassToKeySettings.topEdgeRightGestureActionLabel,
+            bottomEdgeLeftGestureAction: GlassToKeySettings.bottomEdgeLeftGestureActionLabel,
+            bottomEdgeRightGestureAction: GlassToKeySettings.bottomEdgeRightGestureActionLabel,
+            threeFingerSwipeLeftGestureAction: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel,
+            threeFingerSwipeRightGestureAction: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel,
+            threeFingerSwipeUpGestureAction: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel,
+            threeFingerSwipeDownGestureAction: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel,
+            fourFingerSwipeLeftGestureAction: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel,
+            fourFingerSwipeRightGestureAction: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel,
+            fourFingerSwipeUpGestureAction: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel,
+            fourFingerSwipeDownGestureAction: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel,
             fiveFingerSwipeLeftGestureAction: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel,
             fiveFingerSwipeRightGestureAction: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel,
+            fiveFingerSwipeUpGestureAction: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel,
+            fiveFingerSwipeDownGestureAction: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel,
+            topLeftCornerSwipeGestureAction: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel,
+            topRightCornerSwipeGestureAction: GlassToKeySettings.topRightCornerSwipeGestureActionLabel,
+            bottomLeftCornerSwipeGestureAction: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel,
+            bottomRightCornerSwipeGestureAction: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel,
+            topLeftTriangleGestureAction: GlassToKeySettings.topLeftTriangleGestureActionLabel,
+            topRightTriangleGestureAction: GlassToKeySettings.topRightTriangleGestureActionLabel,
+            bottomLeftTriangleGestureAction: GlassToKeySettings.bottomLeftTriangleGestureActionLabel,
+            bottomRightTriangleGestureAction: GlassToKeySettings.bottomRightTriangleGestureActionLabel,
+            upperLeftCornerClickGestureAction: GlassToKeySettings.upperLeftCornerClickGestureActionLabel,
+            upperRightCornerClickGestureAction: GlassToKeySettings.upperRightCornerClickGestureActionLabel,
+            lowerLeftCornerClickGestureAction: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel,
+            lowerRightCornerClickGestureAction: GlassToKeySettings.lowerRightCornerClickGestureActionLabel,
+            threeFingerClickGestureAction: GlassToKeySettings.threeFingerClickGestureActionLabel,
+            fourFingerClickGestureAction: GlassToKeySettings.fourFingerClickGestureActionLabel,
+            topLeftForceClickGestureAction: GlassToKeySettings.topLeftForceClickGestureActionLabel,
+            topRightForceClickGestureAction: GlassToKeySettings.topRightForceClickGestureActionLabel,
+            bottomLeftForceClickGestureAction: GlassToKeySettings.bottomLeftForceClickGestureActionLabel,
+            bottomRightForceClickGestureAction: GlassToKeySettings.bottomRightForceClickGestureActionLabel,
             gestureRepeatCadenceMsById: nil,
             keySpacingPercentByLayout: [:],
             columnSettingsByLayout: [:],
@@ -3011,14 +3111,52 @@ enum PortableKeymapInterop {
             keyboardModeEnabled: settings.keyboardModeEnabled ?? currentProfile.keyboardModeEnabled,
             holdRepeatEnabled: settings.holdRepeatEnabled ?? currentProfile.holdRepeatEnabled,
             twoFingerTapGestureAction: currentProfile.twoFingerTapGestureAction,
-            threeFingerTapGestureAction: settings.threeFingerClickAction ?? currentProfile.threeFingerTapGestureAction,
+            threeFingerTapGestureAction: settings.threeFingerTapAction
+                ?? settings.threeFingerClickAction
+                ?? currentProfile.threeFingerTapGestureAction,
             twoFingerHoldGestureAction: settings.twoFingerHoldAction ?? currentProfile.twoFingerHoldGestureAction,
             threeFingerHoldGestureAction: settings.threeFingerHoldAction ?? currentProfile.threeFingerHoldGestureAction,
             fourFingerHoldGestureAction: settings.fourFingerHoldAction ?? currentProfile.fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: settings.outerCornersAction ?? currentProfile.outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: settings.innerCornersAction ?? currentProfile.innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction: settings.leftEdgeUpAction ?? currentProfile.leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction: settings.leftEdgeDownAction ?? currentProfile.leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction: settings.rightEdgeUpAction ?? currentProfile.rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction: settings.rightEdgeDownAction ?? currentProfile.rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction: settings.topEdgeLeftAction ?? currentProfile.topEdgeLeftGestureAction,
+            topEdgeRightGestureAction: settings.topEdgeRightAction ?? currentProfile.topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction: settings.bottomEdgeLeftAction ?? currentProfile.bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction: settings.bottomEdgeRightAction ?? currentProfile.bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction: settings.threeFingerSwipeLeftAction ?? currentProfile.threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction: settings.threeFingerSwipeRightAction ?? currentProfile.threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction: settings.threeFingerSwipeUpAction ?? currentProfile.threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction: settings.threeFingerSwipeDownAction ?? currentProfile.threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction: settings.fourFingerSwipeLeftAction ?? currentProfile.fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction: settings.fourFingerSwipeRightAction ?? currentProfile.fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction: settings.fourFingerSwipeUpAction ?? currentProfile.fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction: settings.fourFingerSwipeDownAction ?? currentProfile.fourFingerSwipeDownGestureAction,
             fiveFingerSwipeLeftGestureAction: settings.fiveFingerSwipeLeftAction ?? currentProfile.fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: settings.fiveFingerSwipeRightAction ?? currentProfile.fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction: settings.fiveFingerSwipeUpAction ?? currentProfile.fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction: settings.fiveFingerSwipeDownAction ?? currentProfile.fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction: settings.topLeftCornerSwipeAction ?? currentProfile.topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction: settings.topRightCornerSwipeAction ?? currentProfile.topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction: settings.bottomLeftCornerSwipeAction ?? currentProfile.bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction: settings.bottomRightCornerSwipeAction ?? currentProfile.bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction: settings.topLeftTriangleAction ?? currentProfile.topLeftTriangleGestureAction,
+            topRightTriangleGestureAction: settings.topRightTriangleAction ?? currentProfile.topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction: settings.bottomLeftTriangleAction ?? currentProfile.bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction: settings.bottomRightTriangleAction ?? currentProfile.bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction: settings.upperLeftCornerClickAction ?? currentProfile.upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction: settings.upperRightCornerClickAction ?? currentProfile.upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction: settings.lowerLeftCornerClickAction ?? currentProfile.lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction: settings.lowerRightCornerClickAction ?? currentProfile.lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction: settings.threeFingerClickAction ?? currentProfile.threeFingerClickGestureAction,
+            fourFingerClickGestureAction: settings.fourFingerClickAction ?? currentProfile.fourFingerClickGestureAction,
+            topLeftForceClickGestureAction: settings.topLeftForceClickAction ?? currentProfile.topLeftForceClickGestureAction,
+            topRightForceClickGestureAction: settings.topRightForceClickAction ?? currentProfile.topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction: settings.bottomLeftForceClickAction ?? currentProfile.bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction: settings.bottomRightForceClickAction ?? currentProfile.bottomRightForceClickGestureAction,
             gestureRepeatCadenceMsById: GestureRepeatCadenceStorage.normalized(
                 settings.gestureRepeatCadenceMsById ?? currentProfile.gestureRepeatCadenceMsById
             ),
@@ -3057,8 +3195,44 @@ enum PortableKeymapInterop {
                 fourFingerHoldGestureAction: profile.fourFingerHoldGestureAction,
                 outerCornersHoldGestureAction: profile.outerCornersHoldGestureAction,
                 innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
+                leftEdgeUpGestureAction: profile.leftEdgeUpGestureAction,
+                leftEdgeDownGestureAction: profile.leftEdgeDownGestureAction,
+                rightEdgeUpGestureAction: profile.rightEdgeUpGestureAction,
+                rightEdgeDownGestureAction: profile.rightEdgeDownGestureAction,
+                topEdgeLeftGestureAction: profile.topEdgeLeftGestureAction,
+                topEdgeRightGestureAction: profile.topEdgeRightGestureAction,
+                bottomEdgeLeftGestureAction: profile.bottomEdgeLeftGestureAction,
+                bottomEdgeRightGestureAction: profile.bottomEdgeRightGestureAction,
+                threeFingerSwipeLeftGestureAction: profile.threeFingerSwipeLeftGestureAction,
+                threeFingerSwipeRightGestureAction: profile.threeFingerSwipeRightGestureAction,
+                threeFingerSwipeUpGestureAction: profile.threeFingerSwipeUpGestureAction,
+                threeFingerSwipeDownGestureAction: profile.threeFingerSwipeDownGestureAction,
+                fourFingerSwipeLeftGestureAction: profile.fourFingerSwipeLeftGestureAction,
+                fourFingerSwipeRightGestureAction: profile.fourFingerSwipeRightGestureAction,
+                fourFingerSwipeUpGestureAction: profile.fourFingerSwipeUpGestureAction,
+                fourFingerSwipeDownGestureAction: profile.fourFingerSwipeDownGestureAction,
                 fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
                 fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+                fiveFingerSwipeUpGestureAction: profile.fiveFingerSwipeUpGestureAction,
+                fiveFingerSwipeDownGestureAction: profile.fiveFingerSwipeDownGestureAction,
+                topLeftCornerSwipeGestureAction: profile.topLeftCornerSwipeGestureAction,
+                topRightCornerSwipeGestureAction: profile.topRightCornerSwipeGestureAction,
+                bottomLeftCornerSwipeGestureAction: profile.bottomLeftCornerSwipeGestureAction,
+                bottomRightCornerSwipeGestureAction: profile.bottomRightCornerSwipeGestureAction,
+                topLeftTriangleGestureAction: profile.topLeftTriangleGestureAction,
+                topRightTriangleGestureAction: profile.topRightTriangleGestureAction,
+                bottomLeftTriangleGestureAction: profile.bottomLeftTriangleGestureAction,
+                bottomRightTriangleGestureAction: profile.bottomRightTriangleGestureAction,
+                upperLeftCornerClickGestureAction: profile.upperLeftCornerClickGestureAction,
+                upperRightCornerClickGestureAction: profile.upperRightCornerClickGestureAction,
+                lowerLeftCornerClickGestureAction: profile.lowerLeftCornerClickGestureAction,
+                lowerRightCornerClickGestureAction: profile.lowerRightCornerClickGestureAction,
+                threeFingerClickGestureAction: profile.threeFingerClickGestureAction,
+                fourFingerClickGestureAction: profile.fourFingerClickGestureAction,
+                topLeftForceClickGestureAction: profile.topLeftForceClickGestureAction,
+                topRightForceClickGestureAction: profile.topRightForceClickGestureAction,
+                bottomLeftForceClickGestureAction: profile.bottomLeftForceClickGestureAction,
+                bottomRightForceClickGestureAction: profile.bottomRightForceClickGestureAction,
                 gestureRepeatCadenceMsById: profile.gestureRepeatCadenceMsById,
                 keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
                 columnSettingsByLayout: profile.columnSettingsByLayout,
@@ -3182,8 +3356,44 @@ enum PortableKeymapInterop {
             fourFingerHoldGestureAction: profile.fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: profile.outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: profile.innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction: profile.leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction: profile.leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction: profile.rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction: profile.rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction: profile.topEdgeLeftGestureAction,
+            topEdgeRightGestureAction: profile.topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction: profile.bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction: profile.bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction: profile.threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction: profile.threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction: profile.threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction: profile.threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction: profile.fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction: profile.fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction: profile.fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction: profile.fourFingerSwipeDownGestureAction,
             fiveFingerSwipeLeftGestureAction: profile.fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: profile.fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction: profile.fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction: profile.fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction: profile.topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction: profile.topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction: profile.bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction: profile.bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction: profile.topLeftTriangleGestureAction,
+            topRightTriangleGestureAction: profile.topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction: profile.bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction: profile.bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction: profile.upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction: profile.upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction: profile.lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction: profile.lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction: profile.threeFingerClickGestureAction,
+            fourFingerClickGestureAction: profile.fourFingerClickGestureAction,
+            topLeftForceClickGestureAction: profile.topLeftForceClickGestureAction,
+            topRightForceClickGestureAction: profile.topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction: profile.bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction: profile.bottomRightForceClickGestureAction,
             gestureRepeatCadenceMsById: profile.gestureRepeatCadenceMsById,
             keySpacingPercentByLayout: profile.keySpacingPercentByLayout,
             columnSettingsByLayout: profile.columnSettingsByLayout,
@@ -3333,14 +3543,50 @@ enum PortableKeymapInterop {
         var keyboardModeEnabled: Bool?
         var holdRepeatEnabled: Bool?
         var autocorrectEnabled: Bool?
+        var threeFingerTapAction: String?
         var fiveFingerSwipeLeftAction: String?
         var fiveFingerSwipeRightAction: String?
+        var fiveFingerSwipeUpAction: String?
+        var fiveFingerSwipeDownAction: String?
+        var threeFingerSwipeLeftAction: String?
+        var threeFingerSwipeRightAction: String?
+        var threeFingerSwipeUpAction: String?
+        var threeFingerSwipeDownAction: String?
+        var fourFingerSwipeLeftAction: String?
+        var fourFingerSwipeRightAction: String?
+        var fourFingerSwipeUpAction: String?
+        var fourFingerSwipeDownAction: String?
         var twoFingerHoldAction: String?
         var threeFingerHoldAction: String?
         var fourFingerHoldAction: String?
+        var leftEdgeUpAction: String?
+        var leftEdgeDownAction: String?
+        var rightEdgeUpAction: String?
+        var rightEdgeDownAction: String?
+        var topEdgeLeftAction: String?
+        var topEdgeRightAction: String?
+        var bottomEdgeLeftAction: String?
+        var bottomEdgeRightAction: String?
         var threeFingerClickAction: String?
+        var fourFingerClickAction: String?
         var outerCornersAction: String?
         var innerCornersAction: String?
+        var topLeftCornerSwipeAction: String?
+        var topRightCornerSwipeAction: String?
+        var bottomLeftCornerSwipeAction: String?
+        var bottomRightCornerSwipeAction: String?
+        var topLeftTriangleAction: String?
+        var topRightTriangleAction: String?
+        var bottomLeftTriangleAction: String?
+        var bottomRightTriangleAction: String?
+        var upperLeftCornerClickAction: String?
+        var upperRightCornerClickAction: String?
+        var lowerLeftCornerClickAction: String?
+        var lowerRightCornerClickAction: String?
+        var topLeftForceClickAction: String?
+        var topRightForceClickAction: String?
+        var bottomLeftForceClickAction: String?
+        var bottomRightForceClickAction: String?
         var holdDurationMs: Double?
         var dragCancelMm: Double?
         var typingGraceMs: Double?
@@ -3362,14 +3608,50 @@ enum PortableKeymapInterop {
             keyboardModeEnabled = profile.keyboardModeEnabled
             holdRepeatEnabled = profile.holdRepeatEnabled
             autocorrectEnabled = profile.autocorrectEnabled
+            threeFingerTapAction = profile.threeFingerTapGestureAction
             fiveFingerSwipeLeftAction = profile.fiveFingerSwipeLeftGestureAction
             fiveFingerSwipeRightAction = profile.fiveFingerSwipeRightGestureAction
+            fiveFingerSwipeUpAction = profile.fiveFingerSwipeUpGestureAction
+            fiveFingerSwipeDownAction = profile.fiveFingerSwipeDownGestureAction
+            threeFingerSwipeLeftAction = profile.threeFingerSwipeLeftGestureAction
+            threeFingerSwipeRightAction = profile.threeFingerSwipeRightGestureAction
+            threeFingerSwipeUpAction = profile.threeFingerSwipeUpGestureAction
+            threeFingerSwipeDownAction = profile.threeFingerSwipeDownGestureAction
+            fourFingerSwipeLeftAction = profile.fourFingerSwipeLeftGestureAction
+            fourFingerSwipeRightAction = profile.fourFingerSwipeRightGestureAction
+            fourFingerSwipeUpAction = profile.fourFingerSwipeUpGestureAction
+            fourFingerSwipeDownAction = profile.fourFingerSwipeDownGestureAction
             twoFingerHoldAction = profile.twoFingerHoldGestureAction
             threeFingerHoldAction = profile.threeFingerHoldGestureAction
             fourFingerHoldAction = profile.fourFingerHoldGestureAction
-            threeFingerClickAction = profile.threeFingerTapGestureAction
+            leftEdgeUpAction = profile.leftEdgeUpGestureAction
+            leftEdgeDownAction = profile.leftEdgeDownGestureAction
+            rightEdgeUpAction = profile.rightEdgeUpGestureAction
+            rightEdgeDownAction = profile.rightEdgeDownGestureAction
+            topEdgeLeftAction = profile.topEdgeLeftGestureAction
+            topEdgeRightAction = profile.topEdgeRightGestureAction
+            bottomEdgeLeftAction = profile.bottomEdgeLeftGestureAction
+            bottomEdgeRightAction = profile.bottomEdgeRightGestureAction
+            threeFingerClickAction = profile.threeFingerClickGestureAction
+            fourFingerClickAction = profile.fourFingerClickGestureAction
             outerCornersAction = profile.outerCornersHoldGestureAction
             innerCornersAction = profile.innerCornersHoldGestureAction
+            topLeftCornerSwipeAction = profile.topLeftCornerSwipeGestureAction
+            topRightCornerSwipeAction = profile.topRightCornerSwipeGestureAction
+            bottomLeftCornerSwipeAction = profile.bottomLeftCornerSwipeGestureAction
+            bottomRightCornerSwipeAction = profile.bottomRightCornerSwipeGestureAction
+            topLeftTriangleAction = profile.topLeftTriangleGestureAction
+            topRightTriangleAction = profile.topRightTriangleGestureAction
+            bottomLeftTriangleAction = profile.bottomLeftTriangleGestureAction
+            bottomRightTriangleAction = profile.bottomRightTriangleGestureAction
+            upperLeftCornerClickAction = profile.upperLeftCornerClickGestureAction
+            upperRightCornerClickAction = profile.upperRightCornerClickGestureAction
+            lowerLeftCornerClickAction = profile.lowerLeftCornerClickGestureAction
+            lowerRightCornerClickAction = profile.lowerRightCornerClickGestureAction
+            topLeftForceClickAction = profile.topLeftForceClickGestureAction
+            topRightForceClickAction = profile.topRightForceClickGestureAction
+            bottomLeftForceClickAction = profile.bottomLeftForceClickGestureAction
+            bottomRightForceClickAction = profile.bottomRightForceClickGestureAction
             holdDurationMs = profile.tapHoldDurationMs
             dragCancelMm = profile.dragCancelDistance
             typingGraceMs = profile.typingGraceMs
@@ -3397,14 +3679,50 @@ enum PortableKeymapInterop {
             case keyboardModeEnabled = "KeyboardModeEnabled"
             case holdRepeatEnabled = "HoldRepeatEnabled"
             case autocorrectEnabled = "AutocorrectEnabled"
+            case threeFingerTapAction = "ThreeFingerTapAction"
             case fiveFingerSwipeLeftAction = "FiveFingerSwipeLeftAction"
             case fiveFingerSwipeRightAction = "FiveFingerSwipeRightAction"
+            case fiveFingerSwipeUpAction = "FiveFingerSwipeUpAction"
+            case fiveFingerSwipeDownAction = "FiveFingerSwipeDownAction"
+            case threeFingerSwipeLeftAction = "ThreeFingerSwipeLeftAction"
+            case threeFingerSwipeRightAction = "ThreeFingerSwipeRightAction"
+            case threeFingerSwipeUpAction = "ThreeFingerSwipeUpAction"
+            case threeFingerSwipeDownAction = "ThreeFingerSwipeDownAction"
+            case fourFingerSwipeLeftAction = "FourFingerSwipeLeftAction"
+            case fourFingerSwipeRightAction = "FourFingerSwipeRightAction"
+            case fourFingerSwipeUpAction = "FourFingerSwipeUpAction"
+            case fourFingerSwipeDownAction = "FourFingerSwipeDownAction"
             case twoFingerHoldAction = "TwoFingerHoldAction"
             case threeFingerHoldAction = "ThreeFingerHoldAction"
             case fourFingerHoldAction = "FourFingerHoldAction"
+            case leftEdgeUpAction = "LeftEdgeUpAction"
+            case leftEdgeDownAction = "LeftEdgeDownAction"
+            case rightEdgeUpAction = "RightEdgeUpAction"
+            case rightEdgeDownAction = "RightEdgeDownAction"
+            case topEdgeLeftAction = "TopEdgeLeftAction"
+            case topEdgeRightAction = "TopEdgeRightAction"
+            case bottomEdgeLeftAction = "BottomEdgeLeftAction"
+            case bottomEdgeRightAction = "BottomEdgeRightAction"
             case threeFingerClickAction = "ThreeFingerClickAction"
+            case fourFingerClickAction = "FourFingerClickAction"
             case outerCornersAction = "OuterCornersAction"
             case innerCornersAction = "InnerCornersAction"
+            case topLeftCornerSwipeAction = "TopLeftCornerSwipeAction"
+            case topRightCornerSwipeAction = "TopRightCornerSwipeAction"
+            case bottomLeftCornerSwipeAction = "BottomLeftCornerSwipeAction"
+            case bottomRightCornerSwipeAction = "BottomRightCornerSwipeAction"
+            case topLeftTriangleAction = "TopLeftTriangleAction"
+            case topRightTriangleAction = "TopRightTriangleAction"
+            case bottomLeftTriangleAction = "BottomLeftTriangleAction"
+            case bottomRightTriangleAction = "BottomRightTriangleAction"
+            case upperLeftCornerClickAction = "UpperLeftCornerClickAction"
+            case upperRightCornerClickAction = "UpperRightCornerClickAction"
+            case lowerLeftCornerClickAction = "LowerLeftCornerClickAction"
+            case lowerRightCornerClickAction = "LowerRightCornerClickAction"
+            case topLeftForceClickAction = "TopLeftForceClickAction"
+            case topRightForceClickAction = "TopRightForceClickAction"
+            case bottomLeftForceClickAction = "BottomLeftForceClickAction"
+            case bottomRightForceClickAction = "BottomRightForceClickAction"
             case holdDurationMs = "HoldDurationMs"
             case dragCancelMm = "DragCancelMm"
             case typingGraceMs = "TypingGraceMs"

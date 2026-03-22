@@ -73,6 +73,17 @@ actor TouchProcessorEngine {
         TouchKey(UInt64(UInt32(bitPattern: touchKeyID(touchKey))))
     }
 
+    private func touchKeySide(_ key: TouchKey) -> TrackpadSide? {
+        let deviceIndex = Self.touchKeyDeviceIndex(key)
+        if leftDeviceIndex == deviceIndex {
+            return .left
+        }
+        if rightDeviceIndex == deviceIndex {
+            return .right
+        }
+        return nil
+    }
+
     private static func nowUptimeNanoseconds() -> UInt64 {
         DispatchTime.now().uptimeNanoseconds
     }
@@ -599,21 +610,257 @@ actor TouchProcessorEngine {
     private var innerCornersHoldAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.innerCornersHoldGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
+    private var leftEdgeUpAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.leftEdgeUpGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var leftEdgeDownAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.leftEdgeDownGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var rightEdgeUpAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.rightEdgeUpGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var rightEdgeDownAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.rightEdgeDownGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topEdgeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topEdgeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topEdgeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topEdgeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomEdgeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomEdgeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomEdgeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomEdgeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerSwipeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerSwipeUpAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerSwipeDownAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerSwipeRightAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerSwipeUpAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerSwipeDownAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
     private var fiveFingerSwipeLeftAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
     private var fiveFingerSwipeRightAction: KeyAction = KeyActionCatalog.action(
         for: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
     ) ?? KeyActionCatalog.noneAction
-    private struct FiveFingerSwipeState {
+    private var fiveFingerSwipeUpAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fiveFingerSwipeDownAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topLeftCornerSwipeAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topRightCornerSwipeAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topRightCornerSwipeGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomLeftCornerSwipeAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomRightCornerSwipeAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topLeftTriangleAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topLeftTriangleGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topRightTriangleAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topRightTriangleGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomLeftTriangleAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomLeftTriangleGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomRightTriangleAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomRightTriangleGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var upperLeftCornerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.upperLeftCornerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var upperRightCornerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.upperRightCornerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var lowerLeftCornerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var lowerRightCornerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.lowerRightCornerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var threeFingerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.threeFingerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var fourFingerClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.fourFingerClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topLeftForceClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topLeftForceClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var topRightForceClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.topRightForceClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomLeftForceClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomLeftForceClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private var bottomRightForceClickAction: KeyAction = KeyActionCatalog.action(
+        for: GlassToKeySettings.bottomRightForceClickGestureActionLabel
+    ) ?? KeyActionCatalog.noneAction
+    private struct DirectionalSwipeState {
         var active: Bool = false
         var triggered: Bool = false
-        var startTime: TimeInterval = 0
         var startX: CGFloat = 0
         var startY: CGFloat = 0
     }
-    private var fiveFingerSwipeState = FiveFingerSwipeState()
-    private let fiveFingerSwipeThresholdMm: CGFloat = 8.0
+    private enum SwipeDirection {
+        case left
+        case right
+        case up
+        case down
+    }
+    private enum EdgeGestureZone {
+        case left
+        case right
+        case top
+        case bottom
+    }
+    private enum CornerGestureZone {
+        case topLeft
+        case topRight
+        case bottomLeft
+        case bottomRight
+    }
+    private struct EdgeSlideState {
+        var active = false
+        var candidateValid = false
+        var zone: EdgeGestureZone = .left
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var lastX: CGFloat = 0
+        var lastY: CGFloat = 0
+        var minX: CGFloat = 0
+        var maxX: CGFloat = 0
+        var minY: CGFloat = 0
+        var maxY: CGFloat = 0
+    }
+    private struct CornerSwipeState {
+        var active = false
+        var candidateValid = false
+        var corner: CornerGestureZone = .topLeft
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var peakX: CGFloat = 0
+        var peakY: CGFloat = 0
+        var lastX: CGFloat = 0
+        var lastY: CGFloat = 0
+    }
+    private struct TriangleGestureState {
+        var active = false
+        var candidateValid = false
+        var corner: CornerGestureZone = .topLeft
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var peakX: CGFloat = 0
+        var peakY: CGFloat = 0
+        var maxX: CGFloat = 0
+        var maxY: CGFloat = 0
+        var lastX: CGFloat = 0
+        var lastY: CGFloat = 0
+    }
+    private struct ThreeFingerTapState {
+        var active = false
+        var candidateValid = false
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var maxDistanceMm: CGFloat = 0
+    }
+    private struct CornerClickState {
+        var active = false
+        var candidateValid = false
+        var forceArmed = false
+        var corner: CornerGestureZone = .topLeft
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var lastX: CGFloat = 0
+        var lastY: CGFloat = 0
+        var maxDistanceMm: CGFloat = 0
+        var peakPressure: Float = 0
+    }
+    private struct ForceClickState {
+        var active = false
+        var candidateValid = false
+        var corner: CornerGestureZone?
+        var startTime: TimeInterval = 0
+        var startX: CGFloat = 0
+        var startY: CGFloat = 0
+        var lastX: CGFloat = 0
+        var lastY: CGFloat = 0
+        var maxDistanceMm: CGFloat = 0
+        var peakPressure: Float = 0
+        var triggered = false
+    }
+    private struct MultiFingerClickState {
+        var maxContactsSeen = 0
+        var forceTriggeredForCurrentPress = false
+    }
+    private var threeFingerSwipeState = SidePair(left: DirectionalSwipeState(), right: DirectionalSwipeState())
+    private var fourFingerSwipeState = SidePair(left: DirectionalSwipeState(), right: DirectionalSwipeState())
+    private var fiveFingerSwipeState = SidePair(left: DirectionalSwipeState(), right: DirectionalSwipeState())
+    private var edgeSlideState = SidePair(left: EdgeSlideState(), right: EdgeSlideState())
+    private var cornerSwipeState = SidePair(left: CornerSwipeState(), right: CornerSwipeState())
+    private var triangleGestureState = SidePair(left: TriangleGestureState(), right: TriangleGestureState())
+    private var threeFingerTapStateBySide = SidePair(left: ThreeFingerTapState(), right: ThreeFingerTapState())
+    private var cornerClickState = SidePair(left: CornerClickState(), right: CornerClickState())
+    private var forceClickState = SidePair(left: ForceClickState(), right: ForceClickState())
+    private var multiFingerClickState = SidePair(left: MultiFingerClickState(), right: MultiFingerClickState())
+    private let directionalSwipeThresholdMm: CGFloat = 10.0
+    private let directionalSwipeAxisDominanceRatio: CGFloat = 1.2
+    private let edgeSlideStartThreshold: CGFloat = 0.03
+    private let edgeSlideStayThreshold: CGFloat = 0.08
+    private let edgeSlideTriggerDistanceMm: CGFloat = 24.0
+    private let edgeSlideMaxLateralTravelMm: CGFloat = 10.0
+    private let edgeSlideDirectionDominanceRatio: CGFloat = 2.0
+    private let edgeSlideMaxDuration: TimeInterval = 2.5
+    private let cornerSwipeStartThreshold: CGFloat = 0.12
+    private let cornerSwipeTriggerDistanceMm: CGFloat = 24.0
+    private let cornerSwipeAxisBalanceRatio: CGFloat = 2.4
+    private let cornerSwipeMaxReverseTravelMm: CGFloat = 10.0
+    private let cornerSwipeMaxDuration: TimeInterval = 2.0
+    private let triangleStartThreshold: CGFloat = 0.12
+    private let triangleFirstLegDxThreshold: CGFloat = 0.16
+    private let triangleFirstLegDyThreshold: CGFloat = 0.22
+    private let triangleReturnAxisThreshold: CGFloat = 0.14
+    private let triangleTurnDotUpperBound: CGFloat = 0.35
+    private let triangleMaxDuration: TimeInterval = 3.0
+    private let threeFingerTapMaxDuration: TimeInterval = 0.22
+    private let threeFingerTapMaxMovementMm: CGFloat = 1.6
+    private let cornerClickZoneThreshold: CGFloat = 0.283
+    private let cornerClickForceThreshold: Float = 125.0
+    private let cornerClickMaxDuration: TimeInterval = 2.0
+    private let forceClickMaxDuration: TimeInterval = 2.0
     private struct MultiFingerHoldState {
         var active: Bool = false
         var triggered: Bool = false
@@ -818,26 +1065,52 @@ actor TouchProcessorEngine {
         doubleTapDeadline = nil
     }
 
-    func updateGestureActions(
-        twoFingerTap: KeyAction,
-        threeFingerTap: KeyAction,
-        twoFingerHold: KeyAction,
-        threeFingerHold: KeyAction,
-        fourFingerHold: KeyAction,
-        outerCornersHold: KeyAction,
-        innerCornersHold: KeyAction,
-        fiveFingerSwipeLeft: KeyAction,
-        fiveFingerSwipeRight: KeyAction
-    ) {
-        twoFingerTapAction = twoFingerTap
-        threeFingerTapAction = threeFingerTap
-        twoFingerHoldAction = twoFingerHold
-        threeFingerHoldAction = threeFingerHold
-        fourFingerHoldAction = fourFingerHold
-        outerCornersHoldAction = outerCornersHold
-        innerCornersHoldAction = innerCornersHold
-        fiveFingerSwipeLeftAction = fiveFingerSwipeLeft
-        fiveFingerSwipeRightAction = fiveFingerSwipeRight
+    func updateGestureActions(_ actions: GestureActionSet) {
+        twoFingerTapAction = actions.twoFingerTap
+        threeFingerTapAction = actions.threeFingerTap
+        twoFingerHoldAction = actions.twoFingerHold
+        threeFingerHoldAction = actions.threeFingerHold
+        fourFingerHoldAction = actions.fourFingerHold
+        outerCornersHoldAction = actions.outerCornersHold
+        innerCornersHoldAction = actions.innerCornersHold
+        leftEdgeUpAction = actions.leftEdgeUp
+        leftEdgeDownAction = actions.leftEdgeDown
+        rightEdgeUpAction = actions.rightEdgeUp
+        rightEdgeDownAction = actions.rightEdgeDown
+        topEdgeLeftAction = actions.topEdgeLeft
+        topEdgeRightAction = actions.topEdgeRight
+        bottomEdgeLeftAction = actions.bottomEdgeLeft
+        bottomEdgeRightAction = actions.bottomEdgeRight
+        threeFingerSwipeLeftAction = actions.threeFingerSwipeLeft
+        threeFingerSwipeRightAction = actions.threeFingerSwipeRight
+        threeFingerSwipeUpAction = actions.threeFingerSwipeUp
+        threeFingerSwipeDownAction = actions.threeFingerSwipeDown
+        fourFingerSwipeLeftAction = actions.fourFingerSwipeLeft
+        fourFingerSwipeRightAction = actions.fourFingerSwipeRight
+        fourFingerSwipeUpAction = actions.fourFingerSwipeUp
+        fourFingerSwipeDownAction = actions.fourFingerSwipeDown
+        fiveFingerSwipeLeftAction = actions.fiveFingerSwipeLeft
+        fiveFingerSwipeRightAction = actions.fiveFingerSwipeRight
+        fiveFingerSwipeUpAction = actions.fiveFingerSwipeUp
+        fiveFingerSwipeDownAction = actions.fiveFingerSwipeDown
+        topLeftCornerSwipeAction = actions.topLeftCornerSwipe
+        topRightCornerSwipeAction = actions.topRightCornerSwipe
+        bottomLeftCornerSwipeAction = actions.bottomLeftCornerSwipe
+        bottomRightCornerSwipeAction = actions.bottomRightCornerSwipe
+        topLeftTriangleAction = actions.topLeftTriangle
+        topRightTriangleAction = actions.topRightTriangle
+        bottomLeftTriangleAction = actions.bottomLeftTriangle
+        bottomRightTriangleAction = actions.bottomRightTriangle
+        upperLeftCornerClickAction = actions.upperLeftCornerClick
+        upperRightCornerClickAction = actions.upperRightCornerClick
+        lowerLeftCornerClickAction = actions.lowerLeftCornerClick
+        lowerRightCornerClickAction = actions.lowerRightCornerClick
+        threeFingerClickAction = actions.threeFingerClick
+        fourFingerClickAction = actions.fourFingerClick
+        topLeftForceClickAction = actions.topLeftForceClick
+        topRightForceClickAction = actions.topRightForceClick
+        bottomLeftForceClickAction = actions.bottomLeftForceClick
+        bottomRightForceClickAction = actions.bottomRightForceClick
         twoFingerHoldState[.left] = MultiFingerHoldState()
         twoFingerHoldState[.right] = MultiFingerHoldState()
         threeFingerHoldState[.left] = MultiFingerHoldState()
@@ -850,9 +1123,29 @@ actor TouchProcessorEngine {
         chordShiftActivationCount[.right] = 0
         chordShiftLastContactTime[.left] = 0
         chordShiftLastContactTime[.right] = 0
+        threeFingerSwipeState[.left] = DirectionalSwipeState()
+        threeFingerSwipeState[.right] = DirectionalSwipeState()
+        fourFingerSwipeState[.left] = DirectionalSwipeState()
+        fourFingerSwipeState[.right] = DirectionalSwipeState()
+        fiveFingerSwipeState[.left] = DirectionalSwipeState()
+        fiveFingerSwipeState[.right] = DirectionalSwipeState()
+        edgeSlideState[.left] = EdgeSlideState()
+        edgeSlideState[.right] = EdgeSlideState()
+        cornerSwipeState[.left] = CornerSwipeState()
+        cornerSwipeState[.right] = CornerSwipeState()
+        triangleGestureState[.left] = TriangleGestureState()
+        triangleGestureState[.right] = TriangleGestureState()
+        threeFingerTapStateBySide[.left] = ThreeFingerTapState()
+        threeFingerTapStateBySide[.right] = ThreeFingerTapState()
+        cornerClickState[.left] = CornerClickState()
+        cornerClickState[.right] = CornerClickState()
+        forceClickState[.left] = ForceClickState()
+        forceClickState[.right] = ForceClickState()
+        multiFingerClickState[.left] = MultiFingerClickState()
+        multiFingerClickState[.right] = MultiFingerClickState()
         updateChordShiftKeyState()
         updateThreeFingerHoldDragSuppression()
-        if outerCornersHold.kind != .voice, innerCornersHold.kind != .voice {
+        if actions.outerCornersHold.kind != .voice, actions.innerCornersHold.kind != .voice {
             stopVoiceDictationGesture()
         }
     }
@@ -891,10 +1184,7 @@ actor TouchProcessorEngine {
         let hasTouchData = !touches.isEmpty
         if let activeSide {
             if hasTouchData {
-                let summary = gestureContactSummary(in: touches)
-                updateTwoFingerHold(for: activeSide, summary: summary, now: now)
-                updateThreeFingerHold(for: activeSide, summary: summary, now: now)
-                updateFourFingerHold(for: activeSide, summary: summary, now: now)
+                updateSideGestures(for: activeSide, touches: touches, now: now)
             } else {
                 resetGestureState(for: activeSide)
             }
@@ -978,10 +1268,7 @@ actor TouchProcessorEngine {
         let hasTouchData = !touches.isEmpty
         if let activeSide {
             if hasTouchData {
-                let summary = gestureContactSummary(in: touches)
-                updateTwoFingerHold(for: activeSide, summary: summary, now: now)
-                updateThreeFingerHold(for: activeSide, summary: summary, now: now)
-                updateFourFingerHold(for: activeSide, summary: summary, now: now)
+                updateSideGestures(for: activeSide, touches: touches, now: now)
             } else {
                 resetGestureState(for: activeSide)
             }
@@ -2563,12 +2850,71 @@ actor TouchProcessorEngine {
         )
     }
 
+    private func updateSideGestures(for side: TrackpadSide, touches: [OMSRawTouch], now: TimeInterval) {
+        let summary = gestureContactSummary(in: touches)
+        updateTwoFingerHold(for: side, summary: summary, now: now)
+        updateThreeFingerHold(for: side, summary: summary, now: now)
+        updateFourFingerHold(for: side, summary: summary, now: now)
+        updateDirectionalSwipe(
+            state: &threeFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 3,
+            sustainContacts: 2,
+            releaseContacts: 1,
+            leftAction: threeFingerSwipeLeftAction,
+            rightAction: threeFingerSwipeRightAction,
+            upAction: threeFingerSwipeUpAction,
+            downAction: threeFingerSwipeDownAction,
+            now: now
+        )
+        updateDirectionalSwipe(
+            state: &fourFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 4,
+            sustainContacts: 3,
+            releaseContacts: 1,
+            leftAction: fourFingerSwipeLeftAction,
+            rightAction: fourFingerSwipeRightAction,
+            upAction: fourFingerSwipeUpAction,
+            downAction: fourFingerSwipeDownAction,
+            now: now
+        )
+        updateDirectionalSwipe(
+            state: &fiveFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 5,
+            sustainContacts: 4,
+            releaseContacts: 1,
+            leftAction: fiveFingerSwipeLeftAction,
+            rightAction: fiveFingerSwipeRightAction,
+            upAction: fiveFingerSwipeUpAction,
+            downAction: fiveFingerSwipeDownAction,
+            now: now
+        )
+        updateSingleTouchShapeGestures(for: side, touches: touches, now: now)
+        updateThreeFingerTap(for: side, summary: summary, now: now)
+        updateMultiFingerClicks(for: side, summary: summary, now: now)
+    }
+
     private func resetGestureState(for side: TrackpadSide) {
         chordShiftActivationCount[side] = 0
         twoFingerHoldState[side] = MultiFingerHoldState()
         threeFingerHoldState[side] = MultiFingerHoldState()
         fourFingerHoldState[side] = MultiFingerHoldState()
         chordShiftLastContactTime[side] = 0
+        threeFingerSwipeState[side] = DirectionalSwipeState()
+        fourFingerSwipeState[side] = DirectionalSwipeState()
+        fiveFingerSwipeState[side] = DirectionalSwipeState()
+        edgeSlideState[side] = EdgeSlideState()
+        cornerSwipeState[side] = CornerSwipeState()
+        triangleGestureState[side] = TriangleGestureState()
+        threeFingerTapStateBySide[side] = ThreeFingerTapState()
+        cornerClickState[side] = CornerClickState()
+        forceClickState[side] = ForceClickState()
+        multiFingerClickState[side] = MultiFingerClickState()
         updateThreeFingerHoldDragSuppression()
     }
 
@@ -3044,15 +3390,9 @@ actor TouchProcessorEngine {
         let centroid: CGPoint? = contactCount > 0
             ? CGPoint(x: sumX / CGFloat(contactCount), y: sumY / CGFloat(contactCount))
             : nil
-        let gestureCentroid: CGPoint? = gestureContactCount > 0
+        let _: CGPoint? = gestureContactCount > 0
             ? CGPoint(x: gestureSumX / CGFloat(gestureContactCount), y: gestureSumY / CGFloat(gestureContactCount))
             : nil
-        updateFiveFingerSwipe(
-            contactCount: gestureContactCount,
-            centroid: gestureCentroid,
-            now: now,
-            unitsPerMm: unitsPerMm
-        )
         let previousContactCount = state.lastContactCount
         let secondFingerAppeared = contactCount > 1 && contactCount > previousContactCount
         let anyOnKey = onKeyCount > 0
@@ -3310,42 +3650,650 @@ actor TouchProcessorEngine {
         }
     }
 
-    private func updateFiveFingerSwipe(
-        contactCount: Int,
-        centroid: CGPoint?,
-        now: TimeInterval,
-        unitsPerMm: CGFloat
+    private var trackpadHeightMillimeters: CGFloat {
+        guard unitsPerMillimeter > 0 else { return 1.0 }
+        return max(1.0, trackpadSize.height / unitsPerMillimeter)
+    }
+
+    private func normalizedPoint(for touch: OMSRawTouch) -> CGPoint {
+        CGPoint(x: CGFloat(touch.posX), y: CGFloat(1.0 - touch.posY))
+    }
+
+    private func updateDirectionalSwipe(
+        state: inout DirectionalSwipeState,
+        side: TrackpadSide,
+        summary: GestureContactSummary,
+        armContacts: Int,
+        sustainContacts: Int,
+        releaseContacts: Int,
+        leftAction: KeyAction,
+        rightAction: KeyAction,
+        upAction: KeyAction,
+        downAction: KeyAction,
+        now: TimeInterval
     ) {
-        guard contactCount >= 5, let centroid else {
-            if fiveFingerSwipeState.active || fiveFingerSwipeState.triggered {
-                fiveFingerSwipeState = FiveFingerSwipeState()
+        let enabled = leftAction.kind != .none
+            || rightAction.kind != .none
+            || upAction.kind != .none
+            || downAction.kind != .none
+        guard enabled else {
+            state = DirectionalSwipeState()
+            return
+        }
+        if !state.active {
+            if summary.count >= armContacts {
+                state.active = true
+                state.triggered = false
+                state.startX = summary.centroid.x
+                state.startY = summary.centroid.y
             }
             return
         }
-        var state = fiveFingerSwipeState
+        if summary.count <= releaseContacts {
+            state = DirectionalSwipeState()
+            return
+        }
+        if summary.count < sustainContacts || state.triggered {
+            return
+        }
+        let dx = summary.centroid.x - state.startX
+        let dy = summary.centroid.y - state.startY
+        let threshold = directionalSwipeThresholdMm * unitsPerMillimeter
+        let absDx = abs(dx)
+        let absDy = abs(dy)
+        let action: KeyAction
+        if absDx >= threshold, absDx >= absDy * directionalSwipeAxisDominanceRatio {
+            action = dx >= 0 ? rightAction : leftAction
+        } else if absDy >= threshold, absDy >= absDx * directionalSwipeAxisDominanceRatio {
+            action = dy >= 0 ? downAction : upAction
+        } else {
+            return
+        }
+        guard action.kind != .none else { return }
+        state.triggered = true
+        performGestureAction(action, now: now, side: side)
+    }
+
+    private func updateSingleTouchShapeGestures(
+        for side: TrackpadSide,
+        touches: [OMSRawTouch],
+        now: TimeInterval
+    ) {
+        let contactTouches = touches.filter { Self.isContactState($0.state) }
+        let singleTouch = contactTouches.count == 1 ? contactTouches[0] : nil
+        updateEdgeSlide(for: side, touch: singleTouch, now: now)
+        updateCornerSwipe(for: side, touch: singleTouch, now: now)
+        updateTriangleGesture(for: side, touch: singleTouch, now: now)
+        updateCornerClick(for: side, touch: singleTouch, now: now)
+        updateForceClick(for: side, touch: singleTouch, now: now)
+    }
+
+    private func updateThreeFingerTap(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        now: TimeInterval
+    ) {
+        guard threeFingerTapAction.kind != .none else {
+            threeFingerTapStateBySide[side] = ThreeFingerTapState()
+            return
+        }
+        var state = threeFingerTapStateBySide[side]
+        if summary.count == 3 {
+            if !state.active {
+                state.active = true
+                state.candidateValid = true
+                state.startTime = now
+                state.startX = summary.centroid.x
+                state.startY = summary.centroid.y
+                state.maxDistanceMm = 0
+            } else if state.candidateValid {
+                let dxMm = abs(summary.centroid.x - state.startX) / unitsPerMillimeter
+                let dyMm = abs(summary.centroid.y - state.startY) / unitsPerMillimeter
+                state.maxDistanceMm = max(state.maxDistanceMm, hypot(dxMm, dyMm))
+                if now - state.startTime > threeFingerTapMaxDuration
+                    || state.maxDistanceMm > threeFingerTapMaxMovementMm {
+                    state.candidateValid = false
+                }
+            }
+            threeFingerTapStateBySide[side] = state
+            return
+        }
+        if state.active, state.candidateValid,
+           summary.count < 3,
+           now - state.startTime <= threeFingerTapMaxDuration,
+           state.maxDistanceMm <= threeFingerTapMaxMovementMm {
+            performGestureAction(threeFingerTapAction, now: now, side: side)
+        }
+        threeFingerTapStateBySide[side] = ThreeFingerTapState()
+    }
+
+    private func updateMultiFingerClicks(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        now: TimeInterval
+    ) {
+        var state = multiFingerClickState[side]
+        if summary.count <= 0 {
+            state = MultiFingerClickState()
+            multiFingerClickState[side] = state
+            return
+        }
+        state.maxContactsSeen = max(state.maxContactsSeen, summary.count)
+        let action: KeyAction
+        switch state.maxContactsSeen {
+        case 3:
+            action = threeFingerClickAction
+        case 4:
+            action = fourFingerClickAction
+        default:
+            action = KeyActionCatalog.noneAction
+        }
+        if !state.forceTriggeredForCurrentPress,
+           action.kind != .none,
+           let pressure = currentPeakPressureForSide(side),
+           pressure >= cornerClickForceThreshold {
+            state.forceTriggeredForCurrentPress = true
+            performGestureAction(action, now: now, side: side)
+        }
+        multiFingerClickState[side] = state
+    }
+
+    private func currentPeakPressureForSide(_ side: TrackpadSide) -> Float? {
+        var peak: Float?
+        peakPressureByTouch.forEach { touchKey, value in
+            guard touchKeySide(touchKey) == side else { return }
+            peak = max(peak ?? 0, value)
+        }
+        return peak
+    }
+
+    private func updateEdgeSlide(for side: TrackpadSide, touch: OMSRawTouch?, now: TimeInterval) {
+        var state = edgeSlideState[side]
+        let enabled = leftEdgeUpAction.kind != .none || leftEdgeDownAction.kind != .none
+            || rightEdgeUpAction.kind != .none || rightEdgeDownAction.kind != .none
+            || topEdgeLeftAction.kind != .none || topEdgeRightAction.kind != .none
+            || bottomEdgeLeftAction.kind != .none || bottomEdgeRightAction.kind != .none
+        guard enabled else {
+            edgeSlideState[side] = EdgeSlideState()
+            return
+        }
+        guard let touch else {
+            edgeSlideState[side] = EdgeSlideState()
+            return
+        }
+        let point = normalizedPoint(for: touch)
+        if !state.active {
+            guard let zone = classifyEdgeZone(point) else { return }
+            state.active = true
+            state.candidateValid = true
+            state.zone = zone
+            state.startTime = now
+            state.startX = point.x
+            state.startY = point.y
+            state.lastX = point.x
+            state.lastY = point.y
+            state.minX = point.x
+            state.maxX = point.x
+            state.minY = point.y
+            state.maxY = point.y
+            edgeSlideState[side] = state
+            return
+        }
+        guard state.candidateValid else {
+            edgeSlideState[side] = state
+            return
+        }
+        state.lastX = point.x
+        state.lastY = point.y
+        state.minX = min(state.minX, point.x)
+        state.maxX = max(state.maxX, point.x)
+        state.minY = min(state.minY, point.y)
+        state.maxY = max(state.maxY, point.y)
+        if !isWithinEdgeZone(state.zone, point)
+            || edgeSlideLateralTravelMm(state) > edgeSlideMaxLateralTravelMm
+            || now - state.startTime > edgeSlideMaxDuration {
+            state.candidateValid = false
+            edgeSlideState[side] = state
+            return
+        }
+        if let direction = matchedEdgeSlideDirection(state),
+           let action = edgeSlideAction(for: state.zone, direction: direction),
+           action.kind != .none {
+            state.candidateValid = false
+            performGestureAction(action, now: now, side: side)
+        }
+        edgeSlideState[side] = state
+    }
+
+    private func updateCornerSwipe(for side: TrackpadSide, touch: OMSRawTouch?, now: TimeInterval) {
+        var state = cornerSwipeState[side]
+        let enabled = topLeftCornerSwipeAction.kind != .none || topRightCornerSwipeAction.kind != .none
+            || bottomLeftCornerSwipeAction.kind != .none || bottomRightCornerSwipeAction.kind != .none
+        guard enabled else {
+            cornerSwipeState[side] = CornerSwipeState()
+            return
+        }
+        guard let touch else {
+            cornerSwipeState[side] = CornerSwipeState()
+            return
+        }
+        let point = normalizedPoint(for: touch)
+        if !state.active {
+            guard let corner = classifyCorner(point, threshold: cornerSwipeStartThreshold),
+                  cornerSwipeAction(for: corner).kind != .none else { return }
+            state.active = true
+            state.candidateValid = true
+            state.corner = corner
+            state.startTime = now
+            state.startX = point.x
+            state.startY = point.y
+            state.peakX = point.x
+            state.peakY = point.y
+            state.lastX = point.x
+            state.lastY = point.y
+            cornerSwipeState[side] = state
+            return
+        }
+        guard state.candidateValid else {
+            cornerSwipeState[side] = state
+            return
+        }
+        state.lastX = point.x
+        state.lastY = point.y
+        state.peakX = cornerSignX(for: state.corner) > 0 ? max(state.peakX, point.x) : min(state.peakX, point.x)
+        state.peakY = cornerSignY(for: state.corner) > 0 ? max(state.peakY, point.y) : min(state.peakY, point.y)
+        if now - state.startTime > cornerSwipeMaxDuration
+            || cornerSwipeReverseTravelXmm(state) > cornerSwipeMaxReverseTravelMm
+            || cornerSwipeReverseTravelYmm(state) > cornerSwipeMaxReverseTravelMm {
+            state.candidateValid = false
+            cornerSwipeState[side] = state
+            return
+        }
+        if cornerSwipeMatches(state, minDistanceMm: cornerSwipeTriggerDistanceMm),
+           cornerSwipeAction(for: state.corner).kind != .none {
+            state.candidateValid = false
+            performGestureAction(cornerSwipeAction(for: state.corner), now: now, side: side)
+        }
+        cornerSwipeState[side] = state
+    }
+
+    private func updateTriangleGesture(for side: TrackpadSide, touch: OMSRawTouch?, now: TimeInterval) {
+        var state = triangleGestureState[side]
+        let enabled = topLeftTriangleAction.kind != .none || topRightTriangleAction.kind != .none
+            || bottomLeftTriangleAction.kind != .none || bottomRightTriangleAction.kind != .none
+        guard enabled else {
+            triangleGestureState[side] = TriangleGestureState()
+            return
+        }
+        guard let touch else {
+            triangleGestureState[side] = TriangleGestureState()
+            return
+        }
+        let point = normalizedPoint(for: touch)
+        if !state.active {
+            guard let corner = classifyCorner(point, threshold: triangleStartThreshold),
+                  triangleAction(for: corner).kind != .none else { return }
+            state.active = true
+            state.candidateValid = true
+            state.corner = corner
+            state.startTime = now
+            state.startX = point.x
+            state.startY = point.y
+            state.peakX = point.x
+            state.peakY = point.y
+            state.maxX = point.x
+            state.maxY = point.y
+            state.lastX = point.x
+            state.lastY = point.y
+            triangleGestureState[side] = state
+            return
+        }
+        guard state.candidateValid else {
+            triangleGestureState[side] = state
+            return
+        }
+        state.lastX = point.x
+        state.lastY = point.y
+        state.maxX = cornerSignX(for: state.corner) > 0 ? max(state.maxX, point.x) : min(state.maxX, point.x)
+        state.maxY = cornerSignY(for: state.corner) > 0 ? max(state.maxY, point.y) : min(state.maxY, point.y)
+        let progress = ((point.x - state.startX) * cornerSignX(for: state.corner))
+            + ((point.y - state.startY) * cornerSignY(for: state.corner))
+        let peakProgress = ((state.peakX - state.startX) * cornerSignX(for: state.corner))
+            + ((state.peakY - state.startY) * cornerSignY(for: state.corner))
+        if progress > peakProgress {
+            state.peakX = point.x
+            state.peakY = point.y
+        }
+        if now - state.startTime > triangleMaxDuration {
+            state.candidateValid = false
+            triangleGestureState[side] = state
+            return
+        }
+        if triangleMatches(state), triangleAction(for: state.corner).kind != .none {
+            state.candidateValid = false
+            performGestureAction(triangleAction(for: state.corner), now: now, side: side)
+        }
+        triangleGestureState[side] = state
+    }
+
+    private func updateCornerClick(for side: TrackpadSide, touch: OMSRawTouch?, now: TimeInterval) {
+        var state = cornerClickState[side]
+        let enabled = upperLeftCornerClickAction.kind != .none || upperRightCornerClickAction.kind != .none
+            || lowerLeftCornerClickAction.kind != .none || lowerRightCornerClickAction.kind != .none
+        guard enabled else {
+            cornerClickState[side] = CornerClickState()
+            return
+        }
+        guard let touch else {
+            if state.active, state.candidateValid, state.forceArmed,
+               cornerForceClickOverrideAction(for: state.corner).kind == .none,
+               cornerClickAction(for: state.corner).kind != .none {
+                performGestureAction(cornerClickAction(for: state.corner), now: now, side: side)
+            }
+            cornerClickState[side] = CornerClickState()
+            return
+        }
+        let point = normalizedPoint(for: touch)
+        if !state.active {
+            guard let corner = classifyCorner(point, threshold: cornerClickZoneThreshold),
+                  cornerClickAction(for: corner).kind != .none else { return }
+            state.active = true
+            state.candidateValid = true
+            state.forceArmed = touch.pressure >= cornerClickForceThreshold
+            state.corner = corner
+            state.startTime = now
+            state.startX = point.x
+            state.startY = point.y
+            state.lastX = point.x
+            state.lastY = point.y
+            state.maxDistanceMm = 0
+            state.peakPressure = max(0, touch.pressure)
+            cornerClickState[side] = state
+            return
+        }
+        guard state.candidateValid else {
+            cornerClickState[side] = state
+            return
+        }
+        state.peakPressure = max(state.peakPressure, max(0, touch.pressure))
+        state.forceArmed = state.forceArmed || state.peakPressure >= cornerClickForceThreshold
+        state.lastX = point.x
+        state.lastY = point.y
+        state.maxDistanceMm = max(state.maxDistanceMm, normalizedDistanceMm(from: CGPoint(x: state.startX, y: state.startY), to: point))
+        if state.maxDistanceMm > dragCancelDistance
+            || now - state.startTime > cornerClickMaxDuration
+            || classifyCorner(point, threshold: cornerClickZoneThreshold) != state.corner
+            || cornerForceClickOverrideAction(for: state.corner).kind != .none && isPressureWithinForceRange(state.peakPressure) {
+            state.candidateValid = false
+        }
+        cornerClickState[side] = state
+    }
+
+    private func updateForceClick(for side: TrackpadSide, touch: OMSRawTouch?, now: TimeInterval) {
+        var state = forceClickState[side]
+        let enabled = topLeftForceClickAction.kind != .none || topRightForceClickAction.kind != .none
+            || bottomLeftForceClickAction.kind != .none || bottomRightForceClickAction.kind != .none
+        guard enabled else {
+            forceClickState[side] = ForceClickState()
+            return
+        }
+        guard let touch else {
+            forceClickState[side] = ForceClickState()
+            return
+        }
+        let point = normalizedPoint(for: touch)
         if !state.active {
             state.active = true
-            state.triggered = false
+            state.candidateValid = true
+            state.corner = classifyCorner(point, threshold: cornerClickZoneThreshold)
             state.startTime = now
-            state.startX = centroid.x
-            state.startY = centroid.y
-            fiveFingerSwipeState = state
+            state.startX = point.x
+            state.startY = point.y
+            state.lastX = point.x
+            state.lastY = point.y
+            state.maxDistanceMm = 0
+            state.peakPressure = max(0, touch.pressure)
+            state.triggered = false
+            forceClickState[side] = state
             return
         }
-        if state.triggered {
+        guard state.candidateValid else {
+            forceClickState[side] = state
             return
         }
-        let dx = centroid.x - state.startX
-        let dy = centroid.y - state.startY
-        let threshold = fiveFingerSwipeThresholdMm * unitsPerMm
-        if abs(dx) >= threshold, abs(dx) >= abs(dy) {
+        state.corner = classifyCorner(point, threshold: cornerClickZoneThreshold)
+        state.lastX = point.x
+        state.lastY = point.y
+        state.maxDistanceMm = max(state.maxDistanceMm, normalizedDistanceMm(from: CGPoint(x: state.startX, y: state.startY), to: point))
+        state.peakPressure = max(state.peakPressure, max(0, touch.pressure))
+        if state.maxDistanceMm > dragCancelDistance || now - state.startTime > forceClickMaxDuration {
+            state.candidateValid = false
+            forceClickState[side] = state
+            return
+        }
+        if !state.triggered,
+           isPressureWithinForceRange(state.peakPressure),
+           let corner = state.corner,
+           forceClickAction(for: corner).kind != .none {
             state.triggered = true
-            fiveFingerSwipeState = state
-            let action = dx < 0 ? fiveFingerSwipeLeftAction : fiveFingerSwipeRightAction
-            performGestureAction(action, now: now, side: nil)
-        } else {
-            fiveFingerSwipeState = state
+            state.candidateValid = false
+            performGestureAction(forceClickAction(for: corner), now: now, side: side)
         }
+        forceClickState[side] = state
+    }
+
+    private func normalizedDistanceMm(from start: CGPoint, to end: CGPoint) -> CGFloat {
+        let dxMm = (end.x - start.x) * trackpadWidthMm
+        let dyMm = (end.y - start.y) * trackpadHeightMillimeters
+        return hypot(dxMm, dyMm)
+    }
+
+    private func classifyEdgeZone(_ point: CGPoint) -> EdgeGestureZone? {
+        if point.x <= edgeSlideStartThreshold { return .left }
+        if point.x >= (1.0 - edgeSlideStartThreshold) { return .right }
+        if point.y <= edgeSlideStartThreshold { return .top }
+        if point.y >= (1.0 - edgeSlideStartThreshold) { return .bottom }
+        return nil
+    }
+
+    private func isWithinEdgeZone(_ zone: EdgeGestureZone, _ point: CGPoint) -> Bool {
+        switch zone {
+        case .left:
+            return point.x <= edgeSlideStayThreshold
+        case .right:
+            return point.x >= (1.0 - edgeSlideStayThreshold)
+        case .top:
+            return point.y <= edgeSlideStayThreshold
+        case .bottom:
+            return point.y >= (1.0 - edgeSlideStayThreshold)
+        }
+    }
+
+    private func matchedEdgeSlideDirection(_ state: EdgeSlideState) -> SwipeDirection? {
+        let primaryTravelMm: CGFloat
+        let lateralTravelMm: CGFloat
+        let direction: SwipeDirection
+        switch state.zone {
+        case .left, .right:
+            let upTravel = (state.startY - state.minY) * trackpadHeightMillimeters
+            let downTravel = (state.maxY - state.startY) * trackpadHeightMillimeters
+            direction = downTravel > upTravel ? .down : .up
+            primaryTravelMm = max(upTravel, downTravel)
+            lateralTravelMm = (state.maxX - state.minX) * trackpadWidthMm
+        case .top, .bottom:
+            let leftTravel = (state.startX - state.minX) * trackpadWidthMm
+            let rightTravel = (state.maxX - state.startX) * trackpadWidthMm
+            direction = rightTravel > leftTravel ? .right : .left
+            primaryTravelMm = max(leftTravel, rightTravel)
+            lateralTravelMm = (state.maxY - state.minY) * trackpadHeightMillimeters
+        }
+        guard primaryTravelMm >= edgeSlideTriggerDistanceMm,
+              primaryTravelMm >= lateralTravelMm * edgeSlideDirectionDominanceRatio else {
+            return nil
+        }
+        return direction
+    }
+
+    private func edgeSlideLateralTravelMm(_ state: EdgeSlideState) -> CGFloat {
+        switch state.zone {
+        case .left, .right:
+            return (state.maxX - state.minX) * trackpadWidthMm
+        case .top, .bottom:
+            return (state.maxY - state.minY) * trackpadHeightMillimeters
+        }
+    }
+
+    private func edgeSlideAction(for zone: EdgeGestureZone, direction: SwipeDirection) -> KeyAction? {
+        switch (zone, direction) {
+        case (.left, .up):
+            return leftEdgeUpAction
+        case (.left, .down):
+            return leftEdgeDownAction
+        case (.right, .up):
+            return rightEdgeUpAction
+        case (.right, .down):
+            return rightEdgeDownAction
+        case (.top, .left):
+            return topEdgeLeftAction
+        case (.top, .right):
+            return topEdgeRightAction
+        case (.bottom, .left):
+            return bottomEdgeLeftAction
+        case (.bottom, .right):
+            return bottomEdgeRightAction
+        default:
+            return nil
+        }
+    }
+
+    private func classifyCorner(_ point: CGPoint, threshold: CGFloat) -> CornerGestureZone? {
+        let left = point.x <= threshold
+        let right = point.x >= (1.0 - threshold)
+        let top = point.y <= threshold
+        let bottom = point.y >= (1.0 - threshold)
+        if left && top { return .topLeft }
+        if right && top { return .topRight }
+        if left && bottom { return .bottomLeft }
+        if right && bottom { return .bottomRight }
+        return nil
+    }
+
+    private func cornerSignX(for corner: CornerGestureZone) -> CGFloat {
+        switch corner {
+        case .topLeft, .bottomLeft:
+            return 1
+        case .topRight, .bottomRight:
+            return -1
+        }
+    }
+
+    private func cornerSignY(for corner: CornerGestureZone) -> CGFloat {
+        switch corner {
+        case .topLeft, .topRight:
+            return 1
+        case .bottomLeft, .bottomRight:
+            return -1
+        }
+    }
+
+    private func cornerSwipeMatches(_ state: CornerSwipeState, minDistanceMm: CGFloat) -> Bool {
+        let inwardX = ((state.peakX - state.startX) * cornerSignX(for: state.corner)) * trackpadWidthMm
+        let inwardY = ((state.peakY - state.startY) * cornerSignY(for: state.corner)) * trackpadHeightMillimeters
+        let larger = max(inwardX, inwardY)
+        let smaller = min(inwardX, inwardY)
+        return inwardX >= minDistanceMm
+            && inwardY >= minDistanceMm
+            && larger <= smaller * cornerSwipeAxisBalanceRatio
+    }
+
+    private func cornerSwipeReverseTravelXmm(_ state: CornerSwipeState) -> CGFloat {
+        max(0, ((state.peakX - state.lastX) * cornerSignX(for: state.corner))) * trackpadWidthMm
+    }
+
+    private func cornerSwipeReverseTravelYmm(_ state: CornerSwipeState) -> CGFloat {
+        max(0, ((state.peakY - state.lastY) * cornerSignY(for: state.corner))) * trackpadHeightMillimeters
+    }
+
+    private func triangleMatches(_ state: TriangleGestureState) -> Bool {
+        let outwardDx = ((state.maxX - state.startX) * cornerSignX(for: state.corner))
+        let outwardDy = ((state.maxY - state.startY) * cornerSignY(for: state.corner))
+        guard outwardDx >= triangleFirstLegDxThreshold,
+              outwardDy >= triangleFirstLegDyThreshold else {
+            return false
+        }
+        let returnDx = ((state.peakX - state.lastX) * cornerSignX(for: state.corner))
+        let returnDy = ((state.peakY - state.lastY) * cornerSignY(for: state.corner))
+        guard max(returnDx, returnDy) >= triangleReturnAxisThreshold else {
+            return false
+        }
+        let firstLeg = CGPoint(
+            x: (state.peakX - state.startX) * cornerSignX(for: state.corner),
+            y: (state.peakY - state.startY) * cornerSignY(for: state.corner)
+        )
+        let returnLeg = CGPoint(
+            x: (state.lastX - state.peakX) * cornerSignX(for: state.corner),
+            y: (state.lastY - state.peakY) * cornerSignY(for: state.corner)
+        )
+        let firstLength = max(0.0001, hypot(firstLeg.x, firstLeg.y))
+        let returnLength = max(0.0001, hypot(returnLeg.x, returnLeg.y))
+        let dot = ((firstLeg.x * returnLeg.x) + (firstLeg.y * returnLeg.y)) / (firstLength * returnLength)
+        return dot <= triangleTurnDotUpperBound
+    }
+
+    private func cornerSwipeAction(for corner: CornerGestureZone) -> KeyAction {
+        switch corner {
+        case .topLeft:
+            return topLeftCornerSwipeAction
+        case .topRight:
+            return topRightCornerSwipeAction
+        case .bottomLeft:
+            return bottomLeftCornerSwipeAction
+        case .bottomRight:
+            return bottomRightCornerSwipeAction
+        }
+    }
+
+    private func triangleAction(for corner: CornerGestureZone) -> KeyAction {
+        switch corner {
+        case .topLeft:
+            return topLeftTriangleAction
+        case .topRight:
+            return topRightTriangleAction
+        case .bottomLeft:
+            return bottomLeftTriangleAction
+        case .bottomRight:
+            return bottomRightTriangleAction
+        }
+    }
+
+    private func cornerClickAction(for corner: CornerGestureZone) -> KeyAction {
+        switch corner {
+        case .topLeft:
+            return upperLeftCornerClickAction
+        case .topRight:
+            return upperRightCornerClickAction
+        case .bottomLeft:
+            return lowerLeftCornerClickAction
+        case .bottomRight:
+            return lowerRightCornerClickAction
+        }
+    }
+
+    private func forceClickAction(for corner: CornerGestureZone) -> KeyAction {
+        switch corner {
+        case .topLeft:
+            return topLeftForceClickAction
+        case .topRight:
+            return topRightForceClickAction
+        case .bottomLeft:
+            return bottomLeftForceClickAction
+        case .bottomRight:
+            return bottomRightForceClickAction
+        }
+    }
+
+    private func cornerForceClickOverrideAction(for corner: CornerGestureZone) -> KeyAction {
+        forceClickAction(for: corner)
     }
 
     private func performTwoFingerTapAction(now: TimeInterval) {

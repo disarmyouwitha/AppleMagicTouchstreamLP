@@ -39,17 +39,7 @@ protocol EngineActorBoundary: Sendable {
     func updateHoldRepeatEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
-    func updateGestureActions(
-        twoFingerTap: KeyAction,
-        threeFingerTap: KeyAction,
-        twoFingerHold: KeyAction,
-        threeFingerHold: KeyAction,
-        fourFingerHold: KeyAction,
-        outerCornersHold: KeyAction,
-        innerCornersHold: KeyAction,
-        fiveFingerSwipeLeft: KeyAction,
-        fiveFingerSwipeRight: KeyAction
-    ) async
+    func updateGestureActions(_ actions: GestureActionSet) async
     func clearVisualCaches() async
     func reset(stopVoiceDictation: Bool) async
 }
@@ -214,28 +204,8 @@ actor EngineActor: EngineActorBoundary {
         await processor.updateTapClickCadence(milliseconds)
     }
 
-    func updateGestureActions(
-        twoFingerTap: KeyAction,
-        threeFingerTap: KeyAction,
-        twoFingerHold: KeyAction,
-        threeFingerHold: KeyAction,
-        fourFingerHold: KeyAction,
-        outerCornersHold: KeyAction,
-        innerCornersHold: KeyAction,
-        fiveFingerSwipeLeft: KeyAction,
-        fiveFingerSwipeRight: KeyAction
-    ) async {
-        await processor.updateGestureActions(
-            twoFingerTap: twoFingerTap,
-            threeFingerTap: threeFingerTap,
-            twoFingerHold: twoFingerHold,
-            threeFingerHold: threeFingerHold,
-            fourFingerHold: fourFingerHold,
-            outerCornersHold: outerCornersHold,
-            innerCornersHold: innerCornersHold,
-            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
-            fiveFingerSwipeRight: fiveFingerSwipeRight
-        )
+    func updateGestureActions(_ actions: GestureActionSet) async {
+        await processor.updateGestureActions(actions)
     }
 
     func clearVisualCaches() async {
@@ -457,28 +427,8 @@ actor EngineActorStub: EngineActorBoundary {
         await impl.updateTapClickCadence(milliseconds)
     }
 
-    func updateGestureActions(
-        twoFingerTap: KeyAction,
-        threeFingerTap: KeyAction,
-        twoFingerHold: KeyAction,
-        threeFingerHold: KeyAction,
-        fourFingerHold: KeyAction,
-        outerCornersHold: KeyAction,
-        innerCornersHold: KeyAction,
-        fiveFingerSwipeLeft: KeyAction,
-        fiveFingerSwipeRight: KeyAction
-    ) async {
-        await impl.updateGestureActions(
-            twoFingerTap: twoFingerTap,
-            threeFingerTap: threeFingerTap,
-            twoFingerHold: twoFingerHold,
-            threeFingerHold: threeFingerHold,
-            fourFingerHold: fourFingerHold,
-            outerCornersHold: outerCornersHold,
-            innerCornersHold: innerCornersHold,
-            fiveFingerSwipeLeft: fiveFingerSwipeLeft,
-            fiveFingerSwipeRight: fiveFingerSwipeRight
-        )
+    func updateGestureActions(_ actions: GestureActionSet) async {
+        await impl.updateGestureActions(actions)
     }
 
     func clearVisualCaches() async {

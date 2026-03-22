@@ -122,10 +122,82 @@ struct ContentView: View {
     private var outerCornersHoldGestureAction = GlassToKeySettings.outerCornersHoldGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.innerCornersHoldGestureAction)
     private var innerCornersHoldGestureAction = GlassToKeySettings.innerCornersHoldGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.leftEdgeUpGestureAction)
+    private var leftEdgeUpGestureAction = GlassToKeySettings.leftEdgeUpGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.leftEdgeDownGestureAction)
+    private var leftEdgeDownGestureAction = GlassToKeySettings.leftEdgeDownGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.rightEdgeUpGestureAction)
+    private var rightEdgeUpGestureAction = GlassToKeySettings.rightEdgeUpGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.rightEdgeDownGestureAction)
+    private var rightEdgeDownGestureAction = GlassToKeySettings.rightEdgeDownGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topEdgeLeftGestureAction)
+    private var topEdgeLeftGestureAction = GlassToKeySettings.topEdgeLeftGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topEdgeRightGestureAction)
+    private var topEdgeRightGestureAction = GlassToKeySettings.topEdgeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomEdgeLeftGestureAction)
+    private var bottomEdgeLeftGestureAction = GlassToKeySettings.bottomEdgeLeftGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomEdgeRightGestureAction)
+    private var bottomEdgeRightGestureAction = GlassToKeySettings.bottomEdgeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerSwipeLeftGestureAction)
+    private var threeFingerSwipeLeftGestureAction = GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerSwipeRightGestureAction)
+    private var threeFingerSwipeRightGestureAction = GlassToKeySettings.threeFingerSwipeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerSwipeUpGestureAction)
+    private var threeFingerSwipeUpGestureAction = GlassToKeySettings.threeFingerSwipeUpGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerSwipeDownGestureAction)
+    private var threeFingerSwipeDownGestureAction = GlassToKeySettings.threeFingerSwipeDownGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerSwipeLeftGestureAction)
+    private var fourFingerSwipeLeftGestureAction = GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerSwipeRightGestureAction)
+    private var fourFingerSwipeRightGestureAction = GlassToKeySettings.fourFingerSwipeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerSwipeUpGestureAction)
+    private var fourFingerSwipeUpGestureAction = GlassToKeySettings.fourFingerSwipeUpGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerSwipeDownGestureAction)
+    private var fourFingerSwipeDownGestureAction = GlassToKeySettings.fourFingerSwipeDownGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
     private var fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
     private var fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeUpGestureAction)
+    private var fiveFingerSwipeUpGestureAction = GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fiveFingerSwipeDownGestureAction)
+    private var fiveFingerSwipeDownGestureAction = GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topLeftCornerSwipeGestureAction)
+    private var topLeftCornerSwipeGestureAction = GlassToKeySettings.topLeftCornerSwipeGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topRightCornerSwipeGestureAction)
+    private var topRightCornerSwipeGestureAction = GlassToKeySettings.topRightCornerSwipeGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomLeftCornerSwipeGestureAction)
+    private var bottomLeftCornerSwipeGestureAction = GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomRightCornerSwipeGestureAction)
+    private var bottomRightCornerSwipeGestureAction = GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topLeftTriangleGestureAction)
+    private var topLeftTriangleGestureAction = GlassToKeySettings.topLeftTriangleGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topRightTriangleGestureAction)
+    private var topRightTriangleGestureAction = GlassToKeySettings.topRightTriangleGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomLeftTriangleGestureAction)
+    private var bottomLeftTriangleGestureAction = GlassToKeySettings.bottomLeftTriangleGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomRightTriangleGestureAction)
+    private var bottomRightTriangleGestureAction = GlassToKeySettings.bottomRightTriangleGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.upperLeftCornerClickGestureAction)
+    private var upperLeftCornerClickGestureAction = GlassToKeySettings.upperLeftCornerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.upperRightCornerClickGestureAction)
+    private var upperRightCornerClickGestureAction = GlassToKeySettings.upperRightCornerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.lowerLeftCornerClickGestureAction)
+    private var lowerLeftCornerClickGestureAction = GlassToKeySettings.lowerLeftCornerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.lowerRightCornerClickGestureAction)
+    private var lowerRightCornerClickGestureAction = GlassToKeySettings.lowerRightCornerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.threeFingerClickGestureAction)
+    private var threeFingerClickGestureAction = GlassToKeySettings.threeFingerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.fourFingerClickGestureAction)
+    private var fourFingerClickGestureAction = GlassToKeySettings.fourFingerClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topLeftForceClickGestureAction)
+    private var topLeftForceClickGestureAction = GlassToKeySettings.topLeftForceClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.topRightForceClickGestureAction)
+    private var topRightForceClickGestureAction = GlassToKeySettings.topRightForceClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomLeftForceClickGestureAction)
+    private var bottomLeftForceClickGestureAction = GlassToKeySettings.bottomLeftForceClickGestureActionLabel
+    @AppStorage(GlassToKeyDefaultsKeys.bottomRightForceClickGestureAction)
+    private var bottomRightForceClickGestureAction = GlassToKeySettings.bottomRightForceClickGestureActionLabel
     @AppStorage(GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById)
     private var storedGestureRepeatCadenceData = Data()
     static let trackpadWidthMM: CGFloat = 160.0
@@ -318,54 +390,108 @@ struct ContentView: View {
         resolvedGestureAction(storedLabel, fallbackLabel: fallbackLabel).pickerText
     }
 
-    private func currentGestureActions(
-        twoFingerTapOverride: String? = nil,
-        threeFingerTapOverride: String? = nil,
-        twoFingerHoldOverride: String? = nil,
-        threeFingerHoldOverride: String? = nil,
-        fourFingerHoldOverride: String? = nil,
-        outerCornersHoldOverride: String? = nil,
-        innerCornersHoldOverride: String? = nil,
-        fiveFingerSwipeLeftOverride: String? = nil,
-        fiveFingerSwipeRightOverride: String? = nil
-    ) -> (KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction, KeyAction) {
-        let two = resolvedGestureAction(
-            twoFingerTapOverride ?? twoFingerTapGestureAction,
-            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
+    private func currentGestureActions() -> GestureActionSet {
+        GestureActionSet(
+            twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
+            threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
+            twoFingerHold: resolvedGestureAction(twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
+            threeFingerHold: resolvedGestureAction(threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel),
+            fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel),
+            outerCornersHold: resolvedGestureAction(outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel),
+            innerCornersHold: resolvedGestureAction(innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel),
+            leftEdgeUp: resolvedGestureAction(leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel),
+            leftEdgeDown: resolvedGestureAction(leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel),
+            rightEdgeUp: resolvedGestureAction(rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel),
+            rightEdgeDown: resolvedGestureAction(rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel),
+            topEdgeLeft: resolvedGestureAction(topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel),
+            topEdgeRight: resolvedGestureAction(topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel),
+            bottomEdgeLeft: resolvedGestureAction(bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel),
+            bottomEdgeRight: resolvedGestureAction(bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel),
+            threeFingerSwipeLeft: resolvedGestureAction(threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel),
+            threeFingerSwipeRight: resolvedGestureAction(threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel),
+            threeFingerSwipeUp: resolvedGestureAction(threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel),
+            threeFingerSwipeDown: resolvedGestureAction(threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel),
+            fourFingerSwipeLeft: resolvedGestureAction(fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel),
+            fourFingerSwipeRight: resolvedGestureAction(fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel),
+            fourFingerSwipeUp: resolvedGestureAction(fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel),
+            fourFingerSwipeDown: resolvedGestureAction(fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel),
+            fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel),
+            fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel),
+            fiveFingerSwipeUp: resolvedGestureAction(fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel),
+            fiveFingerSwipeDown: resolvedGestureAction(fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel),
+            topLeftCornerSwipe: resolvedGestureAction(topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel),
+            topRightCornerSwipe: resolvedGestureAction(topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel),
+            bottomLeftCornerSwipe: resolvedGestureAction(bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel),
+            bottomRightCornerSwipe: resolvedGestureAction(bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel),
+            topLeftTriangle: resolvedGestureAction(topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel),
+            topRightTriangle: resolvedGestureAction(topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel),
+            bottomLeftTriangle: resolvedGestureAction(bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel),
+            bottomRightTriangle: resolvedGestureAction(bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel),
+            upperLeftCornerClick: resolvedGestureAction(upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel),
+            upperRightCornerClick: resolvedGestureAction(upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel),
+            lowerLeftCornerClick: resolvedGestureAction(lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel),
+            lowerRightCornerClick: resolvedGestureAction(lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel),
+            threeFingerClick: resolvedGestureAction(threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel),
+            fourFingerClick: resolvedGestureAction(fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel),
+            topLeftForceClick: resolvedGestureAction(topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel),
+            topRightForceClick: resolvedGestureAction(topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel),
+            bottomLeftForceClick: resolvedGestureAction(bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel),
+            bottomRightForceClick: resolvedGestureAction(bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel)
         )
-        let three = resolvedGestureAction(
-            threeFingerTapOverride ?? threeFingerTapGestureAction,
-            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
-        )
-        let twoHold = resolvedGestureAction(
-            twoFingerHoldOverride ?? twoFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
-        )
-        let threeHold = resolvedGestureAction(
-            threeFingerHoldOverride ?? threeFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
-        )
-        let four = resolvedGestureAction(
-            fourFingerHoldOverride ?? fourFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
-        )
-        let outer = resolvedGestureAction(
-            outerCornersHoldOverride ?? outerCornersHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
-        )
-        let inner = resolvedGestureAction(
-            innerCornersHoldOverride ?? innerCornersHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
-        )
-        let fiveLeft = resolvedGestureAction(
-            fiveFingerSwipeLeftOverride ?? fiveFingerSwipeLeftGestureAction,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-        )
-        let fiveRight = resolvedGestureAction(
-            fiveFingerSwipeRightOverride ?? fiveFingerSwipeRightGestureAction,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-        )
-        return (two, three, twoHold, threeHold, four, outer, inner, fiveLeft, fiveRight)
+    }
+
+    private var gestureSettingsSignature: String {
+        [
+            twoFingerTapGestureAction,
+            threeFingerTapGestureAction,
+            twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction,
+            fourFingerHoldGestureAction,
+            outerCornersHoldGestureAction,
+            innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction,
+            topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction,
+            fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction,
+            topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction,
+            fourFingerClickGestureAction,
+            topLeftForceClickGestureAction,
+            topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction
+        ].joined(separator: "\u{1F}")
+    }
+
+    private func applyCurrentGestureActions() {
+        viewModel.updateGestureActions(currentGestureActions())
     }
 
     init(viewModel: ContentViewModel = ContentViewModel()) {
@@ -572,131 +698,8 @@ struct ContentView: View {
                     runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
                 }
             }
-            .onChange(of: twoFingerTapGestureAction) { newValue in
-                let actions = currentGestureActions(twoFingerTapOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: threeFingerTapGestureAction) { newValue in
-                let actions = currentGestureActions(threeFingerTapOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: twoFingerHoldGestureAction) { newValue in
-                let actions = currentGestureActions(twoFingerHoldOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: threeFingerHoldGestureAction) { newValue in
-                let actions = currentGestureActions(threeFingerHoldOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: fourFingerHoldGestureAction) { newValue in
-                let actions = currentGestureActions(fourFingerHoldOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: outerCornersHoldGestureAction) { newValue in
-                let actions = currentGestureActions(outerCornersHoldOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: innerCornersHoldGestureAction) { newValue in
-                let actions = currentGestureActions(innerCornersHoldOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: fiveFingerSwipeLeftGestureAction) { newValue in
-                let actions = currentGestureActions(fiveFingerSwipeLeftOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
-            }
-            .onChange(of: fiveFingerSwipeRightGestureAction) { newValue in
-                let actions = currentGestureActions(fiveFingerSwipeRightOverride: newValue)
-                viewModel.updateGestureActions(
-                    twoFingerTap: actions.0,
-                    threeFingerTap: actions.1,
-                    twoFingerHold: actions.2,
-                    threeFingerHold: actions.3,
-                    fourFingerHold: actions.4,
-                    outerCornersHold: actions.5,
-                    innerCornersHold: actions.6,
-                    fiveFingerSwipeLeft: actions.7,
-                    fiveFingerSwipeRight: actions.8
-                )
+            .onChange(of: gestureSettingsSignature) { _ in
+                applyCurrentGestureActions()
             }
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
@@ -902,8 +905,44 @@ struct ContentView: View {
             fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction: $leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction: $leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction: $rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction: $rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction: $topEdgeLeftGestureAction,
+            topEdgeRightGestureAction: $topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction: $bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction: $bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction: $threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction: $threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction: $threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction: $threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction: $fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction: $fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction: $fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction: $fourFingerSwipeDownGestureAction,
             fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction: $fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction: $fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction: $topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction: $topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction: $bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction: $bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction: $topLeftTriangleGestureAction,
+            topRightTriangleGestureAction: $topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction: $bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction: $bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction: $upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction: $upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction: $lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction: $threeFingerClickGestureAction,
+            fourFingerClickGestureAction: $fourFingerClickGestureAction,
+            topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
+            topRightForceClickGestureAction: $topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
             autoResyncEnabled: $storedAutoResyncMissingTrackpads,
             onAddCustomButton: { side in
                 addCustomButton(side: side)
@@ -1022,8 +1061,44 @@ struct ContentView: View {
         add(KeyActionCatalog.action(for: fourFingerHoldGestureAction))
         add(KeyActionCatalog.action(for: outerCornersHoldGestureAction))
         add(KeyActionCatalog.action(for: innerCornersHoldGestureAction))
+        add(KeyActionCatalog.action(for: leftEdgeUpGestureAction))
+        add(KeyActionCatalog.action(for: leftEdgeDownGestureAction))
+        add(KeyActionCatalog.action(for: rightEdgeUpGestureAction))
+        add(KeyActionCatalog.action(for: rightEdgeDownGestureAction))
+        add(KeyActionCatalog.action(for: topEdgeLeftGestureAction))
+        add(KeyActionCatalog.action(for: topEdgeRightGestureAction))
+        add(KeyActionCatalog.action(for: bottomEdgeLeftGestureAction))
+        add(KeyActionCatalog.action(for: bottomEdgeRightGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerSwipeLeftGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerSwipeRightGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerSwipeUpGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerSwipeDownGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerSwipeLeftGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerSwipeRightGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerSwipeUpGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerSwipeDownGestureAction))
         add(KeyActionCatalog.action(for: fiveFingerSwipeLeftGestureAction))
         add(KeyActionCatalog.action(for: fiveFingerSwipeRightGestureAction))
+        add(KeyActionCatalog.action(for: fiveFingerSwipeUpGestureAction))
+        add(KeyActionCatalog.action(for: fiveFingerSwipeDownGestureAction))
+        add(KeyActionCatalog.action(for: topLeftCornerSwipeGestureAction))
+        add(KeyActionCatalog.action(for: topRightCornerSwipeGestureAction))
+        add(KeyActionCatalog.action(for: bottomLeftCornerSwipeGestureAction))
+        add(KeyActionCatalog.action(for: bottomRightCornerSwipeGestureAction))
+        add(KeyActionCatalog.action(for: topLeftTriangleGestureAction))
+        add(KeyActionCatalog.action(for: topRightTriangleGestureAction))
+        add(KeyActionCatalog.action(for: bottomLeftTriangleGestureAction))
+        add(KeyActionCatalog.action(for: bottomRightTriangleGestureAction))
+        add(KeyActionCatalog.action(for: upperLeftCornerClickGestureAction))
+        add(KeyActionCatalog.action(for: upperRightCornerClickGestureAction))
+        add(KeyActionCatalog.action(for: lowerLeftCornerClickGestureAction))
+        add(KeyActionCatalog.action(for: lowerRightCornerClickGestureAction))
+        add(KeyActionCatalog.action(for: threeFingerClickGestureAction))
+        add(KeyActionCatalog.action(for: fourFingerClickGestureAction))
+        add(KeyActionCatalog.action(for: topLeftForceClickGestureAction))
+        add(KeyActionCatalog.action(for: topRightForceClickGestureAction))
+        add(KeyActionCatalog.action(for: bottomLeftForceClickGestureAction))
+        add(KeyActionCatalog.action(for: bottomRightForceClickGestureAction))
 
         return actions.sorted {
             $0.pickerText.localizedCaseInsensitiveCompare($1.pickerText) == .orderedAscending
@@ -1261,8 +1336,44 @@ struct ContentView: View {
         @Binding var fourFingerHoldGestureAction: String
         @Binding var outerCornersHoldGestureAction: String
         @Binding var innerCornersHoldGestureAction: String
+        @Binding var leftEdgeUpGestureAction: String
+        @Binding var leftEdgeDownGestureAction: String
+        @Binding var rightEdgeUpGestureAction: String
+        @Binding var rightEdgeDownGestureAction: String
+        @Binding var topEdgeLeftGestureAction: String
+        @Binding var topEdgeRightGestureAction: String
+        @Binding var bottomEdgeLeftGestureAction: String
+        @Binding var bottomEdgeRightGestureAction: String
+        @Binding var threeFingerSwipeLeftGestureAction: String
+        @Binding var threeFingerSwipeRightGestureAction: String
+        @Binding var threeFingerSwipeUpGestureAction: String
+        @Binding var threeFingerSwipeDownGestureAction: String
+        @Binding var fourFingerSwipeLeftGestureAction: String
+        @Binding var fourFingerSwipeRightGestureAction: String
+        @Binding var fourFingerSwipeUpGestureAction: String
+        @Binding var fourFingerSwipeDownGestureAction: String
         @Binding var fiveFingerSwipeLeftGestureAction: String
         @Binding var fiveFingerSwipeRightGestureAction: String
+        @Binding var fiveFingerSwipeUpGestureAction: String
+        @Binding var fiveFingerSwipeDownGestureAction: String
+        @Binding var topLeftCornerSwipeGestureAction: String
+        @Binding var topRightCornerSwipeGestureAction: String
+        @Binding var bottomLeftCornerSwipeGestureAction: String
+        @Binding var bottomRightCornerSwipeGestureAction: String
+        @Binding var topLeftTriangleGestureAction: String
+        @Binding var topRightTriangleGestureAction: String
+        @Binding var bottomLeftTriangleGestureAction: String
+        @Binding var bottomRightTriangleGestureAction: String
+        @Binding var upperLeftCornerClickGestureAction: String
+        @Binding var upperRightCornerClickGestureAction: String
+        @Binding var lowerLeftCornerClickGestureAction: String
+        @Binding var lowerRightCornerClickGestureAction: String
+        @Binding var threeFingerClickGestureAction: String
+        @Binding var fourFingerClickGestureAction: String
+        @Binding var topLeftForceClickGestureAction: String
+        @Binding var topRightForceClickGestureAction: String
+        @Binding var bottomLeftForceClickGestureAction: String
+        @Binding var bottomRightForceClickGestureAction: String
         @Binding var autoResyncEnabled: Bool
         @State private var modeTogglesExpanded = true
         @State private var typingTuningExpanded = false
@@ -1343,8 +1454,44 @@ struct ContentView: View {
                                 fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
                                 outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
                                 innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
+                                leftEdgeUpGestureAction: $leftEdgeUpGestureAction,
+                                leftEdgeDownGestureAction: $leftEdgeDownGestureAction,
+                                rightEdgeUpGestureAction: $rightEdgeUpGestureAction,
+                                rightEdgeDownGestureAction: $rightEdgeDownGestureAction,
+                                topEdgeLeftGestureAction: $topEdgeLeftGestureAction,
+                                topEdgeRightGestureAction: $topEdgeRightGestureAction,
+                                bottomEdgeLeftGestureAction: $bottomEdgeLeftGestureAction,
+                                bottomEdgeRightGestureAction: $bottomEdgeRightGestureAction,
+                                threeFingerSwipeLeftGestureAction: $threeFingerSwipeLeftGestureAction,
+                                threeFingerSwipeRightGestureAction: $threeFingerSwipeRightGestureAction,
+                                threeFingerSwipeUpGestureAction: $threeFingerSwipeUpGestureAction,
+                                threeFingerSwipeDownGestureAction: $threeFingerSwipeDownGestureAction,
+                                fourFingerSwipeLeftGestureAction: $fourFingerSwipeLeftGestureAction,
+                                fourFingerSwipeRightGestureAction: $fourFingerSwipeRightGestureAction,
+                                fourFingerSwipeUpGestureAction: $fourFingerSwipeUpGestureAction,
+                                fourFingerSwipeDownGestureAction: $fourFingerSwipeDownGestureAction,
                                 fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
-                                fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction
+                                fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
+                                fiveFingerSwipeUpGestureAction: $fiveFingerSwipeUpGestureAction,
+                                fiveFingerSwipeDownGestureAction: $fiveFingerSwipeDownGestureAction,
+                                topLeftCornerSwipeGestureAction: $topLeftCornerSwipeGestureAction,
+                                topRightCornerSwipeGestureAction: $topRightCornerSwipeGestureAction,
+                                bottomLeftCornerSwipeGestureAction: $bottomLeftCornerSwipeGestureAction,
+                                bottomRightCornerSwipeGestureAction: $bottomRightCornerSwipeGestureAction,
+                                topLeftTriangleGestureAction: $topLeftTriangleGestureAction,
+                                topRightTriangleGestureAction: $topRightTriangleGestureAction,
+                                bottomLeftTriangleGestureAction: $bottomLeftTriangleGestureAction,
+                                bottomRightTriangleGestureAction: $bottomRightTriangleGestureAction,
+                                upperLeftCornerClickGestureAction: $upperLeftCornerClickGestureAction,
+                                upperRightCornerClickGestureAction: $upperRightCornerClickGestureAction,
+                                lowerLeftCornerClickGestureAction: $lowerLeftCornerClickGestureAction,
+                                lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
+                                threeFingerClickGestureAction: $threeFingerClickGestureAction,
+                                fourFingerClickGestureAction: $fourFingerClickGestureAction,
+                                topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
+                                topRightForceClickGestureAction: $topRightForceClickGestureAction,
+                                bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
+                                bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction
                             )
                         } label: {
                             Text("Gesture Tuning")
@@ -3071,11 +3218,52 @@ struct ContentView: View {
         @Binding var fourFingerHoldGestureAction: String
         @Binding var outerCornersHoldGestureAction: String
         @Binding var innerCornersHoldGestureAction: String
+        @Binding var leftEdgeUpGestureAction: String
+        @Binding var leftEdgeDownGestureAction: String
+        @Binding var rightEdgeUpGestureAction: String
+        @Binding var rightEdgeDownGestureAction: String
+        @Binding var topEdgeLeftGestureAction: String
+        @Binding var topEdgeRightGestureAction: String
+        @Binding var bottomEdgeLeftGestureAction: String
+        @Binding var bottomEdgeRightGestureAction: String
+        @Binding var threeFingerSwipeLeftGestureAction: String
+        @Binding var threeFingerSwipeRightGestureAction: String
+        @Binding var threeFingerSwipeUpGestureAction: String
+        @Binding var threeFingerSwipeDownGestureAction: String
+        @Binding var fourFingerSwipeLeftGestureAction: String
+        @Binding var fourFingerSwipeRightGestureAction: String
+        @Binding var fourFingerSwipeUpGestureAction: String
+        @Binding var fourFingerSwipeDownGestureAction: String
         @Binding var fiveFingerSwipeLeftGestureAction: String
         @Binding var fiveFingerSwipeRightGestureAction: String
+        @Binding var fiveFingerSwipeUpGestureAction: String
+        @Binding var fiveFingerSwipeDownGestureAction: String
+        @Binding var topLeftCornerSwipeGestureAction: String
+        @Binding var topRightCornerSwipeGestureAction: String
+        @Binding var bottomLeftCornerSwipeGestureAction: String
+        @Binding var bottomRightCornerSwipeGestureAction: String
+        @Binding var topLeftTriangleGestureAction: String
+        @Binding var topRightTriangleGestureAction: String
+        @Binding var bottomLeftTriangleGestureAction: String
+        @Binding var bottomRightTriangleGestureAction: String
+        @Binding var upperLeftCornerClickGestureAction: String
+        @Binding var upperRightCornerClickGestureAction: String
+        @Binding var lowerLeftCornerClickGestureAction: String
+        @Binding var lowerRightCornerClickGestureAction: String
+        @Binding var threeFingerClickGestureAction: String
+        @Binding var fourFingerClickGestureAction: String
+        @Binding var topLeftForceClickGestureAction: String
+        @Binding var topRightForceClickGestureAction: String
+        @Binding var bottomLeftForceClickGestureAction: String
+        @Binding var bottomRightForceClickGestureAction: String
         @State private var tapsExpanded = false
         @State private var holdsExpanded = true
+        @State private var edgesExpanded = false
         @State private var swipesExpanded = false
+        @State private var cornerSwipesExpanded = false
+        @State private var trianglesExpanded = false
+        @State private var clicksExpanded = false
+        @State private var forceClicksExpanded = false
 
         private func gestureBinding(
             _ rawValue: Binding<String>,
@@ -3121,6 +3309,31 @@ struct ContentView: View {
             }
         }
 
+        @ViewBuilder
+        private func gestureGridRow(
+            _ firstTitle: String,
+            selection firstSelection: Binding<String>,
+            fallbackLabel firstFallbackLabel: String,
+            _ secondTitle: String? = nil,
+            selection secondSelection: Binding<String>? = nil,
+            fallbackLabel secondFallbackLabel: String? = nil
+        ) -> some View {
+            GridRow {
+                gesturePicker(
+                    firstTitle,
+                    selection: firstSelection,
+                    fallbackLabel: firstFallbackLabel
+                )
+                if let secondTitle, let secondSelection, let secondFallbackLabel {
+                    gesturePicker(
+                        secondTitle,
+                        selection: secondSelection,
+                        fallbackLabel: secondFallbackLabel
+                    )
+                }
+            }
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 8) {
                 CollapsibleSection(
@@ -3128,20 +3341,8 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                        GridRow {
-                            gesturePicker(
-                                "2-finger tap",
-                                selection: $twoFingerTapGestureAction,
-                                fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "3-finger tap",
-                                selection: $threeFingerTapGestureAction,
-                                fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
-                            )
-                        }
+                        gestureGridRow("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
+                        gestureGridRow("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
                     }
                 } label: {
                     Text("Taps")
@@ -3152,44 +3353,28 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                        GridRow {
-                            gesturePicker(
-                                "2-finger hold",
-                                selection: $twoFingerHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "3-finger hold",
-                                selection: $threeFingerHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "4-finger hold",
-                                selection: $fourFingerHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "Inner corners",
-                                selection: $innerCornersHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "Outer corners",
-                                selection: $outerCornersHoldGestureAction,
-                                fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
-                            )
-                        }
+                        gestureGridRow("2-finger hold", selection: $twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel)
+                        gestureGridRow("3-finger hold", selection: $threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel)
+                        gestureGridRow("4-finger hold", selection: $fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel)
+                        gestureGridRow("Inner corners", selection: $innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel)
+                        gestureGridRow("Outer corners", selection: $outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel)
                     }
                 } label: {
                     Text("Holds")
+                }
+
+                CollapsibleSection(
+                    isExpanded: $edgesExpanded,
+                    topSpacing: 4
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        gestureGridRow("Left up", selection: $leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel, "Left down", selection: $leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel)
+                        gestureGridRow("Right up", selection: $rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel, "Right down", selection: $rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel)
+                        gestureGridRow("Top left", selection: $topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel, "Top right", selection: $topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel)
+                        gestureGridRow("Bottom left", selection: $bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel, "Bottom right", selection: $bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel)
+                    }
+                } label: {
+                    Text("Edges")
                 }
 
                 CollapsibleSection(
@@ -3197,23 +3382,64 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                        GridRow {
-                            gesturePicker(
-                                "5-finger left",
-                                selection: $fiveFingerSwipeLeftGestureAction,
-                                fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-                            )
-                        }
-                        GridRow {
-                            gesturePicker(
-                                "5-finger right",
-                                selection: $fiveFingerSwipeRightGestureAction,
-                                fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-                            )
-                        }
+                        gestureGridRow("3-finger left", selection: $threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel, "3-finger right", selection: $threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel)
+                        gestureGridRow("3-finger up", selection: $threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel, "3-finger down", selection: $threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel)
+                        gestureGridRow("4-finger left", selection: $fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel, "4-finger right", selection: $fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel)
+                        gestureGridRow("4-finger up", selection: $fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel, "4-finger down", selection: $fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel)
+                        gestureGridRow("5-finger left", selection: $fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel, "5-finger right", selection: $fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel)
+                        gestureGridRow("5-finger up", selection: $fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel, "5-finger down", selection: $fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel)
                     }
                 } label: {
                     Text("Swipes")
+                }
+
+                CollapsibleSection(
+                    isExpanded: $cornerSwipesExpanded,
+                    topSpacing: 4
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        gestureGridRow("Top-left swipe", selection: $topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel, "Top-right swipe", selection: $topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel)
+                        gestureGridRow("Bottom-left swipe", selection: $bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel, "Bottom-right swipe", selection: $bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel)
+                    }
+                } label: {
+                    Text("Corner Swipes")
+                }
+
+                CollapsibleSection(
+                    isExpanded: $trianglesExpanded,
+                    topSpacing: 4
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        gestureGridRow("Top-left", selection: $topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel, "Top-right", selection: $topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel)
+                        gestureGridRow("Bottom-left", selection: $bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel, "Bottom-right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel)
+                    }
+                } label: {
+                    Text("Triangles")
+                }
+
+                CollapsibleSection(
+                    isExpanded: $clicksExpanded,
+                    topSpacing: 4
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        gestureGridRow("Top-left click", selection: $upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel, "Top-right click", selection: $upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel)
+                        gestureGridRow("Bottom-left click", selection: $lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel, "Bottom-right click", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel)
+                        gestureGridRow("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, "4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel)
+                    }
+                } label: {
+                    Text("Clicks")
+                }
+
+                CollapsibleSection(
+                    isExpanded: $forceClicksExpanded,
+                    topSpacing: 4
+                ) {
+                    Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                        gestureGridRow("Top-left force", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, "Top-right force", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel)
+                        gestureGridRow("Bottom-left force", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, "Bottom-right force", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel)
+                    }
+                } label: {
+                    Text("Force Clicks")
                 }
             }
         }
@@ -4004,42 +4230,7 @@ struct ContentView: View {
         if let rightDevice = deviceForID(storedRightDeviceID) {
             viewModel.selectRightDevice(rightDevice)
         }
-        twoFingerTapGestureAction = normalizedGestureActionLabel(
-            twoFingerTapGestureAction,
-            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
-        )
-        threeFingerTapGestureAction = normalizedGestureActionLabel(
-            threeFingerTapGestureAction,
-            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
-        )
-        twoFingerHoldGestureAction = normalizedGestureActionLabel(
-            twoFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
-        )
-        threeFingerHoldGestureAction = normalizedGestureActionLabel(
-            threeFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
-        )
-        fourFingerHoldGestureAction = normalizedGestureActionLabel(
-            fourFingerHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
-        )
-        outerCornersHoldGestureAction = normalizedGestureActionLabel(
-            outerCornersHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
-        )
-        innerCornersHoldGestureAction = normalizedGestureActionLabel(
-            innerCornersHoldGestureAction,
-            fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
-        )
-        fiveFingerSwipeLeftGestureAction = normalizedGestureActionLabel(
-            fiveFingerSwipeLeftGestureAction,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-        )
-        fiveFingerSwipeRightGestureAction = normalizedGestureActionLabel(
-            fiveFingerSwipeRightGestureAction,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-        )
+        normalizeGestureSettings()
         viewModel.updateHoldThreshold(tapHoldDurationMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragCancelDistanceSetting))
         forceClickMinSetting = min(
@@ -4062,17 +4253,7 @@ struct ContentView: View {
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
-        viewModel.updateGestureActions(
-            twoFingerTap: resolvedGestureAction(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
-            threeFingerTap: resolvedGestureAction(threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
-            twoFingerHold: resolvedGestureAction(twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
-            threeFingerHold: resolvedGestureAction(threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel),
-            fourFingerHold: resolvedGestureAction(fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel),
-            outerCornersHold: resolvedGestureAction(outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel),
-            innerCornersHold: resolvedGestureAction(innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel),
-            fiveFingerSwipeLeft: resolvedGestureAction(fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel),
-            fiveFingerSwipeRight: resolvedGestureAction(fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel)
-        )
+        applyCurrentGestureActions()
         viewModel.setTouchSnapshotRecordingEnabled(true)
     }
 
@@ -4097,10 +4278,94 @@ struct ContentView: View {
         fourFingerHoldGestureAction = GlassToKeySettings.fourFingerHoldGestureActionLabel
         outerCornersHoldGestureAction = GlassToKeySettings.outerCornersHoldGestureActionLabel
         innerCornersHoldGestureAction = GlassToKeySettings.innerCornersHoldGestureActionLabel
+        leftEdgeUpGestureAction = GlassToKeySettings.leftEdgeUpGestureActionLabel
+        leftEdgeDownGestureAction = GlassToKeySettings.leftEdgeDownGestureActionLabel
+        rightEdgeUpGestureAction = GlassToKeySettings.rightEdgeUpGestureActionLabel
+        rightEdgeDownGestureAction = GlassToKeySettings.rightEdgeDownGestureActionLabel
+        topEdgeLeftGestureAction = GlassToKeySettings.topEdgeLeftGestureActionLabel
+        topEdgeRightGestureAction = GlassToKeySettings.topEdgeRightGestureActionLabel
+        bottomEdgeLeftGestureAction = GlassToKeySettings.bottomEdgeLeftGestureActionLabel
+        bottomEdgeRightGestureAction = GlassToKeySettings.bottomEdgeRightGestureActionLabel
+        threeFingerSwipeLeftGestureAction = GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel
+        threeFingerSwipeRightGestureAction = GlassToKeySettings.threeFingerSwipeRightGestureActionLabel
+        threeFingerSwipeUpGestureAction = GlassToKeySettings.threeFingerSwipeUpGestureActionLabel
+        threeFingerSwipeDownGestureAction = GlassToKeySettings.threeFingerSwipeDownGestureActionLabel
+        fourFingerSwipeLeftGestureAction = GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel
+        fourFingerSwipeRightGestureAction = GlassToKeySettings.fourFingerSwipeRightGestureActionLabel
+        fourFingerSwipeUpGestureAction = GlassToKeySettings.fourFingerSwipeUpGestureActionLabel
+        fourFingerSwipeDownGestureAction = GlassToKeySettings.fourFingerSwipeDownGestureActionLabel
         fiveFingerSwipeLeftGestureAction = GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
         fiveFingerSwipeRightGestureAction = GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        fiveFingerSwipeUpGestureAction = GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel
+        fiveFingerSwipeDownGestureAction = GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel
+        topLeftCornerSwipeGestureAction = GlassToKeySettings.topLeftCornerSwipeGestureActionLabel
+        topRightCornerSwipeGestureAction = GlassToKeySettings.topRightCornerSwipeGestureActionLabel
+        bottomLeftCornerSwipeGestureAction = GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel
+        bottomRightCornerSwipeGestureAction = GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel
+        topLeftTriangleGestureAction = GlassToKeySettings.topLeftTriangleGestureActionLabel
+        topRightTriangleGestureAction = GlassToKeySettings.topRightTriangleGestureActionLabel
+        bottomLeftTriangleGestureAction = GlassToKeySettings.bottomLeftTriangleGestureActionLabel
+        bottomRightTriangleGestureAction = GlassToKeySettings.bottomRightTriangleGestureActionLabel
+        upperLeftCornerClickGestureAction = GlassToKeySettings.upperLeftCornerClickGestureActionLabel
+        upperRightCornerClickGestureAction = GlassToKeySettings.upperRightCornerClickGestureActionLabel
+        lowerLeftCornerClickGestureAction = GlassToKeySettings.lowerLeftCornerClickGestureActionLabel
+        lowerRightCornerClickGestureAction = GlassToKeySettings.lowerRightCornerClickGestureActionLabel
+        threeFingerClickGestureAction = GlassToKeySettings.threeFingerClickGestureActionLabel
+        fourFingerClickGestureAction = GlassToKeySettings.fourFingerClickGestureActionLabel
+        topLeftForceClickGestureAction = GlassToKeySettings.topLeftForceClickGestureActionLabel
+        topRightForceClickGestureAction = GlassToKeySettings.topRightForceClickGestureActionLabel
+        bottomLeftForceClickGestureAction = GlassToKeySettings.bottomLeftForceClickGestureActionLabel
+        bottomRightForceClickGestureAction = GlassToKeySettings.bottomRightForceClickGestureActionLabel
         storedGestureRepeatCadenceData = Data()
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
+    }
+
+    private func normalizeGestureSettings() {
+        twoFingerTapGestureAction = normalizedGestureActionLabel(twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
+        threeFingerTapGestureAction = normalizedGestureActionLabel(threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
+        twoFingerHoldGestureAction = normalizedGestureActionLabel(twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel)
+        threeFingerHoldGestureAction = normalizedGestureActionLabel(threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel)
+        fourFingerHoldGestureAction = normalizedGestureActionLabel(fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel)
+        outerCornersHoldGestureAction = normalizedGestureActionLabel(outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel)
+        innerCornersHoldGestureAction = normalizedGestureActionLabel(innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel)
+        leftEdgeUpGestureAction = normalizedGestureActionLabel(leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel)
+        leftEdgeDownGestureAction = normalizedGestureActionLabel(leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel)
+        rightEdgeUpGestureAction = normalizedGestureActionLabel(rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel)
+        rightEdgeDownGestureAction = normalizedGestureActionLabel(rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel)
+        topEdgeLeftGestureAction = normalizedGestureActionLabel(topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel)
+        topEdgeRightGestureAction = normalizedGestureActionLabel(topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel)
+        bottomEdgeLeftGestureAction = normalizedGestureActionLabel(bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel)
+        bottomEdgeRightGestureAction = normalizedGestureActionLabel(bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel)
+        threeFingerSwipeLeftGestureAction = normalizedGestureActionLabel(threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel)
+        threeFingerSwipeRightGestureAction = normalizedGestureActionLabel(threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel)
+        threeFingerSwipeUpGestureAction = normalizedGestureActionLabel(threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel)
+        threeFingerSwipeDownGestureAction = normalizedGestureActionLabel(threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel)
+        fourFingerSwipeLeftGestureAction = normalizedGestureActionLabel(fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel)
+        fourFingerSwipeRightGestureAction = normalizedGestureActionLabel(fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel)
+        fourFingerSwipeUpGestureAction = normalizedGestureActionLabel(fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel)
+        fourFingerSwipeDownGestureAction = normalizedGestureActionLabel(fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel)
+        fiveFingerSwipeLeftGestureAction = normalizedGestureActionLabel(fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel)
+        fiveFingerSwipeRightGestureAction = normalizedGestureActionLabel(fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel)
+        fiveFingerSwipeUpGestureAction = normalizedGestureActionLabel(fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel)
+        fiveFingerSwipeDownGestureAction = normalizedGestureActionLabel(fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel)
+        topLeftCornerSwipeGestureAction = normalizedGestureActionLabel(topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel)
+        topRightCornerSwipeGestureAction = normalizedGestureActionLabel(topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel)
+        bottomLeftCornerSwipeGestureAction = normalizedGestureActionLabel(bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel)
+        bottomRightCornerSwipeGestureAction = normalizedGestureActionLabel(bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel)
+        topLeftTriangleGestureAction = normalizedGestureActionLabel(topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel)
+        topRightTriangleGestureAction = normalizedGestureActionLabel(topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel)
+        bottomLeftTriangleGestureAction = normalizedGestureActionLabel(bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel)
+        bottomRightTriangleGestureAction = normalizedGestureActionLabel(bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel)
+        upperLeftCornerClickGestureAction = normalizedGestureActionLabel(upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel)
+        upperRightCornerClickGestureAction = normalizedGestureActionLabel(upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel)
+        lowerLeftCornerClickGestureAction = normalizedGestureActionLabel(lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel)
+        lowerRightCornerClickGestureAction = normalizedGestureActionLabel(lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel)
+        threeFingerClickGestureAction = normalizedGestureActionLabel(threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel)
+        fourFingerClickGestureAction = normalizedGestureActionLabel(fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel)
+        topLeftForceClickGestureAction = normalizedGestureActionLabel(topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel)
+        topRightForceClickGestureAction = normalizedGestureActionLabel(topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel)
+        bottomLeftForceClickGestureAction = normalizedGestureActionLabel(bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel)
+        bottomRightForceClickGestureAction = normalizedGestureActionLabel(bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel)
     }
 
     private func exportKeymap() {
@@ -4190,8 +4455,44 @@ struct ContentView: View {
             fourFingerHoldGestureAction: fourFingerHoldGestureAction,
             outerCornersHoldGestureAction: outerCornersHoldGestureAction,
             innerCornersHoldGestureAction: innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction: leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction: leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction: rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction: rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction: topEdgeLeftGestureAction,
+            topEdgeRightGestureAction: topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction: bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction: bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction: threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction: threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction: threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction: threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction: fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction: fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction: fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction: fourFingerSwipeDownGestureAction,
             fiveFingerSwipeLeftGestureAction: fiveFingerSwipeLeftGestureAction,
             fiveFingerSwipeRightGestureAction: fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction: fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction: fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction: topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction: topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction: bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction: bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction: topLeftTriangleGestureAction,
+            topRightTriangleGestureAction: topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction: bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction: bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction: upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction: upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction: lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction: lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction: threeFingerClickGestureAction,
+            fourFingerClickGestureAction: fourFingerClickGestureAction,
+            topLeftForceClickGestureAction: topLeftForceClickGestureAction,
+            topRightForceClickGestureAction: topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction: bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction: bottomRightForceClickGestureAction,
             gestureRepeatCadenceMsById: GestureRepeatCadenceStorage.decode(
                 from: storedGestureRepeatCadenceData
             ),
@@ -4233,42 +4534,52 @@ struct ContentView: View {
         snapRadiusPercentSetting = profile.snapRadiusPercent
         keyboardModeEnabled = profile.keyboardModeEnabled
         holdRepeatEnabled = profile.holdRepeatEnabled
-        twoFingerTapGestureAction = normalizedGestureActionLabel(
-            profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel
-        )
-        threeFingerTapGestureAction = normalizedGestureActionLabel(
-            profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel
-        )
-        twoFingerHoldGestureAction = normalizedGestureActionLabel(
-            profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel
-        )
-        threeFingerHoldGestureAction = normalizedGestureActionLabel(
-            profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel
-        )
-        fourFingerHoldGestureAction = normalizedGestureActionLabel(
-            profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel
-        )
-        outerCornersHoldGestureAction = normalizedGestureActionLabel(
-            profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel
-        )
-        innerCornersHoldGestureAction = normalizedGestureActionLabel(
-            profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel
-        )
-        fiveFingerSwipeLeftGestureAction = normalizedGestureActionLabel(
-            profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
-        )
-        fiveFingerSwipeRightGestureAction = normalizedGestureActionLabel(
-            profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel,
-            fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
-        )
+        twoFingerTapGestureAction = profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel
+        threeFingerTapGestureAction = profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel
+        twoFingerHoldGestureAction = profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel
+        threeFingerHoldGestureAction = profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel
+        fourFingerHoldGestureAction = profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel
+        outerCornersHoldGestureAction = profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel
+        innerCornersHoldGestureAction = profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel
+        leftEdgeUpGestureAction = profile.leftEdgeUpGestureAction ?? GlassToKeySettings.leftEdgeUpGestureActionLabel
+        leftEdgeDownGestureAction = profile.leftEdgeDownGestureAction ?? GlassToKeySettings.leftEdgeDownGestureActionLabel
+        rightEdgeUpGestureAction = profile.rightEdgeUpGestureAction ?? GlassToKeySettings.rightEdgeUpGestureActionLabel
+        rightEdgeDownGestureAction = profile.rightEdgeDownGestureAction ?? GlassToKeySettings.rightEdgeDownGestureActionLabel
+        topEdgeLeftGestureAction = profile.topEdgeLeftGestureAction ?? GlassToKeySettings.topEdgeLeftGestureActionLabel
+        topEdgeRightGestureAction = profile.topEdgeRightGestureAction ?? GlassToKeySettings.topEdgeRightGestureActionLabel
+        bottomEdgeLeftGestureAction = profile.bottomEdgeLeftGestureAction ?? GlassToKeySettings.bottomEdgeLeftGestureActionLabel
+        bottomEdgeRightGestureAction = profile.bottomEdgeRightGestureAction ?? GlassToKeySettings.bottomEdgeRightGestureActionLabel
+        threeFingerSwipeLeftGestureAction = profile.threeFingerSwipeLeftGestureAction ?? GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel
+        threeFingerSwipeRightGestureAction = profile.threeFingerSwipeRightGestureAction ?? GlassToKeySettings.threeFingerSwipeRightGestureActionLabel
+        threeFingerSwipeUpGestureAction = profile.threeFingerSwipeUpGestureAction ?? GlassToKeySettings.threeFingerSwipeUpGestureActionLabel
+        threeFingerSwipeDownGestureAction = profile.threeFingerSwipeDownGestureAction ?? GlassToKeySettings.threeFingerSwipeDownGestureActionLabel
+        fourFingerSwipeLeftGestureAction = profile.fourFingerSwipeLeftGestureAction ?? GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel
+        fourFingerSwipeRightGestureAction = profile.fourFingerSwipeRightGestureAction ?? GlassToKeySettings.fourFingerSwipeRightGestureActionLabel
+        fourFingerSwipeUpGestureAction = profile.fourFingerSwipeUpGestureAction ?? GlassToKeySettings.fourFingerSwipeUpGestureActionLabel
+        fourFingerSwipeDownGestureAction = profile.fourFingerSwipeDownGestureAction ?? GlassToKeySettings.fourFingerSwipeDownGestureActionLabel
+        fiveFingerSwipeLeftGestureAction = profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel
+        fiveFingerSwipeRightGestureAction = profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel
+        fiveFingerSwipeUpGestureAction = profile.fiveFingerSwipeUpGestureAction ?? GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel
+        fiveFingerSwipeDownGestureAction = profile.fiveFingerSwipeDownGestureAction ?? GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel
+        topLeftCornerSwipeGestureAction = profile.topLeftCornerSwipeGestureAction ?? GlassToKeySettings.topLeftCornerSwipeGestureActionLabel
+        topRightCornerSwipeGestureAction = profile.topRightCornerSwipeGestureAction ?? GlassToKeySettings.topRightCornerSwipeGestureActionLabel
+        bottomLeftCornerSwipeGestureAction = profile.bottomLeftCornerSwipeGestureAction ?? GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel
+        bottomRightCornerSwipeGestureAction = profile.bottomRightCornerSwipeGestureAction ?? GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel
+        topLeftTriangleGestureAction = profile.topLeftTriangleGestureAction ?? GlassToKeySettings.topLeftTriangleGestureActionLabel
+        topRightTriangleGestureAction = profile.topRightTriangleGestureAction ?? GlassToKeySettings.topRightTriangleGestureActionLabel
+        bottomLeftTriangleGestureAction = profile.bottomLeftTriangleGestureAction ?? GlassToKeySettings.bottomLeftTriangleGestureActionLabel
+        bottomRightTriangleGestureAction = profile.bottomRightTriangleGestureAction ?? GlassToKeySettings.bottomRightTriangleGestureActionLabel
+        upperLeftCornerClickGestureAction = profile.upperLeftCornerClickGestureAction ?? GlassToKeySettings.upperLeftCornerClickGestureActionLabel
+        upperRightCornerClickGestureAction = profile.upperRightCornerClickGestureAction ?? GlassToKeySettings.upperRightCornerClickGestureActionLabel
+        lowerLeftCornerClickGestureAction = profile.lowerLeftCornerClickGestureAction ?? GlassToKeySettings.lowerLeftCornerClickGestureActionLabel
+        lowerRightCornerClickGestureAction = profile.lowerRightCornerClickGestureAction ?? GlassToKeySettings.lowerRightCornerClickGestureActionLabel
+        threeFingerClickGestureAction = profile.threeFingerClickGestureAction ?? GlassToKeySettings.threeFingerClickGestureActionLabel
+        fourFingerClickGestureAction = profile.fourFingerClickGestureAction ?? GlassToKeySettings.fourFingerClickGestureActionLabel
+        topLeftForceClickGestureAction = profile.topLeftForceClickGestureAction ?? GlassToKeySettings.topLeftForceClickGestureActionLabel
+        topRightForceClickGestureAction = profile.topRightForceClickGestureAction ?? GlassToKeySettings.topRightForceClickGestureActionLabel
+        bottomLeftForceClickGestureAction = profile.bottomLeftForceClickGestureAction ?? GlassToKeySettings.bottomLeftForceClickGestureActionLabel
+        bottomRightForceClickGestureAction = profile.bottomRightForceClickGestureAction ?? GlassToKeySettings.bottomRightForceClickGestureActionLabel
+        normalizeGestureSettings()
         storedGestureRepeatCadenceData = GestureRepeatCadenceStorage.encode(
             profile.gestureRepeatCadenceMsById
         ) ?? Data()
