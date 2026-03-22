@@ -552,6 +552,8 @@ actor TouchProcessorEngine {
     )
     private var framePointCache = TouchTable<CGPoint>(minimumCapacity: 16)
     private var peakPressureByTouch = TouchTable<Float>(minimumCapacity: 32)
+    private var lastFourPlusContactTime = SidePair(left: TimeInterval(-1), right: TimeInterval(-1))
+    private var lastFivePlusContactTime = SidePair(left: TimeInterval(-1), right: TimeInterval(-1))
     private var hapticStrength: Double = 0
     private static let hapticMinIntervalNanos: UInt64 = 20_000_000
     private var lastHapticTimeBySide = SidePair<UInt64>(repeating: 0)
@@ -838,6 +840,8 @@ actor TouchProcessorEngine {
     private var multiFingerClickState = SidePair(left: MultiFingerClickState(), right: MultiFingerClickState())
     private let directionalSwipeThresholdMm: CGFloat = 10.0
     private let directionalSwipeAxisDominanceRatio: CGFloat = 1.2
+    private let fourFingerDominanceSuppressSeconds: TimeInterval = 0.18
+    private let fiveFingerDominanceSuppressSeconds: TimeInterval = 0.18
     private let edgeSlideStartThreshold: CGFloat = 0.03
     private let edgeSlideStayThreshold: CGFloat = 0.08
     private let edgeSlideTriggerDistanceMm: CGFloat = 24.0
@@ -1123,6 +1127,10 @@ actor TouchProcessorEngine {
         chordShiftActivationCount[.right] = 0
         chordShiftLastContactTime[.left] = 0
         chordShiftLastContactTime[.right] = 0
+        lastFourPlusContactTime[.left] = -1
+        lastFourPlusContactTime[.right] = -1
+        lastFivePlusContactTime[.left] = -1
+        lastFivePlusContactTime[.right] = -1
         threeFingerSwipeState[.left] = DirectionalSwipeState()
         threeFingerSwipeState[.right] = DirectionalSwipeState()
         fourFingerSwipeState[.left] = DirectionalSwipeState()
@@ -2852,48 +2860,18 @@ actor TouchProcessorEngine {
 
     private func updateSideGestures(for side: TrackpadSide, touches: [OMSRawTouch], now: TimeInterval) {
         let summary = gestureContactSummary(in: touches)
+        if summary.count >= 4 {
+            lastFourPlusContactTime[side] = now
+        }
+        if summary.count >= 5 {
+            lastFivePlusContactTime[side] = now
+        }
         updateTwoFingerHold(for: side, summary: summary, now: now)
         updateThreeFingerHold(for: side, summary: summary, now: now)
         updateFourFingerHold(for: side, summary: summary, now: now)
-        updateDirectionalSwipe(
-            state: &threeFingerSwipeState[side],
-            side: side,
-            summary: summary,
-            armContacts: 3,
-            sustainContacts: 2,
-            releaseContacts: 1,
-            leftAction: threeFingerSwipeLeftAction,
-            rightAction: threeFingerSwipeRightAction,
-            upAction: threeFingerSwipeUpAction,
-            downAction: threeFingerSwipeDownAction,
-            now: now
-        )
-        updateDirectionalSwipe(
-            state: &fourFingerSwipeState[side],
-            side: side,
-            summary: summary,
-            armContacts: 4,
-            sustainContacts: 3,
-            releaseContacts: 1,
-            leftAction: fourFingerSwipeLeftAction,
-            rightAction: fourFingerSwipeRightAction,
-            upAction: fourFingerSwipeUpAction,
-            downAction: fourFingerSwipeDownAction,
-            now: now
-        )
-        updateDirectionalSwipe(
-            state: &fiveFingerSwipeState[side],
-            side: side,
-            summary: summary,
-            armContacts: 5,
-            sustainContacts: 4,
-            releaseContacts: 1,
-            leftAction: fiveFingerSwipeLeftAction,
-            rightAction: fiveFingerSwipeRightAction,
-            upAction: fiveFingerSwipeUpAction,
-            downAction: fiveFingerSwipeDownAction,
-            now: now
-        )
+        updateThreeFingerDirectionalSwipe(for: side, summary: summary, now: now)
+        updateFourFingerDirectionalSwipe(for: side, summary: summary, now: now)
+        updateFiveFingerDirectionalSwipe(for: side, summary: summary, now: now)
         updateSingleTouchShapeGestures(for: side, touches: touches, now: now)
         updateThreeFingerTap(for: side, summary: summary, now: now)
         updateMultiFingerClicks(for: side, summary: summary, now: now)
@@ -2905,6 +2883,8 @@ actor TouchProcessorEngine {
         threeFingerHoldState[side] = MultiFingerHoldState()
         fourFingerHoldState[side] = MultiFingerHoldState()
         chordShiftLastContactTime[side] = 0
+        lastFourPlusContactTime[side] = -1
+        lastFivePlusContactTime[side] = -1
         threeFingerSwipeState[side] = DirectionalSwipeState()
         fourFingerSwipeState[side] = DirectionalSwipeState()
         fiveFingerSwipeState[side] = DirectionalSwipeState()
@@ -3712,6 +3692,95 @@ actor TouchProcessorEngine {
         guard action.kind != .none else { return }
         state.triggered = true
         performGestureAction(action, now: now, side: side)
+    }
+
+    private func updateThreeFingerDirectionalSwipe(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        now: TimeInterval
+    ) {
+        if summary.count >= 4
+            || fourFingerSwipeState[side].active
+            || hadRecentFourPlusContact(on: side, now: now) {
+            threeFingerSwipeState[side] = DirectionalSwipeState()
+            return
+        }
+        updateDirectionalSwipe(
+            state: &threeFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 3,
+            sustainContacts: 2,
+            releaseContacts: 1,
+            leftAction: threeFingerSwipeLeftAction,
+            rightAction: threeFingerSwipeRightAction,
+            upAction: threeFingerSwipeUpAction,
+            downAction: threeFingerSwipeDownAction,
+            now: now
+        )
+    }
+
+    private func updateFourFingerDirectionalSwipe(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        now: TimeInterval
+    ) {
+        let fiveSwipeEnabled = fiveFingerSwipeLeftAction.kind != .none
+            || fiveFingerSwipeRightAction.kind != .none
+            || fiveFingerSwipeUpAction.kind != .none
+            || fiveFingerSwipeDownAction.kind != .none
+        if fiveSwipeEnabled,
+           (summary.count >= 5
+            || fiveFingerSwipeState[side].active
+            || hadRecentFivePlusContact(on: side, now: now)) {
+            fourFingerSwipeState[side] = DirectionalSwipeState()
+            return
+        }
+        updateDirectionalSwipe(
+            state: &fourFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 4,
+            sustainContacts: 3,
+            releaseContacts: 1,
+            leftAction: fourFingerSwipeLeftAction,
+            rightAction: fourFingerSwipeRightAction,
+            upAction: fourFingerSwipeUpAction,
+            downAction: fourFingerSwipeDownAction,
+            now: now
+        )
+    }
+
+    private func updateFiveFingerDirectionalSwipe(
+        for side: TrackpadSide,
+        summary: GestureContactSummary,
+        now: TimeInterval
+    ) {
+        updateDirectionalSwipe(
+            state: &fiveFingerSwipeState[side],
+            side: side,
+            summary: summary,
+            armContacts: 5,
+            sustainContacts: 4,
+            releaseContacts: 1,
+            leftAction: fiveFingerSwipeLeftAction,
+            rightAction: fiveFingerSwipeRightAction,
+            upAction: fiveFingerSwipeUpAction,
+            downAction: fiveFingerSwipeDownAction,
+            now: now
+        )
+    }
+
+    private func hadRecentFourPlusContact(on side: TrackpadSide, now: TimeInterval) -> Bool {
+        let last = lastFourPlusContactTime[side]
+        guard last >= 0 else { return false }
+        return now - last <= fourFingerDominanceSuppressSeconds
+    }
+
+    private func hadRecentFivePlusContact(on side: TrackpadSide, now: TimeInterval) -> Bool {
+        let last = lastFivePlusContactTime[side]
+        guard last >= 0 else { return false }
+        return now - last <= fiveFingerDominanceSuppressSeconds
     }
 
     private func updateSingleTouchShapeGestures(
