@@ -1959,10 +1959,10 @@ enum KeyActionCatalog {
     static let doubleClickLabel = "Double Click"
     static let rightClickLabel = "Right Click"
     static let middleClickLabel = "Middle Click"
-    static let volumeUpLabel = "VOL⬆️"
-    static let volumeDownLabel = "VOL⬇️"
-    static let brightnessUpLabel = "BRIGHT⬆️"
-    static let brightnessDownLabel = "BRIGHT⬇️"
+    static let volumeUpLabel = "VOL_UP"
+    static let volumeDownLabel = "VOL_DOWN"
+    static let brightnessUpLabel = "BRIGHT_UP"
+    static let brightnessDownLabel = "BRIGHT_DOWN"
     static let brightnessScriptUpLabel = "BRI_SCRIPT_UP"
     static let brightnessScriptDownLabel = "BRI_SCRIPT_DOWN"
     static let chordalShiftLabel = "Chordal Shift"
@@ -2301,13 +2301,9 @@ enum KeyActionCatalog {
                 middleClickLabel
             ]),
             (dashedHeader("System Controls"), [
-                "VOL_UP",
                 volumeUpLabel,
-                "VOL_DOWN",
                 volumeDownLabel,
-                "BRIGHT_UP",
                 brightnessUpLabel,
-                "BRIGHT_DOWN",
                 brightnessDownLabel,
                 brightnessScriptUpLabel,
                 brightnessScriptDownLabel
@@ -2430,13 +2426,13 @@ enum KeyActionCatalog {
             normalizedLabel = "Cmd"
         case "Right Option", "RightOption", "ROption", "RAlt":
             normalizedLabel = altGrLabel
-        case "VOL_UP":
+        case "VOL_UP", "VOL⬆️":
             normalizedLabel = volumeUpLabel
-        case "VOL_DOWN":
+        case "VOL_DOWN", "VOL⬇️":
             normalizedLabel = volumeDownLabel
-        case "BRIGHT_UP":
+        case "BRIGHT_UP", "BRIGHT⬆️":
             normalizedLabel = brightnessUpLabel
-        case "BRIGHT_DOWN":
+        case "BRIGHT_DOWN", "BRIGHT⬇️":
             normalizedLabel = brightnessDownLabel
         case "EmDash":
             normalizedLabel = "—"
@@ -2492,7 +2488,7 @@ enum KeyActionCatalog {
         }
         if normalizedLabel == volumeUpLabel {
             return KeyAction(
-                label: label,
+                label: normalizedLabel,
                 keyCode: 0,
                 flags: 0,
                 kind: .volumeUp
@@ -2500,7 +2496,7 @@ enum KeyActionCatalog {
         }
         if normalizedLabel == volumeDownLabel {
             return KeyAction(
-                label: label,
+                label: normalizedLabel,
                 keyCode: 0,
                 flags: 0,
                 kind: .volumeDown
@@ -2508,7 +2504,7 @@ enum KeyActionCatalog {
         }
         if normalizedLabel == brightnessUpLabel {
             return KeyAction(
-                label: label,
+                label: normalizedLabel,
                 keyCode: 0,
                 flags: 0,
                 kind: .brightnessUp
@@ -2524,7 +2520,7 @@ enum KeyActionCatalog {
         }
         if normalizedLabel == brightnessDownLabel {
             return KeyAction(
-                label: label,
+                label: normalizedLabel,
                 keyCode: 0,
                 flags: 0,
                 kind: .brightnessDown

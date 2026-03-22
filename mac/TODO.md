@@ -11,6 +11,7 @@
 
     
 ## TODO:
+- "Memory saver" doesn't keep Typing Toggle state from before restart???
 - FULLY adopt and ingest OMS framework with much tighter coupling into Mac glass the key
 - auto-reconnect not working correctly after sleep
 - .atpcap should capture keymap! that would be super helpful!
