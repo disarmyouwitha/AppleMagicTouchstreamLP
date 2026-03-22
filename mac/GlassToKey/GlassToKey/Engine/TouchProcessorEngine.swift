@@ -526,6 +526,7 @@ actor TouchProcessorEngine {
     private var dragCancelDistance: CGFloat = 2.5
     private var forceClickMin: Float = 0
     private var forceClickCap: Float = 255
+    private var forceClickThreshold: Float = Float(GlassToKeySettings.forceClickThreshold)
     private var snapRadiusFraction: Float = 0.35
     private let snapAmbiguityRatio: Float = 1.15
 #if DEBUG
@@ -881,7 +882,6 @@ actor TouchProcessorEngine {
     private let threeFingerTapMaxDuration: TimeInterval = 0.22
     private let threeFingerTapMaxMovementMm: CGFloat = 1.6
     private let cornerClickZoneThreshold: CGFloat = 0.283
-    private let cornerClickForceThreshold: Float = 125.0
     private let cornerClickMaxDuration: TimeInterval = 2.0
     private let forceClickMaxDuration: TimeInterval = 2.0
     private struct MultiFingerHoldState {
@@ -1070,6 +1070,10 @@ actor TouchProcessorEngine {
     func updateForceClickCap(_ grams: Double) {
         let clamped = Float(min(max(grams, 0), 255))
         forceClickCap = max(clamped, forceClickMin)
+    }
+
+    func updateForceClickThreshold(_ grams: Double) {
+        forceClickThreshold = Float(min(max(grams, 0), 255))
     }
 
     func updateHapticStrength(_ normalized: Double) {
@@ -3952,7 +3956,7 @@ actor TouchProcessorEngine {
         if !state.forceTriggeredForCurrentPress,
            action.kind != .none,
            let pressure = currentPeakPressureForSide(side),
-           pressure >= cornerClickForceThreshold {
+           pressure >= forceClickThreshold {
             state.forceTriggeredForCurrentPress = true
             state.repeatBindingId = bindingId
             performGestureAction(action, now: now, side: side, bindingId: bindingId)
@@ -4195,7 +4199,7 @@ actor TouchProcessorEngine {
                   cornerClickAction(for: corner).kind != .none else { return }
             state.active = true
             state.candidateValid = true
-            state.forceArmed = touch.pressure >= cornerClickForceThreshold
+            state.forceArmed = touch.pressure >= forceClickThreshold
             state.corner = corner
             state.startTime = now
             state.startX = point.x
@@ -4212,7 +4216,7 @@ actor TouchProcessorEngine {
             return
         }
         state.peakPressure = max(state.peakPressure, max(0, touch.pressure))
-        state.forceArmed = state.forceArmed || state.peakPressure >= cornerClickForceThreshold
+        state.forceArmed = state.forceArmed || state.peakPressure >= forceClickThreshold
         state.lastX = point.x
         state.lastY = point.y
         state.maxDistanceMm = max(state.maxDistanceMm, normalizedDistanceMm(from: CGPoint(x: state.startX, y: state.startY), to: point))

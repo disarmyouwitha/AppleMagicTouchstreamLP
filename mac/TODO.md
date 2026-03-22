@@ -1,9 +1,6 @@
 ## Current:
-- Move the following `Taps` into `Clicks` below "Bottom Right": "2-Finger Tap", "3-Finger Tap" and get rid of the Taps collapsable in Gestures. 
-- Add a gestureSubsectionHeader into `Clicks` between `Bottom Right` and `3-Finger Tap`
----
-- Shortcut Builder: Add to Dropdown (import/export compatible with windows/linux)
-- Force Clicks needs a slider where you set what force is Force.
+- Shortcut Builder: Add to Dropdown (import/export compatible with ../windows_linux) see how this is implemented there.
+- Force Clicks needs a slider where you set what force is Force. (Like in ../windows_linux please check it out)
 - Force Instead of Hold
 ------
 - Can we add colored highlights like "Shortcut Buiilder" for each of the Gesture sub-collapsables? Can you make them each different colors?

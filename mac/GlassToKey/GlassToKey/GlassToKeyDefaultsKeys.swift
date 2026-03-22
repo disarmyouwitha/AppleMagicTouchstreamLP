@@ -12,6 +12,7 @@ enum GlassToKeyDefaultsKeys {
     static let dragCancelDistance = "GlassToKey.dragCancelDistance"
     static let forceClickMin = "GlassToKey.forceClickMin"
     static let forceClickCap = "GlassToKey.forceClickCap"
+    static let forceClickThreshold = "GlassToKey.forceClickThreshold"
     static let hapticStrength = "GlassToKey.hapticStrength"
     static let typingGraceMs = "GlassToKey.typingGraceMs"
     static let intentMoveThresholdMm = "GlassToKey.intentMoveThresholdMm"

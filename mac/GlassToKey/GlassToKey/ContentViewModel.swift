@@ -1113,6 +1113,10 @@ final class ContentViewModel: ObservableObject {
         runtimeCommandService.updateForceClickMin(grams)
     }
 
+    func updateForceClickThreshold(_ grams: Double) {
+        runtimeCommandService.updateForceClickThreshold(grams)
+    }
+
     func updateHapticStrength(_ normalized: Double) {
         runtimeCommandService.updateHapticStrength(normalized)
     }
@@ -2960,6 +2964,7 @@ struct AppKeymapProfile: Codable {
     let dragCancelDistance: Double
     let forceClickMin: Double?
     let forceClickCap: Double
+    let forceClickThreshold: Double
     let hapticStrength: Double
     let typingGraceMs: Double
     let intentMoveThresholdMm: Double
@@ -3033,6 +3038,7 @@ struct AppKeymapProfile: Codable {
             dragCancelDistance: GlassToKeySettings.dragCancelDistanceMm,
             forceClickMin: GlassToKeySettings.forceClickMin,
             forceClickCap: GlassToKeySettings.forceClickCap,
+            forceClickThreshold: GlassToKeySettings.forceClickThreshold,
             hapticStrength: GlassToKeySettings.hapticStrengthPercent,
             typingGraceMs: GlassToKeySettings.typingGraceMs,
             intentMoveThresholdMm: GlassToKeySettings.intentMoveThresholdMm,
@@ -3202,6 +3208,10 @@ enum PortableKeymapInterop {
             dragCancelDistance: settings.dragCancelMm ?? currentProfile.dragCancelDistance,
             forceClickMin: Double(settings.forceMin ?? Int(currentProfile.forceClickMin ?? GlassToKeySettings.forceClickMin)),
             forceClickCap: Double(settings.forceCap ?? Int(currentProfile.forceClickCap)),
+            forceClickThreshold: Double(
+                settings.forceClickThreshold
+                    ?? Int(currentProfile.forceClickThreshold)
+            ),
             hapticStrength: currentProfile.hapticStrength,
             typingGraceMs: settings.typingGraceMs ?? currentProfile.typingGraceMs,
             intentMoveThresholdMm: settings.intentMoveMm ?? currentProfile.intentMoveThresholdMm,
@@ -3280,6 +3290,7 @@ enum PortableKeymapInterop {
                 dragCancelDistance: profile.dragCancelDistance,
                 forceClickMin: profile.forceClickMin,
                 forceClickCap: profile.forceClickCap,
+                forceClickThreshold: hostExtension.forceClickThreshold ?? profile.forceClickThreshold,
                 hapticStrength: hostExtension.hapticStrength ?? profile.hapticStrength,
                 typingGraceMs: profile.typingGraceMs,
                 intentMoveThresholdMm: profile.intentMoveThresholdMm,
@@ -3441,6 +3452,7 @@ enum PortableKeymapInterop {
             dragCancelDistance: profile.dragCancelDistance,
             forceClickMin: profile.forceClickMin,
             forceClickCap: profile.forceClickCap,
+            forceClickThreshold: profile.forceClickThreshold,
             hapticStrength: profile.hapticStrength,
             typingGraceMs: profile.typingGraceMs,
             intentMoveThresholdMm: profile.intentMoveThresholdMm,
@@ -3613,6 +3625,7 @@ enum PortableKeymapInterop {
         var twoFingerTapGestureAction: String?
         var threeFingerTapGestureAction: String?
         var tapClickCadenceMs: Double?
+        var forceClickThreshold: Double?
         var hapticStrength: Double?
 
         init(profile: AppKeymapProfile) {
@@ -3623,6 +3636,7 @@ enum PortableKeymapInterop {
             twoFingerTapGestureAction = profile.twoFingerTapGestureAction
             threeFingerTapGestureAction = profile.threeFingerTapGestureAction
             tapClickCadenceMs = profile.tapClickCadenceMs
+            forceClickThreshold = profile.forceClickThreshold
             hapticStrength = profile.hapticStrength
         }
 
@@ -3634,6 +3648,7 @@ enum PortableKeymapInterop {
             case twoFingerTapGestureAction = "TwoFingerTapGestureAction"
             case threeFingerTapGestureAction = "ThreeFingerTapGestureAction"
             case tapClickCadenceMs = "TapClickCadenceMs"
+            case forceClickThreshold = "ForceClickThreshold"
             case hapticStrength = "HapticStrength"
         }
     }
@@ -3699,6 +3714,7 @@ enum PortableKeymapInterop {
         var keyPaddingPercentByLayout: [String: Double]?
         var forceMin: Int?
         var forceCap: Int?
+        var forceClickThreshold: Int?
         var columnSettingsByLayout: [String: [ColumnLayoutSettings]]?
         var columnSettings: [ColumnLayoutSettings]?
 
@@ -3768,6 +3784,7 @@ enum PortableKeymapInterop {
             }
             forceMin = Int(profile.forceClickMin ?? GlassToKeySettings.forceClickMin)
             forceCap = Int(profile.forceClickCap)
+            forceClickThreshold = Int(profile.forceClickThreshold)
             columnSettingsByLayout = profile.columnSettingsByLayout.reduce(into: [:]) { result, entry in
                 result[portableLayoutName(fromMac: entry.key)] = entry.value
             }
@@ -3835,6 +3852,7 @@ enum PortableKeymapInterop {
             case keyPaddingPercentByLayout = "KeyPaddingPercentByLayout"
             case forceMin = "ForceMin"
             case forceCap = "ForceCap"
+            case forceClickThreshold = "ForceClickThreshold"
             case columnSettingsByLayout = "ColumnSettingsByLayout"
             case columnSettings = "ColumnSettings"
         }

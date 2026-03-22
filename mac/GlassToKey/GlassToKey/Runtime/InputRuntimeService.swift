@@ -389,6 +389,13 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateForceClickThreshold(_ grams: Double) {
+        let runtimeEngine = runtimeEngine
+        Task {
+            await runtimeEngine.updateForceClickThreshold(grams)
+        }
+    }
+
     func updateHapticStrength(_ normalized: Double) {
         let runtimeEngine = runtimeEngine
         Task {

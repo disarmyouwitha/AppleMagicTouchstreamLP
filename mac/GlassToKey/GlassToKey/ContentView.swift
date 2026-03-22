@@ -94,6 +94,7 @@ struct ContentView: View {
     @AppStorage(GlassToKeyDefaultsKeys.dragCancelDistance) private var dragCancelDistanceSetting: Double = GlassToKeySettings.dragCancelDistanceMm
     @AppStorage(GlassToKeyDefaultsKeys.forceClickMin) private var forceClickMinSetting: Double = GlassToKeySettings.forceClickMin
     @AppStorage(GlassToKeyDefaultsKeys.forceClickCap) private var forceClickCapSetting: Double = GlassToKeySettings.forceClickCap
+    @AppStorage(GlassToKeyDefaultsKeys.forceClickThreshold) private var forceClickThresholdSetting: Double = GlassToKeySettings.forceClickThreshold
     @AppStorage(GlassToKeyDefaultsKeys.hapticStrength) private var hapticStrengthSetting: Double = GlassToKeySettings.hapticStrengthPercent
     @AppStorage(GlassToKeyDefaultsKeys.typingGraceMs) private var typingGraceMsSetting: Double = GlassToKeySettings.typingGraceMs
     @AppStorage(GlassToKeyDefaultsKeys.intentMoveThresholdMm)
@@ -685,6 +686,14 @@ struct ContentView: View {
                 }
                 viewModel.updateForceClickCap(clamped)
             }
+            .onChange(of: forceClickThresholdSetting) { newValue in
+                let clamped = min(max(newValue, Self.forceClickRange.lowerBound), Self.forceClickRange.upperBound)
+                if clamped != newValue {
+                    forceClickThresholdSetting = clamped
+                    return
+                }
+                viewModel.updateForceClickThreshold(clamped)
+            }
             .onChange(of: hapticStrengthSetting) { newValue in
                 viewModel.updateHapticStrength(newValue / 100.0)
             }
@@ -924,6 +933,7 @@ struct ContentView: View {
             dragCancelDistanceSetting: $dragCancelDistanceSetting,
             forceClickMinSetting: $forceClickMinSetting,
             forceClickCapSetting: $forceClickCapSetting,
+            forceClickThresholdSetting: $forceClickThresholdSetting,
             hapticStrengthSetting: $hapticStrengthSetting,
             typingGraceMsSetting: $typingGraceMsSetting,
             intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
@@ -1351,6 +1361,7 @@ struct ContentView: View {
         @Binding var dragCancelDistanceSetting: Double
         @Binding var forceClickMinSetting: Double
         @Binding var forceClickCapSetting: Double
+        @Binding var forceClickThresholdSetting: Double
         @Binding var hapticStrengthSetting: Double
         @Binding var typingGraceMsSetting: Double
         @Binding var intentMoveThresholdMmSetting: Double
@@ -1522,6 +1533,7 @@ struct ContentView: View {
                                 lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
                                 threeFingerClickGestureAction: $threeFingerClickGestureAction,
                                 fourFingerClickGestureAction: $fourFingerClickGestureAction,
+                                forceClickThresholdSetting: $forceClickThresholdSetting,
                                 topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
                                 topRightForceClickGestureAction: $topRightForceClickGestureAction,
                                 bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
@@ -3512,6 +3524,7 @@ struct ContentView: View {
         @Binding var lowerRightCornerClickGestureAction: String
         @Binding var threeFingerClickGestureAction: String
         @Binding var fourFingerClickGestureAction: String
+        @Binding var forceClickThresholdSetting: Double
         @Binding var topLeftForceClickGestureAction: String
         @Binding var topRightForceClickGestureAction: String
         @Binding var bottomLeftForceClickGestureAction: String
@@ -3781,6 +3794,24 @@ struct ContentView: View {
                     topSpacing: 4
                 ) {
                     VStack(alignment: .leading, spacing: 0) {
+                        EqualSplitFormRow {
+                            Text("Force Threshold")
+                        } field: {
+                            HStack(spacing: 8) {
+                                Slider(
+                                    value: $forceClickThresholdSetting,
+                                    in: ContentView.forceClickRange,
+                                    step: 1
+                                )
+                                .frame(maxWidth: .infinity)
+                                Text(
+                                    "\(Int(forceClickThresholdSetting.rounded()))"
+                                )
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, alignment: .trailing)
+                            }
+                        }
                         gesturePicker("Top Left", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topLeftForceClick)
                         gesturePicker("Top Right", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topRightForceClick)
                         gesturePicker("Bottom Left", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftForceClick)
@@ -4597,8 +4628,13 @@ struct ContentView: View {
             max(forceClickCapSetting, forceClickMinSetting),
             Self.forceClickRange.upperBound
         )
+        forceClickThresholdSetting = min(
+            max(forceClickThresholdSetting, Self.forceClickRange.lowerBound),
+            Self.forceClickRange.upperBound
+        )
         viewModel.updateForceClickMin(forceClickMinSetting)
         viewModel.updateForceClickCap(forceClickCapSetting)
+        viewModel.updateForceClickThreshold(forceClickThresholdSetting)
         viewModel.updateHapticStrength(hapticStrengthSetting / 100.0)
         viewModel.updateTypingGraceMs(typingGraceMsSetting)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMmSetting)
@@ -4619,6 +4655,7 @@ struct ContentView: View {
         dragCancelDistanceSetting = GlassToKeySettings.dragCancelDistanceMm
         forceClickMinSetting = GlassToKeySettings.forceClickMin
         forceClickCapSetting = GlassToKeySettings.forceClickCap
+        forceClickThresholdSetting = GlassToKeySettings.forceClickThreshold
         hapticStrengthSetting = GlassToKeySettings.hapticStrengthPercent
         typingGraceMsSetting = GlassToKeySettings.typingGraceMs
         intentMoveThresholdMmSetting = GlassToKeySettings.intentMoveThresholdMm
@@ -4796,6 +4833,7 @@ struct ContentView: View {
             dragCancelDistance: dragCancelDistanceSetting,
             forceClickMin: forceClickMinSetting,
             forceClickCap: forceClickCapSetting,
+            forceClickThreshold: forceClickThresholdSetting,
             hapticStrength: hapticStrengthSetting,
             typingGraceMs: typingGraceMsSetting,
             intentMoveThresholdMm: intentMoveThresholdMmSetting,
@@ -4882,6 +4920,7 @@ struct ContentView: View {
         dragCancelDistanceSetting = profile.dragCancelDistance
         forceClickMinSetting = profile.forceClickMin ?? GlassToKeySettings.forceClickMin
         forceClickCapSetting = profile.forceClickCap
+        forceClickThresholdSetting = profile.forceClickThreshold
         hapticStrengthSetting = profile.hapticStrength
         typingGraceMsSetting = profile.typingGraceMs
         intentMoveThresholdMmSetting = profile.intentMoveThresholdMm
