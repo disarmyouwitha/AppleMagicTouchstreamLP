@@ -1,6 +1,4 @@
 ## TODO:
-- Make sure `Screenshot` permenant shortcut gets added for all OS
-- Make sure `Linux GUI` style colors under Gesture match Windows
 - Better `Action Dropdown` like mac...
 
 ## ICONIC:
