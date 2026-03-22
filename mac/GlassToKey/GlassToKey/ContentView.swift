@@ -69,6 +69,9 @@ struct ContentView: View {
     @State private var buttonInspectorSelection: ButtonInspectorSelection?
     @State private var keyInspectorSelection: KeyInspectorSelection?
     @State private var inspectorSelectionRevision = 0
+    @State private var primaryActionGroups = KeyActionCatalog.primaryActionGroups
+    @State private var holdActionGroups = KeyActionCatalog.holdActionGroups
+    @State private var gestureActionGroups = KeyActionCatalog.primaryActionGroups
     @State private var keyMappingsByLayer: LayeredKeyMappings = [:]
     @State private var keyMappingsByLayout: LayoutLayeredKeyMappings = [:]
     @State private var keyGeometryOverrides: KeyGeometryOverrides = [:]
@@ -579,6 +582,7 @@ struct ContentView: View {
         content
             .onAppear {
                 applySavedSettings()
+                refreshActionGroupCaches()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
                 viewModel.setKeymapEditingEnabled(editModeEnabled)
                 AutocorrectEngine.shared.setStatusUpdateHandler { snapshot in
@@ -616,6 +620,7 @@ struct ContentView: View {
                 saveCustomButtons(newValue)
                 viewModel.updateCustomButtons(newValue)
                 refreshButtonInspectorSelection()
+                refreshActionGroupCaches()
             }
             .onChange(of: viewModel.activeLayer) { _ in
                 selectedButtonID = nil
@@ -627,6 +632,10 @@ struct ContentView: View {
                 viewModel.updateKeyMappings(newValue)
                 updateGridLabelInfo()
                 refreshKeyInspectorSelection()
+                refreshActionGroupCaches()
+            }
+            .onChange(of: keyMappingsByLayout) { _ in
+                refreshActionGroupCaches()
             }
             .onChange(of: keyGeometryOverrides) { newValue in
                 saveKeyGeometryOverrides(newValue)
@@ -714,6 +723,10 @@ struct ContentView: View {
             }
             .onChange(of: gestureSettingsSignature) { _ in
                 applyCurrentGestureActions()
+                refreshActionGroupCaches()
+            }
+            .onChange(of: storedCustomButtonsData) { _ in
+                refreshActionGroupCaches()
             }
             .onChange(of: storedAutoResyncMissingTrackpads) { newValue in
                 viewModel.setAutoResyncEnabled(newValue)
@@ -1001,16 +1014,10 @@ struct ContentView: View {
         )
     }
 
-    private var primaryActionGroups: [KeyActionCatalog.ActionGroup] {
-        mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
-    }
-
-    private var holdActionGroups: [KeyActionCatalog.ActionGroup] {
-        mergedActionGroups(baseGroups: KeyActionCatalog.holdActionGroups)
-    }
-
-    private var gestureActionGroups: [KeyActionCatalog.ActionGroup] {
-        mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
+    private func refreshActionGroupCaches() {
+        primaryActionGroups = mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
+        holdActionGroups = mergedActionGroups(baseGroups: KeyActionCatalog.holdActionGroups)
+        gestureActionGroups = mergedActionGroups(baseGroups: KeyActionCatalog.primaryActionGroups)
     }
 
     private func mergedActionGroups(
@@ -2463,6 +2470,9 @@ struct ContentView: View {
         }
 
         var body: some View {
+            let primaryGroups = actionGroups(for: selectedPrimaryAction, hold: false)
+            let holdGroups = actionGroups(for: selectedHoldAction, hold: true)
+
             VStack(alignment: .leading, spacing: 10) {
                 EqualSplitFormRow {
                     Text("Layer")
@@ -2480,8 +2490,8 @@ struct ContentView: View {
                     Text("Primary Action")
                 } field: {
                     Picker("", selection: primaryActionBinding) {
-                        ForEach(actionGroups(for: selectedPrimaryAction, hold: false).indices, id: \.self) { index in
-                            let group = actionGroups(for: selectedPrimaryAction, hold: false)[index]
+                        ForEach(primaryGroups.indices, id: \.self) { index in
+                            let group = primaryGroups[index]
                             ContentView.pickerGroupHeader(group.title)
                             ForEach(group.actions, id: \.self) { action in
                                 ContentView.pickerLabel(for: action).tag(action)
@@ -2497,8 +2507,8 @@ struct ContentView: View {
                     Text("Hold Action")
                 } field: {
                     Picker("", selection: holdActionBinding) {
-                        ForEach(actionGroups(for: selectedHoldAction, hold: true).indices, id: \.self) { index in
-                            let group = actionGroups(for: selectedHoldAction, hold: true)[index]
+                        ForEach(holdGroups.indices, id: \.self) { index in
+                            let group = holdGroups[index]
                             ContentView.pickerGroupHeader(group.title)
                             ForEach(group.actions, id: \.self) { action in
                                 ContentView.pickerLabel(for: action).tag(action as KeyAction?)
