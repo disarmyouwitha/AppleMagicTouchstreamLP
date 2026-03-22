@@ -149,8 +149,9 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let mediaKeyDownState = Int32(0xA)
     private static let mediaKeyUpState = Int32(0xB)
     private static let mediaKeySubtype: Int16 = 8
-    private static let mediaModifierFlags = NSEvent.ModifierFlags(rawValue: 0xA00)
-    private static let mediaTapDwellSeconds: TimeInterval = 0.012
+    private static let mediaKeyDownFlags = NSEvent.ModifierFlags(rawValue: 0xA00)
+    private static let mediaKeyUpFlags = NSEvent.ModifierFlags(rawValue: 0xB00)
+    private static let mediaTapDwellSeconds: TimeInterval = 0.001
 
     private let queue = DispatchQueue(
         label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
@@ -482,7 +483,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         guard let event = NSEvent.otherEvent(
             with: .systemDefined,
             location: .zero,
-            modifierFlags: Self.mediaModifierFlags,
+            modifierFlags: keyDown ? Self.mediaKeyDownFlags : Self.mediaKeyUpFlags,
             timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: 0,
             context: nil,
@@ -492,7 +493,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         )?.cgEvent else {
             return
         }
-        event.post(tap: .cghidEventTap)
+        event.post(tap: .cgSessionEventTap)
     }
 
     @inline(__always)
