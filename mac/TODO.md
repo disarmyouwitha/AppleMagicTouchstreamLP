@@ -1,7 +1,3 @@
-## Current:
-- Add "Screenshot" shortcut to the dropdown that calls the official shortcut on each os: windows:win+shift+s, mac:cmd+shift+4, Linux equivalent?
-
-    
 ## TODO:
 - `Typing feels` bad bro.. did we re-introduce that 2-key buffer before typing?
 - FULLY adopt and `ingest OMS framework` with much `tighter coupling` into Mac glass the key; Change ./release to simplify notorizing and signing since we wont have nested frameworks!
