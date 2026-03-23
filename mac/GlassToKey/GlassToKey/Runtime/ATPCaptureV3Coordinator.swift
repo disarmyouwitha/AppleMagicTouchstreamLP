@@ -1,6 +1,5 @@
 import Dispatch
 import Foundation
-import OpenMultitouchSupport
 import os
 
 enum ATPCaptureV3Codec {

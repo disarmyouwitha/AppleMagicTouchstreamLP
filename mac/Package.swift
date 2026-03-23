@@ -13,6 +13,10 @@ let package = Package(
     ],
     products: [
         .library(
+            name: "OpenMultitouchSupportBridge",
+            targets: ["OpenMultitouchSupportXCF"]
+        ),
+        .library(
             name: "OpenMultitouchSupport",
             targets: ["OpenMultitouchSupport"]
         ),

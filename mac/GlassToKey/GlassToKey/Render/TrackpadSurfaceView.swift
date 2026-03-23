@@ -1,5 +1,4 @@
 import AppKit
-import OpenMultitouchSupport
 import SwiftUI
 import QuartzCore
 

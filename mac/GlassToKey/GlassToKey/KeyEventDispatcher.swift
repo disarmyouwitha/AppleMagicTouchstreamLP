@@ -2,7 +2,6 @@ import AppKit
 import Carbon
 import CoreGraphics
 import Foundation
-import OpenMultitouchSupport
 import os
 
 final class KeyEventDispatcher: @unchecked Sendable {

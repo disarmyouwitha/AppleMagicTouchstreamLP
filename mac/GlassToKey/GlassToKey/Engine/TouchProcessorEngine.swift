@@ -3,7 +3,6 @@ import Dispatch
 import CoreGraphics
 import Darwin
 import Foundation
-import OpenMultitouchSupport
 import QuartzCore
 import os
 
@@ -1211,8 +1210,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
             updateChordShiftKeyState()
         }
-        let leftTouches = isLeftDevice ? touches : []
-        let rightTouches = isRightDevice ? touches : []
+        let leftTouches = isLeftDevice ? touches : OMSRawTouchBufferView.empty
+        let rightTouches = isRightDevice ? touches : OMSRawTouchBufferView.empty
         let leftBindings = bindings(
             for: .left,
             layout: leftLayout,
@@ -1372,8 +1371,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         customButtonsByLayerAndSide[layer]?[side] ?? []
     }
 
-    private func processTouches(
-        _ touches: [OMSRawTouch],
+    private func processTouches<Touches: RandomAccessCollection>(
+        _ touches: Touches,
         deviceIndex: Int,
         bindings: BindingIndex,
         layout: Layout,
@@ -1381,7 +1380,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         isLeftSide: Bool,
         now: TimeInterval,
         intentAllowsTyping: Bool
-    ) {
+    ) where Touches.Element == OMSRawTouch {
         #if DEBUG
         let signpostID = signposter.makeSignpostID()
         let state = signposter.beginInterval(
@@ -2899,7 +2898,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
     }
 
-    private func gestureContactSummary(in touches: [OMSRawTouch]) -> GestureContactSummary {
+    private func gestureContactSummary<Touches: Sequence>(
+        in touches: Touches
+    ) -> GestureContactSummary where Touches.Element == OMSRawTouch {
         var count = 0
         var sumX: CGFloat = 0
         var sumY: CGFloat = 0
@@ -2917,7 +2918,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    private func updateSideGestures(for side: TrackpadSide, touches: [OMSRawTouch], now: TimeInterval) {
+    private func updateSideGestures<Touches: Sequence>(
+        for side: TrackpadSide,
+        touches: Touches,
+        now: TimeInterval
+    ) where Touches.Element == OMSRawTouch {
         let summary = gestureContactSummary(in: touches)
         if summary.count >= 4 {
             lastFourPlusContactTime[side] = now
@@ -3194,15 +3199,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
         postKey(binding: shiftBinding, keyDown: shouldBeDown)
     }
 
-    private func updateIntent(
-        leftTouches: [OMSRawTouch],
-        rightTouches: [OMSRawTouch],
+    private func updateIntent<Touches: RandomAccessCollection>(
+        leftTouches: Touches,
+        rightTouches: Touches,
         leftDeviceIndex: Int?,
         rightDeviceIndex: Int?,
         now: TimeInterval,
         leftBindings: BindingIndex,
         rightBindings: BindingIndex
-    ) -> Bool {
+    ) -> Bool where Touches.Element == OMSRawTouch {
         framePointCache.removeAll(keepingCapacity: true)
         guard trackpadSize.width > 0,
               trackpadSize.height > 0 else {
@@ -3228,9 +3233,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    private func updateIntentGlobal(
-        leftTouches: [OMSRawTouch],
-        rightTouches: [OMSRawTouch],
+    private func updateIntentGlobal<Touches: RandomAccessCollection>(
+        leftTouches: Touches,
+        rightTouches: Touches,
         leftDeviceIndex: Int?,
         rightDeviceIndex: Int?,
         leftBindings: BindingIndex,
@@ -3240,7 +3245,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         velocityThreshold: CGFloat,
         unitsPerMm: CGFloat,
         bindingCacheBySide: inout SidePair<TouchTable<KeyBinding>>
-    ) -> Bool {
+    ) -> Bool where Touches.Element == OMSRawTouch {
         var state = intentState
         let graceActive = isTypingGraceActive(now: now)
         let keyboardOnly = keyboardModeEnabled && isTypingEnabled
@@ -3894,11 +3899,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         return now - last <= fiveFingerDominanceSuppressSeconds
     }
 
-    private func updateSingleTouchShapeGestures(
+    private func updateSingleTouchShapeGestures<Touches: Sequence>(
         for side: TrackpadSide,
-        touches: [OMSRawTouch],
+        touches: Touches,
         now: TimeInterval
-    ) {
+    ) where Touches.Element == OMSRawTouch {
         let contactTouches = touches.filter { Self.isContactState($0.state) }
         let singleTouch = contactTouches.count == 1 ? contactTouches[0] : nil
         updateEdgeSlide(for: side, touch: singleTouch, now: now)
@@ -4737,10 +4742,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    private func outerCornersHoldSide(
-        leftTouches: [OMSRawTouch],
-        rightTouches: [OMSRawTouch]
-    ) -> TrackpadSide? {
+    private func outerCornersHoldSide<Touches: Sequence>(
+        leftTouches: Touches,
+        rightTouches: Touches
+    ) -> TrackpadSide? where Touches.Element == OMSRawTouch {
         var leftContactCount = 0
         var topNearLeftEdge = false
         var bottomNearLeftEdge = false
@@ -4788,10 +4793,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         return nil
     }
 
-    private func innerCornersHoldSide(
-        leftTouches: [OMSRawTouch],
-        rightTouches: [OMSRawTouch]
-    ) -> TrackpadSide? {
+    private func innerCornersHoldSide<Touches: Sequence>(
+        leftTouches: Touches,
+        rightTouches: Touches
+    ) -> TrackpadSide? where Touches.Element == OMSRawTouch {
         var leftContactCount = 0
         var topNearRightEdge = false
         var bottomNearRightEdge = false

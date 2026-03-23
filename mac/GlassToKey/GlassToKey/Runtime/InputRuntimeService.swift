@@ -1,6 +1,5 @@
 import CoreGraphics
 import Foundation
-import OpenMultitouchSupport
 import os
 
 final class InputRuntimeService: @unchecked Sendable {
@@ -434,12 +433,16 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         self.renderSnapshotService = renderSnapshotService
         self.runtimeEngine = runtimeEngine
         self.runtimeCommandService = runtimeCommandService
+        runtimeEngine.setLiveRenderSnapshotHandler { [renderSnapshotService] renderSnapshot in
+            _ = renderSnapshotService.publish(renderSnapshot)
+        }
         inputRuntimeService.setLiveFrameHandler { [weak self] rawFrame in
             self?.handleLiveFrame(rawFrame)
         }
     }
 
     deinit {
+        runtimeEngine.setLiveRenderSnapshotHandler(nil)
         inputRuntimeService.setLiveFrameHandler(nil)
     }
 
@@ -448,9 +451,7 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         runtimeEngine.ingestLive(
             rawFrame,
             captureRenderSnapshot: shouldCaptureRenderSnapshot
-        ) { [renderSnapshotService] renderSnapshot in
-            _ = renderSnapshotService.publish(renderSnapshot)
-        }
+        )
     }
 
     @discardableResult

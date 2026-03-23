@@ -1,17 +1,19 @@
 import Dispatch
 import Foundation
 import CoreGraphics
-import OpenMultitouchSupport
+import os
 
 protocol EngineActorBoundary: Sendable {
     func ingest(
         _ frame: RuntimeRawFrame,
         captureRenderSnapshot: Bool
     ) async -> RuntimeRenderSnapshot?
+    func setLiveRenderSnapshotHandler(
+        _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
+    )
     func ingestLive(
         _ frame: OMSRawTouchFrame,
-        captureRenderSnapshot: Bool,
-        onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
+        captureRenderSnapshot: Bool
     )
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
@@ -53,11 +55,32 @@ protocol EngineActorBoundary: Sendable {
 }
 
 final class EngineActor: EngineActorBoundary, @unchecked Sendable {
+    private struct PendingLiveFrame {
+        var frame: OMSRawTouchFrame
+        var captureRenderSnapshot: Bool
+    }
+
+    private struct LiveRingState {
+        static let capacity = 256
+
+        var slots: [PendingLiveFrame?] = Array(repeating: nil, count: capacity)
+        var readIndex = 0
+        var writeIndex = 0
+        var count = 0
+        var drainScheduled = false
+    }
+
     private let queue: DispatchQueue
     private var latestRender = RuntimeRenderSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
     private let processor: TouchProcessorEngine
+    private let liveRingLock = OSAllocatedUnfairLock<LiveRingState>(
+        uncheckedState: LiveRingState()
+    )
+    private let liveRenderSnapshotHandlerLock = OSAllocatedUnfairLock<((RuntimeRenderSnapshot) -> Void)?>(
+        uncheckedState: nil
+    )
 
     init(
         dispatchService: DispatchService = .shared,
@@ -97,24 +120,48 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         }
     }
 
+    func setLiveRenderSnapshotHandler(
+        _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
+    ) {
+        liveRenderSnapshotHandlerLock.withLockUnchecked { $0 = handler }
+    }
+
     func ingestLive(
         _ frame: OMSRawTouchFrame,
-        captureRenderSnapshot: Bool,
-        onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
+        captureRenderSnapshot: Bool
     ) {
-        queue.async { [weak self, frame] in
-            guard let self else {
-                frame.release()
-                return
+        enum EnqueueResult {
+            case scheduled
+            case queued
+            case dropped
+        }
+
+        let result = liveRingLock.withLockUnchecked { state -> EnqueueResult in
+            guard state.count < state.slots.count else {
+                return .dropped
             }
-            defer { frame.release() }
-            guard let renderSnapshot = self.processIngest(
-                frame,
+            state.slots[state.writeIndex] = PendingLiveFrame(
+                frame: frame,
                 captureRenderSnapshot: captureRenderSnapshot
-            ) else {
-                return
+            )
+            state.writeIndex = (state.writeIndex + 1) % state.slots.count
+            state.count += 1
+            guard !state.drainScheduled else {
+                return .queued
             }
-            onRenderSnapshot(renderSnapshot)
+            state.drainScheduled = true
+            return .scheduled
+        }
+
+        switch result {
+        case .scheduled:
+            queue.async { [weak self] in
+                self?.drainLiveFrames()
+            }
+        case .queued:
+            return
+        case .dropped:
+            frame.release()
         }
     }
 
@@ -309,6 +356,32 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             queue.async {
                 continuation.resume(returning: work())
             }
+        }
+    }
+
+    private func drainLiveFrames() {
+        let renderSnapshotHandler = liveRenderSnapshotHandlerLock.withLockUnchecked { $0 }
+        while true {
+            let pending = liveRingLock.withLockUnchecked { state -> PendingLiveFrame? in
+                guard state.count > 0 else {
+                    state.drainScheduled = false
+                    return nil
+                }
+                let next = state.slots[state.readIndex]
+                state.slots[state.readIndex] = nil
+                state.readIndex = (state.readIndex + 1) % state.slots.count
+                state.count -= 1
+                return next
+            }
+            guard let pending else { return }
+            defer { pending.frame.release() }
+            guard let renderSnapshot = processIngest(
+                pending.frame,
+                captureRenderSnapshot: pending.captureRenderSnapshot
+            ) else {
+                continue
+            }
+            renderSnapshotHandler?(renderSnapshot)
         }
     }
 

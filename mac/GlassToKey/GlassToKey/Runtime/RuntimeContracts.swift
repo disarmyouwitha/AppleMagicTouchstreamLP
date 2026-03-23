@@ -1,6 +1,5 @@
 import Foundation
 import CoreGraphics
-import OpenMultitouchSupport
 
 enum RuntimeDispatchEventKind: Sendable {
     case keyDown(code: CGKeyCode, flags: CGEventFlags)
@@ -58,7 +57,7 @@ extension RuntimeRawFrame {
         self.timestamp = frame.timestamp
         self.deviceNumericID = frame.deviceIDNumeric
         self.deviceIndex = frame.deviceIndex
-        self.rawTouches = frame.touches
+        self.rawTouches = Array(frame.touches)
         self.contacts = frame.touches.map { touch in
             return RuntimeRawContact(
                 id: touch.id,

@@ -1,4 +1,3 @@
-import OpenMultitouchSupport
 import SwiftUI
 
 enum GlassToKeySettings {

@@ -10,7 +10,6 @@ import CoreGraphics
 import Darwin
 import Foundation
 import IOKit.hidsystem
-import OpenMultitouchSupport
 import QuartzCore
 import SwiftUI
 import os
