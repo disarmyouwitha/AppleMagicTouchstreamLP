@@ -1,6 +1,8 @@
 ## TODO:
+- Please research our current code base for Mac I want to FULLY adopt and `ingest OMS framework` with much `tighter coupling` into Mac GlassToKey; 
+- Provide me a detail analysis of the plan.
+- Once we are done Change ./release to simplify notorizing and signing since we wont have nested frameworks!
 - `Typing feels` bad bro.. did we re-introduce that 2-key buffer before typing?
-- FULLY adopt and `ingest OMS framework` with much `tighter coupling` into Mac glass the key; Change ./release to simplify notorizing and signing since we wont have nested frameworks!
 -------
 - Can we fix 'xcode' builds dispatching keys? this testing process suuuucks
 ---
