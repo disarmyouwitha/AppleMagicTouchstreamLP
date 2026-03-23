@@ -11,7 +11,6 @@ import Darwin
 import Foundation
 import IOKit.hidsystem
 import OpenMultitouchSupport
-import OpenMultitouchSupportXCF
 import QuartzCore
 import SwiftUI
 import os

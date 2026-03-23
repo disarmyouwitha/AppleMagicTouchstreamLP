@@ -1,7 +1,6 @@
 import Foundation
 import CoreGraphics
 import OpenMultitouchSupport
-import OpenMultitouchSupportXCF
 
 enum RuntimeIntentMode: String, Sendable {
     case idle
@@ -82,8 +81,7 @@ extension RuntimeRawFrame {
         self.deviceNumericID = frame.deviceIDNumeric
         self.deviceIndex = frame.deviceIndex
         self.rawTouches = frame.touches
-        self.contacts = frame.touches.compactMap { touch in
-            guard let state = Self.mapState(touch.state) else { return nil }
+        self.contacts = frame.touches.map { touch in
             return RuntimeRawContact(
                 id: touch.id,
                 posX: touch.posX,
@@ -93,31 +91,8 @@ extension RuntimeRawFrame {
                 minorAxis: touch.minorAxis,
                 angle: touch.angle,
                 density: touch.density,
-                state: state
+                state: touch.state
             )
-        }
-    }
-
-    private static func mapState(_ state: OpenMTState) -> OMSState? {
-        switch state {
-        case .notTouching:
-            return .notTouching
-        case .starting:
-            return .starting
-        case .hovering:
-            return .hovering
-        case .making:
-            return .making
-        case .touching:
-            return .touching
-        case .breaking:
-            return .breaking
-        case .lingering:
-            return .lingering
-        case .leaving:
-            return .leaving
-        @unknown default:
-            return nil
         }
     }
 }

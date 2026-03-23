@@ -10,8 +10,8 @@
 #define OpenMTListener_h
 
 #import <Foundation/Foundation.h>
-#import <OpenMultitouchSupportXCF/OpenMTInternal.h>
-#import <OpenMultitouchSupportXCF/OpenMTEvent.h>
+#import "OpenMTInternal.h"
+#import "OpenMTEvent.h"
 
 typedef void (^OpenMTRawFrameCallback)(const MTTouch *touches,
                                       int numTouches,

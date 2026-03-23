@@ -1,12 +1,19 @@
+import Dispatch
 import Foundation
 import CoreGraphics
 import OpenMultitouchSupport
 
 protocol EngineActorBoundary: Sendable {
-    func ingest(_ frame: RuntimeRawFrame) async
-    func renderSnapshot() async -> RuntimeRenderSnapshot
+    func ingest(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool
+    ) async -> RuntimeRenderSnapshot?
+    func ingestLive(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool,
+        onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
+    )
     func statusSnapshot() async -> RuntimeStatusSnapshot
-    func setRenderSnapshotsEnabled(_ enabled: Bool) async
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
         leftIndex: Int?,
@@ -46,12 +53,12 @@ protocol EngineActorBoundary: Sendable {
     func reset(stopVoiceDictation: Bool) async
 }
 
-actor EngineActor: EngineActorBoundary {
+final class EngineActor: EngineActorBoundary, @unchecked Sendable {
+    private let queue: DispatchQueue
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
-    private var renderSnapshotsEnabled = false
     private let processor: TouchProcessorEngine
 
     init(
@@ -63,7 +70,13 @@ actor EngineActor: EngineActorBoundary {
         onIntentStateChanged: @Sendable @escaping (SidePair<ContentViewModel.IntentDisplay>) -> Void = { _ in },
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void = { _ in }
     ) {
+        let queue = DispatchQueue(
+            label: "ink.ranna.glasstokey.engine.runtime",
+            qos: .userInitiated
+        )
+        self.queue = queue
         processor = TouchProcessorEngine(
+            executionQueue: queue,
             dispatchService: dispatchService,
             onTypingEnabledChanged: onTypingEnabledChanged,
             onActiveLayerChanged: onActiveLayerChanged,
@@ -74,34 +87,47 @@ actor EngineActor: EngineActorBoundary {
         )
     }
 
-    func ingest(_ frame: RuntimeRawFrame) async {
-        await processor.processRuntimeRawFrame(frame)
-        if renderSnapshotsEnabled {
-            updateRenderSnapshot(from: frame)
+    func ingest(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool
+    ) async -> RuntimeRenderSnapshot? {
+        await query {
+            self.processIngest(
+                frame,
+                captureRenderSnapshot: captureRenderSnapshot
+            )
         }
-        await refreshStatusFromProcessor()
-        latestStatus.diagnostics.captureFrames &+= 1
     }
 
-    func renderSnapshot() async -> RuntimeRenderSnapshot {
-        latestRender
+    func ingestLive(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool,
+        onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
+    ) {
+        queue.async { [weak self] in
+            guard let self else { return }
+            guard let renderSnapshot = self.processIngest(
+                frame,
+                captureRenderSnapshot: captureRenderSnapshot
+            ) else {
+                return
+            }
+            onRenderSnapshot(renderSnapshot)
+        }
     }
 
     func statusSnapshot() async -> RuntimeStatusSnapshot {
-        await refreshStatusFromProcessor()
-        return latestStatus
-    }
-
-    func setRenderSnapshotsEnabled(_ enabled: Bool) async {
-        guard renderSnapshotsEnabled != enabled else { return }
-        renderSnapshotsEnabled = enabled
-        if !enabled {
-            latestRender = RuntimeRenderSnapshot()
+        await query {
+            self.refreshStatusFromProcessor()
+            return self.latestStatus
         }
     }
 
     func setListening(_ isListening: Bool) async {
-        await processor.setListening(isListening)
+        await run {
+            self.processor.setListening(isListening)
+            self.refreshStatusFromProcessor()
+        }
     }
 
     func updateActiveDevices(
@@ -110,14 +136,17 @@ actor EngineActor: EngineActorBoundary {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) async {
-        leftDeviceIndex = leftIndex
-        rightDeviceIndex = rightIndex
-        await processor.updateActiveDevices(
-            leftIndex: leftIndex,
-            rightIndex: rightIndex,
-            leftDeviceID: leftDeviceID,
-            rightDeviceID: rightDeviceID
-        )
+        await run {
+            self.leftDeviceIndex = leftIndex
+            self.rightDeviceIndex = rightIndex
+            self.processor.updateActiveDevices(
+                leftIndex: leftIndex,
+                rightIndex: rightIndex,
+                leftDeviceID: leftDeviceID,
+                rightDeviceID: rightDeviceID
+            )
+            self.refreshStatusFromProcessor()
+        }
     }
 
     func updateLayouts(
@@ -128,104 +157,185 @@ actor EngineActor: EngineActorBoundary {
         trackpadSize: CGSize,
         trackpadWidthMm: CGFloat
     ) async {
-        await processor.updateLayouts(
-            leftLayout: leftLayout,
-            rightLayout: rightLayout,
-            leftLabels: leftLabels,
-            rightLabels: rightLabels,
-            trackpadSize: trackpadSize,
-            trackpadWidthMm: trackpadWidthMm
-        )
+        await run {
+            self.processor.updateLayouts(
+                leftLayout: leftLayout,
+                rightLayout: rightLayout,
+                leftLabels: leftLabels,
+                rightLabels: rightLabels,
+                trackpadSize: trackpadSize,
+                trackpadWidthMm: trackpadWidthMm
+            )
+        }
     }
 
     func updateCustomButtons(_ buttons: [CustomButton]) async {
-        await processor.updateCustomButtons(buttons)
+        await run {
+            self.processor.updateCustomButtons(buttons)
+        }
     }
 
     func updateKeyMappings(_ actions: LayeredKeyMappings) async {
-        await processor.updateKeyMappings(actions)
+        await run {
+            self.processor.updateKeyMappings(actions)
+        }
     }
 
     func setPersistentLayer(_ layer: Int) async {
-        await processor.setPersistentLayer(layer)
+        await run {
+            self.processor.setPersistentLayer(layer)
+        }
     }
 
     func updateHoldThreshold(_ seconds: TimeInterval) async {
-        await processor.updateHoldThreshold(seconds)
+        await run {
+            self.processor.updateHoldThreshold(seconds)
+        }
     }
 
     func updateDragCancelDistance(_ distance: CGFloat) async {
-        await processor.updateDragCancelDistance(distance)
+        await run {
+            self.processor.updateDragCancelDistance(distance)
+        }
     }
 
     func updateTypingGrace(_ milliseconds: Double) async {
-        await processor.updateTypingGrace(milliseconds)
+        await run {
+            self.processor.updateTypingGrace(milliseconds)
+        }
     }
 
     func updateIntentMoveThreshold(_ millimeters: Double) async {
-        await processor.updateIntentMoveThreshold(millimeters)
+        await run {
+            self.processor.updateIntentMoveThreshold(millimeters)
+        }
     }
 
     func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async {
-        await processor.updateIntentVelocityThreshold(millimetersPerSecond)
+        await run {
+            self.processor.updateIntentVelocityThreshold(millimetersPerSecond)
+        }
     }
 
     func updateAllowMouseTakeover(_ enabled: Bool) async {
-        await processor.updateAllowMouseTakeover(enabled)
+        await run {
+            self.processor.updateAllowMouseTakeover(enabled)
+        }
     }
 
     func updateForceClickMin(_ grams: Double) async {
-        await processor.updateForceClickMin(grams)
+        await run {
+            self.processor.updateForceClickMin(grams)
+        }
     }
 
     func updateForceClickCap(_ grams: Double) async {
-        await processor.updateForceClickCap(grams)
+        await run {
+            self.processor.updateForceClickCap(grams)
+        }
     }
 
     func updateForceClickThreshold(_ grams: Double) async {
-        await processor.updateForceClickThreshold(grams)
+        await run {
+            self.processor.updateForceClickThreshold(grams)
+        }
     }
 
     func updateHapticStrength(_ normalized: Double) async {
-        await processor.updateHapticStrength(normalized)
+        await run {
+            self.processor.updateHapticStrength(normalized)
+        }
     }
 
     func updateSnapRadiusPercent(_ percent: Double) async {
-        await processor.updateSnapRadiusPercent(percent)
+        await run {
+            self.processor.updateSnapRadiusPercent(percent)
+        }
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
-        await processor.updateKeyboardModeEnabled(enabled)
+        await run {
+            self.processor.updateKeyboardModeEnabled(enabled)
+            self.refreshStatusFromProcessor()
+        }
     }
 
     func updateHoldRepeatEnabled(_ enabled: Bool) async {
-        await processor.updateHoldRepeatEnabled(enabled)
+        await run {
+            self.processor.updateHoldRepeatEnabled(enabled)
+        }
     }
 
     func setKeymapEditingEnabled(_ enabled: Bool) async {
-        await processor.setKeymapEditingEnabled(enabled)
+        await run {
+            self.processor.setKeymapEditingEnabled(enabled)
+        }
     }
 
     func updateTapClickCadence(_ milliseconds: Double) async {
-        await processor.updateTapClickCadence(milliseconds)
+        await run {
+            self.processor.updateTapClickCadence(milliseconds)
+        }
     }
 
     func updateGestureActions(_ actions: GestureActionSet) async {
-        await processor.updateGestureActions(actions)
+        await run {
+            self.processor.updateGestureActions(actions)
+        }
     }
 
     func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async {
-        await processor.updateGestureRepeatCadenceMsById(cadenceById)
+        await run {
+            self.processor.updateGestureRepeatCadenceMsById(cadenceById)
+        }
     }
 
     func clearVisualCaches() async {
-        await processor.clearVisualCaches()
+        await run {
+            self.processor.clearVisualCaches()
+        }
     }
 
     func reset(stopVoiceDictation: Bool) async {
-        await processor.resetState(stopVoiceDictation: stopVoiceDictation)
-        latestRender = RuntimeRenderSnapshot()
-        latestStatus = RuntimeStatusSnapshot()
+        await run {
+            self.processor.resetState(stopVoiceDictation: stopVoiceDictation)
+            self.latestRender = RuntimeRenderSnapshot()
+            self.latestStatus = RuntimeStatusSnapshot()
+        }
+    }
+
+    private func run(_ work: @escaping @Sendable () -> Void) async {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                work()
+                continuation.resume()
+            }
+        }
+    }
+
+    private func query<T: Sendable>(_ work: @escaping @Sendable () -> T) async -> T {
+        await withCheckedContinuation { continuation in
+            queue.async {
+                continuation.resume(returning: work())
+            }
+        }
+    }
+
+    private func processIngest(
+        _ frame: RuntimeRawFrame,
+        captureRenderSnapshot: Bool
+    ) -> RuntimeRenderSnapshot? {
+        processor.processRuntimeRawFrame(frame)
+        let renderSnapshot: RuntimeRenderSnapshot?
+        if captureRenderSnapshot {
+            updateRenderSnapshot(from: frame)
+            renderSnapshot = latestRender
+        } else {
+            renderSnapshot = nil
+        }
+        refreshStatusFromProcessor()
+        latestStatus.diagnostics.captureFrames &+= 1
+        return renderSnapshot
     }
 
     private func updateRenderSnapshot(from frame: RuntimeRawFrame) {
@@ -248,8 +358,8 @@ actor EngineActor: EngineActorBoundary {
         latestRender.revision &+= 1
     }
 
-    private func refreshStatusFromProcessor() async {
-        let snapshot = await processor.statusSnapshot()
+    private func refreshStatusFromProcessor() {
+        let snapshot = processor.statusSnapshot()
         latestStatus.intentBySide = SidePair(
             left: Self.mapRuntimeIntent(snapshot.intentDisplays.left),
             right: Self.mapRuntimeIntent(snapshot.intentDisplays.right)
@@ -311,149 +421,5 @@ actor EngineActor: EngineActorBoundary {
         case .gesture:
             return .gesture
         }
-    }
-}
-
-actor EngineActorStub: EngineActorBoundary {
-    private let impl = EngineActor()
-
-    func ingest(_ frame: RuntimeRawFrame) async {
-        await impl.ingest(frame)
-    }
-
-    func renderSnapshot() async -> RuntimeRenderSnapshot {
-        await impl.renderSnapshot()
-    }
-
-    func statusSnapshot() async -> RuntimeStatusSnapshot {
-        await impl.statusSnapshot()
-    }
-
-    func setRenderSnapshotsEnabled(_ enabled: Bool) async {
-        await impl.setRenderSnapshotsEnabled(enabled)
-    }
-
-    func setListening(_ isListening: Bool) async {
-        await impl.setListening(isListening)
-    }
-
-    func updateActiveDevices(
-        leftIndex: Int?,
-        rightIndex: Int?,
-        leftDeviceID: String?,
-        rightDeviceID: String?
-    ) async {
-        await impl.updateActiveDevices(
-            leftIndex: leftIndex,
-            rightIndex: rightIndex,
-            leftDeviceID: leftDeviceID,
-            rightDeviceID: rightDeviceID
-        )
-    }
-
-    func updateLayouts(
-        leftLayout: ContentViewModel.Layout,
-        rightLayout: ContentViewModel.Layout,
-        leftLabels: [[String]],
-        rightLabels: [[String]],
-        trackpadSize: CGSize,
-        trackpadWidthMm: CGFloat
-    ) async {
-        await impl.updateLayouts(
-            leftLayout: leftLayout,
-            rightLayout: rightLayout,
-            leftLabels: leftLabels,
-            rightLabels: rightLabels,
-            trackpadSize: trackpadSize,
-            trackpadWidthMm: trackpadWidthMm
-        )
-    }
-
-    func updateCustomButtons(_ buttons: [CustomButton]) async {
-        await impl.updateCustomButtons(buttons)
-    }
-
-    func updateKeyMappings(_ actions: LayeredKeyMappings) async {
-        await impl.updateKeyMappings(actions)
-    }
-
-    func setPersistentLayer(_ layer: Int) async {
-        await impl.setPersistentLayer(layer)
-    }
-
-    func updateHoldThreshold(_ seconds: TimeInterval) async {
-        await impl.updateHoldThreshold(seconds)
-    }
-
-    func updateDragCancelDistance(_ distance: CGFloat) async {
-        await impl.updateDragCancelDistance(distance)
-    }
-
-    func updateTypingGrace(_ milliseconds: Double) async {
-        await impl.updateTypingGrace(milliseconds)
-    }
-
-    func updateIntentMoveThreshold(_ millimeters: Double) async {
-        await impl.updateIntentMoveThreshold(millimeters)
-    }
-
-    func updateIntentVelocityThreshold(_ millimetersPerSecond: Double) async {
-        await impl.updateIntentVelocityThreshold(millimetersPerSecond)
-    }
-
-    func updateAllowMouseTakeover(_ enabled: Bool) async {
-        await impl.updateAllowMouseTakeover(enabled)
-    }
-
-    func updateForceClickMin(_ grams: Double) async {
-        await impl.updateForceClickMin(grams)
-    }
-
-    func updateForceClickCap(_ grams: Double) async {
-        await impl.updateForceClickCap(grams)
-    }
-
-    func updateForceClickThreshold(_ grams: Double) async {
-        await impl.updateForceClickThreshold(grams)
-    }
-
-    func updateHapticStrength(_ normalized: Double) async {
-        await impl.updateHapticStrength(normalized)
-    }
-
-    func updateSnapRadiusPercent(_ percent: Double) async {
-        await impl.updateSnapRadiusPercent(percent)
-    }
-
-    func updateKeyboardModeEnabled(_ enabled: Bool) async {
-        await impl.updateKeyboardModeEnabled(enabled)
-    }
-
-    func updateHoldRepeatEnabled(_ enabled: Bool) async {
-        await impl.updateHoldRepeatEnabled(enabled)
-    }
-
-    func setKeymapEditingEnabled(_ enabled: Bool) async {
-        await impl.setKeymapEditingEnabled(enabled)
-    }
-
-    func updateTapClickCadence(_ milliseconds: Double) async {
-        await impl.updateTapClickCadence(milliseconds)
-    }
-
-    func updateGestureActions(_ actions: GestureActionSet) async {
-        await impl.updateGestureActions(actions)
-    }
-
-    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async {
-        await impl.updateGestureRepeatCadenceMsById(cadenceById)
-    }
-
-    func clearVisualCaches() async {
-        await impl.clearVisualCaches()
-    }
-
-    func reset(stopVoiceDictation: Bool) async {
-        await impl.reset(stopVoiceDictation: stopVoiceDictation)
     }
 }

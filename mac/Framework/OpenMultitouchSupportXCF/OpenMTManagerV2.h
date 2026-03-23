@@ -2,8 +2,8 @@
 #define OpenMTManagerV2_h
 
 #import <Foundation/Foundation.h>
-#import <OpenMultitouchSupportXCF/OpenMTManager.h>
-#import <OpenMultitouchSupportXCF/OpenMTListener.h>
+#import "OpenMTManager.h"
+#import "OpenMTListener.h"
 
 NS_ASSUME_NONNULL_BEGIN
 

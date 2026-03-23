@@ -293,7 +293,7 @@ public final class OMSManager: Sendable {
         buffer.touches.reserveCapacity(count)
         for index in 0..<count {
             let touch = touches[index]
-            let state = OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching
+            let state = OMSState(OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching) ?? .notTouching
             buffer.touches.append(OMSRawTouch(
                 id: Int32(touch.identifier),
                 posX: touch.normalizedPosition.position.x,
@@ -386,7 +386,6 @@ public final class OMSManager: Sendable {
         guard !touches.isEmpty else { return }
         buffer.reserveCapacity(touches.count)
         for touch in touches {
-            guard let state = OMSState(touch.state) else { continue }
             buffer.append(OMSTouchData(
                 deviceID: deviceID,
                 deviceIndex: deviceIndex,
@@ -397,7 +396,7 @@ public final class OMSManager: Sendable {
                 axis: OMSAxis(major: touch.majorAxis, minor: touch.minorAxis),
                 angle: touch.angle,
                 density: touch.density,
-                state: state,
+                state: touch.state,
                 timestamp: frame.timestamp,
                 formattedTimestamp: formattedTimestamp
             ))
@@ -464,7 +463,7 @@ public struct OMSRawTouch: Sendable {
     public let minorAxis: Float
     public let angle: Float
     public let density: Float
-    public let state: OpenMTState
+    public let state: OMSState
 }
 
 public final class OMSRawTouchFrame: @unchecked Sendable {

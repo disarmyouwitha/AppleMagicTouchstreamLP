@@ -183,34 +183,6 @@ verify_universal_binary() {
     log_pass "Universal binary contains arm64 and x86_64"
 }
 
-collect_nested_code() {
-    mapfile -t NESTED_CODE_OBJECTS < <(
-        find "$APP_PATH/Contents" \
-            \( -name '*.app' -o -name '*.appex' -o -name '*.xpc' -o -name '*.framework' -o -name '*.dylib' -o -name '*.bundle' \) \
-            -print \
-            | awk -F/ '{ print NF ":" $0 }' \
-            | sort -rn \
-            | cut -d: -f2-
-    )
-}
-
-sign_nested_code() {
-    log_step "Signing nested frameworks and helper code"
-    collect_nested_code
-    if [[ "${#NESTED_CODE_OBJECTS[@]}" -eq 0 ]]; then
-        log_warn "No nested code objects found under $APP_PATH"
-        return
-    fi
-
-    local code_path
-    for code_path in "${NESTED_CODE_OBJECTS[@]}"; do
-        codesign --force --timestamp --sign "$DEVELOPER_ID_APPLICATION_CERT" "$code_path"
-        codesign --verify --strict --verbose=2 "$code_path"
-    done
-
-    log_pass "Nested code signing verified"
-}
-
 sign_app() {
     log_step "Signing app bundle with hardened runtime"
     xattr -cr "$APP_PATH" || true
@@ -222,7 +194,7 @@ sign_app() {
         --sign "$DEVELOPER_ID_APPLICATION_CERT" \
         "$APP_PATH"
 
-    codesign --verify --deep --strict --verbose=2 "$APP_PATH"
+    codesign --verify --strict --verbose=2 "$APP_PATH"
     log_pass "App signing verified"
 }
 
@@ -352,7 +324,6 @@ main() {
     build_release
     verify_bundle_metadata
     verify_universal_binary
-    sign_nested_code
     sign_app
     create_app_notary_zip
     notarize "$APP_NOTARY_ZIP_PATH" "app bundle ZIP"

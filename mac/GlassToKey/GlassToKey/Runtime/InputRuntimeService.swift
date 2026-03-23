@@ -4,15 +4,17 @@ import OpenMultitouchSupport
 import os
 
 final class InputRuntimeService: @unchecked Sendable {
+    typealias FrameHandler = @Sendable (RuntimeRawFrame) -> Void
+
     struct Metrics: Sendable {
         var ingestedFrames: UInt64 = 0
         var emittedFrames: UInt64 = 0
         var releasedWithoutConsumers: UInt64 = 0
     }
 
-    private struct ContinuationStore {
-        var byID: [UUID: AsyncStream<RuntimeRawFrame>.Continuation] = [:]
-        var list: [AsyncStream<RuntimeRawFrame>.Continuation] = []
+    private struct HandlerStore {
+        var byID: [UUID: FrameHandler] = [:]
+        var list: [FrameHandler] = []
     }
 
     private struct State {
@@ -23,8 +25,8 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private let manager: OMSManager
-    private let continuationLock = OSAllocatedUnfairLock<ContinuationStore>(
-        uncheckedState: ContinuationStore()
+    private let handlerLock = OSAllocatedUnfairLock<HandlerStore>(
+        uncheckedState: HandlerStore()
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
@@ -36,19 +38,19 @@ final class InputRuntimeService: @unchecked Sendable {
         stop()
     }
 
-    var rawFrameStream: AsyncStream<RuntimeRawFrame> {
-        AsyncStream(bufferingPolicy: .unbounded) { continuation in
-            let id = UUID()
-            continuationLock.withLockUnchecked { store in
-                store.byID[id] = continuation
-                store.list = Array(store.byID.values)
-            }
-            continuation.onTermination = { [continuationLock] _ in
-                continuationLock.withLockUnchecked { store in
-                    store.byID.removeValue(forKey: id)
-                    store.list = Array(store.byID.values)
-                }
-            }
+    func addFrameHandler(_ handler: @escaping FrameHandler) -> UUID {
+        let id = UUID()
+        handlerLock.withLockUnchecked { store in
+            store.byID[id] = handler
+            store.list = Array(store.byID.values)
+        }
+        return id
+    }
+
+    func removeFrameHandler(_ id: UUID) {
+        handlerLock.withLockUnchecked { store in
+            store.byID.removeValue(forKey: id)
+            store.list = Array(store.byID.values)
         }
     }
 
@@ -97,7 +99,7 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     var isRunning: Bool {
-        stateLock.withLockUnchecked(\.isRunning)
+        stateLock.withLockUnchecked { $0.isRunning }
     }
 
     private func handleRawFrame(_ frame: OMSRawTouchFrame) {
@@ -113,16 +115,16 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private func emit(_ frame: RuntimeRawFrame) {
-        let continuations = continuationLock.withLockUnchecked { $0.list }
-        if continuations.isEmpty {
+        let handlers = handlerLock.withLockUnchecked { $0.list }
+        if handlers.isEmpty {
             stateLock.withLockUnchecked { state in
                 state.metrics.releasedWithoutConsumers &+= 1
             }
             return
         }
 
-        for continuation in continuations {
-            continuation.yield(frame)
+        for handler in handlers {
+            handler(frame)
         }
         stateLock.withLockUnchecked { state in
             state.metrics.emittedFrames &+= 1
@@ -139,9 +141,6 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         uncheckedState: RuntimeTouchSnapshot()
     )
     private let recordingLock = OSAllocatedUnfairLock<Bool>(
-        uncheckedState: false
-    )
-    private let renderSnapshotsEnabledLock = OSAllocatedUnfairLock<Bool>(
         uncheckedState: false
     )
     private let continuationStore: RevisionContinuationStore
@@ -164,7 +163,7 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
     }
 
     func snapshotIfUpdated(since revision: UInt64) -> RuntimeTouchSnapshot? {
-        snapshotLock.withLockUnchecked { snapshot in
+        snapshotLock.withLockUnchecked { snapshot -> RuntimeTouchSnapshot? in
             guard snapshot.revision != revision else { return nil }
             return snapshot
         }
@@ -177,21 +176,26 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         }
     }
 
+    var isRecordingEnabled: Bool {
+        recordingLock.withLockUnchecked { $0 }
+    }
+
     func ingest(
         _ rawFrame: RuntimeRawFrame,
         runtimeEngine: EngineActorBoundary
     ) async -> Bool {
-        let shouldRecord = recordingLock.withLockUnchecked(\.self)
-        let renderSnapshotsEnabled = renderSnapshotsEnabledLock.withLockUnchecked(\.self)
-        if shouldRecord != renderSnapshotsEnabled {
-            await runtimeEngine.setRenderSnapshotsEnabled(shouldRecord)
-            renderSnapshotsEnabledLock.withLockUnchecked { $0 = shouldRecord }
+        let shouldRecord = isRecordingEnabled
+        guard let renderSnapshot = await runtimeEngine.ingest(
+            rawFrame,
+            captureRenderSnapshot: shouldRecord
+        ) else {
+            return false
         }
+        return publish(renderSnapshot)
+    }
 
-        await runtimeEngine.ingest(rawFrame)
-        guard shouldRecord else { return false }
-
-        let renderSnapshot = await runtimeEngine.renderSnapshot()
+    @discardableResult
+    func publish(_ renderSnapshot: RuntimeRenderSnapshot) -> Bool {
         var updatedRevision: UInt64?
         snapshotLock.withLockUnchecked { snapshot in
             guard snapshot.revision != renderSnapshot.revision else { return }
@@ -204,13 +208,6 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         guard let revision = updatedRevision else { return false }
         continuationStore.continuation?.yield(revision)
         return true
-    }
-
-    func disableRenderSnapshotsIfNeeded(runtimeEngine: EngineActorBoundary) async {
-        let renderSnapshotsEnabled = renderSnapshotsEnabledLock.withLockUnchecked(\.self)
-        guard renderSnapshotsEnabled else { return }
-        await runtimeEngine.setRenderSnapshotsEnabled(false)
-        renderSnapshotsEnabledLock.withLockUnchecked { $0 = false }
     }
 }
 
@@ -461,19 +458,11 @@ final class RuntimeCommandService: @unchecked Sendable {
 }
 
 final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
-#if DEBUG
-    private let pipelineSignposter = OSSignposter(
-        subsystem: "com.kyome.GlassToKey",
-        category: "InputPipeline"
-    )
-#endif
     private let inputRuntimeService: InputRuntimeService
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let runtimeEngine: EngineActorBoundary
     private let runtimeCommandService: RuntimeCommandService
-    private let ingestTaskLock = OSAllocatedUnfairLock<Task<Void, Never>?>(
-        uncheckedState: nil
-    )
+    private var liveFrameHandlerID: UUID?
 
     init(
         inputRuntimeService: InputRuntimeService,
@@ -485,52 +474,29 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         self.renderSnapshotService = renderSnapshotService
         self.runtimeEngine = runtimeEngine
         self.runtimeCommandService = runtimeCommandService
+        liveFrameHandlerID = inputRuntimeService.addFrameHandler { [weak self] rawFrame in
+            self?.handleLiveFrame(rawFrame)
+        }
     }
 
     deinit {
-        cancelIngestTask()
+        if let liveFrameHandlerID {
+            inputRuntimeService.removeFrameHandler(liveFrameHandlerID)
+        }
     }
 
-    private func ensureIngestLoopRunning() {
-        let shouldStartTask = ingestTaskLock.withLockUnchecked { task in
-            guard task == nil else { return false }
-            return true
+    private func handleLiveFrame(_ rawFrame: RuntimeRawFrame) {
+        let shouldCaptureRenderSnapshot = renderSnapshotService.isRecordingEnabled
+        runtimeEngine.ingestLive(
+            rawFrame,
+            captureRenderSnapshot: shouldCaptureRenderSnapshot
+        ) { [renderSnapshotService] renderSnapshot in
+            _ = renderSnapshotService.publish(renderSnapshot)
         }
-        guard shouldStartTask else { return }
-        let inputRuntimeService = inputRuntimeService
-        let renderSnapshotService = renderSnapshotService
-        let runtimeEngine = runtimeEngine
-#if DEBUG
-        let pipelineSignposter = pipelineSignposter
-#endif
-        let task = Task.detached(priority: .userInitiated) {
-            for await rawFrame in inputRuntimeService.rawFrameStream {
-#if DEBUG
-                let signpostState = pipelineSignposter.beginInterval("InputFrameV2")
-                defer { pipelineSignposter.endInterval("InputFrameV2", signpostState) }
-                let ingestSignpostState = pipelineSignposter.beginInterval("EngineIngestV2")
-                defer { pipelineSignposter.endInterval("EngineIngestV2", ingestSignpostState) }
-#endif
-                let updated = await renderSnapshotService.ingest(
-                    rawFrame,
-                    runtimeEngine: runtimeEngine
-                )
-                if updated {
-#if DEBUG
-                    pipelineSignposter.emitEvent("SnapshotUpdateV2")
-#endif
-                }
-            }
-            await renderSnapshotService.disableRenderSnapshotsIfNeeded(
-                runtimeEngine: runtimeEngine
-            )
-        }
-        ingestTaskLock.withLockUnchecked { $0 = task }
     }
 
     @discardableResult
     func start() -> Bool {
-        ensureIngestLoopRunning()
         let started = inputRuntimeService.start()
         if started {
             runtimeCommandService.setListening(true)
@@ -547,13 +513,6 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
             )
         }
         return stopped
-    }
-
-    private func cancelIngestTask() {
-        ingestTaskLock.withLockUnchecked { task in
-            task?.cancel()
-            task = nil
-        }
     }
 }
 

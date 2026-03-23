@@ -1,13 +1,13 @@
 import Carbon
+import Dispatch
 import CoreGraphics
 import Darwin
 import Foundation
 import OpenMultitouchSupport
-import OpenMultitouchSupportXCF
 import QuartzCore
 import os
 
-actor TouchProcessorEngine {
+final class TouchProcessorEngine: @unchecked Sendable {
     typealias KeyBinding = ContentViewModel.KeyBinding
     typealias KeyBindingAction = ContentViewModel.KeyBindingAction
     typealias Layout = ContentViewModel.Layout
@@ -483,6 +483,7 @@ actor TouchProcessorEngine {
         let snapRadiusSq: [Float]
     }
 
+    private let executionQueue: DispatchQueue
     private let dispatchService: DispatchService
     private let onTypingEnabledChanged: @Sendable (Bool) -> Void
     private let onActiveLayerChanged: @Sendable (Int) -> Void
@@ -515,7 +516,8 @@ actor TouchProcessorEngine {
     private var rightOptionTouchCount = 0
     private var commandTouchCount = 0
     private var repeatEntries: [RepeatOwner: RepeatEntry] = [:]
-    private var repeatLoopTask: Task<Void, Never>?
+    private var repeatLoopGeneration: UInt64 = 0
+    private var repeatLoopScheduled = false
     private var toggleTouchStarts = TouchTable<TimeInterval>()
     private var layerToggleTouchStarts = TouchTable<Int>()
     private var momentaryLayerTouches = MomentaryLayerTouches()
@@ -587,7 +589,7 @@ actor TouchProcessorEngine {
     private var intentVelocityThreshold: CGFloat = 0
     private var allowMouseTakeoverDuringTyping = false
     private var typingGraceDeadline: TimeInterval?
-    private var typingGraceTask: Task<Void, Never>?
+    private var typingGraceGeneration: UInt64 = 0
     private var doubleTapDeadline: TimeInterval?
     private var awaitingSecondTap = false
     private var tapClickCadenceSeconds: TimeInterval = 0.28
@@ -942,6 +944,7 @@ actor TouchProcessorEngine {
 #endif
 
     init(
+        executionQueue: DispatchQueue,
         dispatchService: DispatchService,
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void,
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void,
@@ -950,6 +953,7 @@ actor TouchProcessorEngine {
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
     ) {
+        self.executionQueue = executionQueue
         self.dispatchService = dispatchService
         self.onTypingEnabledChanged = onTypingEnabledChanged
         self.onActiveLayerChanged = onActiveLayerChanged
@@ -2873,7 +2877,7 @@ actor TouchProcessorEngine {
         return dx * dx + dy * dy
     }
 
-    private static func isContactState(_ state: OpenMTState) -> Bool {
+    private static func isContactState(_ state: OMSState) -> Bool {
         switch state {
         case .starting, .making, .touching:
             return true
@@ -2882,7 +2886,7 @@ actor TouchProcessorEngine {
         }
     }
 
-    private static func isIntentContactState(_ state: OpenMTState) -> Bool {
+    private static func isIntentContactState(_ state: OMSState) -> Bool {
         switch state {
         case .starting, .making, .touching, .breaking, .leaving:
             return true
@@ -2891,7 +2895,7 @@ actor TouchProcessorEngine {
         }
     }
 
-    private static func isTerminalReleaseState(_ state: OpenMTState) -> Bool {
+    private static func isTerminalReleaseState(_ state: OMSState) -> Bool {
         switch state {
         case .breaking, .leaving, .notTouching:
             return true
@@ -2900,7 +2904,7 @@ actor TouchProcessorEngine {
         }
     }
 
-    private static func isChordShiftContactState(_ state: OpenMTState) -> Bool {
+    private static func isChordShiftContactState(_ state: OMSState) -> Bool {
         switch state {
         case .starting, .making, .touching, .breaking, .leaving, .lingering:
             return true
@@ -2909,7 +2913,7 @@ actor TouchProcessorEngine {
         }
     }
 
-    private static func isDictationContactState(_ state: OpenMTState) -> Bool {
+    private static func isDictationContactState(_ state: OMSState) -> Bool {
         switch state {
         case .starting, .making, .touching, .lingering:
             return true
@@ -4964,7 +4968,7 @@ actor TouchProcessorEngine {
 
     private func handleTypingToggleTouch(
         touchKey: TouchKey,
-        state: OpenMTState,
+        state: OMSState,
         point: CGPoint
     ) {
         switch state {
@@ -4996,7 +5000,7 @@ actor TouchProcessorEngine {
 
     private func handleLayerToggleTouch(
         touchKey: TouchKey,
-        state: OpenMTState,
+        state: OMSState,
         targetLayer: Int?
     ) {
         switch state {
@@ -5021,7 +5025,7 @@ actor TouchProcessorEngine {
 
     private func handleMomentaryLayerTouch(
         touchKey: TouchKey,
-        state: OpenMTState,
+        state: OMSState,
         targetLayer: Int?,
         bindingRect: CGRect?
     ) {
@@ -5549,24 +5553,30 @@ actor TouchProcessorEngine {
     }
 
     private func ensureRepeatLoop() {
-        guard repeatLoopTask == nil else { return }
-        repeatLoopTask = Task.detached(priority: .userInitiated) { [weak self] in
-            await self?.repeatLoop()
+        guard !repeatLoopScheduled else { return }
+        repeatLoopScheduled = true
+        scheduleNextRepeatPass()
+    }
+
+    private func scheduleNextRepeatPass() {
+        let now = Self.nowUptimeNanoseconds()
+        guard let delay = nextRepeatDelay(now: now) else {
+            repeatLoopScheduled = false
+            return
+        }
+        repeatLoopGeneration &+= 1
+        let generation = repeatLoopGeneration
+        let deadline = DispatchTime.now() + .nanoseconds(Int(clamping: delay))
+        executionQueue.asyncAfter(deadline: deadline) { [weak self] in
+            self?.runRepeatPass(generation: generation)
         }
     }
 
-    private func repeatLoop() async {
-        while !Task.isCancelled {
-            let now = Self.nowUptimeNanoseconds()
-            guard let delay = nextRepeatDelay(now: now) else {
-                repeatLoopTask = nil
-                return
-            }
-            if delay > 0 {
-                try? await Task.sleep(nanoseconds: delay)
-            }
-            await fireRepeats(now: Self.nowUptimeNanoseconds())
-        }
+    private func runRepeatPass(generation: UInt64) {
+        guard repeatLoopScheduled, repeatLoopGeneration == generation else { return }
+        fireRepeats(now: Self.nowUptimeNanoseconds())
+        guard repeatLoopScheduled else { return }
+        scheduleNextRepeatPass()
     }
 
     private func nextRepeatDelay(now: UInt64) -> UInt64? {
@@ -5580,7 +5590,7 @@ actor TouchProcessorEngine {
         return soonest <= now ? 0 : (soonest - now)
     }
 
-    private func fireRepeats(now: UInt64) async {
+    private func fireRepeats(now: UInt64) {
         guard !repeatEntries.isEmpty else { return }
         var toRemove: [RepeatOwner] = []
         for (key, var entry) in repeatEntries {
@@ -5602,8 +5612,8 @@ actor TouchProcessorEngine {
             repeatEntries.removeValue(forKey: key)
         }
         if repeatEntries.isEmpty {
-            repeatLoopTask?.cancel()
-            repeatLoopTask = nil
+            repeatLoopScheduled = false
+            repeatLoopGeneration &+= 1
         }
     }
 
@@ -5613,8 +5623,8 @@ actor TouchProcessorEngine {
             entry.stop()
         }
         if repeatEntries.isEmpty {
-            repeatLoopTask?.cancel()
-            repeatLoopTask = nil
+            repeatLoopScheduled = false
+            repeatLoopGeneration &+= 1
         }
     }
 
@@ -5905,8 +5915,7 @@ actor TouchProcessorEngine {
         momentaryLayerTouches.removeAll()
         touchInitialContactPoint.removeAll()
         typingGraceDeadline = nil
-        typingGraceTask?.cancel()
-        typingGraceTask = nil
+        typingGraceGeneration &+= 1
         updateActiveLayer()
         intentState = IntentState()
         updateIntentDisplayIfNeeded()
@@ -5931,8 +5940,7 @@ actor TouchProcessorEngine {
 
     private func enterMouseIntentFromDragCancel() {
         typingGraceDeadline = nil
-        typingGraceTask?.cancel()
-        typingGraceTask = nil
+        typingGraceGeneration &+= 1
         intentState.mode = .mouseActive
         updateIntentDisplayIfNeeded()
     }
@@ -5967,14 +5975,14 @@ actor TouchProcessorEngine {
     }
 
     private func scheduleTypingGraceExpiry(deadline: TimeInterval) {
-        typingGraceTask?.cancel()
+        typingGraceGeneration &+= 1
+        let generation = typingGraceGeneration
         let delay = max(0, deadline - currentTime())
-        let nanoseconds = UInt64(delay * 1_000_000_000)
-        typingGraceTask = Task { [weak self] in
-            if nanoseconds > 0 {
-                try? await Task.sleep(nanoseconds: nanoseconds)
-            }
-            await self?.expireTypingGraceIfNeeded(deadline: deadline)
+        let nanoseconds = UInt64((delay * 1_000_000_000).rounded())
+        let dispatchDelay = DispatchTimeInterval.nanoseconds(Int(clamping: nanoseconds))
+        executionQueue.asyncAfter(deadline: .now() + dispatchDelay) { [weak self] in
+            guard let self, self.typingGraceGeneration == generation else { return }
+            self.expireTypingGraceIfNeeded(deadline: deadline)
         }
     }
 
@@ -5985,7 +5993,7 @@ actor TouchProcessorEngine {
             return
         }
         typingGraceDeadline = nil
-        typingGraceTask = nil
+        typingGraceGeneration &+= 1
         if intentState.touches.isEmpty, case .typingCommitted = intentState.mode {
             intentState.mode = .idle
         }

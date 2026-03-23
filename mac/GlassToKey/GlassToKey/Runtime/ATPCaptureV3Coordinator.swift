@@ -1169,20 +1169,24 @@ struct RuntimeReplayPosition: Sendable, Equatable {
 }
 
 final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
-    private actor CaptureBuffer {
-        private var samples: [ATPCaptureV3Codec.CaptureSample] = []
+    private final class CaptureBuffer: @unchecked Sendable {
+        private let samplesLock = OSAllocatedUnfairLock<[ATPCaptureV3Codec.CaptureSample]>(
+            uncheckedState: []
+        )
 
         func append(_ frame: RuntimeRawFrame, arrivalTicks: Int64) {
-            samples.append(
-                ATPCaptureV3Codec.CaptureSample(
-                    frame: frame,
-                    arrivalTicks: max(0, arrivalTicks)
+            samplesLock.withLockUnchecked { samples in
+                samples.append(
+                    ATPCaptureV3Codec.CaptureSample(
+                        frame: frame,
+                        arrivalTicks: max(0, arrivalTicks)
+                    )
                 )
-            )
+            }
         }
 
         func snapshot() -> [ATPCaptureV3Codec.CaptureSample] {
-            samples
+            samplesLock.withLockUnchecked { $0 }
         }
     }
 
@@ -1190,7 +1194,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         let outputURL: URL
         let startedRuntimeForCapture: Bool
         let buffer: CaptureBuffer
-        let task: Task<Void, Never>
+        let frameHandlerID: UUID
     }
 
     private struct ReplaySession {
@@ -1273,20 +1277,14 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         }
 
         let buffer = CaptureBuffer()
-        let stream = inputRuntimeService.rawFrameStream
         let captureStartUptime = DispatchTime.now().uptimeNanoseconds
-        let task = Task.detached(priority: .userInitiated) {
-            for await rawFrame in stream {
-                if Task.isCancelled {
-                    return
-                }
-                let nowUptime = DispatchTime.now().uptimeNanoseconds
-                let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
-                await buffer.append(
-                    rawFrame,
-                    arrivalTicks: Int64(clamping: elapsed)
-                )
-            }
+        let frameHandlerID = inputRuntimeService.addFrameHandler { rawFrame in
+            let nowUptime = DispatchTime.now().uptimeNanoseconds
+            let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
+            buffer.append(
+                rawFrame,
+                arrivalTicks: Int64(clamping: elapsed)
+            )
         }
 
         stateLock.withLockUnchecked { state in
@@ -1294,7 +1292,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
                 outputURL: outputURL,
                 startedRuntimeForCapture: startedRuntimeForCapture,
                 buffer: buffer,
-                task: task
+                frameHandlerID: frameHandlerID
             )
             state.captureInitializing = false
         }
@@ -1311,14 +1309,13 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             throw RuntimeCaptureReplayError.captureNotRunning
         }
 
-        session.task.cancel()
-        await Task.yield()
+        inputRuntimeService.removeFrameHandler(session.frameHandlerID)
 
         if session.startedRuntimeForCapture {
             _ = runtimeLifecycleCoordinator.stop(stopVoiceDictation: false)
         }
 
-        let samples = await session.buffer.snapshot()
+        let samples = session.buffer.snapshot()
         try ATPCaptureV3Codec.write(samples: samples, to: session.outputURL)
         return samples.count
     }
