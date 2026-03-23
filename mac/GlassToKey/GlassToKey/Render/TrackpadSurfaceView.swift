@@ -726,16 +726,21 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
 
     @MainActor
     final class Coordinator {
-        private static let touchPollIntervalNanoseconds: UInt64 = 8_000_000
+        private static let maxDisplayRefreshRate = 45.0
+        private static let minimumDisplayInterval = 1.0 / maxDisplayRefreshRate
         private weak var surfaceView: TrackpadSurfaceView?
         private weak var viewModel: ContentViewModel?
         private var touchUpdateTask: Task<Void, Never>?
-        private var lastTouchRevision: UInt64 = 0
+        private var deferredDisplayTask: Task<Void, Never>?
+        private var lastSeenTouchRevision: UInt64 = 0
+        private var lastDisplayedTouchRevision: UInt64 = 0
         private var lastDisplayUpdateTime: TimeInterval = 0
         private var lastDisplayedHadTouches = false
+        private var latestTouchSnapshot = ContentViewModel.TouchSnapshot()
 
         deinit {
             touchUpdateTask?.cancel()
+            deferredDisplayTask?.cancel()
         }
 
         func attach(
@@ -753,6 +758,8 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         func detach() {
             touchUpdateTask?.cancel()
             touchUpdateTask = nil
+            deferredDisplayTask?.cancel()
+            deferredDisplayTask = nil
             surfaceView = nil
             viewModel = nil
         }
@@ -760,15 +767,15 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         private func restartTouchUpdates() {
             touchUpdateTask?.cancel()
             touchUpdateTask = nil
+            deferredDisplayTask?.cancel()
+            deferredDisplayTask = nil
             guard let viewModel else { return }
-            touchUpdateTask = Task { [weak self] in
+            let revisionUpdates = viewModel.touchRevisionUpdates
+            touchUpdateTask = Task { @MainActor [weak self] in
                 guard let self else { return }
                 self.refreshTouchSnapshot(using: viewModel, resetRevision: true)
-                while !Task.isCancelled {
-                    try? await Task.sleep(nanoseconds: Self.touchPollIntervalNanoseconds)
-                    if Task.isCancelled {
-                        break
-                    }
+                for await _ in revisionUpdates {
+                    guard !Task.isCancelled else { break }
                     self.refreshTouchSnapshot(using: viewModel, resetRevision: false)
                 }
             }
@@ -781,19 +788,20 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             let snapshot: ContentViewModel.TouchSnapshot
             if resetRevision {
                 snapshot = viewModel.snapshotTouchData()
-                lastTouchRevision = snapshot.revision
-            } else if let updated = viewModel.snapshotTouchDataIfUpdated(since: lastTouchRevision) {
+                lastSeenTouchRevision = snapshot.revision
+            } else if let updated = viewModel.snapshotTouchDataIfUpdated(since: lastSeenTouchRevision) {
                 snapshot = updated
-                lastTouchRevision = updated.revision
+                lastSeenTouchRevision = updated.revision
             } else {
                 return
             }
 
+            latestTouchSnapshot = snapshot
             let now = CACurrentMediaTime()
             if resetRevision || shouldUpdateDisplay(snapshot: snapshot, now: now) {
-                surfaceView?.updateTouches(left: snapshot.left, right: snapshot.right)
-                lastDisplayUpdateTime = now
-                lastDisplayedHadTouches = !(snapshot.left.isEmpty && snapshot.right.isEmpty)
+                applyLatestTouchSnapshot(now: now)
+            } else {
+                scheduleDeferredTouchUpdate(after: max(0, Self.minimumDisplayInterval - (now - lastDisplayUpdateTime)))
             }
         }
 
@@ -805,9 +813,35 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             if hasTouches != lastDisplayedHadTouches {
                 return true
             }
-            let maxRefreshRate = 45.0
-            let minimumInterval = 1.0 / maxRefreshRate
-            return now - lastDisplayUpdateTime >= minimumInterval
+            return now - lastDisplayUpdateTime >= Self.minimumDisplayInterval
+        }
+
+        private func applyLatestTouchSnapshot(now: TimeInterval) {
+            deferredDisplayTask?.cancel()
+            deferredDisplayTask = nil
+            guard latestTouchSnapshot.revision != lastDisplayedTouchRevision
+                    || lastDisplayedHadTouches != !(latestTouchSnapshot.left.isEmpty && latestTouchSnapshot.right.isEmpty) else {
+                return
+            }
+            surfaceView?.updateTouches(
+                left: latestTouchSnapshot.left,
+                right: latestTouchSnapshot.right
+            )
+            lastDisplayedTouchRevision = latestTouchSnapshot.revision
+            lastDisplayUpdateTime = now
+            lastDisplayedHadTouches = !(latestTouchSnapshot.left.isEmpty && latestTouchSnapshot.right.isEmpty)
+        }
+
+        private func scheduleDeferredTouchUpdate(after delay: TimeInterval) {
+            guard deferredDisplayTask == nil else { return }
+            deferredDisplayTask = Task { @MainActor [weak self] in
+                let delayNanoseconds = UInt64(max(0, delay) * 1_000_000_000)
+                if delayNanoseconds > 0 {
+                    try? await Task.sleep(nanoseconds: delayNanoseconds)
+                }
+                guard let self, !Task.isCancelled else { return }
+                self.applyLatestTouchSnapshot(now: CACurrentMediaTime())
+            }
         }
     }
 

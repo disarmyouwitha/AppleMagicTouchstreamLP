@@ -51,9 +51,6 @@ public final class OMSManager: Sendable {
     private let deviceIDStringCache = OSAllocatedUnfairLock<[UInt64: String]>(
         uncheckedState: [:]
     )
-    private let touchContinuations = OSAllocatedUnfairLock<[UUID: AsyncStream<[OMSTouchData]>.Continuation]>(
-        uncheckedState: [:]
-    )
     private struct RawContinuationStore: Sendable {
         var byID: [UUID: AsyncStream<OMSRawTouchFrame>.Continuation] = [:]
         var list: [AsyncStream<OMSRawTouchFrame>.Continuation] = []
@@ -61,12 +58,8 @@ public final class OMSManager: Sendable {
     private let rawContinuationStore = OSAllocatedUnfairLock<RawContinuationStore>(
         uncheckedState: RawContinuationStore()
     )
-    private struct RawHandlerStore: Sendable {
-        var byID: [UUID: RawTouchFrameHandler] = [:]
-        var list: [RawTouchFrameHandler] = []
-    }
-    private let rawHandlerStore = OSAllocatedUnfairLock<RawHandlerStore>(
-        uncheckedState: RawHandlerStore()
+    private let rawFrameHandler = OSAllocatedUnfairLock<RawTouchFrameHandler?>(
+        uncheckedState: nil
     )
     private let rawBufferPool = OSAllocatedUnfairLock<[RawTouchBuffer]>(uncheckedState: [])
 #if DEBUG
@@ -75,22 +68,6 @@ public final class OMSManager: Sendable {
         category: "OpenMT"
     )
 #endif
-
-    public var touchDataStream: AsyncStream<[OMSTouchData]> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
-            let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
-                for await frame in rawTouchStream {
-                    let data = Self.buildTouchData(from: frame)
-                    continuation.yield(data)
-                    frame.release()
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
 
     public var rawTouchStream: AsyncStream<OMSRawTouchFrame> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
@@ -108,45 +85,12 @@ public final class OMSManager: Sendable {
         }
     }
 
-    public func rawTouchStream(forDeviceIDs deviceIDs: Set<UInt64>) -> AsyncStream<OMSRawTouchFrame> {
-        AsyncStream(bufferingPolicy: .unbounded) { continuation in
-            let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
-                for await frame in rawTouchStream {
-                    if deviceIDs.contains(frame.deviceIDNumeric) {
-                        continuation.yield(frame)
-                    } else {
-                        frame.release()
-                    }
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-
     public var isListening: Bool {
         protectedRawListener.withLockUnchecked { $0 != nil }
     }
 
-    @discardableResult
-    public func addRawFrameHandler(
-        _ handler: @escaping RawTouchFrameHandler
-    ) -> UUID {
-        let id = UUID()
-        rawHandlerStore.withLockUnchecked { store in
-            store.byID[id] = handler
-            store.list = Array(store.byID.values)
-        }
-        return id
-    }
-
-    public func removeRawFrameHandler(_ id: UUID) {
-        rawHandlerStore.withLockUnchecked { store in
-            store.byID.removeValue(forKey: id)
-            store.list = Array(store.byID.values)
-        }
+    public func setRawFrameHandler(_ handler: RawTouchFrameHandler?) {
+        rawFrameHandler.withLockUnchecked { $0 = handler }
     }
 
     public var isTimestampEnabled: Bool {
@@ -323,23 +267,16 @@ public final class OMSManager: Sendable {
         emitRawTouchFrame(rawFrame)
     }
 
-    private func emitTouchData(_ data: [OMSTouchData]) {
-        let continuations = touchContinuations.withLockUnchecked { Array($0.values) }
-        for continuation in continuations {
-            _ = continuation.yield(data)
-        }
-    }
-
     private func emitRawTouchFrame(_ frame: OMSRawTouchFrame) {
-        let handlers = rawHandlerStore.withLockUnchecked { $0.list }
+        let handler = rawFrameHandler.withLockUnchecked { $0 }
         let continuations = rawContinuationStore.withLockUnchecked { $0.list }
-        for handler in handlers {
+        if let handler {
             handler(frame)
         }
         for continuation in continuations {
             _ = continuation.yield(frame)
         }
-        if handlers.isEmpty, continuations.isEmpty {
+        if handler == nil, continuations.isEmpty {
             frame.release()
         }
     }

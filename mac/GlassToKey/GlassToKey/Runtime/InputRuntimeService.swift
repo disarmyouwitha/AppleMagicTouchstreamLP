@@ -13,24 +13,21 @@ final class InputRuntimeService: @unchecked Sendable {
         var releasedWithoutConsumers: UInt64 = 0
     }
 
-    private struct CaptureHandlerStore {
-        var byID: [UUID: CaptureFrameHandler] = [:]
-        var list: [CaptureFrameHandler] = []
+    private struct Consumers {
+        var liveHandler: LiveFrameHandler?
+        var captureHandlerID: UUID?
+        var captureHandler: CaptureFrameHandler?
     }
 
     private struct State {
         var isRunning = false
-        var rawHandlerID: UUID?
         var sequence: UInt64 = 0
         var metrics = Metrics()
     }
 
     private let manager: OMSManager
-    private let liveHandlerLock = OSAllocatedUnfairLock<LiveFrameHandler?>(
-        uncheckedState: nil
-    )
-    private let captureHandlerLock = OSAllocatedUnfairLock<CaptureHandlerStore>(
-        uncheckedState: CaptureHandlerStore()
+    private let consumersLock = OSAllocatedUnfairLock<Consumers>(
+        uncheckedState: Consumers()
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
@@ -43,22 +40,23 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     func setLiveFrameHandler(_ handler: LiveFrameHandler?) {
-        liveHandlerLock.withLockUnchecked { $0 = handler }
+        consumersLock.withLockUnchecked { $0.liveHandler = handler }
     }
 
     func addCaptureFrameHandler(_ handler: @escaping CaptureFrameHandler) -> UUID {
         let id = UUID()
-        captureHandlerLock.withLockUnchecked { store in
-            store.byID[id] = handler
-            store.list = Array(store.byID.values)
+        consumersLock.withLockUnchecked { consumers in
+            consumers.captureHandlerID = id
+            consumers.captureHandler = handler
         }
         return id
     }
 
     func removeCaptureFrameHandler(_ id: UUID) {
-        captureHandlerLock.withLockUnchecked { store in
-            store.byID.removeValue(forKey: id)
-            store.list = Array(store.byID.values)
+        consumersLock.withLockUnchecked { consumers in
+            guard consumers.captureHandlerID == id else { return }
+            consumers.captureHandlerID = nil
+            consumers.captureHandler = nil
         }
     }
 
@@ -78,26 +76,21 @@ final class InputRuntimeService: @unchecked Sendable {
             return false
         }
 
-        let handlerID = manager.addRawFrameHandler { [weak self] frame in
+        manager.setRawFrameHandler { [weak self] frame in
             self?.handleRawFrame(frame)
-        }
-        stateLock.withLockUnchecked { state in
-            state.rawHandlerID = handlerID
         }
         return true
     }
 
     @discardableResult
     func stop() -> Bool {
-        let rawHandlerID = stateLock.withLockUnchecked { state -> UUID? in
-            guard state.isRunning else { return nil }
+        let shouldStop = stateLock.withLockUnchecked { state -> Bool in
+            guard state.isRunning else { return false }
             state.isRunning = false
-            let handlerID = state.rawHandlerID
-            state.rawHandlerID = nil
-            return handlerID
+            return true
         }
-        guard let rawHandlerID else { return false }
-        manager.removeRawFrameHandler(rawHandlerID)
+        guard shouldStop else { return false }
+        manager.setRawFrameHandler(nil)
         _ = manager.stopListening()
         return true
     }
@@ -118,27 +111,25 @@ final class InputRuntimeService: @unchecked Sendable {
         }
         guard isRunning else { return }
 
-        let liveHandler = liveHandlerLock.withLockUnchecked { $0 }
-        let captureHandlers = captureHandlerLock.withLockUnchecked { $0.list }
-        guard liveHandler != nil || !captureHandlers.isEmpty else {
+        let consumers = consumersLock.withLockUnchecked { $0 }
+        guard consumers.liveHandler != nil || consumers.captureHandler != nil else {
             stateLock.withLockUnchecked { state in
                 state.metrics.releasedWithoutConsumers &+= 1
             }
+            frame.release()
             return
         }
 
-        if !captureHandlers.isEmpty {
+        if let captureHandler = consumers.captureHandler {
             let sequence = stateLock.withLockUnchecked { state -> UInt64 in
                 state.sequence &+= 1
                 return state.sequence
             }
             let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
-            for handler in captureHandlers {
-                handler(runtimeFrame)
-            }
+            captureHandler(runtimeFrame)
         }
 
-        if let liveHandler {
+        if let liveHandler = consumers.liveHandler {
             liveHandler(frame)
         } else {
             frame.release()
@@ -226,54 +217,6 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         guard let revision = updatedRevision else { return false }
         continuationStore.continuation?.yield(revision)
         return true
-    }
-}
-
-@MainActor
-final class RuntimeStatusVisualsService {
-    private let runtimeEngine: EngineActorBoundary
-    private let pollIntervalNanoseconds: UInt64
-    private let onStatusSnapshot: @MainActor (RuntimeStatusSnapshot) -> Void
-    private var pollingTask: Task<Void, Never>?
-    private var visualsEnabled = true
-
-    init(
-        runtimeEngine: EngineActorBoundary,
-        pollIntervalNanoseconds: UInt64 = 50_000_000,
-        onStatusSnapshot: @escaping @MainActor (RuntimeStatusSnapshot) -> Void
-    ) {
-        self.runtimeEngine = runtimeEngine
-        self.pollIntervalNanoseconds = pollIntervalNanoseconds
-        self.onStatusSnapshot = onStatusSnapshot
-    }
-
-    deinit {
-        pollingTask?.cancel()
-    }
-
-    func startPolling() {
-        guard pollingTask == nil else { return }
-        pollingTask = Task { [weak self] in
-            guard let self else { return }
-            while !Task.isCancelled {
-                try? await Task.sleep(nanoseconds: pollIntervalNanoseconds)
-                guard visualsEnabled else { continue }
-                let snapshot = await runtimeEngine.statusSnapshot()
-                guard visualsEnabled else { continue }
-                onStatusSnapshot(snapshot)
-            }
-        }
-    }
-
-    func setVisualsEnabled(_ enabled: Bool) {
-        visualsEnabled = enabled
-        guard enabled else { return }
-        let runtimeEngine = runtimeEngine
-        Task { [weak self] in
-            let snapshot = await runtimeEngine.statusSnapshot()
-            guard let self, self.visualsEnabled else { return }
-            self.onStatusSnapshot(snapshot)
-        }
     }
 }
 

@@ -2,14 +2,6 @@ import Foundation
 import CoreGraphics
 import OpenMultitouchSupport
 
-enum RuntimeIntentMode: String, Sendable {
-    case idle
-    case keyCandidate
-    case typing
-    case mouse
-    case gesture
-}
-
 enum RuntimeDispatchEventKind: Sendable {
     case keyDown(code: CGKeyCode, flags: CGEventFlags)
     case keyUp(code: CGKeyCode, flags: CGEventFlags)
@@ -42,12 +34,6 @@ struct RuntimeRawFrame: Sendable {
     var rawTouches: [OMSRawTouch]
 }
 
-struct RuntimeDiagnosticsCounters: Sendable {
-    var captureFrames: UInt64 = 0
-    var dispatchQueueDepth: Int = 0
-    var dispatchDrops: UInt64 = 0
-}
-
 struct RuntimeRenderSnapshot: Sendable {
     var leftTouches: [OMSTouchData] = []
     var rightTouches: [OMSTouchData] = []
@@ -64,14 +50,6 @@ struct RuntimeTouchSnapshot: Sendable {
     var right: [OMSTouchData] = []
     var revision: UInt64 = 0
     var hasTransitionState: Bool = false
-}
-
-struct RuntimeStatusSnapshot: Sendable {
-    var intentBySide: SidePair<RuntimeIntentMode> = SidePair(left: .idle, right: .idle)
-    var contactCountBySide: SidePair<Int> = SidePair(left: 0, right: 0)
-    var typingEnabled: Bool = true
-    var keyboardModeEnabled: Bool = false
-    var diagnostics: RuntimeDiagnosticsCounters = RuntimeDiagnosticsCounters()
 }
 
 extension RuntimeRawFrame {

@@ -13,7 +13,6 @@ protocol EngineActorBoundary: Sendable {
         captureRenderSnapshot: Bool,
         onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
     )
-    func statusSnapshot() async -> RuntimeStatusSnapshot
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
         leftIndex: Int?,
@@ -56,10 +55,8 @@ protocol EngineActorBoundary: Sendable {
 final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     private let queue: DispatchQueue
     private var latestRender = RuntimeRenderSnapshot()
-    private var latestStatus = RuntimeStatusSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
-    private var statusDirty = true
     private let processor: TouchProcessorEngine
 
     init(
@@ -121,19 +118,9 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         }
     }
 
-    func statusSnapshot() async -> RuntimeStatusSnapshot {
-        await query {
-            if self.statusDirty {
-                self.refreshStatusFromProcessor()
-            }
-            return self.latestStatus
-        }
-    }
-
     func setListening(_ isListening: Bool) async {
         await run {
             self.processor.setListening(isListening)
-            self.statusDirty = true
         }
     }
 
@@ -152,7 +139,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
                 leftDeviceID: leftDeviceID,
                 rightDeviceID: rightDeviceID
             )
-            self.statusDirty = true
         }
     }
 
@@ -263,7 +249,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
         await run {
             self.processor.updateKeyboardModeEnabled(enabled)
-            self.statusDirty = true
         }
     }
 
@@ -307,8 +292,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         await run {
             self.processor.resetState(stopVoiceDictation: stopVoiceDictation)
             self.latestRender = RuntimeRenderSnapshot()
-            self.latestStatus = RuntimeStatusSnapshot()
-            self.statusDirty = false
         }
     }
 
@@ -334,8 +317,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool
     ) -> RuntimeRenderSnapshot? {
         processor.processRuntimeRawFrame(frame)
-        statusDirty = true
-        latestStatus.diagnostics.captureFrames &+= 1
         guard captureRenderSnapshot else { return nil }
         updateRenderSnapshot(from: frame)
         return latestRender
@@ -346,8 +327,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool
     ) -> RuntimeRenderSnapshot? {
         processor.processRawFrame(frame)
-        statusDirty = true
-        latestStatus.diagnostics.captureFrames &+= 1
         guard captureRenderSnapshot else { return nil }
         updateRenderSnapshot(from: frame)
         return latestRender
@@ -391,20 +370,6 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             right: latestRender.rightTouches
         )
         latestRender.revision &+= 1
-    }
-
-    private func refreshStatusFromProcessor() {
-        let snapshot = processor.statusSnapshot()
-        latestStatus.intentBySide = SidePair(
-            left: Self.mapRuntimeIntent(snapshot.intentDisplays.left),
-            right: Self.mapRuntimeIntent(snapshot.intentDisplays.right)
-        )
-        latestStatus.contactCountBySide = snapshot.contactCounts
-        latestStatus.typingEnabled = snapshot.typingEnabled
-        latestStatus.keyboardModeEnabled = snapshot.keyboardModeEnabled
-        latestStatus.diagnostics.dispatchQueueDepth = snapshot.dispatchQueueDepth
-        latestStatus.diagnostics.dispatchDrops = snapshot.dispatchDrops
-        statusDirty = false
     }
 
     private static func renderTouches(from frame: OMSRawTouchFrame) -> [OMSTouchData] {
@@ -480,20 +445,5 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             return false
         }
         return containsTransition(left) || containsTransition(right)
-    }
-
-    private static func mapRuntimeIntent(_ intent: ContentViewModel.IntentDisplay) -> RuntimeIntentMode {
-        switch intent {
-        case .idle:
-            return .idle
-        case .keyCandidate:
-            return .keyCandidate
-        case .typing:
-            return .typing
-        case .mouse:
-            return .mouse
-        case .gesture:
-            return .gesture
-        }
     }
 }

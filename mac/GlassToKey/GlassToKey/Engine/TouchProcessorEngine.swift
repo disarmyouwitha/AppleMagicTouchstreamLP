@@ -926,16 +926,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let voiceDictationTopMaxY: CGFloat = 0.28
     private let voiceDictationBottomMinY: CGFloat = 0.72
 
-    struct StatusSnapshot: Sendable {
-        let contactCounts: SidePair<Int>
-        let intentDisplays: SidePair<IntentDisplay>
-        let typingEnabled: Bool
-        let keyboardModeEnabled: Bool
-        let voiceGestureActive: Bool
-        let dispatchQueueDepth: Int
-        let dispatchDrops: UInt64
-    }
-
 #if DEBUG
     private let signposter = OSSignposter(
         subsystem: "com.kyome.GlassToKey",
@@ -968,19 +958,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         if !isListening {
             dispatchService.setThreeFingerHoldDragSuppression(false)
         }
-    }
-
-    func statusSnapshot() -> StatusSnapshot {
-        let dispatchMetrics = dispatchService.snapshotMetrics()
-        return StatusSnapshot(
-            contactCounts: contactFingerCountsBySide,
-            intentDisplays: intentDisplayBySide,
-            typingEnabled: isTypingEnabled,
-            keyboardModeEnabled: keyboardModeEnabled,
-            voiceGestureActive: voiceGestureActive,
-            dispatchQueueDepth: dispatchMetrics.queueDepth,
-            dispatchDrops: dispatchMetrics.drops
-        )
     }
 
     func updateActiveDevices(

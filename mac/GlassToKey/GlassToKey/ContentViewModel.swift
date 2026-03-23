@@ -897,13 +897,14 @@ final class ContentViewModel: ObservableObject {
     private var lastDebugHitPublishTimeBySide = SidePair(left: 0.0, right: 0.0)
 
     private var uiStatusVisualsEnabled = true
+    private var latestContactCounts = SidePair(left: 0, right: 0)
+    private var latestIntentDisplay = SidePair(left: IntentDisplay.idle, right: .idle)
 
     private let manager = OMSManager.shared
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let runtimeCommandService: RuntimeCommandService
     private let runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService
     private let captureReplayCoordinator: RuntimeCaptureReplayCoordinator
-    private let statusVisualsService: RuntimeStatusVisualsService
     private let deviceSessionService: RuntimeDeviceSessionService
     private var replayPlaybackTask: Task<Void, Never>?
 
@@ -917,8 +918,16 @@ final class ContentViewModel: ObservableObject {
                 weakSelf?.recordDebugHit(binding)
             }
         }
-        let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { _ in }
-        let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { _ in }
+        let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { counts in
+            Task { @MainActor in
+                weakSelf?.handleContactCountsChanged(counts)
+            }
+        }
+        let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { display in
+            Task { @MainActor in
+                weakSelf?.handleIntentDisplayChanged(display)
+            }
+        }
         let runtimeEngine = EngineActor(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
@@ -948,11 +957,6 @@ final class ContentViewModel: ObservableObject {
             runtimeEngine: runtimeEngine,
             renderSnapshotService: renderSnapshotService
         )
-        statusVisualsService = RuntimeStatusVisualsService(
-            runtimeEngine: runtimeEngine
-        ) { snapshot in
-            weakSelf?.applyRuntimeStatusSnapshot(snapshot)
-        }
         deviceSessionService = RuntimeDeviceSessionService(
             manager: manager,
             runtimeEngine: runtimeEngine
@@ -961,7 +965,6 @@ final class ContentViewModel: ObservableObject {
         }
         weakSelf = self
         applyDeviceSessionState(deviceSessionService.snapshot)
-        statusVisualsService.startPolling()
         loadDevices()
     }
 
@@ -970,12 +973,6 @@ final class ContentViewModel: ObservableObject {
         leftDevice = state.leftDevice
         rightDevice = state.rightDevice
         hasDisconnectedTrackpads = state.hasDisconnectedTrackpads
-    }
-
-    private func applyRuntimeStatusSnapshot(_ snapshot: RuntimeStatusSnapshot) {
-        guard uiStatusVisualsEnabled else { return }
-        publishContactCountsIfNeeded(snapshot.contactCountBySide)
-        publishIntentDisplayIfNeeded(Self.mapIntentDisplay(snapshot.intentBySide))
     }
 
     var leftTouches: [OMSTouchData] {
@@ -1092,28 +1089,6 @@ final class ContentViewModel: ObservableObject {
             right: snapshot.right,
             revision: snapshot.revision,
             hasTransitionState: snapshot.hasTransitionState
-        )
-    }
-
-    nonisolated private static func mapIntentDisplay(_ intent: RuntimeIntentMode) -> IntentDisplay {
-        switch intent {
-        case .idle:
-            return .idle
-        case .keyCandidate:
-            return .keyCandidate
-        case .typing:
-            return .typing
-        case .mouse:
-            return .mouse
-        case .gesture:
-            return .gesture
-        }
-    }
-
-    nonisolated private static func mapIntentDisplay(_ intent: SidePair<RuntimeIntentMode>) -> SidePair<IntentDisplay> {
-        SidePair(
-            left: mapIntentDisplay(intent.left),
-            right: mapIntentDisplay(intent.right)
         )
     }
 
@@ -1342,7 +1317,9 @@ final class ContentViewModel: ObservableObject {
 
     func setStatusVisualsEnabled(_ enabled: Bool) {
         uiStatusVisualsEnabled = enabled
-        statusVisualsService.setVisualsEnabled(enabled)
+        guard enabled else { return }
+        publishContactCountsIfNeeded(latestContactCounts)
+        publishIntentDisplayIfNeeded(latestIntentDisplay)
     }
 
     private func publishContactCountsIfNeeded(_ counts: SidePair<Int>) {
@@ -1355,6 +1332,16 @@ final class ContentViewModel: ObservableObject {
         guard uiStatusVisualsEnabled else { return }
         guard display != statusViewModel.intentDisplayBySide else { return }
         statusViewModel.intentDisplayBySide = display
+    }
+
+    private func handleContactCountsChanged(_ counts: SidePair<Int>) {
+        latestContactCounts = counts
+        publishContactCountsIfNeeded(counts)
+    }
+
+    private func handleIntentDisplayChanged(_ display: SidePair<IntentDisplay>) {
+        latestIntentDisplay = display
+        publishIntentDisplayIfNeeded(display)
     }
 
 }
