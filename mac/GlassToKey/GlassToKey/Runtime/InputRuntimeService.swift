@@ -4,7 +4,8 @@ import OpenMultitouchSupport
 import os
 
 final class InputRuntimeService: @unchecked Sendable {
-    typealias FrameHandler = @Sendable (RuntimeRawFrame) -> Void
+    typealias LiveFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
+    typealias CaptureFrameHandler = @Sendable (RuntimeRawFrame) -> Void
 
     struct Metrics: Sendable {
         var ingestedFrames: UInt64 = 0
@@ -12,9 +13,9 @@ final class InputRuntimeService: @unchecked Sendable {
         var releasedWithoutConsumers: UInt64 = 0
     }
 
-    private struct HandlerStore {
-        var byID: [UUID: FrameHandler] = [:]
-        var list: [FrameHandler] = []
+    private struct CaptureHandlerStore {
+        var byID: [UUID: CaptureFrameHandler] = [:]
+        var list: [CaptureFrameHandler] = []
     }
 
     private struct State {
@@ -25,8 +26,11 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private let manager: OMSManager
-    private let handlerLock = OSAllocatedUnfairLock<HandlerStore>(
-        uncheckedState: HandlerStore()
+    private let liveHandlerLock = OSAllocatedUnfairLock<LiveFrameHandler?>(
+        uncheckedState: nil
+    )
+    private let captureHandlerLock = OSAllocatedUnfairLock<CaptureHandlerStore>(
+        uncheckedState: CaptureHandlerStore()
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
@@ -38,17 +42,21 @@ final class InputRuntimeService: @unchecked Sendable {
         stop()
     }
 
-    func addFrameHandler(_ handler: @escaping FrameHandler) -> UUID {
+    func setLiveFrameHandler(_ handler: LiveFrameHandler?) {
+        liveHandlerLock.withLockUnchecked { $0 = handler }
+    }
+
+    func addCaptureFrameHandler(_ handler: @escaping CaptureFrameHandler) -> UUID {
         let id = UUID()
-        handlerLock.withLockUnchecked { store in
+        captureHandlerLock.withLockUnchecked { store in
             store.byID[id] = handler
             store.list = Array(store.byID.values)
         }
         return id
     }
 
-    func removeFrameHandler(_ id: UUID) {
-        handlerLock.withLockUnchecked { store in
+    func removeCaptureFrameHandler(_ id: UUID) {
+        captureHandlerLock.withLockUnchecked { store in
             store.byID.removeValue(forKey: id)
             store.list = Array(store.byID.values)
         }
@@ -103,29 +111,39 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private func handleRawFrame(_ frame: OMSRawTouchFrame) {
-        let sequence = stateLock.withLockUnchecked { state -> UInt64 in
-            guard state.isRunning else { return 0 }
-            state.sequence &+= 1
+        let isRunning = stateLock.withLockUnchecked { state -> Bool in
+            guard state.isRunning else { return false }
             state.metrics.ingestedFrames &+= 1
-            return state.sequence
+            return true
         }
-        guard sequence != 0 else { return }
-        let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
-        emit(runtimeFrame)
-    }
+        guard isRunning else { return }
 
-    private func emit(_ frame: RuntimeRawFrame) {
-        let handlers = handlerLock.withLockUnchecked { $0.list }
-        if handlers.isEmpty {
+        let liveHandler = liveHandlerLock.withLockUnchecked { $0 }
+        let captureHandlers = captureHandlerLock.withLockUnchecked { $0.list }
+        guard liveHandler != nil || !captureHandlers.isEmpty else {
             stateLock.withLockUnchecked { state in
                 state.metrics.releasedWithoutConsumers &+= 1
             }
             return
         }
 
-        for handler in handlers {
-            handler(frame)
+        if !captureHandlers.isEmpty {
+            let sequence = stateLock.withLockUnchecked { state -> UInt64 in
+                state.sequence &+= 1
+                return state.sequence
+            }
+            let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
+            for handler in captureHandlers {
+                handler(runtimeFrame)
+            }
         }
+
+        if let liveHandler {
+            liveHandler(frame)
+        } else {
+            frame.release()
+        }
+
         stateLock.withLockUnchecked { state in
             state.metrics.emittedFrames &+= 1
         }
@@ -462,7 +480,6 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let runtimeEngine: EngineActorBoundary
     private let runtimeCommandService: RuntimeCommandService
-    private var liveFrameHandlerID: UUID?
 
     init(
         inputRuntimeService: InputRuntimeService,
@@ -474,18 +491,16 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         self.renderSnapshotService = renderSnapshotService
         self.runtimeEngine = runtimeEngine
         self.runtimeCommandService = runtimeCommandService
-        liveFrameHandlerID = inputRuntimeService.addFrameHandler { [weak self] rawFrame in
+        inputRuntimeService.setLiveFrameHandler { [weak self] rawFrame in
             self?.handleLiveFrame(rawFrame)
         }
     }
 
     deinit {
-        if let liveFrameHandlerID {
-            inputRuntimeService.removeFrameHandler(liveFrameHandlerID)
-        }
+        inputRuntimeService.setLiveFrameHandler(nil)
     }
 
-    private func handleLiveFrame(_ rawFrame: RuntimeRawFrame) {
+    private func handleLiveFrame(_ rawFrame: OMSRawTouchFrame) {
         let shouldCaptureRenderSnapshot = renderSnapshotService.isRecordingEnabled
         runtimeEngine.ingestLive(
             rawFrame,

@@ -1278,7 +1278,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
         let buffer = CaptureBuffer()
         let captureStartUptime = DispatchTime.now().uptimeNanoseconds
-        let frameHandlerID = inputRuntimeService.addFrameHandler { rawFrame in
+        let frameHandlerID = inputRuntimeService.addCaptureFrameHandler { rawFrame in
             let nowUptime = DispatchTime.now().uptimeNanoseconds
             let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
             buffer.append(
@@ -1309,7 +1309,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             throw RuntimeCaptureReplayError.captureNotRunning
         }
 
-        inputRuntimeService.removeFrameHandler(session.frameHandlerID)
+        inputRuntimeService.removeCaptureFrameHandler(session.frameHandlerID)
 
         if session.startedRuntimeForCapture {
             _ = runtimeLifecycleCoordinator.stop(stopVoiceDictation: false)

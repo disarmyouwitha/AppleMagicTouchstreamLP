@@ -9,7 +9,7 @@ protocol EngineActorBoundary: Sendable {
         captureRenderSnapshot: Bool
     ) async -> RuntimeRenderSnapshot?
     func ingestLive(
-        _ frame: RuntimeRawFrame,
+        _ frame: OMSRawTouchFrame,
         captureRenderSnapshot: Bool,
         onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
     )
@@ -59,6 +59,7 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     private var latestStatus = RuntimeStatusSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
+    private var statusDirty = true
     private let processor: TouchProcessorEngine
 
     init(
@@ -100,12 +101,16 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     }
 
     func ingestLive(
-        _ frame: RuntimeRawFrame,
+        _ frame: OMSRawTouchFrame,
         captureRenderSnapshot: Bool,
         onRenderSnapshot: @Sendable @escaping (RuntimeRenderSnapshot) -> Void
     ) {
-        queue.async { [weak self] in
-            guard let self else { return }
+        queue.async { [weak self, frame] in
+            guard let self else {
+                frame.release()
+                return
+            }
+            defer { frame.release() }
             guard let renderSnapshot = self.processIngest(
                 frame,
                 captureRenderSnapshot: captureRenderSnapshot
@@ -118,7 +123,9 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
 
     func statusSnapshot() async -> RuntimeStatusSnapshot {
         await query {
-            self.refreshStatusFromProcessor()
+            if self.statusDirty {
+                self.refreshStatusFromProcessor()
+            }
             return self.latestStatus
         }
     }
@@ -126,7 +133,7 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     func setListening(_ isListening: Bool) async {
         await run {
             self.processor.setListening(isListening)
-            self.refreshStatusFromProcessor()
+            self.statusDirty = true
         }
     }
 
@@ -145,7 +152,7 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
                 leftDeviceID: leftDeviceID,
                 rightDeviceID: rightDeviceID
             )
-            self.refreshStatusFromProcessor()
+            self.statusDirty = true
         }
     }
 
@@ -256,7 +263,7 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     func updateKeyboardModeEnabled(_ enabled: Bool) async {
         await run {
             self.processor.updateKeyboardModeEnabled(enabled)
-            self.refreshStatusFromProcessor()
+            self.statusDirty = true
         }
     }
 
@@ -301,6 +308,7 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             self.processor.resetState(stopVoiceDictation: stopVoiceDictation)
             self.latestRender = RuntimeRenderSnapshot()
             self.latestStatus = RuntimeStatusSnapshot()
+            self.statusDirty = false
         }
     }
 
@@ -326,16 +334,43 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool
     ) -> RuntimeRenderSnapshot? {
         processor.processRuntimeRawFrame(frame)
-        let renderSnapshot: RuntimeRenderSnapshot?
-        if captureRenderSnapshot {
-            updateRenderSnapshot(from: frame)
-            renderSnapshot = latestRender
-        } else {
-            renderSnapshot = nil
-        }
-        refreshStatusFromProcessor()
+        statusDirty = true
         latestStatus.diagnostics.captureFrames &+= 1
-        return renderSnapshot
+        guard captureRenderSnapshot else { return nil }
+        updateRenderSnapshot(from: frame)
+        return latestRender
+    }
+
+    private func processIngest(
+        _ frame: OMSRawTouchFrame,
+        captureRenderSnapshot: Bool
+    ) -> RuntimeRenderSnapshot? {
+        processor.processRawFrame(frame)
+        statusDirty = true
+        latestStatus.diagnostics.captureFrames &+= 1
+        guard captureRenderSnapshot else { return nil }
+        updateRenderSnapshot(from: frame)
+        return latestRender
+    }
+
+    private func updateRenderSnapshot(from frame: OMSRawTouchFrame) {
+        let deviceIndex = frame.deviceIndex
+        let matchedLeft = leftDeviceIndex.map { $0 == deviceIndex } ?? false
+        let matchedRight = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        guard matchedLeft || matchedRight else { return }
+
+        let touches = Self.renderTouches(from: frame)
+        if matchedLeft {
+            latestRender.leftTouches = touches
+        }
+        if matchedRight {
+            latestRender.rightTouches = touches
+        }
+        latestRender.hasTransitionState = Self.hasTransitionState(
+            left: latestRender.leftTouches,
+            right: latestRender.rightTouches
+        )
+        latestRender.revision &+= 1
     }
 
     private func updateRenderSnapshot(from frame: RuntimeRawFrame) {
@@ -369,10 +404,49 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         latestStatus.keyboardModeEnabled = snapshot.keyboardModeEnabled
         latestStatus.diagnostics.dispatchQueueDepth = snapshot.dispatchQueueDepth
         latestStatus.diagnostics.dispatchDrops = snapshot.dispatchDrops
+        statusDirty = false
+    }
+
+    private static func renderTouches(from frame: OMSRawTouchFrame) -> [OMSTouchData] {
+        let touches = frame.touches
+        guard !touches.isEmpty else { return [] }
+        return touches.map { touch in
+            OMSTouchData(
+                deviceID: frame.deviceID,
+                deviceIndex: frame.deviceIndex,
+                id: touch.id,
+                position: OMSPosition(x: touch.posX, y: touch.posY),
+                total: touch.total,
+                pressure: touch.pressure,
+                axis: OMSAxis(major: touch.majorAxis, minor: touch.minorAxis),
+                angle: touch.angle,
+                density: touch.density,
+                state: touch.state,
+                timestamp: frame.timestamp
+            )
+        }
     }
 
     private static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {
+        let touches = frame.rawTouches
         let deviceID = String(frame.deviceNumericID)
+        if !touches.isEmpty {
+            return touches.map { touch in
+                OMSTouchData(
+                    deviceID: deviceID,
+                    deviceIndex: frame.deviceIndex,
+                    id: touch.id,
+                    position: OMSPosition(x: touch.posX, y: touch.posY),
+                    total: touch.total,
+                    pressure: touch.pressure,
+                    axis: OMSAxis(major: touch.majorAxis, minor: touch.minorAxis),
+                    angle: touch.angle,
+                    density: touch.density,
+                    state: touch.state,
+                    timestamp: frame.timestamp
+                )
+            }
+        }
         return frame.contacts.map { contact in
             OMSTouchData(
                 deviceID: deviceID,
