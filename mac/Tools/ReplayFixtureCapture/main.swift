@@ -25,7 +25,7 @@ private actor CaptureBuffer {
                 minorAxis: Double(touch.minorAxis),
                 angle: Double(touch.angle),
                 density: Double(touch.density),
-                state: ReplayFixtureParser.canonicalState(rawValue: UInt(touch.state.rawValue))
+                state: touch.state.rawValue
             )
         }
 

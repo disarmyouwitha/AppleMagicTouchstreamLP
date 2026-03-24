@@ -649,6 +649,11 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
         viewModel.updateGestureActions(resolvedGestureActions(from: defaults))
+        viewModel.updateGestureRepeatCadenceMsById(
+            GestureRepeatCadenceStorage.decode(
+                from: defaults.data(forKey: GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById) ?? Data()
+            )
+        )
     }
 
     private func stringValue(forKey key: String) -> String {
