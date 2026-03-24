@@ -524,6 +524,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var touchInitialContactPoint = TouchTable<CGPoint>()
     private var tapMaxDuration: TimeInterval = 0.2
     private var holdMinDuration: TimeInterval = 0.2
+    private let minimumTapMaxDuration: TimeInterval = 0.2
     private var dragCancelDistance: CGFloat = 2.5
     private let clickActuationForce: Float = 125
     private var forceClickMin: Float = 0
@@ -1014,7 +1015,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     func updateHoldThreshold(_ seconds: TimeInterval) {
         let clamped = max(0, seconds)
         holdMinDuration = clamped
-        tapMaxDuration = clamped
+        tapMaxDuration = max(clamped, minimumTapMaxDuration)
     }
 
     func updateDragCancelDistance(_ distance: CGFloat) {
@@ -3465,6 +3466,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             || velocitySignal
             || (secondFingerAppeared && anyOffKey)
             || centroidMoved
+        // Keep the gesture/multi-touch sync buffer, but let a clean single-key landing
+        // enter typing immediately so startup doesn't feel buffered.
+        let immediateTypingCommit = contactCount == 1
+            && anyOnKey
+            && !anyOffKey
+            && !mouseSignal
 
         let wasTwoFingerTapDetected = twoFingerTapDetected
         let isTypingCommitted: Bool
@@ -3559,7 +3566,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let allowTyping: Bool
         switch state.mode {
         case .idle:
-            if graceActive || typingAnchorActive {
+            if graceActive || typingAnchorActive || immediateTypingCommit {
                 state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
                 intentState = state
                 updateIntentDisplayIfNeeded()
@@ -3573,7 +3580,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 allowTyping = false
             }
         case let .keyCandidate(start, _, _):
-            if graceActive || typingAnchorActive {
+            if graceActive || typingAnchorActive || immediateTypingCommit {
                 state.mode = .typingCommitted(untilAllUp: !allowMouseTakeoverDuringTyping)
                 intentState = state
                 updateIntentDisplayIfNeeded()
