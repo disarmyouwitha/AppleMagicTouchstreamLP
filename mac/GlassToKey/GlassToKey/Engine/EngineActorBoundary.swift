@@ -11,6 +11,9 @@ protocol EngineActorBoundary: Sendable {
     func setLiveRenderSnapshotHandler(
         _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
     )
+    func setCaptureFrameDiagnosticsHandler(
+        _ handler: (@Sendable (RuntimeFrameDiagnostic) -> Void)?
+    )
     func ingestLive(
         _ frame: OMSRawTouchFrame,
         captureRenderSnapshot: Bool
@@ -81,6 +84,9 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
     private let liveRenderSnapshotHandlerLock = OSAllocatedUnfairLock<((RuntimeRenderSnapshot) -> Void)?>(
         uncheckedState: nil
     )
+    private let captureFrameDiagnosticsHandlerLock = OSAllocatedUnfairLock<((RuntimeFrameDiagnostic) -> Void)?>(
+        uncheckedState: nil
+    )
 
     init(
         dispatchService: DispatchService = .shared,
@@ -104,7 +110,11 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             onDebugBindingDetected: onDebugBindingDetected,
             onContactCountChanged: onContactCountChanged,
             onIntentStateChanged: onIntentStateChanged,
-            onVoiceGestureChanged: onVoiceGestureChanged
+            onVoiceGestureChanged: onVoiceGestureChanged,
+            onCaptureFrameDiagnostics: { [captureFrameDiagnosticsHandlerLock] diagnostic in
+                let handler = captureFrameDiagnosticsHandlerLock.withLockUnchecked { $0 }
+                handler?(diagnostic)
+            }
         )
     }
 
@@ -124,6 +134,16 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
     ) {
         liveRenderSnapshotHandlerLock.withLockUnchecked { $0 = handler }
+    }
+
+    func setCaptureFrameDiagnosticsHandler(
+        _ handler: (@Sendable (RuntimeFrameDiagnostic) -> Void)?
+    ) {
+        captureFrameDiagnosticsHandlerLock.withLockUnchecked { $0 = handler }
+        let enabled = handler != nil
+        queue.async { [processor] in
+            processor.setCaptureFrameDiagnosticsEnabled(enabled)
+        }
     }
 
     func ingestLive(

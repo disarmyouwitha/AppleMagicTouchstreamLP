@@ -4,7 +4,7 @@ import os
 
 final class InputRuntimeService: @unchecked Sendable {
     typealias LiveFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
-    typealias CaptureFrameHandler = @Sendable (RuntimeRawFrame) -> Void
+    typealias CaptureFrameHandler = @Sendable (RuntimeRawFrame, RuntimeCaptureIngressSnapshot) -> Void
 
     struct Metrics: Sendable {
         var ingestedFrames: UInt64 = 0
@@ -144,13 +144,23 @@ final class InputRuntimeService: @unchecked Sendable {
             return
         }
 
-        if let captureHandler = consumers.captureHandler {
-            let sequence = stateLock.withLockUnchecked { state -> UInt64 in
+        let sequenceSnapshot = stateLock.withLockUnchecked { state -> (sequence: UInt64, liveDroppedFrames: UInt64) in
                 state.sequence &+= 1
-                return state.sequence
+                return (state.sequence, state.metrics.liveDroppedFrames)
             }
-            let runtimeFrame = RuntimeRawFrame(sequence: sequence, frame: frame)
-            captureHandler(runtimeFrame)
+        frame.sequence = sequenceSnapshot.sequence
+
+        if let captureHandler = consumers.captureHandler {
+            let dispatchMetrics = DispatchService.shared.snapshotMetrics()
+            let ingress = RuntimeCaptureIngressSnapshot(
+                deliveryMode: consumers.liveHandler != nil ? .liveAndCapture : .captureOnly,
+                liveQueueDepth: liveDeliveryLock.withLockUnchecked { $0.count },
+                liveDroppedFrames: sequenceSnapshot.liveDroppedFrames,
+                dispatchQueueDepth: dispatchMetrics.queueDepth,
+                dispatchDropped: dispatchMetrics.drops
+            )
+            let runtimeFrame = RuntimeRawFrame(sequence: sequenceSnapshot.sequence, frame: frame)
+            captureHandler(runtimeFrame, ingress)
         }
 
         if consumers.liveHandler != nil {

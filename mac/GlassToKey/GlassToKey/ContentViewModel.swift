@@ -738,6 +738,7 @@ final class ContentViewModel: ObservableObject {
         let label: String
         let action: KeyBindingAction
         let position: GridKeyPosition?
+        let customButtonID: UUID?
         let side: TrackpadSide
         let holdAction: KeyAction?
         let holdForceThreshold: Float
@@ -749,6 +750,7 @@ final class ContentViewModel: ObservableObject {
             label: String,
             action: KeyBindingAction,
             position: GridKeyPosition?,
+            customButtonID: UUID? = nil,
             side: TrackpadSide,
             holdAction: KeyAction?,
             holdForceThreshold: Float = 0
@@ -760,6 +762,7 @@ final class ContentViewModel: ObservableObject {
             self.label = label
             self.action = action
             self.position = position
+            self.customButtonID = customButtonID
             self.side = side
             self.holdAction = holdAction
             self.holdForceThreshold = max(0, holdForceThreshold)
@@ -1187,7 +1190,10 @@ final class ContentViewModel: ObservableObject {
     }
 
     func startATPCapture(to outputURL: URL) throws {
-        try captureReplayCoordinator.startCapture(to: outputURL)
+        try captureReplayCoordinator.startCapture(
+            to: outputURL,
+            configuration: captureProfileSnapshot()
+        )
     }
 
     func stopATPCapture() async throws -> Int {
@@ -1211,6 +1217,176 @@ final class ContentViewModel: ObservableObject {
         try await captureReplayCoordinator.endReplaySession()
         replayTimelineState = nil
         return info.frameCount
+    }
+
+    private func captureProfileSnapshot() -> AppKeymapProfile {
+        let defaults = UserDefaults.standard
+        let fallback = AppKeymapProfile.defaultProfile()
+
+        let leftDeviceID = leftDevice?.deviceID
+            ?? defaults.string(forKey: GlassToKeyDefaultsKeys.leftDeviceID)
+            ?? fallback.leftDeviceID
+        let rightDeviceID = rightDevice?.deviceID
+            ?? defaults.string(forKey: GlassToKeyDefaultsKeys.rightDeviceID)
+            ?? fallback.rightDeviceID
+        let layoutPreset = defaults.string(forKey: GlassToKeyDefaultsKeys.layoutPreset)
+            ?? fallback.layoutPreset
+        let shortcutActions = ShortcutActionLibraryStorage.decode(
+            from: defaults.data(forKey: GlassToKeyDefaultsKeys.shortcutActions) ?? Data()
+        ) ?? fallback.shortcutActions
+        let keySpacingByLayout = LayoutKeySpacingStorage.decode(
+            from: defaults.data(forKey: GlassToKeyDefaultsKeys.keySpacingByLayout) ?? Data()
+        ) ?? fallback.keySpacingPercentByLayout ?? [:]
+        let columnSettingsByLayout = LayoutColumnSettingsStorage.decode(
+            from: defaults.data(forKey: GlassToKeyDefaultsKeys.columnSettings) ?? Data()
+        ) ?? fallback.columnSettingsByLayout
+        let customButtonsByLayout = LayoutCustomButtonStorage.decode(
+            from: defaults.data(forKey: GlassToKeyDefaultsKeys.customButtons) ?? Data()
+        ) ?? fallback.customButtonsByLayout
+        let keyMappingsByLayout = KeyActionMappingStore.decodeLayoutNormalized(
+            defaults.data(forKey: GlassToKeyDefaultsKeys.keyMappings) ?? Data()
+        ) ?? fallback.keyMappingsByLayout
+        let keyGeometryByLayout = KeyGeometryStore.decodeLayoutNormalized(
+            defaults.data(forKey: GlassToKeyDefaultsKeys.keyGeometry) ?? Data()
+        ) ?? fallback.keyGeometryByLayout
+
+        return AppKeymapProfile(
+            leftDeviceID: leftDeviceID,
+            rightDeviceID: rightDeviceID,
+            layoutPreset: layoutPreset,
+            activeLayer: activeLayer,
+            autoResyncMissingTrackpads: defaults.object(forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads) as? Bool
+                ?? fallback.autoResyncMissingTrackpads,
+            runAtStartupEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.runAtStartupEnabled) as? Bool
+                ?? fallback.runAtStartupEnabled,
+            tapHoldDurationMs: defaults.object(forKey: GlassToKeyDefaultsKeys.tapHoldDuration) as? Double
+                ?? fallback.tapHoldDurationMs,
+            dragCancelDistance: defaults.object(forKey: GlassToKeyDefaultsKeys.dragCancelDistance) as? Double
+                ?? fallback.dragCancelDistance,
+            forceClickMin: defaults.object(forKey: GlassToKeyDefaultsKeys.forceClickMin) as? Double
+                ?? fallback.forceClickMin,
+            forceClickCap: defaults.object(forKey: GlassToKeyDefaultsKeys.forceClickCap) as? Double
+                ?? fallback.forceClickCap,
+            forceClickThreshold: defaults.object(forKey: GlassToKeyDefaultsKeys.forceClickThreshold) as? Double
+                ?? fallback.forceClickThreshold,
+            hapticStrength: defaults.object(forKey: GlassToKeyDefaultsKeys.hapticStrength) as? Double
+                ?? fallback.hapticStrength,
+            typingGraceMs: defaults.object(forKey: GlassToKeyDefaultsKeys.typingGraceMs) as? Double
+                ?? fallback.typingGraceMs,
+            intentMoveThresholdMm: defaults.object(forKey: GlassToKeyDefaultsKeys.intentMoveThresholdMm) as? Double
+                ?? fallback.intentMoveThresholdMm,
+            intentVelocityThresholdMmPerSec: defaults.object(forKey: GlassToKeyDefaultsKeys.intentVelocityThresholdMmPerSec) as? Double
+                ?? fallback.intentVelocityThresholdMmPerSec,
+            autocorrectEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.autocorrectEnabled) as? Bool
+                ?? fallback.autocorrectEnabled,
+            tapClickCadenceMs: defaults.object(forKey: GlassToKeyDefaultsKeys.tapClickCadenceMs) as? Double
+                ?? fallback.tapClickCadenceMs,
+            snapRadiusPercent: defaults.object(forKey: GlassToKeyDefaultsKeys.snapRadiusPercent) as? Double
+                ?? fallback.snapRadiusPercent,
+            keyboardModeEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled) as? Bool
+                ?? keyboardModeEnabled,
+            holdRepeatEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.holdRepeatEnabled) as? Bool
+                ?? holdRepeatEnabled,
+            shortcutActions: shortcutActions,
+            twoFingerTapGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.twoFingerTapGestureAction)
+                ?? fallback.twoFingerTapGestureAction,
+            threeFingerTapGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerTapGestureAction)
+                ?? fallback.threeFingerTapGestureAction,
+            twoFingerHoldGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction)
+                ?? fallback.twoFingerHoldGestureAction,
+            threeFingerHoldGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerHoldGestureAction)
+                ?? fallback.threeFingerHoldGestureAction,
+            fourFingerHoldGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction)
+                ?? fallback.fourFingerHoldGestureAction,
+            outerCornersHoldGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.outerCornersHoldGestureAction)
+                ?? fallback.outerCornersHoldGestureAction,
+            innerCornersHoldGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction)
+                ?? fallback.innerCornersHoldGestureAction,
+            leftEdgeUpGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.leftEdgeUpGestureAction)
+                ?? fallback.leftEdgeUpGestureAction,
+            leftEdgeDownGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.leftEdgeDownGestureAction)
+                ?? fallback.leftEdgeDownGestureAction,
+            rightEdgeUpGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.rightEdgeUpGestureAction)
+                ?? fallback.rightEdgeUpGestureAction,
+            rightEdgeDownGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.rightEdgeDownGestureAction)
+                ?? fallback.rightEdgeDownGestureAction,
+            topEdgeLeftGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topEdgeLeftGestureAction)
+                ?? fallback.topEdgeLeftGestureAction,
+            topEdgeRightGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topEdgeRightGestureAction)
+                ?? fallback.topEdgeRightGestureAction,
+            bottomEdgeLeftGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomEdgeLeftGestureAction)
+                ?? fallback.bottomEdgeLeftGestureAction,
+            bottomEdgeRightGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomEdgeRightGestureAction)
+                ?? fallback.bottomEdgeRightGestureAction,
+            threeFingerSwipeLeftGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerSwipeLeftGestureAction)
+                ?? fallback.threeFingerSwipeLeftGestureAction,
+            threeFingerSwipeRightGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerSwipeRightGestureAction)
+                ?? fallback.threeFingerSwipeRightGestureAction,
+            threeFingerSwipeUpGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerSwipeUpGestureAction)
+                ?? fallback.threeFingerSwipeUpGestureAction,
+            threeFingerSwipeDownGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerSwipeDownGestureAction)
+                ?? fallback.threeFingerSwipeDownGestureAction,
+            fourFingerSwipeLeftGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerSwipeLeftGestureAction)
+                ?? fallback.fourFingerSwipeLeftGestureAction,
+            fourFingerSwipeRightGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerSwipeRightGestureAction)
+                ?? fallback.fourFingerSwipeRightGestureAction,
+            fourFingerSwipeUpGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerSwipeUpGestureAction)
+                ?? fallback.fourFingerSwipeUpGestureAction,
+            fourFingerSwipeDownGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerSwipeDownGestureAction)
+                ?? fallback.fourFingerSwipeDownGestureAction,
+            fiveFingerSwipeLeftGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction)
+                ?? fallback.fiveFingerSwipeLeftGestureAction,
+            fiveFingerSwipeRightGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction)
+                ?? fallback.fiveFingerSwipeRightGestureAction,
+            fiveFingerSwipeUpGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeUpGestureAction)
+                ?? fallback.fiveFingerSwipeUpGestureAction,
+            fiveFingerSwipeDownGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fiveFingerSwipeDownGestureAction)
+                ?? fallback.fiveFingerSwipeDownGestureAction,
+            topLeftCornerSwipeGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topLeftCornerSwipeGestureAction)
+                ?? fallback.topLeftCornerSwipeGestureAction,
+            topRightCornerSwipeGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topRightCornerSwipeGestureAction)
+                ?? fallback.topRightCornerSwipeGestureAction,
+            bottomLeftCornerSwipeGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomLeftCornerSwipeGestureAction)
+                ?? fallback.bottomLeftCornerSwipeGestureAction,
+            bottomRightCornerSwipeGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomRightCornerSwipeGestureAction)
+                ?? fallback.bottomRightCornerSwipeGestureAction,
+            topLeftTriangleGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topLeftTriangleGestureAction)
+                ?? fallback.topLeftTriangleGestureAction,
+            topRightTriangleGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topRightTriangleGestureAction)
+                ?? fallback.topRightTriangleGestureAction,
+            bottomLeftTriangleGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomLeftTriangleGestureAction)
+                ?? fallback.bottomLeftTriangleGestureAction,
+            bottomRightTriangleGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomRightTriangleGestureAction)
+                ?? fallback.bottomRightTriangleGestureAction,
+            upperLeftCornerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.upperLeftCornerClickGestureAction)
+                ?? fallback.upperLeftCornerClickGestureAction,
+            upperRightCornerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.upperRightCornerClickGestureAction)
+                ?? fallback.upperRightCornerClickGestureAction,
+            lowerLeftCornerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.lowerLeftCornerClickGestureAction)
+                ?? fallback.lowerLeftCornerClickGestureAction,
+            lowerRightCornerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.lowerRightCornerClickGestureAction)
+                ?? fallback.lowerRightCornerClickGestureAction,
+            threeFingerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.threeFingerClickGestureAction)
+                ?? fallback.threeFingerClickGestureAction,
+            fourFingerClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.fourFingerClickGestureAction)
+                ?? fallback.fourFingerClickGestureAction,
+            topLeftForceClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topLeftForceClickGestureAction)
+                ?? fallback.topLeftForceClickGestureAction,
+            topRightForceClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.topRightForceClickGestureAction)
+                ?? fallback.topRightForceClickGestureAction,
+            bottomLeftForceClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomLeftForceClickGestureAction)
+                ?? fallback.bottomLeftForceClickGestureAction,
+            bottomRightForceClickGestureAction: defaults.string(forKey: GlassToKeyDefaultsKeys.bottomRightForceClickGestureAction)
+                ?? fallback.bottomRightForceClickGestureAction,
+            gestureRepeatCadenceMsById: GestureRepeatCadenceStorage.decode(
+                from: defaults.data(forKey: GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById) ?? Data()
+            ) ?? fallback.gestureRepeatCadenceMsById,
+            keySpacingPercentByLayout: keySpacingByLayout,
+            columnSettingsByLayout: columnSettingsByLayout,
+            customButtonsByLayout: customButtonsByLayout,
+            keyMappingsByLayout: keyMappingsByLayout,
+            keyGeometryByLayout: keyGeometryByLayout
+        )
     }
 
     func beginReplaySession(from inputURL: URL) async throws {

@@ -75,6 +75,7 @@ final class OMSRawTouchFrame: @unchecked Sendable {
     let deviceIDNumeric: UInt64
     let deviceIndex: Int
     let timestamp: TimeInterval
+    var sequence: UInt64 = 0
     private var buffer: RawTouchBuffer?
     private let releaseHandler: ((RawTouchBuffer) -> Void)?
 

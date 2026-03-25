@@ -43,6 +43,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let maxDistance: CGFloat?
     }
 
+    private struct FrameDecisionRecord {
+        var outcome: RuntimeTouchDecisionOutcome
+        var reason: String?
+        var target: RuntimeTouchTargetSnapshot?
+    }
+
     private typealias TouchKey = UInt64
 
     private enum IntentMode {
@@ -490,6 +496,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let onContactCountChanged: @Sendable (SidePair<Int>) -> Void
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
     private let onVoiceGestureChanged: @Sendable (Bool) -> Void
+    private let onCaptureFrameDiagnostics: @Sendable (RuntimeFrameDiagnostic) -> Void
     private let isDragDetectionEnabled = true
     private var isListening = false
     private var keymapEditingEnabled = false
@@ -582,6 +589,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
     private var intentConfig = IntentConfig()
     private var currentProcessingTimestamp: TimeInterval?
+    private var currentProcessingSequence: UInt64?
+    private var captureFrameDiagnosticsEnabled = false
+    private var currentFrameDecisions: [TouchKey: FrameDecisionRecord] = [:]
     private var intentCurrentKeys = TouchTable<Bool>(minimumCapacity: 16)
     private var intentRemovalBuffer: [TouchKey] = []
     private var unitsPerMillimeter: CGFloat = 1.0
@@ -941,7 +951,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,
         onContactCountChanged: @Sendable @escaping (SidePair<Int>) -> Void,
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
-        onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
+        onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void,
+        onCaptureFrameDiagnostics: @Sendable @escaping (RuntimeFrameDiagnostic) -> Void = { _ in }
     ) {
         self.executionQueue = executionQueue
         self.dispatchService = dispatchService
@@ -951,12 +962,21 @@ final class TouchProcessorEngine: @unchecked Sendable {
         self.onContactCountChanged = onContactCountChanged
         self.onIntentStateChanged = onIntentStateChanged
         self.onVoiceGestureChanged = onVoiceGestureChanged
+        self.onCaptureFrameDiagnostics = onCaptureFrameDiagnostics
     }
 
     func setListening(_ isListening: Bool) {
         self.isListening = isListening
         if !isListening {
             dispatchService.setThreeFingerHoldDragSuppression(false)
+        }
+    }
+
+    func setCaptureFrameDiagnosticsEnabled(_ enabled: Bool) {
+        captureFrameDiagnosticsEnabled = enabled
+        if !enabled {
+            currentProcessingSequence = nil
+            currentFrameDecisions.removeAll(keepingCapacity: false)
         }
     }
 
@@ -1179,6 +1199,235 @@ final class TouchProcessorEngine: @unchecked Sendable {
         holdRepeatEnabled = enabled
     }
 
+    private func beginFrameDiagnostics(sequence: UInt64) {
+        guard captureFrameDiagnosticsEnabled else { return }
+        currentProcessingSequence = sequence
+        currentFrameDecisions.removeAll(keepingCapacity: true)
+    }
+
+    private func currentDispatchSourceSequence() -> UInt64? {
+        guard captureFrameDiagnosticsEnabled else { return nil }
+        return currentProcessingSequence
+    }
+
+    private func targetSnapshot(for binding: KeyBinding) -> RuntimeTouchTargetSnapshot {
+        RuntimeTouchTargetSnapshot(
+            label: binding.label,
+            side: binding.side == .left ? "left" : "right",
+            storageKey: binding.position?.storageKey,
+            buttonID: binding.customButtonID?.uuidString,
+            actionKind: captureActionKindLabel(binding.action),
+            holdForceThreshold: Int(binding.holdForceThreshold.rounded()),
+            isContinuousKey: isContinuousKey(binding)
+        )
+    }
+
+    private func captureActionKindLabel(_ action: KeyBindingAction) -> String {
+        switch action {
+        case .key:
+            return "key"
+        case .appLaunch:
+            return "appLaunch"
+        case .leftClick:
+            return "leftClick"
+        case .doubleClick:
+            return "doubleClick"
+        case .rightClick:
+            return "rightClick"
+        case .middleClick:
+            return "middleClick"
+        case .volumeUp:
+            return "volumeUp"
+        case .volumeDown:
+            return "volumeDown"
+        case .brightnessUp:
+            return "brightnessUp"
+        case .brightnessDown:
+            return "brightnessDown"
+        case .voice:
+            return "voice"
+        case .typingToggle:
+            return "typingToggle"
+        case .chordalShift:
+            return "chordalShift"
+        case .gestureTwoFingerTap:
+            return "gestureTwoFingerTap"
+        case .gestureThreeFingerTap:
+            return "gestureThreeFingerTap"
+        case .gestureFourFingerHold:
+            return "gestureFourFingerHold"
+        case .gestureInnerCornersHold:
+            return "gestureInnerCornersHold"
+        case .gestureFiveFingerSwipeLeft:
+            return "gestureFiveFingerSwipeLeft"
+        case .gestureFiveFingerSwipeRight:
+            return "gestureFiveFingerSwipeRight"
+        case .layerMomentary:
+            return "layerMomentary"
+        case .layerToggle:
+            return "layerToggle"
+        case .none:
+            return "none"
+        }
+    }
+
+    private func recordFrameDecision(
+        _ touchKey: TouchKey,
+        outcome: RuntimeTouchDecisionOutcome,
+        reason: String? = nil,
+        binding: KeyBinding? = nil
+    ) {
+        guard captureFrameDiagnosticsEnabled else { return }
+        let existing = currentFrameDecisions[touchKey]
+        let target = binding.map(targetSnapshot(for:)) ?? existing?.target
+        currentFrameDecisions[touchKey] = FrameDecisionRecord(
+            outcome: outcome,
+            reason: reason ?? existing?.reason,
+            target: target
+        )
+    }
+
+    private func binding(from state: TouchState?) -> KeyBinding? {
+        guard let state else { return nil }
+        switch state {
+        case let .pending(pending):
+            return pending.binding
+        case let .active(active):
+            return active.binding
+        }
+    }
+
+    private func touchDiagnosticPhase(for touchKey: TouchKey, state: TouchState?) -> RuntimeTouchDiagnosticPhase {
+        if disqualifiedTouches.value(for: touchKey) != nil {
+            return .disqualified
+        }
+        if releaseHandledTouches.value(for: touchKey) != nil {
+            return .released
+        }
+        guard let state else { return .none }
+        switch state {
+        case .pending:
+            return .pending
+        case .active:
+            return .active
+        }
+    }
+
+    private func touchTiming(
+        for touchKey: TouchKey,
+        state: TouchState?,
+        now: TimeInterval
+    ) -> (dwellMilliseconds: Int?, maxDistance: Double?) {
+        switch state {
+        case let .pending(pending):
+            return (
+                Int((now - pending.startTime) * 1000.0),
+                sqrt(Double(pending.maxDistanceSquared))
+            )
+        case let .active(active):
+            return (
+                Int((now - active.startTime) * 1000.0),
+                sqrt(Double(active.maxDistanceSquared))
+            )
+        case nil:
+            if let touchInfo = intentState.touches.value(for: touchKey) {
+                return (
+                    Int((now - touchInfo.startTime) * 1000.0),
+                    sqrt(Double(touchInfo.maxDistanceSquared))
+                )
+            }
+            return (nil, nil)
+        }
+    }
+
+    private func emitFrameDiagnostics<Touches: RandomAccessCollection>(
+        deviceIndex: Int,
+        touches: Touches,
+        bindings: BindingIndex,
+        now: TimeInterval
+    ) where Touches.Element == OMSRawTouch {
+        guard captureFrameDiagnosticsEnabled,
+              let sequence = currentProcessingSequence else {
+            return
+        }
+
+        var diagnostics: [RuntimeTouchDiagnostic] = []
+        diagnostics.reserveCapacity(touches.count)
+
+        for touch in touches {
+            let touchKey = Self.makeTouchKey(deviceIndex: deviceIndex, id: touch.id)
+            let state = touchStates.value(for: touchKey)
+            let cachedPoint = framePointCache.value(for: touchKey)
+            let point = cachedPoint ?? CGPoint(
+                x: CGFloat(touch.posX) * trackpadSize.width,
+                y: CGFloat(1.0 - touch.posY) * trackpadSize.height
+            )
+            let resolvedBinding = binding(at: point, index: bindings)
+            let stateBinding = binding(from: state)
+            let chosenBinding = stateBinding ?? resolvedBinding
+            let decision = currentFrameDecisions[touchKey]
+            let timing = touchTiming(for: touchKey, state: state, now: now)
+            let dwellMilliseconds = timing.dwellMilliseconds
+            let forceSatisfied: Bool
+            if let chosenBinding, chosenBinding.holdForceThreshold > 0 {
+                forceSatisfied = Float(touch.pressure) >= chosenBinding.holdForceThreshold
+            } else if let dwellMilliseconds {
+                forceSatisfied = Double(dwellMilliseconds) >= (holdMinDuration * 1000.0)
+            } else {
+                forceSatisfied = false
+            }
+            let phase = touchDiagnosticPhase(for: touchKey, state: state)
+            let armed = {
+                guard let stateBinding else { return false }
+                guard let resolvedBinding else { return true }
+                return bindingsMatch(stateBinding, resolvedBinding)
+            }()
+            let derivedReason: String? = if let decisionReason = decision?.reason {
+                decisionReason
+            } else if phase == .pending && !forceSatisfied {
+                "belowHoldThreshold"
+            } else if chosenBinding == nil {
+                "missedTarget"
+            } else {
+                nil
+            }
+            let derivedDecision: RuntimeTouchDecisionOutcome = decision?.outcome
+                ?? (phase == .pending ? .pending : .none)
+
+            diagnostics.append(
+                RuntimeTouchDiagnostic(
+                    id: touch.id,
+                    state: String(describing: touch.state),
+                    side: touchKeySide(touchKey).map { $0 == .left ? "left" : "right" },
+                    x: Double(touch.posX),
+                    y: Double(touch.posY),
+                    pressure: Double(touch.pressure),
+                    phase: phase,
+                    decision: derivedDecision,
+                    reason: derivedReason,
+                    target: decision?.target ?? chosenBinding.map(targetSnapshot(for:)),
+                    armed: armed,
+                    dwellMilliseconds: dwellMilliseconds,
+                    maxDistance: timing.maxDistance,
+                    forceThresholdSatisfied: forceSatisfied
+                )
+            )
+        }
+
+        onCaptureFrameDiagnostics(
+            RuntimeFrameDiagnostic(
+                sequence: sequence,
+                timestamp: now,
+                deviceIndex: deviceIndex,
+                activeLayer: activeLayer,
+                leftIntent: intentDisplayBySide.left.rawValue,
+                rightIntent: intentDisplayBySide.right.rawValue,
+                ingress: nil,
+                touches: diagnostics
+            )
+        )
+    }
+
     func processRawFrame(_ frame: OMSRawTouchFrame) {
         guard isListening,
               let leftLayout,
@@ -1190,7 +1439,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         let now = frame.timestamp
         currentProcessingTimestamp = now
-        defer { currentProcessingTimestamp = nil }
+        beginFrameDiagnostics(sequence: frame.sequence)
+        defer {
+            currentProcessingSequence = nil
+            currentProcessingTimestamp = nil
+        }
         let touches = frame.touches
         let deviceIndex = frame.deviceIndex
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
@@ -1261,6 +1514,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         notifyContactCounts()
+        emitFrameDiagnostics(
+            deviceIndex: deviceIndex,
+            touches: touches,
+            bindings: isLeftDevice ? leftBindings : rightBindings,
+            now: now
+        )
     }
 
     func processRuntimeRawFrame(_ frame: RuntimeRawFrame) {
@@ -1274,7 +1533,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         let now = frame.timestamp
         currentProcessingTimestamp = now
-        defer { currentProcessingTimestamp = nil }
+        beginFrameDiagnostics(sequence: frame.sequence)
+        defer {
+            currentProcessingSequence = nil
+            currentProcessingTimestamp = nil
+        }
         let touches = frame.rawTouches
         let deviceIndex = frame.deviceIndex
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
@@ -1345,6 +1608,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         notifyContactCounts()
+        emitFrameDiagnostics(
+            deviceIndex: deviceIndex,
+            touches: touches,
+            bindings: isLeftDevice ? leftBindings : rightBindings,
+            now: now
+        )
     }
 
     func resetState(stopVoiceDictation: Bool = false) {
@@ -2319,6 +2588,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: button.action.label,
                 action: action,
                 position: nil,
+                customButtonID: button.id,
                 side: button.side,
                 holdAction: button.hold,
                 holdForceThreshold: button.hold == nil ? 0 : Float(button.holdForceThreshold)
@@ -2396,6 +2666,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         normalizedRect: NormalizedRect,
         canvasSize: CGSize,
         position: GridKeyPosition?,
+        customButtonID: UUID? = nil,
         side: TrackpadSide,
         holdAction: KeyAction? = nil,
         holdForceThreshold: Float = 0
@@ -2410,6 +2681,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .key(code: CGKeyCode(action.keyCode), flags: flags),
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2422,6 +2694,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .appLaunch(action.label),
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2434,6 +2707,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .leftClick,
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2446,6 +2720,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .doubleClick,
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2458,6 +2733,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .rightClick,
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2470,6 +2746,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 label: action.label,
                 action: .middleClick,
                 position: position,
+                customButtonID: customButtonID,
                 side: side,
                 holdAction: holdAction,
                 holdForceThreshold: holdForceThreshold
@@ -2746,6 +3023,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) {
         guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
+        recordFrameDecision(
+            touchKey,
+            outcome: .dispatched,
+            reason: "snapped",
+            binding: binding
+        )
         #if DEBUG
         onDebugBindingDetected(binding)
         #endif
@@ -2765,7 +3048,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             flags: flags,
             side: binding.side,
             combinedFlags: combinedFlags,
-            altAscii: altAscii
+            altAscii: altAscii,
+            sourceSequence: currentDispatchSourceSequence()
         )
     }
 
@@ -4625,11 +4909,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let action = twoFingerTapAction
         if action.kind == .leftClick {
             if awaitingSecondTap, let deadline = doubleTapDeadline, now <= deadline {
-                dispatchService.postLeftClick(clickCount: 2)
+                dispatchService.postLeftClick(
+                    clickCount: 2,
+                    sourceSequence: currentDispatchSourceSequence()
+                )
                 awaitingSecondTap = false
                 doubleTapDeadline = nil
             } else {
-                dispatchService.postLeftClick()
+                dispatchService.postLeftClick(sourceSequence: currentDispatchSourceSequence())
                 awaitingSecondTap = true
                 doubleTapDeadline = now + tapClickCadenceSeconds
             }
@@ -4651,35 +4938,41 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case .none:
             break
         case .appLaunch:
-            dispatchService.postAppLaunch(action.label)
+            dispatchService.postAppLaunch(
+                action.label,
+                sourceSequence: currentDispatchSourceSequence()
+            )
         case .leftClick:
-            dispatchService.postLeftClick()
+            dispatchService.postLeftClick(sourceSequence: currentDispatchSourceSequence())
         case .doubleClick:
-            dispatchService.postLeftClick(clickCount: 2)
+            dispatchService.postLeftClick(
+                clickCount: 2,
+                sourceSequence: currentDispatchSourceSequence()
+            )
         case .rightClick:
-            dispatchService.postRightClick()
+            dispatchService.postRightClick(sourceSequence: currentDispatchSourceSequence())
         case .middleClick:
-            dispatchService.postMiddleClick()
+            dispatchService.postMiddleClick(sourceSequence: currentDispatchSourceSequence())
         case .volumeUp:
             if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
                 return
             }
-            dispatchService.postVolumeUp()
+            dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
             if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
                 return
             }
-            dispatchService.postVolumeDown()
+            dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
         case .brightnessUp:
             if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
                 return
             }
-            dispatchService.postBrightnessUp()
+            dispatchService.postBrightnessUp(sourceSequence: currentDispatchSourceSequence())
         case .brightnessDown:
             if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
                 return
             }
-            dispatchService.postBrightnessDown()
+            dispatchService.postBrightnessDown(sourceSequence: currentDispatchSourceSequence())
         case .voice:
             toggleVoiceDictationSession()
         case .typingToggle:
@@ -5206,7 +5499,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
         fallbackStartTime: TimeInterval? = nil,
         fallbackMaxDistanceSquared: CGFloat = 0
     ) -> Bool {
-        guard isTapDispatchAllowedForCurrentIntent() else { return false }
+        guard isTapDispatchAllowedForCurrentIntent() else {
+            recordFrameDecision(
+                touchKey,
+                outcome: .rejected,
+                reason: "intentBlocked",
+                binding: originalBinding
+            )
+            return false
+        }
         let startTime = touchInfo?.startTime ?? fallbackStartTime ?? now
         let releaseStartPoint = touchInitialContactPoint.value(for: touchKey) ?? point
         let releaseDistanceSquared = distanceSquared(from: releaseStartPoint, to: point)
@@ -5214,8 +5515,22 @@ final class TouchProcessorEngine: @unchecked Sendable {
             max(touchInfo?.maxDistanceSquared ?? 0, fallbackMaxDistanceSquared),
             releaseDistanceSquared
         )
-        guard now - startTime <= tapMaxDuration else { return false }
+        guard now - startTime <= tapMaxDuration else {
+            recordFrameDecision(
+                touchKey,
+                outcome: .rejected,
+                reason: "tapTimedOut",
+                binding: originalBinding
+            )
+            return false
+        }
         if isDragDetectionEnabled, releaseDistanceSquared > dragCancelDistance * dragCancelDistance {
+            recordFrameDecision(
+                touchKey,
+                outcome: .rejected,
+                reason: "movedTooFar",
+                binding: originalBinding
+            )
             return false
         }
 
@@ -5238,6 +5553,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
             if let directBinding = binding(at: point, index: bindings) {
                 guard bindingsMatch(originalBinding, directBinding) else {
+                    recordFrameDecision(
+                        touchKey,
+                        outcome: .rejected,
+                        reason: "bindingMismatch",
+                        binding: originalBinding
+                    )
                     return false
                 }
                 triggerBinding(
@@ -5248,12 +5569,21 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 )
                 return true
             }
-            return attemptSnapOnRelease(
+            let snapped = attemptSnapOnRelease(
                 touchKey: touchKey,
                 point: point,
                 bindings: bindings,
                 pressure: pressure
             )
+            if !snapped {
+                recordFrameDecision(
+                    touchKey,
+                    outcome: .rejected,
+                    reason: "missedTarget",
+                    binding: originalBinding
+                )
+            }
+            return snapped
         }
 
         if let directBinding = binding(at: point, index: bindings) {
@@ -5266,12 +5596,20 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return true
         }
 
-        return attemptSnapOnRelease(
+        let snapped = attemptSnapOnRelease(
             touchKey: touchKey,
             point: point,
             bindings: bindings,
             pressure: pressure
         )
+        if !snapped {
+            recordFrameDecision(
+                touchKey,
+                outcome: .rejected,
+                reason: "missedTarget"
+            )
+        }
+        return snapped
     }
 
     private func isTapDispatchAllowedForCurrentIntent() -> Bool {
@@ -5298,9 +5636,20 @@ final class TouchProcessorEngine: @unchecked Sendable {
         dispatchInfo: DispatchInfo? = nil,
         pressure: Float? = nil
     ) {
+        if let touchKey {
+            recordFrameDecision(
+                touchKey,
+                outcome: .dispatched,
+                reason: dispatchInfo?.kind == .hold ? "hold" : "tap",
+                binding: binding
+            )
+        }
         switch binding.action {
         case let .appLaunch(actionLabel):
-            dispatchService.postAppLaunch(actionLabel)
+            dispatchService.postAppLaunch(
+                actionLabel,
+                sourceSequence: currentDispatchSourceSequence()
+            )
         case let .layerMomentary(layer):
             guard let touchKey else { return }
             momentaryLayerTouches.set(touchKey, layer)
@@ -5310,21 +5659,24 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case .typingToggle:
             toggleTypingMode()
         case .leftClick:
-            dispatchService.postLeftClick()
+            dispatchService.postLeftClick(sourceSequence: currentDispatchSourceSequence())
         case .doubleClick:
-            dispatchService.postLeftClick(clickCount: 2)
+            dispatchService.postLeftClick(
+                clickCount: 2,
+                sourceSequence: currentDispatchSourceSequence()
+            )
         case .rightClick:
-            dispatchService.postRightClick()
+            dispatchService.postRightClick(sourceSequence: currentDispatchSourceSequence())
         case .middleClick:
-            dispatchService.postMiddleClick()
+            dispatchService.postMiddleClick(sourceSequence: currentDispatchSourceSequence())
         case .volumeUp:
-            dispatchService.postVolumeUp()
+            dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
-            dispatchService.postVolumeDown()
+            dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
         case .brightnessUp:
-            dispatchService.postBrightnessUp()
+            dispatchService.postBrightnessUp(sourceSequence: currentDispatchSourceSequence())
         case .brightnessDown:
-            dispatchService.postBrightnessDown()
+            dispatchService.postBrightnessDown(sourceSequence: currentDispatchSourceSequence())
         case .voice:
             toggleVoiceDictationSession()
         case .chordalShift:
@@ -5358,10 +5710,17 @@ final class TouchProcessorEngine: @unchecked Sendable {
         flags: CGEventFlags,
         side: TrackpadSide?,
         combinedFlags: CGEventFlags? = nil,
-        altAscii: UInt8 = 0
+        altAscii: UInt8 = 0,
+        sourceSequence: UInt64? = nil
     ) {
+        _ = side
         let resolvedFlags = combinedFlags ?? flags.union(currentModifierFlags())
-        dispatchService.postKeyStroke(code: code, flags: resolvedFlags, altAscii: altAscii)
+        dispatchService.postKeyStroke(
+            code: code,
+            flags: resolvedFlags,
+            altAscii: altAscii,
+            sourceSequence: sourceSequence
+        )
     }
 
     private func currentModifierFlags() -> CGEventFlags {
@@ -5392,6 +5751,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) {
         guard case let .key(code, flags) = binding.action else { return }
         if let pressure, !isPressureWithinForceRange(pressure) {
+            if let touchKey {
+                recordFrameDecision(
+                    touchKey,
+                    outcome: .rejected,
+                    reason: "forceThresholdNotMet",
+                    binding: binding
+                )
+            }
             return
         }
         #if DEBUG
@@ -5399,7 +5766,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
 #endif
         extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
-        sendKey(code: code, flags: flags, side: binding.side)
+        sendKey(
+            code: code,
+            flags: flags,
+            side: binding.side,
+            sourceSequence: currentDispatchSourceSequence()
+        )
     }
 
     private func playHapticIfNeeded(on side: TrackpadSide?, touchKey: TouchKey? = nil) {
@@ -5417,7 +5789,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case .right:
             deviceID = rightDeviceID
         }
-        dispatchService.postHaptic(strength: hapticStrength, deviceID: deviceID)
+        dispatchService.postHaptic(
+            strength: hapticStrength,
+            deviceID: deviceID,
+            sourceSequence: currentDispatchSourceSequence()
+        )
     }
 
     @discardableResult
@@ -5428,6 +5804,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) -> Bool {
         guard canHoldRepeat(binding: binding) else { return false }
         if let pressure, !isPressureWithinForceRange(pressure) {
+            recordFrameDecision(
+                touchKey,
+                outcome: .rejected,
+                reason: "forceThresholdNotMet",
+                binding: binding
+            )
             return false
         }
         #if DEBUG
@@ -5435,6 +5817,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         #endif
         extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
+        recordFrameDecision(
+            touchKey,
+            outcome: .dispatched,
+            reason: "hold",
+            binding: binding
+        )
         startRepeat(
             for: .touch(touchKey),
             binding: binding,
@@ -5454,18 +5842,35 @@ final class TouchProcessorEngine: @unchecked Sendable {
         guard case let .key(code, flags) = binding.action else { return }
         let dispatchService = self.dispatchService
         let repeatFlags = flags.union(currentModifierFlags())
+        let sourceSequence = currentDispatchSourceSequence()
         startRepeatEntry(
             for: owner,
             initialDelay: initialDelay,
             interval: interval,
             fireInitial: {
-                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true)
+                dispatchService.postKey(
+                    code: code,
+                    flags: repeatFlags,
+                    keyDown: true,
+                    sourceSequence: sourceSequence
+                )
             },
             fire: { token in
-                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: true, token: token)
+                dispatchService.postKey(
+                    code: code,
+                    flags: repeatFlags,
+                    keyDown: true,
+                    token: token,
+                    sourceSequence: sourceSequence
+                )
             },
             stop: {
-                dispatchService.postKey(code: code, flags: repeatFlags, keyDown: false)
+                dispatchService.postKey(
+                    code: code,
+                    flags: repeatFlags,
+                    keyDown: false,
+                    sourceSequence: sourceSequence
+                )
             }
         )
     }
@@ -5478,6 +5883,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) {
         stopRepeat(for: owner)
         let dispatchService = self.dispatchService
+        let sourceSequence = currentDispatchSourceSequence()
         startRepeatEntry(
             for: owner,
             initialDelay: initialDelay,
@@ -5485,25 +5891,25 @@ final class TouchProcessorEngine: @unchecked Sendable {
             fireInitial: {
                 switch systemKey {
                 case .volumeUp:
-                    dispatchService.postVolumeUp()
+                    dispatchService.postVolumeUp(sourceSequence: sourceSequence)
                 case .volumeDown:
-                    dispatchService.postVolumeDown()
+                    dispatchService.postVolumeDown(sourceSequence: sourceSequence)
                 case .brightnessUp:
-                    dispatchService.postBrightnessUp()
+                    dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
-                    dispatchService.postBrightnessDown()
+                    dispatchService.postBrightnessDown(sourceSequence: sourceSequence)
                 }
             },
             fire: { _ in
                 switch systemKey {
                 case .volumeUp:
-                    dispatchService.postVolumeUp()
+                    dispatchService.postVolumeUp(sourceSequence: sourceSequence)
                 case .volumeDown:
-                    dispatchService.postVolumeDown()
+                    dispatchService.postVolumeDown(sourceSequence: sourceSequence)
                 case .brightnessUp:
-                    dispatchService.postBrightnessUp()
+                    dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
-                    dispatchService.postBrightnessDown()
+                    dispatchService.postBrightnessDown(sourceSequence: sourceSequence)
                 }
             }
             ,
@@ -5785,7 +6191,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
 #if DEBUG
         onDebugBindingDetected(binding)
 #endif
-        dispatchService.postKey(code: code, flags: flags, keyDown: keyDown)
+        dispatchService.postKey(
+            code: code,
+            flags: flags,
+            keyDown: keyDown,
+            sourceSequence: currentDispatchSourceSequence()
+        )
     }
 
     private func releaseHeldKeys(stopVoiceDictation: Bool = false) {
@@ -5911,6 +6322,13 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func disqualifyTouch(_ touchKey: TouchKey, reason: DisqualifyReason) {
+        let binding = binding(from: touchStates.value(for: touchKey))
+        recordFrameDecision(
+            touchKey,
+            outcome: .rejected,
+            reason: reason.rawValue,
+            binding: binding
+        )
         touchInitialContactPoint.remove(touchKey)
         disqualifiedTouches.set(touchKey, true)
         let state = popTouchState(for: touchKey)

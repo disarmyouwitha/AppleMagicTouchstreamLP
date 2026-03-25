@@ -69,6 +69,7 @@ public struct ATPCaptureContainer: Sendable {
 public enum ATPCaptureCodec {
     public static let fileMagic = "ATPCAP01"
     public static let currentVersion: Int32 = 3
+    public static let diagnosticVersion: Int32 = 4
     public static let headerSize = 20
     public static let recordHeaderSize = 34
     public static let defaultTickFrequency: Int64 = 1_000_000_000
@@ -234,7 +235,7 @@ public enum ATPCaptureCodec {
     public static func parse(data: Data) throws -> ReplayFixture {
         let container = try readContainer(data: data)
         let version = container.header.version
-        guard version == currentVersion else {
+        guard version == currentVersion || version == diagnosticVersion else {
             throw ReplayFixtureError.unsupportedATPCaptureVersion(actual: version)
         }
         var meta: ReplayFixtureMeta?
@@ -243,8 +244,10 @@ public enum ATPCaptureCodec {
         var expectedSeq = 1
 
         for record in container.records {
-            if record.deviceIndex == metaRecordDeviceIndex {
-                meta = try decodeMetaPayload(record.payload)
+            if record.deviceIndex < 0 {
+                if record.deviceIndex == metaRecordDeviceIndex {
+                    meta = try decodeMetaPayload(record.payload)
+                }
                 continue
             }
 

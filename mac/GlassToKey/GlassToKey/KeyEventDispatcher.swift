@@ -25,6 +25,19 @@ final class KeyEventDispatcher: @unchecked Sendable {
                 return 3
             }
         }
+
+        var captureLabel: String {
+            switch self {
+            case .volumeUp:
+                return "volumeUp"
+            case .volumeDown:
+                return "volumeDown"
+            case .brightnessUp:
+                return "brightnessUp"
+            case .brightnessDown:
+                return "brightnessDown"
+            }
+        }
     }
 
     private let dispatcher: KeyDispatching
@@ -692,14 +705,14 @@ final class DispatchService: @unchecked Sendable {
     private static let defaultQueueCapacity = 1024
 
     private enum Command {
-        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
-        case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
-        case appLaunch(String)
-        case leftClick(clickCount: Int)
-        case rightClick
-        case middleClick
-        case systemKey(KeyEventDispatcher.SystemKey)
-        case haptic(strength: Double, deviceID: String?)
+        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, sourceSequence: UInt64?)
+        case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?, sourceSequence: UInt64?)
+        case appLaunch(String, sourceSequence: UInt64?)
+        case leftClick(clickCount: Int, sourceSequence: UInt64?)
+        case rightClick(sourceSequence: UInt64?)
+        case middleClick(sourceSequence: UInt64?)
+        case systemKey(KeyEventDispatcher.SystemKey, sourceSequence: UInt64?)
+        case haptic(strength: Double, deviceID: String?, sourceSequence: UInt64?)
     }
 
     private struct RingQueue {
@@ -754,6 +767,7 @@ final class DispatchService: @unchecked Sendable {
     private let keyDispatcher: KeyEventDispatcher
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+    private let captureEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let dispatchQueue = DispatchQueue(
         label: "ink.ranna.GlassToKey.DispatchPump",
         qos: .userInteractive
@@ -767,9 +781,18 @@ final class DispatchService: @unchecked Sendable {
         code: CGKeyCode,
         flags: CGEventFlags,
         altAscii: UInt8 = 0,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        sourceSequence: UInt64? = nil
     ) {
-        enqueue(.keyStroke(code: code, flags: flags, altAscii: altAscii, token: token))
+        enqueue(
+            .keyStroke(
+                code: code,
+                flags: flags,
+                altAscii: altAscii,
+                token: token,
+                sourceSequence: sourceSequence
+            )
+        )
     }
 
     func postKey(
@@ -777,7 +800,8 @@ final class DispatchService: @unchecked Sendable {
         flags: CGEventFlags,
         keyDown: Bool,
         altAscii: UInt8 = 0,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        sourceSequence: UInt64? = nil
     ) {
         enqueue(
             .key(
@@ -785,55 +809,60 @@ final class DispatchService: @unchecked Sendable {
                 flags: flags,
                 keyDown: keyDown,
                 altAscii: altAscii,
-                token: token
+                token: token,
+                sourceSequence: sourceSequence
             )
         )
     }
 
-    func postAppLaunch(_ actionLabel: String) {
-        enqueue(.appLaunch(actionLabel))
+    func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
+        enqueue(.appLaunch(actionLabel, sourceSequence: sourceSequence))
     }
 
-    func postLeftClick(clickCount: Int = 1) {
-        enqueue(.leftClick(clickCount: clickCount))
+    func postLeftClick(clickCount: Int = 1, sourceSequence: UInt64? = nil) {
+        enqueue(.leftClick(clickCount: clickCount, sourceSequence: sourceSequence))
     }
 
-    func postRightClick() {
-        enqueue(.rightClick)
+    func postRightClick(sourceSequence: UInt64? = nil) {
+        enqueue(.rightClick(sourceSequence: sourceSequence))
     }
 
     func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
         keyDispatcher.setThreeFingerHoldDragSuppression(enabled)
     }
 
-    func postMiddleClick() {
-        enqueue(.middleClick)
+    func postMiddleClick(sourceSequence: UInt64? = nil) {
+        enqueue(.middleClick(sourceSequence: sourceSequence))
     }
 
-    func postVolumeUp() {
-        enqueue(.systemKey(.volumeUp))
+    func postVolumeUp(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeUp, sourceSequence: sourceSequence))
     }
 
-    func postVolumeDown() {
-        enqueue(.systemKey(.volumeDown))
+    func postVolumeDown(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeDown, sourceSequence: sourceSequence))
     }
 
-    func postBrightnessUp() {
-        enqueue(.systemKey(.brightnessUp))
+    func postBrightnessUp(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessUp, sourceSequence: sourceSequence))
     }
 
-    func postBrightnessDown() {
-        enqueue(.systemKey(.brightnessDown))
+    func postBrightnessDown(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessDown, sourceSequence: sourceSequence))
     }
 
-    func postHaptic(strength: Double, deviceID: String?) {
-        enqueue(.haptic(strength: strength, deviceID: deviceID))
+    func postHaptic(strength: Double, deviceID: String?, sourceSequence: UInt64? = nil) {
+        enqueue(.haptic(strength: strength, deviceID: deviceID, sourceSequence: sourceSequence))
     }
 
     func snapshotMetrics() -> Metrics {
         stateLock.withLockUnchecked { state in
             Metrics(queueDepth: state.queue.count, drops: state.drops)
         }
+    }
+
+    func setCaptureEventHandler(_ handler: ((RuntimeDispatchEvent) -> Void)?) {
+        captureEventHandlerLock.withLockUnchecked { $0 = handler }
     }
 
     func clearQueue() {
@@ -879,14 +908,18 @@ final class DispatchService: @unchecked Sendable {
 
     private func dispatch(_ command: Command) {
         switch command {
-        case let .keyStroke(code, flags, altAscii, token):
+        case let .keyStroke(code, flags, altAscii, token, sourceSequence):
             keyDispatcher.postKeyStrokeImmediate(
                 code: code,
                 flags: flags,
                 altAscii: altAscii,
                 token: token
             )
-        case let .key(code, flags, keyDown, altAscii, token):
+            emitCaptureEvent(
+                kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),
+                sourceSequence: sourceSequence
+            )
+        case let .key(code, flags, keyDown, altAscii, token, sourceSequence):
             keyDispatcher.postKeyImmediate(
                 code: code,
                 flags: flags,
@@ -894,18 +927,60 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
-        case let .appLaunch(actionLabel):
+            emitCaptureEvent(
+                kind: .key(
+                    code: code,
+                    flags: flags,
+                    keyDown: keyDown,
+                    altAscii: altAscii
+                ),
+                sourceSequence: sourceSequence
+            )
+        case let .appLaunch(actionLabel, sourceSequence):
             appLaunchDispatcher.open(actionLabel)
-        case let .leftClick(clickCount):
+            emitCaptureEvent(
+                kind: .appLaunch(actionLabel),
+                sourceSequence: sourceSequence
+            )
+        case let .leftClick(clickCount, sourceSequence):
             keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
-        case .rightClick:
+            emitCaptureEvent(
+                kind: .leftClick(clickCount: clickCount),
+                sourceSequence: sourceSequence
+            )
+        case let .rightClick(sourceSequence):
             keyDispatcher.postRightClickImmediate()
-        case .middleClick:
+            emitCaptureEvent(kind: .rightClick, sourceSequence: sourceSequence)
+        case let .middleClick(sourceSequence):
             keyDispatcher.postMiddleClickImmediate()
-        case let .systemKey(key):
+            emitCaptureEvent(kind: .middleClick, sourceSequence: sourceSequence)
+        case let .systemKey(key, sourceSequence):
             keyDispatcher.postSystemKeyImmediate(key)
-        case let .haptic(strength, deviceID):
+            emitCaptureEvent(
+                kind: .systemKey(key.captureLabel),
+                sourceSequence: sourceSequence
+            )
+        case let .haptic(strength, deviceID, sourceSequence):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
+            emitCaptureEvent(
+                kind: .haptic(strength: strength, deviceID: deviceID),
+                sourceSequence: sourceSequence
+            )
         }
+    }
+
+    private func emitCaptureEvent(
+        kind: RuntimeDispatchEventKind,
+        sourceSequence: UInt64?
+    ) {
+        guard let handler = captureEventHandlerLock.withLockUnchecked({ $0 }) else { return }
+        handler(
+            RuntimeDispatchEvent(
+                kind: kind,
+                timestamp: ProcessInfo.processInfo.systemUptime,
+                uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
+                sourceSequence: sourceSequence
+            )
+        )
     }
 }

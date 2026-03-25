@@ -1,15 +1,88 @@
 import Foundation
 import CoreGraphics
 
+enum RuntimeCaptureDeliveryMode: String, Codable, Sendable {
+    case captureOnly
+    case liveAndCapture
+}
+
+struct RuntimeCaptureIngressSnapshot: Codable, Sendable {
+    var deliveryMode: RuntimeCaptureDeliveryMode
+    var liveQueueDepth: Int
+    var liveDroppedFrames: UInt64
+    var dispatchQueueDepth: Int
+    var dispatchDropped: UInt64
+}
+
 enum RuntimeDispatchEventKind: Sendable {
-    case keyDown(code: CGKeyCode, flags: CGEventFlags)
-    case keyUp(code: CGKeyCode, flags: CGEventFlags)
+    case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8)
+    case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8)
+    case leftClick(clickCount: Int)
+    case rightClick
+    case middleClick
+    case systemKey(String)
+    case appLaunch(String)
     case haptic(strength: Double, deviceID: String?)
 }
 
 struct RuntimeDispatchEvent: Sendable {
     var kind: RuntimeDispatchEventKind
     var timestamp: TimeInterval
+    var uptimeNanoseconds: UInt64
+    var sourceSequence: UInt64?
+}
+
+enum RuntimeTouchDiagnosticPhase: String, Codable, Sendable {
+    case none
+    case pending
+    case active
+    case disqualified
+    case released
+}
+
+enum RuntimeTouchDecisionOutcome: String, Codable, Sendable {
+    case none
+    case pending
+    case dispatched
+    case rejected
+}
+
+struct RuntimeTouchTargetSnapshot: Codable, Sendable {
+    var label: String
+    var side: String?
+    var storageKey: String?
+    var buttonID: String?
+    var actionKind: String
+    var holdForceThreshold: Int
+    var isContinuousKey: Bool
+}
+
+struct RuntimeTouchDiagnostic: Codable, Sendable {
+    var id: Int32
+    var state: String
+    var side: String?
+    var x: Double
+    var y: Double
+    var pressure: Double
+    var phase: RuntimeTouchDiagnosticPhase
+    var decision: RuntimeTouchDecisionOutcome
+    var reason: String?
+    var target: RuntimeTouchTargetSnapshot?
+    var armed: Bool
+    var dwellMilliseconds: Int?
+    var maxDistance: Double?
+    var forceThresholdSatisfied: Bool
+}
+
+struct RuntimeFrameDiagnostic: Codable, Sendable {
+    var sequence: UInt64
+    var timestamp: TimeInterval
+    var deviceIndex: Int
+    var activeLayer: Int
+    var leftIntent: String
+    var rightIntent: String
+    var ingress: RuntimeCaptureIngressSnapshot?
+    var touches: [RuntimeTouchDiagnostic]
 }
 
 struct RuntimeRawContact: Sendable {

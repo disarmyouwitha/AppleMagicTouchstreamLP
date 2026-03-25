@@ -6,6 +6,19 @@ enum ATPCaptureV3Codec {
     struct CaptureSample: Sendable {
         let frame: RuntimeRawFrame
         let arrivalTicks: Int64
+        let ingress: RuntimeCaptureIngressSnapshot?
+    }
+
+    struct DispatchSample: Sendable {
+        let event: RuntimeDispatchEvent
+        let arrivalTicks: Int64
+    }
+
+    struct CaptureData: Sendable {
+        let configuration: AppKeymapProfile?
+        let samples: [CaptureSample]
+        let frameDiagnostics: [RuntimeFrameDiagnostic]
+        let dispatchEvents: [DispatchSample]
     }
 
     struct ReplaySample: Sendable {
@@ -21,12 +34,16 @@ enum ATPCaptureV3Codec {
     static let fileMagic = "ATPCAP01"
     static let schema = "g2k-replay-v1"
     static let version2: Int32 = 2
-    static let currentVersion: Int32 = 3
+    static let version3: Int32 = 3
+    static let currentVersion: Int32 = 4
     static let headerSize = 20
     static let recordHeaderSize = 34
     static let defaultTickFrequency: Int64 = 1_000_000_000
     private static let framePayloadMagic: UInt32 = 0x33564652 // "RFV3" little-endian
     private static let metaRecordDeviceIndex: Int32 = -1
+    private static let configRecordDeviceIndex: Int32 = -2
+    private static let frameDiagnosticRecordDeviceIndex: Int32 = -3
+    private static let dispatchRecordDeviceIndex: Int32 = -4
     private static let frameHeaderBytes = 32
     private static let frameContactBytes = 40
     private static let v2PtpReportID: UInt8 = 0x05
@@ -58,7 +75,11 @@ enum ATPCaptureV3Codec {
         let baseTimestamp = frames.first?.timestamp ?? 0
         let samples = frames.map { frame in
             let ticks = Int64(((frame.timestamp - baseTimestamp) * Double(tickFrequency)).rounded())
-            return CaptureSample(frame: frame, arrivalTicks: max(0, ticks))
+            return CaptureSample(
+                frame: frame,
+                arrivalTicks: max(0, ticks),
+                ingress: nil
+            )
         }
         try write(
             samples: samples,
@@ -71,6 +92,27 @@ enum ATPCaptureV3Codec {
 
     static func write(
         samples: [CaptureSample],
+        to url: URL,
+        tickFrequency: Int64 = defaultTickFrequency,
+        platform: String = "macOS",
+        source: String = "GlassToKeyMenuCapture"
+    ) throws {
+        try write(
+            captureData: CaptureData(
+                configuration: nil,
+                samples: samples,
+                frameDiagnostics: [],
+                dispatchEvents: []
+            ),
+            to: url,
+            tickFrequency: tickFrequency,
+            platform: platform,
+            source: source
+        )
+    }
+
+    static func write(
+        captureData: CaptureData,
         to url: URL,
         tickFrequency: Int64 = defaultTickFrequency,
         platform: String = "macOS",
@@ -101,7 +143,7 @@ enum ATPCaptureV3Codec {
             capturedAt: iso8601Timestamp(Date()),
             platform: platform,
             source: source,
-            framesCaptured: samples.count
+            framesCaptured: captureData.samples.count
         )
         try handle.write(contentsOf: recordHeader(
             payloadLength: metaPayload.count,
@@ -117,15 +159,55 @@ enum ATPCaptureV3Codec {
         ))
         try handle.write(contentsOf: metaPayload)
 
-        var sequence: UInt64 = 1
-        for sample in samples {
+        if let configuration = captureData.configuration {
+            let payload = try encodeConfigurationPayload(configuration)
+            try handle.write(contentsOf: recordHeader(
+                payloadLength: payload.count,
+                arrivalTicks: 0,
+                deviceIndex: configRecordDeviceIndex,
+                deviceHash: 0,
+                vendorID: 0,
+                productID: 0,
+                usagePage: 0,
+                usage: 0,
+                sideHint: 0,
+                decoderProfile: 0
+            ))
+            try handle.write(contentsOf: payload)
+        }
+
+        var diagnosticsBySequence: [UInt64: RuntimeFrameDiagnostic] = [:]
+        diagnosticsBySequence.reserveCapacity(max(captureData.frameDiagnostics.count, captureData.samples.count))
+        for diagnostic in captureData.frameDiagnostics {
+            diagnosticsBySequence[diagnostic.sequence] = diagnostic
+        }
+        for sample in captureData.samples {
+            guard let ingress = sample.ingress else { continue }
+            if var diagnostic = diagnosticsBySequence[sample.frame.sequence] {
+                diagnostic.ingress = diagnostic.ingress ?? ingress
+                diagnosticsBySequence[sample.frame.sequence] = diagnostic
+            } else {
+                diagnosticsBySequence[sample.frame.sequence] = RuntimeFrameDiagnostic(
+                    sequence: sample.frame.sequence,
+                    timestamp: sample.frame.timestamp,
+                    deviceIndex: sample.frame.deviceIndex,
+                    activeLayer: 0,
+                    leftIntent: "unknown",
+                    rightIntent: "unknown",
+                    ingress: ingress,
+                    touches: []
+                )
+            }
+        }
+
+        for sample in captureData.samples {
             let frame = sample.frame
             guard let deviceIndex = Int32(exactly: frame.deviceIndex) else {
                 throw RuntimeCaptureReplayError.invalidATPCapture(
                     reason: "deviceIndex \(frame.deviceIndex) out of Int32 range"
                 )
             }
-            let payload = try encodeFramePayload(sequence: sequence, frame: frame)
+            let payload = try encodeFramePayload(sequence: frame.sequence, frame: frame)
             let arrivalTicks = max(0, sample.arrivalTicks)
 
             try handle.write(contentsOf: recordHeader(
@@ -141,7 +223,62 @@ enum ATPCaptureV3Codec {
                 decoderProfile: 0
             ))
             try handle.write(contentsOf: payload)
-            sequence &+= 1
+
+            if let diagnostic = diagnosticsBySequence.removeValue(forKey: frame.sequence) {
+                let diagnosticPayload = try encodeFrameDiagnosticPayload(diagnostic)
+                try handle.write(contentsOf: recordHeader(
+                    payloadLength: diagnosticPayload.count,
+                    arrivalTicks: arrivalTicks,
+                    deviceIndex: frameDiagnosticRecordDeviceIndex,
+                    deviceHash: UInt32(truncatingIfNeeded: frame.deviceNumericID),
+                    vendorID: 0,
+                    productID: 0,
+                    usagePage: 0,
+                    usage: 0,
+                    sideHint: sideHintForDeviceIndex(frame.deviceIndex),
+                    decoderProfile: 0
+                ))
+                try handle.write(contentsOf: diagnosticPayload)
+            }
+        }
+
+        for diagnostic in diagnosticsBySequence.values.sorted(by: { $0.sequence < $1.sequence }) {
+            let payload = try encodeFrameDiagnosticPayload(diagnostic)
+            try handle.write(contentsOf: recordHeader(
+                payloadLength: payload.count,
+                arrivalTicks: 0,
+                deviceIndex: frameDiagnosticRecordDeviceIndex,
+                deviceHash: 0,
+                vendorID: 0,
+                productID: 0,
+                usagePage: 0,
+                usage: 0,
+                sideHint: 0,
+                decoderProfile: 0
+            ))
+            try handle.write(contentsOf: payload)
+        }
+
+        for dispatchEvent in captureData.dispatchEvents.sorted(by: { lhs, rhs in
+            if lhs.arrivalTicks == rhs.arrivalTicks {
+                return (lhs.event.sourceSequence ?? 0) < (rhs.event.sourceSequence ?? 0)
+            }
+            return lhs.arrivalTicks < rhs.arrivalTicks
+        }) {
+            let payload = try encodeDispatchPayload(dispatchEvent.event)
+            try handle.write(contentsOf: recordHeader(
+                payloadLength: payload.count,
+                arrivalTicks: max(0, dispatchEvent.arrivalTicks),
+                deviceIndex: dispatchRecordDeviceIndex,
+                deviceHash: 0,
+                vendorID: 0,
+                productID: 0,
+                usagePage: 0,
+                usage: 0,
+                sideHint: 0,
+                decoderProfile: 0
+            ))
+            try handle.write(contentsOf: payload)
         }
     }
 
@@ -153,12 +290,12 @@ enum ATPCaptureV3Codec {
     static func parseReplayData(data: Data) throws -> ReplayData {
         let container = try readContainer(data: data)
         let version = container.header.version
-        guard version == currentVersion || version == version2 else {
+        guard version == currentVersion || version == version3 || version == version2 else {
             throw RuntimeCaptureReplayError.unsupportedATPCaptureVersion(
                 actual: version
             )
         }
-        let isV3Capture = version == currentVersion
+        let isFramePayloadCapture = version == currentVersion || version == version3
 
         var expectedSequence: UInt64 = 1
         var frames: [RuntimeRawFrame] = []
@@ -167,9 +304,11 @@ enum ATPCaptureV3Codec {
         rawArrivalTicks.reserveCapacity(1024)
 
         for record in container.records {
-            if isV3Capture {
-                if record.deviceIndex == metaRecordDeviceIndex {
-                    _ = try decodeMetaPayload(record.payload)
+            if isFramePayloadCapture {
+                if record.deviceIndex < 0 {
+                    if record.deviceIndex == metaRecordDeviceIndex {
+                        _ = try decodeMetaPayload(record.payload)
+                    }
                     continue
                 }
 
@@ -816,6 +955,108 @@ enum ATPCaptureV3Codec {
         return payload
     }
 
+    private static func encodeConfigurationPayload(_ configuration: AppKeymapProfile) throws -> Data {
+        let payload = ConfigurationPayload(
+            type: "config",
+            profile: configuration
+        )
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        return try encoder.encode(payload)
+    }
+
+    private static func encodeFrameDiagnosticPayload(_ diagnostic: RuntimeFrameDiagnostic) throws -> Data {
+        let payload = FrameDiagnosticPayload(
+            type: "frameDiagnostic",
+            diagnostic: diagnostic
+        )
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        return try encoder.encode(payload)
+    }
+
+    private static func encodeDispatchPayload(_ event: RuntimeDispatchEvent) throws -> Data {
+        let payload = DispatchPayload(
+            type: "dispatch",
+            timestamp: event.timestamp,
+            uptimeNanoseconds: event.uptimeNanoseconds,
+            sourceSequence: event.sourceSequence,
+            kind: dispatchKindPayload(for: event.kind)
+        )
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        return try encoder.encode(payload)
+    }
+
+    private static func dispatchKindPayload(
+        for kind: RuntimeDispatchEventKind
+    ) -> DispatchPayload.KindPayload {
+        switch kind {
+        case let .keyStroke(code, flags, altAscii):
+            return .init(
+                type: "keyStroke",
+                label: nil,
+                code: UInt16(code),
+                flagsRawValue: flags.rawValue,
+                keyDown: nil,
+                altAscii: altAscii,
+                clickCount: nil,
+                strength: nil,
+                deviceID: nil
+            )
+        case let .key(code, flags, keyDown, altAscii):
+            return .init(
+                type: "key",
+                label: nil,
+                code: UInt16(code),
+                flagsRawValue: flags.rawValue,
+                keyDown: keyDown,
+                altAscii: altAscii,
+                clickCount: nil,
+                strength: nil,
+                deviceID: nil
+            )
+        case let .leftClick(clickCount):
+            return .init(
+                type: "leftClick",
+                label: nil,
+                code: nil,
+                flagsRawValue: nil,
+                keyDown: nil,
+                altAscii: nil,
+                clickCount: clickCount,
+                strength: nil,
+                deviceID: nil
+            )
+        case .rightClick:
+            return .init(type: "rightClick")
+        case .middleClick:
+            return .init(type: "middleClick")
+        case let .systemKey(label):
+            return .init(type: "systemKey", label: label)
+        case let .appLaunch(label):
+            return .init(type: "appLaunch", label: label)
+        case let .haptic(strength, deviceID):
+            return .init(
+                type: "haptic",
+                label: nil,
+                code: nil,
+                flagsRawValue: nil,
+                keyDown: nil,
+                altAscii: nil,
+                clickCount: nil,
+                strength: strength,
+                deviceID: deviceID
+            )
+        }
+    }
+
     private static func encodeFramePayload(
         sequence: UInt64,
         frame: RuntimeRawFrame
@@ -1076,6 +1317,58 @@ enum ATPCaptureV3Codec {
         let framesCaptured: Int
     }
 
+    private struct ConfigurationPayload: Codable {
+        let type: String
+        let profile: AppKeymapProfile
+    }
+
+    private struct FrameDiagnosticPayload: Codable {
+        let type: String
+        let diagnostic: RuntimeFrameDiagnostic
+    }
+
+    private struct DispatchPayload: Codable {
+        struct KindPayload: Codable {
+            let type: String
+            let label: String?
+            let code: UInt16?
+            let flagsRawValue: UInt64?
+            let keyDown: Bool?
+            let altAscii: UInt8?
+            let clickCount: Int?
+            let strength: Double?
+            let deviceID: String?
+
+            init(
+                type: String,
+                label: String? = nil,
+                code: UInt16? = nil,
+                flagsRawValue: UInt64? = nil,
+                keyDown: Bool? = nil,
+                altAscii: UInt8? = nil,
+                clickCount: Int? = nil,
+                strength: Double? = nil,
+                deviceID: String? = nil
+            ) {
+                self.type = type
+                self.label = label
+                self.code = code
+                self.flagsRawValue = flagsRawValue
+                self.keyDown = keyDown
+                self.altAscii = altAscii
+                self.clickCount = clickCount
+                self.strength = strength
+                self.deviceID = deviceID
+            }
+        }
+
+        let type: String
+        let timestamp: TimeInterval
+        let uptimeNanoseconds: UInt64
+        let sourceSequence: UInt64?
+        let kind: KindPayload
+    }
+
     private struct ATPCaptureHeader: Sendable {
         let version: Int32
         let tickFrequency: Int64
@@ -1172,20 +1465,63 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         private let samplesLock = OSAllocatedUnfairLock<[ATPCaptureV3Codec.CaptureSample]>(
             uncheckedState: []
         )
+        private let frameDiagnosticsLock = OSAllocatedUnfairLock<[UInt64: RuntimeFrameDiagnostic]>(
+            uncheckedState: [:]
+        )
+        private let dispatchEventsLock = OSAllocatedUnfairLock<[ATPCaptureV3Codec.DispatchSample]>(
+            uncheckedState: []
+        )
+        private let configuration: AppKeymapProfile?
 
-        func append(_ frame: RuntimeRawFrame, arrivalTicks: Int64) {
+        init(configuration: AppKeymapProfile?) {
+            self.configuration = configuration
+        }
+
+        func append(
+            _ frame: RuntimeRawFrame,
+            arrivalTicks: Int64,
+            ingress: RuntimeCaptureIngressSnapshot
+        ) {
             samplesLock.withLockUnchecked { samples in
                 samples.append(
                     ATPCaptureV3Codec.CaptureSample(
                         frame: frame,
+                        arrivalTicks: max(0, arrivalTicks),
+                        ingress: ingress
+                    )
+                )
+            }
+        }
+
+        func appendFrameDiagnostic(_ diagnostic: RuntimeFrameDiagnostic) {
+            frameDiagnosticsLock.withLockUnchecked { diagnostics in
+                diagnostics[diagnostic.sequence] = diagnostic
+            }
+        }
+
+        func appendDispatchEvent(_ event: RuntimeDispatchEvent, arrivalTicks: Int64) {
+            dispatchEventsLock.withLockUnchecked { events in
+                events.append(
+                    ATPCaptureV3Codec.DispatchSample(
+                        event: event,
                         arrivalTicks: max(0, arrivalTicks)
                     )
                 )
             }
         }
 
-        func snapshot() -> [ATPCaptureV3Codec.CaptureSample] {
-            samplesLock.withLockUnchecked { $0 }
+        func snapshot() -> ATPCaptureV3Codec.CaptureData {
+            let samples = samplesLock.withLockUnchecked { $0 }
+            let frameDiagnostics = frameDiagnosticsLock.withLockUnchecked { diagnostics in
+                diagnostics.values.sorted(by: { $0.sequence < $1.sequence })
+            }
+            let dispatchEvents = dispatchEventsLock.withLockUnchecked { $0 }
+            return ATPCaptureV3Codec.CaptureData(
+                configuration: configuration,
+                samples: samples,
+                frameDiagnostics: frameDiagnostics,
+                dispatchEvents: dispatchEvents
+            )
         }
     }
 
@@ -1243,7 +1579,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         stateLock.withLockUnchecked(\.replayPlaybackInProgress)
     }
 
-    func startCapture(to outputURL: URL) throws {
+    func startCapture(to outputURL: URL, configuration: AppKeymapProfile? = nil) throws {
         var startedRuntimeForCapture = false
 
         let canStart = stateLock.withLockUnchecked { state -> Bool in
@@ -1275,14 +1611,24 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             }
         }
 
-        let buffer = CaptureBuffer()
+        let buffer = CaptureBuffer(configuration: configuration)
         let captureStartUptime = DispatchTime.now().uptimeNanoseconds
-        let frameHandlerID = inputRuntimeService.addCaptureFrameHandler { rawFrame in
+        runtimeEngine.setCaptureFrameDiagnosticsHandler { diagnostic in
+            buffer.appendFrameDiagnostic(diagnostic)
+        }
+        DispatchService.shared.setCaptureEventHandler { event in
+            let elapsed = event.uptimeNanoseconds >= captureStartUptime
+                ? event.uptimeNanoseconds - captureStartUptime
+                : 0
+            buffer.appendDispatchEvent(event, arrivalTicks: Int64(clamping: elapsed))
+        }
+        let frameHandlerID = inputRuntimeService.addCaptureFrameHandler { rawFrame, ingress in
             let nowUptime = DispatchTime.now().uptimeNanoseconds
             let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
             buffer.append(
                 rawFrame,
-                arrivalTicks: Int64(clamping: elapsed)
+                arrivalTicks: Int64(clamping: elapsed),
+                ingress: ingress
             )
         }
 
@@ -1309,14 +1655,16 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         }
 
         inputRuntimeService.removeCaptureFrameHandler(session.frameHandlerID)
+        runtimeEngine.setCaptureFrameDiagnosticsHandler(nil)
+        DispatchService.shared.setCaptureEventHandler(nil)
 
         if session.startedRuntimeForCapture {
             _ = runtimeLifecycleCoordinator.stop(stopVoiceDictation: false)
         }
 
-        let samples = session.buffer.snapshot()
-        try ATPCaptureV3Codec.write(samples: samples, to: session.outputURL)
-        return samples.count
+        let captureData = session.buffer.snapshot()
+        try ATPCaptureV3Codec.write(captureData: captureData, to: session.outputURL)
+        return captureData.samples.count
     }
 
     func replayCapture(from inputURL: URL) async throws -> Int {
