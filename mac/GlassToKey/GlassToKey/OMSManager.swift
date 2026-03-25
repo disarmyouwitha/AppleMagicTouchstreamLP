@@ -110,10 +110,18 @@ final class OMSRawTouchFrame: @unchecked Sendable {
     }
 }
 
+protocol OMSRawTouchFrameSink: AnyObject, Sendable {
+    func handleRawTouchFrame(_ frame: OMSRawTouchFrame)
+}
+
 final class OMSManager: Sendable {
     static let shared = OMSManager()
 
     typealias RawTouchFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
+
+    private struct WeakRawTouchFrameSink {
+        weak var value: (any OMSRawTouchFrameSink)?
+    }
 
     private struct RawDeliveryState {
         static let capacity = 256
@@ -134,6 +142,9 @@ final class OMSManager: Sendable {
     )
     private let deviceIDStringCache = OSAllocatedUnfairLock<[UInt64: String]>(
         uncheckedState: [:]
+    )
+    private let rawFrameSink = OSAllocatedUnfairLock<WeakRawTouchFrameSink>(
+        uncheckedState: WeakRawTouchFrameSink(value: nil)
     )
     private let rawFrameHandler = OSAllocatedUnfairLock<RawTouchFrameHandler?>(
         uncheckedState: nil
@@ -159,6 +170,12 @@ final class OMSManager: Sendable {
 
     func setRawFrameHandler(_ handler: RawTouchFrameHandler?) {
         rawFrameHandler.withLockUnchecked { $0 = handler }
+    }
+
+    func setRawFrameSink(_ sink: (any OMSRawTouchFrameSink)?) {
+        rawFrameSink.withLockUnchecked { state in
+            state.value = sink
+        }
     }
 
     var isTimestampEnabled: Bool {
@@ -385,6 +402,11 @@ final class OMSManager: Sendable {
                 return frame
             }
             guard let next else { return }
+
+            if let sink = rawFrameSink.withLockUnchecked({ $0.value }) {
+                sink.handleRawTouchFrame(next)
+                continue
+            }
 
             guard let handler = rawFrameHandler.withLockUnchecked({ $0 }) else {
                 next.release()

@@ -100,9 +100,7 @@ final class InputRuntimeService: @unchecked Sendable {
             return false
         }
 
-        manager.setRawFrameHandler { [weak self] frame in
-            self?.handleRawFrame(frame)
-        }
+        manager.setRawFrameSink(self)
         return true
     }
 
@@ -114,7 +112,7 @@ final class InputRuntimeService: @unchecked Sendable {
             return true
         }
         guard shouldStop else { return false }
-        manager.setRawFrameHandler(nil)
+        manager.setRawFrameSink(nil)
         _ = manager.stopListening()
         return true
     }
@@ -245,6 +243,12 @@ final class InputRuntimeService: @unchecked Sendable {
             }
             liveHandler(pending.frame)
         }
+    }
+}
+
+extension InputRuntimeService: OMSRawTouchFrameSink {
+    func handleRawTouchFrame(_ frame: OMSRawTouchFrame) {
+        handleRawFrame(frame)
     }
 }
 
