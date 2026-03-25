@@ -253,11 +253,23 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         var continuation: AsyncStream<UInt64>.Continuation?
     }
 
+    private struct RevisionDeliveryState {
+        var pendingRevision: UInt64?
+        var drainScheduled = false
+    }
+
     private let snapshotLock = OSAllocatedUnfairLock<RuntimeTouchSnapshot>(
         uncheckedState: RuntimeTouchSnapshot()
     )
     private let recordingLock = OSAllocatedUnfairLock<Bool>(
         uncheckedState: false
+    )
+    private let revisionDeliveryQueue = DispatchQueue(
+        label: "ink.ranna.glasstokey.runtime.render-snapshot-updates",
+        qos: .userInteractive
+    )
+    private let revisionDeliveryLock = OSAllocatedUnfairLock<RevisionDeliveryState>(
+        uncheckedState: RevisionDeliveryState()
     )
     private let continuationStore: RevisionContinuationStore
     let revisionUpdates: AsyncStream<UInt64>
@@ -289,6 +301,10 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         recordingLock.withLockUnchecked { $0 = enabled }
         if !enabled {
             snapshotLock.withLockUnchecked { $0 = RuntimeTouchSnapshot() }
+            revisionDeliveryLock.withLockUnchecked { state in
+                state.pendingRevision = 0
+            }
+            scheduleRevisionDrainIfNeeded()
         }
     }
 
@@ -322,8 +338,44 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
             updatedRevision = snapshot.revision
         }
         guard let revision = updatedRevision else { return false }
-        continuationStore.continuation?.yield(revision)
+        enqueueRevisionUpdate(revision)
         return true
+    }
+
+    private func enqueueRevisionUpdate(_ revision: UInt64) {
+        revisionDeliveryLock.withLockUnchecked { state in
+            state.pendingRevision = revision
+        }
+        scheduleRevisionDrainIfNeeded()
+    }
+
+    private func scheduleRevisionDrainIfNeeded() {
+        let shouldSchedule = revisionDeliveryLock.withLockUnchecked { state -> Bool in
+            guard state.pendingRevision != nil, !state.drainScheduled else {
+                return false
+            }
+            state.drainScheduled = true
+            return true
+        }
+        guard shouldSchedule else { return }
+        revisionDeliveryQueue.async { [weak self] in
+            self?.drainRevisionUpdates()
+        }
+    }
+
+    private func drainRevisionUpdates() {
+        while true {
+            let revision = revisionDeliveryLock.withLockUnchecked { state -> UInt64? in
+                guard let revision = state.pendingRevision else {
+                    state.drainScheduled = false
+                    return nil
+                }
+                state.pendingRevision = nil
+                return revision
+            }
+            guard let revision else { return }
+            continuationStore.continuation?.yield(revision)
+        }
     }
 }
 

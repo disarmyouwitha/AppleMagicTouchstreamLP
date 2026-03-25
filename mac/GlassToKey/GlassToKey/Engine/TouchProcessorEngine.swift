@@ -1854,7 +1854,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     let distanceSquared = distanceSquared(from: active.startPoint, to: point)
                     active.maxDistanceSquared = max(active.maxDistanceSquared, distanceSquared)
                     setActiveTouch(touchKey, active)
-
                     if isDragDetectionEnabled,
                        active.modifierKey == nil,
                        !active.didHold,
@@ -3747,6 +3746,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let velocitySignal = maxVelocity > velocityThreshold
             && maxDistanceSquared > (moveThresholdSquared * 0.25)
         let mouseSignal = maxDistanceSquared > moveThresholdSquared
+            || maxDistanceSquared > (dragCancelDistance * dragCancelDistance)
             || velocitySignal
             || (secondFingerAppeared && anyOffKey)
             || centroidMoved
