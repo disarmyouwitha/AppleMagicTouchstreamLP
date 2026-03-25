@@ -13,12 +13,12 @@ final class VoiceDictationManager: NSObject, @unchecked Sendable, SFSpeechRecogn
     static let shared = VoiceDictationManager()
 
     private let queue = DispatchQueue(
-        label: "com.kyome.GlassToKey.VoiceDictation",
+        label: "ink.ranna.GlassToKey.VoiceDictation",
         qos: .userInitiated
     )
     private let textReplacer = AccessibilityTextReplacer()
     private let logger = Logger(
-        subsystem: "com.kyome.GlassToKey",
+        subsystem: "ink.ranna.GlassToKey",
         category: "VoiceDictation"
     )
 

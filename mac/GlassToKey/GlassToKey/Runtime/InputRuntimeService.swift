@@ -9,6 +9,7 @@ final class InputRuntimeService: @unchecked Sendable {
     struct Metrics: Sendable {
         var ingestedFrames: UInt64 = 0
         var emittedFrames: UInt64 = 0
+        var liveDroppedFrames: UInt64 = 0
         var releasedWithoutConsumers: UInt64 = 0
     }
 
@@ -20,13 +21,36 @@ final class InputRuntimeService: @unchecked Sendable {
 
     private struct State {
         var isRunning = false
+        var generation: UInt64 = 0
         var sequence: UInt64 = 0
         var metrics = Metrics()
     }
 
+    private struct PendingLiveFrame {
+        var frame: OMSRawTouchFrame
+        var generation: UInt64
+    }
+
+    private struct LiveDeliveryState {
+        static let capacity = 256
+
+        var slots: [PendingLiveFrame?] = Array(repeating: nil, count: capacity)
+        var readIndex = 0
+        var writeIndex = 0
+        var count = 0
+        var drainScheduled = false
+    }
+
     private let manager: OMSManager
+    private let liveDeliveryQueue = DispatchQueue(
+        label: "ink.ranna.glasstokey.runtime.live-delivery",
+        qos: .userInteractive
+    )
     private let consumersLock = OSAllocatedUnfairLock<Consumers>(
         uncheckedState: Consumers()
+    )
+    private let liveDeliveryLock = OSAllocatedUnfairLock<LiveDeliveryState>(
+        uncheckedState: LiveDeliveryState()
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
@@ -64,6 +88,7 @@ final class InputRuntimeService: @unchecked Sendable {
         let shouldStart = stateLock.withLockUnchecked { state in
             guard !state.isRunning else { return false }
             state.isRunning = true
+            state.generation &+= 1
             return true
         }
         guard shouldStart else { return false }
@@ -103,12 +128,12 @@ final class InputRuntimeService: @unchecked Sendable {
     }
 
     private func handleRawFrame(_ frame: OMSRawTouchFrame) {
-        let isRunning = stateLock.withLockUnchecked { state -> Bool in
-            guard state.isRunning else { return false }
+        let stateSnapshot = stateLock.withLockUnchecked { state -> (isRunning: Bool, generation: UInt64) in
+            guard state.isRunning else { return (false, state.generation) }
             state.metrics.ingestedFrames &+= 1
-            return true
+            return (true, state.generation)
         }
-        guard isRunning else { return }
+        guard stateSnapshot.isRunning else { return }
 
         let consumers = consumersLock.withLockUnchecked { $0 }
         guard consumers.liveHandler != nil || consumers.captureHandler != nil else {
@@ -128,14 +153,87 @@ final class InputRuntimeService: @unchecked Sendable {
             captureHandler(runtimeFrame)
         }
 
-        if let liveHandler = consumers.liveHandler {
-            liveHandler(frame)
+        if consumers.liveHandler != nil {
+            enqueueLiveFrame(frame, generation: stateSnapshot.generation)
         } else {
             frame.release()
         }
 
         stateLock.withLockUnchecked { state in
             state.metrics.emittedFrames &+= 1
+        }
+    }
+
+    private func enqueueLiveFrame(_ frame: OMSRawTouchFrame, generation: UInt64) {
+        enum EnqueueResult {
+            case scheduled
+            case queued
+            case dropped
+        }
+
+        let result = liveDeliveryLock.withLockUnchecked { state -> EnqueueResult in
+            guard state.count < state.slots.count else {
+                return .dropped
+            }
+            state.slots[state.writeIndex] = PendingLiveFrame(
+                frame: frame,
+                generation: generation
+            )
+            state.writeIndex = (state.writeIndex + 1) % state.slots.count
+            state.count += 1
+            guard !state.drainScheduled else {
+                return .queued
+            }
+            state.drainScheduled = true
+            return .scheduled
+        }
+
+        switch result {
+        case .scheduled:
+            // The raw Multitouch callback can re-enter synchronously under load.
+            // Drain on a dedicated queue so burst delivery stays iterative.
+            liveDeliveryQueue.async { [weak self] in
+                self?.drainLiveFrames()
+            }
+        case .queued:
+            return
+        case .dropped:
+            stateLock.withLockUnchecked { state in
+                state.metrics.liveDroppedFrames &+= 1
+            }
+            frame.release()
+        }
+    }
+
+    private func drainLiveFrames() {
+        while true {
+            let pending = liveDeliveryLock.withLockUnchecked { state -> PendingLiveFrame? in
+                guard state.count > 0 else {
+                    state.drainScheduled = false
+                    return nil
+                }
+                let next = state.slots[state.readIndex]
+                state.slots[state.readIndex] = nil
+                state.readIndex = (state.readIndex + 1) % state.slots.count
+                state.count -= 1
+                return next
+            }
+            guard let pending else { return }
+
+            let currentState = stateLock.withLockUnchecked { state in
+                (isRunning: state.isRunning, generation: state.generation)
+            }
+            guard currentState.isRunning,
+                  currentState.generation == pending.generation else {
+                pending.frame.release()
+                continue
+            }
+
+            guard let liveHandler = consumersLock.withLockUnchecked({ $0.liveHandler }) else {
+                pending.frame.release()
+                continue
+            }
+            liveHandler(pending.frame)
         }
     }
 }

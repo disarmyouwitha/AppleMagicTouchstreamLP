@@ -153,7 +153,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let mediaTapDwellSeconds: TimeInterval = 0.001
 
     private let queue = DispatchQueue(
-        label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
+        label: "ink.ranna.GlassToKey.KeyDispatch.CGEvent",
         qos: .userInteractive
     )
     private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
@@ -755,7 +755,7 @@ final class DispatchService: @unchecked Sendable {
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let dispatchQueue = DispatchQueue(
-        label: "com.kyome.GlassToKey.DispatchPump",
+        label: "ink.ranna.GlassToKey.DispatchPump",
         qos: .userInteractive
     )
 

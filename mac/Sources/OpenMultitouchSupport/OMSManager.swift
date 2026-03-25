@@ -64,7 +64,7 @@ public final class OMSManager: Sendable {
     private let rawBufferPool = OSAllocatedUnfairLock<[RawTouchBuffer]>(uncheckedState: [])
 #if DEBUG
     private let signposter = OSSignposter(
-        subsystem: "com.kyome.GlassToKey",
+        subsystem: "ink.ranna.GlassToKey",
         category: "OpenMT"
     )
 #endif

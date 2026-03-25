@@ -928,7 +928,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
 #if DEBUG
     private let signposter = OSSignposter(
-        subsystem: "com.kyome.GlassToKey",
+        subsystem: "ink.ranna.GlassToKey",
         category: "TouchProcessing"
     )
 #endif
