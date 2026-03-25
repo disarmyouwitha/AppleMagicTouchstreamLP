@@ -41,6 +41,16 @@ public final class OMSManager: Sendable {
 
     public typealias RawTouchFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
 
+    private struct RawDeliveryState: Sendable {
+        static let capacity = 256
+
+        var slots: [OMSRawTouchFrame?] = Array(repeating: nil, count: capacity)
+        var readIndex = 0
+        var writeIndex = 0
+        var count = 0
+        var drainScheduled = false
+    }
+
     private let protectedCaptureManager: OSAllocatedUnfairLock<OpenMTManagerV2?>
     private let protectedHapticManager: OSAllocatedUnfairLock<OpenMTManager?>
     private let protectedRawListener = OSAllocatedUnfairLock<OpenMTListener?>(uncheckedState: nil)
@@ -60,6 +70,13 @@ public final class OMSManager: Sendable {
     )
     private let rawFrameHandler = OSAllocatedUnfairLock<RawTouchFrameHandler?>(
         uncheckedState: nil
+    )
+    private let rawDeliveryQueue = DispatchQueue(
+        label: "ink.ranna.glasstokey.oms.raw-delivery",
+        qos: .userInteractive
+    )
+    private let rawDeliveryLock = OSAllocatedUnfairLock<RawDeliveryState>(
+        uncheckedState: RawDeliveryState()
     )
     private let rawBufferPool = OSAllocatedUnfairLock<[RawTouchBuffer]>(uncheckedState: [])
 #if DEBUG
@@ -221,7 +238,7 @@ public final class OMSManager: Sendable {
         let deviceIndex = resolveDeviceIndex(for: deviceID)
         let deviceIDString = deviceIDString(for: deviceID)
         guard let touches, count > 0 else {
-            emitRawTouchFrame(
+            enqueueRawTouchFrame(
                 OMSRawTouchFrame(
                     deviceID: deviceIDString,
                     deviceIDNumeric: deviceID,
@@ -264,7 +281,58 @@ public final class OMSManager: Sendable {
                 }
             }
         )
-        emitRawTouchFrame(rawFrame)
+        enqueueRawTouchFrame(rawFrame)
+    }
+
+    private func enqueueRawTouchFrame(_ frame: OMSRawTouchFrame) {
+        enum EnqueueResult {
+            case scheduled
+            case queued
+            case dropped
+        }
+
+        let result = rawDeliveryLock.withLockUnchecked { state -> EnqueueResult in
+            guard state.count < state.slots.count else {
+                return .dropped
+            }
+            state.slots[state.writeIndex] = frame
+            state.writeIndex = (state.writeIndex + 1) % state.slots.count
+            state.count += 1
+            guard !state.drainScheduled else {
+                return .queued
+            }
+            state.drainScheduled = true
+            return .scheduled
+        }
+
+        switch result {
+        case .scheduled:
+            rawDeliveryQueue.async { [weak self] in
+                self?.drainRawFrames()
+            }
+        case .queued:
+            return
+        case .dropped:
+            frame.release()
+        }
+    }
+
+    private func drainRawFrames() {
+        while true {
+            let next = rawDeliveryLock.withLockUnchecked { state -> OMSRawTouchFrame? in
+                guard state.count > 0 else {
+                    state.drainScheduled = false
+                    return nil
+                }
+                let frame = state.slots[state.readIndex]
+                state.slots[state.readIndex] = nil
+                state.readIndex = (state.readIndex + 1) % state.slots.count
+                state.count -= 1
+                return frame
+            }
+            guard let next else { return }
+            emitRawTouchFrame(next)
+        }
     }
 
     private func emitRawTouchFrame(_ frame: OMSRawTouchFrame) {
