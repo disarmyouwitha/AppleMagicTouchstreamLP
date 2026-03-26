@@ -19,17 +19,9 @@ enum ATPCaptureV3Codec {
         }
     }
 
-    struct ReplaySample: Sendable {
-        let record: ProcessedFrameRecord
-        let replayTimeSeconds: Double
-
-        var frame: RuntimeRawFrame {
-            record.frame
-        }
-    }
-
     struct ReplayData: Sendable {
-        let samples: [ReplaySample]
+        let records: [ProcessedFrameRecord]
+        let frameTimesSeconds: [Double]
         let durationSeconds: Double
     }
 
@@ -224,35 +216,30 @@ enum ATPCaptureV3Codec {
             tickFrequency: parsed.tickFrequency
         )
 
-        var samples: [ReplaySample] = []
-        samples.reserveCapacity(captureData.frameRecords.count)
-        for index in captureData.frameRecords.indices {
-            var record = captureData.frameRecords[index]
+        var records = captureData.frameRecords
+        for index in records.indices {
+            var record = records[index]
             let replayTime = replayTimes[index]
             record.frame.timestamp = replayTime
             if var diagnostic = record.diagnostic {
                 diagnostic.timestamp = replayTime
                 record.diagnostic = diagnostic
             }
-            samples.append(
-                ReplaySample(
-                    record: record,
-                    replayTimeSeconds: replayTime
-                )
-            )
+            records[index] = record
         }
         return ReplayData(
-            samples: samples,
+            records: records,
+            frameTimesSeconds: replayTimes,
             durationSeconds: replayTimes.last ?? 0
         )
     }
 
     static func readFrames(from url: URL) throws -> [RuntimeRawFrame] {
-        try readReplayData(from: url).samples.map(\.frame)
+        try readReplayData(from: url).records.map(\.frame)
     }
 
     static func parseFrames(data: Data) throws -> [RuntimeRawFrame] {
-        try parseReplayData(data: data).samples.map(\.frame)
+        try parseReplayData(data: data).records.map(\.frame)
     }
 
     private static func parseCaptureData(
@@ -818,8 +805,8 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
     func beginReplaySession(from inputURL: URL) async throws -> RuntimeReplaySessionInfo {
         let sourceName = inputURL.lastPathComponent
         let replayData = try ATPCaptureV3Codec.readReplayData(from: inputURL)
-        let records = replayData.samples.map(\.record)
-        let frameTimes = replayData.samples.map(\.replayTimeSeconds)
+        let records = replayData.records
+        let frameTimes = replayData.frameTimesSeconds
         let wasRunning = inputRuntimeService.isRunning
         let durationSeconds = replayData.durationSeconds
 
