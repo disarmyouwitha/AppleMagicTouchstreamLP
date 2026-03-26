@@ -154,6 +154,10 @@ extension InputRuntimeService: OMSRawTouchFrameSink {
     }
 }
 
+protocol RuntimeRenderSnapshotSink: AnyObject, Sendable {
+    func submitRuntimeRenderSnapshot(_ renderSnapshot: RuntimeRenderSnapshot)
+}
+
 final class RuntimeRenderSnapshotService: @unchecked Sendable {
     private final class RevisionContinuationStore: @unchecked Sendable {
         var continuation: AsyncStream<UInt64>.Continuation?
@@ -232,11 +236,11 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
         guard let renderSnapshot = result.renderSnapshot else {
             return false
         }
-        return publish(renderSnapshot)
+        return submit(renderSnapshot)
     }
 
     @discardableResult
-    func publish(_ renderSnapshot: RuntimeRenderSnapshot) -> Bool {
+    func submit(_ renderSnapshot: RuntimeRenderSnapshot) -> Bool {
         var updatedRevision: UInt64?
         snapshotLock.withLockUnchecked { snapshot in
             guard snapshot.revision != renderSnapshot.revision else { return }
@@ -285,6 +289,12 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
             guard let revision else { return }
             continuationStore.continuation?.yield(revision)
         }
+    }
+}
+
+extension RuntimeRenderSnapshotService: RuntimeRenderSnapshotSink {
+    func submitRuntimeRenderSnapshot(_ renderSnapshot: RuntimeRenderSnapshot) {
+        _ = submit(renderSnapshot)
     }
 }
 
@@ -502,9 +512,6 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         self.renderSnapshotService = renderSnapshotService
         self.runtimeEngine = runtimeEngine
         self.runtimeCommandService = runtimeCommandService
-        runtimeEngine.setLiveRenderSnapshotHandler { [renderSnapshotService] renderSnapshot in
-            _ = renderSnapshotService.publish(renderSnapshot)
-        }
         inputRuntimeService.setCaptureStateProvider { [weak runtimeEngine] in
             runtimeEngine?.isCaptureActive ?? false
         }
@@ -514,7 +521,6 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     }
 
     deinit {
-        runtimeEngine.setLiveRenderSnapshotHandler(nil)
         inputRuntimeService.setCaptureStateProvider(nil)
         inputRuntimeService.setLiveFrameHandler(nil)
     }
@@ -527,7 +533,8 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         runtimeEngine.ingestLive(
             rawFrame,
             ingress: ingress,
-            captureRenderSnapshot: shouldCaptureRenderSnapshot
+            captureRenderSnapshot: shouldCaptureRenderSnapshot,
+            renderSnapshotSink: shouldCaptureRenderSnapshot ? renderSnapshotService : nil
         )
     }
 

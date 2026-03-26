@@ -256,7 +256,7 @@ enum ATPCaptureV3Codec {
         frameRecords.reserveCapacity(1024)
         var detachedDispatchEvents: [DispatchSample] = []
 
-        var expectedSequence: UInt64 = 1
+        var expectedSequence: UInt64?
         for record in container.records {
             switch record.deviceIndex {
             case metaRecordDeviceIndex:
@@ -274,13 +274,14 @@ enum ATPCaptureV3Codec {
                     context: "processed frame record"
                 ).record
                 frameRecord.arrivalTicks = max(0, record.arrivalTicks)
-                guard frameRecord.sequence == expectedSequence else {
+                let requiredSequence = expectedSequence ?? frameRecord.sequence
+                guard frameRecord.sequence == requiredSequence else {
                     throw RuntimeCaptureReplayError.invalidATPCapture(
-                        reason: "invalid sequence: expected \(expectedSequence), got \(frameRecord.sequence)"
+                        reason: "invalid sequence: expected \(requiredSequence), got \(frameRecord.sequence)"
                     )
                 }
                 frameRecords.append(frameRecord)
-                expectedSequence &+= 1
+                expectedSequence = frameRecord.sequence &+ 1
             case dispatchRecordDeviceIndex:
                 let detached = try decodeJSON(
                     DetachedDispatchPayload.self,

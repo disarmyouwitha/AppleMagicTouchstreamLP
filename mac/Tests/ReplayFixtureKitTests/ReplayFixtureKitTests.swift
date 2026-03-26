@@ -141,6 +141,24 @@ final class ReplayFixtureKitTests: XCTestCase {
         }
     }
 
+    func testProcessedFrameV5ATPCaptureParsesAndReplays() async throws {
+        let data = try makeProcessedFrameV5CaptureData()
+        let fixture = try ReplayFixtureParser.load(from: writeTempCapture(data, name: "processed-v5.atpcap"))
+
+        XCTAssertEqual(fixture.meta.schema, ReplayFixtureParser.schema)
+        XCTAssertEqual(fixture.meta.framesCaptured, 2)
+        XCTAssertEqual(fixture.frames.count, 2)
+        XCTAssertEqual(fixture.frames[0].seq, 2727)
+        XCTAssertEqual(fixture.frames[0].timestampSec, 0, accuracy: 0.000001)
+        XCTAssertEqual(fixture.frames[1].seq, 2728)
+        XCTAssertEqual(fixture.frames[1].timestampSec, 0.5, accuracy: 0.000001)
+        XCTAssertEqual(fixture.frames[0].contacts.first?.state, "touching")
+
+        let transcript = await ReplayHarnessRunner.run(fixture: fixture)
+        XCTAssertEqual(transcript.count, fixture.frames.count)
+        XCTAssertEqual(transcript.last?.captureFrames, 2)
+    }
+
     private func fixtureURL() -> URL {
         URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.atpcap", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
@@ -149,5 +167,173 @@ final class ReplayFixtureKitTests: XCTestCase {
     private func engineTranscriptURL() -> URL {
         URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
+    }
+
+    private func writeTempCapture(_ data: Data, name: String) throws -> URL {
+        let tempDir = FileManager.default.temporaryDirectory
+            .appendingPathComponent("replay-fixture-kit-tests-v5-\(UUID().uuidString)", isDirectory: true)
+        let captureURL = tempDir.appendingPathComponent(name, isDirectory: false)
+        try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
+        try data.write(to: captureURL, options: .atomic)
+        addTeardownBlock {
+            try? FileManager.default.removeItem(at: tempDir)
+        }
+        return captureURL
+    }
+
+    private func makeProcessedFrameV5CaptureData() throws -> Data {
+        struct MetaPayload: Encodable {
+            let type = "meta"
+            let schema = ReplayFixtureParser.schema
+            let capturedAt = "2026-03-25T00:00:00.000Z"
+            let platform = "macOS"
+            let source = "unit"
+            let framesCaptured = 2
+        }
+
+        struct Contact: Encodable {
+            let id: Int32
+            let posX: Float
+            let posY: Float
+            let total: Float
+            let pressure: Float
+            let majorAxis: Float
+            let minorAxis: Float
+            let angle: Float
+            let density: Float
+            let state: String
+        }
+
+        struct Frame: Encodable {
+            let sequence: UInt64
+            let timestamp: Double
+            let deviceNumericID: UInt64
+            let deviceIndex: Int
+            let contacts: [Contact]
+        }
+
+        struct RecordPayload: Encodable {
+            struct Record: Encodable {
+                let frame: Frame
+            }
+
+            let type = "processedFrameRecord"
+            let record: Record
+        }
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+
+        var data = Data()
+        data.append("ATPCAP01".data(using: .ascii)!)
+        appendInt32LE(ATPCaptureCodec.processedFrameVersion, to: &data)
+        appendInt64LE(ATPCaptureCodec.defaultTickFrequency, to: &data)
+
+        let metaPayload = try encoder.encode(MetaPayload())
+        appendRecord(
+            payload: metaPayload,
+            arrivalTicks: 0,
+            deviceIndex: -1,
+            to: &data
+        )
+
+        let firstFrame = RecordPayload(
+            record: .init(
+                frame: Frame(
+                    sequence: 2727,
+                    timestamp: 123.0,
+                    deviceNumericID: 42,
+                    deviceIndex: 0,
+                    contacts: [
+                        Contact(
+                            id: 7,
+                            posX: 0.25,
+                            posY: 0.5,
+                            total: 1,
+                            pressure: 0.8,
+                            majorAxis: 2,
+                            minorAxis: 1,
+                            angle: 0,
+                            density: 0.4,
+                            state: "touching"
+                        )
+                    ]
+                )
+            )
+        )
+        appendRecord(
+            payload: try encoder.encode(firstFrame),
+            arrivalTicks: 0,
+            deviceIndex: -5,
+            to: &data
+        )
+
+        let secondFrame = RecordPayload(
+            record: .init(
+                frame: Frame(
+                    sequence: 2728,
+                    timestamp: 999.0,
+                    deviceNumericID: 99,
+                    deviceIndex: 1,
+                    contacts: []
+                )
+            )
+        )
+        appendRecord(
+            payload: try encoder.encode(secondFrame),
+            arrivalTicks: 500_000_000,
+            deviceIndex: -5,
+            to: &data
+        )
+
+        return data
+    }
+
+    private func appendRecord(
+        payload: Data,
+        arrivalTicks: Int64,
+        deviceIndex: Int32,
+        to data: inout Data
+    ) {
+        appendInt32LE(Int32(payload.count), to: &data)
+        appendInt64LE(arrivalTicks, to: &data)
+        appendInt32LE(deviceIndex, to: &data)
+        appendUInt32LE(0, to: &data)
+        appendUInt32LE(0, to: &data)
+        appendUInt32LE(0, to: &data)
+        appendUInt16LE(0, to: &data)
+        appendUInt16LE(0, to: &data)
+        data.append(0)
+        data.append(0)
+        data.append(payload)
+    }
+
+    private func appendInt32LE(_ value: Int32, to data: inout Data) {
+        appendUInt32LE(UInt32(bitPattern: value), to: &data)
+    }
+
+    private func appendUInt32LE(_ value: UInt32, to data: inout Data) {
+        var littleEndian = value.littleEndian
+        withUnsafeBytes(of: &littleEndian) { bytes in
+            data.append(contentsOf: bytes)
+        }
+    }
+
+    private func appendInt64LE(_ value: Int64, to data: inout Data) {
+        appendUInt64LE(UInt64(bitPattern: value), to: &data)
+    }
+
+    private func appendUInt64LE(_ value: UInt64, to data: inout Data) {
+        var littleEndian = value.littleEndian
+        withUnsafeBytes(of: &littleEndian) { bytes in
+            data.append(contentsOf: bytes)
+        }
+    }
+
+    private func appendUInt16LE(_ value: UInt16, to data: inout Data) {
+        var littleEndian = value.littleEndian
+        withUnsafeBytes(of: &littleEndian) { bytes in
+            data.append(contentsOf: bytes)
+        }
     }
 }

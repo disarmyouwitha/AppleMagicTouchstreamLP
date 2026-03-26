@@ -12,13 +12,11 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
         ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
     ) async -> RuntimeFrameProcessingResult
-    func setLiveRenderSnapshotHandler(
-        _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
-    )
     func ingestLive(
         _ frame: OMSRawTouchFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        captureRenderSnapshot: Bool
+        captureRenderSnapshot: Bool,
+        renderSnapshotSink: (any RuntimeRenderSnapshotSink)?
     )
     func startCapture(
         configuration: AppKeymapProfile?,
@@ -147,9 +145,6 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
     private let processor: TouchProcessorEngine
-    private let liveRenderSnapshotHandlerLock = OSAllocatedUnfairLock<((RuntimeRenderSnapshot) -> Void)?>(
-        uncheckedState: nil
-    )
     private let captureActiveLock = OSAllocatedUnfairLock<Bool>(uncheckedState: false)
     private var captureSession: RuntimeCaptureSessionState?
 
@@ -203,16 +198,11 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
-    func setLiveRenderSnapshotHandler(
-        _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
-    ) {
-        liveRenderSnapshotHandlerLock.withLockUnchecked { $0 = handler }
-    }
-
     func ingestLive(
         _ frame: OMSRawTouchFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        captureRenderSnapshot: Bool
+        captureRenderSnapshot: Bool,
+        renderSnapshotSink: (any RuntimeRenderSnapshotSink)?
     ) {
         queue.async { [weak self] in
             guard let self else {
@@ -227,8 +217,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 captureRenderSnapshot: captureRenderSnapshot
             )
             guard let renderSnapshot = result.renderSnapshot else { return }
-            let handler = self.liveRenderSnapshotHandlerLock.withLockUnchecked { $0 }
-            handler?(renderSnapshot)
+            renderSnapshotSink?.submitRuntimeRenderSnapshot(renderSnapshot)
         }
     }
 
