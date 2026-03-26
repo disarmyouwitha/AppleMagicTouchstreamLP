@@ -3,6 +3,7 @@ import Dispatch
 import CoreGraphics
 import Darwin
 import Foundation
+import OpenMultitouchSupport
 import QuartzCore
 import os
 
@@ -496,7 +497,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let onContactCountChanged: @Sendable (SidePair<Int>) -> Void
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
     private let onVoiceGestureChanged: @Sendable (Bool) -> Void
-    private let onCaptureFrameDiagnostics: @Sendable (RuntimeFrameDiagnostic) -> Void
     private let isDragDetectionEnabled = true
     private var isListening = false
     private var keymapEditingEnabled = false
@@ -951,8 +951,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,
         onContactCountChanged: @Sendable @escaping (SidePair<Int>) -> Void,
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
-        onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void,
-        onCaptureFrameDiagnostics: @Sendable @escaping (RuntimeFrameDiagnostic) -> Void = { _ in }
+        onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
     ) {
         self.executionQueue = executionQueue
         self.dispatchService = dispatchService
@@ -962,7 +961,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         self.onContactCountChanged = onContactCountChanged
         self.onIntentStateChanged = onIntentStateChanged
         self.onVoiceGestureChanged = onVoiceGestureChanged
-        self.onCaptureFrameDiagnostics = onCaptureFrameDiagnostics
     }
 
     func setListening(_ isListening: Bool) {
@@ -1340,15 +1338,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
     }
 
-    private func emitFrameDiagnostics<Touches: RandomAccessCollection>(
+    private func makeFrameDiagnostic<Touches: RandomAccessCollection>(
         deviceIndex: Int,
         touches: Touches,
         bindings: BindingIndex,
         now: TimeInterval
-    ) where Touches.Element == OMSRawTouch {
+    ) -> RuntimeFrameDiagnostic? where Touches.Element == OMSRawTouch {
         guard captureFrameDiagnosticsEnabled,
               let sequence = currentProcessingSequence else {
-            return
+            return nil
         }
 
         var diagnostics: [RuntimeTouchDiagnostic] = []
@@ -1414,28 +1412,26 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
 
-        onCaptureFrameDiagnostics(
-            RuntimeFrameDiagnostic(
-                sequence: sequence,
-                timestamp: now,
-                deviceIndex: deviceIndex,
-                activeLayer: activeLayer,
-                leftIntent: intentDisplayBySide.left.rawValue,
-                rightIntent: intentDisplayBySide.right.rawValue,
-                ingress: nil,
-                touches: diagnostics
-            )
+        return RuntimeFrameDiagnostic(
+            sequence: sequence,
+            timestamp: now,
+            deviceIndex: deviceIndex,
+            activeLayer: activeLayer,
+            leftIntent: intentDisplayBySide.left.rawValue,
+            rightIntent: intentDisplayBySide.right.rawValue,
+            ingress: nil,
+            touches: diagnostics
         )
     }
 
-    func processRawFrame(_ frame: OMSRawTouchFrame) {
+    func processRawFrame(_ frame: OMSRawTouchFrame) -> RuntimeFrameDiagnostic? {
         guard isListening,
               let leftLayout,
               let rightLayout else {
-            return
+            return nil
         }
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
-            return
+            return nil
         }
         let now = frame.timestamp
         currentProcessingTimestamp = now
@@ -1514,7 +1510,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         notifyContactCounts()
-        emitFrameDiagnostics(
+        return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
             bindings: isLeftDevice ? leftBindings : rightBindings,
@@ -1522,14 +1518,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    func processRuntimeRawFrame(_ frame: RuntimeRawFrame) {
+    func processRuntimeRawFrame(_ frame: RuntimeRawFrame) -> RuntimeFrameDiagnostic? {
         guard isListening,
               let leftLayout,
               let rightLayout else {
-            return
+            return nil
         }
         if leftDeviceIndex == nil && rightDeviceIndex == nil {
-            return
+            return nil
         }
         let now = frame.timestamp
         currentProcessingTimestamp = now
@@ -1608,7 +1604,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         notifyContactCounts()
-        emitFrameDiagnostics(
+        return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
             bindings: isLeftDevice ? leftBindings : rightBindings,

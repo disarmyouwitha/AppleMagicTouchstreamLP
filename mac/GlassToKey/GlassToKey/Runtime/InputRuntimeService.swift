@@ -1,10 +1,11 @@
 import CoreGraphics
 import Foundation
+import OpenMultitouchSupport
 import os
 
 final class InputRuntimeService: @unchecked Sendable {
-    typealias LiveFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
-    typealias CaptureFrameHandler = @Sendable (RuntimeRawFrame, RuntimeCaptureIngressSnapshot) -> Void
+    typealias LiveFrameHandler = @Sendable (OMSRawTouchFrame, RuntimeCaptureIngressSnapshot?) -> Void
+    typealias CaptureStateProvider = @Sendable () -> Bool
 
     struct Metrics: Sendable {
         var ingestedFrames: UInt64 = 0
@@ -15,8 +16,7 @@ final class InputRuntimeService: @unchecked Sendable {
 
     private struct Consumers {
         var liveHandler: LiveFrameHandler?
-        var captureHandlerID: UUID?
-        var captureHandler: CaptureFrameHandler?
+        var captureStateProvider: CaptureStateProvider?
     }
 
     private struct State {
@@ -26,31 +26,9 @@ final class InputRuntimeService: @unchecked Sendable {
         var metrics = Metrics()
     }
 
-    private struct PendingLiveFrame {
-        var frame: OMSRawTouchFrame
-        var generation: UInt64
-    }
-
-    private struct LiveDeliveryState {
-        static let capacity = 256
-
-        var slots: [PendingLiveFrame?] = Array(repeating: nil, count: capacity)
-        var readIndex = 0
-        var writeIndex = 0
-        var count = 0
-        var drainScheduled = false
-    }
-
     private let manager: OMSManager
-    private let liveDeliveryQueue = DispatchQueue(
-        label: "ink.ranna.glasstokey.runtime.live-delivery",
-        qos: .userInteractive
-    )
     private let consumersLock = OSAllocatedUnfairLock<Consumers>(
         uncheckedState: Consumers()
-    )
-    private let liveDeliveryLock = OSAllocatedUnfairLock<LiveDeliveryState>(
-        uncheckedState: LiveDeliveryState()
     )
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
@@ -66,21 +44,8 @@ final class InputRuntimeService: @unchecked Sendable {
         consumersLock.withLockUnchecked { $0.liveHandler = handler }
     }
 
-    func addCaptureFrameHandler(_ handler: @escaping CaptureFrameHandler) -> UUID {
-        let id = UUID()
-        consumersLock.withLockUnchecked { consumers in
-            consumers.captureHandlerID = id
-            consumers.captureHandler = handler
-        }
-        return id
-    }
-
-    func removeCaptureFrameHandler(_ id: UUID) {
-        consumersLock.withLockUnchecked { consumers in
-            guard consumers.captureHandlerID == id else { return }
-            consumers.captureHandlerID = nil
-            consumers.captureHandler = nil
-        }
+    func setCaptureStateProvider(_ provider: CaptureStateProvider?) {
+        consumersLock.withLockUnchecked { $0.captureStateProvider = provider }
     }
 
     @discardableResult
@@ -134,7 +99,8 @@ final class InputRuntimeService: @unchecked Sendable {
         guard stateSnapshot.isRunning else { return }
 
         let consumers = consumersLock.withLockUnchecked { $0 }
-        guard consumers.liveHandler != nil || consumers.captureHandler != nil else {
+        let shouldCapture = consumers.captureStateProvider?() ?? false
+        guard consumers.liveHandler != nil || shouldCapture else {
             stateLock.withLockUnchecked { state in
                 state.metrics.releasedWithoutConsumers &+= 1
             }
@@ -148,100 +114,36 @@ final class InputRuntimeService: @unchecked Sendable {
             }
         frame.sequence = sequenceSnapshot.sequence
 
-        if let captureHandler = consumers.captureHandler {
+        let ingress: RuntimeCaptureIngressSnapshot?
+        if shouldCapture {
             let dispatchMetrics = DispatchService.shared.snapshotMetrics()
-            let ingress = RuntimeCaptureIngressSnapshot(
+            ingress = RuntimeCaptureIngressSnapshot(
                 deliveryMode: consumers.liveHandler != nil ? .liveAndCapture : .captureOnly,
-                liveQueueDepth: liveDeliveryLock.withLockUnchecked { $0.count },
+                liveQueueDepth: 0,
                 liveDroppedFrames: sequenceSnapshot.liveDroppedFrames,
                 dispatchQueueDepth: dispatchMetrics.queueDepth,
                 dispatchDropped: dispatchMetrics.drops
             )
-            let runtimeFrame = RuntimeRawFrame(sequence: sequenceSnapshot.sequence, frame: frame)
-            captureHandler(runtimeFrame, ingress)
+        } else {
+            ingress = nil
         }
 
-        if consumers.liveHandler != nil {
-            enqueueLiveFrame(frame, generation: stateSnapshot.generation)
+        if let liveHandler = consumers.liveHandler {
+            let currentState = stateLock.withLockUnchecked { state in
+                (isRunning: state.isRunning, generation: state.generation)
+            }
+            guard currentState.isRunning,
+                  currentState.generation == stateSnapshot.generation else {
+                frame.release()
+                return
+            }
+            liveHandler(frame, ingress)
         } else {
             frame.release()
         }
 
         stateLock.withLockUnchecked { state in
             state.metrics.emittedFrames &+= 1
-        }
-    }
-
-    private func enqueueLiveFrame(_ frame: OMSRawTouchFrame, generation: UInt64) {
-        enum EnqueueResult {
-            case scheduled
-            case queued
-            case dropped
-        }
-
-        let result = liveDeliveryLock.withLockUnchecked { state -> EnqueueResult in
-            guard state.count < state.slots.count else {
-                return .dropped
-            }
-            state.slots[state.writeIndex] = PendingLiveFrame(
-                frame: frame,
-                generation: generation
-            )
-            state.writeIndex = (state.writeIndex + 1) % state.slots.count
-            state.count += 1
-            guard !state.drainScheduled else {
-                return .queued
-            }
-            state.drainScheduled = true
-            return .scheduled
-        }
-
-        switch result {
-        case .scheduled:
-            // The raw Multitouch callback can re-enter synchronously under load.
-            // Drain on a dedicated queue so burst delivery stays iterative.
-            liveDeliveryQueue.async { [weak self] in
-                self?.drainLiveFrames()
-            }
-        case .queued:
-            return
-        case .dropped:
-            stateLock.withLockUnchecked { state in
-                state.metrics.liveDroppedFrames &+= 1
-            }
-            frame.release()
-        }
-    }
-
-    private func drainLiveFrames() {
-        while true {
-            let pending = liveDeliveryLock.withLockUnchecked { state -> PendingLiveFrame? in
-                guard state.count > 0 else {
-                    state.drainScheduled = false
-                    return nil
-                }
-                let next = state.slots[state.readIndex]
-                state.slots[state.readIndex] = nil
-                state.readIndex = (state.readIndex + 1) % state.slots.count
-                state.count -= 1
-                return next
-            }
-            guard let pending else { return }
-
-            let currentState = stateLock.withLockUnchecked { state in
-                (isRunning: state.isRunning, generation: state.generation)
-            }
-            guard currentState.isRunning,
-                  currentState.generation == pending.generation else {
-                pending.frame.release()
-                continue
-            }
-
-            guard let liveHandler = consumersLock.withLockUnchecked({ $0.liveHandler }) else {
-                pending.frame.release()
-                continue
-            }
-            liveHandler(pending.frame)
         }
     }
 }
@@ -318,13 +220,16 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
 
     func ingest(
         _ rawFrame: RuntimeRawFrame,
-        runtimeEngine: EngineActorBoundary
+        runtimeEngine: RuntimeCoreBoundary,
+        ingress: RuntimeCaptureIngressSnapshot? = nil
     ) async -> Bool {
         let shouldRecord = isRecordingEnabled
-        guard let renderSnapshot = await runtimeEngine.ingest(
+        let result = await runtimeEngine.ingest(
             rawFrame,
+            ingress: ingress,
             captureRenderSnapshot: shouldRecord
-        ) else {
+        )
+        guard let renderSnapshot = result.renderSnapshot else {
             return false
         }
         return publish(renderSnapshot)
@@ -384,9 +289,9 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
 }
 
 final class RuntimeCommandService: @unchecked Sendable {
-    private let runtimeEngine: EngineActorBoundary
+    private let runtimeEngine: RuntimeCoreBoundary
 
-    init(runtimeEngine: EngineActorBoundary) {
+    init(runtimeEngine: RuntimeCoreBoundary) {
         self.runtimeEngine = runtimeEngine
     }
 
@@ -584,13 +489,13 @@ final class RuntimeCommandService: @unchecked Sendable {
 final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     private let inputRuntimeService: InputRuntimeService
     private let renderSnapshotService: RuntimeRenderSnapshotService
-    private let runtimeEngine: EngineActorBoundary
+    private let runtimeEngine: RuntimeCoreBoundary
     private let runtimeCommandService: RuntimeCommandService
 
     init(
         inputRuntimeService: InputRuntimeService,
         renderSnapshotService: RuntimeRenderSnapshotService,
-        runtimeEngine: EngineActorBoundary,
+        runtimeEngine: RuntimeCoreBoundary,
         runtimeCommandService: RuntimeCommandService
     ) {
         self.inputRuntimeService = inputRuntimeService
@@ -600,20 +505,28 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         runtimeEngine.setLiveRenderSnapshotHandler { [renderSnapshotService] renderSnapshot in
             _ = renderSnapshotService.publish(renderSnapshot)
         }
-        inputRuntimeService.setLiveFrameHandler { [weak self] rawFrame in
-            self?.handleLiveFrame(rawFrame)
+        inputRuntimeService.setCaptureStateProvider { [weak runtimeEngine] in
+            runtimeEngine?.isCaptureActive ?? false
+        }
+        inputRuntimeService.setLiveFrameHandler { [weak self] rawFrame, ingress in
+            self?.handleLiveFrame(rawFrame, ingress: ingress)
         }
     }
 
     deinit {
         runtimeEngine.setLiveRenderSnapshotHandler(nil)
+        inputRuntimeService.setCaptureStateProvider(nil)
         inputRuntimeService.setLiveFrameHandler(nil)
     }
 
-    private func handleLiveFrame(_ rawFrame: OMSRawTouchFrame) {
+    private func handleLiveFrame(
+        _ rawFrame: OMSRawTouchFrame,
+        ingress: RuntimeCaptureIngressSnapshot?
+    ) {
         let shouldCaptureRenderSnapshot = renderSnapshotService.isRecordingEnabled
         runtimeEngine.ingestLive(
             rawFrame,
+            ingress: ingress,
             captureRenderSnapshot: shouldCaptureRenderSnapshot
         )
     }
@@ -652,7 +565,7 @@ final class RuntimeDeviceSessionService {
     private static let disconnectedResyncIntervalNanoseconds = UInt64(1.0 * 1_000_000_000)
 
     private let manager: OMSManager
-    private let runtimeEngine: EngineActorBoundary
+    private let runtimeEngine: RuntimeCoreBoundary
     private let onStateChanged: @MainActor (State) -> Void
     private var state = State()
 
@@ -667,7 +580,7 @@ final class RuntimeDeviceSessionService {
 
     init(
         manager: OMSManager = .shared,
-        runtimeEngine: EngineActorBoundary,
+        runtimeEngine: RuntimeCoreBoundary,
         onStateChanged: @escaping @MainActor (State) -> Void = { _ in }
     ) {
         self.manager = manager

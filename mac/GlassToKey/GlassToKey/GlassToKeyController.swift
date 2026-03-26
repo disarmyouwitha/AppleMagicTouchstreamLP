@@ -1,4 +1,5 @@
 import SwiftUI
+import OpenMultitouchSupport
 
 enum GlassToKeySettings {
     static let tapHoldDurationMs: Double = 220.0

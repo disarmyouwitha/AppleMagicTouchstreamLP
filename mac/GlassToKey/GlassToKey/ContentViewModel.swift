@@ -10,6 +10,7 @@ import CoreGraphics
 import Darwin
 import Foundation
 import IOKit.hidsystem
+import OpenMultitouchSupport
 import QuartzCore
 import SwiftUI
 import os
@@ -930,7 +931,7 @@ final class ContentViewModel: ObservableObject {
                 weakSelf?.handleIntentDisplayChanged(display)
             }
         }
-        let runtimeEngine = EngineActor(
+        let runtimeEngine = RuntimeCore(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
                 Task { @MainActor in

@@ -1,5 +1,6 @@
 import Foundation
 import CoreGraphics
+import OpenMultitouchSupport
 
 enum RuntimeCaptureDeliveryMode: String, Codable, Sendable {
     case captureOnly
@@ -14,7 +15,7 @@ struct RuntimeCaptureIngressSnapshot: Codable, Sendable {
     var dispatchDropped: UInt64
 }
 
-enum RuntimeDispatchEventKind: Sendable {
+enum RuntimeDispatchEventKind: Codable, Sendable {
     case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8)
     case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8)
     case leftClick(clickCount: Int)
@@ -25,11 +26,16 @@ enum RuntimeDispatchEventKind: Sendable {
     case haptic(strength: Double, deviceID: String?)
 }
 
-struct RuntimeDispatchEvent: Sendable {
+struct RuntimeDispatchEvent: Codable, Sendable {
     var kind: RuntimeDispatchEventKind
     var timestamp: TimeInterval
     var uptimeNanoseconds: UInt64
     var sourceSequence: UInt64?
+}
+
+struct ProcessedDispatchEvent: Codable, Sendable {
+    var event: RuntimeDispatchEvent
+    var arrivalTicks: Int64
 }
 
 enum RuntimeTouchDiagnosticPhase: String, Codable, Sendable {
@@ -85,7 +91,7 @@ struct RuntimeFrameDiagnostic: Codable, Sendable {
     var touches: [RuntimeTouchDiagnostic]
 }
 
-struct RuntimeRawContact: Sendable {
+struct RuntimeRawContact: Codable, Sendable {
     var id: Int32
     var posX: Float
     var posY: Float
@@ -97,7 +103,7 @@ struct RuntimeRawContact: Sendable {
     var state: OMSState
 }
 
-struct RuntimeRawFrame: Sendable {
+struct RuntimeRawFrame: Codable, Sendable {
     var sequence: UInt64
     var timestamp: TimeInterval
     var deviceNumericID: UInt64
@@ -106,7 +112,7 @@ struct RuntimeRawFrame: Sendable {
     var rawTouches: [OMSRawTouch]
 }
 
-struct RuntimeRenderSnapshot: Sendable {
+struct RuntimeRenderSnapshot: Codable, Sendable {
     var leftTouches: [OMSTouchData] = []
     var rightTouches: [OMSTouchData] = []
     var hasTransitionState: Bool = false
@@ -117,11 +123,128 @@ struct RuntimeRenderSnapshot: Sendable {
     var revision: UInt64 = 0
 }
 
-struct RuntimeTouchSnapshot: Sendable {
+struct ProcessedRenderUpdate: Codable, Sendable {
+    var revision: UInt64
+    var snapshot: RuntimeRenderSnapshot?
+}
+
+struct RuntimeFrameProcessingResult: Sendable {
+    var renderSnapshot: RuntimeRenderSnapshot?
+    var processedFrameRecord: ProcessedFrameRecord?
+}
+
+struct RuntimeTouchSnapshot: Codable, Sendable {
     var left: [OMSTouchData] = []
     var right: [OMSTouchData] = []
     var revision: UInt64 = 0
     var hasTransitionState: Bool = false
+}
+
+struct ProcessedFrameRecord: Codable, Sendable {
+    var frame: RuntimeRawFrame
+    var arrivalTicks: Int64
+    var ingress: RuntimeCaptureIngressSnapshot?
+    var diagnostic: RuntimeFrameDiagnostic?
+    var dispatchEvents: [ProcessedDispatchEvent] = []
+    var renderUpdate: ProcessedRenderUpdate?
+
+    var sequence: UInt64 {
+        frame.sequence
+    }
+}
+
+extension RuntimeDispatchEventKind {
+    private enum CodingKeys: String, CodingKey {
+        case type
+        case code
+        case flagsRawValue
+        case keyDown
+        case altAscii
+        case clickCount
+        case label
+        case strength
+        case deviceID
+    }
+
+    private enum Kind: String, Codable {
+        case keyStroke
+        case key
+        case leftClick
+        case rightClick
+        case middleClick
+        case systemKey
+        case appLaunch
+        case haptic
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try container.decode(Kind.self, forKey: .type)
+        switch kind {
+        case .keyStroke:
+            self = .keyStroke(
+                code: try container.decode(CGKeyCode.self, forKey: .code),
+                flags: CGEventFlags(rawValue: try container.decode(UInt64.self, forKey: .flagsRawValue)),
+                altAscii: try container.decode(UInt8.self, forKey: .altAscii)
+            )
+        case .key:
+            self = .key(
+                code: try container.decode(CGKeyCode.self, forKey: .code),
+                flags: CGEventFlags(rawValue: try container.decode(UInt64.self, forKey: .flagsRawValue)),
+                keyDown: try container.decode(Bool.self, forKey: .keyDown),
+                altAscii: try container.decode(UInt8.self, forKey: .altAscii)
+            )
+        case .leftClick:
+            self = .leftClick(clickCount: try container.decode(Int.self, forKey: .clickCount))
+        case .rightClick:
+            self = .rightClick
+        case .middleClick:
+            self = .middleClick
+        case .systemKey:
+            self = .systemKey(try container.decode(String.self, forKey: .label))
+        case .appLaunch:
+            self = .appLaunch(try container.decode(String.self, forKey: .label))
+        case .haptic:
+            self = .haptic(
+                strength: try container.decode(Double.self, forKey: .strength),
+                deviceID: try container.decodeIfPresent(String.self, forKey: .deviceID)
+            )
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case let .keyStroke(code, flags, altAscii):
+            try container.encode(Kind.keyStroke, forKey: .type)
+            try container.encode(code, forKey: .code)
+            try container.encode(flags.rawValue, forKey: .flagsRawValue)
+            try container.encode(altAscii, forKey: .altAscii)
+        case let .key(code, flags, keyDown, altAscii):
+            try container.encode(Kind.key, forKey: .type)
+            try container.encode(code, forKey: .code)
+            try container.encode(flags.rawValue, forKey: .flagsRawValue)
+            try container.encode(keyDown, forKey: .keyDown)
+            try container.encode(altAscii, forKey: .altAscii)
+        case let .leftClick(clickCount):
+            try container.encode(Kind.leftClick, forKey: .type)
+            try container.encode(clickCount, forKey: .clickCount)
+        case .rightClick:
+            try container.encode(Kind.rightClick, forKey: .type)
+        case .middleClick:
+            try container.encode(Kind.middleClick, forKey: .type)
+        case let .systemKey(label):
+            try container.encode(Kind.systemKey, forKey: .type)
+            try container.encode(label, forKey: .label)
+        case let .appLaunch(label):
+            try container.encode(Kind.appLaunch, forKey: .type)
+            try container.encode(label, forKey: .label)
+        case let .haptic(strength, deviceID):
+            try container.encode(Kind.haptic, forKey: .type)
+            try container.encode(strength, forKey: .strength)
+            try container.encodeIfPresent(deviceID, forKey: .deviceID)
+        }
+    }
 }
 
 extension RuntimeRawFrame {

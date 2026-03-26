@@ -7,6 +7,7 @@
 
 import AppKit
 import Combine
+import OpenMultitouchSupport
 import QuartzCore
 import SwiftUI
 import UniformTypeIdentifiers

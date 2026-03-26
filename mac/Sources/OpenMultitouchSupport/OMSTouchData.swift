@@ -7,7 +7,7 @@
 import Foundation
 import OpenMultitouchSupportXCF
 
-public struct OMSPosition: Sendable {
+public struct OMSPosition: Codable, Sendable {
     public var x: Float
     public var y: Float
 
@@ -17,7 +17,7 @@ public struct OMSPosition: Sendable {
     }
 }
 
-public struct OMSAxis: Sendable {
+public struct OMSAxis: Codable, Sendable {
     public var major: Float
     public var minor: Float
 
@@ -27,7 +27,7 @@ public struct OMSAxis: Sendable {
     }
 }
 
-public enum OMSState: String, Sendable {
+public enum OMSState: String, Codable, Sendable {
     case notTouching
     case starting
     case hovering
@@ -52,7 +52,7 @@ public enum OMSState: String, Sendable {
     }
 }
 
-public struct OMSTouchData: CustomStringConvertible, Sendable {
+public struct OMSTouchData: Codable, CustomStringConvertible, Sendable {
     public var deviceID: String
     public var deviceIndex: Int
     public var id: Int32

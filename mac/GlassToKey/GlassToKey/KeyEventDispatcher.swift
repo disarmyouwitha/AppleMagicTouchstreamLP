@@ -2,6 +2,7 @@ import AppKit
 import Carbon
 import CoreGraphics
 import Foundation
+import OpenMultitouchSupport
 import os
 
 final class KeyEventDispatcher: @unchecked Sendable {
@@ -767,6 +768,7 @@ final class DispatchService: @unchecked Sendable {
     private let keyDispatcher: KeyEventDispatcher
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+    private let recordedEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let captureEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let dispatchQueue = DispatchQueue(
         label: "ink.ranna.GlassToKey.DispatchPump",
@@ -865,6 +867,10 @@ final class DispatchService: @unchecked Sendable {
         captureEventHandlerLock.withLockUnchecked { $0 = handler }
     }
 
+    func setRecordedEventHandler(_ handler: ((RuntimeDispatchEvent) -> Void)?) {
+        recordedEventHandlerLock.withLockUnchecked { $0 = handler }
+    }
+
     func clearQueue() {
         stateLock.withLockUnchecked { state in
             state.queue.removeAll()
@@ -873,17 +879,21 @@ final class DispatchService: @unchecked Sendable {
 
     private func enqueue(_ command: Command) {
         var shouldSchedulePump = false
+        var didEnqueue = false
         stateLock.withLockUnchecked { state in
             guard state.queue.enqueue(command) else {
                 state.drops &+= 1
                 return
             }
+            didEnqueue = true
             if !state.isPumpScheduled {
                 state.isPumpScheduled = true
                 shouldSchedulePump = true
             }
         }
 
+        guard didEnqueue else { return }
+        emitRecordedEvent(for: command)
         guard shouldSchedulePump else { return }
         dispatchQueue.async { [weak self] in
             self?.drainQueue()
@@ -969,18 +979,67 @@ final class DispatchService: @unchecked Sendable {
         }
     }
 
+    private func emitRecordedEvent(for command: Command) {
+        guard let handler = recordedEventHandlerLock.withLockUnchecked({ $0 }) else { return }
+        handler(recordedEvent(for: command))
+    }
+
+    private func recordedEvent(for command: Command) -> RuntimeDispatchEvent {
+        switch command {
+        case let .keyStroke(code, flags, altAscii, _, sourceSequence):
+            return makeDispatchEvent(
+                kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),
+                sourceSequence: sourceSequence
+            )
+        case let .key(code, flags, keyDown, altAscii, _, sourceSequence):
+            return makeDispatchEvent(
+                kind: .key(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii),
+                sourceSequence: sourceSequence
+            )
+        case let .appLaunch(actionLabel, sourceSequence):
+            return makeDispatchEvent(
+                kind: .appLaunch(actionLabel),
+                sourceSequence: sourceSequence
+            )
+        case let .leftClick(clickCount, sourceSequence):
+            return makeDispatchEvent(
+                kind: .leftClick(clickCount: clickCount),
+                sourceSequence: sourceSequence
+            )
+        case let .rightClick(sourceSequence):
+            return makeDispatchEvent(kind: .rightClick, sourceSequence: sourceSequence)
+        case let .middleClick(sourceSequence):
+            return makeDispatchEvent(kind: .middleClick, sourceSequence: sourceSequence)
+        case let .systemKey(key, sourceSequence):
+            return makeDispatchEvent(
+                kind: .systemKey(key.captureLabel),
+                sourceSequence: sourceSequence
+            )
+        case let .haptic(strength, deviceID, sourceSequence):
+            return makeDispatchEvent(
+                kind: .haptic(strength: strength, deviceID: deviceID),
+                sourceSequence: sourceSequence
+            )
+        }
+    }
+
     private func emitCaptureEvent(
         kind: RuntimeDispatchEventKind,
         sourceSequence: UInt64?
     ) {
         guard let handler = captureEventHandlerLock.withLockUnchecked({ $0 }) else { return }
-        handler(
-            RuntimeDispatchEvent(
-                kind: kind,
-                timestamp: ProcessInfo.processInfo.systemUptime,
-                uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
-                sourceSequence: sourceSequence
-            )
+        handler(makeDispatchEvent(kind: kind, sourceSequence: sourceSequence))
+    }
+
+    private func makeDispatchEvent(
+        kind: RuntimeDispatchEventKind,
+        sourceSequence: UInt64?
+    ) -> RuntimeDispatchEvent {
+        RuntimeDispatchEvent(
+            kind: kind,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
+            sourceSequence: sourceSequence
         )
     }
 }

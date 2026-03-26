@@ -1,23 +1,30 @@
+import CoreGraphics
 import Dispatch
 import Foundation
-import CoreGraphics
+import OpenMultitouchSupport
 import os
 
-protocol EngineActorBoundary: Sendable {
+protocol RuntimeCoreBoundary: AnyObject, Sendable {
+    var isCaptureActive: Bool { get }
+
     func ingest(
         _ frame: RuntimeRawFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
-    ) async -> RuntimeRenderSnapshot?
+    ) async -> RuntimeFrameProcessingResult
     func setLiveRenderSnapshotHandler(
         _ handler: (@Sendable (RuntimeRenderSnapshot) -> Void)?
     )
-    func setCaptureFrameDiagnosticsHandler(
-        _ handler: (@Sendable (RuntimeFrameDiagnostic) -> Void)?
-    )
     func ingestLive(
         _ frame: OMSRawTouchFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
     )
+    func startCapture(
+        configuration: AppKeymapProfile?,
+        startUptimeNanoseconds: UInt64
+    )
+    func stopCapture() async -> ATPCaptureV3Codec.CaptureData?
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
         leftIndex: Int?,
@@ -57,36 +64,94 @@ protocol EngineActorBoundary: Sendable {
     func reset(stopVoiceDictation: Bool) async
 }
 
-final class EngineActor: EngineActorBoundary, @unchecked Sendable {
-    private struct PendingLiveFrame {
-        var frame: OMSRawTouchFrame
-        var captureRenderSnapshot: Bool
+private struct RuntimeCaptureSessionState {
+    let configuration: AppKeymapProfile?
+    let startUptimeNanoseconds: UInt64
+    var recordsBySequence: [UInt64: ProcessedFrameRecord] = [:]
+    var orderedSequences: [UInt64] = []
+    var pendingDispatchEventsBySequence: [UInt64: [ProcessedDispatchEvent]] = [:]
+    var detachedDispatchEvents: [ProcessedDispatchEvent] = []
+
+    mutating func store(_ record: ProcessedFrameRecord) -> ProcessedFrameRecord {
+        let sequence = record.sequence
+        var merged = record
+        if let pendingDispatch = pendingDispatchEventsBySequence.removeValue(forKey: sequence) {
+            merged.dispatchEvents.append(contentsOf: pendingDispatch)
+        }
+        if recordsBySequence[sequence] == nil {
+            orderedSequences.append(sequence)
+        }
+        recordsBySequence[sequence] = merged
+        return merged
     }
 
-    private struct LiveRingState {
-        static let capacity = 256
+    mutating func appendDispatchEvent(_ event: RuntimeDispatchEvent) {
+        let processed = ProcessedDispatchEvent(
+            event: event,
+            arrivalTicks: arrivalTicks(for: event.uptimeNanoseconds)
+        )
 
-        var slots: [PendingLiveFrame?] = Array(repeating: nil, count: capacity)
-        var readIndex = 0
-        var writeIndex = 0
-        var count = 0
-        var drainScheduled = false
+        guard let sequence = event.sourceSequence else {
+            detachedDispatchEvents.append(processed)
+            return
+        }
+
+        if var record = recordsBySequence[sequence] {
+            record.dispatchEvents.append(processed)
+            recordsBySequence[sequence] = record
+        } else {
+            pendingDispatchEventsBySequence[sequence, default: []].append(processed)
+        }
     }
+
+    func arrivalTicks(for uptimeNanoseconds: UInt64) -> Int64 {
+        let elapsed = uptimeNanoseconds >= startUptimeNanoseconds
+            ? uptimeNanoseconds - startUptimeNanoseconds
+            : 0
+        return Int64(clamping: elapsed)
+    }
+
+    func snapshot() -> ATPCaptureV3Codec.CaptureData {
+        let frameRecords = orderedSequences.compactMap { recordsBySequence[$0] }
+        let detachedDispatchEvents = detachedDispatchEvents.map { dispatch in
+            ATPCaptureV3Codec.DispatchSample(
+                event: dispatch.event,
+                arrivalTicks: dispatch.arrivalTicks
+            )
+        } + pendingDispatchEventsBySequence
+            .sorted(by: { $0.key < $1.key })
+            .flatMap { entry in
+                entry.value.map { dispatch in
+                    ATPCaptureV3Codec.DispatchSample(
+                        event: dispatch.event,
+                        arrivalTicks: dispatch.arrivalTicks
+                    )
+                }
+            }
+
+        return ATPCaptureV3Codec.CaptureData(
+            configuration: configuration,
+            frameRecords: frameRecords,
+            detachedDispatchEvents: detachedDispatchEvents
+        )
+    }
+}
+
+final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
+    private static let queueSpecificValue: UInt8 = 1
 
     private let queue: DispatchQueue
+    private let queueSpecificKey: DispatchSpecificKey<UInt8>
+    private let dispatchService: DispatchService
     private var latestRender = RuntimeRenderSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
     private let processor: TouchProcessorEngine
-    private let liveRingLock = OSAllocatedUnfairLock<LiveRingState>(
-        uncheckedState: LiveRingState()
-    )
     private let liveRenderSnapshotHandlerLock = OSAllocatedUnfairLock<((RuntimeRenderSnapshot) -> Void)?>(
         uncheckedState: nil
     )
-    private let captureFrameDiagnosticsHandlerLock = OSAllocatedUnfairLock<((RuntimeFrameDiagnostic) -> Void)?>(
-        uncheckedState: nil
-    )
+    private let captureActiveLock = OSAllocatedUnfairLock<Bool>(uncheckedState: false)
+    private var captureSession: RuntimeCaptureSessionState?
 
     init(
         dispatchService: DispatchService = .shared,
@@ -101,7 +166,12 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             label: "ink.ranna.glasstokey.engine.runtime",
             qos: .userInitiated
         )
+        let queueSpecificKey = DispatchSpecificKey<UInt8>()
+        queue.setSpecific(key: queueSpecificKey, value: Self.queueSpecificValue)
+
         self.queue = queue
+        self.queueSpecificKey = queueSpecificKey
+        self.dispatchService = dispatchService
         processor = TouchProcessorEngine(
             executionQueue: queue,
             dispatchService: dispatchService,
@@ -110,21 +180,24 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
             onDebugBindingDetected: onDebugBindingDetected,
             onContactCountChanged: onContactCountChanged,
             onIntentStateChanged: onIntentStateChanged,
-            onVoiceGestureChanged: onVoiceGestureChanged,
-            onCaptureFrameDiagnostics: { [captureFrameDiagnosticsHandlerLock] diagnostic in
-                let handler = captureFrameDiagnosticsHandlerLock.withLockUnchecked { $0 }
-                handler?(diagnostic)
-            }
+            onVoiceGestureChanged: onVoiceGestureChanged
         )
+
+    }
+
+    var isCaptureActive: Bool {
+        captureActiveLock.withLockUnchecked { $0 }
     }
 
     func ingest(
         _ frame: RuntimeRawFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
-    ) async -> RuntimeRenderSnapshot? {
+    ) async -> RuntimeFrameProcessingResult {
         await query {
             self.processIngest(
                 frame,
+                ingress: ingress,
                 captureRenderSnapshot: captureRenderSnapshot
             )
         }
@@ -136,52 +209,54 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         liveRenderSnapshotHandlerLock.withLockUnchecked { $0 = handler }
     }
 
-    func setCaptureFrameDiagnosticsHandler(
-        _ handler: (@Sendable (RuntimeFrameDiagnostic) -> Void)?
+    func ingestLive(
+        _ frame: OMSRawTouchFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
+        captureRenderSnapshot: Bool
     ) {
-        captureFrameDiagnosticsHandlerLock.withLockUnchecked { $0 = handler }
-        let enabled = handler != nil
-        queue.async { [processor] in
-            processor.setCaptureFrameDiagnosticsEnabled(enabled)
+        queue.async { [weak self] in
+            guard let self else {
+                frame.release()
+                return
+            }
+            defer { frame.release() }
+
+            let result = self.processIngest(
+                frame,
+                ingress: ingress,
+                captureRenderSnapshot: captureRenderSnapshot
+            )
+            guard let renderSnapshot = result.renderSnapshot else { return }
+            let handler = self.liveRenderSnapshotHandlerLock.withLockUnchecked { $0 }
+            handler?(renderSnapshot)
         }
     }
 
-    func ingestLive(
-        _ frame: OMSRawTouchFrame,
-        captureRenderSnapshot: Bool
+    func startCapture(
+        configuration: AppKeymapProfile?,
+        startUptimeNanoseconds: UInt64
     ) {
-        enum EnqueueResult {
-            case scheduled
-            case queued
-            case dropped
-        }
-
-        let result = liveRingLock.withLockUnchecked { state -> EnqueueResult in
-            guard state.count < state.slots.count else {
-                return .dropped
-            }
-            state.slots[state.writeIndex] = PendingLiveFrame(
-                frame: frame,
-                captureRenderSnapshot: captureRenderSnapshot
+        runSync {
+            self.captureSession = RuntimeCaptureSessionState(
+                configuration: configuration,
+                startUptimeNanoseconds: startUptimeNanoseconds
             )
-            state.writeIndex = (state.writeIndex + 1) % state.slots.count
-            state.count += 1
-            guard !state.drainScheduled else {
-                return .queued
+            self.captureActiveLock.withLockUnchecked { $0 = true }
+            self.dispatchService.setRecordedEventHandler { [weak self] event in
+                self?.handleRecordedDispatchEvent(event)
             }
-            state.drainScheduled = true
-            return .scheduled
+            self.processor.setCaptureFrameDiagnosticsEnabled(true)
         }
+    }
 
-        switch result {
-        case .scheduled:
-            queue.async { [weak self] in
-                self?.drainLiveFrames()
-            }
-        case .queued:
-            return
-        case .dropped:
-            frame.release()
+    func stopCapture() async -> ATPCaptureV3Codec.CaptureData? {
+        await query {
+            let snapshot = self.captureSession?.snapshot()
+            self.captureSession = nil
+            self.captureActiveLock.withLockUnchecked { $0 = false }
+            self.dispatchService.setRecordedEventHandler(nil)
+            self.processor.setCaptureFrameDiagnosticsEnabled(false)
+            return snapshot
         }
     }
 
@@ -362,6 +437,14 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         }
     }
 
+    private func runSync(_ work: () -> Void) {
+        if DispatchQueue.getSpecific(key: queueSpecificKey) == Self.queueSpecificValue {
+            work()
+            return
+        }
+        queue.sync(execute: work)
+    }
+
     private func run(_ work: @escaping @Sendable () -> Void) async {
         await withCheckedContinuation { continuation in
             queue.async {
@@ -379,48 +462,107 @@ final class EngineActor: EngineActorBoundary, @unchecked Sendable {
         }
     }
 
-    private func drainLiveFrames() {
-        let renderSnapshotHandler = liveRenderSnapshotHandlerLock.withLockUnchecked { $0 }
-        while true {
-            let pending = liveRingLock.withLockUnchecked { state -> PendingLiveFrame? in
-                guard state.count > 0 else {
-                    state.drainScheduled = false
-                    return nil
-                }
-                let next = state.slots[state.readIndex]
-                state.slots[state.readIndex] = nil
-                state.readIndex = (state.readIndex + 1) % state.slots.count
-                state.count -= 1
-                return next
-            }
-            guard let pending else { return }
-            defer { pending.frame.release() }
-            guard let renderSnapshot = processIngest(
-                pending.frame,
-                captureRenderSnapshot: pending.captureRenderSnapshot
-            ) else {
-                continue
-            }
-            renderSnapshotHandler?(renderSnapshot)
+    private func handleRecordedDispatchEvent(_ event: RuntimeDispatchEvent) {
+        if DispatchQueue.getSpecific(key: queueSpecificKey) == Self.queueSpecificValue {
+            recordDispatchEvent(event)
+            return
         }
+        queue.async { [weak self] in
+            self?.recordDispatchEvent(event)
+        }
+    }
+
+    private func recordDispatchEvent(_ event: RuntimeDispatchEvent) {
+        guard var captureSession else { return }
+        captureSession.appendDispatchEvent(event)
+        self.captureSession = captureSession
     }
 
     private func processIngest(
         _ frame: RuntimeRawFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
-    ) -> RuntimeRenderSnapshot? {
-        processor.processRuntimeRawFrame(frame)
-        guard captureRenderSnapshot else { return nil }
-        updateRenderSnapshot(from: frame)
-        return latestRender
+    ) -> RuntimeFrameProcessingResult {
+        let diagnostic = processor.processRuntimeRawFrame(frame)
+        let renderSnapshotForRecord = captureRenderSnapshot || captureSession != nil
+            ? updatedRenderSnapshot(from: frame)
+            : nil
+        let renderedSnapshot = captureRenderSnapshot ? renderSnapshotForRecord : nil
+        let processedRecord = makeProcessedRecord(
+            frame: frame,
+            ingress: ingress,
+            diagnostic: diagnostic,
+            renderSnapshot: renderSnapshotForRecord
+        )
+        return RuntimeFrameProcessingResult(
+            renderSnapshot: renderedSnapshot,
+            processedFrameRecord: processedRecord
+        )
+    }
+
+    deinit {
+        dispatchService.setRecordedEventHandler(nil)
     }
 
     private func processIngest(
         _ frame: OMSRawTouchFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
         captureRenderSnapshot: Bool
-    ) -> RuntimeRenderSnapshot? {
-        processor.processRawFrame(frame)
-        guard captureRenderSnapshot else { return nil }
+    ) -> RuntimeFrameProcessingResult {
+        let diagnostic = processor.processRawFrame(frame)
+        let renderSnapshotForRecord = captureRenderSnapshot || captureSession != nil
+            ? updatedRenderSnapshot(from: frame)
+            : nil
+        let renderedSnapshot = captureRenderSnapshot ? renderSnapshotForRecord : nil
+        let processedRecord = makeProcessedRecord(
+            frame: RuntimeRawFrame(sequence: frame.sequence, frame: frame),
+            ingress: ingress,
+            diagnostic: diagnostic,
+            renderSnapshot: renderSnapshotForRecord
+        )
+        return RuntimeFrameProcessingResult(
+            renderSnapshot: renderedSnapshot,
+            processedFrameRecord: processedRecord
+        )
+    }
+
+    private func makeProcessedRecord(
+        frame: RuntimeRawFrame,
+        ingress: RuntimeCaptureIngressSnapshot?,
+        diagnostic: RuntimeFrameDiagnostic?,
+        renderSnapshot: RuntimeRenderSnapshot?
+    ) -> ProcessedFrameRecord? {
+        guard var captureSession else { return nil }
+
+        let uptimeNanoseconds = DispatchTime.now().uptimeNanoseconds
+        var record = ProcessedFrameRecord(
+            frame: frame,
+            arrivalTicks: captureSession.arrivalTicks(for: uptimeNanoseconds),
+            ingress: ingress,
+            diagnostic: diagnostic.map { diagnostic in
+                var updatedDiagnostic = diagnostic
+                updatedDiagnostic.ingress = updatedDiagnostic.ingress ?? ingress
+                return updatedDiagnostic
+            },
+            dispatchEvents: [],
+            renderUpdate: renderSnapshot.map { snapshot in
+                ProcessedRenderUpdate(
+                    revision: snapshot.revision,
+                    snapshot: snapshot
+                )
+            }
+        )
+        record = captureSession.store(record)
+        self.captureSession = captureSession
+        return record
+    }
+
+    private func updatedRenderSnapshot(from frame: OMSRawTouchFrame) -> RuntimeRenderSnapshot {
+        updateRenderSnapshot(from: frame)
+        return latestRender
+    }
+
+    private func updatedRenderSnapshot(from frame: RuntimeRawFrame) -> RuntimeRenderSnapshot {
         updateRenderSnapshot(from: frame)
         return latestRender
     }

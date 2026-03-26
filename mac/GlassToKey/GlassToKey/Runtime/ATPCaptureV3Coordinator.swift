@@ -1,14 +1,9 @@
 import Dispatch
 import Foundation
+import OpenMultitouchSupport
 import os
 
 enum ATPCaptureV3Codec {
-    struct CaptureSample: Sendable {
-        let frame: RuntimeRawFrame
-        let arrivalTicks: Int64
-        let ingress: RuntimeCaptureIngressSnapshot?
-    }
-
     struct DispatchSample: Sendable {
         let event: RuntimeDispatchEvent
         let arrivalTicks: Int64
@@ -16,14 +11,21 @@ enum ATPCaptureV3Codec {
 
     struct CaptureData: Sendable {
         let configuration: AppKeymapProfile?
-        let samples: [CaptureSample]
-        let frameDiagnostics: [RuntimeFrameDiagnostic]
-        let dispatchEvents: [DispatchSample]
+        let frameRecords: [ProcessedFrameRecord]
+        let detachedDispatchEvents: [DispatchSample]
+
+        var frameCount: Int {
+            frameRecords.count
+        }
     }
 
     struct ReplaySample: Sendable {
-        let frame: RuntimeRawFrame
+        let record: ProcessedFrameRecord
         let replayTimeSeconds: Double
+
+        var frame: RuntimeRawFrame {
+            record.frame
+        }
     }
 
     struct ReplayData: Sendable {
@@ -33,37 +35,14 @@ enum ATPCaptureV3Codec {
 
     static let fileMagic = "ATPCAP01"
     static let schema = "g2k-replay-v1"
-    static let version2: Int32 = 2
-    static let version3: Int32 = 3
-    static let currentVersion: Int32 = 4
+    static let currentVersion: Int32 = 5
     static let headerSize = 20
     static let recordHeaderSize = 34
     static let defaultTickFrequency: Int64 = 1_000_000_000
-    private static let framePayloadMagic: UInt32 = 0x33564652 // "RFV3" little-endian
     private static let metaRecordDeviceIndex: Int32 = -1
     private static let configRecordDeviceIndex: Int32 = -2
-    private static let frameDiagnosticRecordDeviceIndex: Int32 = -3
     private static let dispatchRecordDeviceIndex: Int32 = -4
-    private static let frameHeaderBytes = 32
-    private static let frameContactBytes = 40
-    private static let v2PtpReportID: UInt8 = 0x05
-    private static let v2PtpExpectedSize = 50
-    private static let v2MaxEmbeddedScanOffset = 96
-    private static let v2MaxContacts = 5
-    private static let v2MaxReasonableX = 20_000
-    private static let v2MaxReasonableY = 15_000
-    private static let v2OfficialMaxRawX = 14_720
-    private static let v2OfficialMaxRawY = 10_240
-    private static let v2TargetMaxX = 7_612
-    private static let v2TargetMaxY = 5_065
-    private static let v2UsagePageDigitizer: UInt16 = 0x0D
-    private static let v2UsageTouchpad: UInt16 = 0x05
-    private static let v2UsagePageUnknown: UInt16 = 0x00
-    private static let v2UsageUnknown: UInt16 = 0x00
-    private static let v2DecoderProfileLegacy: UInt8 = 1
-    private static let v2DecoderProfileOfficial: UInt8 = 2
-    private static let sideHintLeft: UInt8 = 1
-    private static let sideHintRight: UInt8 = 2
+    private static let processedFrameRecordDeviceIndex: Int32 = -5
 
     static func write(
         frames: [RuntimeRawFrame],
@@ -73,36 +52,22 @@ enum ATPCaptureV3Codec {
         source: String = "GlassToKeyMenuCapture"
     ) throws {
         let baseTimestamp = frames.first?.timestamp ?? 0
-        let samples = frames.map { frame in
+        let frameRecords = frames.map { frame in
             let ticks = Int64(((frame.timestamp - baseTimestamp) * Double(tickFrequency)).rounded())
-            return CaptureSample(
+            return ProcessedFrameRecord(
                 frame: frame,
                 arrivalTicks: max(0, ticks),
-                ingress: nil
+                ingress: nil,
+                diagnostic: nil,
+                dispatchEvents: [],
+                renderUpdate: nil
             )
         }
         try write(
-            samples: samples,
-            to: url,
-            tickFrequency: tickFrequency,
-            platform: platform,
-            source: source
-        )
-    }
-
-    static func write(
-        samples: [CaptureSample],
-        to url: URL,
-        tickFrequency: Int64 = defaultTickFrequency,
-        platform: String = "macOS",
-        source: String = "GlassToKeyMenuCapture"
-    ) throws {
-        try write(
             captureData: CaptureData(
                 configuration: nil,
-                samples: samples,
-                frameDiagnostics: [],
-                dispatchEvents: []
+                frameRecords: frameRecords,
+                detachedDispatchEvents: []
             ),
             to: url,
             tickFrequency: tickFrequency,
@@ -138,12 +103,15 @@ enum ATPCaptureV3Codec {
         try handle.truncate(atOffset: 0)
         try handle.write(contentsOf: fileHeader(tickFrequency: tickFrequency))
 
-        let metaPayload = try encodeMetaPayload(
-            schema: schema,
-            capturedAt: iso8601Timestamp(Date()),
-            platform: platform,
-            source: source,
-            framesCaptured: captureData.samples.count
+        let metaPayload = try encodeJSON(
+            MetaPayload(
+                type: "meta",
+                schema: schema,
+                capturedAt: iso8601Timestamp(Date()),
+                platform: platform,
+                source: source,
+                framesCaptured: captureData.frameCount
+            )
         )
         try handle.write(contentsOf: recordHeader(
             payloadLength: metaPayload.count,
@@ -160,7 +128,12 @@ enum ATPCaptureV3Codec {
         try handle.write(contentsOf: metaPayload)
 
         if let configuration = captureData.configuration {
-            let payload = try encodeConfigurationPayload(configuration)
+            let payload = try encodeJSON(
+                ConfigurationPayload(
+                    type: "config",
+                    profile: configuration
+                )
+            )
             try handle.write(contentsOf: recordHeader(
                 payloadLength: payload.count,
                 arrivalTicks: 0,
@@ -176,96 +149,43 @@ enum ATPCaptureV3Codec {
             try handle.write(contentsOf: payload)
         }
 
-        var diagnosticsBySequence: [UInt64: RuntimeFrameDiagnostic] = [:]
-        diagnosticsBySequence.reserveCapacity(max(captureData.frameDiagnostics.count, captureData.samples.count))
-        for diagnostic in captureData.frameDiagnostics {
-            diagnosticsBySequence[diagnostic.sequence] = diagnostic
-        }
-        for sample in captureData.samples {
-            guard let ingress = sample.ingress else { continue }
-            if var diagnostic = diagnosticsBySequence[sample.frame.sequence] {
-                diagnostic.ingress = diagnostic.ingress ?? ingress
-                diagnosticsBySequence[sample.frame.sequence] = diagnostic
-            } else {
-                diagnosticsBySequence[sample.frame.sequence] = RuntimeFrameDiagnostic(
-                    sequence: sample.frame.sequence,
-                    timestamp: sample.frame.timestamp,
-                    deviceIndex: sample.frame.deviceIndex,
-                    activeLayer: 0,
-                    leftIntent: "unknown",
-                    rightIntent: "unknown",
-                    ingress: ingress,
-                    touches: []
+        for frameRecord in captureData.frameRecords {
+            let payload = try encodeJSON(
+                ProcessedFrameRecordPayload(
+                    type: "processedFrameRecord",
+                    record: frameRecord
                 )
-            }
-        }
-
-        for sample in captureData.samples {
-            let frame = sample.frame
-            guard let deviceIndex = Int32(exactly: frame.deviceIndex) else {
-                throw RuntimeCaptureReplayError.invalidATPCapture(
-                    reason: "deviceIndex \(frame.deviceIndex) out of Int32 range"
-                )
-            }
-            let payload = try encodeFramePayload(sequence: frame.sequence, frame: frame)
-            let arrivalTicks = max(0, sample.arrivalTicks)
-
+            )
             try handle.write(contentsOf: recordHeader(
                 payloadLength: payload.count,
-                arrivalTicks: arrivalTicks,
-                deviceIndex: deviceIndex,
-                deviceHash: UInt32(truncatingIfNeeded: frame.deviceNumericID),
+                arrivalTicks: max(0, frameRecord.arrivalTicks),
+                deviceIndex: processedFrameRecordDeviceIndex,
+                deviceHash: UInt32(truncatingIfNeeded: frameRecord.frame.deviceNumericID),
                 vendorID: 0,
                 productID: 0,
                 usagePage: 0,
                 usage: 0,
-                sideHint: sideHintForDeviceIndex(frame.deviceIndex),
-                decoderProfile: 0
-            ))
-            try handle.write(contentsOf: payload)
-
-            if let diagnostic = diagnosticsBySequence.removeValue(forKey: frame.sequence) {
-                let diagnosticPayload = try encodeFrameDiagnosticPayload(diagnostic)
-                try handle.write(contentsOf: recordHeader(
-                    payloadLength: diagnosticPayload.count,
-                    arrivalTicks: arrivalTicks,
-                    deviceIndex: frameDiagnosticRecordDeviceIndex,
-                    deviceHash: UInt32(truncatingIfNeeded: frame.deviceNumericID),
-                    vendorID: 0,
-                    productID: 0,
-                    usagePage: 0,
-                    usage: 0,
-                    sideHint: sideHintForDeviceIndex(frame.deviceIndex),
-                    decoderProfile: 0
-                ))
-                try handle.write(contentsOf: diagnosticPayload)
-            }
-        }
-
-        for diagnostic in diagnosticsBySequence.values.sorted(by: { $0.sequence < $1.sequence }) {
-            let payload = try encodeFrameDiagnosticPayload(diagnostic)
-            try handle.write(contentsOf: recordHeader(
-                payloadLength: payload.count,
-                arrivalTicks: 0,
-                deviceIndex: frameDiagnosticRecordDeviceIndex,
-                deviceHash: 0,
-                vendorID: 0,
-                productID: 0,
-                usagePage: 0,
-                usage: 0,
-                sideHint: 0,
+                sideHint: sideHintForDeviceIndex(frameRecord.frame.deviceIndex),
                 decoderProfile: 0
             ))
             try handle.write(contentsOf: payload)
         }
 
-        for dispatchEvent in captureData.dispatchEvents.sorted(by: { lhs, rhs in
+        for dispatchEvent in captureData.detachedDispatchEvents.sorted(by: { lhs, rhs in
             if lhs.arrivalTicks == rhs.arrivalTicks {
                 return (lhs.event.sourceSequence ?? 0) < (rhs.event.sourceSequence ?? 0)
             }
             return lhs.arrivalTicks < rhs.arrivalTicks
         }) {
-            let payload = try encodeDispatchPayload(dispatchEvent.event)
+            let payload = try encodeJSON(
+                DetachedDispatchPayload(
+                    type: "detachedDispatch",
+                    dispatch: ProcessedDispatchEvent(
+                        event: dispatchEvent.event,
+                        arrivalTicks: dispatchEvent.arrivalTicks
+                    )
+                )
+            )
             try handle.write(contentsOf: recordHeader(
                 payloadLength: payload.count,
                 arrivalTicks: max(0, dispatchEvent.arrivalTicks),
@@ -282,72 +202,41 @@ enum ATPCaptureV3Codec {
         }
     }
 
+    static func readCaptureData(from url: URL) throws -> CaptureData {
+        try parseCaptureData(data: Data(contentsOf: url))
+    }
+
+    static func parseCaptureData(data: Data) throws -> CaptureData {
+        let container = try readContainer(data: data)
+        return try parseCaptureData(container: container).captureData
+    }
+
     static func readReplayData(from url: URL) throws -> ReplayData {
-        let data = try Data(contentsOf: url)
-        return try parseReplayData(data: data)
+        try parseReplayData(data: Data(contentsOf: url))
     }
 
     static func parseReplayData(data: Data) throws -> ReplayData {
         let container = try readContainer(data: data)
-        let version = container.header.version
-        guard version == currentVersion || version == version3 || version == version2 else {
-            throw RuntimeCaptureReplayError.unsupportedATPCaptureVersion(
-                actual: version
-            )
-        }
-        let isFramePayloadCapture = version == currentVersion || version == version3
-
-        var expectedSequence: UInt64 = 1
-        var frames: [RuntimeRawFrame] = []
-        frames.reserveCapacity(1024)
-        var rawArrivalTicks: [Int64] = []
-        rawArrivalTicks.reserveCapacity(1024)
-
-        for record in container.records {
-            if isFramePayloadCapture {
-                if record.deviceIndex < 0 {
-                    if record.deviceIndex == metaRecordDeviceIndex {
-                        _ = try decodeMetaPayload(record.payload)
-                    }
-                    continue
-                }
-
-                let frame = try decodeFramePayload(
-                    record.payload,
-                    headerDeviceIndex: Int(record.deviceIndex)
-                )
-                guard frame.sequence == expectedSequence else {
-                    throw RuntimeCaptureReplayError.invalidATPCapture(
-                        reason: "invalid sequence: expected \(expectedSequence), got \(frame.sequence)"
-                    )
-                }
-                frames.append(frame)
-                rawArrivalTicks.append(record.arrivalTicks)
-                expectedSequence &+= 1
-                continue
-            }
-
-            guard let frame = decodeV2FramePayload(record: record, sequence: expectedSequence) else {
-                continue
-            }
-            frames.append(frame)
-            rawArrivalTicks.append(record.arrivalTicks)
-            expectedSequence &+= 1
-        }
-
+        let parsed = try parseCaptureData(container: container)
+        let captureData = parsed.captureData
         let replayTimes = try replayTimelineSeconds(
-            rawArrivalTicks: rawArrivalTicks,
-            tickFrequency: container.header.tickFrequency
+            rawArrivalTicks: captureData.frameRecords.map(\.arrivalTicks),
+            tickFrequency: parsed.tickFrequency
         )
+
         var samples: [ReplaySample] = []
-        samples.reserveCapacity(frames.count)
-        for index in frames.indices {
-            var frame = frames[index]
+        samples.reserveCapacity(captureData.frameRecords.count)
+        for index in captureData.frameRecords.indices {
+            var record = captureData.frameRecords[index]
             let replayTime = replayTimes[index]
-            frame.timestamp = replayTime
+            record.frame.timestamp = replayTime
+            if var diagnostic = record.diagnostic {
+                diagnostic.timestamp = replayTime
+                record.diagnostic = diagnostic
+            }
             samples.append(
                 ReplaySample(
-                    frame: frame,
+                    record: record,
                     replayTimeSeconds: replayTime
                 )
             )
@@ -366,398 +255,72 @@ enum ATPCaptureV3Codec {
         try parseReplayData(data: data).samples.map(\.frame)
     }
 
-    private static func decodeV2FramePayload(
-        record: ATPCaptureRecord,
-        sequence: UInt64
-    ) -> RuntimeRawFrame? {
-        guard record.deviceIndex >= 0 else {
-            return nil
-        }
-        let mappedDeviceIndex = mapV2DeviceIndex(
-            headerDeviceIndex: Int(record.deviceIndex),
-            sideHint: record.sideHint
-        )
-        guard let contacts = decodeV2Contacts(
-            payload: record.payload,
-            usagePage: record.usagePage,
-            usage: record.usage,
-            decoderProfile: record.decoderProfile
-        ) else {
-            return nil
-        }
-        return RuntimeRawFrame(
-            sequence: sequence,
-            timestamp: 0,
-            deviceNumericID: UInt64(record.deviceHash),
-            deviceIndex: mappedDeviceIndex,
-            contacts: contacts,
-            rawTouches: []
-        )
-    }
-
-    private static func decodeV2Contacts(
-        payload: Data,
-        usagePage: UInt16,
-        usage: UInt16,
-        decoderProfile: UInt8
-    ) -> [RuntimeRawContact]? {
-        let preferredLegacy = decoderProfile == v2DecoderProfileLegacy
-        if preferredLegacy {
-            if let contacts = decodeV2PtpContacts(
-                payload: payload,
-                usagePage: usagePage,
-                usage: usage,
-                profile: .legacy
-            ) {
-                return contacts
-            }
-            return nil
-        }
-
-        if let contacts = decodeV2PtpContacts(
-            payload: payload,
-            usagePage: usagePage,
-            usage: usage,
-            profile: .official
-        ) {
-            return contacts
-        }
-        if let contacts = decodeV2PtpContacts(
-            payload: payload,
-            usagePage: usagePage,
-            usage: usage,
-            profile: .legacy
-        ) {
-            return contacts
-        }
-        return nil
-    }
-
-    private static func decodeV2PtpContacts(
-        payload: Data,
-        usagePage: UInt16,
-        usage: UInt16,
-        profile: V2DecoderProfile
-    ) -> [RuntimeRawContact]? {
-        guard payload.count >= v2PtpExpectedSize else {
-            return nil
-        }
-
-        if payload[0] == v2PtpReportID,
-           let contacts = tryParseV2PtpAtOffset(
-               payload: payload,
-               offset: 0,
-               usagePage: usagePage,
-               usage: usage,
-               profile: profile
-           ) {
-            return contacts
-        }
-
-        let maxOffset = min(payload.count - v2PtpExpectedSize, v2MaxEmbeddedScanOffset)
-        guard maxOffset >= 1 else {
-            return nil
-        }
-        for offset in 1...maxOffset {
-            guard payload[offset] == v2PtpReportID else {
-                continue
-            }
-            if let contacts = tryParseV2PtpAtOffset(
-                payload: payload,
-                offset: offset,
-                usagePage: usagePage,
-                usage: usage,
-                profile: profile
-            ) {
-                return contacts
-            }
-        }
-
-        return nil
-    }
-
-    private static func tryParseV2PtpAtOffset(
-        payload: Data,
-        offset: Int,
-        usagePage: UInt16,
-        usage: UInt16,
-        profile: V2DecoderProfile
-    ) -> [RuntimeRawContact]? {
-        guard offset >= 0, offset <= payload.count - v2PtpExpectedSize else {
-            return nil
-        }
-        guard payload[offset] == v2PtpReportID else {
-            return nil
-        }
-
-        var contacts: [V2Contact] = []
-        contacts.reserveCapacity(v2MaxContacts)
-        for index in 0..<v2MaxContacts {
-            let slotOffset = offset + 1 + (index * 9)
-            let flags = payload[slotOffset]
-            let contactID = readUInt32LE(from: payload, at: slotOffset + 1)
-            let x = readUInt16LE(from: payload, at: slotOffset + 5)
-            let y = readUInt16LE(from: payload, at: slotOffset + 7)
-            contacts.append(
-                V2Contact(
-                    id: contactID,
-                    x: x,
-                    y: y,
-                    flags: flags,
-                    pressure: 0,
-                    phase: 0
-                )
+    private static func parseCaptureData(
+        container: ATPCaptureContainer
+    ) throws -> (captureData: CaptureData, tickFrequency: Int64) {
+        guard container.header.version == currentVersion else {
+            throw RuntimeCaptureReplayError.unsupportedATPCaptureVersion(
+                actual: container.header.version
             )
         }
 
-        let reportedContactCount = Int(payload[offset + 48])
-        guard reportedContactCount <= v2MaxContacts else {
-            return nil
-        }
-        let clampedContactCount = min(reportedContactCount, v2MaxContacts)
+        var configuration: AppKeymapProfile?
+        var frameRecords: [ProcessedFrameRecord] = []
+        frameRecords.reserveCapacity(1024)
+        var detachedDispatchEvents: [DispatchSample] = []
 
-        switch profile {
-        case .official:
-            guard looksReasonableOfficial(
-                contacts: contacts,
-                clampedContactCount: clampedContactCount
-            ) else {
-                return nil
-            }
-            contacts = normalizeOfficialContacts(
-                contacts: contacts,
-                payload: payload,
-                offset: offset,
-                usagePage: usagePage,
-                usage: usage,
-                clampedContactCount: clampedContactCount
-            )
-        case .legacy:
-            guard looksReasonableLegacy(
-                contacts: contacts,
-                clampedContactCount: clampedContactCount
-            ) else {
-                return nil
-            }
-            contacts = Array(contacts.prefix(clampedContactCount))
-            normalizeLikelyPackedContactIDs(contacts: &contacts)
-        }
-
-        var runtimeContacts: [RuntimeRawContact] = []
-        runtimeContacts.reserveCapacity(contacts.count)
-        let shouldFlipY = shouldFlipYForV2(
-            usagePage: usagePage,
-            usage: usage,
-            decoderProfile: decoderProfileCode(for: profile)
-        )
-        for contact in contacts where (contact.flags & 0x02) != 0 {
-            let xNorm = clamp01(Float(contact.x) / Float(v2TargetMaxX))
-            let yNormSource = clamp01(Float(contact.y) / Float(v2TargetMaxY))
-            let yNormBottomOrigin = shouldFlipY
-                ? (1.0 - yNormSource)
-                : yNormSource
-            runtimeContacts.append(
-                RuntimeRawContact(
-                    id: Int32(bitPattern: contact.id),
-                    posX: xNorm,
-                    posY: yNormBottomOrigin,
-                    pressure: Float(contact.pressure) / 255.0,
-                    majorAxis: 0,
-                    minorAxis: 0,
-                    angle: 0,
-                    density: 0,
-                    state: .touching
-                )
-            )
-        }
-        return runtimeContacts
-    }
-
-    private static func looksReasonableLegacy(
-        contacts: [V2Contact],
-        clampedContactCount: Int
-    ) -> Bool {
-        for index in 0..<clampedContactCount {
-            let contact = contacts[index]
-            if Int(contact.x) > v2MaxReasonableX || Int(contact.y) > v2MaxReasonableY {
-                return false
-            }
-        }
-        return true
-    }
-
-    private static func looksReasonableOfficial(
-        contacts: [V2Contact],
-        clampedContactCount: Int
-    ) -> Bool {
-        guard clampedContactCount > 0 else {
-            return true
-        }
-        for index in 0..<clampedContactCount {
-            let contact = contacts[index]
-            if contact.x != 0 || contact.y != 0 || contact.flags != 0 || contact.id != 0 {
-                return true
-            }
-        }
-        return false
-    }
-
-    private static func normalizeOfficialContacts(
-        contacts: [V2Contact],
-        payload: Data,
-        offset: Int,
-        usagePage: UInt16,
-        usage: UInt16,
-        clampedContactCount: Int
-    ) -> [V2Contact] {
-        let isNativeTouchpadUsage = usagePage == v2UsagePageDigitizer && usage == v2UsageTouchpad
-        var usedIDs = Array(repeating: false, count: 256)
-        var normalized: [V2Contact] = []
-        normalized.reserveCapacity(clampedContactCount)
-
-        for index in 0..<clampedContactCount {
-            let source = contacts[index]
-            let normalizedFlags = (source.flags & 0xFC) | 0x03
-            var x = source.x
-            var y = source.y
-            var pressure: UInt8 = 0
-            var phase: UInt8 = 0
-            let assignedID: UInt32
-
-            if !isNativeTouchpadUsage {
-                let slotOffset = offset + 1 + (index * 9)
-                if slotOffset + 8 < payload.count {
-                    assignedID = assignOfficialContactID(
-                        candidateID: payload[slotOffset],
-                        usedIDs: &usedIDs
-                    )
-                    let rawX = Int(readUInt16LE(from: payload, at: slotOffset + 2))
-                    let rawY = Int(readUInt16LE(from: payload, at: slotOffset + 4))
-                    x = scaleOfficialCoordinate(
-                        value: rawX,
-                        maxRaw: v2OfficialMaxRawX,
-                        targetMax: v2TargetMaxX
-                    )
-                    y = scaleOfficialCoordinate(
-                        value: rawY,
-                        maxRaw: v2OfficialMaxRawY,
-                        targetMax: v2TargetMaxY
-                    )
-                    pressure = payload[slotOffset + 6]
-                    phase = payload[slotOffset + 7]
-                } else {
-                    assignedID = assignOfficialContactID(
-                        candidateID: UInt8(truncatingIfNeeded: index),
-                        usedIDs: &usedIDs
+        var expectedSequence: UInt64 = 1
+        for record in container.records {
+            switch record.deviceIndex {
+            case metaRecordDeviceIndex:
+                _ = try decodeMetaPayload(record.payload)
+            case configRecordDeviceIndex:
+                configuration = try decodeJSON(
+                    ConfigurationPayload.self,
+                    from: record.payload,
+                    context: "config"
+                ).profile
+            case processedFrameRecordDeviceIndex:
+                var frameRecord = try decodeJSON(
+                    ProcessedFrameRecordPayload.self,
+                    from: record.payload,
+                    context: "processed frame record"
+                ).record
+                frameRecord.arrivalTicks = max(0, record.arrivalTicks)
+                guard frameRecord.sequence == expectedSequence else {
+                    throw RuntimeCaptureReplayError.invalidATPCapture(
+                        reason: "invalid sequence: expected \(expectedSequence), got \(frameRecord.sequence)"
                     )
                 }
-            } else {
-                assignedID = assignOfficialContactID(
-                    candidateID: UInt8(truncatingIfNeeded: index),
-                    usedIDs: &usedIDs
+                frameRecords.append(frameRecord)
+                expectedSequence &+= 1
+            case dispatchRecordDeviceIndex:
+                let detached = try decodeJSON(
+                    DetachedDispatchPayload.self,
+                    from: record.payload,
+                    context: "detached dispatch"
+                ).dispatch
+                detachedDispatchEvents.append(
+                    DispatchSample(
+                        event: detached.event,
+                        arrivalTicks: max(0, record.arrivalTicks)
+                    )
+                )
+            default:
+                throw RuntimeCaptureReplayError.invalidATPCapture(
+                    reason: "unexpected record type \(record.deviceIndex)"
                 )
             }
-
-            normalized.append(
-                V2Contact(
-                    id: assignedID,
-                    x: x,
-                    y: y,
-                    flags: normalizedFlags,
-                    pressure: pressure,
-                    phase: phase
-                )
-            )
         }
 
-        return normalized
-    }
-
-    private static func assignOfficialContactID(
-        candidateID: UInt8,
-        usedIDs: inout [Bool]
-    ) -> UInt32 {
-        let candidateIndex = Int(candidateID)
-        if !usedIDs[candidateIndex] {
-            usedIDs[candidateIndex] = true
-            return UInt32(candidateID)
-        }
-
-        for index in usedIDs.indices where !usedIDs[index] {
-            usedIDs[index] = true
-            return UInt32(index)
-        }
-
-        return UInt32(candidateID)
-    }
-
-    private static func scaleOfficialCoordinate(
-        value: Int,
-        maxRaw: Int,
-        targetMax: Int
-    ) -> UInt16 {
-        let clamped = min(max(value, 0), maxRaw)
-        let scaled = (clamped * targetMax + (maxRaw / 2)) / maxRaw
-        return UInt16(clamping: scaled)
-    }
-
-    private static func normalizeLikelyPackedContactIDs(contacts: inout [V2Contact]) {
-        guard !contacts.isEmpty else {
-            return
-        }
-        var tipCount = 0
-        var suspiciousIDCount = 0
-        for contact in contacts where (contact.flags & 0x02) != 0 {
-            tipCount += 1
-            if (contact.id & 0xFF) == 0 && contact.id > 0x00FF_FFFF {
-                suspiciousIDCount += 1
-            }
-        }
-        guard tipCount > 0, suspiciousIDCount == tipCount else {
-            return
-        }
-
-        for index in contacts.indices where (contacts[index].flags & 0x02) != 0 {
-            contacts[index].id = UInt32(index)
-        }
-    }
-
-    private static func mapV2DeviceIndex(
-        headerDeviceIndex: Int,
-        sideHint: UInt8
-    ) -> Int {
-        switch sideHint {
-        case sideHintLeft:
-            return 1
-        case sideHintRight:
-            return 0
-        default:
-            return headerDeviceIndex
-        }
-    }
-
-    private static func shouldFlipYForV2(
-        usagePage: UInt16,
-        usage: UInt16,
-        decoderProfile: UInt8
-    ) -> Bool {
-        _ = usagePage
-        _ = usage
-        _ = decoderProfile
-        return true
-    }
-
-    private static func decoderProfileCode(for profile: V2DecoderProfile) -> UInt8 {
-        switch profile {
-        case .legacy:
-            return v2DecoderProfileLegacy
-        case .official:
-            return v2DecoderProfileOfficial
-        }
-    }
-
-    private static func clamp01(_ value: Float) -> Float {
-        min(max(value, 0), 1)
+        return (
+            captureData: CaptureData(
+                configuration: configuration,
+                frameRecords: frameRecords,
+                detachedDispatchEvents: detachedDispatchEvents
+            ),
+            tickFrequency: container.header.tickFrequency
+        )
     }
 
     private static func replayTimelineSeconds(
@@ -781,13 +344,11 @@ enum ATPCaptureV3Codec {
                     reason: "arrivalTicks must be monotonic (record \(index))"
                 )
             }
-
             if index > 0, tick < previousTick {
                 throw RuntimeCaptureReplayError.invalidATPCapture(
                     reason: "arrivalTicks must be monotonic (record \(index))"
                 )
             }
-
             normalizedTicks.append(tick)
             previousTick = tick
         }
@@ -847,19 +408,21 @@ enum ATPCaptureV3Codec {
 
             let payload = data.subdata(in: offset..<(offset + payloadLengthInt))
             offset += payloadLengthInt
-            records.append(ATPCaptureRecord(
-                payloadLength: payloadLengthInt,
-                arrivalTicks: arrivalTicks,
-                deviceIndex: deviceIndex,
-                deviceHash: deviceHash,
-                vendorID: vendorID,
-                productID: productID,
-                usagePage: usagePage,
-                usage: usage,
-                sideHint: sideHint,
-                decoderProfile: decoderProfile,
-                payload: payload
-            ))
+            records.append(
+                ATPCaptureRecord(
+                    payloadLength: payloadLengthInt,
+                    arrivalTicks: arrivalTicks,
+                    deviceIndex: deviceIndex,
+                    deviceHash: deviceHash,
+                    vendorID: vendorID,
+                    productID: productID,
+                    usagePage: usagePage,
+                    usage: usage,
+                    sideHint: sideHint,
+                    decoderProfile: decoderProfile,
+                    payload: payload
+                )
+            )
         }
 
         return ATPCaptureContainer(header: header, records: records)
@@ -911,39 +474,30 @@ enum ATPCaptureV3Codec {
         return data
     }
 
-    private static func encodeMetaPayload(
-        schema: String,
-        capturedAt: String,
-        platform: String,
-        source: String,
-        framesCaptured: Int
-    ) throws -> Data {
-        let payload = MetaPayload(
-            type: "meta",
-            schema: schema,
-            capturedAt: capturedAt,
-            platform: platform,
-            source: source,
-            framesCaptured: framesCaptured
-        )
+    private static func encodeJSON<T: Encodable>(_ value: T) throws -> Data {
         let encoder = JSONEncoder()
         if #available(macOS 10.13, *) {
             encoder.outputFormatting = [.sortedKeys]
         }
-        return try encoder.encode(payload)
+        return try encoder.encode(value)
+    }
+
+    private static func decodeJSON<T: Decodable>(
+        _ type: T.Type,
+        from data: Data,
+        context: String
+    ) throws -> T {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            throw RuntimeCaptureReplayError.invalidATPCapture(
+                reason: "\(context) payload decode failed: \(error.localizedDescription)"
+            )
+        }
     }
 
     private static func decodeMetaPayload(_ data: Data) throws -> MetaPayload {
-        let decoder = JSONDecoder()
-        let payload: MetaPayload
-        do {
-            payload = try decoder.decode(MetaPayload.self, from: data)
-        } catch {
-            throw RuntimeCaptureReplayError.invalidATPCapture(
-                reason: "meta payload decode failed: \(error.localizedDescription)"
-            )
-        }
-
+        let payload = try decodeJSON(MetaPayload.self, from: data, context: "meta")
         guard payload.type == "meta" else {
             throw RuntimeCaptureReplayError.invalidATPCapture(reason: "meta payload type must be 'meta'")
         }
@@ -955,220 +509,6 @@ enum ATPCaptureV3Codec {
         return payload
     }
 
-    private static func encodeConfigurationPayload(_ configuration: AppKeymapProfile) throws -> Data {
-        let payload = ConfigurationPayload(
-            type: "config",
-            profile: configuration
-        )
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        return try encoder.encode(payload)
-    }
-
-    private static func encodeFrameDiagnosticPayload(_ diagnostic: RuntimeFrameDiagnostic) throws -> Data {
-        let payload = FrameDiagnosticPayload(
-            type: "frameDiagnostic",
-            diagnostic: diagnostic
-        )
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        return try encoder.encode(payload)
-    }
-
-    private static func encodeDispatchPayload(_ event: RuntimeDispatchEvent) throws -> Data {
-        let payload = DispatchPayload(
-            type: "dispatch",
-            timestamp: event.timestamp,
-            uptimeNanoseconds: event.uptimeNanoseconds,
-            sourceSequence: event.sourceSequence,
-            kind: dispatchKindPayload(for: event.kind)
-        )
-        let encoder = JSONEncoder()
-        if #available(macOS 10.13, *) {
-            encoder.outputFormatting = [.sortedKeys]
-        }
-        return try encoder.encode(payload)
-    }
-
-    private static func dispatchKindPayload(
-        for kind: RuntimeDispatchEventKind
-    ) -> DispatchPayload.KindPayload {
-        switch kind {
-        case let .keyStroke(code, flags, altAscii):
-            return .init(
-                type: "keyStroke",
-                label: nil,
-                code: UInt16(code),
-                flagsRawValue: flags.rawValue,
-                keyDown: nil,
-                altAscii: altAscii,
-                clickCount: nil,
-                strength: nil,
-                deviceID: nil
-            )
-        case let .key(code, flags, keyDown, altAscii):
-            return .init(
-                type: "key",
-                label: nil,
-                code: UInt16(code),
-                flagsRawValue: flags.rawValue,
-                keyDown: keyDown,
-                altAscii: altAscii,
-                clickCount: nil,
-                strength: nil,
-                deviceID: nil
-            )
-        case let .leftClick(clickCount):
-            return .init(
-                type: "leftClick",
-                label: nil,
-                code: nil,
-                flagsRawValue: nil,
-                keyDown: nil,
-                altAscii: nil,
-                clickCount: clickCount,
-                strength: nil,
-                deviceID: nil
-            )
-        case .rightClick:
-            return .init(type: "rightClick")
-        case .middleClick:
-            return .init(type: "middleClick")
-        case let .systemKey(label):
-            return .init(type: "systemKey", label: label)
-        case let .appLaunch(label):
-            return .init(type: "appLaunch", label: label)
-        case let .haptic(strength, deviceID):
-            return .init(
-                type: "haptic",
-                label: nil,
-                code: nil,
-                flagsRawValue: nil,
-                keyDown: nil,
-                altAscii: nil,
-                clickCount: nil,
-                strength: strength,
-                deviceID: deviceID
-            )
-        }
-    }
-
-    private static func encodeFramePayload(
-        sequence: UInt64,
-        frame: RuntimeRawFrame
-    ) throws -> Data {
-        guard frame.contacts.count <= Int(UInt16.max) else {
-            throw RuntimeCaptureReplayError.invalidATPCapture(
-                reason: "contact count \(frame.contacts.count) exceeds UInt16"
-            )
-        }
-
-        var payload = Data()
-        payload.reserveCapacity(frameHeaderBytes + frame.contacts.count * frameContactBytes)
-
-        appendUInt32LE(framePayloadMagic, to: &payload)
-        appendUInt64LE(sequence, to: &payload)
-        appendDoubleLE(frame.timestamp, to: &payload)
-        appendUInt64LE(frame.deviceNumericID, to: &payload)
-        appendUInt16LE(UInt16(frame.contacts.count), to: &payload)
-        appendUInt16LE(0, to: &payload)
-
-        var totalByTouchID: [Int32: Float] = [:]
-        totalByTouchID.reserveCapacity(frame.rawTouches.count)
-        for touch in frame.rawTouches {
-            totalByTouchID[touch.id] = touch.total
-        }
-
-        for contact in frame.contacts {
-            appendInt32LE(contact.id, to: &payload)
-            appendFloatLE(contact.posX, to: &payload)
-            appendFloatLE(contact.posY, to: &payload)
-            appendFloatLE(totalByTouchID[contact.id] ?? 0, to: &payload)
-            appendFloatLE(contact.pressure, to: &payload)
-            appendFloatLE(contact.majorAxis, to: &payload)
-            appendFloatLE(contact.minorAxis, to: &payload)
-            appendFloatLE(contact.angle, to: &payload)
-            appendFloatLE(contact.density, to: &payload)
-            payload.append(try stateCode(for: contact.state))
-            payload.append(0)
-            payload.append(0)
-            payload.append(0)
-        }
-
-        return payload
-    }
-
-    private static func decodeFramePayload(
-        _ payload: Data,
-        headerDeviceIndex: Int
-    ) throws -> RuntimeRawFrame {
-        guard payload.count >= frameHeaderBytes else {
-            throw RuntimeCaptureReplayError.invalidATPCapture(
-                reason: "frame payload too small (\(payload.count) bytes)"
-            )
-        }
-
-        let magic = readUInt32LE(from: payload, at: 0)
-        guard magic == framePayloadMagic else {
-            throw RuntimeCaptureReplayError.invalidATPCapture(reason: "frame payload magic mismatch")
-        }
-
-        let sequence = readUInt64LE(from: payload, at: 4)
-        let timestampSec = readDoubleLE(from: payload, at: 12)
-        let deviceNumericID = readUInt64LE(from: payload, at: 20)
-        let contactCount = Int(readUInt16LE(from: payload, at: 28))
-
-        let expectedLength = frameHeaderBytes + contactCount * frameContactBytes
-        guard payload.count == expectedLength else {
-            throw RuntimeCaptureReplayError.invalidATPCapture(
-                reason: "frame payload length mismatch expected \(expectedLength), got \(payload.count)"
-            )
-        }
-
-        var contacts: [RuntimeRawContact] = []
-        contacts.reserveCapacity(contactCount)
-
-        var offset = frameHeaderBytes
-        for _ in 0..<contactCount {
-            let id = readInt32LE(from: payload, at: offset)
-            let posX = readFloatLE(from: payload, at: offset + 4)
-            let posY = readFloatLE(from: payload, at: offset + 8)
-            let pressure = readFloatLE(from: payload, at: offset + 16)
-            let majorAxis = readFloatLE(from: payload, at: offset + 20)
-            let minorAxis = readFloatLE(from: payload, at: offset + 24)
-            let angle = readFloatLE(from: payload, at: offset + 28)
-            let density = readFloatLE(from: payload, at: offset + 32)
-            let stateRaw = payload[offset + 36]
-            let state = try omsState(code: stateRaw)
-
-            contacts.append(RuntimeRawContact(
-                id: id,
-                posX: posX,
-                posY: posY,
-                pressure: pressure,
-                majorAxis: majorAxis,
-                minorAxis: minorAxis,
-                angle: angle,
-                density: density,
-                state: state
-            ))
-            offset += frameContactBytes
-        }
-
-        return RuntimeRawFrame(
-            sequence: sequence,
-            timestamp: timestampSec,
-            deviceNumericID: deviceNumericID,
-            deviceIndex: headerDeviceIndex,
-            contacts: contacts,
-            rawTouches: []
-        )
-    }
-
     private static func sideHintForDeviceIndex(_ deviceIndex: Int) -> UInt8 {
         switch deviceIndex {
         case 0:
@@ -1177,52 +517,6 @@ enum ATPCaptureV3Codec {
             return 2
         default:
             return 0
-        }
-    }
-
-    private static func stateCode(for state: OMSState) throws -> UInt8 {
-        switch state {
-        case .notTouching:
-            return 0
-        case .starting:
-            return 1
-        case .hovering:
-            return 2
-        case .making:
-            return 3
-        case .touching:
-            return 4
-        case .breaking:
-            return 5
-        case .lingering:
-            return 6
-        case .leaving:
-            return 7
-        }
-    }
-
-    private static func omsState(code: UInt8) throws -> OMSState {
-        switch code {
-        case 0:
-            return .notTouching
-        case 1:
-            return .starting
-        case 2:
-            return .hovering
-        case 3:
-            return .making
-        case 4:
-            return .touching
-        case 5:
-            return .breaking
-        case 6:
-            return .lingering
-        case 7:
-            return .leaving
-        default:
-            throw RuntimeCaptureReplayError.invalidATPCapture(
-                reason: "invalid canonical state code \(code)"
-            )
         }
     }
 
@@ -1261,16 +555,6 @@ enum ATPCaptureV3Codec {
         }
     }
 
-    private static func readDoubleLE(from data: Data, at offset: Int) -> Double {
-        let bits = readUInt64LE(from: data, at: offset)
-        return Double(bitPattern: bits)
-    }
-
-    private static func readFloatLE(from data: Data, at offset: Int) -> Float {
-        let bits = readUInt32LE(from: data, at: offset)
-        return Float(bitPattern: bits)
-    }
-
     private static func appendInt32LE(_ value: Int32, to data: inout Data) {
         appendUInt32LE(UInt32(bitPattern: value), to: &data)
     }
@@ -1300,14 +584,6 @@ enum ATPCaptureV3Codec {
         }
     }
 
-    private static func appendDoubleLE(_ value: Double, to data: inout Data) {
-        appendUInt64LE(value.bitPattern, to: &data)
-    }
-
-    private static func appendFloatLE(_ value: Float, to data: inout Data) {
-        appendUInt32LE(value.bitPattern, to: &data)
-    }
-
     private struct MetaPayload: Codable {
         let type: String
         let schema: String
@@ -1322,51 +598,14 @@ enum ATPCaptureV3Codec {
         let profile: AppKeymapProfile
     }
 
-    private struct FrameDiagnosticPayload: Codable {
+    private struct ProcessedFrameRecordPayload: Codable {
         let type: String
-        let diagnostic: RuntimeFrameDiagnostic
+        let record: ProcessedFrameRecord
     }
 
-    private struct DispatchPayload: Codable {
-        struct KindPayload: Codable {
-            let type: String
-            let label: String?
-            let code: UInt16?
-            let flagsRawValue: UInt64?
-            let keyDown: Bool?
-            let altAscii: UInt8?
-            let clickCount: Int?
-            let strength: Double?
-            let deviceID: String?
-
-            init(
-                type: String,
-                label: String? = nil,
-                code: UInt16? = nil,
-                flagsRawValue: UInt64? = nil,
-                keyDown: Bool? = nil,
-                altAscii: UInt8? = nil,
-                clickCount: Int? = nil,
-                strength: Double? = nil,
-                deviceID: String? = nil
-            ) {
-                self.type = type
-                self.label = label
-                self.code = code
-                self.flagsRawValue = flagsRawValue
-                self.keyDown = keyDown
-                self.altAscii = altAscii
-                self.clickCount = clickCount
-                self.strength = strength
-                self.deviceID = deviceID
-            }
-        }
-
+    private struct DetachedDispatchPayload: Codable {
         let type: String
-        let timestamp: TimeInterval
-        let uptimeNanoseconds: UInt64
-        let sourceSequence: UInt64?
-        let kind: KindPayload
+        let dispatch: ProcessedDispatchEvent
     }
 
     private struct ATPCaptureHeader: Sendable {
@@ -1391,20 +630,6 @@ enum ATPCaptureV3Codec {
     private struct ATPCaptureContainer: Sendable {
         let header: ATPCaptureHeader
         let records: [ATPCaptureRecord]
-    }
-
-    private enum V2DecoderProfile {
-        case legacy
-        case official
-    }
-
-    private struct V2Contact {
-        var id: UInt32
-        var x: UInt16
-        var y: UInt16
-        var flags: UInt8
-        var pressure: UInt8
-        var phase: UInt8
     }
 }
 
@@ -1461,80 +686,14 @@ struct RuntimeReplayPosition: Sendable, Equatable {
 }
 
 final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
-    private final class CaptureBuffer: @unchecked Sendable {
-        private let samplesLock = OSAllocatedUnfairLock<[ATPCaptureV3Codec.CaptureSample]>(
-            uncheckedState: []
-        )
-        private let frameDiagnosticsLock = OSAllocatedUnfairLock<[UInt64: RuntimeFrameDiagnostic]>(
-            uncheckedState: [:]
-        )
-        private let dispatchEventsLock = OSAllocatedUnfairLock<[ATPCaptureV3Codec.DispatchSample]>(
-            uncheckedState: []
-        )
-        private let configuration: AppKeymapProfile?
-
-        init(configuration: AppKeymapProfile?) {
-            self.configuration = configuration
-        }
-
-        func append(
-            _ frame: RuntimeRawFrame,
-            arrivalTicks: Int64,
-            ingress: RuntimeCaptureIngressSnapshot
-        ) {
-            samplesLock.withLockUnchecked { samples in
-                samples.append(
-                    ATPCaptureV3Codec.CaptureSample(
-                        frame: frame,
-                        arrivalTicks: max(0, arrivalTicks),
-                        ingress: ingress
-                    )
-                )
-            }
-        }
-
-        func appendFrameDiagnostic(_ diagnostic: RuntimeFrameDiagnostic) {
-            frameDiagnosticsLock.withLockUnchecked { diagnostics in
-                diagnostics[diagnostic.sequence] = diagnostic
-            }
-        }
-
-        func appendDispatchEvent(_ event: RuntimeDispatchEvent, arrivalTicks: Int64) {
-            dispatchEventsLock.withLockUnchecked { events in
-                events.append(
-                    ATPCaptureV3Codec.DispatchSample(
-                        event: event,
-                        arrivalTicks: max(0, arrivalTicks)
-                    )
-                )
-            }
-        }
-
-        func snapshot() -> ATPCaptureV3Codec.CaptureData {
-            let samples = samplesLock.withLockUnchecked { $0 }
-            let frameDiagnostics = frameDiagnosticsLock.withLockUnchecked { diagnostics in
-                diagnostics.values.sorted(by: { $0.sequence < $1.sequence })
-            }
-            let dispatchEvents = dispatchEventsLock.withLockUnchecked { $0 }
-            return ATPCaptureV3Codec.CaptureData(
-                configuration: configuration,
-                samples: samples,
-                frameDiagnostics: frameDiagnostics,
-                dispatchEvents: dispatchEvents
-            )
-        }
-    }
-
     private struct CaptureSession {
         let outputURL: URL
         let startedRuntimeForCapture: Bool
-        let buffer: CaptureBuffer
-        let frameHandlerID: UUID
     }
 
     private struct ReplaySession {
         let sourceName: String
-        let frames: [RuntimeRawFrame]
+        let records: [ProcessedFrameRecord]
         let frameTimesSeconds: [Double]
         let durationSeconds: Double
         let wasRuntimeRunningBeforeSession: Bool
@@ -1551,14 +710,14 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
     private let inputRuntimeService: InputRuntimeService
     private let runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService
-    private let runtimeEngine: EngineActorBoundary
+    private let runtimeEngine: RuntimeCoreBoundary
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
 
     init(
         inputRuntimeService: InputRuntimeService,
         runtimeLifecycleCoordinator: RuntimeLifecycleCoordinatorService,
-        runtimeEngine: EngineActorBoundary,
+        runtimeEngine: RuntimeCoreBoundary,
         renderSnapshotService: RuntimeRenderSnapshotService
     ) {
         self.inputRuntimeService = inputRuntimeService
@@ -1611,33 +770,16 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             }
         }
 
-        let buffer = CaptureBuffer(configuration: configuration)
         let captureStartUptime = DispatchTime.now().uptimeNanoseconds
-        runtimeEngine.setCaptureFrameDiagnosticsHandler { diagnostic in
-            buffer.appendFrameDiagnostic(diagnostic)
-        }
-        DispatchService.shared.setCaptureEventHandler { event in
-            let elapsed = event.uptimeNanoseconds >= captureStartUptime
-                ? event.uptimeNanoseconds - captureStartUptime
-                : 0
-            buffer.appendDispatchEvent(event, arrivalTicks: Int64(clamping: elapsed))
-        }
-        let frameHandlerID = inputRuntimeService.addCaptureFrameHandler { rawFrame, ingress in
-            let nowUptime = DispatchTime.now().uptimeNanoseconds
-            let elapsed = nowUptime >= captureStartUptime ? nowUptime - captureStartUptime : 0
-            buffer.append(
-                rawFrame,
-                arrivalTicks: Int64(clamping: elapsed),
-                ingress: ingress
-            )
-        }
+        runtimeEngine.startCapture(
+            configuration: configuration,
+            startUptimeNanoseconds: captureStartUptime
+        )
 
         stateLock.withLockUnchecked { state in
             state.captureSession = CaptureSession(
                 outputURL: outputURL,
-                startedRuntimeForCapture: startedRuntimeForCapture,
-                buffer: buffer,
-                frameHandlerID: frameHandlerID
+                startedRuntimeForCapture: startedRuntimeForCapture
             )
             state.captureInitializing = false
         }
@@ -1654,17 +796,16 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             throw RuntimeCaptureReplayError.captureNotRunning
         }
 
-        inputRuntimeService.removeCaptureFrameHandler(session.frameHandlerID)
-        runtimeEngine.setCaptureFrameDiagnosticsHandler(nil)
-        DispatchService.shared.setCaptureEventHandler(nil)
+        guard let captureData = await runtimeEngine.stopCapture() else {
+            throw RuntimeCaptureReplayError.captureNotRunning
+        }
 
         if session.startedRuntimeForCapture {
             _ = runtimeLifecycleCoordinator.stop(stopVoiceDictation: false)
         }
 
-        let captureData = session.buffer.snapshot()
         try ATPCaptureV3Codec.write(captureData: captureData, to: session.outputURL)
-        return captureData.samples.count
+        return captureData.frameCount
     }
 
     func replayCapture(from inputURL: URL) async throws -> Int {
@@ -1677,7 +818,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
     func beginReplaySession(from inputURL: URL) async throws -> RuntimeReplaySessionInfo {
         let sourceName = inputURL.lastPathComponent
         let replayData = try ATPCaptureV3Codec.readReplayData(from: inputURL)
-        let frames = replayData.samples.map(\.frame)
+        let records = replayData.samples.map(\.record)
         let frameTimes = replayData.samples.map(\.replayTimeSeconds)
         let wasRunning = inputRuntimeService.isRunning
         let durationSeconds = replayData.durationSeconds
@@ -1701,15 +842,15 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
         var currentIndex = -1
         var currentTime = 0.0
-        if !frames.isEmpty {
-            await ingestFrame(frames[0])
+        if !records.isEmpty {
+            await ingestFrame(records[0])
             currentIndex = 0
             currentTime = frameTimes[0]
         }
 
         let session = ReplaySession(
             sourceName: sourceName,
-            frames: frames,
+            records: records,
             frameTimesSeconds: frameTimes,
             durationSeconds: durationSeconds,
             wasRuntimeRunningBeforeSession: wasRunning,
@@ -1723,7 +864,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
         return RuntimeReplaySessionInfo(
             sourceName: sourceName,
-            frameCount: frames.count,
+            frameCount: records.count,
             durationSeconds: durationSeconds,
             currentFrameIndex: currentIndex,
             currentTimeSeconds: currentTime,
@@ -1736,7 +877,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             guard let session = state.replaySession else { return nil }
             return RuntimeReplaySessionInfo(
                 sourceName: session.sourceName,
-                frameCount: session.frames.count,
+                frameCount: session.records.count,
                 durationSeconds: session.durationSeconds,
                 currentFrameIndex: session.currentFrameIndex,
                 currentTimeSeconds: session.currentTimeSeconds,
@@ -1758,7 +899,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             throw RuntimeCaptureReplayError.replaySessionNotActive
         }
 
-        guard !session.frames.isEmpty else {
+        guard !session.records.isEmpty else {
             stateLock.withLockUnchecked { state in
                 state.replaySession?.currentFrameIndex = -1
                 state.replaySession?.currentTimeSeconds = 0
@@ -1777,7 +918,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         await runtimeEngine.reset(stopVoiceDictation: false)
         if targetIndex >= 0 {
             for index in 0...targetIndex {
-                await ingestFrame(session.frames[index])
+                await ingestFrame(session.records[index])
             }
         }
 
@@ -1813,9 +954,9 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             }
         }
 
-        let frames = session.frames
+        let records = session.records
         let frameTimes = session.frameTimesSeconds
-        guard !frames.isEmpty else {
+        guard !records.isEmpty else {
             stateLock.withLockUnchecked { state in
                 state.replaySession?.currentFrameIndex = -1
                 state.replaySession?.currentTimeSeconds = 0
@@ -1832,7 +973,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
 
         if currentIndex < 0 {
             await runtimeEngine.reset(stopVoiceDictation: false)
-            await ingestFrame(frames[0])
+            await ingestFrame(records[0])
             currentIndex = 0
             currentTime = frameTimes[0]
             stateLock.withLockUnchecked { state in
@@ -1847,7 +988,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             )
         }
 
-        while currentIndex + 1 < frames.count {
+        while currentIndex + 1 < records.count {
             try Task.checkCancellation()
             let nextIndex = currentIndex + 1
             let nextTime = frameTimes[nextIndex]
@@ -1889,7 +1030,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
                 }
             }
 
-            await ingestFrame(frames[nextIndex])
+            await ingestFrame(records[nextIndex])
             currentIndex = nextIndex
             currentTime = nextTime
             stateLock.withLockUnchecked { state in
@@ -1954,10 +1095,11 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         return result
     }
 
-    private func ingestFrame(_ frame: RuntimeRawFrame) async {
+    private func ingestFrame(_ record: ProcessedFrameRecord) async {
         _ = await renderSnapshotService.ingest(
-            frame,
-            runtimeEngine: runtimeEngine
+            record.frame,
+            runtimeEngine: runtimeEngine,
+            ingress: record.ingress
         )
     }
 
