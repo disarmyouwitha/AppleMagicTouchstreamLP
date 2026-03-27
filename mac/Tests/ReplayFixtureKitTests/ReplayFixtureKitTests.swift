@@ -159,6 +159,25 @@ final class ReplayFixtureKitTests: XCTestCase {
         XCTAssertEqual(transcript.last?.captureFrames, 2)
     }
 
+    func testLegacyV3ATPCaptureCanBeTranscodedToCurrentVersion() throws {
+        let legacyURL = try writeTempCapture(try makeLegacyV3CaptureData(), name: "legacy-v3.atpcap")
+        let transcodedURL = legacyURL.deletingLastPathComponent().appendingPathComponent("legacy-v5.atpcap")
+
+        try ReplayFixtureCodec.transcodeLegacyATPCapture(from: legacyURL, to: transcodedURL)
+
+        let container = try ATPCaptureCodec.loadContainer(from: transcodedURL)
+        XCTAssertEqual(container.header.version, ATPCaptureCodec.currentVersion)
+
+        let fixture = try ReplayFixtureParser.load(from: transcodedURL)
+        XCTAssertEqual(fixture.meta.framesCaptured, 2)
+        XCTAssertEqual(fixture.frames.count, 2)
+        XCTAssertEqual(fixture.frames[0].seq, 1)
+        XCTAssertEqual(fixture.frames[0].timestampSec, 0, accuracy: 0.000001)
+        XCTAssertEqual(fixture.frames[1].seq, 2)
+        XCTAssertEqual(fixture.frames[1].timestampSec, 0.5, accuracy: 0.000001)
+        XCTAssertEqual(fixture.frames[0].contacts.first?.state, "touching")
+    }
+
     private func fixtureURL() -> URL {
         URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.atpcap", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
@@ -289,6 +308,104 @@ final class ReplayFixtureKitTests: XCTestCase {
         return data
     }
 
+    private func makeLegacyV3CaptureData() throws -> Data {
+        struct MetaPayload: Encodable {
+            let type = "meta"
+            let schema = ReplayFixtureParser.schema
+            let capturedAt = "2026-03-26T00:00:00.000Z"
+            let platform = "macOS"
+            let source = "unit-legacy"
+            let framesCaptured = 2
+        }
+
+        var data = Data()
+        data.append("ATPCAP01".data(using: .ascii)!)
+        appendInt32LE(3, to: &data)
+        appendInt64LE(ATPCaptureCodec.defaultTickFrequency, to: &data)
+
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        let metaPayload = try encoder.encode(MetaPayload())
+        appendRecord(
+            payload: metaPayload,
+            arrivalTicks: 0,
+            deviceIndex: -1,
+            to: &data
+        )
+
+        appendLegacyFrameRecord(
+            seq: 1,
+            timestampSec: 4.0,
+            deviceNumericID: 42,
+            deviceIndex: 0,
+            contacts: [
+                (
+                    id: 7,
+                    x: 0.25,
+                    y: 0.5,
+                    total: 1.0,
+                    pressure: 0.8,
+                    majorAxis: 2.0,
+                    minorAxis: 1.0,
+                    angle: 0.0,
+                    density: 0.4,
+                    state: 4
+                )
+            ],
+            to: &data
+        )
+        appendLegacyFrameRecord(
+            seq: 2,
+            timestampSec: 4.5,
+            deviceNumericID: 99,
+            deviceIndex: 1,
+            contacts: [],
+            to: &data
+        )
+
+        return data
+    }
+
+    private func appendLegacyFrameRecord(
+        seq: UInt64,
+        timestampSec: Double,
+        deviceNumericID: UInt64,
+        deviceIndex: Int32,
+        contacts: [(id: Int32, x: Float, y: Float, total: Float, pressure: Float, majorAxis: Float, minorAxis: Float, angle: Float, density: Float, state: UInt8)],
+        to data: inout Data
+    ) {
+        var payload = Data()
+        appendUInt32LE(0x33564652, to: &payload)
+        appendUInt64LE(seq, to: &payload)
+        appendDoubleLE(timestampSec, to: &payload)
+        appendUInt64LE(deviceNumericID, to: &payload)
+        appendUInt16LE(UInt16(contacts.count), to: &payload)
+        appendUInt16LE(0, to: &payload)
+
+        for contact in contacts {
+            appendInt32LE(contact.id, to: &payload)
+            appendFloatLE(contact.x, to: &payload)
+            appendFloatLE(contact.y, to: &payload)
+            appendFloatLE(contact.total, to: &payload)
+            appendFloatLE(contact.pressure, to: &payload)
+            appendFloatLE(contact.majorAxis, to: &payload)
+            appendFloatLE(contact.minorAxis, to: &payload)
+            appendFloatLE(contact.angle, to: &payload)
+            appendFloatLE(contact.density, to: &payload)
+            appendUInt8(contact.state, to: &payload)
+            appendUInt8(0, to: &payload)
+            appendUInt8(0, to: &payload)
+            appendUInt8(0, to: &payload)
+        }
+
+        appendRecord(
+            payload: payload,
+            arrivalTicks: Int64((timestampSec - 4.0) * Double(ATPCaptureCodec.defaultTickFrequency)),
+            deviceIndex: deviceIndex,
+            to: &data
+        )
+    }
+
     private func appendRecord(
         payload: Data,
         arrivalTicks: Int64,
@@ -335,5 +452,17 @@ final class ReplayFixtureKitTests: XCTestCase {
         withUnsafeBytes(of: &littleEndian) { bytes in
             data.append(contentsOf: bytes)
         }
+    }
+
+    private func appendDoubleLE(_ value: Double, to data: inout Data) {
+        appendUInt64LE(value.bitPattern, to: &data)
+    }
+
+    private func appendFloatLE(_ value: Float, to data: inout Data) {
+        appendUInt32LE(value.bitPattern, to: &data)
+    }
+
+    private func appendUInt8(_ value: UInt8, to data: inout Data) {
+        data.append(value)
     }
 }

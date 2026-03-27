@@ -65,6 +65,11 @@ let package = Package(
             dependencies: ["ReplayFixtureKit"],
             path: "Tools/RawCaptureAnalyze"
         ),
+        .executableTarget(
+            name: "ATPCaptureTranscode",
+            dependencies: ["ReplayFixtureKit"],
+            path: "Tools/ATPCaptureTranscode"
+        ),
         .testTarget(
             name: "ReplayFixtureKitTests",
             dependencies: ["ReplayFixtureKit"],

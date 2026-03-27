@@ -123,11 +123,6 @@ struct RuntimeRenderSnapshot: Codable, Sendable {
     var revision: UInt64 = 0
 }
 
-struct ProcessedRenderUpdate: Codable, Sendable {
-    var revision: UInt64
-    var snapshot: RuntimeRenderSnapshot?
-}
-
 struct RuntimeFrameProcessingResult: Sendable {
     var renderSnapshot: RuntimeRenderSnapshot?
     var processedFrameRecord: ProcessedFrameRecord?
@@ -146,7 +141,6 @@ struct ProcessedFrameRecord: Codable, Sendable {
     var ingress: RuntimeCaptureIngressSnapshot?
     var diagnostic: RuntimeFrameDiagnostic?
     var dispatchEvents: [ProcessedDispatchEvent] = []
-    var renderUpdate: ProcessedRenderUpdate?
 
     var sequence: UInt64 {
         frame.sequence

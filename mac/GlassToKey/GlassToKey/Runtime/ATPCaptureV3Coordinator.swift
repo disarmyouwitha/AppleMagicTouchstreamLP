@@ -52,8 +52,7 @@ enum ATPCaptureV3Codec {
                 arrivalTicks: max(0, ticks),
                 ingress: nil,
                 diagnostic: nil,
-                dispatchEvents: [],
-                renderUpdate: nil
+                dispatchEvents: []
             )
         }
         try write(

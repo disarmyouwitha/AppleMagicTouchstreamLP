@@ -496,15 +496,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool
     ) -> RuntimeFrameProcessingResult {
         let diagnostic = processor.processRuntimeRawFrame(frame)
-        let renderSnapshotForRecord = captureRenderSnapshot || captureSession != nil
+        let renderedSnapshot = captureRenderSnapshot
             ? updatedRenderSnapshot(from: frame)
             : nil
-        let renderedSnapshot = captureRenderSnapshot ? renderSnapshotForRecord : nil
         let processedRecord = makeProcessedRecord(
             frame: frame,
             ingress: ingress,
-            diagnostic: diagnostic,
-            renderSnapshot: renderSnapshotForRecord
+            diagnostic: diagnostic
         )
         return RuntimeFrameProcessingResult(
             renderSnapshot: renderedSnapshot,
@@ -522,15 +520,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool
     ) -> RuntimeFrameProcessingResult {
         let diagnostic = processor.processRawFrame(frame)
-        let renderSnapshotForRecord = captureRenderSnapshot || captureSession != nil
+        let renderedSnapshot = captureRenderSnapshot
             ? updatedRenderSnapshot(from: frame)
             : nil
-        let renderedSnapshot = captureRenderSnapshot ? renderSnapshotForRecord : nil
         let processedRecord = makeProcessedRecord(
             frame: RuntimeRawFrame(sequence: frame.sequence, frame: frame),
             ingress: ingress,
-            diagnostic: diagnostic,
-            renderSnapshot: renderSnapshotForRecord
+            diagnostic: diagnostic
         )
         return RuntimeFrameProcessingResult(
             renderSnapshot: renderedSnapshot,
@@ -541,8 +537,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private func makeProcessedRecord(
         frame: RuntimeRawFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        diagnostic: RuntimeFrameDiagnostic?,
-        renderSnapshot: RuntimeRenderSnapshot?
+        diagnostic: RuntimeFrameDiagnostic?
     ) -> ProcessedFrameRecord? {
         guard var captureSession else { return nil }
 
@@ -556,13 +551,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 updatedDiagnostic.ingress = updatedDiagnostic.ingress ?? ingress
                 return updatedDiagnostic
             },
-            dispatchEvents: [],
-            renderUpdate: renderSnapshot.map { snapshot in
-                ProcessedRenderUpdate(
-                    revision: snapshot.revision,
-                    snapshot: snapshot
-                )
-            }
+            dispatchEvents: []
         )
         record = captureSession.store(record)
         self.captureSession = captureSession
