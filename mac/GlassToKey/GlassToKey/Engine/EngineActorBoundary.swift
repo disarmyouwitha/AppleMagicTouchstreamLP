@@ -98,15 +98,28 @@ private struct RuntimeCaptureSessionState {
         )
 
         guard let sequence = event.sourceSequence else {
-            detachedDispatchEvents.append(processed)
+            Self.upsertDispatchEvent(processed, into: &detachedDispatchEvents)
             return
         }
 
         if var record = recordsBySequence[sequence] {
-            record.dispatchEvents.append(processed)
+            Self.upsertDispatchEvent(processed, into: &record.dispatchEvents)
             recordsBySequence[sequence] = record
         } else {
-            pendingDispatchEventsBySequence[sequence, default: []].append(processed)
+            var pending = pendingDispatchEventsBySequence[sequence, default: []]
+            Self.upsertDispatchEvent(processed, into: &pending)
+            pendingDispatchEventsBySequence[sequence] = pending
+        }
+    }
+
+    private static func upsertDispatchEvent(
+        _ processed: ProcessedDispatchEvent,
+        into events: inout [ProcessedDispatchEvent]
+    ) {
+        if let index = events.firstIndex(where: { $0.event.commandID == processed.event.commandID }) {
+            events[index] = processed
+        } else {
+            events.append(processed)
         }
     }
 

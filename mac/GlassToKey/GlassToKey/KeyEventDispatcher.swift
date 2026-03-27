@@ -705,15 +705,21 @@ final class DispatchService: @unchecked Sendable {
 
     private static let defaultQueueCapacity = 1024
 
-    private enum Command {
-        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?, sourceSequence: UInt64?)
-        case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?, sourceSequence: UInt64?)
-        case appLaunch(String, sourceSequence: UInt64?)
-        case leftClick(clickCount: Int, sourceSequence: UInt64?)
-        case rightClick(sourceSequence: UInt64?)
-        case middleClick(sourceSequence: UInt64?)
-        case systemKey(KeyEventDispatcher.SystemKey, sourceSequence: UInt64?)
-        case haptic(strength: Double, deviceID: String?, sourceSequence: UInt64?)
+    private enum CommandPayload {
+        case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
+        case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
+        case appLaunch(String)
+        case leftClick(clickCount: Int)
+        case rightClick
+        case middleClick
+        case systemKey(KeyEventDispatcher.SystemKey)
+        case haptic(strength: Double, deviceID: String?)
+    }
+
+    private struct Command {
+        let id: UInt64
+        let payload: CommandPayload
+        let sourceSequence: UInt64?
     }
 
     private struct RingQueue {
@@ -744,18 +750,24 @@ final class DispatchService: @unchecked Sendable {
             return command
         }
 
-        mutating func removeAll() {
+        mutating func removeAll() -> [Command] {
             guard count > 0 else {
                 head = 0
                 tail = 0
-                return
+                return []
             }
+            var removed: [Command] = []
+            removed.reserveCapacity(count)
             for index in storage.indices {
+                if let command = storage[index] {
+                    removed.append(command)
+                }
                 storage[index] = nil
             }
             head = 0
             tail = 0
             count = 0
+            return removed
         }
     }
 
@@ -763,13 +775,13 @@ final class DispatchService: @unchecked Sendable {
         var queue = RingQueue(capacity: DispatchService.defaultQueueCapacity)
         var isPumpScheduled = false
         var drops: UInt64 = 0
+        var nextCommandID: UInt64 = 1
     }
 
     private let keyDispatcher: KeyEventDispatcher
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let recordedEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
-    private let captureEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let dispatchQueue = DispatchQueue(
         label: "ink.ranna.GlassToKey.DispatchPump",
         qos: .userInteractive
@@ -791,9 +803,9 @@ final class DispatchService: @unchecked Sendable {
                 code: code,
                 flags: flags,
                 altAscii: altAscii,
-                token: token,
-                sourceSequence: sourceSequence
-            )
+                token: token
+            ),
+            sourceSequence: sourceSequence
         )
     }
 
@@ -811,22 +823,22 @@ final class DispatchService: @unchecked Sendable {
                 flags: flags,
                 keyDown: keyDown,
                 altAscii: altAscii,
-                token: token,
-                sourceSequence: sourceSequence
-            )
+                token: token
+            ),
+            sourceSequence: sourceSequence
         )
     }
 
     func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
-        enqueue(.appLaunch(actionLabel, sourceSequence: sourceSequence))
+        enqueue(.appLaunch(actionLabel), sourceSequence: sourceSequence)
     }
 
     func postLeftClick(clickCount: Int = 1, sourceSequence: UInt64? = nil) {
-        enqueue(.leftClick(clickCount: clickCount, sourceSequence: sourceSequence))
+        enqueue(.leftClick(clickCount: clickCount), sourceSequence: sourceSequence)
     }
 
     func postRightClick(sourceSequence: UInt64? = nil) {
-        enqueue(.rightClick(sourceSequence: sourceSequence))
+        enqueue(.rightClick, sourceSequence: sourceSequence)
     }
 
     func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
@@ -834,27 +846,27 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func postMiddleClick(sourceSequence: UInt64? = nil) {
-        enqueue(.middleClick(sourceSequence: sourceSequence))
+        enqueue(.middleClick, sourceSequence: sourceSequence)
     }
 
     func postVolumeUp(sourceSequence: UInt64? = nil) {
-        enqueue(.systemKey(.volumeUp, sourceSequence: sourceSequence))
+        enqueue(.systemKey(.volumeUp), sourceSequence: sourceSequence)
     }
 
     func postVolumeDown(sourceSequence: UInt64? = nil) {
-        enqueue(.systemKey(.volumeDown, sourceSequence: sourceSequence))
+        enqueue(.systemKey(.volumeDown), sourceSequence: sourceSequence)
     }
 
     func postBrightnessUp(sourceSequence: UInt64? = nil) {
-        enqueue(.systemKey(.brightnessUp, sourceSequence: sourceSequence))
+        enqueue(.systemKey(.brightnessUp), sourceSequence: sourceSequence)
     }
 
     func postBrightnessDown(sourceSequence: UInt64? = nil) {
-        enqueue(.systemKey(.brightnessDown, sourceSequence: sourceSequence))
+        enqueue(.systemKey(.brightnessDown), sourceSequence: sourceSequence)
     }
 
     func postHaptic(strength: Double, deviceID: String?, sourceSequence: UInt64? = nil) {
-        enqueue(.haptic(strength: strength, deviceID: deviceID, sourceSequence: sourceSequence))
+        enqueue(.haptic(strength: strength, deviceID: deviceID), sourceSequence: sourceSequence)
     }
 
     func snapshotMetrics() -> Metrics {
@@ -863,37 +875,42 @@ final class DispatchService: @unchecked Sendable {
         }
     }
 
-    func setCaptureEventHandler(_ handler: ((RuntimeDispatchEvent) -> Void)?) {
-        captureEventHandlerLock.withLockUnchecked { $0 = handler }
-    }
-
     func setRecordedEventHandler(_ handler: ((RuntimeDispatchEvent) -> Void)?) {
         recordedEventHandlerLock.withLockUnchecked { $0 = handler }
     }
 
     func clearQueue() {
-        stateLock.withLockUnchecked { state in
+        let cancelledCommands = stateLock.withLockUnchecked { state in
             state.queue.removeAll()
+        }
+        for command in cancelledCommands {
+            emitRecordedEvent(for: command, status: .cancelled)
         }
     }
 
-    private func enqueue(_ command: Command) {
+    private func enqueue(_ payload: CommandPayload, sourceSequence: UInt64?) {
         var shouldSchedulePump = false
-        var didEnqueue = false
+        var enqueuedCommand: Command?
         stateLock.withLockUnchecked { state in
+            let command = Command(
+                id: state.nextCommandID,
+                payload: payload,
+                sourceSequence: sourceSequence
+            )
+            state.nextCommandID &+= 1
             guard state.queue.enqueue(command) else {
                 state.drops &+= 1
                 return
             }
-            didEnqueue = true
+            enqueuedCommand = command
             if !state.isPumpScheduled {
                 state.isPumpScheduled = true
                 shouldSchedulePump = true
             }
         }
 
-        guard didEnqueue else { return }
-        emitRecordedEvent(for: command)
+        guard let enqueuedCommand else { return }
+        emitRecordedEvent(for: enqueuedCommand, status: .accepted)
         guard shouldSchedulePump else { return }
         dispatchQueue.async { [weak self] in
             self?.drainQueue()
@@ -917,19 +934,15 @@ final class DispatchService: @unchecked Sendable {
     }
 
     private func dispatch(_ command: Command) {
-        switch command {
-        case let .keyStroke(code, flags, altAscii, token, sourceSequence):
+        switch command.payload {
+        case let .keyStroke(code, flags, altAscii, token):
             keyDispatcher.postKeyStrokeImmediate(
                 code: code,
                 flags: flags,
                 altAscii: altAscii,
                 token: token
             )
-            emitCaptureEvent(
-                kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),
-                sourceSequence: sourceSequence
-            )
-        case let .key(code, flags, keyDown, altAscii, token, sourceSequence):
+        case let .key(code, flags, keyDown, altAscii, token):
             keyDispatcher.postKeyImmediate(
                 code: code,
                 flags: flags,
@@ -937,106 +950,101 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
-            emitCaptureEvent(
-                kind: .key(
-                    code: code,
-                    flags: flags,
-                    keyDown: keyDown,
-                    altAscii: altAscii
-                ),
-                sourceSequence: sourceSequence
-            )
-        case let .appLaunch(actionLabel, sourceSequence):
+        case let .appLaunch(actionLabel):
             appLaunchDispatcher.open(actionLabel)
-            emitCaptureEvent(
-                kind: .appLaunch(actionLabel),
-                sourceSequence: sourceSequence
-            )
-        case let .leftClick(clickCount, sourceSequence):
+        case let .leftClick(clickCount):
             keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
-            emitCaptureEvent(
-                kind: .leftClick(clickCount: clickCount),
-                sourceSequence: sourceSequence
-            )
-        case let .rightClick(sourceSequence):
+        case .rightClick:
             keyDispatcher.postRightClickImmediate()
-            emitCaptureEvent(kind: .rightClick, sourceSequence: sourceSequence)
-        case let .middleClick(sourceSequence):
+        case .middleClick:
             keyDispatcher.postMiddleClickImmediate()
-            emitCaptureEvent(kind: .middleClick, sourceSequence: sourceSequence)
-        case let .systemKey(key, sourceSequence):
+        case let .systemKey(key):
             keyDispatcher.postSystemKeyImmediate(key)
-            emitCaptureEvent(
-                kind: .systemKey(key.captureLabel),
-                sourceSequence: sourceSequence
-            )
-        case let .haptic(strength, deviceID, sourceSequence):
+        case let .haptic(strength, deviceID):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
-            emitCaptureEvent(
-                kind: .haptic(strength: strength, deviceID: deviceID),
-                sourceSequence: sourceSequence
-            )
         }
+        emitRecordedEvent(for: command, status: .posted)
     }
 
-    private func emitRecordedEvent(for command: Command) {
+    private func emitRecordedEvent(for command: Command, status: RuntimeDispatchEventStatus) {
         guard let handler = recordedEventHandlerLock.withLockUnchecked({ $0 }) else { return }
-        handler(recordedEvent(for: command))
+        handler(recordedEvent(for: command, status: status))
     }
 
-    private func recordedEvent(for command: Command) -> RuntimeDispatchEvent {
-        switch command {
-        case let .keyStroke(code, flags, altAscii, _, sourceSequence):
+    private func recordedEvent(
+        for command: Command,
+        status: RuntimeDispatchEventStatus
+    ) -> RuntimeDispatchEvent {
+        switch command.payload {
+        case let .keyStroke(code, flags, altAscii, _):
             return makeDispatchEvent(
+                commandID: command.id,
                 kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
-        case let .key(code, flags, keyDown, altAscii, _, sourceSequence):
+        case let .key(code, flags, keyDown, altAscii, _):
             return makeDispatchEvent(
+                commandID: command.id,
                 kind: .key(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
-        case let .appLaunch(actionLabel, sourceSequence):
+        case let .appLaunch(actionLabel):
             return makeDispatchEvent(
+                commandID: command.id,
                 kind: .appLaunch(actionLabel),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
-        case let .leftClick(clickCount, sourceSequence):
+        case let .leftClick(clickCount):
             return makeDispatchEvent(
+                commandID: command.id,
                 kind: .leftClick(clickCount: clickCount),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
-        case let .rightClick(sourceSequence):
-            return makeDispatchEvent(kind: .rightClick, sourceSequence: sourceSequence)
-        case let .middleClick(sourceSequence):
-            return makeDispatchEvent(kind: .middleClick, sourceSequence: sourceSequence)
-        case let .systemKey(key, sourceSequence):
+        case .rightClick:
             return makeDispatchEvent(
+                commandID: command.id,
+                kind: .rightClick,
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case .middleClick:
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .middleClick,
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .systemKey(key):
+            return makeDispatchEvent(
+                commandID: command.id,
                 kind: .systemKey(key.captureLabel),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
-        case let .haptic(strength, deviceID, sourceSequence):
+        case let .haptic(strength, deviceID):
             return makeDispatchEvent(
+                commandID: command.id,
                 kind: .haptic(strength: strength, deviceID: deviceID),
-                sourceSequence: sourceSequence
+                status: status,
+                sourceSequence: command.sourceSequence
             )
         }
-    }
-
-    private func emitCaptureEvent(
-        kind: RuntimeDispatchEventKind,
-        sourceSequence: UInt64?
-    ) {
-        guard let handler = captureEventHandlerLock.withLockUnchecked({ $0 }) else { return }
-        handler(makeDispatchEvent(kind: kind, sourceSequence: sourceSequence))
     }
 
     private func makeDispatchEvent(
+        commandID: UInt64,
         kind: RuntimeDispatchEventKind,
+        status: RuntimeDispatchEventStatus,
         sourceSequence: UInt64?
     ) -> RuntimeDispatchEvent {
         RuntimeDispatchEvent(
+            commandID: commandID,
             kind: kind,
+            status: status,
             timestamp: ProcessInfo.processInfo.systemUptime,
             uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
             sourceSequence: sourceSequence

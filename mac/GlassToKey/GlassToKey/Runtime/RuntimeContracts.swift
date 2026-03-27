@@ -26,8 +26,16 @@ enum RuntimeDispatchEventKind: Codable, Sendable {
     case haptic(strength: Double, deviceID: String?)
 }
 
+enum RuntimeDispatchEventStatus: String, Codable, Sendable {
+    case accepted
+    case posted
+    case cancelled
+}
+
 struct RuntimeDispatchEvent: Codable, Sendable {
+    var commandID: UInt64
     var kind: RuntimeDispatchEventKind
+    var status: RuntimeDispatchEventStatus
     var timestamp: TimeInterval
     var uptimeNanoseconds: UInt64
     var sourceSequence: UInt64?
