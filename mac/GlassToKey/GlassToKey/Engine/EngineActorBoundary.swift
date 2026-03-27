@@ -4,6 +4,13 @@ import Foundation
 import OpenMultitouchSupport
 import os
 
+struct RuntimeActiveDeviceRouting: Sendable, Equatable {
+    var leftIndex: Int?
+    var rightIndex: Int?
+    var leftDeviceID: String?
+    var rightDeviceID: String?
+}
+
 protocol RuntimeCoreBoundary: AnyObject, Sendable {
     var isCaptureActive: Bool { get }
 
@@ -23,6 +30,7 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
         startUptimeNanoseconds: UInt64
     )
     func stopCapture() async -> ATPCaptureV3Codec.CaptureData?
+    func activeDeviceRouting() async -> RuntimeActiveDeviceRouting
     func setListening(_ isListening: Bool) async
     func updateActiveDevices(
         leftIndex: Int?,
@@ -144,6 +152,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private var latestRender = RuntimeRenderSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
+    private var leftDeviceID: String?
+    private var rightDeviceID: String?
     private let processor: TouchProcessorEngine
     private let captureActiveLock = OSAllocatedUnfairLock<Bool>(uncheckedState: false)
     private var captureSession: RuntimeCaptureSessionState?
@@ -249,6 +259,17 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
+    func activeDeviceRouting() async -> RuntimeActiveDeviceRouting {
+        await query {
+            RuntimeActiveDeviceRouting(
+                leftIndex: self.leftDeviceIndex,
+                rightIndex: self.rightDeviceIndex,
+                leftDeviceID: self.leftDeviceID,
+                rightDeviceID: self.rightDeviceID
+            )
+        }
+    }
+
     func setListening(_ isListening: Bool) async {
         await run {
             self.processor.setListening(isListening)
@@ -264,6 +285,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         await run {
             self.leftDeviceIndex = leftIndex
             self.rightDeviceIndex = rightIndex
+            self.leftDeviceID = leftDeviceID
+            self.rightDeviceID = rightDeviceID
             self.processor.updateActiveDevices(
                 leftIndex: leftIndex,
                 rightIndex: rightIndex,

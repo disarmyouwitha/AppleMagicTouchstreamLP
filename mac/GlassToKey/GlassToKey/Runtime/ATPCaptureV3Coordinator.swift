@@ -20,6 +20,7 @@ enum ATPCaptureV3Codec {
     }
 
     struct ReplayData: Sendable {
+        let configuration: AppKeymapProfile?
         let records: [ProcessedFrameRecord]
         let frameTimesSeconds: [Double]
         let durationSeconds: Double
@@ -228,6 +229,7 @@ enum ATPCaptureV3Codec {
             records[index] = record
         }
         return ReplayData(
+            configuration: captureData.configuration,
             records: records,
             frameTimesSeconds: replayTimes,
             durationSeconds: replayTimes.last ?? 0
@@ -685,6 +687,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         let frameTimesSeconds: [Double]
         let durationSeconds: Double
         let wasRuntimeRunningBeforeSession: Bool
+        let activeDeviceRoutingBeforeSession: RuntimeActiveDeviceRouting
         var currentFrameIndex: Int
         var currentTimeSeconds: Double
     }
@@ -825,6 +828,18 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
         }
 
         _ = inputRuntimeService.stop()
+        let activeDeviceRoutingBeforeSession = await runtimeEngine.activeDeviceRouting()
+        let replayRouting = Self.makeReplayDeviceRouting(
+            configuration: replayData.configuration,
+            records: records,
+            fallback: activeDeviceRoutingBeforeSession
+        )
+        await runtimeEngine.updateActiveDevices(
+            leftIndex: replayRouting.leftIndex,
+            rightIndex: replayRouting.rightIndex,
+            leftDeviceID: replayRouting.leftDeviceID,
+            rightDeviceID: replayRouting.rightDeviceID
+        )
         await runtimeEngine.setListening(true)
         await runtimeEngine.reset(stopVoiceDictation: false)
 
@@ -842,6 +857,7 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             frameTimesSeconds: frameTimes,
             durationSeconds: durationSeconds,
             wasRuntimeRunningBeforeSession: wasRunning,
+            activeDeviceRoutingBeforeSession: activeDeviceRoutingBeforeSession,
             currentFrameIndex: currentIndex,
             currentTimeSeconds: currentTime
         )
@@ -1047,6 +1063,12 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             return current
         }
         guard let session else { return }
+        await runtimeEngine.updateActiveDevices(
+            leftIndex: session.activeDeviceRoutingBeforeSession.leftIndex,
+            rightIndex: session.activeDeviceRoutingBeforeSession.rightIndex,
+            leftDeviceID: session.activeDeviceRoutingBeforeSession.leftDeviceID,
+            rightDeviceID: session.activeDeviceRoutingBeforeSession.rightDeviceID
+        )
         try await restoreRuntimeAfterReplay(
             wasRunning: session.wasRuntimeRunningBeforeSession
         )
@@ -1088,6 +1110,61 @@ final class RuntimeCaptureReplayCoordinator: @unchecked Sendable {
             record.frame,
             runtimeEngine: runtimeEngine,
             ingress: record.ingress
+        )
+    }
+
+    private static func makeReplayDeviceRouting(
+        configuration: AppKeymapProfile?,
+        records: [ProcessedFrameRecord],
+        fallback: RuntimeActiveDeviceRouting
+    ) -> RuntimeActiveDeviceRouting {
+        guard let configuration else { return fallback }
+
+        let leftDeviceID = configuration.leftDeviceID.isEmpty
+            ? fallback.leftDeviceID
+            : configuration.leftDeviceID
+        let rightDeviceID = configuration.rightDeviceID.isEmpty
+            ? fallback.rightDeviceID
+            : configuration.rightDeviceID
+
+        var leftIndex: Int?
+        var rightIndex: Int?
+        for record in records {
+            let frame = record.frame
+            let deviceID = String(frame.deviceNumericID)
+            if leftIndex == nil, deviceID == configuration.leftDeviceID {
+                leftIndex = frame.deviceIndex
+            }
+            if rightIndex == nil, deviceID == configuration.rightDeviceID {
+                rightIndex = frame.deviceIndex
+            }
+            if leftIndex != nil, rightIndex != nil {
+                break
+            }
+        }
+
+        if leftIndex == nil {
+            leftIndex = fallback.leftIndex
+        }
+        if rightIndex == nil {
+            rightIndex = fallback.rightIndex
+        }
+
+        if leftIndex == nil || rightIndex == nil {
+            let distinctIndices = Array(Set(records.map { $0.frame.deviceIndex })).sorted()
+            if leftIndex == nil, distinctIndices.count == 1 {
+                leftIndex = distinctIndices[0]
+            }
+            if rightIndex == nil, distinctIndices.count == 2 {
+                rightIndex = distinctIndices.first(where: { $0 != leftIndex })
+            }
+        }
+
+        return RuntimeActiveDeviceRouting(
+            leftIndex: leftIndex,
+            rightIndex: rightIndex,
+            leftDeviceID: leftDeviceID,
+            rightDeviceID: rightDeviceID
         )
     }
 
