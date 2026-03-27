@@ -800,7 +800,7 @@ static void dispatchResponseAsync(dispatch_block_t block) {
     static dispatch_queue_t responseQueue = nil;
     static dispatch_once_t onceToken;
     dispatch_once(&onceToken, ^{
-        responseQueue = dispatch_queue_create("com.kyome.openmt", DISPATCH_QUEUE_SERIAL);
+        responseQueue = dispatch_queue_create("ink.ranna.openmt", DISPATCH_QUEUE_SERIAL);
     });
     dispatch_async(responseQueue, block);
 }

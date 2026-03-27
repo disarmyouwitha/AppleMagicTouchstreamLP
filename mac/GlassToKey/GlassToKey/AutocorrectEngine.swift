@@ -58,7 +58,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         spellChecker = NSSpellChecker.shared
         spellDocumentTag = NSSpellChecker.uniqueSpellDocumentTag()
 
-        queue = DispatchQueue(label: "com.kyome.GlassToKey.Autocorrect", qos: .utility)
+        queue = DispatchQueue(label: "ink.ranna.GlassToKey.Autocorrect", qos: .utility)
         queue.setSpecific(key: queueSpecificKey, value: queueSpecificValue)
         wakeSource = DispatchSource.makeUserDataAddSource(queue: queue)
         wakeSource.setEventHandler { [weak self] in

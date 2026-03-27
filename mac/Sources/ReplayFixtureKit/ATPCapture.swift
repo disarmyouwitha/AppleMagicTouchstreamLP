@@ -4,6 +4,10 @@ public enum ReplayFixtureCodec {
     public static func write(_ fixture: ReplayFixture, to url: URL) throws {
         try ATPCaptureCodec.write(fixture: fixture, to: url)
     }
+
+    public static func transcodeLegacyATPCapture(from sourceURL: URL, to destinationURL: URL) throws {
+        try ATPCaptureCodec.transcodeLegacyCapture(from: sourceURL, to: destinationURL)
+    }
 }
 
 public struct ATPCaptureHeader: Sendable {
@@ -68,12 +72,18 @@ public struct ATPCaptureContainer: Sendable {
 
 public enum ATPCaptureCodec {
     public static let fileMagic = "ATPCAP01"
-    public static let currentVersion: Int32 = 3
+    public static let currentVersion: Int32 = 5
+    public static let processedFrameVersion: Int32 = currentVersion
+    private static let legacyVersion: Int32 = 3
+    private static let diagnosticVersion: Int32 = 4
     public static let headerSize = 20
     public static let recordHeaderSize = 34
     public static let defaultTickFrequency: Int64 = 1_000_000_000
     private static let framePayloadMagic: UInt32 = 0x33564652 // "RFV3" little-endian
     private static let metaRecordDeviceIndex: Int32 = -1
+    private static let configRecordDeviceIndex: Int32 = -2
+    private static let detachedDispatchRecordDeviceIndex: Int32 = -4
+    private static let processedFrameRecordDeviceIndex: Int32 = -5
     private static let frameHeaderBytes = 32
     private static let frameContactBytes = 40
 
@@ -198,26 +208,26 @@ public enum ATPCaptureCodec {
         try handle.write(contentsOf: metaPayload)
 
         let baseTimestamp = fixture.frames.first?.timestampSec ?? 0
-        var expectedSeq = 1
+        var expectedSeq = fixture.frames.first?.seq
         for frame in fixture.frames {
-            guard frame.seq == expectedSeq else {
+            if let expectedSeq, frame.seq != expectedSeq {
                 throw ReplayFixtureError.invalidSequence(expected: expectedSeq, actual: frame.seq)
             }
-            guard let deviceIndex = Int32(exactly: frame.deviceIndex) else {
+            guard Int32(exactly: frame.deviceIndex) != nil else {
                 throw ReplayFixtureError.invalidATPCapture(reason: "deviceIndex \(frame.deviceIndex) out of Int32 range")
             }
 
-            let payload = try encodeFramePayload(frame)
             let arrivalTicks = max(
                 Int64(0),
                 Int64(((frame.timestampSec - baseTimestamp) * Double(tickFrequency)).rounded())
             )
             let sideHint: UInt8 = sideHintForDeviceIndex(frame.deviceIndex)
+            let payload = try encodeProcessedFramePayload(frame, arrivalTicks: arrivalTicks)
 
             try handle.write(contentsOf: recordHeader(
                 payloadLength: payload.count,
                 arrivalTicks: arrivalTicks,
-                deviceIndex: deviceIndex,
+                deviceIndex: processedFrameRecordDeviceIndex,
                 deviceHash: UInt32(truncatingIfNeeded: frame.deviceNumericID),
                 vendorID: 0,
                 productID: 0,
@@ -227,24 +237,53 @@ public enum ATPCaptureCodec {
                 decoderProfile: 0
             ))
             try handle.write(contentsOf: payload)
-            expectedSeq += 1
+            expectedSeq = frame.seq &+ 1
         }
     }
 
     public static func parse(data: Data) throws -> ReplayFixture {
         let container = try readContainer(data: data)
-        let version = container.header.version
-        guard version == currentVersion else {
-            throw ReplayFixtureError.unsupportedATPCaptureVersion(actual: version)
+        guard container.header.version == currentVersion else {
+            throw ReplayFixtureError.unsupportedATPCaptureVersion(actual: container.header.version)
         }
+        return try parseProcessedFrameFixture(container: container)
+    }
+
+    public static func transcodeLegacyCapture(
+        from sourceURL: URL,
+        to destinationURL: URL
+    ) throws {
+        let container = try loadContainer(from: sourceURL)
+        let fixture: ReplayFixture
+        switch container.header.version {
+        case currentVersion:
+            fixture = try parseProcessedFrameFixture(container: container)
+        case legacyVersion, diagnosticVersion:
+            fixture = try parseLegacyFixture(container: container)
+        default:
+            throw ReplayFixtureError.unsupportedATPCaptureVersion(actual: container.header.version)
+        }
+
+        try write(
+            fixture: fixture,
+            to: destinationURL,
+            tickFrequency: max(1, container.header.tickFrequency)
+        )
+    }
+
+    private static func parseLegacyFixture(
+        container: ATPCaptureContainer
+    ) throws -> ReplayFixture {
         var meta: ReplayFixtureMeta?
         var frames: [ReplayFrameRecord] = []
         frames.reserveCapacity(1024)
         var expectedSeq = 1
 
         for record in container.records {
-            if record.deviceIndex == metaRecordDeviceIndex {
-                meta = try decodeMetaPayload(record.payload)
+            if record.deviceIndex < 0 {
+                if record.deviceIndex == metaRecordDeviceIndex {
+                    meta = try decodeMetaPayload(record.payload)
+                }
                 continue
             }
 
@@ -265,6 +304,83 @@ public enum ATPCaptureCodec {
         )
         if resolvedMeta.framesCaptured != frames.count {
             throw ReplayFixtureError.metaFrameCountMismatch(expected: resolvedMeta.framesCaptured, actual: frames.count)
+        }
+        return ReplayFixture(meta: resolvedMeta, frames: frames)
+    }
+
+    private static func parseProcessedFrameFixture(
+        container: ATPCaptureContainer
+    ) throws -> ReplayFixture {
+        var meta: ReplayFixtureMeta?
+        var frames: [ReplayFrameRecord] = []
+        frames.reserveCapacity(1024)
+        var expectedSequence: UInt64?
+        let tickFrequency = max(1, container.header.tickFrequency)
+        var firstArrivalTicks: Int64?
+
+        for record in container.records {
+            switch record.deviceIndex {
+            case metaRecordDeviceIndex:
+                meta = try decodeMetaPayload(record.payload)
+            case configRecordDeviceIndex, detachedDispatchRecordDeviceIndex:
+                continue
+            case processedFrameRecordDeviceIndex:
+                let payload = try decodeJSON(
+                    V5ProcessedFrameRecordPayload.self,
+                    from: record.payload,
+                    context: "processed frame record"
+                )
+                guard payload.type == "processedFrameRecord" else {
+                    throw ReplayFixtureError.invalidATPCapture(
+                        reason: "processed frame record payload type must be 'processedFrameRecord'"
+                    )
+                }
+
+                let frame = payload.record.frame
+                let requiredSequence = expectedSequence ?? frame.sequence
+                guard frame.sequence == requiredSequence else {
+                    throw ReplayFixtureError.invalidSequence(
+                        expected: Int(requiredSequence),
+                        actual: Int(frame.sequence)
+                    )
+                }
+
+                if firstArrivalTicks == nil {
+                    firstArrivalTicks = record.arrivalTicks
+                }
+                let normalizedArrivalTicks = max(0, record.arrivalTicks - (firstArrivalTicks ?? 0))
+                let timestampSec = Double(normalizedArrivalTicks) / Double(tickFrequency)
+
+                frames.append(
+                    ReplayFrameRecord(
+                        seq: Int(frame.sequence),
+                        timestampSec: timestampSec,
+                        deviceID: String(frame.deviceNumericID),
+                        deviceNumericID: frame.deviceNumericID,
+                        deviceIndex: frame.deviceIndex,
+                        contacts: try frame.contacts.map(decodeV5Contact)
+                    )
+                )
+                expectedSequence = frame.sequence &+ 1
+            default:
+                throw ReplayFixtureError.invalidATPCapture(
+                    reason: "unexpected record type \(record.deviceIndex)"
+                )
+            }
+        }
+
+        let resolvedMeta = meta ?? ReplayFixtureMeta(
+            schema: ReplayFixtureParser.schema,
+            capturedAt: iso8601Timestamp(Date()),
+            platform: "unknown",
+            source: "ATPCaptureCodec",
+            framesCaptured: frames.count
+        )
+        if resolvedMeta.framesCaptured != frames.count {
+            throw ReplayFixtureError.metaFrameCountMismatch(
+                expected: resolvedMeta.framesCaptured,
+                actual: frames.count
+            )
         }
         return ReplayFixture(meta: resolvedMeta, frames: frames)
     }
@@ -344,47 +460,88 @@ public enum ATPCaptureCodec {
         )
     }
 
-    private static func encodeFramePayload(_ frame: ReplayFrameRecord) throws -> Data {
+    private static func decodeJSON<T: Decodable>(
+        _ type: T.Type,
+        from data: Data,
+        context: String
+    ) throws -> T {
+        do {
+            return try JSONDecoder().decode(type, from: data)
+        } catch {
+            throw ReplayFixtureError.invalidATPCapture(
+                reason: "\(context) decode failed: \(error.localizedDescription)"
+            )
+        }
+    }
+
+    private static func encodeProcessedFramePayload(
+        _ frame: ReplayFrameRecord,
+        arrivalTicks: Int64
+    ) throws -> Data {
         guard let seq = UInt64(exactly: frame.seq) else {
             throw ReplayFixtureError.invalidATPCapture(reason: "sequence \(frame.seq) out of UInt64 range")
         }
-        guard let contactCount = UInt16(exactly: frame.contacts.count) else {
-            throw ReplayFixtureError.invalidATPCapture(reason: "contact count \(frame.contacts.count) exceeds UInt16")
-        }
 
-        var payload = Data()
-        payload.reserveCapacity(frameHeaderBytes + frame.contacts.count * frameContactBytes)
-        appendUInt32LE(framePayloadMagic, to: &payload)
-        appendUInt64LE(seq, to: &payload)
-        appendDoubleLE(frame.timestampSec, to: &payload)
-        appendUInt64LE(frame.deviceNumericID, to: &payload)
-        appendUInt16LE(contactCount, to: &payload)
-        appendUInt16LE(0, to: &payload)
-
-        for contact in frame.contacts {
+        let contacts = try frame.contacts.map { contact in
             guard let id = Int32(exactly: contact.id) else {
                 throw ReplayFixtureError.invalidATPCapture(reason: "contact id \(contact.id) out of Int32 range")
             }
-            guard let state = ReplayFixtureParser.canonicalStateCode(state: contact.state) else {
+            guard ReplayFixtureParser.canonicalStateCode(state: contact.state) != nil else {
                 throw ReplayFixtureError.invalidStateEncoding(state: contact.state)
             }
-
-            appendInt32LE(id, to: &payload)
-            appendFloatLE(Float(contact.x), to: &payload)
-            appendFloatLE(Float(contact.y), to: &payload)
-            appendFloatLE(Float(contact.total), to: &payload)
-            appendFloatLE(Float(contact.pressure), to: &payload)
-            appendFloatLE(Float(contact.majorAxis), to: &payload)
-            appendFloatLE(Float(contact.minorAxis), to: &payload)
-            appendFloatLE(Float(contact.angle), to: &payload)
-            appendFloatLE(Float(contact.density), to: &payload)
-            payload.append(state)
-            payload.append(0)
-            payload.append(0)
-            payload.append(0)
+            return CurrentRuntimeRawContactPayload(
+                id: id,
+                posX: Float(contact.x),
+                posY: Float(contact.y),
+                pressure: Float(contact.pressure),
+                majorAxis: Float(contact.majorAxis),
+                minorAxis: Float(contact.minorAxis),
+                angle: Float(contact.angle),
+                density: Float(contact.density),
+                state: contact.state
+            )
         }
+        let rawTouches = try frame.contacts.map { contact in
+            guard let id = Int32(exactly: contact.id) else {
+                throw ReplayFixtureError.invalidATPCapture(reason: "contact id \(contact.id) out of Int32 range")
+            }
+            guard ReplayFixtureParser.canonicalStateCode(state: contact.state) != nil else {
+                throw ReplayFixtureError.invalidStateEncoding(state: contact.state)
+            }
+            return CurrentOMSRawTouchPayload(
+                id: id,
+                posX: Float(contact.x),
+                posY: Float(contact.y),
+                total: Float(contact.total),
+                pressure: Float(contact.pressure),
+                majorAxis: Float(contact.majorAxis),
+                minorAxis: Float(contact.minorAxis),
+                angle: Float(contact.angle),
+                density: Float(contact.density),
+                state: contact.state
+            )
+        }
+        let payload = CurrentProcessedFrameRecordPayload(
+            type: "processedFrameRecord",
+            record: CurrentProcessedFrameRecord(
+                frame: CurrentRuntimeRawFramePayload(
+                    sequence: seq,
+                    timestamp: frame.timestampSec,
+                    deviceNumericID: frame.deviceNumericID,
+                    deviceIndex: frame.deviceIndex,
+                    contacts: contacts,
+                    rawTouches: rawTouches
+                ),
+                arrivalTicks: arrivalTicks,
+                dispatchEvents: []
+            )
+        )
 
-        return payload
+        let encoder = JSONEncoder()
+        if #available(macOS 10.13, *) {
+            encoder.outputFormatting = [.sortedKeys]
+        }
+        return try encoder.encode(payload)
     }
 
     private static func decodeFramePayload(
@@ -476,6 +633,26 @@ public enum ATPCaptureCodec {
         return formatter.string(from: date)
     }
 
+    private static func decodeV5Contact(_ contact: V5RuntimeRawContact) throws -> ReplayContactRecord {
+        guard ReplayFixtureParser.canonicalStates.contains(contact.state) else {
+            throw ReplayFixtureError.invalidATPCapture(
+                reason: "invalid canonical state '\(contact.state)'"
+            )
+        }
+        return ReplayContactRecord(
+            id: Int(contact.id),
+            x: Double(contact.posX),
+            y: Double(contact.posY),
+            total: Double(contact.total ?? contact.pressure),
+            pressure: Double(contact.pressure),
+            majorAxis: Double(contact.majorAxis),
+            minorAxis: Double(contact.minorAxis),
+            angle: Double(contact.angle),
+            density: Double(contact.density),
+            state: contact.state
+        )
+    }
+
     private static func readInt32LE(from data: Data, at offset: Int) -> Int32 {
         Int32(bitPattern: readUInt32LE(from: data, at: offset))
     }
@@ -559,5 +736,79 @@ public enum ATPCaptureCodec {
         let platform: String
         let source: String
         let framesCaptured: Int
+    }
+
+    private struct V5ProcessedFrameRecordPayload: Decodable {
+        let type: String
+        let record: V5ProcessedFrameRecord
+    }
+
+    private struct V5ProcessedFrameRecord: Decodable {
+        let frame: V5RuntimeRawFrame
+    }
+
+    private struct V5RuntimeRawFrame: Decodable {
+        let sequence: UInt64
+        let deviceNumericID: UInt64
+        let deviceIndex: Int
+        let contacts: [V5RuntimeRawContact]
+    }
+
+    private struct V5RuntimeRawContact: Decodable {
+        let id: Int32
+        let posX: Float
+        let posY: Float
+        let total: Float?
+        let pressure: Float
+        let majorAxis: Float
+        let minorAxis: Float
+        let angle: Float
+        let density: Float
+        let state: String
+    }
+
+    private struct CurrentProcessedFrameRecordPayload: Encodable {
+        let type: String
+        let record: CurrentProcessedFrameRecord
+    }
+
+    private struct CurrentProcessedFrameRecord: Encodable {
+        let frame: CurrentRuntimeRawFramePayload
+        let arrivalTicks: Int64
+        let dispatchEvents: [String]
+    }
+
+    private struct CurrentRuntimeRawFramePayload: Encodable {
+        let sequence: UInt64
+        let timestamp: Double
+        let deviceNumericID: UInt64
+        let deviceIndex: Int
+        let contacts: [CurrentRuntimeRawContactPayload]
+        let rawTouches: [CurrentOMSRawTouchPayload]
+    }
+
+    private struct CurrentRuntimeRawContactPayload: Encodable {
+        let id: Int32
+        let posX: Float
+        let posY: Float
+        let pressure: Float
+        let majorAxis: Float
+        let minorAxis: Float
+        let angle: Float
+        let density: Float
+        let state: String
+    }
+
+    private struct CurrentOMSRawTouchPayload: Encodable {
+        let id: Int32
+        let posX: Float
+        let posY: Float
+        let total: Float
+        let pressure: Float
+        let majorAxis: Float
+        let minorAxis: Float
+        let angle: Float
+        let density: Float
+        let state: String
     }
 }

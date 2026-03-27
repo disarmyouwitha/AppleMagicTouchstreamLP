@@ -70,7 +70,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 - (instancetype)init {
     if (self = [super init]) {
-        _stateQueue = dispatch_queue_create("com.kyome.openmt.v2.state", DISPATCH_QUEUE_SERIAL);
+        _stateQueue = dispatch_queue_create("ink.ranna.openmt.v2.state", DISPATCH_QUEUE_SERIAL);
         _rawListeners = NSMutableArray.new;
         _rawListenersSnapshot = @[];
         _deviceRefsByNumericID = NSMutableDictionary.new;

@@ -26,6 +26,19 @@ final class KeyEventDispatcher: @unchecked Sendable {
                 return 3
             }
         }
+
+        var captureLabel: String {
+            switch self {
+            case .volumeUp:
+                return "volumeUp"
+            case .volumeDown:
+                return "volumeDown"
+            case .brightnessUp:
+                return "brightnessUp"
+            case .brightnessDown:
+                return "brightnessDown"
+            }
+        }
     }
 
     private let dispatcher: KeyDispatching
@@ -154,7 +167,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     private static let mediaTapDwellSeconds: TimeInterval = 0.001
 
     private let queue = DispatchQueue(
-        label: "com.kyome.GlassToKey.KeyDispatch.CGEvent",
+        label: "ink.ranna.GlassToKey.KeyDispatch.CGEvent",
         qos: .userInteractive
     )
     private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
@@ -692,7 +705,7 @@ final class DispatchService: @unchecked Sendable {
 
     private static let defaultQueueCapacity = 1024
 
-    private enum Command {
+    private enum CommandPayload {
         case keyStroke(code: CGKeyCode, flags: CGEventFlags, altAscii: UInt8, token: RepeatToken?)
         case key(code: CGKeyCode, flags: CGEventFlags, keyDown: Bool, altAscii: UInt8, token: RepeatToken?)
         case appLaunch(String)
@@ -701,6 +714,12 @@ final class DispatchService: @unchecked Sendable {
         case middleClick
         case systemKey(KeyEventDispatcher.SystemKey)
         case haptic(strength: Double, deviceID: String?)
+    }
+
+    private struct Command {
+        let id: UInt64
+        let payload: CommandPayload
+        let sourceSequence: UInt64?
     }
 
     private struct RingQueue {
@@ -731,18 +750,24 @@ final class DispatchService: @unchecked Sendable {
             return command
         }
 
-        mutating func removeAll() {
+        mutating func removeAll() -> [Command] {
             guard count > 0 else {
                 head = 0
                 tail = 0
-                return
+                return []
             }
+            var removed: [Command] = []
+            removed.reserveCapacity(count)
             for index in storage.indices {
+                if let command = storage[index] {
+                    removed.append(command)
+                }
                 storage[index] = nil
             }
             head = 0
             tail = 0
             count = 0
+            return removed
         }
     }
 
@@ -750,13 +775,15 @@ final class DispatchService: @unchecked Sendable {
         var queue = RingQueue(capacity: DispatchService.defaultQueueCapacity)
         var isPumpScheduled = false
         var drops: UInt64 = 0
+        var nextCommandID: UInt64 = 1
     }
 
     private let keyDispatcher: KeyEventDispatcher
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
+    private let recordedEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let dispatchQueue = DispatchQueue(
-        label: "com.kyome.GlassToKey.DispatchPump",
+        label: "ink.ranna.GlassToKey.DispatchPump",
         qos: .userInteractive
     )
 
@@ -768,9 +795,18 @@ final class DispatchService: @unchecked Sendable {
         code: CGKeyCode,
         flags: CGEventFlags,
         altAscii: UInt8 = 0,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        sourceSequence: UInt64? = nil
     ) {
-        enqueue(.keyStroke(code: code, flags: flags, altAscii: altAscii, token: token))
+        enqueue(
+            .keyStroke(
+                code: code,
+                flags: flags,
+                altAscii: altAscii,
+                token: token
+            ),
+            sourceSequence: sourceSequence
+        )
     }
 
     func postKey(
@@ -778,7 +814,8 @@ final class DispatchService: @unchecked Sendable {
         flags: CGEventFlags,
         keyDown: Bool,
         altAscii: UInt8 = 0,
-        token: RepeatToken? = nil
+        token: RepeatToken? = nil,
+        sourceSequence: UInt64? = nil
     ) {
         enqueue(
             .key(
@@ -787,48 +824,49 @@ final class DispatchService: @unchecked Sendable {
                 keyDown: keyDown,
                 altAscii: altAscii,
                 token: token
-            )
+            ),
+            sourceSequence: sourceSequence
         )
     }
 
-    func postAppLaunch(_ actionLabel: String) {
-        enqueue(.appLaunch(actionLabel))
+    func postAppLaunch(_ actionLabel: String, sourceSequence: UInt64? = nil) {
+        enqueue(.appLaunch(actionLabel), sourceSequence: sourceSequence)
     }
 
-    func postLeftClick(clickCount: Int = 1) {
-        enqueue(.leftClick(clickCount: clickCount))
+    func postLeftClick(clickCount: Int = 1, sourceSequence: UInt64? = nil) {
+        enqueue(.leftClick(clickCount: clickCount), sourceSequence: sourceSequence)
     }
 
-    func postRightClick() {
-        enqueue(.rightClick)
+    func postRightClick(sourceSequence: UInt64? = nil) {
+        enqueue(.rightClick, sourceSequence: sourceSequence)
     }
 
     func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
         keyDispatcher.setThreeFingerHoldDragSuppression(enabled)
     }
 
-    func postMiddleClick() {
-        enqueue(.middleClick)
+    func postMiddleClick(sourceSequence: UInt64? = nil) {
+        enqueue(.middleClick, sourceSequence: sourceSequence)
     }
 
-    func postVolumeUp() {
-        enqueue(.systemKey(.volumeUp))
+    func postVolumeUp(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeUp), sourceSequence: sourceSequence)
     }
 
-    func postVolumeDown() {
-        enqueue(.systemKey(.volumeDown))
+    func postVolumeDown(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeDown), sourceSequence: sourceSequence)
     }
 
-    func postBrightnessUp() {
-        enqueue(.systemKey(.brightnessUp))
+    func postBrightnessUp(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessUp), sourceSequence: sourceSequence)
     }
 
-    func postBrightnessDown() {
-        enqueue(.systemKey(.brightnessDown))
+    func postBrightnessDown(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessDown), sourceSequence: sourceSequence)
     }
 
-    func postHaptic(strength: Double, deviceID: String?) {
-        enqueue(.haptic(strength: strength, deviceID: deviceID))
+    func postHaptic(strength: Double, deviceID: String?, sourceSequence: UInt64? = nil) {
+        enqueue(.haptic(strength: strength, deviceID: deviceID), sourceSequence: sourceSequence)
     }
 
     func snapshotMetrics() -> Metrics {
@@ -837,25 +875,42 @@ final class DispatchService: @unchecked Sendable {
         }
     }
 
+    func setRecordedEventHandler(_ handler: ((RuntimeDispatchEvent) -> Void)?) {
+        recordedEventHandlerLock.withLockUnchecked { $0 = handler }
+    }
+
     func clearQueue() {
-        stateLock.withLockUnchecked { state in
+        let cancelledCommands = stateLock.withLockUnchecked { state in
             state.queue.removeAll()
+        }
+        for command in cancelledCommands {
+            emitRecordedEvent(for: command, status: .cancelled)
         }
     }
 
-    private func enqueue(_ command: Command) {
+    private func enqueue(_ payload: CommandPayload, sourceSequence: UInt64?) {
         var shouldSchedulePump = false
+        var enqueuedCommand: Command?
         stateLock.withLockUnchecked { state in
+            let command = Command(
+                id: state.nextCommandID,
+                payload: payload,
+                sourceSequence: sourceSequence
+            )
+            state.nextCommandID &+= 1
             guard state.queue.enqueue(command) else {
                 state.drops &+= 1
                 return
             }
+            enqueuedCommand = command
             if !state.isPumpScheduled {
                 state.isPumpScheduled = true
                 shouldSchedulePump = true
             }
         }
 
+        guard let enqueuedCommand else { return }
+        emitRecordedEvent(for: enqueuedCommand, status: .accepted)
         guard shouldSchedulePump else { return }
         dispatchQueue.async { [weak self] in
             self?.drainQueue()
@@ -879,7 +934,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     private func dispatch(_ command: Command) {
-        switch command {
+        switch command.payload {
         case let .keyStroke(code, flags, altAscii, token):
             keyDispatcher.postKeyStrokeImmediate(
                 code: code,
@@ -908,5 +963,91 @@ final class DispatchService: @unchecked Sendable {
         case let .haptic(strength, deviceID):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
         }
+        emitRecordedEvent(for: command, status: .posted)
+    }
+
+    private func emitRecordedEvent(for command: Command, status: RuntimeDispatchEventStatus) {
+        guard let handler = recordedEventHandlerLock.withLockUnchecked({ $0 }) else { return }
+        handler(recordedEvent(for: command, status: status))
+    }
+
+    private func recordedEvent(
+        for command: Command,
+        status: RuntimeDispatchEventStatus
+    ) -> RuntimeDispatchEvent {
+        switch command.payload {
+        case let .keyStroke(code, flags, altAscii, _):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .keyStroke(code: code, flags: flags, altAscii: altAscii),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .key(code, flags, keyDown, altAscii, _):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .key(code: code, flags: flags, keyDown: keyDown, altAscii: altAscii),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .appLaunch(actionLabel):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .appLaunch(actionLabel),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .leftClick(clickCount):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .leftClick(clickCount: clickCount),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case .rightClick:
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .rightClick,
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case .middleClick:
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .middleClick,
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .systemKey(key):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .systemKey(key.captureLabel),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        case let .haptic(strength, deviceID):
+            return makeDispatchEvent(
+                commandID: command.id,
+                kind: .haptic(strength: strength, deviceID: deviceID),
+                status: status,
+                sourceSequence: command.sourceSequence
+            )
+        }
+    }
+
+    private func makeDispatchEvent(
+        commandID: UInt64,
+        kind: RuntimeDispatchEventKind,
+        status: RuntimeDispatchEventStatus,
+        sourceSequence: UInt64?
+    ) -> RuntimeDispatchEvent {
+        RuntimeDispatchEvent(
+            commandID: commandID,
+            kind: kind,
+            status: status,
+            timestamp: ProcessInfo.processInfo.systemUptime,
+            uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
+            sourceSequence: sourceSequence
+        )
     }
 }

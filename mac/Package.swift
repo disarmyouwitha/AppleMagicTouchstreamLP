@@ -13,6 +13,10 @@ let package = Package(
     ],
     products: [
         .library(
+            name: "OpenMultitouchSupportBridge",
+            targets: ["OpenMultitouchSupportXCF"]
+        ),
+        .library(
             name: "OpenMultitouchSupport",
             targets: ["OpenMultitouchSupport"]
         ),
@@ -22,13 +26,20 @@ let package = Package(
         )
     ],
     targets: [
-        .binaryTarget(
+        .target(
             name: "OpenMultitouchSupportXCF",
-            // For development: use local framework
-            path: "OpenMultitouchSupportXCF.xcframework"
-            // For release: use GitHub URL (replaced by release script)
-            // url: "https://github.com/disarmyouwitha/GlassToKey/releases/download/v2.0.1/OpenMultitouchSupportXCF.xcframework.zip",
-            // checksum: "5b69b4e180daffaff85fa76e4a211e0290a7ab8c4b49be31aa962bda1fe40fc0"
+            path: "Framework/OpenMultitouchSupportXCF",
+            publicHeadersPath: ".",
+            cSettings: [
+                .unsafeFlags(["-fobjc-arc"])
+            ],
+            linkerSettings: [
+                .unsafeFlags(["-F/System/Library/PrivateFrameworks"]),
+                .linkedFramework("Cocoa"),
+                .linkedFramework("Foundation"),
+                .linkedFramework("IOKit"),
+                .linkedFramework("MultitouchSupport")
+            ]
         ),
         .target(
             name: "OpenMultitouchSupport",
@@ -53,6 +64,11 @@ let package = Package(
             name: "RawCaptureAnalyze",
             dependencies: ["ReplayFixtureKit"],
             path: "Tools/RawCaptureAnalyze"
+        ),
+        .executableTarget(
+            name: "ATPCaptureTranscode",
+            dependencies: ["ReplayFixtureKit"],
+            path: "Tools/ATPCaptureTranscode"
         ),
         .testTarget(
             name: "ReplayFixtureKitTests",

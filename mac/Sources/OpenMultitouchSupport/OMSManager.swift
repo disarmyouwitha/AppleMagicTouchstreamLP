@@ -36,10 +36,49 @@ public enum OMSHapticPattern: Int32, CaseIterable, Sendable {
     case level = 5  // Changed from 17 to 5 (valid ID)
 }
 
+public struct OMSRawTouchBufferView: RandomAccessCollection, @unchecked Sendable {
+    public typealias Element = OMSRawTouch
+    public typealias Index = Int
+
+    public static let empty = OMSRawTouchBufferView(baseAddress: nil, count: 0)
+
+    fileprivate let baseAddress: UnsafePointer<OMSRawTouch>?
+    public let count: Int
+
+    public var startIndex: Int { 0 }
+    public var endIndex: Int { count }
+
+    public subscript(position: Int) -> OMSRawTouch {
+        precondition(position >= 0 && position < count)
+        guard let baseAddress else {
+            preconditionFailure("touch buffer released")
+        }
+        return baseAddress[position]
+    }
+}
+
+public protocol OMSRawTouchFrameSink: AnyObject, Sendable {
+    func handleRawTouchFrame(_ frame: OMSRawTouchFrame)
+}
+
 public final class OMSManager: Sendable {
     public static let shared = OMSManager()
 
     public typealias RawTouchFrameHandler = @Sendable (OMSRawTouchFrame) -> Void
+
+    private struct WeakRawTouchFrameSink {
+        weak var value: (any OMSRawTouchFrameSink)?
+    }
+
+    private struct RawDeliveryState: Sendable {
+        static let capacity = 256
+
+        var slots: [OMSRawTouchFrame?] = Array(repeating: nil, count: capacity)
+        var readIndex = 0
+        var writeIndex = 0
+        var count = 0
+        var drainScheduled = false
+    }
 
     private let protectedCaptureManager: OSAllocatedUnfairLock<OpenMTManagerV2?>
     private let protectedHapticManager: OSAllocatedUnfairLock<OpenMTManager?>
@@ -51,8 +90,8 @@ public final class OMSManager: Sendable {
     private let deviceIDStringCache = OSAllocatedUnfairLock<[UInt64: String]>(
         uncheckedState: [:]
     )
-    private let touchContinuations = OSAllocatedUnfairLock<[UUID: AsyncStream<[OMSTouchData]>.Continuation]>(
-        uncheckedState: [:]
+    private let rawFrameSink = OSAllocatedUnfairLock<WeakRawTouchFrameSink>(
+        uncheckedState: WeakRawTouchFrameSink(value: nil)
     )
     private struct RawContinuationStore: Sendable {
         var byID: [UUID: AsyncStream<OMSRawTouchFrame>.Continuation] = [:]
@@ -61,36 +100,23 @@ public final class OMSManager: Sendable {
     private let rawContinuationStore = OSAllocatedUnfairLock<RawContinuationStore>(
         uncheckedState: RawContinuationStore()
     )
-    private struct RawHandlerStore: Sendable {
-        var byID: [UUID: RawTouchFrameHandler] = [:]
-        var list: [RawTouchFrameHandler] = []
-    }
-    private let rawHandlerStore = OSAllocatedUnfairLock<RawHandlerStore>(
-        uncheckedState: RawHandlerStore()
+    private let rawFrameHandler = OSAllocatedUnfairLock<RawTouchFrameHandler?>(
+        uncheckedState: nil
+    )
+    private let rawDeliveryQueue = DispatchQueue(
+        label: "ink.ranna.glasstokey.oms.raw-delivery",
+        qos: .userInteractive
+    )
+    private let rawDeliveryLock = OSAllocatedUnfairLock<RawDeliveryState>(
+        uncheckedState: RawDeliveryState()
     )
     private let rawBufferPool = OSAllocatedUnfairLock<[RawTouchBuffer]>(uncheckedState: [])
 #if DEBUG
     private let signposter = OSSignposter(
-        subsystem: "com.kyome.GlassToKey",
+        subsystem: "ink.ranna.GlassToKey",
         category: "OpenMT"
     )
 #endif
-
-    public var touchDataStream: AsyncStream<[OMSTouchData]> {
-        AsyncStream(bufferingPolicy: .bufferingNewest(2)) { continuation in
-            let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
-                for await frame in rawTouchStream {
-                    let data = Self.buildTouchData(from: frame)
-                    continuation.yield(data)
-                    frame.release()
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
 
     public var rawTouchStream: AsyncStream<OMSRawTouchFrame> {
         AsyncStream(bufferingPolicy: .unbounded) { continuation in
@@ -108,44 +134,17 @@ public final class OMSManager: Sendable {
         }
     }
 
-    public func rawTouchStream(forDeviceIDs deviceIDs: Set<UInt64>) -> AsyncStream<OMSRawTouchFrame> {
-        AsyncStream(bufferingPolicy: .unbounded) { continuation in
-            let task = Task.detached(priority: .userInitiated) { [rawTouchStream] in
-                for await frame in rawTouchStream {
-                    if deviceIDs.contains(frame.deviceIDNumeric) {
-                        continuation.yield(frame)
-                    } else {
-                        frame.release()
-                    }
-                }
-                continuation.finish()
-            }
-            continuation.onTermination = { _ in
-                task.cancel()
-            }
-        }
-    }
-
     public var isListening: Bool {
         protectedRawListener.withLockUnchecked { $0 != nil }
     }
 
-    @discardableResult
-    public func addRawFrameHandler(
-        _ handler: @escaping RawTouchFrameHandler
-    ) -> UUID {
-        let id = UUID()
-        rawHandlerStore.withLockUnchecked { store in
-            store.byID[id] = handler
-            store.list = Array(store.byID.values)
-        }
-        return id
+    public func setRawFrameHandler(_ handler: RawTouchFrameHandler?) {
+        rawFrameHandler.withLockUnchecked { $0 = handler }
     }
 
-    public func removeRawFrameHandler(_ id: UUID) {
-        rawHandlerStore.withLockUnchecked { store in
-            store.byID.removeValue(forKey: id)
-            store.list = Array(store.byID.values)
+    public func setRawFrameSink(_ sink: (any OMSRawTouchFrameSink)?) {
+        rawFrameSink.withLockUnchecked { state in
+            state.value = sink
         }
     }
 
@@ -277,7 +276,7 @@ public final class OMSManager: Sendable {
         let deviceIndex = resolveDeviceIndex(for: deviceID)
         let deviceIDString = deviceIDString(for: deviceID)
         guard let touches, count > 0 else {
-            emitRawTouchFrame(
+            enqueueRawTouchFrame(
                 OMSRawTouchFrame(
                     deviceID: deviceIDString,
                     deviceIDNumeric: deviceID,
@@ -290,23 +289,7 @@ public final class OMSManager: Sendable {
             return
         }
         let buffer = takeBuffer(capacity: count)
-        buffer.touches.reserveCapacity(count)
-        for index in 0..<count {
-            let touch = touches[index]
-            let state = OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching
-            buffer.touches.append(OMSRawTouch(
-                id: Int32(touch.identifier),
-                posX: touch.normalizedPosition.position.x,
-                posY: touch.normalizedPosition.position.y,
-                total: touch.total,
-                pressure: touch.pressure,
-                majorAxis: touch.majorAxis,
-                minorAxis: touch.minorAxis,
-                angle: touch.angle,
-                density: touch.density,
-                state: state
-            ))
-        }
+        buffer.write(from: touches, count: count)
         let rawFrame = OMSRawTouchFrame(
             deviceID: deviceIDString,
             deviceIDNumeric: deviceID,
@@ -314,32 +297,81 @@ public final class OMSManager: Sendable {
             timestamp: timestamp,
             buffer: buffer,
             releaseHandler: { [rawBufferPool] buffer in
+                buffer.reset()
                 rawBufferPool.withLockUnchecked { pool in
                     pool.append(buffer)
                     return ()
                 }
             }
         )
-        emitRawTouchFrame(rawFrame)
+        enqueueRawTouchFrame(rawFrame)
     }
 
-    private func emitTouchData(_ data: [OMSTouchData]) {
-        let continuations = touchContinuations.withLockUnchecked { Array($0.values) }
-        for continuation in continuations {
-            _ = continuation.yield(data)
+    private func enqueueRawTouchFrame(_ frame: OMSRawTouchFrame) {
+        enum EnqueueResult {
+            case scheduled
+            case queued
+            case dropped
+        }
+
+        let result = rawDeliveryLock.withLockUnchecked { state -> EnqueueResult in
+            guard state.count < state.slots.count else {
+                return .dropped
+            }
+            state.slots[state.writeIndex] = frame
+            state.writeIndex = (state.writeIndex + 1) % state.slots.count
+            state.count += 1
+            guard !state.drainScheduled else {
+                return .queued
+            }
+            state.drainScheduled = true
+            return .scheduled
+        }
+
+        switch result {
+        case .scheduled:
+            rawDeliveryQueue.async { [weak self] in
+                self?.drainRawFrames()
+            }
+        case .queued:
+            return
+        case .dropped:
+            frame.release()
+        }
+    }
+
+    private func drainRawFrames() {
+        while true {
+            let next = rawDeliveryLock.withLockUnchecked { state -> OMSRawTouchFrame? in
+                guard state.count > 0 else {
+                    state.drainScheduled = false
+                    return nil
+                }
+                let frame = state.slots[state.readIndex]
+                state.slots[state.readIndex] = nil
+                state.readIndex = (state.readIndex + 1) % state.slots.count
+                state.count -= 1
+                return frame
+            }
+            guard let next else { return }
+            emitRawTouchFrame(next)
         }
     }
 
     private func emitRawTouchFrame(_ frame: OMSRawTouchFrame) {
-        let handlers = rawHandlerStore.withLockUnchecked { $0.list }
+        if let sink = rawFrameSink.withLockUnchecked({ $0.value }) {
+            sink.handleRawTouchFrame(frame)
+            return
+        }
+        let handler = rawFrameHandler.withLockUnchecked { $0 }
         let continuations = rawContinuationStore.withLockUnchecked { $0.list }
-        for handler in handlers {
+        if let handler {
             handler(frame)
         }
         for continuation in continuations {
             _ = continuation.yield(frame)
         }
-        if handlers.isEmpty, continuations.isEmpty {
+        if handler == nil, continuations.isEmpty {
             frame.release()
         }
     }
@@ -364,11 +396,9 @@ public final class OMSManager: Sendable {
 
     private func takeBuffer(capacity: Int) -> RawTouchBuffer {
         rawBufferPool.withLockUnchecked { pool in
-            if let buffer = pool.popLast() {
-                buffer.touches.removeAll(keepingCapacity: true)
-                if buffer.touches.capacity < capacity {
-                    buffer.touches.reserveCapacity(capacity)
-                }
+            if let index = pool.lastIndex(where: { $0.capacity >= capacity }) {
+                let buffer = pool.remove(at: index)
+                buffer.reset()
                 return buffer
             }
             return RawTouchBuffer(capacity: max(8, capacity))
@@ -386,7 +416,6 @@ public final class OMSManager: Sendable {
         guard !touches.isEmpty else { return }
         buffer.reserveCapacity(touches.count)
         for touch in touches {
-            guard let state = OMSState(touch.state) else { continue }
             buffer.append(OMSTouchData(
                 deviceID: deviceID,
                 deviceIndex: deviceIndex,
@@ -397,7 +426,7 @@ public final class OMSManager: Sendable {
                 axis: OMSAxis(major: touch.majorAxis, minor: touch.minorAxis),
                 angle: touch.angle,
                 density: touch.density,
-                state: state,
+                state: touch.state,
                 timestamp: frame.timestamp,
                 formattedTimestamp: formattedTimestamp
             ))
@@ -454,7 +483,7 @@ private struct DeviceIndexStore: Sendable {
     }
 }
 
-public struct OMSRawTouch: Sendable {
+public struct OMSRawTouch: Codable, Sendable {
     public let id: Int32
     public let posX: Float
     public let posY: Float
@@ -464,7 +493,31 @@ public struct OMSRawTouch: Sendable {
     public let minorAxis: Float
     public let angle: Float
     public let density: Float
-    public let state: OpenMTState
+    public let state: OMSState
+
+    public init(
+        id: Int32,
+        posX: Float,
+        posY: Float,
+        total: Float,
+        pressure: Float,
+        majorAxis: Float,
+        minorAxis: Float,
+        angle: Float,
+        density: Float,
+        state: OMSState
+    ) {
+        self.id = id
+        self.posX = posX
+        self.posY = posY
+        self.total = total
+        self.pressure = pressure
+        self.majorAxis = majorAxis
+        self.minorAxis = minorAxis
+        self.angle = angle
+        self.density = density
+        self.state = state
+    }
 }
 
 public final class OMSRawTouchFrame: @unchecked Sendable {
@@ -472,11 +525,12 @@ public final class OMSRawTouchFrame: @unchecked Sendable {
     public let deviceIDNumeric: UInt64
     public let deviceIndex: Int
     public let timestamp: TimeInterval
+    public var sequence: UInt64 = 0
     private var buffer: RawTouchBuffer?
     private let releaseHandler: ((RawTouchBuffer) -> Void)?
 
-    public var touches: [OMSRawTouch] {
-        buffer?.touches ?? []
+    public var touches: OMSRawTouchBufferView {
+        buffer?.view ?? .empty
     }
 
     fileprivate init(
@@ -507,10 +561,49 @@ public final class OMSRawTouchFrame: @unchecked Sendable {
 }
 
 private final class RawTouchBuffer {
-    var touches: [OMSRawTouch]
+    let capacity: Int
+    private let storage: UnsafeMutablePointer<OMSRawTouch>
+    private(set) var count: Int = 0
+
+    var view: OMSRawTouchBufferView {
+        OMSRawTouchBufferView(baseAddress: UnsafePointer(storage), count: count)
+    }
 
     init(capacity: Int) {
-        touches = []
-        touches.reserveCapacity(capacity)
+        self.capacity = capacity
+        storage = UnsafeMutablePointer<OMSRawTouch>.allocate(capacity: capacity)
+    }
+
+    deinit {
+        reset()
+        storage.deallocate()
+    }
+
+    func reset() {
+        guard count > 0 else { return }
+        storage.deinitialize(count: count)
+        count = 0
+    }
+
+    func write(from rawTouches: UnsafePointer<MTTouch>, count: Int) {
+        precondition(count <= capacity)
+        reset()
+        for index in 0..<count {
+            let touch = rawTouches[index]
+            let state = OMSState(OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching) ?? .notTouching
+            storage.advanced(by: index).initialize(to: OMSRawTouch(
+                id: Int32(touch.identifier),
+                posX: touch.normalizedPosition.position.x,
+                posY: touch.normalizedPosition.position.y,
+                total: touch.total,
+                pressure: touch.pressure,
+                majorAxis: touch.majorAxis,
+                minorAxis: touch.minorAxis,
+                angle: touch.angle,
+                density: touch.density,
+                state: state
+            ))
+        }
+        self.count = count
     }
 }
