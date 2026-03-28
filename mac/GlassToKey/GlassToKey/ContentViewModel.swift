@@ -715,6 +715,8 @@ final class ContentViewModel: ObservableObject {
         case middleClick
         case volumeUp
         case volumeDown
+        case volumeUpSmall
+        case volumeDownSmall
         case brightnessUp
         case brightnessDown
         case voice
@@ -1936,6 +1938,8 @@ enum KeyActionKind: String, Codable {
     case middleClick
     case volumeUp
     case volumeDown
+    case volumeUpSmall
+    case volumeDownSmall
     case brightnessUp
     case brightnessDown
     case voice
@@ -2352,6 +2356,8 @@ enum KeyActionCatalog {
     static let middleClickLabel = "Middle Click"
     static let volumeUpLabel = "VOL_UP"
     static let volumeDownLabel = "VOL_DOWN"
+    static let volumeUpSmallLabel = "VOL_UP_SMALL"
+    static let volumeDownSmallLabel = "VOL_DOWN_SMALL"
     static let brightnessUpLabel = "BRIGHT_UP"
     static let brightnessDownLabel = "BRIGHT_DOWN"
     static let brightnessScriptUpLabel = "BRI_SCRIPT_UP"
@@ -2596,6 +2602,8 @@ enum KeyActionCatalog {
     private static let systemActions: [KeyAction] = [
         KeyAction(label: volumeUpLabel, keyCode: 0, flags: 0, kind: .volumeUp),
         KeyAction(label: volumeDownLabel, keyCode: 0, flags: 0, kind: .volumeDown),
+        KeyAction(label: volumeUpSmallLabel, keyCode: 0, flags: 0, kind: .volumeUpSmall),
+        KeyAction(label: volumeDownSmallLabel, keyCode: 0, flags: 0, kind: .volumeDownSmall),
         KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
         KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown),
         KeyAction(label: brightnessScriptUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
@@ -2699,6 +2707,8 @@ enum KeyActionCatalog {
             (dashedHeader("System Controls"), [
                 volumeUpLabel,
                 volumeDownLabel,
+                volumeUpSmallLabel,
+                volumeDownSmallLabel,
                 brightnessUpLabel,
                 brightnessDownLabel
             ]),
@@ -2825,6 +2835,10 @@ enum KeyActionCatalog {
             normalizedLabel = volumeUpLabel
         case "VOL_DOWN", "VOL⬇️":
             normalizedLabel = volumeDownLabel
+        case "VOL_UP_SMALL", "vol_up_small":
+            normalizedLabel = volumeUpSmallLabel
+        case "VOL_DOWN_SMALL", "vol_down_small":
+            normalizedLabel = volumeDownSmallLabel
         case "BRIGHT_UP", "BRIGHT⬆️":
             normalizedLabel = brightnessUpLabel
         case "BRIGHT_DOWN", "BRIGHT⬇️":
@@ -2895,6 +2909,22 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .volumeDown
+            )
+        }
+        if normalizedLabel == volumeUpSmallLabel {
+            return KeyAction(
+                label: normalizedLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeUpSmall
+            )
+        }
+        if normalizedLabel == volumeDownSmallLabel {
+            return KeyAction(
+                label: normalizedLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .volumeDownSmall
             )
         }
         if normalizedLabel == brightnessUpLabel {

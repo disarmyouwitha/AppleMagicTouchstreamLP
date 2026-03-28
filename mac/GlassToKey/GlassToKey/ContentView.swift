@@ -3978,6 +3978,8 @@ struct ContentView: View {
         @Binding var selectedButtonID: UUID?
         @Binding var selectedGridKey: SelectedGridKey?
         let onSelectionInteraction: () -> Void
+        @State private var leftPeakPressure = 0
+        @State private var rightPeakPressure = 0
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -3993,11 +3995,9 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: trackpadSpacing) {
-                    Text("Left Trackpad")
-                        .font(.subheadline)
+                    pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure)
                         .frame(width: trackpadSize.width, alignment: .leading)
-                    Text("Right Trackpad")
-                        .font(.subheadline)
+                    pressureHeader(title: "Right Trackpad", peakPressure: rightPeakPressure)
                         .frame(width: trackpadSize.width, alignment: .leading)
                 }
                 ZStack(alignment: .topLeading) {
@@ -4019,7 +4019,11 @@ struct ContentView: View {
                             selectedRightButtonID: selectedButton(for: rightButtons)?.id
                         ),
                         viewModel: viewModel,
-                        selectionHandler: surfaceSelectionChanged
+                        selectionHandler: surfaceSelectionChanged,
+                        peakPressureHandler: { leftPeakPressure, rightPeakPressure in
+                            self.leftPeakPressure = leftPeakPressure
+                            self.rightPeakPressure = rightPeakPressure
+                        }
                     )
                     .frame(width: combinedWidth, height: trackpadSize.height)
                     if let hit = lastHitLeft {
@@ -4044,6 +4048,17 @@ struct ContentView: View {
         private func selectedButton(for buttons: [CustomButton]) -> CustomButton? {
             guard let selectedButtonID else { return nil }
             return buttons.first { $0.id == selectedButtonID }
+        }
+
+        @ViewBuilder
+        private func pressureHeader(title: String, peakPressure: Int) -> some View {
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text(title)
+                    .font(.subheadline)
+                Text("Peak: \(peakPressure)")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
 
         private func surfaceLabels(from labels: [[GridLabel]]) -> [[TrackpadSurfaceLabel]] {

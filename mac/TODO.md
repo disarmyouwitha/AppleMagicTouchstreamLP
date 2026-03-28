@@ -1,4 +1,5 @@
 ## TODO:
+- volume up smaller step!
 - `Typing feels` bad bro.. did we re-introduce that 2-key buffer before typing?
 -------
 - One real tradeoff remains in the implementation: the live ring is fixed at 256 slots and currently drops overflow frames rather than blocking the callback. That keeps the callback hot, but if you want, the next small pass should expose an overflow counter in diagnostics so you can verify the ring never saturates under real load.

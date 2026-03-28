@@ -1238,6 +1238,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return "volumeUp"
         case .volumeDown:
             return "volumeDown"
+        case .volumeUpSmall:
+            return "volumeUpSmall"
+        case .volumeDownSmall:
+            return "volumeDownSmall"
         case .brightnessUp:
             return "brightnessUp"
         case .brightnessDown:
@@ -1821,7 +1825,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 case .none:
                     break
                 case .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
-                     .volumeUp, .volumeDown, .brightnessUp, .brightnessDown,
+                     .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
+                     .brightnessUp, .brightnessDown,
                      .chordalShift,
                      .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
@@ -2547,6 +2552,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 action = .volumeUp
             case .volumeDown:
                 action = .volumeDown
+            case .volumeUpSmall:
+                action = .volumeUpSmall
+            case .volumeDownSmall:
+                action = .volumeDownSmall
             case .brightnessUp:
                 action = .brightnessUp
             case .brightnessDown:
@@ -2765,6 +2774,30 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: canvasSize,
                 label: action.label,
                 action: .volumeDown,
+                position: position,
+                side: side,
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
+            )
+        case .volumeUpSmall:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
+                label: action.label,
+                action: .volumeUpSmall,
+                position: position,
+                side: side,
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
+            )
+        case .volumeDownSmall:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
+                label: action.label,
+                action: .volumeDownSmall,
                 position: position,
                 side: side,
                 holdAction: holdAction,
@@ -4959,6 +4992,16 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 return
             }
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
+        case .volumeUpSmall:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
+            dispatchService.postVolumeUpSmall(sourceSequence: currentDispatchSourceSequence())
+        case .volumeDownSmall:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
+            dispatchService.postVolumeDownSmall(sourceSequence: currentDispatchSourceSequence())
         case .brightnessUp:
             if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
                 return
@@ -5669,6 +5712,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postVolumeUp(sourceSequence: currentDispatchSourceSequence())
         case .volumeDown:
             dispatchService.postVolumeDown(sourceSequence: currentDispatchSourceSequence())
+        case .volumeUpSmall:
+            dispatchService.postVolumeUpSmall(sourceSequence: currentDispatchSourceSequence())
+        case .volumeDownSmall:
+            dispatchService.postVolumeDownSmall(sourceSequence: currentDispatchSourceSequence())
         case .brightnessUp:
             dispatchService.postBrightnessUp(sourceSequence: currentDispatchSourceSequence())
         case .brightnessDown:
@@ -5890,6 +5937,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     dispatchService.postVolumeUp(sourceSequence: sourceSequence)
                 case .volumeDown:
                     dispatchService.postVolumeDown(sourceSequence: sourceSequence)
+                case .volumeUpSmall:
+                    dispatchService.postVolumeUpSmall(sourceSequence: sourceSequence)
+                case .volumeDownSmall:
+                    dispatchService.postVolumeDownSmall(sourceSequence: sourceSequence)
                 case .brightnessUp:
                     dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
@@ -5902,6 +5953,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     dispatchService.postVolumeUp(sourceSequence: sourceSequence)
                 case .volumeDown:
                     dispatchService.postVolumeDown(sourceSequence: sourceSequence)
+                case .volumeUpSmall:
+                    dispatchService.postVolumeUpSmall(sourceSequence: sourceSequence)
+                case .volumeDownSmall:
+                    dispatchService.postVolumeDownSmall(sourceSequence: sourceSequence)
                 case .brightnessUp:
                     dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
@@ -6049,7 +6104,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     private func canRepeatGestureAction(_ action: KeyAction) -> Bool {
         switch action.kind {
-        case .volumeUp, .volumeDown, .brightnessUp, .brightnessDown:
+        case .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
+             .brightnessUp, .brightnessDown:
             return true
         case .key:
             let code = CGKeyCode(action.keyCode)
@@ -6105,6 +6161,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return true
         case .volumeDown:
             startSystemKeyRepeat(for: owner, systemKey: .volumeDown, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .volumeUpSmall:
+            startSystemKeyRepeat(for: owner, systemKey: .volumeUpSmall, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .volumeDownSmall:
+            startSystemKeyRepeat(for: owner, systemKey: .volumeDownSmall, initialDelay: cadenceNs, interval: cadenceNs)
             return true
         case .brightnessUp:
             startSystemKeyRepeat(for: owner, systemKey: .brightnessUp, initialDelay: cadenceNs, interval: cadenceNs)

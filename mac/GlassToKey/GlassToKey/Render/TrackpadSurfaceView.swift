@@ -567,15 +567,6 @@ final class TrackpadSurfaceView: NSView {
             path.transform(using: transform)
             NSColor.labelColor.withAlphaComponent(0.95).setFill()
             path.fill()
-
-            let forceText = "f:\(Int(max(0, touch.pressure).rounded()))"
-            drawCenteredText(
-                forceText,
-                in: touchRect,
-                yOffset: 0,
-                font: .monospacedSystemFont(ofSize: 9, weight: .medium),
-                color: .white.withAlphaComponent(0.98)
-            )
         }
     }
 
@@ -723,6 +714,7 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
     let snapshot: TrackpadSurfaceSnapshot
     let viewModel: ContentViewModel
     let selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
+    let peakPressureHandler: ((Int, Int) -> Void)?
 
     @MainActor
     final class Coordinator {
@@ -737,6 +729,13 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         private var lastDisplayUpdateTime: TimeInterval = 0
         private var lastDisplayedHadTouches = false
         private var latestTouchSnapshot = ContentViewModel.TouchSnapshot()
+        private var lastReportedLeftPeakPressure = Int.min
+        private var lastReportedRightPeakPressure = Int.min
+        private var peakPressureHandler: ((Int, Int) -> Void)?
+        private var leftPeakPressureCache = 0
+        private var rightPeakPressureCache = 0
+        private var leftTouchInteractionActive = false
+        private var rightTouchInteractionActive = false
 
         deinit {
             touchUpdateTask?.cancel()
@@ -745,11 +744,13 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
 
         func attach(
             surfaceView: TrackpadSurfaceView,
-            viewModel: ContentViewModel
+            viewModel: ContentViewModel,
+            peakPressureHandler: ((Int, Int) -> Void)?
         ) {
             self.surfaceView = surfaceView
             let viewModelChanged = self.viewModel !== viewModel
             self.viewModel = viewModel
+            self.peakPressureHandler = peakPressureHandler
             if viewModelChanged || touchUpdateTask == nil {
                 restartTouchUpdates()
             }
@@ -762,6 +763,7 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
             deferredDisplayTask = nil
             surfaceView = nil
             viewModel = nil
+            peakPressureHandler = nil
         }
 
         private func restartTouchUpdates() {
@@ -827,9 +829,58 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
                 left: latestTouchSnapshot.left,
                 right: latestTouchSnapshot.right
             )
+            reportPeakPressuresIfNeeded(snapshot: latestTouchSnapshot)
             lastDisplayedTouchRevision = latestTouchSnapshot.revision
             lastDisplayUpdateTime = now
             lastDisplayedHadTouches = !(latestTouchSnapshot.left.isEmpty && latestTouchSnapshot.right.isEmpty)
+        }
+
+        private func reportPeakPressuresIfNeeded(snapshot: ContentViewModel.TouchSnapshot) {
+            let leftPeakPressure = cachedPeakPressure(
+                for: snapshot.left,
+                cachedPeak: &leftPeakPressureCache,
+                interactionActive: &leftTouchInteractionActive
+            )
+            let rightPeakPressure = cachedPeakPressure(
+                for: snapshot.right,
+                cachedPeak: &rightPeakPressureCache,
+                interactionActive: &rightTouchInteractionActive
+            )
+            guard leftPeakPressure != lastReportedLeftPeakPressure
+                    || rightPeakPressure != lastReportedRightPeakPressure else {
+                return
+            }
+            lastReportedLeftPeakPressure = leftPeakPressure
+            lastReportedRightPeakPressure = rightPeakPressure
+            peakPressureHandler?(leftPeakPressure, rightPeakPressure)
+        }
+
+        private func cachedPeakPressure(
+            for touches: [OMSTouchData],
+            cachedPeak: inout Int,
+            interactionActive: inout Bool
+        ) -> Int {
+            let currentPeak = Self.peakPressure(for: touches)
+            if touches.isEmpty {
+                interactionActive = false
+                return cachedPeak
+            }
+            if interactionActive {
+                cachedPeak = max(cachedPeak, currentPeak)
+            } else {
+                interactionActive = true
+                cachedPeak = currentPeak
+            }
+            return cachedPeak
+        }
+
+        private static func peakPressure(for touches: [OMSTouchData]) -> Int {
+            let peak = touches.reduce(Float.zero) { currentPeak, touch in
+                let pressure = touch.pressure
+                guard pressure.isFinite else { return currentPeak }
+                return max(currentPeak, pressure)
+            }
+            return Int(max(0, peak).rounded())
         }
 
         private func scheduleDeferredTouchUpdate(after delay: TimeInterval) {
@@ -864,7 +915,8 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         view.selectionHandler = selectionHandler
         context.coordinator.attach(
             surfaceView: view,
-            viewModel: viewModel
+            viewModel: viewModel,
+            peakPressureHandler: peakPressureHandler
         )
         return view
     }
@@ -878,7 +930,8 @@ struct TrackpadSurfaceRepresentable: NSViewRepresentable {
         nsView.selectionHandler = selectionHandler
         context.coordinator.attach(
             surfaceView: nsView,
-            viewModel: viewModel
+            viewModel: viewModel,
+            peakPressureHandler: peakPressureHandler
         )
     }
 

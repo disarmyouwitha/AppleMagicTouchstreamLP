@@ -11,19 +11,34 @@ final class KeyEventDispatcher: @unchecked Sendable {
     enum SystemKey: Sendable {
         case volumeUp
         case volumeDown
+        case volumeUpSmall
+        case volumeDownSmall
         case brightnessUp
         case brightnessDown
 
-        var keyType: Int32 {
+        var mediaKeyType: Int32? {
             switch self {
             case .volumeUp:
                 return 0
             case .volumeDown:
                 return 1
+            case .volumeUpSmall:
+                return 0
+            case .volumeDownSmall:
+                return 1
             case .brightnessUp:
                 return 2
             case .brightnessDown:
                 return 3
+            }
+        }
+
+        var usesFineAdjustmentModifiers: Bool {
+            switch self {
+            case .volumeUpSmall, .volumeDownSmall:
+                return true
+            default:
+                return false
             }
         }
 
@@ -33,6 +48,10 @@ final class KeyEventDispatcher: @unchecked Sendable {
                 return "volumeUp"
             case .volumeDown:
                 return "volumeDown"
+            case .volumeUpSmall:
+                return "volumeUpSmall"
+            case .volumeDownSmall:
+                return "volumeDownSmall"
             case .brightnessUp:
                 return "brightnessUp"
             case .brightnessDown:
@@ -491,12 +510,17 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         _ key: KeyEventDispatcher.SystemKey,
         keyDown: Bool
     ) {
+        guard let mediaKeyType = key.mediaKeyType else { return }
         let keyState = keyDown ? Self.mediaKeyDownState : Self.mediaKeyUpState
-        let data1 = Int((key.keyType << 16) | (keyState << 8))
+        let data1 = Int((mediaKeyType << 16) | (keyState << 8))
+        var modifierFlags = keyDown ? Self.mediaKeyDownFlags : Self.mediaKeyUpFlags
+        if key.usesFineAdjustmentModifiers {
+            modifierFlags.formUnion([.shift, .option])
+        }
         guard let event = NSEvent.otherEvent(
             with: .systemDefined,
             location: .zero,
-            modifierFlags: keyDown ? Self.mediaKeyDownFlags : Self.mediaKeyUpFlags,
+            modifierFlags: modifierFlags,
             timestamp: ProcessInfo.processInfo.systemUptime,
             windowNumber: 0,
             context: nil,
@@ -855,6 +879,14 @@ final class DispatchService: @unchecked Sendable {
 
     func postVolumeDown(sourceSequence: UInt64? = nil) {
         enqueue(.systemKey(.volumeDown), sourceSequence: sourceSequence)
+    }
+
+    func postVolumeUpSmall(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeUpSmall), sourceSequence: sourceSequence)
+    }
+
+    func postVolumeDownSmall(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.volumeDownSmall), sourceSequence: sourceSequence)
     }
 
     func postBrightnessUp(sourceSequence: UInt64? = nil) {
