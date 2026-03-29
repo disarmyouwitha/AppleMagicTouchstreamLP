@@ -875,8 +875,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let directionalSwipeAxisDominanceRatio: CGFloat = 1.2
     private let fourFingerDominanceSuppressSeconds: TimeInterval = 0.18
     private let fiveFingerDominanceSuppressSeconds: TimeInterval = 0.18
-    private let edgeSlideStartThreshold: CGFloat = 0.03
-    private let edgeSlideStayThreshold: CGFloat = 0.08
+    private let edgeSlideStartThreshold: CGFloat = 0.045
+    private let edgeSlideStayThreshold: CGFloat = 0.12
     private let edgeSlideTriggerDistanceMm: CGFloat = 24.0
     private let edgeSlideMaxLateralTravelMm: CGFloat = 10.0
     private let edgeSlideDirectionDominanceRatio: CGFloat = 2.0
