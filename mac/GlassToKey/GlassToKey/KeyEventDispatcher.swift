@@ -15,6 +15,8 @@ final class KeyEventDispatcher: @unchecked Sendable {
         case volumeDownSmall
         case brightnessUp
         case brightnessDown
+        case brightnessUpSmall
+        case brightnessDownSmall
 
         var mediaKeyType: Int32? {
             switch self {
@@ -30,12 +32,16 @@ final class KeyEventDispatcher: @unchecked Sendable {
                 return 2
             case .brightnessDown:
                 return 3
+            case .brightnessUpSmall:
+                return 2
+            case .brightnessDownSmall:
+                return 3
             }
         }
 
         var usesFineAdjustmentModifiers: Bool {
             switch self {
-            case .volumeUpSmall, .volumeDownSmall:
+            case .volumeUpSmall, .volumeDownSmall, .brightnessUpSmall, .brightnessDownSmall:
                 return true
             default:
                 return false
@@ -56,6 +62,10 @@ final class KeyEventDispatcher: @unchecked Sendable {
                 return "brightnessUp"
             case .brightnessDown:
                 return "brightnessDown"
+            case .brightnessUpSmall:
+                return "brightnessUpSmall"
+            case .brightnessDownSmall:
+                return "brightnessDownSmall"
             }
         }
     }
@@ -895,6 +905,14 @@ final class DispatchService: @unchecked Sendable {
 
     func postBrightnessDown(sourceSequence: UInt64? = nil) {
         enqueue(.systemKey(.brightnessDown), sourceSequence: sourceSequence)
+    }
+
+    func postBrightnessUpSmall(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessUpSmall), sourceSequence: sourceSequence)
+    }
+
+    func postBrightnessDownSmall(sourceSequence: UInt64? = nil) {
+        enqueue(.systemKey(.brightnessDownSmall), sourceSequence: sourceSequence)
     }
 
     func postHaptic(strength: Double, deviceID: String?, sourceSequence: UInt64? = nil) {

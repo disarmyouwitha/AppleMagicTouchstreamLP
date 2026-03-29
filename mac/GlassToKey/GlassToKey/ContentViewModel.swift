@@ -719,6 +719,8 @@ final class ContentViewModel: ObservableObject {
         case volumeDownSmall
         case brightnessUp
         case brightnessDown
+        case brightnessUpSmall
+        case brightnessDownSmall
         case voice
         case typingToggle
         case chordalShift
@@ -1942,6 +1944,8 @@ enum KeyActionKind: String, Codable {
     case volumeDownSmall
     case brightnessUp
     case brightnessDown
+    case brightnessUpSmall
+    case brightnessDownSmall
     case voice
     case typingToggle
     case chordalShift
@@ -2360,6 +2364,8 @@ enum KeyActionCatalog {
     static let volumeDownSmallLabel = "VOL_DOWN_SMALL"
     static let brightnessUpLabel = "BRIGHT_UP"
     static let brightnessDownLabel = "BRIGHT_DOWN"
+    static let brightnessUpSmallLabel = "BRIGHT_UP_SMALL"
+    static let brightnessDownSmallLabel = "BRIGHT_DOWN_SMALL"
     static let brightnessScriptUpLabel = "BRI_SCRIPT_UP"
     static let brightnessScriptDownLabel = "BRI_SCRIPT_DOWN"
     static let chordalShiftLabel = "Chordal Shift"
@@ -2606,6 +2612,8 @@ enum KeyActionCatalog {
         KeyAction(label: volumeDownSmallLabel, keyCode: 0, flags: 0, kind: .volumeDownSmall),
         KeyAction(label: brightnessUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
         KeyAction(label: brightnessDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown),
+        KeyAction(label: brightnessUpSmallLabel, keyCode: 0, flags: 0, kind: .brightnessUpSmall),
+        KeyAction(label: brightnessDownSmallLabel, keyCode: 0, flags: 0, kind: .brightnessDownSmall),
         KeyAction(label: brightnessScriptUpLabel, keyCode: 0, flags: 0, kind: .brightnessUp),
         KeyAction(label: brightnessScriptDownLabel, keyCode: 0, flags: 0, kind: .brightnessDown)
     ]
@@ -2710,7 +2718,9 @@ enum KeyActionCatalog {
                 volumeUpSmallLabel,
                 volumeDownSmallLabel,
                 brightnessUpLabel,
-                brightnessDownLabel
+                brightnessDownLabel,
+                brightnessUpSmallLabel,
+                brightnessDownSmallLabel
             ]),
             (dashedHeader("Modifiers & Modes"), [
                 "Shift",
@@ -2843,6 +2853,10 @@ enum KeyActionCatalog {
             normalizedLabel = brightnessUpLabel
         case "BRIGHT_DOWN", "BRIGHT⬇️":
             normalizedLabel = brightnessDownLabel
+        case "BRIGHT_UP_SMALL", "bright_up_small":
+            normalizedLabel = brightnessUpSmallLabel
+        case "BRIGHT_DOWN_SMALL", "bright_down_small":
+            normalizedLabel = brightnessDownSmallLabel
         case "EmDash":
             normalizedLabel = "—"
         default:
@@ -2935,6 +2949,14 @@ enum KeyActionCatalog {
                 kind: .brightnessUp
             )
         }
+        if normalizedLabel == brightnessUpSmallLabel {
+            return KeyAction(
+                label: normalizedLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessUpSmall
+            )
+        }
         if normalizedLabel == brightnessScriptUpLabel {
             return KeyAction(
                 label: label,
@@ -2949,6 +2971,14 @@ enum KeyActionCatalog {
                 keyCode: 0,
                 flags: 0,
                 kind: .brightnessDown
+            )
+        }
+        if normalizedLabel == brightnessDownSmallLabel {
+            return KeyAction(
+                label: normalizedLabel,
+                keyCode: 0,
+                flags: 0,
+                kind: .brightnessDownSmall
             )
         }
         if normalizedLabel == brightnessScriptDownLabel {

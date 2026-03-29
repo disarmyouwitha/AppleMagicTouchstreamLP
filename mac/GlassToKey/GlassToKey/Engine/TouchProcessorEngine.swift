@@ -1246,6 +1246,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return "brightnessUp"
         case .brightnessDown:
             return "brightnessDown"
+        case .brightnessUpSmall:
+            return "brightnessUpSmall"
+        case .brightnessDownSmall:
+            return "brightnessDownSmall"
         case .voice:
             return "voice"
         case .typingToggle:
@@ -1826,7 +1830,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     break
                 case .appLaunch, .key, .leftClick, .doubleClick, .rightClick, .middleClick,
                      .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
-                     .brightnessUp, .brightnessDown,
+                     .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall,
                      .chordalShift,
                      .voice,
                      .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
@@ -2560,6 +2564,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 action = .brightnessUp
             case .brightnessDown:
                 action = .brightnessDown
+            case .brightnessUpSmall:
+                action = .brightnessUpSmall
+            case .brightnessDownSmall:
+                action = .brightnessDownSmall
             case .voice:
                 action = .voice
             case .typingToggle:
@@ -2822,6 +2830,30 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: canvasSize,
                 label: action.label,
                 action: .brightnessDown,
+                position: position,
+                side: side,
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
+            )
+        case .brightnessUpSmall:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
+                label: action.label,
+                action: .brightnessUpSmall,
+                position: position,
+                side: side,
+                holdAction: holdAction,
+                holdForceThreshold: holdForceThreshold
+            )
+        case .brightnessDownSmall:
+            return KeyBinding(
+                rect: rect,
+                normalizedRect: normalizedRect,
+                canvasSize: canvasSize,
+                label: action.label,
+                action: .brightnessDownSmall,
                 position: position,
                 side: side,
                 holdAction: holdAction,
@@ -5012,6 +5044,16 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 return
             }
             dispatchService.postBrightnessDown(sourceSequence: currentDispatchSourceSequence())
+        case .brightnessUpSmall:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
+            dispatchService.postBrightnessUpSmall(sourceSequence: currentDispatchSourceSequence())
+        case .brightnessDownSmall:
+            if tryBeginRepeatableGestureDispatch(bindingId: bindingId, action: action, side: side) {
+                return
+            }
+            dispatchService.postBrightnessDownSmall(sourceSequence: currentDispatchSourceSequence())
         case .voice:
             toggleVoiceDictationSession()
         case .typingToggle:
@@ -5720,6 +5762,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
             dispatchService.postBrightnessUp(sourceSequence: currentDispatchSourceSequence())
         case .brightnessDown:
             dispatchService.postBrightnessDown(sourceSequence: currentDispatchSourceSequence())
+        case .brightnessUpSmall:
+            dispatchService.postBrightnessUpSmall(sourceSequence: currentDispatchSourceSequence())
+        case .brightnessDownSmall:
+            dispatchService.postBrightnessDownSmall(sourceSequence: currentDispatchSourceSequence())
         case .voice:
             toggleVoiceDictationSession()
         case .chordalShift:
@@ -5945,6 +5991,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
                     dispatchService.postBrightnessDown(sourceSequence: sourceSequence)
+                case .brightnessUpSmall:
+                    dispatchService.postBrightnessUpSmall(sourceSequence: sourceSequence)
+                case .brightnessDownSmall:
+                    dispatchService.postBrightnessDownSmall(sourceSequence: sourceSequence)
                 }
             },
             fire: { _ in
@@ -5961,6 +6011,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     dispatchService.postBrightnessUp(sourceSequence: sourceSequence)
                 case .brightnessDown:
                     dispatchService.postBrightnessDown(sourceSequence: sourceSequence)
+                case .brightnessUpSmall:
+                    dispatchService.postBrightnessUpSmall(sourceSequence: sourceSequence)
+                case .brightnessDownSmall:
+                    dispatchService.postBrightnessDownSmall(sourceSequence: sourceSequence)
                 }
             }
             ,
@@ -6105,7 +6159,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private func canRepeatGestureAction(_ action: KeyAction) -> Bool {
         switch action.kind {
         case .volumeUp, .volumeDown, .volumeUpSmall, .volumeDownSmall,
-             .brightnessUp, .brightnessDown:
+             .brightnessUp, .brightnessDown, .brightnessUpSmall, .brightnessDownSmall:
             return true
         case .key:
             let code = CGKeyCode(action.keyCode)
@@ -6173,6 +6227,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
             return true
         case .brightnessDown:
             startSystemKeyRepeat(for: owner, systemKey: .brightnessDown, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .brightnessUpSmall:
+            startSystemKeyRepeat(for: owner, systemKey: .brightnessUpSmall, initialDelay: cadenceNs, interval: cadenceNs)
+            return true
+        case .brightnessDownSmall:
+            startSystemKeyRepeat(for: owner, systemKey: .brightnessDownSmall, initialDelay: cadenceNs, interval: cadenceNs)
             return true
         default:
             return false
