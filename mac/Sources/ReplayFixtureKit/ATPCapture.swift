@@ -498,7 +498,8 @@ public enum ATPCaptureCodec {
                 minorAxis: Float(contact.minorAxis),
                 angle: Float(contact.angle),
                 density: Float(contact.density),
-                state: contact.state
+                state: contact.state,
+                telemetry: contact.telemetry
             )
         }
         let rawTouches = try frame.contacts.map { contact in
@@ -518,7 +519,8 @@ public enum ATPCaptureCodec {
                 minorAxis: Float(contact.minorAxis),
                 angle: Float(contact.angle),
                 density: Float(contact.density),
-                state: contact.state
+                state: contact.state,
+                telemetry: contact.telemetry
             )
         }
         let payload = CurrentProcessedFrameRecordPayload(
@@ -649,7 +651,8 @@ public enum ATPCaptureCodec {
             minorAxis: Double(contact.minorAxis),
             angle: Double(contact.angle),
             density: Double(contact.density),
-            state: contact.state
+            state: contact.state,
+            telemetry: contact.telemetry
         )
     }
 
@@ -765,6 +768,7 @@ public enum ATPCaptureCodec {
         let angle: Float
         let density: Float
         let state: String
+        let telemetry: ReplayTouchTelemetry?
     }
 
     private struct CurrentProcessedFrameRecordPayload: Encodable {
@@ -797,6 +801,7 @@ public enum ATPCaptureCodec {
         let angle: Float
         let density: Float
         let state: String
+        let telemetry: ReplayTouchTelemetry?
     }
 
     private struct CurrentOMSRawTouchPayload: Encodable {
@@ -810,5 +815,6 @@ public enum ATPCaptureCodec {
         let angle: Float
         let density: Float
         let state: String
+        let telemetry: ReplayTouchTelemetry?
     }
 }

@@ -28,6 +28,7 @@ struct TrackpadSurfaceSnapshot {
     var trackpadSize: CGSize
     var spacing: CGFloat
     var showDetailed: Bool
+    var showTouchTelemetry: Bool = false
     var replayModeEnabled: Bool
     var leftLayout: ContentViewModel.Layout
     var rightLayout: ContentViewModel.Layout
@@ -565,9 +566,60 @@ final class TrackpadSurfaceView: NSView {
             transform.rotate(byRadians: CGFloat(-touch.angle))
             transform.translate(x: -centerX, y: -centerY)
             path.transform(using: transform)
-            NSColor.labelColor.withAlphaComponent(0.95).setFill()
+            let color = snapshot.showTouchTelemetry
+                ? NSColor(calibratedHue: CGFloat(UInt32(bitPattern: touch.id) % 12) / 12.0,
+                          saturation: 0.7, brightness: 0.85, alpha: 1)
+                : NSColor.labelColor.withAlphaComponent(0.95)
+            color.setFill()
             path.fill()
+            if snapshot.showTouchTelemetry {
+                drawTouchTelemetry(touch, center: CGPoint(x: centerX, y: centerY),
+                                   origin: origin, trackpadSize: trackpadSize, color: color)
+            }
         }
+    }
+
+    private func drawTouchTelemetry(
+        _ touch: OMSTouchData, center: CGPoint, origin: CGPoint,
+        trackpadSize: CGSize, color: NSColor
+    ) {
+        let label: String
+        if let raw = touch.telemetry {
+            label = "#\(touch.id)  F:\(raw.fingerID) H:\(raw.handID)"
+            // Show direction only: do not assume a calibrated velocity unit.
+            let vx = CGFloat(raw.velocityX)
+            let vy = CGFloat(raw.velocityY)
+            let magnitude = hypot(vx, vy)
+            if magnitude.isFinite, magnitude > 0.0001 {
+                let end = CGPoint(x: center.x + 25 * vx / magnitude,
+                                  y: center.y - 25 * vy / magnitude)
+                let arrow = NSBezierPath()
+                arrow.move(to: center)
+                arrow.line(to: end)
+                let dx = (end.x - center.x) / 25
+                let dy = (end.y - center.y) / 25
+                arrow.move(to: CGPoint(x: end.x - 6 * dx + 3 * dy, y: end.y - 6 * dy - 3 * dx))
+                arrow.line(to: end)
+                arrow.line(to: CGPoint(x: end.x - 6 * dx - 3 * dy, y: end.y - 6 * dy + 3 * dx))
+                color.setStroke()
+                arrow.lineWidth = 1.5
+                arrow.stroke()
+            }
+        } else {
+            label = "#\(touch.id)  IDs unavailable"
+        }
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
+            .foregroundColor: NSColor.labelColor,
+            .backgroundColor: NSColor.windowBackgroundColor.withAlphaComponent(0.9)
+        ]
+        let text = label as NSString
+        let size = text.size(withAttributes: attributes)
+        let point = CGPoint(
+            x: max(origin.x + 3, min(center.x + 8, origin.x + trackpadSize.width - size.width - 3)),
+            y: max(origin.y + 3, min(center.y + 8, origin.y + trackpadSize.height - size.height - 3))
+        )
+        text.draw(at: point, withAttributes: attributes)
     }
 
     private func drawReplayHighlight(_ rect: CGRect, origin: CGPoint) {

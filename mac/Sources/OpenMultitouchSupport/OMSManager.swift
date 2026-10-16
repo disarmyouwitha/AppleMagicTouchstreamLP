@@ -428,7 +428,8 @@ public final class OMSManager: Sendable {
                 density: touch.density,
                 state: touch.state,
                 timestamp: frame.timestamp,
-                formattedTimestamp: formattedTimestamp
+                formattedTimestamp: formattedTimestamp,
+                telemetry: touch.telemetry
             ))
         }
     }
@@ -494,6 +495,7 @@ public struct OMSRawTouch: Codable, Sendable {
     public let angle: Float
     public let density: Float
     public let state: OMSState
+    public let telemetry: OMSTouchTelemetry?
 
     public init(
         id: Int32,
@@ -505,7 +507,8 @@ public struct OMSRawTouch: Codable, Sendable {
         minorAxis: Float,
         angle: Float,
         density: Float,
-        state: OMSState
+        state: OMSState,
+        telemetry: OMSTouchTelemetry? = nil
     ) {
         self.id = id
         self.posX = posX
@@ -517,6 +520,33 @@ public struct OMSRawTouch: Codable, Sendable {
         self.angle = angle
         self.density = density
         self.state = state
+        self.telemetry = telemetry
+    }
+
+    // Copy while the callback owns the MTTouch memory; no raw pointers escape.
+    init(hardwareTouch touch: MTTouch) {
+        self.init(
+            id: Int32(touch.identifier),
+            posX: touch.normalizedPosition.position.x,
+            posY: touch.normalizedPosition.position.y,
+            total: touch.total,
+            pressure: touch.pressure,
+            majorAxis: touch.majorAxis,
+            minorAxis: touch.minorAxis,
+            angle: touch.angle,
+            density: touch.density,
+            state: OMSState(OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching) ?? .notTouching,
+            telemetry: OMSTouchTelemetry(
+                fingerID: Int32(touch.fingerId), handID: Int32(touch.handId),
+                velocityX: touch.normalizedPosition.velocity.x,
+                velocityY: touch.normalizedPosition.velocity.y,
+                absoluteX: touch.absolutePosition.position.x,
+                absoluteY: touch.absolutePosition.position.y,
+                absoluteVelocityX: touch.absolutePosition.velocity.x,
+                absoluteVelocityY: touch.absolutePosition.velocity.y,
+                sourceFrame: Int32(touch.frame), sourceTimestamp: touch.timestamp
+            )
+        )
     }
 }
 
@@ -590,19 +620,7 @@ private final class RawTouchBuffer {
         reset()
         for index in 0..<count {
             let touch = rawTouches[index]
-            let state = OMSState(OpenMTState(rawValue: UInt(touch.state)) ?? .notTouching) ?? .notTouching
-            storage.advanced(by: index).initialize(to: OMSRawTouch(
-                id: Int32(touch.identifier),
-                posX: touch.normalizedPosition.position.x,
-                posY: touch.normalizedPosition.position.y,
-                total: touch.total,
-                pressure: touch.pressure,
-                majorAxis: touch.majorAxis,
-                minorAxis: touch.minorAxis,
-                angle: touch.angle,
-                density: touch.density,
-                state: state
-            ))
+            storage.advanced(by: index).initialize(to: OMSRawTouch(hardwareTouch: touch))
         }
         self.count = count
     }

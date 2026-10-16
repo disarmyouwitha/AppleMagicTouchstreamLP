@@ -109,6 +109,7 @@ struct RuntimeRawContact: Codable, Sendable {
     var angle: Float
     var density: Float
     var state: OMSState
+    var telemetry: OMSTouchTelemetry? = nil
 }
 
 struct RuntimeRawFrame: Codable, Sendable {
@@ -266,7 +267,8 @@ extension RuntimeRawFrame {
                 minorAxis: touch.minorAxis,
                 angle: touch.angle,
                 density: touch.density,
-                state: touch.state
+                state: touch.state,
+                telemetry: touch.telemetry
             )
         }
     }

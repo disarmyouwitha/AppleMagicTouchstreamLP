@@ -1,3 +1,6 @@
+## REWRITE:
+- Remove Capture / Replay from the app. We can build our own dev tools for capture and replay.
+- Spec based on adaptive keymap.
 ## TODO:
 - volume up smaller step!
 - `Typing feels` bad bro.. did we re-introduce that 2-key buffer before typing?

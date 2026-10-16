@@ -52,6 +52,45 @@ public enum OMSState: String, Codable, Sendable {
     }
 }
 
+/// Raw device fields. Identity codes and absolute-coordinate units are unverified.
+/// A missing telemetry object means the source did not record these fields.
+public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
+    public let fingerID: Int32
+    public let handID: Int32
+    public let velocityX: Float
+    public let velocityY: Float
+    public let absoluteX: Float
+    public let absoluteY: Float
+    public let absoluteVelocityX: Float
+    public let absoluteVelocityY: Float
+    public let sourceFrame: Int32
+    public let sourceTimestamp: Double
+
+    public init(
+        fingerID: Int32,
+        handID: Int32,
+        velocityX: Float,
+        velocityY: Float,
+        absoluteX: Float,
+        absoluteY: Float,
+        absoluteVelocityX: Float,
+        absoluteVelocityY: Float,
+        sourceFrame: Int32,
+        sourceTimestamp: Double
+    ) {
+        self.fingerID = fingerID
+        self.handID = handID
+        self.velocityX = velocityX
+        self.velocityY = velocityY
+        self.absoluteX = absoluteX
+        self.absoluteY = absoluteY
+        self.absoluteVelocityX = absoluteVelocityX
+        self.absoluteVelocityY = absoluteVelocityY
+        self.sourceFrame = sourceFrame
+        self.sourceTimestamp = sourceTimestamp
+    }
+}
+
 public struct OMSTouchData: Codable, CustomStringConvertible, Sendable {
     public var deviceID: String
     public var deviceIndex: Int
@@ -64,6 +103,7 @@ public struct OMSTouchData: Codable, CustomStringConvertible, Sendable {
     public var density: Float
     public var state: OMSState
     public var timestamp: TimeInterval
+    public var telemetry: OMSTouchTelemetry?
     public var formattedTimestamp: String?
 
     public init(
@@ -78,7 +118,8 @@ public struct OMSTouchData: Codable, CustomStringConvertible, Sendable {
         density: Float,
         state: OMSState,
         timestamp: TimeInterval,
-        formattedTimestamp: String? = nil
+        formattedTimestamp: String? = nil,
+        telemetry: OMSTouchTelemetry? = nil
     ) {
         self.deviceID = deviceID
         self.deviceIndex = deviceIndex
@@ -92,6 +133,7 @@ public struct OMSTouchData: Codable, CustomStringConvertible, Sendable {
         self.state = state
         self.timestamp = timestamp
         self.formattedTimestamp = formattedTimestamp
+        self.telemetry = telemetry
     }
 
     public var description: String {

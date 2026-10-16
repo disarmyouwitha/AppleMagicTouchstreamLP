@@ -16,6 +16,45 @@ public struct ReplayFixtureMeta: Sendable, Equatable {
     }
 }
 
+/// Raw device fields. Identity codes and absolute-coordinate units are unverified.
+/// A missing telemetry object means the source did not record these fields.
+public struct ReplayTouchTelemetry: Codable, Sendable, Equatable {
+    public let fingerID: Int32
+    public let handID: Int32
+    public let velocityX: Float
+    public let velocityY: Float
+    public let absoluteX: Float
+    public let absoluteY: Float
+    public let absoluteVelocityX: Float
+    public let absoluteVelocityY: Float
+    public let sourceFrame: Int32
+    public let sourceTimestamp: Double
+
+    public init(
+        fingerID: Int32,
+        handID: Int32,
+        velocityX: Float,
+        velocityY: Float,
+        absoluteX: Float,
+        absoluteY: Float,
+        absoluteVelocityX: Float,
+        absoluteVelocityY: Float,
+        sourceFrame: Int32,
+        sourceTimestamp: Double
+    ) {
+        self.fingerID = fingerID
+        self.handID = handID
+        self.velocityX = velocityX
+        self.velocityY = velocityY
+        self.absoluteX = absoluteX
+        self.absoluteY = absoluteY
+        self.absoluteVelocityX = absoluteVelocityX
+        self.absoluteVelocityY = absoluteVelocityY
+        self.sourceFrame = sourceFrame
+        self.sourceTimestamp = sourceTimestamp
+    }
+}
+
 public struct ReplayContactRecord: Sendable, Equatable {
     public let id: Int
     public let x: Double
@@ -27,6 +66,7 @@ public struct ReplayContactRecord: Sendable, Equatable {
     public let angle: Double
     public let density: Double
     public let state: String
+    public let telemetry: ReplayTouchTelemetry?
 
     public init(
         id: Int,
@@ -38,7 +78,8 @@ public struct ReplayContactRecord: Sendable, Equatable {
         minorAxis: Double,
         angle: Double,
         density: Double,
-        state: String
+        state: String,
+        telemetry: ReplayTouchTelemetry? = nil
     ) {
         self.id = id
         self.x = x
@@ -50,6 +91,7 @@ public struct ReplayContactRecord: Sendable, Equatable {
         self.angle = angle
         self.density = density
         self.state = state
+        self.telemetry = telemetry
     }
 }
 
@@ -192,6 +234,7 @@ public struct RuntimeRawContact: Sendable {
     public var angle: Float
     public var density: Float
     public var state: String
+    public var telemetry: ReplayTouchTelemetry?
 
     public init(
         id: Int32,
@@ -202,7 +245,8 @@ public struct RuntimeRawContact: Sendable {
         minorAxis: Float,
         angle: Float,
         density: Float,
-        state: String
+        state: String,
+        telemetry: ReplayTouchTelemetry? = nil
     ) {
         self.id = id
         self.posX = posX
@@ -213,6 +257,7 @@ public struct RuntimeRawContact: Sendable {
         self.angle = angle
         self.density = density
         self.state = state
+        self.telemetry = telemetry
     }
 }
 
@@ -370,7 +415,8 @@ public enum ReplayHarnessRunner {
                         minorAxis: Float(contact.minorAxis),
                         angle: Float(contact.angle),
                         density: Float(contact.density),
-                        state: contact.state
+                        state: contact.state,
+                        telemetry: contact.telemetry
                     )
                 }
             )

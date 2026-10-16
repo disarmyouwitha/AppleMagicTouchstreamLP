@@ -72,7 +72,7 @@ let package = Package(
         ),
         .testTarget(
             name: "ReplayFixtureKitTests",
-            dependencies: ["ReplayFixtureKit"],
+            dependencies: ["ReplayFixtureKit", "OpenMultitouchSupport"],
             path: "Tests/ReplayFixtureKitTests"
         )
     ]

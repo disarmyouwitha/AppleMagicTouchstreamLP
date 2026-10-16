@@ -25,7 +25,17 @@ private actor CaptureBuffer {
                 minorAxis: Double(touch.minorAxis),
                 angle: Double(touch.angle),
                 density: Double(touch.density),
-                state: touch.state.rawValue
+                state: touch.state.rawValue,
+                telemetry: touch.telemetry.map { raw in
+                    ReplayTouchTelemetry(
+                        fingerID: raw.fingerID, handID: raw.handID,
+                        velocityX: raw.velocityX, velocityY: raw.velocityY,
+                        absoluteX: raw.absoluteX, absoluteY: raw.absoluteY,
+                        absoluteVelocityX: raw.absoluteVelocityX,
+                        absoluteVelocityY: raw.absoluteVelocityY,
+                        sourceFrame: raw.sourceFrame, sourceTimestamp: raw.sourceTimestamp
+                    )
+                }
             )
         }
 

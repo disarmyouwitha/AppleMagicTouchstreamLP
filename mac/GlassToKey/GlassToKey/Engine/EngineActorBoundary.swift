@@ -636,7 +636,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 angle: touch.angle,
                 density: touch.density,
                 state: touch.state,
-                timestamp: frame.timestamp
+                timestamp: frame.timestamp,
+                telemetry: touch.telemetry
             )
         }
     }
@@ -657,7 +658,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                     angle: touch.angle,
                     density: touch.density,
                     state: touch.state,
-                    timestamp: frame.timestamp
+                    timestamp: frame.timestamp,
+                    telemetry: touch.telemetry
                 )
             }
         }
@@ -673,7 +675,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 angle: contact.angle,
                 density: contact.density,
                 state: contact.state,
-                timestamp: frame.timestamp
+                timestamp: frame.timestamp,
+                telemetry: contact.telemetry
             )
         }
     }
