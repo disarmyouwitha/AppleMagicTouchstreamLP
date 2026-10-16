@@ -699,3 +699,262 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         return containsTransition(left) || containsTransition(right)
     }
 }
+
+#if SWIFT_PACKAGE
+import ReplayFixtureKit
+
+/// Runs the same recognizer compiled into GlassToKey, with no native output.
+/// App/UI model types are compiled for compatibility; no model or application is started.
+@MainActor
+final class ProductionReplaySession {
+    final class Output: @unchecked Sendable {
+        var events: [RuntimeDispatchEvent] = []
+        var voiceTransitions: [Bool] = []
+        var intents = SidePair(left: ContentViewModel.IntentDisplay.idle,
+                               right: ContentViewModel.IntentDisplay.idle)
+    }
+    let scheduler: ReplayTouchEngineScheduler
+    let output = Output()
+    let engine: TouchProcessorEngine
+
+    init(startTime: TimeInterval = 0) {
+        let scheduler = ReplayTouchEngineScheduler(startTime: startTime)
+        self.scheduler = scheduler
+        let output = self.output
+        let sink = DispatchService(recordingWith: scheduler) { output.events.append($0) }
+        engine = TouchProcessorEngine(
+            executionQueue: DispatchQueue(label: "ink.ranna.GlassToKey.OfflineRecognition"),
+            dispatchService: sink, scheduler: scheduler,
+            voiceSessionChanged: { output.voiceTransitions.append($0) },
+            onTypingEnabledChanged: { _ in }, onActiveLayerChanged: { _ in },
+            onDebugBindingDetected: { _ in }, onContactCountChanged: { _ in },
+            onIntentStateChanged: { output.intents = $0 }, onVoiceGestureChanged: { _ in }
+        )
+        engine.setCaptureFrameDiagnosticsEnabled(true)
+    }
+
+    func configure(profile: AppKeymapProfile, leftIndex: Int?, rightIndex: Int?) {
+        let preset = TrackpadLayoutPreset.resolveByNameOrDefault(profile.layoutPreset)
+        let name = preset.rawValue
+        let size = CGSize(width: ContentView.trackpadWidthMM * ContentView.displayScale,
+                          height: ContentView.trackpadHeightMM * ContentView.displayScale)
+        let settings = profile.columnSettingsByLayout[name]
+            ?? ColumnLayoutDefaults.defaultSettings(columns: preset.columns)
+        let geometry = profile.keyGeometryByLayout?[name] ?? [:]
+        let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
+        func layout(mirrored: Bool) -> ContentViewModel.Layout {
+            if preset == .mobile {
+                return mirrored ? ContentViewModel.Layout(keyRects: [], trackpadSize: size)
+                    : ContentView.makeMobileKeyLayout(size: size, keyGeometryOverrides: geometry)
+            }
+            return ContentView.makeKeyLayout(
+                size: size, keyWidth: ContentView.baseKeyWidthMM,
+                keyHeight: ContentView.baseKeyHeightMM,
+                columns: preset.columns, rows: preset.rows,
+                trackpadWidth: ContentView.trackpadWidthMM,
+                trackpadHeight: ContentView.trackpadHeightMM,
+                columnAnchorsMM: preset.columnAnchors, columnSettings: settings,
+                keySpacingPercent: spacing, keyGeometryOverrides: geometry, mirrored: mirrored
+            )
+        }
+        engine.updateLayouts(leftLayout: layout(mirrored: true), rightLayout: layout(mirrored: false),
+                             leftLabels: preset.leftLabels, rightLabels: preset.rightLabels,
+                             trackpadSize: size, trackpadWidthMm: ContentView.trackpadWidthMM)
+        engine.updateActiveDevices(leftIndex: leftIndex, rightIndex: rightIndex,
+                                   leftDeviceID: profile.leftDeviceID, rightDeviceID: profile.rightDeviceID)
+        let layers = profile.customButtonsByLayout[name] ?? [:]
+        engine.updateCustomButtons(layers.keys.sorted().flatMap { layers[$0] ?? [] })
+        engine.updateKeyMappings(profile.keyMappingsByLayout?[name] ?? [:])
+        engine.updateHoldThreshold(profile.tapHoldDurationMs / 1000)
+        engine.updateDragCancelDistance(CGFloat(profile.dragCancelDistance))
+        engine.updateTypingGrace(profile.typingGraceMs)
+        engine.updateIntentMoveThreshold(profile.intentMoveThresholdMm)
+        engine.updateIntentVelocityThreshold(profile.intentVelocityThresholdMmPerSec)
+        engine.updateForceClickMin(profile.forceClickMin ?? GlassToKeySettings.forceClickMin)
+        engine.updateForceClickCap(profile.forceClickCap)
+        engine.updateForceClickThreshold(profile.forceClickThreshold)
+        engine.updateHapticStrength(profile.hapticStrength)
+        engine.updateSnapRadiusPercent(profile.snapRadiusPercent)
+        engine.updateKeyboardModeEnabled(profile.keyboardModeEnabled)
+        engine.updateHoldRepeatEnabled(profile.holdRepeatEnabled)
+        engine.updateTapClickCadence(profile.tapClickCadenceMs)
+        engine.updateGestureRepeatCadenceMsById(profile.gestureRepeatCadenceMsById)
+        engine.updateGestureActions(GestureActionSet(
+            twoFingerTap: KeyActionCatalog.action(for: profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerTap: KeyActionCatalog.action(for: profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            twoFingerHold: KeyActionCatalog.action(for: profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerHold: KeyActionCatalog.action(for: profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerHold: KeyActionCatalog.action(for: profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            outerCornersHold: KeyActionCatalog.action(for: profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            innerCornersHold: KeyActionCatalog.action(for: profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            leftEdgeUp: KeyActionCatalog.action(for: profile.leftEdgeUpGestureAction ?? GlassToKeySettings.leftEdgeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            leftEdgeDown: KeyActionCatalog.action(for: profile.leftEdgeDownGestureAction ?? GlassToKeySettings.leftEdgeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            rightEdgeUp: KeyActionCatalog.action(for: profile.rightEdgeUpGestureAction ?? GlassToKeySettings.rightEdgeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            rightEdgeDown: KeyActionCatalog.action(for: profile.rightEdgeDownGestureAction ?? GlassToKeySettings.rightEdgeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topEdgeLeft: KeyActionCatalog.action(for: profile.topEdgeLeftGestureAction ?? GlassToKeySettings.topEdgeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topEdgeRight: KeyActionCatalog.action(for: profile.topEdgeRightGestureAction ?? GlassToKeySettings.topEdgeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomEdgeLeft: KeyActionCatalog.action(for: profile.bottomEdgeLeftGestureAction ?? GlassToKeySettings.bottomEdgeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomEdgeRight: KeyActionCatalog.action(for: profile.bottomEdgeRightGestureAction ?? GlassToKeySettings.bottomEdgeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerSwipeLeft: KeyActionCatalog.action(for: profile.threeFingerSwipeLeftGestureAction ?? GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerSwipeRight: KeyActionCatalog.action(for: profile.threeFingerSwipeRightGestureAction ?? GlassToKeySettings.threeFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerSwipeUp: KeyActionCatalog.action(for: profile.threeFingerSwipeUpGestureAction ?? GlassToKeySettings.threeFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerSwipeDown: KeyActionCatalog.action(for: profile.threeFingerSwipeDownGestureAction ?? GlassToKeySettings.threeFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerSwipeLeft: KeyActionCatalog.action(for: profile.fourFingerSwipeLeftGestureAction ?? GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerSwipeRight: KeyActionCatalog.action(for: profile.fourFingerSwipeRightGestureAction ?? GlassToKeySettings.fourFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerSwipeUp: KeyActionCatalog.action(for: profile.fourFingerSwipeUpGestureAction ?? GlassToKeySettings.fourFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerSwipeDown: KeyActionCatalog.action(for: profile.fourFingerSwipeDownGestureAction ?? GlassToKeySettings.fourFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fiveFingerSwipeLeft: KeyActionCatalog.action(for: profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fiveFingerSwipeRight: KeyActionCatalog.action(for: profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fiveFingerSwipeUp: KeyActionCatalog.action(for: profile.fiveFingerSwipeUpGestureAction ?? GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fiveFingerSwipeDown: KeyActionCatalog.action(for: profile.fiveFingerSwipeDownGestureAction ?? GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topLeftCornerSwipe: KeyActionCatalog.action(for: profile.topLeftCornerSwipeGestureAction ?? GlassToKeySettings.topLeftCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topRightCornerSwipe: KeyActionCatalog.action(for: profile.topRightCornerSwipeGestureAction ?? GlassToKeySettings.topRightCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomLeftCornerSwipe: KeyActionCatalog.action(for: profile.bottomLeftCornerSwipeGestureAction ?? GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomRightCornerSwipe: KeyActionCatalog.action(for: profile.bottomRightCornerSwipeGestureAction ?? GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topLeftTriangle: KeyActionCatalog.action(for: profile.topLeftTriangleGestureAction ?? GlassToKeySettings.topLeftTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topRightTriangle: KeyActionCatalog.action(for: profile.topRightTriangleGestureAction ?? GlassToKeySettings.topRightTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomLeftTriangle: KeyActionCatalog.action(for: profile.bottomLeftTriangleGestureAction ?? GlassToKeySettings.bottomLeftTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomRightTriangle: KeyActionCatalog.action(for: profile.bottomRightTriangleGestureAction ?? GlassToKeySettings.bottomRightTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            upperLeftCornerClick: KeyActionCatalog.action(for: profile.upperLeftCornerClickGestureAction ?? GlassToKeySettings.upperLeftCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            upperRightCornerClick: KeyActionCatalog.action(for: profile.upperRightCornerClickGestureAction ?? GlassToKeySettings.upperRightCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            lowerLeftCornerClick: KeyActionCatalog.action(for: profile.lowerLeftCornerClickGestureAction ?? GlassToKeySettings.lowerLeftCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            lowerRightCornerClick: KeyActionCatalog.action(for: profile.lowerRightCornerClickGestureAction ?? GlassToKeySettings.lowerRightCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            threeFingerClick: KeyActionCatalog.action(for: profile.threeFingerClickGestureAction ?? GlassToKeySettings.threeFingerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            fourFingerClick: KeyActionCatalog.action(for: profile.fourFingerClickGestureAction ?? GlassToKeySettings.fourFingerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topLeftForceClick: KeyActionCatalog.action(for: profile.topLeftForceClickGestureAction ?? GlassToKeySettings.topLeftForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            topRightForceClick: KeyActionCatalog.action(for: profile.topRightForceClickGestureAction ?? GlassToKeySettings.topRightForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomLeftForceClick: KeyActionCatalog.action(for: profile.bottomLeftForceClickGestureAction ?? GlassToKeySettings.bottomLeftForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
+            bottomRightForceClick: KeyActionCatalog.action(for: profile.bottomRightForceClickGestureAction ?? GlassToKeySettings.bottomRightForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction
+        ))
+        engine.setPersistentLayer(profile.activeLayer ?? KeyLayerConfig.baseLayer)
+        engine.setListening(true)
+    }
+
+    @discardableResult
+    func ingest(_ frame: RuntimeRawFrame) -> RuntimeFrameDiagnostic? {
+        scheduler.advance(to: frame.timestamp)
+        return engine.processRuntimeRawFrame(frame)
+    }
+
+    func finish(at time: TimeInterval) {
+        scheduler.advance(to: time)
+        engine.resetState(stopVoiceDictation: true)
+        engine.setListening(false)
+    }
+}
+
+/// Public CLI boundary; transcripts contain actual recognition decisions and output commands.
+@MainActor
+public enum ProductionReplayHarness {
+    public struct Result {
+        public let transcript: String
+        public let frameCount: Int
+    }
+
+    public static func run(captureURL: URL, profileURL: URL? = nil,
+                           tailSeconds: Double = 0.25) throws -> Result {
+        guard tailSeconds.isFinite, tailSeconds >= 0 else {
+            throw ReplayFixtureError.invalidATPCapture(reason: "replay tail must be finite and nonnegative")
+        }
+        let fixture = try ReplayFixtureParser.load(from: captureURL)
+        // v5 captures retain the app's configuration. Legacy fixtures need an explicit
+        // profile or the deterministic factory profile (identified in the transcript).
+        let container = try ATPCaptureCodec.loadContainer(from: captureURL)
+        let replay = container.header.version == ATPCaptureV3Codec.currentVersion
+            ? try ATPCaptureV3Codec.readReplayData(from: captureURL) : nil
+        let profile: AppKeymapProfile
+        let profileSource: String
+        if let profileURL {
+            let data = try Data(contentsOf: profileURL)
+            if let portable = PortableKeymapInterop.decodeBundledDefaultProfile(from: data) {
+                profile = portable
+            } else {
+                profile = try JSONDecoder().decode(AppKeymapProfile.self, from: data)
+            }
+            profileSource = "explicit"
+        } else if let captured = replay?.configuration {
+            profile = captured
+            profileSource = "capture"
+        } else {
+            profile = AppKeymapProfile.defaultProfile()
+            profileSource = "factory-default"
+        }
+        let indices = Array(Set(fixture.frames.map(\.deviceIndex))).sorted()
+        func index(for id: String) -> Int? {
+            fixture.frames.first { $0.deviceID == id }?.deviceIndex
+        }
+        let configuredLeft = index(for: profile.leftDeviceID)
+        let configuredRight = index(for: profile.rightDeviceID)
+        let left = configuredLeft ?? indices.first { $0 != configuredRight }
+        let right = configuredRight ?? indices.first { $0 != left }
+        let firstTime = replay?.records.first?.frame.timestamp ?? fixture.frames.first?.timestampSec ?? 0
+        let session = ProductionReplaySession(startTime: firstTime)
+        session.configure(profile: profile, leftIndex: left, rightIndex: right)
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.sortedKeys]
+        func line<T: Encodable>(_ value: T) throws -> String {
+            String(decoding: try encoder.encode(value), as: UTF8.self)
+        }
+        var lines = [try line(["type": "productionReplayMeta", "engine": "TouchProcessorEngine",
+                               "schema": "g2k-production-replay-v1", "configuration": profileSource,
+                               "leftDeviceIndex": left.map(String.init) ?? "none",
+                               "rightDeviceIndex": right.map(String.init) ?? "none"])]
+        var eventOffset = 0
+        var voiceOffset = 0
+        var lastTime = firstTime
+        for (frameIndex, frame) in fixture.frames.enumerated() {
+            let timestamp = replay?.records[frameIndex].frame.timestamp ?? frame.timestampSec
+            guard timestamp.isFinite, timestamp >= lastTime else {
+                throw ReplayFixtureError.invalidATPCapture(reason: "non-monotonic replay timestamps")
+            }
+            let touches = frame.contacts.map { contact in
+                OMSRawTouch(id: Int32(contact.id), posX: Float(contact.x), posY: Float(contact.y),
+                            total: Float(contact.total), pressure: Float(contact.pressure),
+                            majorAxis: Float(contact.majorAxis), minorAxis: Float(contact.minorAxis),
+                            angle: Float(contact.angle), density: Float(contact.density),
+                            state: OMSState(rawValue: contact.state) ?? .notTouching,
+                            telemetry: contact.telemetry.map { raw in
+                                OMSTouchTelemetry(
+                                    fingerID: raw.fingerID, handID: raw.handID,
+                                    velocityX: raw.velocityX, velocityY: raw.velocityY,
+                                    absoluteX: raw.absoluteX, absoluteY: raw.absoluteY,
+                                    absoluteVelocityX: raw.absoluteVelocityX,
+                                    absoluteVelocityY: raw.absoluteVelocityY,
+                                    sourceFrame: raw.sourceFrame, sourceTimestamp: raw.sourceTimestamp
+                                )
+                            })
+            }
+            // v5 uses the app-decoded raw payload, including total capacitance and
+            // telemetry. Only legacy fixture formats need contact reconstruction.
+            let raw = replay?.records[frameIndex].frame ?? RuntimeRawFrame(
+                sequence: UInt64(frame.seq), timestamp: timestamp,
+                deviceNumericID: frame.deviceNumericID, deviceIndex: frame.deviceIndex,
+                contacts: [], rawTouches: touches
+            )
+            let diagnostic = session.ingest(raw)
+            lines.append(try line(FrameLine(type: "frame", sequence: raw.sequence,
+                                            timestamp: raw.timestamp, diagnostic: diagnostic,
+                                            events: Array(session.output.events.dropFirst(eventOffset)),
+                                            voiceTransitions: Array(session.output.voiceTransitions.dropFirst(voiceOffset)))))
+            eventOffset = session.output.events.count
+            voiceOffset = session.output.voiceTransitions.count
+            lastTime = timestamp
+        }
+        session.finish(at: lastTime + max(0, tailSeconds))
+        lines.append(try line(FrameLine(type: "finish", sequence: nil,
+                                        timestamp: session.scheduler.now, diagnostic: nil,
+                                        events: Array(session.output.events.dropFirst(eventOffset)),
+                                        voiceTransitions: Array(session.output.voiceTransitions.dropFirst(voiceOffset)))))
+        return Result(transcript: lines.joined(separator: "\n") + "\n", frameCount: fixture.frames.count)
+    }
+
+    private struct FrameLine: Encodable {
+        let type: String
+        let sequence: UInt64?
+        let timestamp: Double
+        let diagnostic: RuntimeFrameDiagnostic?
+        let events: [RuntimeDispatchEvent]
+        let voiceTransitions: [Bool]
+    }
+}
+#endif

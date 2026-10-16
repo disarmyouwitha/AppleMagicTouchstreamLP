@@ -1,8 +1,10 @@
 import Foundation
 import ReplayFixtureKit
+import GlassToKeyRuntime
 
 private struct Options {
-    var fixturePath: String = "ReplayFixtures/macos_first_capture_2026-02-20.atpcap"
+    var fixturePath: String = "ReplayFixtures/production_typing.atpcap"
+    var profilePath: String? = nil
     var outputPath: String? = nil
     var expectedTranscriptPath: String? = nil
 }
@@ -14,17 +16,15 @@ struct ReplayHarnessMain {
         let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let fixtureURL = URL(fileURLWithPath: options.fixturePath, relativeTo: cwd).standardizedFileURL
 
-        let fixture: ReplayFixture
+        let replay: ProductionReplayHarness.Result
         do {
-            fixture = try ReplayFixtureParser.load(from: fixtureURL)
+            let profileURL = options.profilePath.map { URL(fileURLWithPath: $0, relativeTo: cwd).standardizedFileURL }
+            replay = try await ProductionReplayHarness.run(captureURL: fixtureURL, profileURL: profileURL)
         } catch {
-            fputs("Failed to load replay fixture: \(error)\n", stderr)
+            fputs("Failed to replay production engine: \(error)\n", stderr)
             Foundation.exit(1)
         }
-
-        let transcript = await ReplayHarnessRunner.run(fixture: fixture)
-        let lines = ReplayHarnessRunner.transcriptJSONLines(fixture: fixture, transcript: transcript)
-        let payload = lines.joined(separator: "\n") + "\n"
+        let payload = replay.transcript
 
         if let expectedPath = options.expectedTranscriptPath {
             let expectedURL = URL(fileURLWithPath: expectedPath, relativeTo: cwd).standardizedFileURL
@@ -61,7 +61,7 @@ struct ReplayHarnessMain {
             print(payload, terminator: "")
         }
 
-        print("Frames processed: \(fixture.frames.count)")
+        print("Frames processed: \(replay.frameCount)")
     }
 
     private static func parseOptions(arguments: [String]) -> Options {
@@ -72,6 +72,11 @@ struct ReplayHarnessMain {
             case "--fixture":
                 if index + 1 < arguments.count {
                     options.fixturePath = arguments[index + 1]
+                    index += 1
+                }
+            case "--profile":
+                if index + 1 < arguments.count {
+                    options.profilePath = arguments[index + 1]
                     index += 1
                 }
             case "--output":

@@ -5,17 +5,6 @@ import SwiftUI
 import UniformTypeIdentifiers
 import os
 
-enum InputMonitoringPermission {
-    static func hasListenAccess() -> Bool {
-        CGPreflightListenEventAccess()
-    }
-
-    @discardableResult
-    static func requestListenAccessIfNeeded() -> Bool {
-        guard !hasListenAccess() else { return true }
-        return CGRequestListenEventAccess()
-    }
-}
 
 @main
 struct GlassToKeyApp: App {
@@ -585,33 +574,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         task.arguments = ["-n", bundlePath, "--args", Self.relaunchArgument]
         try? task.run()
         NSApp.terminate(nil)
-    }
-}
-
-@MainActor
-final class LaunchAtLoginManager {
-    static let shared = LaunchAtLoginManager()
-
-    private init() {}
-
-    var isEnabled: Bool {
-        if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status == .enabled
-        }
-        return false
-    }
-
-    func setEnabled(_ enabled: Bool) throws {
-        if #available(macOS 13.0, *) {
-            if enabled == isEnabled {
-                return
-            }
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        }
     }
 }
 

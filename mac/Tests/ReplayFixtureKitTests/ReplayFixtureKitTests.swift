@@ -64,11 +64,11 @@ final class ReplayFixtureKitTests: XCTestCase {
         }
     }
 
-    func testTranscriptDeterminismForBaselineFixture() async throws {
+    func testContactCountSmokeModelIsDeterministic() async throws {
         let fixture = try ReplayFixtureParser.load(from: fixtureURL())
 
-        let first = await ReplayHarnessRunner.run(fixture: fixture)
-        let second = await ReplayHarnessRunner.run(fixture: fixture)
+        let first = await ReplayHarnessRunner.run(fixture: fixture, engine: ContactCountSmokeEngine())
+        let second = await ReplayHarnessRunner.run(fixture: fixture, engine: ContactCountSmokeEngine())
 
         XCTAssertEqual(first.count, fixture.frames.count)
         XCTAssertEqual(first, second)
@@ -91,15 +91,6 @@ final class ReplayFixtureKitTests: XCTestCase {
             nonCanonical.isEmpty,
             "Non-canonical transcript baseline names detected: \(nonCanonical.joined(separator: ", "))"
         )
-    }
-
-    func testTranscriptMatchesCommittedEngineBaseline() async throws {
-        let fixture = try ReplayFixtureParser.load(from: fixtureURL())
-        let transcript = await ReplayHarnessRunner.run(fixture: fixture)
-        let lines = ReplayHarnessRunner.transcriptJSONLines(fixture: fixture, transcript: transcript)
-        let payload = lines.joined(separator: "\n") + "\n"
-        let expected = try String(contentsOf: engineTranscriptURL(), encoding: .utf8)
-        XCTAssertEqual(payload, expected)
     }
 
     func testATPCaptureRoundTripFromBaselineFixture() throws {
@@ -154,7 +145,7 @@ final class ReplayFixtureKitTests: XCTestCase {
         XCTAssertEqual(fixture.frames[1].timestampSec, 0.5, accuracy: 0.000001)
         XCTAssertEqual(fixture.frames[0].contacts.first?.state, "touching")
 
-        let transcript = await ReplayHarnessRunner.run(fixture: fixture)
+        let transcript = await ReplayHarnessRunner.run(fixture: fixture, engine: ContactCountSmokeEngine())
         XCTAssertEqual(transcript.count, fixture.frames.count)
         XCTAssertEqual(transcript.last?.captureFrames, 2)
     }
@@ -180,11 +171,6 @@ final class ReplayFixtureKitTests: XCTestCase {
 
     private func fixtureURL() -> URL {
         URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.atpcap", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
-            .standardizedFileURL
-    }
-
-    private func engineTranscriptURL() -> URL {
-        URL(fileURLWithPath: "ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl", relativeTo: URL(fileURLWithPath: FileManager.default.currentDirectoryPath))
             .standardizedFileURL
     }
 

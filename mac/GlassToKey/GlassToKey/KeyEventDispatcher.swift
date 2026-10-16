@@ -5,6 +5,19 @@ import Foundation
 import OpenMultitouchSupport
 import os
 
+enum InputMonitoringPermission {
+    static func hasListenAccess() -> Bool {
+        CGPreflightListenEventAccess()
+    }
+
+    @discardableResult
+    static func requestListenAccessIfNeeded() -> Bool {
+        guard !hasListenAccess() else { return true }
+        return CGRequestListenEventAccess()
+    }
+}
+
+
 final class KeyEventDispatcher: @unchecked Sendable {
     static let shared = KeyEventDispatcher()
 
@@ -812,7 +825,9 @@ final class DispatchService: @unchecked Sendable {
         var nextCommandID: UInt64 = 1
     }
 
-    private let keyDispatcher: KeyEventDispatcher
+    private let keyDispatcher: KeyEventDispatcher?
+    private let recordingSink: ((RuntimeDispatchEvent) -> Void)?
+    private let recordingScheduler: (any TouchEngineScheduler)?
     private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let recordedEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
@@ -823,6 +838,16 @@ final class DispatchService: @unchecked Sendable {
 
     init(keyDispatcher: KeyEventDispatcher = .shared) {
         self.keyDispatcher = keyDispatcher
+        self.recordingSink = nil
+        self.recordingScheduler = nil
+    }
+
+    /// Synchronous recording boundary: never posts keys, clicks, haptics, or launches apps.
+    init(recordingWith scheduler: any TouchEngineScheduler,
+         sink: @escaping (RuntimeDispatchEvent) -> Void) {
+        self.keyDispatcher = nil
+        self.recordingSink = sink
+        self.recordingScheduler = scheduler
     }
 
     func postKeyStroke(
@@ -876,7 +901,7 @@ final class DispatchService: @unchecked Sendable {
     }
 
     func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
-        keyDispatcher.setThreeFingerHoldDragSuppression(enabled)
+        keyDispatcher?.setThreeFingerHoldDragSuppression(enabled)
     }
 
     func postMiddleClick(sourceSequence: UInt64? = nil) {
@@ -939,6 +964,21 @@ final class DispatchService: @unchecked Sendable {
     }
 
     private func enqueue(_ payload: CommandPayload, sourceSequence: UInt64?) {
+        if let recordingSink {
+            let command = stateLock.withLockUnchecked { state in
+                let command = Command(id: state.nextCommandID, payload: payload, sourceSequence: sourceSequence)
+                state.nextCommandID &+= 1
+                return command
+            }
+            // Match cancellation semantics of the native key dispatcher.
+            switch payload {
+            case let .keyStroke(_, _, _, token), let .key(_, _, _, _, token):
+                if let token, !token.isActive { return }
+            default: break
+            }
+            recordingSink(recordedEvent(for: command, status: .posted))
+            return
+        }
         var shouldSchedulePump = false
         var enqueuedCommand: Command?
         stateLock.withLockUnchecked { state in
@@ -986,14 +1026,14 @@ final class DispatchService: @unchecked Sendable {
     private func dispatch(_ command: Command) {
         switch command.payload {
         case let .keyStroke(code, flags, altAscii, token):
-            keyDispatcher.postKeyStrokeImmediate(
+            keyDispatcher?.postKeyStrokeImmediate(
                 code: code,
                 flags: flags,
                 altAscii: altAscii,
                 token: token
             )
         case let .key(code, flags, keyDown, altAscii, token):
-            keyDispatcher.postKeyImmediate(
+            keyDispatcher?.postKeyImmediate(
                 code: code,
                 flags: flags,
                 keyDown: keyDown,
@@ -1003,13 +1043,13 @@ final class DispatchService: @unchecked Sendable {
         case let .appLaunch(actionLabel):
             appLaunchDispatcher.open(actionLabel)
         case let .leftClick(clickCount):
-            keyDispatcher.postLeftClickImmediate(clickCount: clickCount)
+            keyDispatcher?.postLeftClickImmediate(clickCount: clickCount)
         case .rightClick:
-            keyDispatcher.postRightClickImmediate()
+            keyDispatcher?.postRightClickImmediate()
         case .middleClick:
-            keyDispatcher.postMiddleClickImmediate()
+            keyDispatcher?.postMiddleClickImmediate()
         case let .systemKey(key):
-            keyDispatcher.postSystemKeyImmediate(key)
+            keyDispatcher?.postSystemKeyImmediate(key)
         case let .haptic(strength, deviceID):
             _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
         }
@@ -1095,8 +1135,8 @@ final class DispatchService: @unchecked Sendable {
             commandID: commandID,
             kind: kind,
             status: status,
-            timestamp: ProcessInfo.processInfo.systemUptime,
-            uptimeNanoseconds: DispatchTime.now().uptimeNanoseconds,
+            timestamp: recordingScheduler?.now ?? ProcessInfo.processInfo.systemUptime,
+            uptimeNanoseconds: recordingScheduler?.uptimeNanoseconds ?? DispatchTime.now().uptimeNanoseconds,
             sourceSequence: sourceSequence
         )
     }

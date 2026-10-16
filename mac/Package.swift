@@ -50,6 +50,20 @@ let package = Package(
             name: "ReplayFixtureKit",
             dependencies: []
         ),
+        // Compile the app's production sources directly, without launching its UI.
+        .target(
+            name: "GlassToKeyRuntime",
+            dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit"],
+            path: "GlassToKey/GlassToKey",
+            exclude: ["GlassToKeyApp.swift", "Assets.xcassets", "GlassToKey.entitlements",
+                      "GLASSTOKEY_DEFAULT_KEYMAP.json", "MY_KEYMAP.json"],
+            swiftSettings: [.swiftLanguageMode(.v6)]
+        ),
+        .testTarget(
+            name: "ProductionEngineTests",
+            dependencies: ["GlassToKeyRuntime", "ReplayFixtureKit"],
+            path: "Tests/ProductionEngineTests"
+        ),
         .executableTarget(
             name: "ReplayFixtureCapture",
             dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit"],
@@ -57,7 +71,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "ReplayHarness",
-            dependencies: ["ReplayFixtureKit"],
+            dependencies: ["ReplayFixtureKit", "GlassToKeyRuntime"],
             path: "Tools/ReplayHarness"
         ),
         .executableTarget(

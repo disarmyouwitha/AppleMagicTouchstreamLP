@@ -7,6 +7,58 @@ import OpenMultitouchSupport
 import QuartzCore
 import os
 
+/// All recognition deadlines use this boundary, including repeats and typing grace.
+/// Implementations run scheduled work on the engine's serial owner.
+protocol TouchEngineScheduler: AnyObject, Sendable {
+    var now: TimeInterval { get }
+    var uptimeNanoseconds: UInt64 { get }
+    func schedule(after delay: TimeInterval, _ action: @escaping @Sendable () -> Void)
+}
+
+final class LiveTouchEngineScheduler: TouchEngineScheduler, @unchecked Sendable {
+    private let queue: DispatchQueue
+    init(queue: DispatchQueue) { self.queue = queue }
+    var now: TimeInterval { CACurrentMediaTime() }
+    var uptimeNanoseconds: UInt64 { DispatchTime.now().uptimeNanoseconds }
+    func schedule(after delay: TimeInterval, _ action: @escaping @Sendable () -> Void) {
+        queue.asyncAfter(deadline: .now() + max(0, delay), execute: action)
+    }
+}
+
+/// Virtual time for offline recognition. Equal deadlines retain insertion order.
+/// The harness must call this and the engine from one serial owner.
+final class ReplayTouchEngineScheduler: TouchEngineScheduler, @unchecked Sendable {
+    private struct Deadline {
+        let time: TimeInterval
+        let ordinal: UInt64
+        let action: @Sendable () -> Void
+    }
+    private var deadlines: [Deadline] = []
+    private var nextOrdinal: UInt64 = 0
+    private(set) var now: TimeInterval
+    var uptimeNanoseconds: UInt64 { UInt64(max(0, now * 1_000_000_000).rounded()) }
+
+    init(startTime: TimeInterval = 0) { now = startTime }
+
+    func schedule(after delay: TimeInterval, _ action: @escaping @Sendable () -> Void) {
+        nextOrdinal &+= 1
+        deadlines.append(Deadline(time: now + max(0, delay), ordinal: nextOrdinal, action: action))
+    }
+
+    func advance(to time: TimeInterval) {
+        precondition(time.isFinite && time >= now, "Replay time must be finite and monotonic")
+        while let next = deadlines.indices.min(by: {
+            let lhs = deadlines[$0], rhs = deadlines[$1]
+            return lhs.time == rhs.time ? lhs.ordinal < rhs.ordinal : lhs.time < rhs.time
+        }), deadlines[next].time <= time {
+            let deadline = deadlines.remove(at: next)
+            now = deadline.time
+            deadline.action()
+        }
+        now = time
+    }
+}
+
 final class TouchProcessorEngine: @unchecked Sendable {
     typealias KeyBinding = ContentViewModel.KeyBinding
     typealias KeyBindingAction = ContentViewModel.KeyBindingAction
@@ -90,9 +142,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         return nil
     }
 
-    private static func nowUptimeNanoseconds() -> UInt64 {
-        DispatchTime.now().uptimeNanoseconds
-    }
 
     private struct IntentConfig {
         var keyBufferSeconds: TimeInterval = 0.02
@@ -489,7 +538,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let snapRadiusSq: [Float]
     }
 
-    private let executionQueue: DispatchQueue
+    private let scheduler: any TouchEngineScheduler
+    private let voiceSessionChanged: @Sendable (Bool) -> Void
     private let dispatchService: DispatchService
     private let onTypingEnabledChanged: @Sendable (Bool) -> Void
     private let onActiveLayerChanged: @Sendable (Int) -> Void
@@ -522,6 +572,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var rightOptionTouchCount = 0
     private var commandTouchCount = 0
     private var repeatEntries: [RepeatOwner: RepeatEntry] = [:]
+    // Dictionary enumeration must not determine the order of simultaneous output.
+    private var repeatOrder: [RepeatOwner] = []
     private var repeatLoopGeneration: UInt64 = 0
     private var repeatLoopScheduled = false
     private var toggleTouchStarts = TouchTable<TimeInterval>()
@@ -946,6 +998,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
     init(
         executionQueue: DispatchQueue,
         dispatchService: DispatchService,
+        scheduler: (any TouchEngineScheduler)? = nil,
+        voiceSessionChanged: @Sendable @escaping (Bool) -> Void = { active in
+            if active { VoiceDictationManager.shared.beginSession() }
+            else { VoiceDictationManager.shared.endSession() }
+        },
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void,
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void,
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,
@@ -953,7 +1010,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
     ) {
-        self.executionQueue = executionQueue
+        self.scheduler = scheduler ?? LiveTouchEngineScheduler(queue: executionQueue)
+        self.voiceSessionChanged = voiceSessionChanged
         self.dispatchService = dispatchService
         self.onTypingEnabledChanged = onTypingEnabledChanged
         self.onActiveLayerChanged = onActiveLayerChanged
@@ -5296,14 +5354,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private func beginVoiceDictationSession() {
         guard !voiceDictationGestureState.isDictating else { return }
         voiceDictationGestureState.isDictating = true
-        VoiceDictationManager.shared.beginSession()
+        voiceSessionChanged(true)
         updateVoiceGestureActivity()
     }
 
     private func endVoiceDictationSession() {
         guard voiceDictationGestureState.isDictating else { return }
         voiceDictationGestureState.isDictating = false
-        VoiceDictationManager.shared.endSession()
+        voiceSessionChanged(false)
         updateVoiceGestureActivity()
     }
 
@@ -5867,7 +5925,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         guard hapticStrength > 0 else { return }
         guard let side else { return }
         if let touchKey, disqualifiedTouches.value(for: touchKey) != nil { return }
-        let now = Self.nowUptimeNanoseconds()
+        let now = scheduler.uptimeNanoseconds
         let last = lastHapticTimeBySide[side]
         if now &- last < Self.hapticMinIntervalNanos { return }
         lastHapticTimeBySide[side] = now
@@ -6032,7 +6090,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) {
         fireInitial()
         let token = RepeatToken()
-        let nextFire = Self.nowUptimeNanoseconds() &+ initialDelay
+        let nextFire = scheduler.uptimeNanoseconds &+ initialDelay
+        repeatOrder.append(owner)
         repeatEntries[owner] = RepeatEntry(
             token: token,
             interval: interval,
@@ -6059,22 +6118,21 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func scheduleNextRepeatPass() {
-        let now = Self.nowUptimeNanoseconds()
+        let now = scheduler.uptimeNanoseconds
         guard let delay = nextRepeatDelay(now: now) else {
             repeatLoopScheduled = false
             return
         }
         repeatLoopGeneration &+= 1
         let generation = repeatLoopGeneration
-        let deadline = DispatchTime.now() + .nanoseconds(Int(clamping: delay))
-        executionQueue.asyncAfter(deadline: deadline) { [weak self] in
+        scheduler.schedule(after: Double(delay) / 1_000_000_000) { [weak self] in
             self?.runRepeatPass(generation: generation)
         }
     }
 
     private func runRepeatPass(generation: UInt64) {
         guard repeatLoopScheduled, repeatLoopGeneration == generation else { return }
-        fireRepeats(now: Self.nowUptimeNanoseconds())
+        fireRepeats(now: scheduler.uptimeNanoseconds)
         guard repeatLoopScheduled else { return }
         scheduleNextRepeatPass()
     }
@@ -6093,7 +6151,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private func fireRepeats(now: UInt64) {
         guard !repeatEntries.isEmpty else { return }
         var toRemove: [RepeatOwner] = []
-        for (key, var entry) in repeatEntries {
+        for key in repeatOrder {
+            guard var entry = repeatEntries[key] else { continue }
             if !entry.token.isActive {
                 toRemove.append(key)
                 continue
@@ -6111,6 +6170,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         for key in toRemove {
             repeatEntries.removeValue(forKey: key)
         }
+        repeatOrder.removeAll { repeatEntries[$0] == nil }
         if repeatEntries.isEmpty {
             repeatLoopScheduled = false
             repeatLoopGeneration &+= 1
@@ -6118,6 +6178,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func stopRepeat(for owner: RepeatOwner) {
+        repeatOrder.removeAll { $0 == owner }
         if let entry = repeatEntries.removeValue(forKey: owner) {
             entry.token.deactivate()
             entry.stop()
@@ -6503,9 +6564,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         typingGraceGeneration &+= 1
         let generation = typingGraceGeneration
         let delay = max(0, deadline - currentTime())
-        let nanoseconds = UInt64((delay * 1_000_000_000).rounded())
-        let dispatchDelay = DispatchTimeInterval.nanoseconds(Int(clamping: nanoseconds))
-        executionQueue.asyncAfter(deadline: .now() + dispatchDelay) { [weak self] in
+        scheduler.schedule(after: delay) { [weak self] in
             guard let self, self.typingGraceGeneration == generation else { return }
             self.expireTypingGraceIfNeeded(deadline: deadline)
         }
@@ -6587,7 +6646,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func currentTime() -> TimeInterval {
-        currentProcessingTimestamp ?? CACurrentMediaTime()
+        currentProcessingTimestamp ?? scheduler.now
     }
 
     private func notifyContactCounts() {

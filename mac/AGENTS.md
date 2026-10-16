@@ -29,7 +29,7 @@
 - Framework rebuild:
   - `./build_framework.sh`
 - Replay transcript parity check:
-  - `swift run ReplayHarness --fixture ReplayFixtures/macos_first_capture_2026-02-20.atpcap --expected-transcript ReplayFixtures/macos_first_capture_2026-02-20.engine.transcript.jsonl`
+  - `swift run ReplayHarness --fixture ReplayFixtures/production_typing.atpcap --expected-transcript ReplayFixtures/production_typing.engine.transcript.jsonl`
 - Raw capture analysis:
   - `swift run RawCaptureAnalyze --raw-analyze ReplayFixtures/macos_first_capture_2026-02-20.atpcap`
 
@@ -53,7 +53,7 @@
   - tracks ingestion metrics with unfair-lock protected state
 - `GlassToKey/GlassToKey/Engine/TouchProcessorEngine.swift`
   - is the core touch/intent/dispatch engine
-  - uses an actor and a custom `TouchTable` implementation to stay hot-path friendly
+  - is confined to a serial queue and uses a custom `TouchTable` implementation to stay hot-path friendly
   - contains intent state, active/pending touches, repeat handling, and runtime diagnostics
 - `GlassToKey/GlassToKey/KeyEventDispatcher.swift`
   - is the single Core Graphics key/mouse posting path
@@ -68,11 +68,13 @@
 - `Tools/ReplayFixtureCapture/`
   - records live OMS frames into replay fixtures
 - `Tools/ReplayHarness/`
-  - generates deterministic engine transcripts and can compare them to committed baselines
+  - runs the actual production TouchProcessorEngine with virtual time and recording output; compares recognition/dispatch transcripts to committed baselines
 - `Tools/RawCaptureAnalyze/`
   - produces raw analysis summaries and optional JSON/CSV outputs
+- `Tests/ProductionEngineTests/`
+  - exercises production taps, modifiers, repeat deadlines, gesture suppression, reset, and captured-configuration parity
 - `Tests/ReplayFixtureKitTests/`
-  - checks fixture parsing, transcript determinism, committed baseline parity, and `.atpcap` round-trips
+  - checks fixture parsing, contact-count smoke behavior, and `.atpcap` round-trips
 
 ## Data And Persistence
 - Most app settings are persisted in `UserDefaults` via `GlassToKeyDefaultsKeys.swift`.

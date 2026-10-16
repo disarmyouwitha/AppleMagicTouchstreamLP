@@ -313,7 +313,8 @@ public protocol EngineActorBoundary: Sendable {
     func statusSnapshot() async -> RuntimeStatusSnapshot
 }
 
-public actor EngineActor: EngineActorBoundary {
+/// Contact-count smoke model only. Production recognition lives in GlassToKeyRuntime.
+public actor ContactCountSmokeEngine: EngineActorBoundary {
     private var latestRender = RuntimeRenderSnapshot()
     private var latestStatus = RuntimeStatusSnapshot()
 
@@ -394,7 +395,7 @@ public struct ReplayTranscriptRecord: Sendable, Equatable {
 public enum ReplayHarnessRunner {
     public static func run(
         fixture: ReplayFixture,
-        engine: any EngineActorBoundary = EngineActor()
+        engine: any EngineActorBoundary
     ) async -> [ReplayTranscriptRecord] {
         var transcript: [ReplayTranscriptRecord] = []
         transcript.reserveCapacity(fixture.frames.count)
