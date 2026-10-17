@@ -696,7 +696,7 @@ final class TrackpadSurfaceView: NSView {
     ) {
         let label: String
         if let raw = touch.telemetry {
-            label = "#\(touch.id)  F:\(raw.fingerID) H:\(raw.handID)"
+            label = "#\(touch.id)  \(raw.fingerName) (F:\(raw.fingerID)) H:\(raw.handID)"
             // Show direction only: do not assume a calibrated velocity unit.
             let vx = CGFloat(raw.velocityX)
             let vy = CGFloat(raw.velocityY)

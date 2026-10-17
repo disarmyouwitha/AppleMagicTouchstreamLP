@@ -56,6 +56,18 @@ public enum OMSState: String, Codable, Sendable {
 /// A missing telemetry object means the source did not record these fields.
 public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
     public let fingerID: Int32
+
+    public var fingerName: String {
+        switch fingerID {
+        case 1: "Thumb"
+        case 2: "Index"
+        case 3: "Middle"
+        case 4: "Ring"
+        case 5: "Pinky"
+        case 6: "Palm"
+        default: "Unknown"
+        }
+    }
     public let handID: Int32
     public let velocityX: Float
     public let velocityY: Float

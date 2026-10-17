@@ -4028,7 +4028,7 @@ struct ContentView: View {
                         Text("Contact #\(touch.id) · \(touch.state.rawValue)").fontWeight(.semibold)
                         Text(String(format: "Normalized position  % .4f, % .4f", touch.position.x, touch.position.y))
                         if let raw = touch.telemetry {
-                            Text("Finger ID \(raw.fingerID)    Hand ID \(raw.handID)")
+                            Text("\(raw.fingerName) · Finger ID \(raw.fingerID)    Hand ID \(raw.handID)")
                             Text(String(format: "Normalized velocity  % .4f, % .4f", raw.velocityX, raw.velocityY))
                             Text(String(format: "Absolute position    % .4f, % .4f", raw.absoluteX, raw.absoluteY))
                             Text(String(format: "Absolute velocity    % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
@@ -4110,7 +4110,7 @@ struct ContentView: View {
                         .popover(isPresented: $showTelemetryInspector) {
                             TouchTelemetryInspector(viewModel: viewModel)
                         }
-                    Text("F / H are raw identity codes; names are not yet verified.")
+                    Text("1 Thumb · 2 Index · 3 Middle · 4 Ring · 5 Pinky · 6 Palm. H = hand ID.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
