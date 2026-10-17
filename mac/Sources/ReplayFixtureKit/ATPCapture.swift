@@ -358,7 +358,13 @@ public enum ATPCaptureCodec {
                         deviceID: String(frame.deviceNumericID),
                         deviceNumericID: frame.deviceNumericID,
                         deviceIndex: frame.deviceIndex,
-                        contacts: try frame.contacts.map(decodeV5Contact)
+                        contacts: try frame.contacts.map { contact in
+                            let matches = (frame.rawTouches ?? []).filter { $0.id == contact.id }
+                            return try decodeV5Contact(
+                                contact,
+                                rawTotal: matches.count == 1 ? matches[0].total : nil
+                            )
+                        }
                     )
                 )
                 expectedSequence = frame.sequence &+ 1
@@ -493,6 +499,7 @@ public enum ATPCaptureCodec {
                 id: id,
                 posX: Float(contact.x),
                 posY: Float(contact.y),
+                total: Float(contact.total),
                 pressure: Float(contact.pressure),
                 majorAxis: Float(contact.majorAxis),
                 minorAxis: Float(contact.minorAxis),
@@ -635,7 +642,7 @@ public enum ATPCaptureCodec {
         return formatter.string(from: date)
     }
 
-    private static func decodeV5Contact(_ contact: V5RuntimeRawContact) throws -> ReplayContactRecord {
+    private static func decodeV5Contact(_ contact: V5RuntimeRawContact, rawTotal: Float? = nil) throws -> ReplayContactRecord {
         guard ReplayFixtureParser.canonicalStates.contains(contact.state) else {
             throw ReplayFixtureError.invalidATPCapture(
                 reason: "invalid canonical state '\(contact.state)'"
@@ -645,7 +652,7 @@ public enum ATPCaptureCodec {
             id: Int(contact.id),
             x: Double(contact.posX),
             y: Double(contact.posY),
-            total: Double(contact.total ?? contact.pressure),
+            total: Double(contact.total ?? rawTotal ?? contact.pressure),
             pressure: Double(contact.pressure),
             majorAxis: Double(contact.majorAxis),
             minorAxis: Double(contact.minorAxis),
@@ -755,6 +762,12 @@ public enum ATPCaptureCodec {
         let deviceNumericID: UInt64
         let deviceIndex: Int
         let contacts: [V5RuntimeRawContact]
+        let rawTouches: [V5RawTouchTotal]?
+    }
+
+    private struct V5RawTouchTotal: Decodable {
+        let id: Int32
+        let total: Float?
     }
 
     private struct V5RuntimeRawContact: Decodable {
@@ -795,6 +808,7 @@ public enum ATPCaptureCodec {
         let id: Int32
         let posX: Float
         let posY: Float
+        let total: Float
         let pressure: Float
         let majorAxis: Float
         let minorAxis: Float

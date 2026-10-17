@@ -103,6 +103,7 @@ struct RuntimeRawContact: Codable, Sendable {
     var id: Int32
     var posX: Float
     var posY: Float
+    var total: Float? = nil
     var pressure: Float
     var majorAxis: Float
     var minorAxis: Float
@@ -251,6 +252,20 @@ extension RuntimeDispatchEventKind {
 }
 
 extension RuntimeRawFrame {
+    init(from decoder: any Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        sequence = try values.decode(UInt64.self, forKey: .sequence)
+        timestamp = try values.decode(TimeInterval.self, forKey: .timestamp)
+        deviceNumericID = try values.decode(UInt64.self, forKey: .deviceNumericID)
+        deviceIndex = try values.decode(Int.self, forKey: .deviceIndex)
+        contacts = try values.decode([RuntimeRawContact].self, forKey: .contacts)
+        rawTouches = try values.decode([OMSRawTouch].self, forKey: .rawTouches)
+        for index in contacts.indices where contacts[index].total == nil {
+            let matches = rawTouches.filter { $0.id == contacts[index].id }
+            if matches.count == 1 { contacts[index].total = matches[0].total }
+        }
+    }
+
     init(sequence: UInt64, frame: OMSRawTouchFrame) {
         self.sequence = sequence
         self.timestamp = frame.timestamp
@@ -262,6 +277,7 @@ extension RuntimeRawFrame {
                 id: touch.id,
                 posX: touch.posX,
                 posY: touch.posY,
+                total: touch.total,
                 pressure: touch.pressure,
                 majorAxis: touch.majorAxis,
                 minorAxis: touch.minorAxis,

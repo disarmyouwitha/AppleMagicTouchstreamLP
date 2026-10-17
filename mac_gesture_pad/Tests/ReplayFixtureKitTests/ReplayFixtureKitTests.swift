@@ -3,6 +3,50 @@ import XCTest
 @testable import ReplayFixtureKit
 
 final class ReplayFixtureKitTests: XCTestCase {
+    func testV5TotalRecoveryAndRoundTrip() throws {
+        let original = try makeProcessedFrameV5CaptureData()
+        // Rewrite JSON records to reproduce older live captures: total exists only
+        // in rawTouches. A second unrelated contact guards against positional matching.
+        var modified = Data(original.prefix(20))
+        var offset = 20
+        while offset < original.count {
+            let length = Int(original.withUnsafeBytes { Int32(littleEndian: $0.loadUnaligned(fromByteOffset: offset, as: Int32.self)) })
+            let header = original.subdata(in: offset..<(offset + 34))
+            let payload = original.subdata(in: (offset + 34)..<(offset + 34 + length))
+            var object = try JSONSerialization.jsonObject(with: payload) as! [String: Any]
+            if var record = object["record"] as? [String: Any],
+               var frame = record["frame"] as? [String: Any],
+               var contacts = frame["contacts"] as? [[String: Any]], !contacts.isEmpty {
+                var raw = contacts
+                var unrelated = raw[0]
+                unrelated["id"] = 999
+                unrelated["total"] = 99
+                raw.insert(unrelated, at: 0)
+                for index in contacts.indices { contacts[index].removeValue(forKey: "total") }
+                frame["contacts"] = contacts
+                frame["rawTouches"] = raw
+                record["frame"] = frame
+                object["record"] = record
+            }
+            let encoded = try JSONSerialization.data(withJSONObject: object)
+            appendInt32LE(Int32(encoded.count), to: &modified)
+            modified.append(header.dropFirst(4))
+            modified.append(encoded)
+            offset += 34 + length
+        }
+        let expected = try ReplayFixtureParser.load(from: writeTempCapture(original, name: "total-expected.atpcap"))
+        let recovered = try ReplayFixtureParser.load(from: writeTempCapture(modified, name: "total-recovered.atpcap"))
+        for (lhs, rhs) in zip(recovered.frames, expected.frames) {
+            XCTAssertEqual(lhs.contacts.first?.total, rhs.contacts.first?.total)
+            XCTAssertEqual(lhs.contacts.first?.pressure, rhs.contacts.first?.pressure)
+        }
+        let output = try writeTempCapture(Data(), name: "total-roundtrip.atpcap")
+        try ReplayFixtureCodec.write(recovered, to: output)
+        let loaded = try ReplayFixtureParser.load(from: output)
+        XCTAssertEqual(loaded.frames[0].contacts[0].total, recovered.frames[0].contacts[0].total)
+        XCTAssertNotEqual(loaded.frames[0].contacts[0].total, loaded.frames[0].contacts[0].pressure)
+    }
+
     func testBaselineFixtureParsesAndCanonicalStatesAreValid() throws {
         let fixture = try ReplayFixtureParser.load(from: fixtureURL())
 
