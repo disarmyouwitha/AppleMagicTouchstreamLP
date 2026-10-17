@@ -4082,6 +4082,7 @@ struct ContentView: View {
         let onSelectionInteraction: () -> Void
         @State private var leftPeakPressure = 0
         @State private var rightPeakPressure = 0
+        @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
         @State private var showTouchTelemetry = false
         @State private var showTelemetryInspector = false
 
@@ -4099,6 +4100,9 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 12) {
+                    Toggle("Contact paths", isOn: $showContactPaths)
+                        .toggleStyle(.checkbox)
+                        .help("Show colored movement trails for each contact; trails fade after release.")
                     Toggle("Inspect touch data", isOn: $showTouchTelemetry)
                         .toggleStyle(.checkbox)
                         .help("Show raw finger/hand IDs and velocity direction on each contact.")
@@ -4123,6 +4127,7 @@ struct ContentView: View {
                             spacing: trackpadSpacing,
                             showDetailed: showDetailedView,
                             showTouchTelemetry: showTouchTelemetry,
+                            showContactPaths: showContactPaths,
                             replayModeEnabled: viewModel.replayTimelineState != nil,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,

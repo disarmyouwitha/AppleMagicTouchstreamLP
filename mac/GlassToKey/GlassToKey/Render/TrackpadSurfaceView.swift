@@ -29,6 +29,7 @@ struct TrackpadSurfaceSnapshot {
     var spacing: CGFloat
     var showDetailed: Bool
     var showTouchTelemetry: Bool = false
+    var showContactPaths: Bool = false
     var replayModeEnabled: Bool
     var leftLayout: ContentViewModel.Layout
     var rightLayout: ContentViewModel.Layout
@@ -91,6 +92,59 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
     }
 }
 
+/// UI-only history, bounded independently of engine sampling. Physical contact IDs
+/// determine continuity; lifting and replay rewinds always start a new segment.
+struct ContactPathHistory {
+    struct Key: Hashable { var device: String; var id: Int32 }
+    struct Trail {
+        var points: [CGPoint]
+        var lastSeen: TimeInterval
+        var active: Bool
+    }
+    private(set) var trails: [Key: Trail] = [:]
+    private var sourceTime: TimeInterval?
+    static let lifetime: TimeInterval = 1.2
+
+    private static func isContact(_ state: OMSState) -> Bool {
+        state == .starting || state == .making || state == .touching
+    }
+
+    mutating func clear() { trails.removeAll(keepingCapacity: true); sourceTime = nil }
+
+    mutating func update(_ touches: [OMSTouchData], now: TimeInterval) {
+        if let latest = touches.map(\.timestamp).max(), latest.isFinite {
+            if let sourceTime, latest < sourceTime { clear() }
+            sourceTime = latest
+        }
+        let active = Set(touches.filter { Self.isContact($0.state) }
+            .map { Key(device: $0.deviceID, id: $0.id) })
+        for key in Array(trails.keys) where !active.contains(key) { trails[key]?.active = false }
+        for touch in touches where Self.isContact(touch.state) {
+            let key = Key(device: touch.deviceID, id: touch.id)
+            let point = CGPoint(x: CGFloat(touch.position.x), y: 1 - CGFloat(touch.position.y))
+            guard point.x.isFinite, point.y.isFinite,
+                  (0...1).contains(point.x), (0...1).contains(point.y) else { continue }
+            var trail = trails[key] ?? Trail(points: [], lastSeen: now, active: true)
+            if !trail.active { trail.points.removeAll(keepingCapacity: true) }
+            if trail.points.last != point {
+                trail.points.append(point)
+                if trail.points.count > 96 { trail.points.removeFirst(trail.points.count - 96) }
+            }
+            trail.lastSeen = now
+            trail.active = true
+            trails[key] = trail
+        }
+        prune(now: now)
+        while trails.count > 32, let oldest = trails.min(by: { $0.value.lastSeen < $1.value.lastSeen })?.key {
+            trails.removeValue(forKey: oldest)
+        }
+    }
+
+    mutating func prune(now: TimeInterval) {
+        trails = trails.filter { now - $0.value.lastSeen < Self.lifetime }
+    }
+}
+
 final class TrackpadSurfaceView: NSView {
     private static let replayFallbackTouchDiameter: CGFloat = 24
 
@@ -98,11 +152,58 @@ final class TrackpadSurfaceView: NSView {
     private var cachedStaticImage: NSImage?
     private var leftTouches: [OMSTouchData] = []
     private var rightTouches: [OMSTouchData] = []
+    private var leftPaths = ContactPathHistory()
+    private var rightPaths = ContactPathHistory()
+    private var pathRefreshScheduled = false
+
+    private func refreshPaths() {
+        guard snapshot.showContactPaths, !pathRefreshScheduled,
+              !leftPaths.trails.isEmpty || !rightPaths.trails.isEmpty else { return }
+        pathRefreshScheduled = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { [weak self] in
+            guard let self else { return }
+            self.pathRefreshScheduled = false
+            let now = CACurrentMediaTime()
+            self.leftPaths.prune(now: now)
+            self.rightPaths.prune(now: now)
+            self.needsDisplay = true
+            if self.window != nil { self.refreshPaths() }
+        }
+    }
+
+    private func drawPaths(_ history: ContactPathHistory, origin: CGPoint) {
+        let now = CACurrentMediaTime()
+        NSGraphicsContext.saveGraphicsState()
+        NSBezierPath(rect: CGRect(origin: origin, size: snapshot.trackpadSize)).addClip()
+        for (key, trail) in history.trails {
+            guard trail.points.count > 1 else { continue }
+            let opacity = max(0, 1 - (now - trail.lastSeen) / ContactPathHistory.lifetime)
+            let color = NSColor(calibratedHue: CGFloat(UInt32(bitPattern: key.id) % 12) / 12,
+                                saturation: 0.8, brightness: 0.9, alpha: opacity * 0.85)
+            color.setStroke()
+            let path = NSBezierPath()
+            path.lineWidth = 2
+            path.lineJoinStyle = .round
+            path.lineCapStyle = .round
+            for (index, point) in trail.points.enumerated() {
+                let canvas = CGPoint(x: origin.x + point.x * snapshot.trackpadSize.width,
+                                     y: origin.y + point.y * snapshot.trackpadSize.height)
+                if index == 0 { path.move(to: canvas) } else { path.line(to: canvas) }
+            }
+            path.stroke()
+        }
+        NSGraphicsContext.restoreGraphicsState()
+    }
+
 
     var selectionHandler: ((TrackpadSurfaceSelectionEvent) -> Void)?
 
     var snapshot: TrackpadSurfaceSnapshot = .empty {
         didSet {
+            if !snapshot.showContactPaths || snapshot.replayModeEnabled != oldValue.replayModeEnabled {
+                leftPaths.clear()
+                rightPaths.clear()
+            }
             let staticRenderInput = TrackpadSurfaceStaticRenderInput(snapshot: snapshot)
             if cachedStaticRenderInput != staticRenderInput {
                 cachedStaticRenderInput = staticRenderInput
@@ -119,6 +220,12 @@ final class TrackpadSurfaceView: NSView {
     func updateTouches(left: [OMSTouchData], right: [OMSTouchData]) {
         leftTouches = left
         rightTouches = right
+        if snapshot.showContactPaths {
+            let now = CACurrentMediaTime()
+            leftPaths.update(left, now: now)
+            rightPaths.update(right, now: now)
+            refreshPaths()
+        }
         needsDisplay = true
     }
 
@@ -158,6 +265,10 @@ final class TrackpadSurfaceView: NSView {
         let leftOrigin = CGPoint.zero
         let rightOrigin = CGPoint(x: snapshot.trackpadSize.width + snapshot.spacing, y: 0)
 
+        if snapshot.showContactPaths {
+            drawPaths(leftPaths, origin: leftOrigin)
+            drawPaths(rightPaths, origin: rightOrigin)
+        }
         drawTrackpadDynamicSide(
             origin: leftOrigin,
             layout: snapshot.leftLayout,

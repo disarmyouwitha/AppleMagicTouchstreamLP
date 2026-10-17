@@ -54,6 +54,25 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testContactPathsAreBoundedExpireAndRestartAfterLift() {
+        func touch(_ x: Float, timestamp: Double = 1) -> OMSTouchData {
+            OMSTouchData(deviceID: "42", deviceIndex: 0, id: 1,
+                         position: OMSPosition(x: x, y: 0.5), total: 1, pressure: 100,
+                         axis: OMSAxis(major: 5, minor: 3), angle: 0, density: 1,
+                         state: .touching, timestamp: timestamp)
+        }
+        var paths = ContactPathHistory()
+        for i in 0..<200 { paths.update([touch(Float(i) / 200)], now: 1 + Double(i) / 1000) }
+        XCTAssertEqual(paths.trails.values.first?.points.count, 96)
+        paths.update([], now: 1.3)
+        paths.update([touch(0.2)], now: 1.4)
+        XCTAssertEqual(paths.trails.values.first?.points.count, 1)
+        paths.update([touch(0.3, timestamp: 0.5)], now: 1.5)
+        XCTAssertEqual(paths.trails.values.first?.points.count, 1)
+        paths.prune(now: 3)
+        XCTAssertTrue(paths.trails.isEmpty)
+    }
+
     func testTapSelectsFExactlyOnceAndDoesNotTriggerSwipe() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])
