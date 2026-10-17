@@ -2,7 +2,10 @@
 0. Back to basics.. I want to start from scratch..
 > What does that mean?
 
-1. Is my dynamic keymap structure hard? Do you see a better path? (Needs to have AI hitmap design)
+1. Copy `mac` to several folders: `mac_gesture_pad`, `mac_keyboard` where we can make independent discoveries that can be carries over between projects.
+`mac_gesture_pad`: Leave config, strip out entire keyboard. This project is for working on the Gesture recognizer independently.
+`mac_keyboard`: Strip out drag cancel, all Typing Tuning, and Gestures and see if we can lock in mouse/keyboard detection.
+> Emergency hatch: Can we SINK all mouse traffic and reimplement?
 
 a. I just dropped in a bunch of FingerWorks Touchstream SDK documentation.. do you think you can use any of it to improve how we differentiate between typing/mousing/gestures?
 
