@@ -8,7 +8,7 @@ This document proposes implementation work; it does not change recognition behav
 
 ## 1. Product direction
 
-Improve typing versus gesture discrimination without replacing the user's existing keymap and gesture assignments. Keep the contact-path visualization as an independent feature. Do not restore the previous blanket TouchStream mode that disabled other gestures.
+Improve typing versus gesture discrimination, especially typing vs mouse.
 
 Use the experiments to answer separate questions:
 
