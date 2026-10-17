@@ -116,7 +116,7 @@ final class InputRuntimeService: @unchecked Sendable {
 
         let ingress: RuntimeCaptureIngressSnapshot?
         if shouldCapture {
-            let dispatchMetrics = DispatchService.shared.snapshotMetrics()
+            let dispatchMetrics = PassiveOutputBoundary.shared.snapshotMetrics()
             ingress = RuntimeCaptureIngressSnapshot(
                 deliveryMode: consumers.liveHandler != nil ? .liveAndCapture : .captureOnly,
                 liveQueueDepth: 0,

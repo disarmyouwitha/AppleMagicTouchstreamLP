@@ -65,7 +65,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     typealias KeyBinding = ContentViewModel.KeyBinding
     typealias Layout = ContentViewModel.Layout
     typealias IntentDisplay = ContentViewModel.IntentDisplay
-    private let dispatchService: DispatchService
+    private let dispatchService: PassiveOutputBoundary
     private let onContactCountChanged: @Sendable (SidePair<Int>) -> Void
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
     private var isListening = false
@@ -76,12 +76,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     init(
         executionQueue: DispatchQueue,
-        dispatchService: DispatchService,
+        dispatchService: PassiveOutputBoundary,
         scheduler: (any TouchEngineScheduler)? = nil,
-        voiceSessionChanged: @Sendable @escaping (Bool) -> Void = { active in
-            if active { VoiceDictationManager.shared.beginSession() }
-            else { VoiceDictationManager.shared.endSession() }
-        },
+        voiceSessionChanged: @Sendable @escaping (Bool) -> Void = { _ in },
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void,
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void,
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,

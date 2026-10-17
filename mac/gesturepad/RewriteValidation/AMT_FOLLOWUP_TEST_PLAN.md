@@ -6,7 +6,7 @@ Purpose: establish which Apple contact fields can supply the geometry, motion, s
 
 ## Resume here
 
-Use the updated **GlassToKeyGesturePad**, with the keyboard/reference apps quit. It provides the same contact source without generating our own typing or gesture actions. Native macOS gestures can still occur. Select one pad and verify its traces before recording. The `mac`, `mac_keyboard` and `mac_gesture_pad` projects all have the total-preservation fix, but the gesture playground is preferred for these trials.
+Use the updated **GesturePad**, with the keyboard/reference apps quit. It provides the same contact source without generating our own typing or gesture actions. Native macOS gestures can still occur. Select one pad and verify its traces before recording. The `mac`, `mac_keyboard` and `mac_gesture_pad` projects all have the total-preservation fix, but the gesture playground is preferred for these trials.
 
 Save new files in a new dated subfolder under `RewriteValidation/captures/`, retaining earlier recordings. Use Capture from the app menu, wait about one second with everything lifted, perform the trial, lift everything, wait another second, then stop capture. Repeat each pattern three times unless specified otherwise. Separate files are easier to interpret than one long session.
 

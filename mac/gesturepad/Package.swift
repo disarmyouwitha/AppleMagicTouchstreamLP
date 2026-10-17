@@ -7,7 +7,7 @@ let swiftSettings: [SwiftSetting] = [
 ]
 
 let package = Package(
-    name: "OpenMultitouchSupport",
+    name: "GesturePad",
     platforms: [
         .macOS(.v13)
     ],
@@ -55,16 +55,15 @@ let package = Package(
         .testTarget(name: "RewriteProbeTests", dependencies: ["RewriteProbeKit", "ReplayFixtureKit"]),
         // Compile the app's production sources directly, without launching its UI.
         .target(
-            name: "GlassToKeyRuntime",
+            name: "GesturePadRuntime",
             dependencies: ["OpenMultitouchSupport", "ReplayFixtureKit"],
-            path: "GlassToKey/GlassToKey",
-            exclude: ["GlassToKeyApp.swift", "Assets.xcassets", "GlassToKey.entitlements",
-                      "GLASSTOKEY_DEFAULT_KEYMAP.json", "MY_KEYMAP.json"],
+            path: "GesturePad/GesturePad",
+            exclude: ["GesturePadApp.swift", "Assets.xcassets", "GesturePad.entitlements"],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(
             name: "ProductionEngineTests",
-            dependencies: ["GlassToKeyRuntime", "ReplayFixtureKit"],
+            dependencies: ["GesturePadRuntime", "ReplayFixtureKit"],
             path: "Tests/ProductionEngineTests"
         ),
         .executableTarget(
@@ -74,7 +73,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "ReplayHarness",
-            dependencies: ["ReplayFixtureKit", "GlassToKeyRuntime"],
+            dependencies: ["ReplayFixtureKit", "GesturePadRuntime"],
             path: "Tools/ReplayHarness"
         ),
         .executableTarget(

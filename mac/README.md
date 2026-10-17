@@ -4,9 +4,9 @@
 | --- | --- | --- | --- |
 | [GlassToKey](GlassToKey/) | GlassToKey reference and future rewrite; selectively adopt useful TouchStream gesture/gating improvements. | `GlassToKey/GlassToKey.xcodeproj` / `GlassToKey` | `GlassToKey.app` |
 | [AppleMagicTouchstream](AppleMagicTouchstream/) | Full TouchStream emulation on Apple Magic Trackpads. Currently retains the conservative keyboard bootstrap; faithful emulation is the development goal. | `AppleMagicTouchstream/AppleMagicTouchstream.xcodeproj` / `AppleMagicTouchstream` | `AppleMagicTouchstream.app` |
-| [gesturepad](gesturepad/) | Independent FingerWorks/TouchStream gesture and chord playground, without keyboard output; findings can be ported to AppleMagicTouchstream. | `GlassToKey/GlassToKey.xcodeproj` / `GlassToKey` | `GlassToKeyGesturePad.app` |
+| [gesturepad](gesturepad/) | Independent FingerWorks/TouchStream gesture and chord playground, without keyboard output; findings can be ported to AppleMagicTouchstream. | `GesturePad/GesturePad.xcodeproj` / `GesturePad` | `GesturePad.app` |
 
-Each folder owns its app, bridge, Swift package, tests, and fixtures. No project depends on a sibling's source. Gesturepad retains its existing internal project name. Legacy runtime symbols, settings keys, bundle identifiers, and capture schemas remain intact for compatibility.
+Each folder owns its app, bridge, Swift package, tests, and fixtures. No project depends on a sibling's source. Legacy runtime symbols, settings keys, bundle identifiers, and capture schemas remain intact for compatibility.
 
 From the repository root:
 
@@ -25,4 +25,4 @@ Scripts work from any working directory. App products are under each project's `
 
 Use the wrappers for fresh build caches after moving projects. Old `.build` and DerivedData folders may contain absolute paths from the previous layout.
 
-[Architecture review](ARCHITECTURE_REVIEW.md) and [FingerWorks plan](FINGERWORKS_IMPLEMENTATION_PLAN.md) retain historical design context. The SDK reference material lives under `GlassToKey/sdk` and is ignored by Git.
+[Architecture review](ARCHITECTURE_REVIEW.md) and [FingerWorks plan](FINGERWORKS_IMPLEMENTATION_PLAN.md) retain historical design context. The SDK reference material lives under `sdk` (outside all three Swift packages, so Xcode does not discover its legacy sample projects) and is ignored by Git.

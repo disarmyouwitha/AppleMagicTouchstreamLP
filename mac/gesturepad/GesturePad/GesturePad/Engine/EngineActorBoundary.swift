@@ -161,7 +161,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
 
     private let queue: DispatchQueue
     private let queueSpecificKey: DispatchSpecificKey<UInt8>
-    private let dispatchService: DispatchService
+    private let dispatchService: PassiveOutputBoundary
     private var latestRender = RuntimeRenderSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
@@ -172,7 +172,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private var captureSession: RuntimeCaptureSessionState?
 
     init(
-        dispatchService: DispatchService = .shared,
+        dispatchService: PassiveOutputBoundary = .shared,
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void = { _ in },
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void = { _ in },
         onDebugBindingDetected: @Sendable @escaping (ContentViewModel.KeyBinding) -> Void = { _ in },
@@ -721,7 +721,7 @@ final class ProductionReplaySession {
         let scheduler = ReplayTouchEngineScheduler(startTime: startTime)
         self.scheduler = scheduler
         let output = self.output
-        let sink = DispatchService(recordingWith: scheduler) { output.events.append($0) }
+        let sink = PassiveOutputBoundary(recordingWith: scheduler) { output.events.append($0) }
         engine = TouchProcessorEngine(
             executionQueue: DispatchQueue(label: "ink.ranna.GlassToKey.OfflineRecognition"),
             dispatchService: sink, scheduler: scheduler,

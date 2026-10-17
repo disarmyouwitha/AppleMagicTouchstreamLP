@@ -2,7 +2,7 @@
 
 For the next session after native-parser research, use the [AMT follow-up test plan](AMT_FOLLOWUP_TEST_PLAN.md). It prioritizes independent scalar preservation, strength/area, coordinate/velocity calibration, ellipse orientation, and contextual label revisions. The instructions below document the earlier session.
 
-Use **GlassToKeyGesturePad** for this first session. The new `RewriteProbe` tool reads saved `.atpcap` files offline; it never posts keys, moves the pointer or changes recognizer settings. Native macOS trackpad movement can still happen while recording.
+Use **GesturePad** for this first session. The new `RewriteProbe` tool reads saved `.atpcap` files offline; it never posts keys, moves the pointer or changes recognizer settings. Native macOS trackpad movement can still happen while recording.
 
 The goal is to check the assumptions a rewrite would depend on: stable contact lifetimes, usable raw identity/pressure data, ordinary hold drift, staggered landings and partial lifts. These are input-observation checks. They do not yet test a new typing recognizer, native mouse suppression or exact TouchStream behavior.
 
@@ -15,7 +15,7 @@ The second session is also reviewed: [partial lift, palm-held cohorts and indepe
 Quit the keyboard/reference GlassToKey apps first so they do not also process the same touches. Open the gesture playground's Xcode project and run its **GlassToKey** scheme, or use the Debug app prepared for this session if present:
 
 ```text
-/Users/nap/Library/Developer/Xcode/DerivedData/GlassToKeyRewriteValidation/Build/Products/Debug/GlassToKeyGesturePad.app
+/Users/nap/Library/Developer/Xcode/DerivedData/GlassToKeyRewriteValidation/Build/Products/Debug/GesturePad.app
 ```
 
 In Config, select the trackpad we will test and confirm its dots/traces respond. Use one pad for the initial six captures. The playground is intentionally not a typing app and has no new recognizer to enable.

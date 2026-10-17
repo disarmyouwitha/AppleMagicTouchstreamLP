@@ -1,5 +1,5 @@
 import XCTest
-@testable import GlassToKeyRuntime
+@testable import GesturePadRuntime
 
 final class HIDBlackholeIdentityTests: XCTestCase {
     private func device(id: UInt64 = 1, serial: String = "D0:C0:50:D5:69:55", location: Int = 1,

@@ -1,6 +1,6 @@
 import Foundation
 import ReplayFixtureKit
-import GlassToKeyRuntime
+import GesturePadRuntime
 
 private struct Options {
     var fixturePath: String = "ReplayFixtures/production_typing.atpcap"

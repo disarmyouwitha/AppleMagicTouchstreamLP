@@ -3,7 +3,7 @@ import CoreGraphics
 import Foundation
 import OpenMultitouchSupport
 import XCTest
-@testable import GlassToKeyRuntime
+@testable import GesturePadRuntime
 
 @MainActor
 final class ProductionEngineTests: XCTestCase {

@@ -1,0 +1,11 @@
+// SwiftPM's publicHeadersPath is the source directory. Keep implementation-only
+// class extensions out of its umbrella without exposing them to Swift clients.
+module OpenMultitouchSupportXCF {
+    umbrella header "OpenMultitouchSupportXCF.h"
+    exclude header "OpenMTEventInternal.h"
+    exclude header "OpenMTListenerInternal.h"
+    exclude header "OpenMTManagerInternal.h"
+    exclude header "OpenMTTouchInternal.h"
+    export *
+    module * { export * }
+}

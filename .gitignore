@@ -1,6 +1,6 @@
 # Mac
 .DS_Store
-/mac/GlassToKey/sdk/
+/mac/sdk/
 
 # Xcode
 xcuserdata/

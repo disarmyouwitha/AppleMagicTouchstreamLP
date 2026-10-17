@@ -4,20 +4,20 @@ For the firmware-informed rewrite validation session, start with [RewriteValidat
 
 FingerWorks gesture/chord playground. Device selection, blank raw-touch surfaces, named finger telemetry/contact paths, per-finger `p:` pressure and per-pad interaction peaks, and capture/replay remain. All GTK gesture recognizers, action configuration/dispatch, keyboard layouts, and layout generation are removed. Nothing generates keyboard, mouse, voice, or haptic actions. Add new FingerWorks logic at `TouchProcessorEngine.processContacts`, shared by live and replay input. Legacy profile commands are compatibility no-ops.
 
-Open `GlassToKey/GlassToKey.xcodeproj` in Xcode, select the **GlassToKey** scheme, and Run. The app is menu-bar based; use **Config...** to select trackpads and test. Run one experiment at a time to avoid both processing the same touches. Each experiment has its own bundle identifier and preferences, separate from the original and from each other. macOS may request Accessibility/Input Monitoring access for each new app.
+Open `GesturePad/GesturePad.xcodeproj` in Xcode, select the **GlassToKey** scheme, and Run. The app is menu-bar based; use **Config...** to select trackpads and test. Run one experiment at a time to avoid both processing the same touches. Each experiment has its own bundle identifier and preferences, separate from the original and from each other. macOS may request Accessibility/Input Monitoring access for each new app.
 
 Build from this directory:
 
 ```sh
-xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build
+xcodebuild -project GesturePad/GesturePad.xcodeproj -scheme GesturePad -configuration Debug -destination 'platform=macOS' build
 swift test
 ```
 
-The app product is `GlassToKeyGesturePad.app`. The scheme name remains `GlassToKey`.
+The app product is `GesturePad.app`. The scheme name is `GesturePad`.
 
 Profiles/capture formats retain legacy fields so existing configurations and recordings can still be read. Removed controls do not reactivate removed runtime features when imported. Package tests cover this experiment; inherited fixtures and transcripts are historical references, not parity expectations for the stripped engine.
 
-This is an independent source copy of `../GlassToKey`, without generated build/release output or the SDK reference dump (available in `../GlassToKey/sdk`). No source or package dependency points back to the original app. The original project remains unchanged.
+This is an independent source copy of `../GlassToKey`, without generated build/release output or the SDK reference dump (available in `../sdk`). No source or package dependency points back to the original app. The original project remains unchanged.
 
 
 ## Temporary HID blackhole experiment
@@ -35,3 +35,11 @@ For each physical trackpad and transport (Bluetooth / USB), test cursor movement
 Use `./build.sh` and `./test.sh` for location-independent builds. See [project layout](../README.md). The goal is faithful TouchStream gesture/chord logic for eventual port to AppleMagicTouchstream.
 
 `./release.sh --check` validates Release product identity and paths without signing or notarizing. Copy `release-config.env.template` to `release-config.env` when preparing a signed release.
+
+## Source organization
+
+`GesturePad/GesturePad.xcodeproj`, target and scheme **GesturePad**, produces **GesturePad.app**. The package runtime is **GesturePadRuntime**. The existing bundle ID remains unchanged to preserve settings/permissions.
+
+Keyboard event posting, autocorrect, dictation, key semantic mapping, mobile layout generation, bundled keyboard keymaps, and the old mouse blocker are removed. The menu bar indicates raw-contact monitoring rather than keyboard/mouse modes. There are no microphone or speech permissions.
+
+`GesturePad/GesturePad/Compatibility` contains the legacy data models and portable-profile decoder required by existing captures and offline replay. These types do not enable keyboard layouts, gestures, or output. `Runtime/PassiveOutputBoundary.swift` maintains the capture API without an action-output implementation. Saved settings/screenshots from the original copy are preserved in `LegacyReference` and are not app resources.

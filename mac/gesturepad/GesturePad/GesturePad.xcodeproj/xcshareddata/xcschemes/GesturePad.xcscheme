@@ -16,9 +16,9 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "77292A832B931953001CA3F6"
-               BuildableName = "GlassToKeyGesturePad.app"
-               BlueprintName = "GlassToKey"
-               ReferencedContainer = "container:GlassToKey.xcodeproj">
+               BuildableName = "GesturePad.app"
+               BlueprintName = "GesturePad"
+               ReferencedContainer = "container:GesturePad.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -46,9 +46,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "77292A832B931953001CA3F6"
-            BuildableName = "GlassToKeyGesturePad.app"
-            BlueprintName = "GlassToKey"
-            ReferencedContainer = "container:GlassToKey.xcodeproj">
+            BuildableName = "GesturePad.app"
+            BlueprintName = "GesturePad"
+            ReferencedContainer = "container:GesturePad.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,9 +63,9 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "77292A832B931953001CA3F6"
-            BuildableName = "GlassToKeyGesturePad.app"
-            BlueprintName = "GlassToKey"
-            ReferencedContainer = "container:GlassToKey.xcodeproj">
+            BuildableName = "GesturePad.app"
+            BlueprintName = "GesturePad"
+            ReferencedContainer = "container:GesturePad.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

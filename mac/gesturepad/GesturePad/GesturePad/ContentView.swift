@@ -45,11 +45,11 @@ struct ContentView: View {
                 leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
                 onSelectLeft: { device in
                     viewModel.selectLeftDevice(device)
-                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GlassToKeyDefaultsKeys.leftDeviceID)
+                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
                 },
                 onSelectRight: { device in
                     viewModel.selectRightDevice(device)
-                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GlassToKeyDefaultsKeys.rightDeviceID)
+                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                 },
                 onRefresh: { viewModel.refreshDevicesAndListeners() })
             hidBlackholeControls

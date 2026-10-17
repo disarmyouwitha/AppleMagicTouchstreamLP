@@ -1,6 +1,6 @@
 import Foundation
 
-enum GlassToKeyDefaultsKeys {
+enum GesturePadDefaultsKeys {
     static let leftDeviceID = "GlassToKey.leftDeviceID"
     static let rightDeviceID = "GlassToKey.rightDeviceID"
     static let columnSettings = "GlassToKey.columnSettings"

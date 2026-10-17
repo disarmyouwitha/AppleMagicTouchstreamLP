@@ -1,0 +1,1 @@
+Historical GlassToKey settings and screenshots retained from the original copy. They are not app resources or active GesturePad configuration. Existing capture/profile decoding remains in GesturePad/GesturePad/Compatibility.
