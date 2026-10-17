@@ -1,5 +1,7 @@
 # Prepared-session verification
 
+**Subsequent capture review:** [CAPTURE_FINDINGS.md](CAPTURE_FINDINGS.md) documents the real recordings and28 passing package tests after adding label-revision timelines. The27-test build below is the original setup checkpoint.
+
 2026-10-17. This records software setup, not a successful human capture session.
 
 - `swift test`: **27 tests passed**, including **12 new RewriteProbe tests**. These cover identity relabeling versus lifetime, ID reuse, partial lift/staggered landing, separate taps, capture gaps/boundaries, missing telemetry/calibration, device filtering, physical-axis scaling, invalid data, plan validation and `.atpcap` round-trip.

@@ -4,7 +4,9 @@ Use **GlassToKeyGesturePad** for this first session. The new `RewriteProbe` tool
 
 The goal is to check the assumptions a rewrite would depend on: stable contact lifetimes, usable raw identity/pressure data, ordinary hold drift, staggered landings and partial lifts. These are input-observation checks. They do not yet test a new typing recognizer, native mouse suppression or exact TouchStream behavior.
 
-The [setup verification](VERIFICATION.md) records the completed build, 27 passing package tests and CLI checks. The human capture session is still pending.
+The [setup verification](VERIFICATION.md) records the original prepared build and tests. The first human session is now recorded: read [CAPTURE_FINDINGS.md](CAPTURE_FINDINGS.md) for the seven-capture review, label revisions and gesture-latching distinction. The current package has28 passing tests.
+
+The second session is also reviewed: [partial lift, palm-held cohorts and independent-pad rearm](LIFECYCLE_CAPTURE_FINDINGS.md). It provides four more replay fixtures, including a continuous palm-like contact whose raw code changes6↔1 and includes unknown12. These are input observations for the next shadow-owner implementation, not gesture decision tests.
 
 ## 1. Start the raw-contact application
 

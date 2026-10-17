@@ -1,0 +1,30 @@
+{
+  "schema": "g2k-rewrite-probe-v1",
+  "widthMM": null,
+  "heightMM": null,
+  "gapLimitMS": 100,
+  "trials": [
+    {
+      "id": "all-fingers-device-0",
+      "capture": "captures/all_fingers.atpcap",
+      "intent": "Review label revisions as more contacts join capture route0. Check five-contact context availability, not gesture lock-in or anatomical correctness.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumPeakContacts", "value": 5},
+        {"metric": "maximumPeakContacts", "value": 5},
+        {"metric": "minimumTelemetryFraction", "value": 1}
+      ]
+    },
+    {
+      "id": "all-fingers-device-1",
+      "capture": "captures/all_fingers.atpcap",
+      "intent": "Review label revisions as more contacts join capture route1. Check five-contact context availability, not gesture lock-in or anatomical correctness.",
+      "deviceIndex": 1,
+      "checks": [
+        {"metric": "minimumPeakContacts", "value": 5},
+        {"metric": "maximumPeakContacts", "value": 5},
+        {"metric": "minimumTelemetryFraction", "value": 1}
+      ]
+    }
+  ]
+}

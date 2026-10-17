@@ -78,6 +78,7 @@ public struct ProbeLifetime: Encodable {
     public var identityChanges = 0
     public var rawFingerIDs: [Int32] = []
     public var telemetrySamples = 0
+    public var firstSourceTimestamp: Double?
     fileprivate var x: Double
     fileprivate var y: Double
     fileprivate var lastX: Double
@@ -91,6 +92,7 @@ public struct ProbeLifetime: Encodable {
         case maxDisplacementNormalized, maxDisplacementMM, pathLengthNormalized
         case peakPressure, minPressure, identityChanges, rawFingerIDs, telemetrySamples
         case durationMS, uncertain
+        case firstSourceTimestamp
     }
     public func encode(to encoder: any Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -104,8 +106,30 @@ public struct ProbeLifetime: Encodable {
         try c.encode(peakPressure, forKey: .peakPressure); try c.encode(minPressure, forKey: .minPressure)
         try c.encode(identityChanges, forKey: .identityChanges); try c.encode(rawFingerIDs, forKey: .rawFingerIDs)
         try c.encode(telemetrySamples, forKey: .telemetrySamples)
+        try c.encodeIfPresent(firstSourceTimestamp, forKey: .firstSourceTimestamp)
         try c.encode(durationMS, forKey: .durationMS); try c.encode(uncertain, forKey: .uncertain)
     }
+}
+
+public struct ProbeIdentityContext: Encodable {
+    public let rawID: Int
+    public let rawFingerID: Int32?
+}
+
+/// A revision of a label on the same observed contact lifetime, not a new touch.
+/// Times use the capture arrival clock; native per-device timestamps are not mixed.
+public struct ProbeIdentityRevision: Encodable {
+    public let rawID: Int
+    public let generation: Int
+    public let timestamp: Double
+    public let sequence: Int
+    public let sourceTimestamp: Double?
+    public let sourceFrame: Int32?
+    public let from: Int32
+    public let to: Int32
+    public let previousActiveCount: Int
+    public let currentActiveCount: Int
+    public let context: [ProbeIdentityContext]
 }
 
 public struct ProbeObservation: Encodable {
@@ -122,6 +146,7 @@ public struct ProbeObservation: Encodable {
     public var duplicateIDs = 0
     public var deviceChanges = 0
     public var lifetimes: [ProbeLifetime] = []
+    public var identityRevisions: [ProbeIdentityRevision] = []
     public var identityChanges: Int { lifetimes.reduce(0) { $0 + $1.identityChanges } }
     public var uncertainEndings: Int { lifetimes.filter(\.uncertain).count }
 }
@@ -177,6 +202,15 @@ public enum RewriteProbeAnalyzer {
             let firstFrame = lastTime == nil
             lastTime = time; deviceIdentity = frame.deviceNumericID
             var seen: Set<Int> = [], currentlyActive: Set<Int> = []
+            // Build the whole frame's context first so touch-array order cannot
+            // make a simultaneous landing look like a later label revision.
+            let context = frame.contacts.filter {
+                ["starting", "making", "touching"].contains($0.state) &&
+                $0.x.isFinite && $0.y.isFinite && $0.pressure.isFinite
+            }.sorted { $0.id < $1.id }.map {
+                ProbeIdentityContext(rawID: $0.id, rawFingerID: $0.telemetry?.fingerID)
+            }
+            let activeFrameCount = Set(context.map(\.rawID)).count
             for contact in frame.contacts {
                 guard seen.insert(contact.id).inserted else { result.duplicateIDs += 1; continue }
                 let down = ["starting", "making", "touching"].contains(contact.state)
@@ -219,8 +253,19 @@ public enum RewriteProbeAnalyzer {
                 life.peakPressure = max(life.peakPressure, contact.pressure)
                 life.minPressure = min(life.minPressure, contact.pressure)
                 if let raw = contact.telemetry {
+                    if life.samples == 1, raw.sourceTimestamp.isFinite {
+                        life.firstSourceTimestamp = raw.sourceTimestamp
+                    }
                     life.telemetrySamples += 1; result.telemetrySamples += 1
-                    if let previous = life.previousIdentity, previous != raw.fingerID { life.identityChanges += 1 }
+                    if let previous = life.previousIdentity, previous != raw.fingerID {
+                        life.identityChanges += 1
+                        result.identityRevisions.append(ProbeIdentityRevision(rawID: contact.id,
+                            generation: life.generation, timestamp: time, sequence: frame.seq,
+                            sourceTimestamp: raw.sourceTimestamp.isFinite ? raw.sourceTimestamp : nil,
+                            sourceFrame: raw.sourceFrame,
+                            from: previous, to: raw.fingerID, previousActiveCount: previousCount,
+                            currentActiveCount: activeFrameCount, context: context))
+                    }
                     life.previousIdentity = raw.fingerID
                     if !life.rawFingerIDs.contains(raw.fingerID) { life.rawFingerIDs.append(raw.fingerID) }
                 }

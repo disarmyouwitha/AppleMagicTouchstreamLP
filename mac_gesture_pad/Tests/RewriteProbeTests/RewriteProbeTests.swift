@@ -31,6 +31,25 @@ final class RewriteProbeTests: XCTestCase {
         XCTAssertEqual(o.lifetimes[0].identityChanges,1)
         XCTAssertEqual(o.lifetimes[0].maxDisplacementMM!,1,accuracy: 1e-8)
         XCTAssertFalse(o.lifetimes[0].uncertain); XCTAssertTrue(o.lifetimes[1].uncertain)
+        XCTAssertEqual(o.identityRevisions.count,1)
+        XCTAssertEqual(o.identityRevisions[0].from,2)
+        XCTAssertEqual(o.identityRevisions[0].to,3)
+        XCTAssertEqual(o.identityRevisions[0].generation,1)
+    }
+    func testLandingCanReviseExistingLabelWithoutRestartingTouch() throws {
+        let o = try analyze([frame(1,0,[]),frame(2,0.01,[contact(1,finger:4)]),
+            frame(3,0.02,[contact(1,finger:2),contact(9,finger:4)]),frame(4,0.03,[])])
+        XCTAssertEqual(o.lifetimes.count,2)
+        XCTAssertEqual(o.lifetimes[0].samples,2)
+        let event = try XCTUnwrap(o.identityRevisions.first)
+        XCTAssertEqual(event.rawID,1); XCTAssertEqual(event.previousActiveCount,1)
+        XCTAssertEqual(event.currentActiveCount,2)
+        XCTAssertEqual(event.context.map(\.rawID),[1,9])
+        XCTAssertEqual(event.context.map(\.rawFingerID),[2,4])
+        let reversed = try analyze([frame(1,0,[]),frame(2,0.01,[contact(1,finger:4)]),
+            frame(3,0.02,[contact(9,finger:4),contact(1,finger:2)]),frame(4,0.03,[])])
+        XCTAssertEqual(reversed.identityRevisions[0].currentActiveCount,2)
+        XCTAssertEqual(reversed.identityRevisions[0].context.map(\.rawID),[1,9])
     }
     func testPartialLiftAndStaggeredLandingRemainOneNonemptyEpisode() throws {
         let o = try analyze([frame(1,0,[]),frame(2,0.01,[contact(1)]),

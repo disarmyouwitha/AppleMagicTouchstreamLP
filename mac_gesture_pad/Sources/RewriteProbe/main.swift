@@ -130,6 +130,16 @@ struct RewriteProbeMain {
                     if o.lifetimes.count > 30 { markdown += "\nFirst 30 lifetimes shown; all are retained in report.json.\n" }
                     markdown += "\n"
                 }
+                if !o.identityRevisions.isEmpty {
+                    markdown += "Raw labels are revisable estimates. A stable label is not proof of anatomical correctness.\n\n"
+                    markdown += "| Capture time s | Contact:generation | Label change | Active count before → now | Current contact:label context |\n| --- | --- | --- | --- | --- |\n"
+                    for event in o.identityRevisions.prefix(50) {
+                        let context = event.context.map { "\($0.rawID):\($0.rawFingerID.map(String.init) ?? "?")" }.joined(separator: ", ")
+                        markdown += "| \(String(format: "%.6f", event.timestamp)) | \(event.rawID):\(event.generation) | \(event.from) → \(event.to) | \(event.previousActiveCount) → \(event.currentActiveCount) | \(context) |\n"
+                    }
+                    if o.identityRevisions.count > 50 { markdown += "\nFirst 50 revisions shown; all are in report.json.\n" }
+                    markdown += "\n"
+                }
             }
             for check in trial.checks {
                 markdown += "- **\(check.status)** \(check.metric): observed \(check.observed.map { String(format: "%.4f", $0) } ?? "unavailable"), threshold \(check.expected). \(check.detail)\n"
