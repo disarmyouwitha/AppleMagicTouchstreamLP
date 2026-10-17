@@ -7,18 +7,19 @@ import XCTest
 
 @MainActor
 final class ProductionEngineTests: XCTestCase {
-    private func session(labels: [String] = ["F", "Shift", "G"], keyboardOnly: Bool = true) -> ProductionReplaySession {
+    private func session(labels: [String] = ["F", "Shift", "G"], keyboardOnly: Bool = true, gestures: Bool = false, allowHold: Bool = false) -> ProductionReplaySession {
         let session = ProductionReplaySession(startTime: 1)
         let engine = session.engine
         let size = CGSize(width: 160, height: 115)
         let rects = labels.indices.map { index in
             CGRect(x: 10 + index * 45, y: 40, width: 35, height: 30)
         }
-        let layout = ContentViewModel.Layout(keyRects: [rects], trackpadSize: size, allowHoldBindings: false)
+        let layout = ContentViewModel.Layout(keyRects: [rects], trackpadSize: size, allowHoldBindings: allowHold)
         engine.updateLayouts(leftLayout: layout, rightLayout: layout,
                              leftLabels: [labels], rightLabels: [labels],
                              trackpadSize: size, trackpadWidthMm: 160)
         engine.updateActiveDevices(leftIndex: 0, rightIndex: 1, leftDeviceID: "42", rightDeviceID: "43")
+        engine.updateGestureRecognitionEnabled(gestures)
         engine.updateKeyboardModeEnabled(keyboardOnly)
         engine.updateForceClickMin(0)
         engine.updateForceClickCap(1000)
@@ -52,6 +53,25 @@ final class ProductionEngineTests: XCTestCase {
             default: return nil
             }
         }
+    }
+
+    func testContactPathsAreBoundedExpireAndRestartAfterLift() {
+        func touch(_ x: Float, timestamp: Double = 1) -> OMSTouchData {
+            OMSTouchData(deviceID: "42", deviceIndex: 0, id: 1,
+                         position: OMSPosition(x: x, y: 0.5), total: 1, pressure: 100,
+                         axis: OMSAxis(major: 5, minor: 3), angle: 0, density: 1,
+                         state: .touching, timestamp: timestamp)
+        }
+        var paths = ContactPathHistory()
+        for i in 0..<200 { paths.update([touch(Float(i) / 200)], now: 1 + Double(i) / 1000) }
+        XCTAssertEqual(paths.trails.values.first?.points.count, 96)
+        paths.update([], now: 1.3)
+        paths.update([touch(0.2)], now: 1.4)
+        XCTAssertEqual(paths.trails.values.first?.points.count, 1)
+        paths.update([touch(0.3, timestamp: 0.5)], now: 1.5)
+        XCTAssertEqual(paths.trails.values.first?.points.count, 1)
+        paths.prune(now: 3)
+        XCTAssertTrue(paths.trails.isEmpty)
     }
 
     func testTapSelectsFExactlyOnceAndDoesNotTriggerSwipe() async {
@@ -89,6 +109,35 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertEqual(keys(run).count, 2)
     }
 
+    func testFixedMouseIntentSuppressesTap() async {
+        let run = session()
+        frame(run, 1.00, [contact(state: .making)])
+        frame(run, 1.04, [contact()])
+        frame(run, 1.08, [contact(x: 0.95)])
+        frame(run, 1.12, [contact(state: .breaking, x: 0.95)])
+        frame(run, 1.14, [])
+        run.finish(at: 2)
+        XCTAssertTrue(keys(run).isEmpty)
+    }
+
+    func testHoldRepeatFiresOnVirtualTimeAndStopsOnRelease() async {
+        let run = session(labels: ["Left"])
+        run.engine.updateHoldRepeatEnabled(true)
+        frame(run, 1.00, [contact(state: .making)])
+        frame(run, 1.04, [contact()])
+        frame(run, 1.30, [contact()])
+        let initialCount = keys(run).count
+        XCTAssertGreaterThan(initialCount, 0)
+        run.scheduler.advance(to: 2)
+        XCTAssertGreaterThan(keys(run).count, initialCount)
+        frame(run, 2.01, [contact(state: .breaking)])
+        frame(run, 2.02, [])
+        let stoppedCount = keys(run).count
+        run.scheduler.advance(to: 4)
+        XCTAssertEqual(keys(run).count, stoppedCount)
+        run.finish(at: 4)
+    }
+
     func testOverlappingTouchesOnBothPadsProduceBothKeys() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])
@@ -103,6 +152,19 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0", "tap:\(kVK_ANSI_G):0"])
     }
 
+    func testClassifierReturnsIdleAfterAllContactsLiftDespiteSavedGrace() async {
+        let run = session(keyboardOnly: false)
+        frame(run, 1.00, [contact(state: .making)])
+        frame(run, 1.04, [contact()])
+        frame(run, 1.08, [contact(state: .breaking)])
+        frame(run, 1.10, [])
+        let before = keys(run)
+        XCTAssertEqual(run.output.intents.left, .idle)
+        run.scheduler.advance(to: 2)
+        XCTAssertEqual(keys(run), before)
+        XCTAssertEqual(run.output.intents.left, .idle)
+    }
+
     func testTwoFingerMotionSuppressesTyping() async {
         let run = session(keyboardOnly: false)
         frame(run, 1.00, [contact(1, state: .making), contact(2, key: 2, state: .making)])
@@ -112,9 +174,176 @@ final class ProductionEngineTests: XCTestCase {
                           contact(2, key: 2, state: .breaking, x: 0.84)])
         frame(run, 1.14, [])
         run.finish(at: 2)
-        XCTAssertTrue(keys(run).isEmpty, "A multi-finger movement must not leak F/G taps")
+        XCTAssertTrue(keys(run).isEmpty, "A multi-finger movement must not leak F/G taps: \(keys(run))")
     }
 
+    func testSimultaneousRepeatsHaveStableOutputOrder() async {
+        func replay() -> [String] {
+            let run = session(labels: ["Left", "Right"])
+            run.engine.updateHoldRepeatEnabled(true)
+            frame(run, 1.00, [contact(1, state: .making), contact(2, key: 1, state: .making)])
+            frame(run, 1.04, [contact(1), contact(2, key: 1)])
+            frame(run, 1.30, [contact(1), contact(2, key: 1)])
+            run.scheduler.advance(to: 2)
+            frame(run, 2.01, [])
+            run.finish(at: 3)
+            return keys(run)
+        }
+        let expected = replay()
+        XCTAssertGreaterThan(expected.count, 4)
+        for _ in 0..<10 { XCTAssertEqual(replay(), expected) }
+    }
+
+    private var fixturesDirectory: URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent()
+            .deletingLastPathComponent().appendingPathComponent("ReplayFixtures")
+    }
+
+    func testOldNonMonotonicCaptureIsRejectedByProductionReplay() async {
+        let fixture = fixturesDirectory.appendingPathComponent("macos_first_capture_2026-02-20.atpcap")
+        XCTAssertThrowsError(try ProductionReplayHarness.run(captureURL: fixture))
+    }
+
+    func testReplayTranscriptMatchesProductionBaselineAndIsDeterministic() async throws {
+        let fixture = fixturesDirectory.appendingPathComponent("production_typing.atpcap")
+        let expectedURL = fixturesDirectory.appendingPathComponent("production_typing.engine.transcript.jsonl")
+        if ProcessInfo.processInfo.environment["UPDATE_PRODUCTION_REPLAY_FIXTURES"] == "1" {
+            try writeRegressionFixture(to: fixture)
+            try ProductionReplayHarness.run(captureURL: fixture).transcript
+                .write(to: expectedURL, atomically: true, encoding: .utf8)
+        }
+        let first = try ProductionReplayHarness.run(captureURL: fixture)
+        let second = try ProductionReplayHarness.run(captureURL: fixture)
+        XCTAssertEqual(first.transcript, second.transcript)
+        XCTAssertEqual(first.frameCount, 18)
+        XCTAssertEqual(first.transcript, try String(contentsOf: expectedURL, encoding: .utf8))
+        XCTAssertTrue(first.transcript.contains("TouchProcessorEngine"))
+        XCTAssertTrue(first.transcript.contains("\"configuration\":\"capture\""))
+        let lines = try first.transcript.split(separator: "\n").map {
+            try JSONSerialization.jsonObject(with: Data($0.utf8)) as! [String: Any]
+        }
+        let events = lines.flatMap { $0["events"] as? [[String: Any]] ?? [] }
+        let kinds = try events.map {
+            try JSONDecoder().decode(RuntimeDispatchEventKind.self,
+                                     from: JSONSerialization.data(withJSONObject: $0["kind"]!))
+        }
+        let strokes: [(CGKeyCode, CGEventFlags)] = kinds.compactMap {
+            if case let .keyStroke(code, flags, _) = $0 { return (code, flags) }
+            return nil
+        }
+        XCTAssertEqual(strokes.map(\.0), [CGKeyCode(kVK_ANSI_F), CGKeyCode(kVK_ANSI_F)])
+        XCTAssertEqual(strokes.map { $0.1.rawValue }, [0, CGEventFlags.maskShift.rawValue])
+        let arrowEvents = kinds.filter {
+            if case let .key(code, _, _, _) = $0 { return code == CGKeyCode(kVK_LeftArrow) }
+            return false
+        }
+        XCTAssertGreaterThan(arrowEvents.count, 2, "Virtual deadlines must produce repeats between frames")
+    }
+
+    private func writeRegressionFixture(to url: URL) throws {
+        let buttons: [CustomButton] = [
+            ("F", kVK_ANSI_F, 0.05), ("Shift", kVK_Shift, 0.30), ("Left", kVK_LeftArrow, 0.55)
+        ].enumerated().map { offset, item in
+            CustomButton(id: UUID(uuidString: "00000000-0000-0000-0000-00000000000\(offset + 1)")!,
+                         side: .left,
+                         rect: NormalizedRect(x: item.2, y: 0.35, width: 0.15, height: 0.30),
+                         action: KeyAction(label: item.0, keyCode: UInt16(item.1), flags: 0, kind: .key),
+                         hold: nil)
+        }
+        var json = try JSONSerialization.jsonObject(with: JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as! [String: Any]
+        json["layoutPreset"] = "Blank"
+        json["leftDeviceID"] = "42"
+        json["rightDeviceID"] = "43"
+        json["keyboardModeEnabled"] = true
+        json["holdRepeatEnabled"] = true
+        json["hapticStrength"] = 0
+        json["forceClickMin"] = 0
+        json["forceClickCap"] = 1000
+        json["customButtonsByLayout"] = ["Blank": ["0": try JSONSerialization.jsonObject(with: JSONEncoder().encode(buttons))]]
+        let profile = try JSONDecoder().decode(AppKeymapProfile.self, from: JSONSerialization.data(withJSONObject: json))
+        func touch(_ id: Int32, _ x: Float, _ state: OMSState = .touching) -> OMSRawTouch {
+            OMSRawTouch(id: id, posX: x, posY: 0.5, total: 1, pressure: 100,
+                        majorAxis: 5, minorAxis: 3, angle: 0, density: 1, state: state)
+        }
+        let frames: [(Double, [OMSRawTouch])] = [
+            (1.00, [touch(1, 0.125, .making)]), (1.04, [touch(1, 0.125)]),
+            (1.08, [touch(1, 0.125, .breaking)]), (1.10, []),
+            (1.30, [touch(2, 0.375, .making)]), (1.34, [touch(2, 0.375)]),
+            (1.36, [touch(2, 0.375), touch(1, 0.125, .making)]),
+            (1.40, [touch(2, 0.375), touch(1, 0.125)]),
+            (1.44, [touch(2, 0.375), touch(1, 0.125, .breaking)]),
+            (1.46, [touch(2, 0.375)]), (1.48, [touch(2, 0.375, .breaking)]), (1.50, []),
+            (2.00, [touch(3, 0.625, .making)]), (2.04, [touch(3, 0.625)]),
+            (2.30, [touch(3, 0.625)]), (3.00, [touch(3, 0.625)]),
+            (3.01, [touch(3, 0.625, .breaking)]), (3.02, [])
+        ]
+        let records = frames.enumerated().map { index, input in
+            let ticks = Int64(((input.0 - 1) * 1_000_000_000).rounded())
+            let contacts = input.1.map { raw in
+                RuntimeRawContact(id: raw.id, posX: raw.posX, posY: raw.posY,
+                                  pressure: raw.pressure, majorAxis: raw.majorAxis, minorAxis: raw.minorAxis,
+                                  angle: raw.angle, density: raw.density, state: raw.state)
+            }
+            return ProcessedFrameRecord(
+                frame: RuntimeRawFrame(sequence: UInt64(index + 1), timestamp: input.0,
+                                       deviceNumericID: 42, deviceIndex: 0,
+                                       contacts: contacts, rawTouches: input.1),
+                arrivalTicks: ticks, ingress: nil, diagnostic: nil, dispatchEvents: []
+            )
+        }
+        try ATPCaptureV3Codec.write(captureData: ATPCaptureV3Codec.CaptureData(
+            configuration: profile, frameRecords: records, detachedDispatchEvents: []), to: url,
+            source: "SyntheticProductionRecognitionRegression")
+    }
+    private func noGestures() -> GestureActionSet {
+        GestureActionSet(
+            twoFingerTap: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerTap: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            twoFingerHold: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerHold: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerHold: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            outerCornersHold: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            innerCornersHold: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            leftEdgeUp: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            leftEdgeDown: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            rightEdgeUp: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            rightEdgeDown: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topEdgeLeft: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topEdgeRight: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomEdgeLeft: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomEdgeRight: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerSwipeLeft: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerSwipeRight: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerSwipeUp: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerSwipeDown: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerSwipeLeft: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerSwipeRight: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerSwipeUp: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerSwipeDown: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fiveFingerSwipeLeft: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fiveFingerSwipeRight: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fiveFingerSwipeUp: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fiveFingerSwipeDown: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topLeftCornerSwipe: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topRightCornerSwipe: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomLeftCornerSwipe: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomRightCornerSwipe: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topLeftTriangle: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topRightTriangle: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomLeftTriangle: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomRightTriangle: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            upperLeftCornerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            upperRightCornerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            lowerLeftCornerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            lowerRightCornerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            threeFingerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            fourFingerClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topLeftForceClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            topRightForceClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomLeftForceClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none),
+            bottomRightForceClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none)
+        )
+    }
     func testMouseMotionLatchesUntilAllUpAndNextTapTypes() async {
         let run = session(keyboardOnly: false)
         frame(run, 1.00, [contact(state: .making)])
@@ -126,20 +355,6 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertTrue(keys(run).isEmpty)
         frame(run, 1.10, [contact(state: .making)])
         frame(run, 1.12, [contact(state: .breaking)])
-        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
-    }
-
-    func testLegacyTuningCannotRejectStationaryLongTap() async {
-        let run = session()
-        run.engine.updateHoldThreshold(0.001)
-        run.engine.updateForceClickMin(255)
-        run.engine.updateForceClickCap(0)
-        run.engine.updateDragCancelDistance(0)
-        run.engine.updateIntentMoveThreshold(0)
-        run.engine.updateHoldRepeatEnabled(true)
-        frame(run, 1.00, [contact(state: .making)])
-        frame(run, 2.00, [contact()])
-        frame(run, 2.10, [contact(state: .breaking)])
         XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
     }
 
@@ -156,4 +371,92 @@ final class ProductionEngineTests: XCTestCase {
         frame(run, 1.04, [])
         XCTAssertEqual(keys(run), ["down:\(kVK_Shift):0", "up:\(kVK_Shift):0"])
     }
+
+    func testHapticFeedbackUsesConfiguredStrengthAndDevice() async {
+        let run = session()
+        run.engine.updateHapticStrength(0.4)
+        frame(run, 1.00, [contact(state: .making)])
+        frame(run, 1.08, [contact(state: .breaking)])
+        let haptics = run.output.events.compactMap { event -> Double? in
+            guard case let .haptic(strength, deviceID) = event.kind else { return nil }
+            XCTAssertEqual(deviceID, "42")
+            return strength
+        }
+        XCTAssertEqual(haptics, [0.4])
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
+    }
+
+
+    func testGestureToggleStopsAndRestoresSwipeRecognition() async {
+        let run = session(keyboardOnly: false)
+        var actions = noGestures()
+        actions.threeFingerSwipeRight = KeyActionCatalog.action(for: "G")!
+        run.engine.updateGestureActions(actions)
+        func swipe(_ start: Double) {
+            frame(run, start, [contact(1, x: 0.10), contact(2, x: 0.15), contact(3, x: 0.20)])
+            frame(run, start + 0.06, [contact(1, x: 0.20), contact(2, x: 0.25), contact(3, x: 0.30)])
+            frame(run, start + 0.12, [])
+        }
+        swipe(1)
+        XCTAssertTrue(keys(run).isEmpty)
+        run.engine.updateGestureRecognitionEnabled(true)
+        swipe(2)
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_G):0"])
+        run.engine.updateGestureRecognitionEnabled(false)
+        swipe(3)
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_G):0"])
+    }
+
+    func testGestureToggleControlsTapClick() async {
+        let run = session(keyboardOnly: false)
+        var actions = noGestures()
+        actions.twoFingerTap = KeyAction(label: "Left Click", keyCode: 0, flags: 0, kind: .leftClick)
+        run.engine.updateGestureActions(actions)
+        frame(run, 1, [contact(1, x: 0.12), contact(2, x: 0.20)])
+        frame(run, 1.08, [])
+        XCTAssertFalse(run.output.events.contains { if case .leftClick = $0.kind { true } else { false } })
+        run.engine.updateGestureRecognitionEnabled(true)
+        frame(run, 2, [contact(1, x: 0.12), contact(2, x: 0.20)])
+        frame(run, 2.08, [])
+        XCTAssertTrue(run.output.events.contains { if case .leftClick = $0.kind { true } else { false } })
+    }
+
+    func testOriginalHoldShortcutSurvivesClassifierReplacement() async {
+        let run = session(allowHold: true)
+        let key = GridKeyPosition(side: .left, row: 0, column: 0).storageKey
+        let copy = KeyAction(label: "Copy", keyCode: UInt16(kVK_ANSI_C), flags: CGEventFlags.maskCommand.rawValue)
+        run.engine.updateKeyMappings([0: [key: KeyMapping(primary: KeyActionCatalog.action(for: "F")!, hold: copy)]])
+        run.engine.updateHoldThreshold(0.2)
+        frame(run, 1, [contact(state: .making)])
+        frame(run, 1.04, [contact()])
+        frame(run, 1.3, [contact()])
+        frame(run, 1.32, [contact(state: .breaking)])
+        run.finish(at: 2)
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_C):\(CGEventFlags.maskCommand.rawValue)"])
+    }
+
+    func testRemovedSettingsCannotOverrideFixedMovementThreshold() async {
+        let run = session(keyboardOnly: false)
+        run.engine.updateDragCancelDistance(0)
+        run.engine.updateIntentMoveThreshold(0)
+        run.engine.updateIntentVelocityThreshold(0)
+        run.engine.updateTapClickCadence(1)
+        frame(run, 1, [contact(state: .making)])
+        frame(run, 1.04, [contact(x: 0.175)])
+        frame(run, 1.08, [contact(state: .breaking, x: 0.175)])
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
+    }
+
+    func testGestureToggleRoundTripsAndOldProfilesDefaultOff() throws {
+        var profile = AppKeymapProfile.defaultProfile()
+        XCTAssertFalse(profile.gestureRecognitionEnabled ?? false)
+        profile.gestureRecognitionEnabled = true
+        let encoded = try JSONEncoder().encode(profile)
+        XCTAssertEqual(try JSONDecoder().decode(AppKeymapProfile.self, from: encoded).gestureRecognitionEnabled, true)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacy.removeValue(forKey: "gestureRecognitionEnabled")
+        let decoded = try JSONDecoder().decode(AppKeymapProfile.self, from: JSONSerialization.data(withJSONObject: legacy))
+        XCTAssertFalse(decoded.gestureRecognitionEnabled ?? false)
+    }
+
 }

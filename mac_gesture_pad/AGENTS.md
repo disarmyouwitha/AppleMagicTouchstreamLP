@@ -113,6 +113,6 @@
 
 ## Experiment overrides
 
-Gesture recognizer experiment. Device selection, blank touch surfaces, telemetry/contact paths, gesture action configuration, and capture/replay remain. Physical keyboard hit testing, typing dispatch, layout/keymap tuning, typing modes, and autocorrect are removed. Gestures can still emit configured keyboard shortcuts, clicks, and system actions.
+FingerWorks gesture/chord playground. Device selection, blank raw-touch surfaces, named finger telemetry/contact paths, and capture/replay remain. All GTK gesture recognizers, action configuration/dispatch, keyboard layouts, and layout generation are removed. Nothing generates keyboard, mouse, voice, or haptic actions. Add new FingerWorks logic at `TouchProcessorEngine.processContacts`, shared by live and replay input. Legacy profile commands are compatibility no-ops.
 
 Read README.md for the current build/test behavior. The inherited architecture notes and replay transcripts describe the original app. Do not restore stripped features as incidental fixes. Keep legacy profile/capture fields only for compatibility.

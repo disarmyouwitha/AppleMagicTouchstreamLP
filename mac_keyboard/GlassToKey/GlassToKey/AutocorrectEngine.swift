@@ -71,8 +71,7 @@ final class AutocorrectEngine: @unchecked Sendable {
         ambiguityBuffer.reserveCapacity(maxWordLength)
     }
 
-    func setEnabled(_ requested: Bool) {
-        let enabled = false
+    func setEnabled(_ enabled: Bool) {
         let value: Int32 = enabled ? 1 : 0
         var current = OSAtomicAdd32Barrier(0, &Self.enabledFlag)
         while !OSAtomicCompareAndSwap32Barrier(current, value, &Self.enabledFlag) {

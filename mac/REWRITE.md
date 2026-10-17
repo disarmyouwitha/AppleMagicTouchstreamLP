@@ -1,11 +1,7 @@
 ## Rewrite
+`mac_gesturepad`: 
 
-0. Inspect Touch Data should label the fingers.. 1 is thumb, 2 is index, 3 is middle, 4 is ring 5 is pinky 6 is palm. Implement in each of the Mac projects.
-
-1. mac_gesturepad: remove all GTK gestures, remove layout. I want to use this as a playground for implementing fingerworks gesture and chord logic.
-
-2. mac_keyboard: we need haptic feedback back stat. Was the detection logic re-written for this strip-down? It ALREADY feels better, lmao. 
-> I want to add back in tap-hold behavior so all of my old shortcuts still work.
+`mac_keyboard`: Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal that 3mm intent classifier.
 
 > Please continue our `Remaining Work` from FINDINGS.md
 

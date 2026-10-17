@@ -233,6 +233,7 @@ final class GlassToKeyController: ObservableObject {
         guard let profile = bundledDefaultProfile() else { return }
 
         defaults.set(profile.layoutPreset, forKey: GlassToKeyDefaultsKeys.layoutPreset)
+        defaults.set(profile.gestureRecognitionEnabled ?? false, forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled)
         defaults.set(profile.autoResyncMissingTrackpads, forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads)
         defaults.set(profile.tapHoldDurationMs, forKey: GlassToKeyDefaultsKeys.tapHoldDuration)
         defaults.set(profile.dragCancelDistance, forKey: GlassToKeyDefaultsKeys.dragCancelDistance)
@@ -572,6 +573,7 @@ final class GlassToKeyController: ObservableObject {
 
     private func applySavedInteractionSettings() {
         let defaults = UserDefaults.standard
+        viewModel.updateGestureRecognitionEnabled(defaults.bool(forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled))
         let tapHoldMs = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.tapHoldDuration,
             defaults: defaults,

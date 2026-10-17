@@ -1,5 +1,7 @@
 # FingerWorks-informed gesture and typing implementation plan
 
+**2026-10-17 update:** the [macOS rewrite guide](mac/GLASSTOKEY_REWRITE_GUIDE.md) incorporates the next firmware pass and current experiment scope. It supersedes this document's older uncertainty statements about initial key assignment and acceleration, and corrects contact update-count versus identity and stationary-hold activation. The earlier plan and product-direction edits are retained below.
+
 Implementation design for GlassToKey on macOS · 2026-10-16
 
 The useful discovery is a recognition architecture, not a ready-made firmware port: track contacts, maintain tentative typing and chord candidates, resolve their ownership, then execute explicit actions. GlassToKey can adopt these ideas using Apple trackpad data and its existing production replay system. Reproducing TouchStream's exact recognition behavior would require more reverse engineering and physical validation.
@@ -216,7 +218,7 @@ An optional developer overlay should show stable contact key/generation, raw ide
 
 Extend capture/replay with versioned configuration sufficient to reproduce decisions: recognizer version and feature setting, geometry revision/snapshot, device dimensions/orientation, calibration, feature availability, and arbitration timing. Extend diagnostics with candidate IDs, transitions, scores/reasons, ownership, and output provenance. Older captures without telemetry must remain readable and explicitly use the reduced-feature policy.
 
-See [production replay](PRODUCTION_REPLAY.md), [telemetry](TOUCH_TELEMETRY.md), and [capture format](ReplayFixtures/FORMAT.md). Record human intent labels separately from emitted output; a transcript cannot label its own mistakes as correct.
+See [production replay](mac/PRODUCTION_REPLAY.md), [telemetry contract tests](mac/Tests/ReplayFixtureKitTests/MacTouchTelemetryTests.swift), and [capture format](mac/ReplayFixtures/FORMAT.md). Record human intent labels separately from emitted output; a transcript cannot label its own mistakes as correct.
 
 ## 10. Implementation sequence and exit criteria
 

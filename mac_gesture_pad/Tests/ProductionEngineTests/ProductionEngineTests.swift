@@ -114,7 +114,7 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertTrue(run.output.events.isEmpty)
     }
 
-    func testThreeFingerSwipeDispatchesConfiguredShortcut() async {
+    func testLegacyThreeFingerSwipeDoesNotDispatch() async {
         let run = session()
         var actions = noGestures()
         actions.threeFingerSwipeRight = KeyActionCatalog.action(for: "F")!
@@ -122,10 +122,10 @@ final class ProductionEngineTests: XCTestCase {
         frame(run, 1.00, [contact(1, x: 0.4), contact(2, x: 0.5), contact(3, x: 0.6)])
         frame(run, 1.06, [contact(1, x: 0.5), contact(2, x: 0.6), contact(3, x: 0.7)])
         frame(run, 1.12, [])
-        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
+        XCTAssertTrue(run.output.events.isEmpty)
     }
 
-    func testTwoFingerTapDispatchesClickWithoutKeyboard() async {
+    func testLegacyTwoFingerTapDoesNotDispatch() async {
         let run = session()
         var actions = noGestures()
         actions.twoFingerTap = KeyAction(label: "Left Click", keyCode: 0, flags: 0, kind: .leftClick)
@@ -134,7 +134,6 @@ final class ProductionEngineTests: XCTestCase {
         frame(run, 1.04, [contact(1, x: 0.4), contact(2, x: 0.6)])
         frame(run, 1.08, [])
         XCTAssertTrue(keys(run).isEmpty)
-        XCTAssertEqual(run.output.events.count, 1)
-        guard case .leftClick = run.output.events.first?.kind else { return XCTFail("Expected a gesture click") }
+        XCTAssertTrue(run.output.events.isEmpty)
     }
 }

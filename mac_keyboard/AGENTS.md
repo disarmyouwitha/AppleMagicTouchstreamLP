@@ -113,6 +113,4 @@
 
 ## Experiment overrides
 
-Keyboard versus mouse detection experiment. Device selection, keyboard layouts/key mapping, touch visualization, and capture/replay remain. Gesture recognizers/actions, drag cancellation, Typing Tuning, autocorrect, snapping, hold recognition/repeat, and typing grace are removed. A key landing is a typing candidate; movement beyond a fixed 3 mm threshold switches to mouse intent until all contacts lift. Native macOS mouse handling remains active; this experiment does not synthesize or suppress cursor movement.
-
-Read README.md for the current build/test behavior. The inherited architecture notes and replay transcripts describe the original app. Do not restore stripped features as incidental fixes. Keep legacy profile/capture fields only for compatibility.
+This folder is a fresh copy of mac with its original keyboard dispatch/hold/repeat/layer pipeline intact. Gesture recognition is optional and defaults off. Intent uses the previous mac_keyboard classifier (key landing, fixed 3 mm movement, mouse latch until all up). Tap cadence, drag cancel, intent move and intent velocity controls are removed; old serialized fields are compatibility no-ops. Keep this change narrow: do not rewrite the keyboard processor.

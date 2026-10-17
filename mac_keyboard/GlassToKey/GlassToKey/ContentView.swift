@@ -80,6 +80,8 @@ struct ContentView: View {
     @State private var replayScrubValue: Double = 0
     @State private var replayScrubInProgress = false
     @State private var systemThreeFingerDragEnabled = SystemThreeFingerDragDetector.detectedStatus().isEnabled
+    @AppStorage(GlassToKeyDefaultsKeys.gestureRecognitionEnabled)
+    private var gestureRecognitionEnabled = false
     @AppStorage(GlassToKeyDefaultsKeys.leftDeviceID) private var storedLeftDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.rightDeviceID) private var storedRightDeviceID = ""
     @AppStorage(GlassToKeyDefaultsKeys.columnSettings) private var storedColumnSettingsData = Data()
@@ -728,6 +730,9 @@ struct ContentView: View {
                     runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
                 }
             }
+            .onChange(of: gestureRecognitionEnabled) { enabled in
+                viewModel.updateGestureRecognitionEnabled(enabled)
+            }
             .onChange(of: gestureSettingsSignature) { _ in
                 applyCurrentGestureActions()
                 refreshActionGroupCaches()
@@ -764,6 +769,8 @@ struct ContentView: View {
                 replayTimelineView(replayTimelineState)
             }
             devicesSectionView
+            Toggle("Gesture recognition", isOn: $gestureRecognitionEnabled)
+                .help("Enable GTK touch gestures. Keyboard shortcuts, holds, and layers remain available when off.")
             contentRow
         }
     }
@@ -1167,7 +1174,7 @@ struct ContentView: View {
         var body: some View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("GlassToKey Keyboard")
+                    Text("GlassToKey")
                         .font(.title2)
                         .bold()
                     HStack(spacing: 10) {
@@ -1520,7 +1527,96 @@ struct ContentView: View {
                             .fill(Color.primary.opacity(0.05))
                     )
 
+                    CollapsibleSection(
+                        isExpanded: $typingTuningExpanded
+                    ) {
+                        TypingTuningSectionView(
+                            tapHoldDurationMs: $tapHoldDurationMs,
+                            dragCancelDistanceSetting: $dragCancelDistanceSetting,
+                            forceClickMinSetting: $forceClickMinSetting,
+                            forceClickCapSetting: $forceClickCapSetting,
+                            hapticStrengthSetting: $hapticStrengthSetting,
+                            typingGraceMsSetting: $typingGraceMsSetting,
+                            intentMoveThresholdMmSetting: $intentMoveThresholdMmSetting,
+                            intentVelocityThresholdMmPerSecSetting: $intentVelocityThresholdMmPerSecSetting,
+                            tapClickCadenceMsSetting: $tapClickCadenceMsSetting,
+                            onRestoreDefaults: onRestoreDefaults
+                        )
+                    } label: {
+                        Text("Typing Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
 
+                    CollapsibleSection(
+                        isExpanded: $gestureTuningExpanded
+                    ) {
+                        GestureTuningSectionView(
+                            actionGroups: gestureActionGroups,
+                            twoFingerTapGestureAction: $twoFingerTapGestureAction,
+                            threeFingerTapGestureAction: $threeFingerTapGestureAction,
+                            twoFingerHoldGestureAction: $twoFingerHoldGestureAction,
+                            threeFingerHoldGestureAction: $threeFingerHoldGestureAction,
+                            fourFingerHoldGestureAction: $fourFingerHoldGestureAction,
+                            outerCornersHoldGestureAction: $outerCornersHoldGestureAction,
+                            innerCornersHoldGestureAction: $innerCornersHoldGestureAction,
+                            leftEdgeUpGestureAction: $leftEdgeUpGestureAction,
+                            leftEdgeDownGestureAction: $leftEdgeDownGestureAction,
+                            rightEdgeUpGestureAction: $rightEdgeUpGestureAction,
+                            rightEdgeDownGestureAction: $rightEdgeDownGestureAction,
+                            topEdgeLeftGestureAction: $topEdgeLeftGestureAction,
+                            topEdgeRightGestureAction: $topEdgeRightGestureAction,
+                            bottomEdgeLeftGestureAction: $bottomEdgeLeftGestureAction,
+                            bottomEdgeRightGestureAction: $bottomEdgeRightGestureAction,
+                            threeFingerSwipeLeftGestureAction: $threeFingerSwipeLeftGestureAction,
+                            threeFingerSwipeRightGestureAction: $threeFingerSwipeRightGestureAction,
+                            threeFingerSwipeUpGestureAction: $threeFingerSwipeUpGestureAction,
+                            threeFingerSwipeDownGestureAction: $threeFingerSwipeDownGestureAction,
+                            fourFingerSwipeLeftGestureAction: $fourFingerSwipeLeftGestureAction,
+                            fourFingerSwipeRightGestureAction: $fourFingerSwipeRightGestureAction,
+                            fourFingerSwipeUpGestureAction: $fourFingerSwipeUpGestureAction,
+                            fourFingerSwipeDownGestureAction: $fourFingerSwipeDownGestureAction,
+                            fiveFingerSwipeLeftGestureAction: $fiveFingerSwipeLeftGestureAction,
+                            fiveFingerSwipeRightGestureAction: $fiveFingerSwipeRightGestureAction,
+                            fiveFingerSwipeUpGestureAction: $fiveFingerSwipeUpGestureAction,
+                            fiveFingerSwipeDownGestureAction: $fiveFingerSwipeDownGestureAction,
+                            topLeftCornerSwipeGestureAction: $topLeftCornerSwipeGestureAction,
+                            topRightCornerSwipeGestureAction: $topRightCornerSwipeGestureAction,
+                            bottomLeftCornerSwipeGestureAction: $bottomLeftCornerSwipeGestureAction,
+                            bottomRightCornerSwipeGestureAction: $bottomRightCornerSwipeGestureAction,
+                            topLeftTriangleGestureAction: $topLeftTriangleGestureAction,
+                            topRightTriangleGestureAction: $topRightTriangleGestureAction,
+                            bottomLeftTriangleGestureAction: $bottomLeftTriangleGestureAction,
+                            bottomRightTriangleGestureAction: $bottomRightTriangleGestureAction,
+                            upperLeftCornerClickGestureAction: $upperLeftCornerClickGestureAction,
+                            upperRightCornerClickGestureAction: $upperRightCornerClickGestureAction,
+                            lowerLeftCornerClickGestureAction: $lowerLeftCornerClickGestureAction,
+                            lowerRightCornerClickGestureAction: $lowerRightCornerClickGestureAction,
+                            threeFingerClickGestureAction: $threeFingerClickGestureAction,
+                            fourFingerClickGestureAction: $fourFingerClickGestureAction,
+                            forceClickThresholdSetting: $forceClickThresholdSetting,
+                            topLeftForceClickGestureAction: $topLeftForceClickGestureAction,
+                            topRightForceClickGestureAction: $topRightForceClickGestureAction,
+                            bottomLeftForceClickGestureAction: $bottomLeftForceClickGestureAction,
+                            bottomRightForceClickGestureAction: $bottomRightForceClickGestureAction,
+                            gestureRepeatCadenceData: $gestureRepeatCadenceData,
+                            systemThreeFingerDragEnabled: systemThreeFingerDragEnabled
+                        )
+                    } label: {
+                        Text("Gesture Tuning")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(12)
+                    .background(
+                        RoundedRectangle(cornerRadius: 12)
+                            .fill(Color.primary.opacity(0.05))
+                    )
 
                     CollapsibleSection(
                         isExpanded: $modeTogglesExpanded
@@ -3044,18 +3140,771 @@ struct ContentView: View {
         }
 
         var body: some View {
-            VStack(alignment: .leading, spacing: 10) {
-                Toggle("Run at Startup", isOn: $runAtStartupEnabled)
-                Toggle("Auto-resync trackpads", isOn: $autoResyncEnabled)
-                Text("Detection baseline: a key landing types; 3 mm movement selects mouse until all fingers lift.")
-                    .font(.caption).foregroundStyle(.secondary)
+            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("Keyboard/Mouse")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $keyboardModeEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                    Text("Autocorrect")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $autocorrectEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                }
+                GridRow {
+                    Text("Snap Radius")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: snapRadiusEnabledBinding)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                    Text("Run at Startup")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $runAtStartupEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                }
+                GridRow {
+                    Text("Hold Repeat")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $holdRepeatEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .help("Repeats hold-enabled key actions while the touch stays held.")
+                    Text("Auto-resync")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $autoResyncEnabled)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .help("Polls every 8 seconds to detect disconnected trackpads.")
+                }
+                GridRow {
+                    Text("3-Finger Drag")
+                        .frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: threeFingerDragEnabledBinding)
+                        .toggleStyle(SwitchToggleStyle())
+                        .labelsHidden()
+                        .disabled(true)
+                        .help("Reflects whether macOS Three Finger Drag appears enabled.")
+                    Button {
+                        openThreeFingerDragSettings()
+                    } label: {
+                        Text("3-Finger Drag")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .gridCellColumns(2)
+                    .help("Opens System Settings to Trackpad Options so you can change Dragging Style.")
+                }
+            }
+            .onAppear {
+                refreshThreeFingerDragStatus()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                refreshThreeFingerDragStatus()
             }
         }
     }
 
+    private struct TypingTuningSectionView: View {
+        @Binding var tapHoldDurationMs: Double
+        @Binding var dragCancelDistanceSetting: Double
+        @Binding var forceClickMinSetting: Double
+        @Binding var forceClickCapSetting: Double
+        @Binding var hapticStrengthSetting: Double
+        @Binding var typingGraceMsSetting: Double
+        @Binding var intentMoveThresholdMmSetting: Double
+        @Binding var intentVelocityThresholdMmPerSecSetting: Double
+        @Binding var tapClickCadenceMsSetting: Double
+        let onRestoreDefaults: () -> Void
+
+        private let labelWidth: CGFloat = 140
+        private let valueFieldWidth: CGFloat = 50
+
+        private enum HapticStrengthStep: Int, CaseIterable {
+            case off = 0
+            case weak
+            case medium
+            case strong
+
+            var percent: Double {
+                switch self {
+                case .off: return 0.0
+                case .weak: return 40.0
+                case .medium: return 60.0
+                case .strong: return 100.0
+                }
+            }
+
+            var label: String {
+                switch self {
+                case .off: return "Off"
+                case .weak: return "Weak"
+                case .medium: return "Medium"
+                case .strong: return "Strong"
+                }
+            }
+
+            static func nearest(to percent: Double) -> Self {
+                allCases.min(by: { abs($0.percent - percent) < abs($1.percent - percent) })
+                    ?? .off
+            }
+        }
+
+        private var currentHapticStrengthStep: HapticStrengthStep {
+            HapticStrengthStep.nearest(to: hapticStrengthSetting)
+        }
+
+        private var hapticStrengthIndexBinding: Binding<Double> {
+            Binding(
+                get: { Double(currentHapticStrengthStep.rawValue) },
+                set: { newValue in
+                    let index = Int(newValue.rounded())
+                    let step = HapticStrengthStep(rawValue: index) ?? .off
+                    hapticStrengthSetting = step.percent
+                }
+            )
+        }
+
+        var body: some View {
+            VStack(spacing: 8) {
+                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                    GridRow {
+                        Text("Hold Duration (ms)")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "200",
+                            value: $tapHoldDurationMs,
+                            formatter: ContentView.tapHoldDurationFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $tapHoldDurationMs,
+                            in: ContentView.tapHoldDurationRange,
+                            step: 10
+                        )
+                        .frame(minWidth: 100)
+                        .gridCellColumns(2)
+                    }
+
+                    GridRow {
+                        Text("Typing Grace (ms)")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "120",
+                            value: $typingGraceMsSetting,
+                            formatter: ContentView.typingGraceFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $typingGraceMsSetting,
+                            in: ContentView.typingGraceRange,
+                            step: 100
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
 
 
 
+                    GridRow {
+                        Text("Force Min")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "0",
+                            value: $forceClickMinSetting,
+                            formatter: ContentView.forceClickFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $forceClickMinSetting,
+                            in: ContentView.forceClickRange,
+                            step: 1
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
+                        Text("Force Max")
+                            .frame(width: labelWidth, alignment: .leading)
+                        TextField(
+                            "0",
+                            value: $forceClickCapSetting,
+                            formatter: ContentView.forceClickFormatter
+                        )
+                        .frame(width: valueFieldWidth)
+                        Slider(
+                            value: $forceClickCapSetting,
+                            in: ContentView.forceClickRange,
+                            step: 1
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
+                        Text("Haptic Strength Slider")
+                            .frame(width: labelWidth, alignment: .leading)
+                        Text(currentHapticStrengthStep.label)
+                            .frame(width: valueFieldWidth, alignment: .leading)
+                        Slider(
+                            value: hapticStrengthIndexBinding,
+                            in: 0...Double(HapticStrengthStep.allCases.count - 1),
+                            step: 1
+                        )
+                        .frame(minWidth: 120)
+                        .gridCellColumns(2)
+                    }
+                    GridRow {
+                        Button("Restore Defaults") {
+                            onRestoreDefaults()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .gridCellColumns(2)
+                        Spacer()
+                            .gridCellColumns(2)
+                    }
+                }
+            }
+        }
+
+    }
+
+    private struct GestureTuningSectionView: View {
+        private struct GestureChooserState: Identifiable {
+            let id = UUID()
+            let title: String
+            let fallbackLabel: String
+            let selection: Binding<String>
+        }
+
+        private struct GestureActionChooserSheet: View {
+            let title: String
+            let actionGroups: [KeyActionCatalog.ActionGroup]
+            let selection: Binding<String>
+            let fallbackLabel: String
+
+            @Environment(\.dismiss) private var dismiss
+            @State private var searchText = ""
+
+            private var selectedAction: KeyAction {
+                KeyActionCatalog.action(for: selection.wrappedValue)
+                    ?? KeyActionCatalog.action(for: fallbackLabel)
+                    ?? KeyActionCatalog.noneAction
+            }
+
+            private var filteredActionGroups: [KeyActionCatalog.ActionGroup] {
+                let trimmedSearch = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmedSearch.isEmpty else { return actionGroups }
+                return actionGroups.compactMap { group in
+                    let filteredActions = group.actions.filter { action in
+                        action.label.localizedCaseInsensitiveContains(trimmedSearch)
+                            || action.pickerText.localizedCaseInsensitiveContains(trimmedSearch)
+                    }
+                    guard !filteredActions.isEmpty else { return nil }
+                    return KeyActionCatalog.ActionGroup(
+                        title: group.title,
+                        actions: filteredActions
+                    )
+                }
+            }
+
+            private func choose(_ action: KeyAction) {
+                selection.wrappedValue = action.label
+                dismiss()
+            }
+
+            var body: some View {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(title)
+                                .font(.headline)
+                            Text("Current: \(selectedAction.pickerText)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Done") {
+                            dismiss()
+                        }
+                    }
+
+                    TextField("Filter actions", text: $searchText)
+                        .textFieldStyle(.roundedBorder)
+
+                    if filteredActionGroups.isEmpty {
+                        VStack(spacing: 8) {
+                            Image(systemName: "magnifyingglass")
+                                .font(.system(size: 18, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                            Text("No matching actions")
+                                .font(.headline)
+                            Text("Try a different search.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        ScrollView {
+                            LazyVStack(alignment: .leading, spacing: 14) {
+                                ForEach(filteredActionGroups) { group in
+                                    VStack(alignment: .leading, spacing: 6) {
+                                        Text(group.title)
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(.secondary)
+
+                                        VStack(alignment: .leading, spacing: 4) {
+                                            ForEach(group.actions, id: \.self) { action in
+                                                Button {
+                                                    choose(action)
+                                                } label: {
+                                                    HStack(spacing: 8) {
+                                                        Image(systemName: action == selectedAction ? "checkmark.circle.fill" : "circle")
+                                                            .font(.system(size: 12, weight: .semibold))
+                                                            .foregroundStyle(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor
+                                                                    : Color.secondary
+                                                            )
+                                                        Text(action.pickerText)
+                                                            .frame(maxWidth: .infinity, alignment: .leading)
+                                                            .multilineTextAlignment(.leading)
+                                                    }
+                                                    .padding(.horizontal, 10)
+                                                    .padding(.vertical, 7)
+                                                    .background(
+                                                        RoundedRectangle(cornerRadius: 8)
+                                                            .fill(
+                                                                action == selectedAction
+                                                                    ? Color.accentColor.opacity(0.12)
+                                                                    : Color.clear
+                                                            )
+                                                    )
+                                                }
+                                                .buttonStyle(.plain)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                            .padding(.vertical, 2)
+                        }
+                    }
+                }
+                .padding(16)
+                .frame(minWidth: 460, idealWidth: 540, minHeight: 420, idealHeight: 560)
+            }
+        }
+
+        let actionGroups: [KeyActionCatalog.ActionGroup]
+        @Binding var twoFingerTapGestureAction: String
+        @Binding var threeFingerTapGestureAction: String
+        @Binding var twoFingerHoldGestureAction: String
+        @Binding var threeFingerHoldGestureAction: String
+        @Binding var fourFingerHoldGestureAction: String
+        @Binding var outerCornersHoldGestureAction: String
+        @Binding var innerCornersHoldGestureAction: String
+        @Binding var leftEdgeUpGestureAction: String
+        @Binding var leftEdgeDownGestureAction: String
+        @Binding var rightEdgeUpGestureAction: String
+        @Binding var rightEdgeDownGestureAction: String
+        @Binding var topEdgeLeftGestureAction: String
+        @Binding var topEdgeRightGestureAction: String
+        @Binding var bottomEdgeLeftGestureAction: String
+        @Binding var bottomEdgeRightGestureAction: String
+        @Binding var threeFingerSwipeLeftGestureAction: String
+        @Binding var threeFingerSwipeRightGestureAction: String
+        @Binding var threeFingerSwipeUpGestureAction: String
+        @Binding var threeFingerSwipeDownGestureAction: String
+        @Binding var fourFingerSwipeLeftGestureAction: String
+        @Binding var fourFingerSwipeRightGestureAction: String
+        @Binding var fourFingerSwipeUpGestureAction: String
+        @Binding var fourFingerSwipeDownGestureAction: String
+        @Binding var fiveFingerSwipeLeftGestureAction: String
+        @Binding var fiveFingerSwipeRightGestureAction: String
+        @Binding var fiveFingerSwipeUpGestureAction: String
+        @Binding var fiveFingerSwipeDownGestureAction: String
+        @Binding var topLeftCornerSwipeGestureAction: String
+        @Binding var topRightCornerSwipeGestureAction: String
+        @Binding var bottomLeftCornerSwipeGestureAction: String
+        @Binding var bottomRightCornerSwipeGestureAction: String
+        @Binding var topLeftTriangleGestureAction: String
+        @Binding var topRightTriangleGestureAction: String
+        @Binding var bottomLeftTriangleGestureAction: String
+        @Binding var bottomRightTriangleGestureAction: String
+        @Binding var upperLeftCornerClickGestureAction: String
+        @Binding var upperRightCornerClickGestureAction: String
+        @Binding var lowerLeftCornerClickGestureAction: String
+        @Binding var lowerRightCornerClickGestureAction: String
+        @Binding var threeFingerClickGestureAction: String
+        @Binding var fourFingerClickGestureAction: String
+        @Binding var forceClickThresholdSetting: Double
+        @Binding var topLeftForceClickGestureAction: String
+        @Binding var topRightForceClickGestureAction: String
+        @Binding var bottomLeftForceClickGestureAction: String
+        @Binding var bottomRightForceClickGestureAction: String
+        @Binding var gestureRepeatCadenceData: Data
+        let systemThreeFingerDragEnabled: Bool
+        @State private var holdsExpanded = true
+        @State private var edgesExpanded = false
+        @State private var swipesExpanded = false
+        @State private var cornerSwipesExpanded = false
+        @State private var trianglesExpanded = false
+        @State private var clicksExpanded = false
+        @State private var forceClicksExpanded = false
+        @State private var activeChooser: GestureChooserState?
+        private let repeatCadenceFieldWidth: CGFloat = 56
+
+        private func selectedAction(
+            _ rawValue: Binding<String>,
+            fallbackLabel: String
+        ) -> KeyAction {
+            KeyActionCatalog.action(for: rawValue.wrappedValue)
+                ?? KeyActionCatalog.action(for: fallbackLabel)
+                ?? KeyActionCatalog.noneAction
+        }
+
+        private func gestureRepeatCadenceMap() -> [String: Int] {
+            GestureRepeatCadenceStorage.decode(from: gestureRepeatCadenceData) ?? [:]
+        }
+
+        private func setGestureRepeatCadenceText(_ text: String, for bindingId: String) {
+            let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+            let parsedValue = Int(trimmed) ?? 0
+            let normalizedValue = GestureRepeatCadenceStorage.normalized([bindingId: parsedValue])?[bindingId] ?? 0
+            var map = gestureRepeatCadenceMap()
+            if normalizedValue > 0 {
+                map[bindingId] = normalizedValue
+            } else {
+                map.removeValue(forKey: bindingId)
+            }
+            gestureRepeatCadenceData = GestureRepeatCadenceStorage.encode(map) ?? Data()
+        }
+
+        private func gestureRepeatCadenceTextBinding(for bindingId: String) -> Binding<String> {
+            Binding(
+                get: {
+                    let value = gestureRepeatCadenceMap()[bindingId] ?? 0
+                    return value > 0 ? String(value) : ""
+                },
+                set: { newValue in
+                    setGestureRepeatCadenceText(newValue, for: bindingId)
+                }
+            )
+        }
+
+        private func gestureRepeatCadenceEnabled(
+            bindingId: String,
+            selection: Binding<String>,
+            fallbackLabel: String,
+            disabled: Bool
+        ) -> Bool {
+            guard GestureBindingID.windowsRepeatCadenceBindingIDs.contains(bindingId), !disabled else {
+                return false
+            }
+            return selectedAction(selection, fallbackLabel: fallbackLabel).kind != .none
+        }
+
+        @ViewBuilder
+        private func gesturePicker(
+            _ title: String,
+            selection: Binding<String>,
+            fallbackLabel: String,
+            repeatBindingId: String? = nil,
+            showsRepeatCadenceField: Bool = true,
+            disabled: Bool = false
+        ) -> some View {
+            let currentAction = selectedAction(selection, fallbackLabel: fallbackLabel)
+            let repeatEnabled = repeatBindingId.map {
+                gestureRepeatCadenceEnabled(
+                    bindingId: $0,
+                    selection: selection,
+                    fallbackLabel: fallbackLabel,
+                    disabled: disabled
+                )
+            } ?? false
+            EqualSplitFormRow {
+                Text(title)
+            } field: {
+                HStack(spacing: 8) {
+                    Button {
+                        activeChooser = GestureChooserState(
+                            title: title,
+                            fallbackLabel: fallbackLabel,
+                            selection: selection
+                        )
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(currentAction.pickerText)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .multilineTextAlignment(.leading)
+                            Image(systemName: "chevron.down")
+                                .font(.system(size: 11, weight: .semibold))
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 8)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8)
+                                .fill(Color(nsColor: .controlBackgroundColor))
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .stroke(Color.secondary.opacity(0.22), lineWidth: 1)
+                        )
+                        .contentShape(Rectangle())
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .buttonStyle(.plain)
+                    .disabled(disabled)
+                    .opacity(disabled ? 0.65 : 1.0)
+                    .help(disabled ? "Disabled while macOS Three Finger Drag is enabled." : "")
+
+                    if showsRepeatCadenceField, let repeatBindingId {
+                        TextField(
+                            "",
+                            text: gestureRepeatCadenceTextBinding(for: repeatBindingId),
+                            prompt: Text("[ms]")
+                        )
+                        .frame(width: repeatCadenceFieldWidth)
+                        .textFieldStyle(.roundedBorder)
+                        .multilineTextAlignment(.center)
+                        .disabled(!repeatEnabled)
+                        .opacity(repeatEnabled ? 1.0 : 0.65)
+                        .help("Repeat this gesture at the specified cadence in milliseconds. Leave blank or 0 to disable.")
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+        }
+
+        private func gestureSubsectionHeader(_ title: String) -> some View {
+            HStack(spacing: 8) {
+                Text(title)
+                    .font(.caption)
+                    .fontWeight(.semibold)
+                    .foregroundStyle(.secondary)
+                Rectangle()
+                    .fill(Color.secondary.opacity(0.18))
+                    .frame(maxWidth: .infinity, minHeight: 1, maxHeight: 1)
+            }
+            .padding(.top, 10)
+            .padding(.bottom, 6)
+        }
+
+        private struct GestureSectionPalette {
+            let fill: Color
+            let border: Color
+            let foreground: Color
+
+            static let holds = GestureSectionPalette(
+                fill: Color(.sRGB, red: 143.0 / 255.0, green: 182.0 / 255.0, blue: 207.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 47.0 / 255.0, green: 66.0 / 255.0, blue: 81.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 143.0 / 255.0, green: 182.0 / 255.0, blue: 207.0 / 255.0, opacity: 1.0)
+            )
+            static let edges = GestureSectionPalette(
+                fill: Color(.sRGB, red: 119.0 / 255.0, green: 167.0 / 255.0, blue: 232.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 51.0 / 255.0, green: 78.0 / 255.0, blue: 115.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 119.0 / 255.0, green: 167.0 / 255.0, blue: 232.0 / 255.0, opacity: 1.0)
+            )
+            static let swipes = GestureSectionPalette(
+                fill: Color(.sRGB, red: 134.0 / 255.0, green: 201.0 / 255.0, blue: 169.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 46.0 / 255.0, green: 78.0 / 255.0, blue: 67.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 134.0 / 255.0, green: 201.0 / 255.0, blue: 169.0 / 255.0, opacity: 1.0)
+            )
+            static let cornerSwipes = GestureSectionPalette(
+                fill: Color(.sRGB, red: 224.0 / 255.0, green: 155.0 / 255.0, blue: 115.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 92.0 / 255.0, green: 67.0 / 255.0, blue: 53.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 224.0 / 255.0, green: 155.0 / 255.0, blue: 115.0 / 255.0, opacity: 1.0)
+            )
+            static let triangles = GestureSectionPalette(
+                fill: Color(.sRGB, red: 216.0 / 255.0, green: 179.0 / 255.0, blue: 122.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 90.0 / 255.0, green: 74.0 / 255.0, blue: 46.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 216.0 / 255.0, green: 179.0 / 255.0, blue: 122.0 / 255.0, opacity: 1.0)
+            )
+            static let clicks = GestureSectionPalette(
+                fill: Color(.sRGB, red: 183.0 / 255.0, green: 163.0 / 255.0, blue: 217.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 74.0 / 255.0, green: 62.0 / 255.0, blue: 98.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 183.0 / 255.0, green: 163.0 / 255.0, blue: 217.0 / 255.0, opacity: 1.0)
+            )
+            static let forceClicks = GestureSectionPalette(
+                fill: Color(.sRGB, red: 212.0 / 255.0, green: 154.0 / 255.0, blue: 154.0 / 255.0, opacity: 26.0 / 255.0),
+                border: Color(.sRGB, red: 94.0 / 255.0, green: 61.0 / 255.0, blue: 61.0 / 255.0, opacity: 1.0),
+                foreground: Color(.sRGB, red: 212.0 / 255.0, green: 154.0 / 255.0, blue: 154.0 / 255.0, opacity: 1.0)
+            )
+        }
+
+        private func gestureSectionLabel(_ title: String, palette: GestureSectionPalette) -> some View {
+            Text(title)
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(palette.foreground)
+                .padding(.horizontal, 9)
+                .padding(.vertical, 4)
+                .background(
+                    Capsule()
+                        .fill(palette.fill)
+                )
+                .overlay(
+                    Capsule()
+                        .stroke(palette.border, lineWidth: 1)
+                )
+        }
+
+        var body: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                CollapsibleSection(
+                    isExpanded: $holdsExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gesturePicker("2-finger hold", selection: $twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.twoFingerHold)
+                        gesturePicker("3-finger hold", selection: $threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerHold)
+                        gesturePicker("4-finger hold", selection: $fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerHold)
+                        gesturePicker("Inner corners", selection: $innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel, repeatBindingId: GestureBindingID.innerCornersHold)
+                        gesturePicker("Outer corners", selection: $outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel, repeatBindingId: GestureBindingID.outerCornersHold)
+                    }
+                } label: {
+                    gestureSectionLabel("Holds", palette: .holds)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $edgesExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gestureSubsectionHeader("Left Edge")
+                        gesturePicker("Left up", selection: $leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeUp)
+                        gesturePicker("Left down", selection: $leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.leftEdgeDown)
+                        gestureSubsectionHeader("Right Edge")
+                        gesturePicker("Right up", selection: $rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeUp)
+                        gesturePicker("Right down", selection: $rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel, repeatBindingId: GestureBindingID.rightEdgeDown)
+                        gestureSubsectionHeader("Top Edge")
+                        gesturePicker("Top left", selection: $topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeLeft)
+                        gesturePicker("Top right", selection: $topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.topEdgeRight)
+                        gestureSubsectionHeader("Bottom Edge")
+                        gesturePicker("Bottom left", selection: $bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeLeft)
+                        gesturePicker("Bottom right", selection: $bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel, repeatBindingId: GestureBindingID.bottomEdgeRight)
+                    }
+                } label: {
+                    gestureSectionLabel("Edges", palette: .edges)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $swipesExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gestureSubsectionHeader("3-Finger")
+                        gesturePicker("3-finger left", selection: $threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeLeft, disabled: systemThreeFingerDragEnabled)
+                        gesturePicker("3-finger right", selection: $threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeRight, disabled: systemThreeFingerDragEnabled)
+                        gesturePicker("3-finger up", selection: $threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeUp, disabled: systemThreeFingerDragEnabled)
+                        gesturePicker("3-finger down", selection: $threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerSwipeDown, disabled: systemThreeFingerDragEnabled)
+                        gestureSubsectionHeader("4-Finger")
+                        gesturePicker("4-finger left", selection: $fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeLeft)
+                        gesturePicker("4-finger right", selection: $fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeRight)
+                        gesturePicker("4-finger up", selection: $fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeUp)
+                        gesturePicker("4-finger down", selection: $fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerSwipeDown)
+                        gestureSubsectionHeader("5-Finger")
+                        gesturePicker("5-finger left", selection: $fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeLeft)
+                        gesturePicker("5-finger right", selection: $fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeRight)
+                        gesturePicker("5-finger up", selection: $fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeUp)
+                        gesturePicker("5-finger down", selection: $fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel, repeatBindingId: GestureBindingID.fiveFingerSwipeDown)
+                    }
+                } label: {
+                    gestureSectionLabel("Swipes", palette: .swipes)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $cornerSwipesExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gesturePicker("Top Left", selection: $topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.topLeftCornerSwipe)
+                        gesturePicker("Top Right", selection: $topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.topRightCornerSwipe)
+                        gesturePicker("Bottom Left", selection: $bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftCornerSwipe)
+                        gesturePicker("Bottom Right", selection: $bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightCornerSwipe)
+                    }
+                } label: {
+                    gestureSectionLabel("Corner Swipes", palette: .cornerSwipes)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $trianglesExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gesturePicker("Top Left", selection: $topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topLeftTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.topRightTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftTriangle, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightTriangle, showsRepeatCadenceField: false)
+                    }
+                } label: {
+                    gestureSectionLabel("Triangles", palette: .triangles)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $clicksExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        gesturePicker("Top Left", selection: $upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperLeftCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.upperRightCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerLeftCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel, repeatBindingId: GestureBindingID.lowerRightCornerClick, showsRepeatCadenceField: false)
+                        gesturePicker("3-finger click", selection: $threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.threeFingerClick, showsRepeatCadenceField: false)
+                        gesturePicker("4-finger click", selection: $fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel, repeatBindingId: GestureBindingID.fourFingerClick, showsRepeatCadenceField: false)
+                        gestureSubsectionHeader("Taps")
+                        gesturePicker("2-finger tap", selection: $twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel)
+                        gesturePicker("3-finger tap", selection: $threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel)
+                    }
+                } label: {
+                    gestureSectionLabel("Clicks", palette: .clicks)
+                }
+
+                CollapsibleSection(
+                    isExpanded: $forceClicksExpanded,
+                    topSpacing: 4
+                ) {
+                    VStack(alignment: .leading, spacing: 0) {
+                        EqualSplitFormRow {
+                            Text("Force Threshold")
+                        } field: {
+                            HStack(spacing: 8) {
+                                Slider(
+                                    value: $forceClickThresholdSetting,
+                                    in: ContentView.forceClickThresholdRange,
+                                    step: 1
+                                )
+                                .frame(maxWidth: .infinity)
+                                Text(
+                                    "\(Int(forceClickThresholdSetting.rounded()))"
+                                )
+                                .font(.system(.body, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(width: 44, alignment: .trailing)
+                            }
+                        }
+                        gesturePicker("Top Left", selection: $topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topLeftForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Top Right", selection: $topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.topRightForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Left", selection: $bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomLeftForceClick, showsRepeatCadenceField: false)
+                        gesturePicker("Bottom Right", selection: $bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel, repeatBindingId: GestureBindingID.bottomRightForceClick, showsRepeatCadenceField: false)
+                    }
+                } label: {
+                    gestureSectionLabel("Force Clicks", palette: .forceClicks)
+                }
+            }
+            .sheet(item: $activeChooser) { chooser in
+                GestureActionChooserSheet(
+                    title: chooser.title,
+                    actionGroups: actionGroups,
+                    selection: chooser.selection,
+                    fallbackLabel: chooser.fallbackLabel
+                )
+            }
+        }
+    }
 
     /// Samples the existing display snapshot at 10 Hz, never the ingestion hot path.
     private struct TouchTelemetryInspector: View {
@@ -3951,6 +4800,7 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
+        viewModel.updateGestureRecognitionEnabled(gestureRecognitionEnabled)
         viewModel.setStatusVisualsEnabled(true)
         AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
         AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
@@ -4255,11 +5105,13 @@ struct ContentView: View {
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
             keyMappingsByLayout: mappings,
-            keyGeometryByLayout: keyGeometryByLayout
+            keyGeometryByLayout: keyGeometryByLayout,
+            gestureRecognitionEnabled: gestureRecognitionEnabled
         )
     }
 
     private func applyKeymapProfile(_ profile: AppKeymapProfile) {
+        gestureRecognitionEnabled = profile.gestureRecognitionEnabled ?? false
         storedLeftDeviceID = profile.leftDeviceID
         storedRightDeviceID = profile.rightDeviceID
         storedLayoutPreset = profile.layoutPreset

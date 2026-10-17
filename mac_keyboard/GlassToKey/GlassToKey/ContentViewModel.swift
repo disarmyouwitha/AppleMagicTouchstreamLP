@@ -1148,14 +1148,17 @@ final class ContentViewModel: ObservableObject {
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
-        // Keep native mouse input available while studying intent detection.
-        keyboardModeEnabled = false
-        runtimeCommandService.updateKeyboardModeEnabled(false)
+        keyboardModeEnabled = enabled
+        runtimeCommandService.updateKeyboardModeEnabled(enabled)
     }
 
     func updateHoldRepeatEnabled(_ enabled: Bool) {
         holdRepeatEnabled = enabled
         runtimeCommandService.updateHoldRepeatEnabled(enabled)
+    }
+
+    func updateGestureRecognitionEnabled(_ enabled: Bool) {
+        runtimeCommandService.updateGestureRecognitionEnabled(enabled)
     }
 
     func updateGestureActions(_ actions: GestureActionSet) {
@@ -1391,7 +1394,8 @@ final class ContentViewModel: ObservableObject {
             columnSettingsByLayout: columnSettingsByLayout,
             customButtonsByLayout: customButtonsByLayout,
             keyMappingsByLayout: keyMappingsByLayout,
-            keyGeometryByLayout: keyGeometryByLayout
+            keyGeometryByLayout: keyGeometryByLayout,
+            gestureRecognitionEnabled: defaults.object(forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled) as? Bool ?? false
         )
     }
 
@@ -3351,6 +3355,8 @@ struct AppKeymapProfile: Codable {
     let customButtonsByLayout: [String: [Int: [CustomButton]]]
     let keyMappingsByLayout: LayoutLayeredKeyMappings?
     let keyGeometryByLayout: LayoutKeyGeometryOverrides?
+
+    var gestureRecognitionEnabled: Bool? = nil
 
     static func defaultProfile() -> AppKeymapProfile {
         AppKeymapProfile(

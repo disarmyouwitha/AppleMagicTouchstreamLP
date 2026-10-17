@@ -1,18 +1,20 @@
-# GlassToKeyKeyboard
+# GlassToKey Keyboard — conservative restart
 
-Keyboard versus mouse detection experiment. Device selection, keyboard layouts/key mapping, touch visualization, and capture/replay remain. Gesture recognizers/actions, drag cancellation, Typing Tuning, autocorrect, snapping, hold recognition/repeat, and typing grace are removed. A key landing is a typing candidate; movement beyond a fixed 3 mm threshold switches to mouse intent until all contacts lift. Native macOS mouse handling remains active; this experiment does not synthesize or suppress cursor movement.
+This is a fresh copy of `../mac`. Its original keyboard touch processor, tap/hold actions, force thresholds, repeats, modifiers, layers, haptics, layouts, autocorrect, and configuration UI are retained.
 
-Open `GlassToKey/GlassToKey.xcodeproj` in Xcode, select the **GlassToKey** scheme, and Run. The app is menu-bar based; use **Config...** to select trackpads and test. Run one experiment at a time to avoid both processing the same touches. Each experiment has its own bundle identifier and preferences, separate from the original and from each other. macOS may request Accessibility/Input Monitoring access for each new app.
+The changes from `mac` are deliberately limited:
 
-Build from this directory:
+- **Gesture recognition** toggle at the top of Config, default **off**. When off, touch gestures, gesture chord recognition, and gesture-generated actions are disabled. Normal keyboard shortcuts, held keys and layers remain available. Enabling it restores GTK gesture recognizers. The preference is saved and included in exported/captured profiles; older profiles default off.
+- Keyboard intent uses the earlier `mac_keyboard` classifier: a key landing permits typing, movement beyond **3 mm** selects mouse intent until all contacts lift. The original keyboard dispatch pipeline consumes that decision. Motion on either selected pad counts; unselected devices are ignored.
+- **Tap Cadence**, **Drag Cancel**, **Intent Move**, and **Intent Velocity** controls are removed. Their legacy serialized fields remain readable, but their setters cannot change recognition. There is no separate keyboard drag-cancel path; tap-click gestures use a fixed internal cadence when recognition is enabled.
+
+Build/run `GlassToKey/GlassToKey.xcodeproj`, scheme **GlassToKey**. The product remains **GlassToKeyKeyboard.app**, with bundle ID `ink.ranna.glasstokey.keyboard`, so existing keyboard-project preferences remain separate from `mac` and the gesture playground. Run one touch-processing app at a time when testing.
 
 ```sh
 xcodebuild -project GlassToKey/GlassToKey.xcodeproj -scheme GlassToKey -configuration Debug -destination 'platform=macOS' build
 swift test
 ```
 
-The app product is `GlassToKeyKeyboard.app`. The scheme name remains `GlassToKey`.
+The production replay transcript was refreshed for the new intent diagnostics. Its 14 output commands match the original `mac` replay exactly; the recorded capture was not regenerated.
 
-Profiles/capture formats retain legacy fields so existing configurations and recordings can still be read. Removed controls do not reactivate removed runtime features when imported. Package tests cover this experiment; inherited fixtures and transcripts are historical references, not parity expectations for the stripped engine.
-
-This is an independent source copy of `../mac`, without generated build/release output or the SDK reference dump (available in `../mac/sdk`). No source or package dependency points back to the original app. The original project remains unchanged.
+The previous stripped/reworked keyboard source is backed up at `/tmp/glasstokey-keyboard-before-recopy`. `mac` and `mac_gesture_pad` were not changed by this restart.

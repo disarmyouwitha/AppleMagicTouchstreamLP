@@ -64,6 +64,7 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
     func updateHoldRepeatEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
+    func updateGestureRecognitionEnabled(_ enabled: Bool) async
     func updateGestureActions(_ actions: GestureActionSet) async
     func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async
     func clearVisualCaches() async
@@ -437,6 +438,10 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
+    func updateGestureRecognitionEnabled(_ enabled: Bool) async {
+        await run { self.processor.updateGestureRecognitionEnabled(enabled) }
+    }
+
     func updateGestureActions(_ actions: GestureActionSet) async {
         await run {
             self.processor.updateGestureActions(actions)
@@ -779,6 +784,7 @@ final class ProductionReplaySession {
         engine.updateHoldRepeatEnabled(profile.holdRepeatEnabled)
         engine.updateTapClickCadence(profile.tapClickCadenceMs)
         engine.updateGestureRepeatCadenceMsById(profile.gestureRepeatCadenceMsById)
+        engine.updateGestureRecognitionEnabled(profile.gestureRecognitionEnabled ?? false)
         engine.updateGestureActions(GestureActionSet(
             twoFingerTap: KeyActionCatalog.action(for: profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,
             threeFingerTap: KeyActionCatalog.action(for: profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,

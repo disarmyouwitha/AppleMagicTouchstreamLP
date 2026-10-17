@@ -1,6 +1,8 @@
 import Foundation
 
 enum GlassToKeyDefaultsKeys {
+    static let gestureRecognitionEnabled = "GlassToKey.gestureRecognitionEnabled"
+
     static let leftDeviceID = "GlassToKey.leftDeviceID"
     static let rightDeviceID = "GlassToKey.rightDeviceID"
     static let columnSettings = "GlassToKey.columnSettings"

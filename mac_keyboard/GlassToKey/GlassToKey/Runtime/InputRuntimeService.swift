@@ -474,6 +474,11 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+    func updateGestureRecognitionEnabled(_ enabled: Bool) {
+        let runtimeEngine = runtimeEngine
+        Task { await runtimeEngine.updateGestureRecognitionEnabled(enabled) }
+    }
+
     func updateGestureActions(_ actions: GestureActionSet) {
         let runtimeEngine = runtimeEngine
         Task {

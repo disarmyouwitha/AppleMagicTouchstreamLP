@@ -1,0 +1,79 @@
+{
+  "schema": "g2k-rewrite-probe-v1",
+  "widthMM": null,
+  "heightMM": null,
+  "gapLimitMS": 100,
+  "trials": [
+    {
+      "id": "index-taps",
+      "capture": "captures/01-index-taps.atpcap",
+      "intent": "Ten separate index-finger taps, all fingers lifted between taps; one selected pad.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumLifetimes", "value": 10},
+        {"metric": "maximumLifetimes", "value": 10},
+        {"metric": "maximumPeakContacts", "value": 1},
+        {"metric": "minimumTelemetryFraction", "value": 0.95}
+      ]
+    },
+    {
+      "id": "thumb-taps",
+      "capture": "captures/02-thumb-taps.atpcap",
+      "intent": "Ten separate thumb taps; all fingers lifted between taps. Compare raw identity codes with index taps.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumLifetimes", "value": 10},
+        {"metric": "maximumLifetimes", "value": 10},
+        {"metric": "maximumPeakContacts", "value": 1},
+        {"metric": "minimumTelemetryFraction", "value": 0.95}
+      ]
+    },
+    {
+      "id": "stationary-hold",
+      "capture": "captures/03-stationary-hold.atpcap",
+      "intent": "Hold one index finger still for two seconds, then lift.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumLifetimes", "value": 1},
+        {"metric": "maximumLifetimes", "value": 1},
+        {"metric": "maximumPeakContacts", "value": 1},
+        {"metric": "minimumLongestDurationMS", "value": 1500},
+        {"metric": "maximumIdentityChanges", "value": 0}
+      ]
+    },
+    {
+      "id": "one-finger-motion",
+      "capture": "captures/04-one-finger-motion.atpcap",
+      "intent": "Slide one index finger steadily across about three centimetres over one second; then lift.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumLifetimes", "value": 1},
+        {"metric": "maximumLifetimes", "value": 1},
+        {"metric": "maximumPeakContacts", "value": 1},
+        {"metric": "minimumLongestDurationMS", "value": 500}
+      ]
+    },
+    {
+      "id": "staggered-partial-lift",
+      "capture": "captures/05-staggered-partial-lift.atpcap",
+      "intent": "Index lands, wait about 200ms, middle lands. Hold/move both, lift index while middle stays for half a second, then lift middle.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumPeakContacts", "value": 2},
+        {"metric": "maximumPeakContacts", "value": 2},
+        {"metric": "minimumLandingSpreadMS", "value": 100},
+        {"metric": "minimumPartialLiftFrames", "value": 1}
+      ]
+    },
+    {
+      "id": "palm-observation",
+      "capture": "captures/06-palm-observation.atpcap",
+      "intent": "Rest a comfortable edge of the palm for two seconds, then lift; observe segmentation and raw codes without assuming code6 means palm.",
+      "deviceIndex": 0,
+      "checks": [
+        {"metric": "minimumLifetimes", "value": 1},
+        {"metric": "minimumTelemetryFraction", "value": 0.95}
+      ]
+    }
+  ]
+}

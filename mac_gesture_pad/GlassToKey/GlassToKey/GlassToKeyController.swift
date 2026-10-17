@@ -391,79 +391,12 @@ final class GlassToKeyController: ObservableObject {
 
     private func configureFromDefaults() {
         viewModel.loadDevices()
-        let layout = resolvedLayoutPreset()
-        let columnSettings = resolvedColumnSettings(for: layout)
-        let keySpacingPercent = resolvedKeySpacingPercent(for: layout)
-        let keyGeometryOverrides = loadKeyGeometryOverrides(for: layout)
-
-        let trackpadSize = CGSize(
-            width: ContentView.trackpadWidthMM * ContentView.displayScale,
-            height: ContentView.trackpadHeightMM * ContentView.displayScale
-        )
-
-        let leftLayout: ContentViewModel.Layout
-        let rightLayout: ContentViewModel.Layout
-        if layout == .mobile {
-            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-            rightLayout = ContentView.makeMobileKeyLayout(
-                size: trackpadSize,
-                keyGeometryOverrides: keyGeometryOverrides
-            )
-        } else if layout.columns > 0, layout.rows > 0 {
-            leftLayout = ContentView.makeKeyLayout(
-                size: trackpadSize,
-                keyWidth: ContentView.baseKeyWidthMM,
-                keyHeight: ContentView.baseKeyHeightMM,
-                columns: layout.columns,
-                rows: layout.rows,
-                trackpadWidth: ContentView.trackpadWidthMM,
-                trackpadHeight: ContentView.trackpadHeightMM,
-                columnAnchorsMM: layout.columnAnchors,
-                columnSettings: columnSettings,
-                keySpacingPercent: keySpacingPercent,
-                keyGeometryOverrides: keyGeometryOverrides,
-                mirrored: true
-            )
-            rightLayout = ContentView.makeKeyLayout(
-                size: trackpadSize,
-                keyWidth: ContentView.baseKeyWidthMM,
-                keyHeight: ContentView.baseKeyHeightMM,
-                columns: layout.columns,
-                rows: layout.rows,
-                trackpadWidth: ContentView.trackpadWidthMM,
-                trackpadHeight: ContentView.trackpadHeightMM,
-                columnAnchorsMM: layout.columnAnchors,
-                columnSettings: columnSettings,
-                keySpacingPercent: keySpacingPercent,
-                keyGeometryOverrides: keyGeometryOverrides
-            )
-        } else {
-            leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-            rightLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
-        }
-
-        viewModel.configureLayouts(
-            leftLayout: leftLayout,
-            rightLayout: rightLayout,
-            leftLabels: layout.leftLabels,
-            rightLabels: layout.rightLabels,
-            trackpadSize: trackpadSize,
-            trackpadWidthMm: ContentView.trackpadWidthMM
-        )
-
-        let customButtons = loadCustomButtons(for: layout)
-        viewModel.updateCustomButtons(customButtons)
-
-        let keyMappings = loadKeyMappings(for: layout)
-        viewModel.updateKeyMappings(keyMappings)
-
-        applySavedInteractionSettings()
-        let autocorrectEnabled = UserDefaults.standard.bool(
-            forKey: GlassToKeyDefaultsKeys.autocorrectEnabled
-        )
-        AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
-        AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
-
+        let size = CGSize(width: ContentView.trackpadWidthMM * ContentView.displayScale,
+                          height: ContentView.trackpadHeightMM * ContentView.displayScale)
+        let empty = ContentViewModel.Layout(keyRects: [], trackpadSize: size)
+        viewModel.configureLayouts(leftLayout: empty, rightLayout: empty,
+            leftLabels: [], rightLabels: [], trackpadSize: size,
+            trackpadWidthMm: ContentView.trackpadWidthMM)
         let leftDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.leftDeviceID)
         let rightDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.rightDeviceID)
         if let leftDevice = deviceForID(leftDeviceID) {

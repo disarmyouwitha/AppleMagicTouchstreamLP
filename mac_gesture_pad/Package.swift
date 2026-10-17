@@ -50,6 +50,9 @@ let package = Package(
             name: "ReplayFixtureKit",
             dependencies: []
         ),
+        .target(name: "RewriteProbeKit", dependencies: ["ReplayFixtureKit"]),
+        .executableTarget(name: "RewriteProbe", dependencies: ["RewriteProbeKit", "ReplayFixtureKit"]),
+        .testTarget(name: "RewriteProbeTests", dependencies: ["RewriteProbeKit", "ReplayFixtureKit"]),
         // Compile the app's production sources directly, without launching its UI.
         .target(
             name: "GlassToKeyRuntime",

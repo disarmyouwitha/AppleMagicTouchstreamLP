@@ -33,6 +33,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var replayInProgress = false
     private var isTerminatingApp = false
     private static let persistedConfigKeys: [String] = [
+        GlassToKeyDefaultsKeys.gestureRecognitionEnabled,
         GlassToKeyDefaultsKeys.leftDeviceID,
         GlassToKeyDefaultsKeys.rightDeviceID,
         GlassToKeyDefaultsKeys.columnSettings,
