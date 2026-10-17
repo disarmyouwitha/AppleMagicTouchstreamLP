@@ -1,5 +1,6 @@
 # Mac
 .DS_Store
+/mac/sdk/
 
 # Xcode
 xcuserdata/
