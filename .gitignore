@@ -1,6 +1,6 @@
 # Mac
 .DS_Store
-/mac/sdk/
+/mac/GlassToKey/sdk/
 
 # Xcode
 xcuserdata/
@@ -15,7 +15,7 @@ Packages.resolved
 *.framework/
 *.xcframework/
 *.zip
-!mac/OpenMultitouchSupportXCF.xcframework.zip
+!mac/GlassToKey/OpenMultitouchSupportXCF.xcframework.zip
 !windows/MagicTrackpad2ForWindows_20241210.zip
 build/
 

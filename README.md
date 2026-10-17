@@ -66,9 +66,6 @@ Since it is built on the same technology, I thought it would be fun to try and c
 
 **Special thank you to @FRANF23 and @InternOne1306 for being my very early adopters and helping me test!!**
 
-## macOS rewrite experiments
+## macOS projects
 
-- [Gesture pad](mac_gesture_pad/README.md): gesture recognition with blank touch surfaces.
-- [Keyboard](mac_keyboard/README.md): minimal keyboard versus mouse detection.
-
-Both are independent copies; `mac` remains the reference implementation.
+See [macOS project layout and build commands](mac/README.md) for the independent GlassToKey, AppleMagicTouchstream, and gesturepad projects.

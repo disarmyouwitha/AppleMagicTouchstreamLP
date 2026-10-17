@@ -1,26 +1,33 @@
 ## Rewrite
+0. **Exclusive HID ownership plus our interpreter:** [IOHIDDeviceOpen](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen) supports the [SeizeDevice option](https://developer.apple.com/documentation/iokit/1556660-anonymous/kiohidoptionstypeseizedevice?changes=_2). This worked incredibly well this is our path forward here 
+> NEXT TEST: Can I allow certain actions to pass through?
 
-0. Please continue with your research in SYSTEM_MAP.md and FINDINGS.md
+I would like to restructure our projects a bit:
 
-1. Lets test this immediately - maybe add a toggle in our Gesture_pad project to see if we can swallow all inputs from the trackpad and blackhole them. 
-**Exclusive HID ownership plus our interpreter:** [IOHIDDeviceOpen](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen) supports the [SeizeDevice option](https://developer.apple.com/documentation/iokit/1556660-anonymous/kiohidoptionstypeseizedevice?changes=_2). This worked incredibly well this is our path forward here 
-
-2. I made a friend on reddit who made their own PCB with the processor you keep mentioning.. they said they were able to get everything pre-soldered which is dope.. maybe we can check out his kicad for ideas? it is MX spaced which sucks, lol. 
-[https://www.reddit.com/r/ErgoMechKeyboards/comments/1x8d8sb/comment/phc8mcc/?context=1&screen_view_count=2](https://www.reddit.com/r/ErgoMechKeyboards/comments/1x8d8sb/comment/phc8mcc/?context=1&screen_view_count=2)
-
-[https://github.com/WillACosta/wlfkbd/](https://github.com/WillACosta/wlfkbd/)
-
-What is next? Do we talk Processor first? Or do you want to infer those copper traces from the texture? It looks like you should be able to. 
-
-`mac_gesturepad`: redesign GUI for better visual display of touches.. show left touches on the left of the visualizer and right to the right. Maybe this can all happen under the trackpad visualizer? 
+`mac_gesturepad`: 
 > Faithful recreation of Touchstream gesture logic, no keyboard for eventual port to `AppleMagicTouchstream`.
 
-`mac_keyboard`: Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal that 3mm intent classifier.
+`mac_keyboard`: (renamed: AppleMagicTouchstream)
 > I want to use this specifically as the new AMT-Touchstream project where we emulate the touchstream fully without any GTK (except what you find useful). We need to rename the folder and Project within it to `AppleMagicTouchstream`.
 
+`mac`: (renamed: GlassToKey). I will cherry-pick improvements to move here.
+
 I guess at a certain point I want to start 2 seperate projects: 
-1. a faithful recreation of TouchStream on AppleMagicTrackpad (AppleMagicTouchstreamLP)
-2. a rewrite of glass to key using as much of the touchstream gesture and gating logic as I find useful for my project.
+1. a faithful recreation of TouchStream on AppleMagicTrackpad (`AppleMagicTouchstream`)
+2. a rewrite of glass to key using as much of the touchstream gesture and gating logic as I find useful for my project. `GlassToKey`
+
+I have renamed and organized the top level folders I need you to look over each project and make sure it is actully set up properly and can build correctly or adjust the scripts accordingly.
+mac/GlassToKey
+mac/AppleMagicTouchstream
+mac/gesturepad
+
+===
+
+`mac_gesturepad`: redesign GUI for better visual display of touches. 1. Remove `HID interfaces and report counts` and `Copy Diagnostics` 2. From `Live Values` show left touches on the left of the visualizer and right to the right. Maybe this can all happen under the trackpad visualizer instead of in a pop-out/modal like it is now. 3. lets move the Blackhold target info under the left/right trackpad selectors. 
+
+`mac_keyboard`: 
+
+`GlassToKey`: Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal than 3mm intent classifier. I would like maybe 3 options to switch between to test feel: 1. Current setup. 2. 3mm intent classifier 3. Velocity/Pressure/Timing based. (Let me know if we need to do a typing test to get data on this)
 
 ===
 
