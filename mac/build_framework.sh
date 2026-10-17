@@ -1,4 +1,5 @@
 #!/bin/sh -
+set -e
 # xcodebuild -version
 
 # Check if --release flag is passed

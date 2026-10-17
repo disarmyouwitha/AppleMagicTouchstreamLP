@@ -10,8 +10,13 @@
 #define OpenMTManager_h
 
 #import <Foundation/Foundation.h>
+#if !__has_include(<OpenMultitouchSupportXCF/OpenMTListener.h>)
 #import "OpenMTListener.h"
 #import "OpenMTEvent.h"
+#else
+#import <OpenMultitouchSupportXCF/OpenMTListener.h>
+#import <OpenMultitouchSupportXCF/OpenMTEvent.h>
+#endif
 
 NS_ASSUME_NONNULL_BEGIN
 
