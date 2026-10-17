@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA000000000000000000002 /* HIDBlackholeExperiment.swift */; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
 		31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */; };
 		3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D5BB43B585451E9D83C8ED /* MobileLayout.swift */; };
@@ -33,6 +34,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		BAA000000000000000000002 /* HIDBlackholeExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDBlackholeExperiment.swift; sourceTree = "<group>"; };
 		21D5BB43B585451E9D83C8ED /* MobileLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileLayout.swift; sourceTree = "<group>"; };
 		31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColumnLayoutSettings.swift; sourceTree = "<group>"; };
 		5A1C2D3E4F5061728394A5B5 /* AutocorrectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocorrectEngine.swift; sourceTree = "<group>"; };
@@ -126,6 +128,7 @@
 			isa = PBXGroup;
 			children = (
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
+				BAA000000000000000000002 /* HIDBlackholeExperiment.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
 			);
@@ -240,6 +243,7 @@
 				31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GlassToKeyDefaultsKeys.swift in Sources */,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
+				BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,
 				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,

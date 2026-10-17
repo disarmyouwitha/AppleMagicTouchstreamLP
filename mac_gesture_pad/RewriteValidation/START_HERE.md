@@ -1,5 +1,7 @@
 # Tomorrow's GlassToKey capture session
 
+For the next session after native-parser research, use the [AMT follow-up test plan](AMT_FOLLOWUP_TEST_PLAN.md). It prioritizes independent scalar preservation, strength/area, coordinate/velocity calibration, ellipse orientation, and contextual label revisions. The instructions below document the earlier session.
+
 Use **GlassToKeyGesturePad** for this first session. The new `RewriteProbe` tool reads saved `.atpcap` files offline; it never posts keys, moves the pointer or changes recognizer settings. Native macOS trackpad movement can still happen while recording.
 
 The goal is to check the assumptions a rewrite would depend on: stable contact lifetimes, usable raw identity/pressure data, ordinary hold drift, staggered landings and partial lifts. These are input-observation checks. They do not yet test a new typing recognizer, native mouse suppression or exact TouchStream behavior.

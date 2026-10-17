@@ -1,8 +1,9 @@
 ## Rewrite
-0. Sorry you got interrupted because I ran out of credits. Please continue! I did get to look over our research and I think it's worth pointing out that I don't think the AMT does gesture recognition like the touchstream, it is just reporting contact data. I think gestures are interpreted by the operating system. I mostly just want to confirm WHAT data we are getting from the AMT and how it compares to the data the touchstream logic expects. 
+
+0. Please continue with your research in SYSTEM_MAP.md and FINDINGS.md
 
 1. Lets test this immediately - maybe add a toggle in our Gesture_pad project to see if we can swallow all inputs from the trackpad and blackhole them. 
-**Exclusive HID ownership plus our interpreter:** [IOHIDDeviceOpen](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen) supports the [SeizeDevice option](https://developer.apple.com/documentation/iokit/1556660-anonymous/kiohidoptionstypeseizedevice?changes=_2). Apple documents that it prevents other clients/system events from that HID device. This is a concrete API to investigate before replacing the whole driver. Success, report availability, affected HID collections and suppression of all corresponding pointer/scroll/gesture output must be tested on the actual model/OS/transport. Opening one collection is not proof all input routes are controlled. 
+**Exclusive HID ownership plus our interpreter:** [IOHIDDeviceOpen](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen) supports the [SeizeDevice option](https://developer.apple.com/documentation/iokit/1556660-anonymous/kiohidoptionstypeseizedevice?changes=_2). This worked incredibly well this is our path forward here 
 
 2. I made a friend on reddit who made their own PCB with the processor you keep mentioning.. they said they were able to get everything pre-soldered which is dope.. maybe we can check out his kicad for ideas? it is MX spaced which sucks, lol. 
 [https://www.reddit.com/r/ErgoMechKeyboards/comments/1x8d8sb/comment/phc8mcc/?context=1&screen_view_count=2](https://www.reddit.com/r/ErgoMechKeyboards/comments/1x8d8sb/comment/phc8mcc/?context=1&screen_view_count=2)
@@ -11,13 +12,19 @@
 
 What is next? Do we talk Processor first? Or do you want to infer those copper traces from the texture? It looks like you should be able to. 
 
-`mac_gesturepad`: 
+`mac_gesturepad`: redesign GUI for better visual display of touches.. show left touches on the left of the visualizer and right to the right. Maybe this can all happen under the trackpad visualizer? 
+> Faithful recreation of Touchstream gesture logic, no keyboard for eventual port to `AppleMagicTouchstream`.
 
 `mac_keyboard`: Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal that 3mm intent classifier.
+> I want to use this specifically as the new AMT-Touchstream project where we emulate the touchstream fully without any GTK (except what you find useful). We need to rename the folder and Project within it to `AppleMagicTouchstream`.
 
-0. Update GTK Windows Driver instructions they should be dead simple now.
+I guess at a certain point I want to start 2 seperate projects: 
+1. a faithful recreation of TouchStream on AppleMagicTrackpad (AppleMagicTouchstreamLP)
+2. a rewrite of glass to key using as much of the touchstream gesture and gating logic as I find useful for my project.
 
-1. The "handedness" of the finger recognizer is interesting.. on the touchstream they knew which hand was which.. Apple seems to recognize which finger orientation is which hand and updates contacts accordingly. 
+===
+
+0. Update GTK Windows Driver instructions they should be dead simple now. 
 
 > Now that we have a much better idea of how Fingerworks did it.. how were gestures implemented in GTK? Can you give me a flowchart and maybe a comparison?
 
@@ -37,6 +44,3 @@ c. Do you see any inefficiencies of how the dynamic keys work right now? If we c
 
 -------
 
-I guess at a certain point I want to start 2 seperate projects: 
-1. a faithful recreation of TouchStream on AppleMagicTrackpad (AppleMagicTouchstreamLP)
-2. a rewrite of glass to key using as much of the touchstream gesture and gating logic as I find useful for my project.

@@ -13,6 +13,14 @@ public struct OMSDeviceInfo: Sendable, Hashable {
     public let deviceID: String
     public let deviceIDNumeric: UInt64
     public let isBuiltIn: Bool
+    public let registryEntryID: UInt64
+    public let serialNumber: String
+    public let transport: String
+
+    public var selectionLabel: String {
+        let identity = [transport, serialNumber].filter { !$0.isEmpty }.joined(separator: " · ")
+        return identity.isEmpty ? "\(deviceName) (ID: \(deviceID))" : "\(deviceName) · \(identity)"
+    }
     internal nonisolated(unsafe) let deviceInfo: OpenMTDeviceInfo
     
     internal init(_ deviceInfo: OpenMTDeviceInfo) {
@@ -21,6 +29,9 @@ public struct OMSDeviceInfo: Sendable, Hashable {
         self.deviceID = deviceInfo.deviceID
         self.deviceIDNumeric = UInt64(deviceInfo.deviceID) ?? 0
         self.isBuiltIn = deviceInfo.isBuiltIn
+        self.registryEntryID = deviceInfo.registryEntryID
+        self.serialNumber = deviceInfo.serialNumber
+        self.transport = deviceInfo.transport
     }
 }
 

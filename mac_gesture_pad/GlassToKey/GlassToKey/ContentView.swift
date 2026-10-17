@@ -4,6 +4,7 @@ import OpenMultitouchSupport
 
 /// Raw-touch workspace for future FingerWorks gesture and chord experiments.
 struct ContentView: View {
+    @StateObject private var hidBlackhole = HIDBlackholeExperiment()
     @ObservedObject var viewModel: ContentViewModel
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
@@ -11,6 +12,7 @@ struct ContentView: View {
     @State private var showTouchTelemetry = true
     @State private var showContactPaths = true
     @State private var showInspector = false
+    @State private var blackholeSide: TrackpadSide = .left
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
     @State private var replayScrubValue: Double = 0
@@ -50,6 +52,7 @@ struct ContentView: View {
                     UserDefaults.standard.set(device?.deviceID ?? "", forKey: GlassToKeyDefaultsKeys.rightDeviceID)
                 },
                 onRefresh: { viewModel.refreshDevicesAndListeners() })
+            hidBlackholeControls
             if let state = viewModel.replayTimelineState { replayTimelineView(state) }
             HStack {
                 Toggle("Inspect touch data", isOn: $showTouchTelemetry)
@@ -73,9 +76,77 @@ struct ContentView: View {
         }
         .padding(16)
         .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 240)
+        .onAppear { synchronizeHIDTarget() }
+        .onChange(of: blackholeSide) { _ in synchronizeHIDTarget() }
+        .onChange(of: viewModel.leftDevice) { _ in
+            if blackholeSide == .left { synchronizeHIDTarget() }
+        }
+        .onChange(of: viewModel.rightDevice) { _ in
+            if blackholeSide == .right { synchronizeHIDTarget() }
+        }
+        .onDisappear { hidBlackhole.release(reason: "Config closed") }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
+            hidBlackhole.release(reason: "App quitting")
+        }
+        .onChange(of: viewModel.replayTimelineState != nil) { replaying in
+            if replaying { hidBlackhole.release(reason: "Replay started") }
+        }
+        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
+            hidBlackhole.release(reason: "System sleeping")
+        }
         .onReceive(viewModel.$replayTimelineState) { state in
             if let state, !replayScrubInProgress { replayScrubValue = max(state.currentTimeSeconds, 0) }
         }
+    }
+
+    private var blackholeTarget: OMSDeviceInfo? {
+        blackholeSide == .left ? viewModel.leftDevice : viewModel.rightDevice
+    }
+
+    private func synchronizeHIDTarget() {
+        if hidBlackhole.isActive { hidBlackhole.release(reason: "Selected trackpad changed") }
+        hidBlackhole.refresh()
+        hidBlackhole.selectTrackpad(registryEntryID: blackholeTarget?.registryEntryID)
+    }
+
+    private var hidBlackholeControls: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                Picker("Blackhole target", selection: $blackholeSide) {
+                    Text("Left trackpad").tag(TrackpadSide.left)
+                    Text("Right trackpad").tag(TrackpadSide.right)
+                }.disabled(hidBlackhole.isActive)
+                Text(blackholeTarget?.selectionLabel ?? "No trackpad selected")
+                    .font(.caption).foregroundStyle(.secondary)
+                Button("Refresh device link") { synchronizeHIDTarget() }.disabled(hidBlackhole.isActive)
+            }
+            HStack {
+                Toggle("Blackhole trackpad HID input (30-second test)", isOn: Binding(
+                    get: { hidBlackhole.isActive }, set: { hidBlackhole.setEnabled($0) }))
+                    .disabled(hidBlackhole.selectedGroupID.isEmpty || viewModel.replayTimelineState != nil)
+                Button("Release HID now") { hidBlackhole.release() }
+                    .keyboardShortcut(.escape, modifiers: [.command])
+                    .disabled(!hidBlackhole.isActive)
+            }
+            Text(hidBlackhole.summary).font(.caption)
+            DisclosureGroup("HID interfaces and report counts") {
+                HStack {
+                    Text(ProcessInfo.processInfo.operatingSystemVersionString).font(.caption)
+                    Spacer()
+                    Button("Copy diagnostics") {
+                        let report = [ProcessInfo.processInfo.operatingSystemVersionString,
+                            hidBlackhole.groups.first(where: { $0.id == hidBlackhole.selectedGroupID })?.label ?? "No selection",
+                            hidBlackhole.summary, hidBlackhole.diagnostics].joined(separator: "\n")
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(report, forType: .string)
+                    }
+                }
+                ScrollView {
+                    Text(hidBlackhole.diagnostics).font(.system(size: 10, design: .monospaced))
+                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
+                }.frame(height: 120)
+            }
+        }.padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func replayTimelineView(
@@ -172,7 +243,7 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
@@ -195,7 +266,7 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
