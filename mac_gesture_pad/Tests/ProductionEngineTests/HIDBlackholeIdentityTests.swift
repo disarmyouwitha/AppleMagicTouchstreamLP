@@ -37,4 +37,38 @@ final class HIDBlackholeIdentityTests: XCTestCase {
         XCTAssertTrue(device(page: 1, usage: 6).isKeyboard)
         XCTAssertFalse(device(page: 1, usage: 2).isKeyboard)
     }
+    func testOMSServiceMapsThroughItsHIDAncestorToAllSiblingInterfaces() {
+        let mouse = device(id: 10)
+        let vendor = device(id: 11, page: 0xff00, usage: 18)
+        let group = HIDBlackholeExperiment.Group(id: mouse.groupID, label: mouse.label, interfaces: [mouse, vendor])
+        XCTAssertEqual(HIDBlackholeExperiment.matchingGroupID(registryPath: [30, 20, 10, 1], groups: [group]), group.id)
+    }
+
+    func testRegistryMappingDoesNotGuessWhenServiceIsMissing() {
+        let trackpad = device(id: 10)
+        let group = HIDBlackholeExperiment.Group(id: trackpad.groupID, label: trackpad.label, interfaces: [trackpad])
+        XCTAssertNil(HIDBlackholeExperiment.matchingGroupID(registryPath: [100, 90, 80], groups: [group]))
+        XCTAssertNil(HIDBlackholeExperiment.matchingGroupID(registryPath: [], groups: [group]))
+    }
+
+    func testRegistryMappingKeepsTwoSameModelTrackpadsSeparate() {
+        let left = device(id: 10)
+        let right = device(id: 40, serial: "D0:C0:50:D4:75:6C")
+        let groups = [
+            HIDBlackholeExperiment.Group(id: left.groupID, label: left.label, interfaces: [left]),
+            HIDBlackholeExperiment.Group(id: right.groupID, label: right.label, interfaces: [right])
+        ]
+        XCTAssertEqual(HIDBlackholeExperiment.matchingGroupID(registryPath: [60, 50, 40], groups: groups), right.groupID)
+        XCTAssertEqual(HIDBlackholeExperiment.matchingGroupID(registryPath: [30, 20, 10], groups: groups), left.groupID)
+    }
+
+    func testRegistryMappingRejectsAmbiguousGroups() {
+        let trackpad = device(id: 10)
+        let groups = [
+            HIDBlackholeExperiment.Group(id: "one", label: "one", interfaces: [trackpad]),
+            HIDBlackholeExperiment.Group(id: "two", label: "two", interfaces: [trackpad])
+        ]
+        XCTAssertNil(HIDBlackholeExperiment.matchingGroupID(registryPath: [30, 20, 10], groups: groups))
+    }
+
 }
