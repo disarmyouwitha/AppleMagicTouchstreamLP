@@ -1,0 +1,42 @@
+{
+  "capture": "captures/telemetry_parity_takeover.atpcap.atpcap",
+  "sha256": "cd0e892188b9169d199bbe7fce31dd31a9e2cf5a532356a34300a87ebd25d728",
+  "contactsCompared": 1686,
+  "contactsSkipped": 0,
+  "conversionVersions": {
+    "2": 1686
+  },
+  "mismatchCount": 0,
+  "maxAbsoluteError": {
+    "id": 0.0,
+    "state": 0.0,
+    "finger": 0.0,
+    "hand": 0.0,
+    "x": 3.0000000039720476e-08,
+    "y": 3.0000000039720476e-08,
+    "absoluteX": 1.7999999997186933e-06,
+    "absoluteY": 3.7000000077114237e-06,
+    "major": 4.6000000075707703e-07,
+    "minor": 2.3000000037853852e-07,
+    "total": 0.0,
+    "pressure": 0.0,
+    "angle": 2.400000003177638e-07,
+    "density": 4.9999999918171056e-08,
+    "vx": 2.800000009628434e-08,
+    "vy": 1.3999999992631018e-08,
+    "avx": 0.0,
+    "avy": 0.0
+  },
+  "mismatches": [],
+  "scope": "Same raw bytes and sensor timestamps through native unpack/fill/velocity functions. Safety-reset samples skip native velocity calculation; not a simultaneous native callback comparison.",
+  "statesByDevice": {
+    "216172782451425280": {
+      "starting": 2,
+      "making": 2,
+      "touching": 1676,
+      "leaving": 2,
+      "breaking": 1,
+      "notTouching": 3
+    }
+  }
+}

@@ -588,3 +588,19 @@ contacts. Recovered dedicated finger bits, full3-bit states and orientation;
 added provenance/raw9-byte record preservation and explicitly derived velocity.
 Hand/density remain unavailable, raw pressure/size are not Apple-calibrated values.
 Build and61 tests pass. Live visual verification remains pending.
+
+
+### Native Compact V7 telemetry reconstruction and parity oracle
+
+The earlier local native-parser archive provided the actual scalar conversions and
+filler. Added a pure Swift reconstruction verified against the current mapped
+framework:256 values each for4scalar fields,576 density cases,256 full contacts
+on each transport wrapper,96 native two-frame velocity/state cases. All67 tests
+and app build pass. Source descriptor checked before takeover. Native pressure,
+total,density,hand1,code7→12, clipping, calibration and quantization recovered.
+New metadata retains full report/contact bytes and sensor ticks. Read-only capture
+validator prepared; synthetic256-contact v5 recording compares with zero errors.
+See COMPACT_V7_TELEMETRY_PARITY.md and Tools/TelemetryParity/README.md.
+No live takeover/driver activation performed. A fresh hardware capture remains
+necessary before claiming complete live telemetry parity; earlier AFTER capture
+had already discarded the needed raw bytes.

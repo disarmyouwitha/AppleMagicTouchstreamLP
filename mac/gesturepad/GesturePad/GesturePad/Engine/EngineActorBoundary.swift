@@ -621,11 +621,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         latestRender.revision &+= 1
     }
 
-    private static func renderTouches(from frame: OMSRawTouchFrame) -> [OMSTouchData] {
+    static func renderTouches(from frame: OMSRawTouchFrame) -> [OMSTouchData] {
         let touches = frame.touches
         guard !touches.isEmpty else { return [] }
-        return touches.map { touch in
-            OMSTouchData(
+        return touches.compactMap { touch in
+            // Retain lift records in capture; a terminal non-contact must clear the display.
+            guard touch.state != .notTouching else { return nil }
+            return OMSTouchData(
                 deviceID: frame.deviceID,
                 deviceIndex: frame.deviceIndex,
                 id: touch.id,
@@ -642,12 +644,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
-    private static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {
+    static func renderTouches(from frame: RuntimeRawFrame) -> [OMSTouchData] {
         let touches = frame.rawTouches
         let deviceID = String(frame.deviceNumericID)
         if !touches.isEmpty {
-            return touches.map { touch in
-                OMSTouchData(
+            return touches.compactMap { touch in
+                guard touch.state != .notTouching else { return nil }
+                return OMSTouchData(
                     deviceID: deviceID,
                     deviceIndex: frame.deviceIndex,
                     id: touch.id,
@@ -663,8 +666,9 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
                 )
             }
         }
-        return frame.contacts.map { contact in
-            OMSTouchData(
+        return frame.contacts.compactMap { contact in
+            guard contact.state != .notTouching else { return nil }
+            return OMSTouchData(
                 deviceID: deviceID,
                 deviceIndex: frame.deviceIndex,
                 id: contact.id,

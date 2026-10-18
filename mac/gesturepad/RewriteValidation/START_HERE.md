@@ -1,5 +1,7 @@
 # Tomorrow's GlassToKey capture session
 
+**Current telemetry task:** [Native Compact V7 parity checkpoint](COMPACT_V7_TELEMETRY_PARITY.md). Decoder reference tests pass; a fresh takeover capture is the remaining live-verification dependency.
+
 **Latest native-input takeover research:** [DriverKit USB/Bluetooth checkpoint, 2026-10-18](DRIVERKIT_TAKEOVER_CHECKPOINT.md). Full contact delivery succeeded with SIP enabled on both transports; integration remains pending.
 
 For the next session after native-parser research, use the [AMT follow-up test plan](AMT_FOLLOWUP_TEST_PLAN.md). It prioritizes independent scalar preservation, strength/area, coordinate/velocity calibration, ellipse orientation, and contextual label revisions. The instructions below document the earlier session.

@@ -1,11 +1,8 @@
 `GesturePad`:  
-0. Can I allow certain actions to pass through blackhole? 
-Lets test Ignoring all mouse movement sent from device, but allowing 2-finger scroll.
-1. can we "translate" 2finger movement to 1 finger.. or 4 fingers to 2 (so I could scroll with 4 fingers ?) Or is this really not any different than sythensizing it?
-===
-3. SIZE IS HUGE ON VISUALIZER during driver takeover
-4. Are we missing a bunch of touch info like Finger, Pressure, Velocity?
 2. Can we figure out how to give mouse access back without disabling the driver extension?
+0. Can I allow certain actions to pass through blackhole? 
+> Can we allow forceClicks through?
+1. can we "translate" 2finger movement to 1 finger.. or 4 fingers to 2 (so I could scroll with 4 fingers ?) Or is this really not any different than sythensizing it?
 
 `AppleMagicTouchstream`: 
 

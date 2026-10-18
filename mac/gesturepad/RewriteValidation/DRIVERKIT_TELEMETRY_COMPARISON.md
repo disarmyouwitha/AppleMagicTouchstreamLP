@@ -1,5 +1,7 @@
 # DriverKit telemetry comparison — 2026-10-18
 
+**Superseded conversion details:** [Native Compact V7 parity checkpoint](COMPACT_V7_TELEMETRY_PARITY.md) recovers nonlinear geometry/pressure/total/density, Hand ID and quantized velocity. The initial comparison below records the earlier linear adapter and its limits.
+
 Read-only comparison of `captures/BEFORE_takeover.atpcap` and
 `captures/AFTER_takeover.atpcap`, recorded on the right USB pad with the same
 requested action. These are separate runs, not synchronized identical sensor

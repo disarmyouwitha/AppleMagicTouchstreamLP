@@ -328,20 +328,20 @@ struct ContentView: View {
                             Spacer()
                             Text(String(format: "p: %.3f", touch.pressure)).fontWeight(.semibold)
                         }
-                        Text("\(touch.telemetry.map { "Finger \($0.fingerID) · " + ($0.driverKit != nil ? "Hand unavailable" : "Hand \($0.handID)") } ?? "Identity unavailable") · \(touch.state.rawValue)")
+                        Text("\(touch.telemetry.map { "Finger \($0.fingerID) · " + "Hand \($0.handID)" } ?? "Identity unavailable") · \(touch.state.rawValue)")
                             .foregroundStyle(.secondary)
                         Text(String(format: "Position % .4f, % .4f", touch.position.x, touch.position.y))
                         if let raw = touch.telemetry {
                             if let driver = raw.driverKit {
-                                Text(driver.velocityAvailable ? String(format: "Velocity (derived) % .4f, % .4f /s", raw.velocityX, raw.velocityY) : "Velocity (derived): waiting for next frame")
+                                Text(driver.velocityAvailable ? String(format: "Velocity (reconstructed) % .4f, % .4f /s", raw.velocityX, raw.velocityY) : "Velocity (reconstructed): waiting for next frame")
                             } else { Text(String(format: "Velocity % .4f, % .4f", raw.velocityX, raw.velocityY)) }
                         }
                         DisclosureGroup("Raw measurements") {
                             VStack(alignment: .leading, spacing: 3) {
                                 if let raw = touch.telemetry {
-                                    Text(String(format: raw.driverKit != nil ? "Position (derived mm) % .4f, % .4f" : "Absolute position % .4f, % .4f", raw.absoluteX, raw.absoluteY))
+                                    Text(String(format: raw.driverKit != nil ? "Absolute position (native units) % .4f, % .4f" : "Absolute position % .4f, % .4f", raw.absoluteX, raw.absoluteY))
                                     if raw.driverKit?.velocityAvailable != false {
-                                        Text(String(format: raw.driverKit != nil ? "Velocity (derived mm/s) % .4f, % .4f" : "Absolute velocity % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
+                                        Text(String(format: raw.driverKit != nil ? "Velocity (reconstructed native units/s) % .4f, % .4f" : "Absolute velocity % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
                                     }
                                     Text(String(format: "Frame %d · time %.6f", raw.sourceFrame, raw.sourceTimestamp))
                                 } else {
@@ -350,9 +350,10 @@ struct ContentView: View {
                                 }
                                 Text(String(format: "Axes %.3f / %.3f · angle %.3f", touch.axis.major, touch.axis.minor, touch.angle))
                                 if let driver = touch.telemetry?.driverKit {
-                                    Text("Pressure: raw sensor byte · density unavailable")
+                                    Text(String(format: "Total %.6f · density %.6f", touch.total, touch.density))
+                                    Text("Native Compact V7 reconstruction · Hand1 is the parser flag")
                                     Text("Raw contact: " + driver.contactBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
-                                    Text("Size byte: \(driver.contactBytes.count == 9 ? Int(driver.contactBytes[6]) : 0) · geometry converted from sensor units")
+                                    Text("Size byte: \(driver.contactBytes.count == 9 ? Int(driver.contactBytes[6]) : 0) · native nonlinear conversions")
                                 } else { Text(String(format: "Total %.3f · density %.3f", touch.total, touch.density)) }
                             }
                         }

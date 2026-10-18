@@ -64,7 +64,8 @@ let package = Package(
         .testTarget(
             name: "ProductionEngineTests",
             dependencies: ["GesturePadRuntime", "ReplayFixtureKit"],
-            path: "Tests/ProductionEngineTests"
+            path: "Tests/ProductionEngineTests",
+            resources: [.copy("Fixtures")]
         ),
         .executableTarget(
             name: "ReplayFixtureCapture",

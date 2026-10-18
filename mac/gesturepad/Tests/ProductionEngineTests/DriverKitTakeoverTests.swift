@@ -21,12 +21,12 @@ final class DriverKitTakeoverTests: XCTestCase {
             let decoded = try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: usb, x: -1000, y: -2000)))
             let c = try XCTUnwrap(decoded.contacts.first)
             XCTAssertEqual(c.id, 7)
-            XCTAssertEqual(c.posX, Float(2678) / 7612, accuracy: 0.00001)
-            XCTAssertEqual(c.posY, Float(587) / 5065, accuracy: 0.00001)
-            XCTAssertEqual(c.pressure, 42)
-            XCTAssertEqual(c.total, 33)
-            XCTAssertEqual(c.majorAxis, 21 * 400 / 7612, accuracy: 0.00001)
-            XCTAssertEqual(c.minorAxis, 11 * 400 / 7612, accuracy: 0.00001)
+            XCTAssertEqual(c.posX, Float(5356) / 15225, accuracy: 0.00001)
+            XCTAssertEqual(c.posY, Float(1174) / 10130, accuracy: 0.00001)
+            XCTAssertEqual(c.pressure, 84)
+            XCTAssertEqual(c.total, Float(CompactV7Scalars.total(33)) / 256)
+            XCTAssertEqual(c.majorAxis, Float(CompactV7Scalars.major(21)) / 100, accuracy: 0.00001)
+            XCTAssertEqual(c.minorAxis, Float(CompactV7Scalars.minor(11)) / 100, accuracy: 0.00001)
             XCTAssertEqual(c.state, .touching)
             XCTAssertEqual(c.telemetry?.fingerID, 0, "Finger type comes from dedicated bits, never tracking ID7")
             XCTAssertEqual(c.telemetry?.driverKit?.contactBytes.count, 9)
@@ -38,7 +38,7 @@ final class DriverKitTakeoverTests: XCTestCase {
         let decoded = try XCTUnwrap(MagicTrackpadPacket.decode(Data(b)))
         XCTAssertEqual(decoded.contacts.count, 1)
         XCTAssertEqual(decoded.contacts[0].id, 11)
-        XCTAssertEqual(decoded.contacts[0].pressure, 10)
+        XCTAssertEqual(decoded.contacts[0].pressure, 20)
         XCTAssertEqual(decoded.contacts[0].state, .starting)
     }
     func testLiftAndEmptyFramesDoNotGenerateMovement() throws {
@@ -48,6 +48,22 @@ final class DriverKitTakeoverTests: XCTestCase {
         XCTAssertNil(tracker.process(device: 1, time: 1, contacts: lifted.contacts))
         XCTAssertEqual(MagicTrackpadPacket.decode(Data([0x31,0,0,0]))?.contacts.count, 0)
     }
+    func testTerminalNotTouchingClearsDisplayWithoutDiscardingRawRecord() throws {
+        for side in 0...1 {
+            let active = try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: side == 1))?.contacts.first)
+            let lifted = try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: side == 1, down: false))?.contacts.first)
+            let activeFrame = RuntimeRawFrame(sequence: 1, timestamp: 1, deviceNumericID: UInt64(side + 1),
+                deviceIndex: side, contacts: [], rawTouches: [active])
+            let finalFrame = RuntimeRawFrame(sequence: 2, timestamp: 2, deviceNumericID: UInt64(side + 1),
+                deviceIndex: side, contacts: [], rawTouches: [lifted])
+            XCTAssertEqual(RuntimeCore.renderTouches(from: activeFrame).count, 1)
+            XCTAssertTrue(RuntimeCore.renderTouches(from: finalFrame).isEmpty)
+            XCTAssertEqual(finalFrame.rawTouches.count, 1)
+            XCTAssertEqual(finalFrame.rawTouches[0].state, .notTouching)
+            XCTAssertEqual(finalFrame.rawTouches[0].telemetry?.driverKit?.contactBytes.count, 9)
+        }
+    }
+
     func testRejectsTruncationUnknownReportsAndExcessContacts() {
         XCTAssertNil(MagicTrackpadPacket.decode(Data([2,0,0,0,0,0,0,0])))
         XCTAssertNil(MagicTrackpadPacket.decode(Data([0x31,0,0,0,0])))
@@ -57,7 +73,7 @@ final class DriverKitTakeoverTests: XCTestCase {
     }
     func testPositiveCoordinateAndTrackingIDLimits() throws {
         let c = try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: true, x: 3934, y: 2478, id: 15))?.contacts.first)
-        XCTAssertEqual(c.posX, 1, accuracy: 0.00001)
+        XCTAssertEqual(c.posX, Float(15224) / 15225, accuracy: 0.00001)
         XCTAssertEqual(c.posY, 1, accuracy: 0.00001)
         XCTAssertEqual(c.id, 15)
     }
@@ -87,18 +103,22 @@ final class DriverKitTakeoverTests: XCTestCase {
     }
     func testDerivedVelocityIsPerDeviceAndResetsAfterLiftAndGap() throws {
         func contacts(_ x: Int, down: Bool = true) throws -> [OMSRawTouch] {
-            try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: false, x: x, down: down))).contacts
+            var data = packet(usb: false, x: x, down: down)
+            let ticks = UInt32(1000 + x / 10)
+            data[1] = UInt8((ticks & 31) << 3); data[2] = UInt8((ticks >> 5) & 255); data[3] = UInt8(ticks >> 13)
+            return try XCTUnwrap(MagicTrackpadPacket.decode(data)).contacts
         }
         var estimator = DriverContactEstimator()
         let first = estimator.process(device: 1, time: 1, sequence: 1, contacts: try contacts(0))
         XCTAssertEqual(first[0].telemetry?.driverKit?.velocityAvailable, false)
         let second = estimator.process(device: 1, time: 1.01, sequence: 2, contacts: try contacts(100))
         XCTAssertEqual(second[0].telemetry?.driverKit?.velocityAvailable, true)
-        XCTAssertEqual(try XCTUnwrap(second[0].telemetry?.velocityX), 100 / 7612 / 0.01, accuracy: 0.0001)
+        XCTAssertEqual(try XCTUnwrap(second[0].telemetry?.velocityX), Float(1599 * 2) / 160 * 1000 / 15225, accuracy: 0.0001)
         XCTAssertEqual(second[0].telemetry?.sourceFrame, 2)
         XCTAssertEqual(estimator.process(device: 2, time: 1.02, sequence: 3, contacts: try contacts(200))[0].telemetry?.driverKit?.velocityAvailable, false)
         _ = estimator.process(device: 1, time: 1.02, sequence: 3, contacts: try contacts(200, down: false))
         XCTAssertEqual(estimator.process(device: 1, time: 1.03, sequence: 4, contacts: try contacts(300))[0].telemetry?.driverKit?.velocityAvailable, false)
+        estimator.reset()
         XCTAssertEqual(estimator.process(device: 1, time: 2, sequence: 5, contacts: try contacts(400))[0].telemetry?.driverKit?.velocityAvailable, false)
     }
     func testTelemetryRoundTripRetainsRawBytesAndDecodesLegacyAbsence() throws {

@@ -15,9 +15,56 @@ final class DriverInputSourceGate: @unchecked Sendable {
     func contains(_ device: UInt64) -> Bool { lock.withLock { $0.contains(device) } }
 }
 
+/// Recovered Compact V7 integer conversions, independently checked against the
+/// installed framework oracle. No private function addresses are used by the app.
+struct CompactV7Scalars {
+    private static func square(_ value: Int64) -> Int64 { value * value }
+    private static func smallRadius(_ value: Int64, bias: UInt32) -> Int {
+        let squared = UInt64(square(value * 1024 - 76800)) >> 10
+        // Preserve the native36-bit coefficient and narrowing/shift order.
+        let curved = UInt32(truncatingIfNeeded: (squared &* 0xfffffffd8) >> 10)
+        return Int((curved &+ bias) >> 10)
+    }
+    static func major(_ byte: UInt8) -> Int {
+        let v = Int64(byte)
+        if v == 0 { return 0 }
+        if v < 50 { return smallRadius(v, bias: 0xb5400) }
+        if v <= 169 { return Int((UInt32(truncatingIfNeeded: v << 21) &+ 0x25800000) >> 20) }
+        let curved = UInt32(truncatingIfNeeded: square(v * 1024 - 0x29800) >> 12)
+        return Int((curved &+ 0xea000) >> 10)
+    }
+    static func minor(_ byte: UInt8) -> Int {
+        let v = Int64(byte)
+        if v == 0 { return 0 }
+        if v < 50 { return smallRadius(v, bias: 0x9c400) }
+        if v <= 149 { return Int((UInt32(truncatingIfNeeded: v << 21) &+ 0x1f400000) >> 20) }
+        let curved = UInt32(truncatingIfNeeded: ((square(v * 1024 - 0x228f0) >> 10) * 0x57) >> 10)
+        return Int((curved &+ 0xc50f0) >> 10)
+    }
+    static func total(_ byte: UInt8) -> Int {
+        let v = Int64(byte)
+        if v == 0 { return 0 }
+        if v <= 149 { return Int((v * 0x28f5) >> 10) }
+        let curved = UInt32(truncatingIfNeeded: ((square(v * 1024 - 0x1bfee) >> 10) * 0x8a) >> 10)
+        return Int((curved &+ 0x14f568) >> 10)
+    }
+    static func pressure(_ byte: UInt8) -> Int {
+        let v = Int64(byte)
+        if v < 128 { return Int(v * 2) }
+        let curved = UInt32(truncatingIfNeeded: square(v * 1024 - 0x1827b) >> 15)
+        return Int((curved &+ 0x3827b) >> 10)
+    }
+    static func density(total: Int, major: Int, minor: Int) -> Int {
+        // Parameters600/430 read from initialized native family0x81 state on both pads.
+        let root = max(600, Int(Double(max(600, major) * max(600, minor)).squareRoot()))
+        return Int(Int16(truncatingIfNeeded: total * 400 / (root - 430)))
+    }
+}
+
 struct MagicTrackpadPacket {
     let contacts: [OMSRawTouch]
     let buttons: UInt8
+    let sensorTicks: UInt32
     static func decode(_ data: Data) -> Self? {
         let b = [UInt8](data)
         guard let id = b.first else { return nil }
@@ -25,61 +72,101 @@ struct MagicTrackpadPacket {
         switch id { case 2: offset = 12; case 0x31: offset = 4; default: return nil }
         guard b.count >= offset, (b.count - offset) % 9 == 0,
               (b.count - offset) / 9 <= 15 else { return nil }
+        let header = offset - 4
+        let ticks = UInt32(b[header+1] >> 3) | UInt32(b[header+2]) << 5 | UInt32(b[header+3]) << 13
         func signed13(_ value: Int) -> Int { value & 0x1000 == 0 ? value : value - 0x2000 }
         var contacts: [OMSRawTouch] = []
         for i in stride(from: offset, to: b.count, by: 9) {
             let x = signed13(Int(b[i]) | (Int(b[i+1] & 0x1f) << 8))
-            // Keep sensor Y upward like OMS; Linux negates it for input ABS_Y.
             let y = signed13((Int(b[i+1]) >> 5) | (Int(b[i+2]) << 3) | (Int(b[i+3] & 3) << 11))
             let state = [OMSState.notTouching, .starting, .hovering, .making,
                          .touching, .breaking, .lingering, .leaving][Int(b[i+3] >> 5)]
-            let px = Float(x + 3678) / 7612, py = Float(y + 2587) / 5065
-            let telemetry = OMSTouchTelemetry(fingerID: Int32((b[i+3] >> 2) & 7), handID: 0,
-                velocityX: 0, velocityY: 0, absoluteX: (px - 0.5) * 160,
-                absoluteY: (py - 0.5) * 114.9, absoluteVelocityX: 0, absoluteVelocityY: 0,
-                sourceFrame: 0, sourceTimestamp: 0,
-                driverKit: OMSDriverKitTelemetry(contactBytes: Array(b[i..<(i+9)]), velocityAvailable: false))
+            // Actual Sensor Surface Descriptor bounds on both tested pads, in native 0.01 units.
+            let ax = min(7869, max(-7356, x * 2)), ay = min(9956, max(-174, y * 2 + 5000))
+            let px = Float(ax + 7356) / 15225, py = Float(ay + 174) / 10130
+            let finger = Int32((b[i+3] >> 2) & 7)
+            let telemetry = OMSTouchTelemetry(fingerID: finger == 7 ? 12 : finger, handID: 1,
+                velocityX: 0, velocityY: 0, absoluteX: Float(ax) / 100,
+                absoluteY: Float(ay) / 100, absoluteVelocityX: 0, absoluteVelocityY: 0,
+                sourceFrame: 0, sourceTimestamp: Double(ticks) / 1000,
+                driverKit: OMSDriverKitTelemetry(contactBytes: Array(b[i..<(i+9)]), velocityAvailable: false,
+                    conversionVersion: 2, sensorTicks: ticks, reportBytes: b))
+            let major = CompactV7Scalars.major(b[i+4]), minor = CompactV7Scalars.minor(b[i+5])
+            let total = CompactV7Scalars.total(b[i+6])
             contacts.append(OMSRawTouch(id: Int32(b[i+8] & 15),
-                posX: px, posY: py,
-                total: Float(b[i+6]), pressure: Float(b[i+7]),
-                // Linux exposes touch extents in sensor units (raw byte << 2).
-                // Renderer expects a percent of pad width for both ellipse axes.
-                majorAxis: Float(b[i+4]) * 400 / 7612, minorAxis: Float(b[i+5]) * 400 / 7612,
-                angle: Float(b[i+8] >> 5) * .pi / 8, density: 0,
+                posX: px, posY: py, total: Float(total) / 256,
+                pressure: Float(CompactV7Scalars.pressure(b[i+7])),
+                majorAxis: Float(major) / 100, minorAxis: Float(minor) / 100,
+                angle: Float(b[i+8] >> 5) * Float.pi / 8,
+                density: Float(UInt16(truncatingIfNeeded: CompactV7Scalars.density(total: total, major: major, minor: minor))) / 256,
                 state: state, telemetry: telemetry))
         }
-        // Finger type comes from separate bits26..28, never from the tracking ID.
-        return Self(contacts: contacts, buttons: b[1] & 3)
+        return Self(contacts: contacts, buttons: b[1] & 3, sensorTicks: ticks)
     }
 }
 
-/// Bounded, per-device finite differences. No cross-contact or cross-gap velocity.
+/// Reconstruct the native quantized binary velocity using the sensor clock.
+/// Monotonic arrival time remains a safety guard, not the velocity denominator.
 struct DriverContactEstimator {
-    private struct Sample { let x: Float; let y: Float; let time: Double }
+    private struct Sample { let absoluteX: Float; let absoluteY: Float; let time: Double; let state: OMSState }
+    private struct Clock { var ticks: UInt32; var wraps: UInt64 = 0 }
+    private var clocks: [UInt64: Clock] = [:]
     private var previous: [UInt64: [Int32: Sample]] = [:]
-    mutating func reset() { previous.removeAll(keepingCapacity: true) }
-    mutating func process(device: UInt64, time: Double, sequence: UInt64, contacts: [OMSRawTouch]) -> [OMSRawTouch] {
+    mutating func reset() { previous.removeAll(keepingCapacity: true); clocks.removeAll(keepingCapacity: true) }
+    mutating func process(device: UInt64, time: Double, sequence: UInt64, contacts: [OMSRawTouch], sensorTicks: UInt32? = nil) -> [OMSRawTouch] {
         let old = previous[device] ?? [:]
         var next: [Int32: Sample] = [:]
+        let ticks = sensorTicks ?? contacts.first?.telemetry?.driverKit?.sensorTicks
+        var sensorTime: Double?
+        if let ticks {
+            var clock = clocks[device] ?? Clock(ticks: ticks)
+            if ticks < clock.ticks { clock.wraps += 0x200000 }
+            clock.ticks = ticks; clocks[device] = clock
+            sensorTime = Double(clock.wraps + UInt64(ticks)) / 1000
+        }
         let result = contacts.map { c -> OMSRawTouch in
             guard let t = c.telemetry, let raw = t.driverKit else { return c }
-            let active = c.state == .touching || c.state == .making || c.state == .starting
-            var vx: Float = 0, vy: Float = 0; var available = false
-            if active, let p = old[c.id], time > p.time, time - p.time < 0.15 {
-                vx = (c.posX - p.x) / Float(time - p.time)
-                vy = (c.posY - p.y) / Float(time - p.time)
-                available = vx.isFinite && vy.isFinite
+            let sourceTime = sensorTime ?? time
+            let p = old[c.id]
+            let dt = sourceTime - (p?.time ?? sourceTime)
+            let activeVelocity = c.state == .touching || c.state == .breaking || c.state == .lingering
+            let extra = raw.contactBytes.count == 9 && raw.contactBytes[8] & 16 != 0
+            var ix = 0, iy = 0
+            let available = p != nil && dt > 0 && dt < 0.15 && activeVelocity && !extra
+            if available, let p {
+                func quantize(_ delta: Float) -> Int {
+                    let value = Double(delta * 8) / dt
+                    return value.isFinite ? min(32767, max(-32768, Int(value.rounded(.towardZero)))) : 0
+                }
+                // Native velocity uses the current un-clipped binary position against
+                // the previous clipped callback position, including at sensor edges.
+                let b = raw.contactBytes
+                func signed13(_ value: Int) -> Int { value & 4096 == 0 ? value : value - 8192 }
+                let x = signed13(Int(b[0]) | Int(b[1] & 31) << 8)
+                let y = signed13(Int(b[1] >> 5) | Int(b[2]) << 3 | Int(b[3] & 3) << 11)
+                ix = quantize(Float(x * 2) / 100 - p.absoluteX)
+                iy = quantize(Float(y * 2 + 5000) / 100 - p.absoluteY)
+                // Native zero-vector sentinel avoidance is observable in the OMS callback.
+                if ix == 0 && iy == 0 { ix = 1 }
             }
-            if active { next[c.id] = Sample(x: c.posX, y: c.posY, time: time) }
-            let telemetry = OMSTouchTelemetry(fingerID: t.fingerID, handID: 0,
-                velocityX: available ? vx : 0, velocityY: available ? vy : 0,
-                absoluteX: t.absoluteX, absoluteY: t.absoluteY,
-                absoluteVelocityX: available ? vx * 160 : 0, absoluteVelocityY: available ? vy * 114.9 : 0,
-                sourceFrame: Int32(truncatingIfNeeded: sequence), sourceTimestamp: time,
-                driverKit: OMSDriverKitTelemetry(contactBytes: raw.contactBytes, velocityAvailable: available))
+            let state: OMSState = c.state == .notTouching && p != nil && dt < 0.04 && dt >= 0
+                && (p?.state == .making || p?.state == .touching) ? .leaving : c.state
+            if state != .notTouching && state != .leaving {
+                next[c.id] = Sample(absoluteX: t.absoluteX, absoluteY: t.absoluteY, time: sourceTime, state: state)
+            }
+            let avx = Float(ix) * 0.125, avy = Float(iy) * 0.125
+            // Match native float32 -> float64 -> float32 operation order.
+            let vx = Float(Double(Float(ix * 2) / 160) * 1000 / 15225)
+            let vy = Float(Double(Float(iy * 2) / 160) * 1000 / 10130)
+            let telemetry = OMSTouchTelemetry(fingerID: t.fingerID, handID: t.handID,
+                velocityX: vx, velocityY: vy, absoluteX: t.absoluteX, absoluteY: t.absoluteY,
+                absoluteVelocityX: avx, absoluteVelocityY: avy,
+                sourceFrame: Int32(truncatingIfNeeded: sequence), sourceTimestamp: sourceTime,
+                driverKit: OMSDriverKitTelemetry(contactBytes: raw.contactBytes, velocityAvailable: available,
+                    conversionVersion: 2, sensorTicks: raw.sensorTicks, reportBytes: raw.reportBytes))
             return OMSRawTouch(id: c.id, posX: c.posX, posY: c.posY, total: c.total,
                 pressure: c.pressure, majorAxis: c.majorAxis, minorAxis: c.minorAxis,
-                angle: c.angle, density: c.density, state: c.state, telemetry: telemetry)
+                angle: c.angle, density: c.density, state: state, telemetry: telemetry)
         }
         previous[device] = next
         return result
@@ -193,6 +280,10 @@ final class DriverKitTakeover: ObservableObject {
         }
         devices = [:]
         for device in selected {
+            guard Self.hasVerifiedSurface(device) else {
+                status = "Native telemetry calibration did not match this pad. Release/refresh before retrying; no takeover started."
+                return
+            }
             guard let index = OMSManager.shared.deviceIndex(for: device.deviceID) else {
                 status = "Refresh trackpads before starting DriverKit."; return
             }
@@ -224,6 +315,19 @@ final class DriverKitTakeover: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(16))
             }
         }
+    }
+
+    private static func hasVerifiedSurface(_ device: OMSDeviceInfo) -> Bool {
+        let match = IORegistryEntryIDMatching(device.registryEntryID)
+        let entry = IOServiceGetMatchingService(kIOMainPortDefault, match)
+        guard entry != 0 else { return false }
+        defer { IOObjectRelease(entry) }
+        let expected: [UInt8] = [0xf0,0x3c,0,0,0x20,0x2b,0,0,0x44,0xe3,0x52,0xff,0xbd,0x1e,0xe4,0x26]
+        // Selected OMS service is AppleMultitouchDevice; parent-search supports its service alias.
+        guard let raw = IORegistryEntrySearchCFProperty(entry, kIOServicePlane,
+                "Sensor Surface Descriptor" as CFString, kCFAllocatorDefault,
+                IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)) as? Data else { return false }
+        return raw == Data(expected)
     }
 
     func release() {
@@ -324,7 +428,7 @@ final class DriverKitTakeover: ObservableObject {
                 InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset()
             }
             let contacts = estimator.process(device: device.id, time: record.timestamp,
-                sequence: record.sequence, contacts: packet.contacts)
+                sequence: record.sequence, contacts: packet.contacts, sensorTicks: packet.sensorTicks)
             received += 1
             perPad[serial, default: [:]]["packets", default: 0] += 1
             perPad[serial, default: [:]]["maxContacts"] = max(perPad[serial]?["maxContacts"] ?? 0,

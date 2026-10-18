@@ -82,3 +82,16 @@ item or independent controls. Preserve existing signing/profile identifiers and
 watchdog. The installer installs only /Applications/GesturePad.app; do not restore
 the separate /Applications/GesturePadRawHIDProbe.app. Activation/removal state is
 shown by GesturePad; native macOS authorization prompts are still expected.
+
+
+DriverKit telemetry conversionVersion2 is a native Compact V7 reconstruction.
+Read RewriteValidation/COMPACT_V7_TELEMETRY_PARITY.md before altering conversions.
+Do not replace native nonlinear scalar conversions with Linux raw byte scaling.
+Hand1 is a native parser flag, code7→12 preserved; tracking ID is not anatomy.
+Preserve original report/contact bytes, sensor-clock timestamps, native clipping
+and quantized velocity, per-device resets and descriptor calibration check.
+Tools/TelemetryParity uses pinned private addresses for offline research only;
+never add those offsets or native binary fragments to the production app.
+Synthetic parity and right USB live parity (1,686 samples, zero mismatches) are
+established; matching Bluetooth live validation remains. Preserve terminal
+notTouching records in capture but exclude them from the visible render snapshot.

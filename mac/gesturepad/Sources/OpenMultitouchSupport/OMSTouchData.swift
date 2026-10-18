@@ -55,12 +55,16 @@ public enum OMSState: String, Codable, Sendable {
 /// Raw device fields. Identity codes and absolute-coordinate units are unverified.
 /// A missing telemetry object means the source did not record these fields.
 /// Raw nine-byte contact record retained for future decoder corrections.
-/// DriverKit velocity/absolute coordinates are derived, not Apple's processed values.
+/// Conversion version2 reconstructs the native Compact V7 numeric contract.
 public struct OMSDriverKitTelemetry: Codable, Sendable, Equatable {
     public let contactBytes: [UInt8]
     public let velocityAvailable: Bool
-    public init(contactBytes: [UInt8], velocityAvailable: Bool) {
+    public let conversionVersion: Int?
+    public let sensorTicks: UInt32?
+    public let reportBytes: [UInt8]?
+    public init(contactBytes: [UInt8], velocityAvailable: Bool, conversionVersion: Int? = nil, sensorTicks: UInt32? = nil, reportBytes: [UInt8]? = nil) {
         self.contactBytes = contactBytes; self.velocityAvailable = velocityAvailable
+        self.conversionVersion = conversionVersion; self.sensorTicks = sensorTicks; self.reportBytes = reportBytes
     }
 }
 
