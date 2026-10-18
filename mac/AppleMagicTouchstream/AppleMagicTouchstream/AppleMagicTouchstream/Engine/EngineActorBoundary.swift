@@ -64,9 +64,6 @@ protocol RuntimeCoreBoundary: AnyObject, Sendable {
     func updateHoldRepeatEnabled(_ enabled: Bool) async
     func setKeymapEditingEnabled(_ enabled: Bool) async
     func updateTapClickCadence(_ milliseconds: Double) async
-    func updateGestureRecognitionEnabled(_ enabled: Bool) async
-    func updateGestureActions(_ actions: GestureActionSet) async
-    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async
     func clearVisualCaches() async
     func reset(stopVoiceDictation: Bool) async
 }
@@ -402,6 +399,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
+
+
     func updateHapticStrength(_ normalized: Double) async {
         await run {
             self.processor.updateHapticStrength(normalized)
@@ -438,21 +437,11 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         }
     }
 
-    func updateGestureRecognitionEnabled(_ enabled: Bool) async {
-        await run { self.processor.updateGestureRecognitionEnabled(enabled) }
-    }
 
-    func updateGestureActions(_ actions: GestureActionSet) async {
-        await run {
-            self.processor.updateGestureActions(actions)
-        }
-    }
 
-    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) async {
-        await run {
-            self.processor.updateGestureRepeatCadenceMsById(cadenceById)
-        }
-    }
+
+
+
 
     func clearVisualCaches() async {
         await run {
@@ -778,60 +767,12 @@ final class ProductionReplaySession {
         engine.updateForceClickMin(profile.forceClickMin ?? GlassToKeySettings.forceClickMin)
         engine.updateForceClickCap(profile.forceClickCap)
         engine.updateForceClickThreshold(profile.forceClickThreshold)
-        engine.updateHapticStrength(profile.hapticStrength)
+        engine.updateHapticStrength(profile.hapticStrength / 100.0)
         engine.updateSnapRadiusPercent(profile.snapRadiusPercent)
         engine.updateKeyboardModeEnabled(profile.keyboardModeEnabled)
         engine.updateHoldRepeatEnabled(profile.holdRepeatEnabled)
         engine.updateTapClickCadence(profile.tapClickCadenceMs)
-        engine.updateGestureRepeatCadenceMsById(profile.gestureRepeatCadenceMsById)
-        engine.updateGestureRecognitionEnabled(profile.gestureRecognitionEnabled ?? false)
-        engine.updateGestureActions(GestureActionSet(
-            twoFingerTap: KeyActionCatalog.action(for: profile.twoFingerTapGestureAction ?? GlassToKeySettings.twoFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerTap: KeyActionCatalog.action(for: profile.threeFingerTapGestureAction ?? GlassToKeySettings.threeFingerTapGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            twoFingerHold: KeyActionCatalog.action(for: profile.twoFingerHoldGestureAction ?? GlassToKeySettings.twoFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerHold: KeyActionCatalog.action(for: profile.threeFingerHoldGestureAction ?? GlassToKeySettings.threeFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerHold: KeyActionCatalog.action(for: profile.fourFingerHoldGestureAction ?? GlassToKeySettings.fourFingerHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            outerCornersHold: KeyActionCatalog.action(for: profile.outerCornersHoldGestureAction ?? GlassToKeySettings.outerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            innerCornersHold: KeyActionCatalog.action(for: profile.innerCornersHoldGestureAction ?? GlassToKeySettings.innerCornersHoldGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            leftEdgeUp: KeyActionCatalog.action(for: profile.leftEdgeUpGestureAction ?? GlassToKeySettings.leftEdgeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            leftEdgeDown: KeyActionCatalog.action(for: profile.leftEdgeDownGestureAction ?? GlassToKeySettings.leftEdgeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            rightEdgeUp: KeyActionCatalog.action(for: profile.rightEdgeUpGestureAction ?? GlassToKeySettings.rightEdgeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            rightEdgeDown: KeyActionCatalog.action(for: profile.rightEdgeDownGestureAction ?? GlassToKeySettings.rightEdgeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topEdgeLeft: KeyActionCatalog.action(for: profile.topEdgeLeftGestureAction ?? GlassToKeySettings.topEdgeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topEdgeRight: KeyActionCatalog.action(for: profile.topEdgeRightGestureAction ?? GlassToKeySettings.topEdgeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomEdgeLeft: KeyActionCatalog.action(for: profile.bottomEdgeLeftGestureAction ?? GlassToKeySettings.bottomEdgeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomEdgeRight: KeyActionCatalog.action(for: profile.bottomEdgeRightGestureAction ?? GlassToKeySettings.bottomEdgeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerSwipeLeft: KeyActionCatalog.action(for: profile.threeFingerSwipeLeftGestureAction ?? GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerSwipeRight: KeyActionCatalog.action(for: profile.threeFingerSwipeRightGestureAction ?? GlassToKeySettings.threeFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerSwipeUp: KeyActionCatalog.action(for: profile.threeFingerSwipeUpGestureAction ?? GlassToKeySettings.threeFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerSwipeDown: KeyActionCatalog.action(for: profile.threeFingerSwipeDownGestureAction ?? GlassToKeySettings.threeFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerSwipeLeft: KeyActionCatalog.action(for: profile.fourFingerSwipeLeftGestureAction ?? GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerSwipeRight: KeyActionCatalog.action(for: profile.fourFingerSwipeRightGestureAction ?? GlassToKeySettings.fourFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerSwipeUp: KeyActionCatalog.action(for: profile.fourFingerSwipeUpGestureAction ?? GlassToKeySettings.fourFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerSwipeDown: KeyActionCatalog.action(for: profile.fourFingerSwipeDownGestureAction ?? GlassToKeySettings.fourFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fiveFingerSwipeLeft: KeyActionCatalog.action(for: profile.fiveFingerSwipeLeftGestureAction ?? GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fiveFingerSwipeRight: KeyActionCatalog.action(for: profile.fiveFingerSwipeRightGestureAction ?? GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fiveFingerSwipeUp: KeyActionCatalog.action(for: profile.fiveFingerSwipeUpGestureAction ?? GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fiveFingerSwipeDown: KeyActionCatalog.action(for: profile.fiveFingerSwipeDownGestureAction ?? GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topLeftCornerSwipe: KeyActionCatalog.action(for: profile.topLeftCornerSwipeGestureAction ?? GlassToKeySettings.topLeftCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topRightCornerSwipe: KeyActionCatalog.action(for: profile.topRightCornerSwipeGestureAction ?? GlassToKeySettings.topRightCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomLeftCornerSwipe: KeyActionCatalog.action(for: profile.bottomLeftCornerSwipeGestureAction ?? GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomRightCornerSwipe: KeyActionCatalog.action(for: profile.bottomRightCornerSwipeGestureAction ?? GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topLeftTriangle: KeyActionCatalog.action(for: profile.topLeftTriangleGestureAction ?? GlassToKeySettings.topLeftTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topRightTriangle: KeyActionCatalog.action(for: profile.topRightTriangleGestureAction ?? GlassToKeySettings.topRightTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomLeftTriangle: KeyActionCatalog.action(for: profile.bottomLeftTriangleGestureAction ?? GlassToKeySettings.bottomLeftTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomRightTriangle: KeyActionCatalog.action(for: profile.bottomRightTriangleGestureAction ?? GlassToKeySettings.bottomRightTriangleGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            upperLeftCornerClick: KeyActionCatalog.action(for: profile.upperLeftCornerClickGestureAction ?? GlassToKeySettings.upperLeftCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            upperRightCornerClick: KeyActionCatalog.action(for: profile.upperRightCornerClickGestureAction ?? GlassToKeySettings.upperRightCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            lowerLeftCornerClick: KeyActionCatalog.action(for: profile.lowerLeftCornerClickGestureAction ?? GlassToKeySettings.lowerLeftCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            lowerRightCornerClick: KeyActionCatalog.action(for: profile.lowerRightCornerClickGestureAction ?? GlassToKeySettings.lowerRightCornerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            threeFingerClick: KeyActionCatalog.action(for: profile.threeFingerClickGestureAction ?? GlassToKeySettings.threeFingerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            fourFingerClick: KeyActionCatalog.action(for: profile.fourFingerClickGestureAction ?? GlassToKeySettings.fourFingerClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topLeftForceClick: KeyActionCatalog.action(for: profile.topLeftForceClickGestureAction ?? GlassToKeySettings.topLeftForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            topRightForceClick: KeyActionCatalog.action(for: profile.topRightForceClickGestureAction ?? GlassToKeySettings.topRightForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomLeftForceClick: KeyActionCatalog.action(for: profile.bottomLeftForceClickGestureAction ?? GlassToKeySettings.bottomLeftForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction,
-            bottomRightForceClick: KeyActionCatalog.action(for: profile.bottomRightForceClickGestureAction ?? GlassToKeySettings.bottomRightForceClickGestureActionLabel) ?? KeyActionCatalog.noneAction
-        ))
+        // GTK gesture settings in archived profiles are decode-only; never applied.
         engine.setPersistentLayer(profile.activeLayer ?? KeyLayerConfig.baseLayer)
         engine.setListening(true)
     }

@@ -432,6 +432,8 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
+
+
     func updateHapticStrength(_ normalized: Double) {
         let runtimeEngine = runtimeEngine
         Task {
@@ -474,24 +476,11 @@ final class RuntimeCommandService: @unchecked Sendable {
         }
     }
 
-    func updateGestureRecognitionEnabled(_ enabled: Bool) {
-        let runtimeEngine = runtimeEngine
-        Task { await runtimeEngine.updateGestureRecognitionEnabled(enabled) }
-    }
 
-    func updateGestureActions(_ actions: GestureActionSet) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateGestureActions(actions)
-        }
-    }
 
-    func updateGestureRepeatCadenceMsById(_ cadenceById: [String: Int]?) {
-        let runtimeEngine = runtimeEngine
-        Task {
-            await runtimeEngine.updateGestureRepeatCadenceMsById(cadenceById)
-        }
-    }
+
+
+
 
     func clearVisualCaches() {
         let runtimeEngine = runtimeEngine

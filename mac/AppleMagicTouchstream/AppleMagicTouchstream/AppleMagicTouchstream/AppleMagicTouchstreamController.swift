@@ -77,76 +77,7 @@ enum GlassToKeySettings {
     }
 }
 
-enum SystemThreeFingerDragDetector {
-    enum Status {
-        case enabled
-        case disabled
-        case unknown
 
-        var isEnabled: Bool {
-            switch self {
-            case .enabled:
-                return true
-            case .disabled, .unknown:
-                return false
-            }
-        }
-    }
-
-    static func detectedStatus() -> Status {
-        let candidates: [Bool?] = [
-            readPreferenceBool(
-                key: "com.apple.trackpad.threeFingerDragGesture",
-                applicationID: kCFPreferencesAnyApplication,
-                host: kCFPreferencesCurrentHost
-            ),
-            readPreferenceBool(
-                key: "TrackpadThreeFingerDrag",
-                applicationID: "com.apple.driver.AppleBluetoothMultitouch.trackpad" as CFString
-            ),
-            readPreferenceBool(
-                key: "TrackpadThreeFingerDrag",
-                applicationID: "com.apple.AppleMultitouchTrackpad" as CFString
-            )
-        ]
-
-        for value in candidates {
-            guard let value else { continue }
-            return value ? .enabled : .disabled
-        }
-        return .unknown
-    }
-
-    private static func readPreferenceBool(
-        key: String,
-        applicationID: CFString,
-        host: CFString = kCFPreferencesAnyHost
-    ) -> Bool? {
-        guard let value = CFPreferencesCopyValue(
-            key as CFString,
-            applicationID,
-            kCFPreferencesCurrentUser,
-            host
-        ) else {
-            return nil
-        }
-
-        if let number = value as? NSNumber {
-            return number.boolValue
-        }
-        if let text = value as? String {
-            switch text.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-            case "1", "true", "yes", "on":
-                return true
-            case "0", "false", "no", "off":
-                return false
-            default:
-                return nil
-            }
-        }
-        return nil
-    }
-}
 
 @MainActor
 final class GlassToKeyController: ObservableObject {
@@ -459,12 +390,6 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateKeyMappings(keyMappings)
 
         applySavedInteractionSettings()
-        let autocorrectEnabled = UserDefaults.standard.bool(
-            forKey: GlassToKeyDefaultsKeys.autocorrectEnabled
-        )
-        AutocorrectEngine.shared.setEnabled(autocorrectEnabled)
-        AutocorrectEngine.shared.setMinimumWordLength(GlassToKeySettings.autocorrectMinWordLength)
-
         let leftDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.leftDeviceID)
         let rightDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.rightDeviceID)
         if let leftDevice = deviceForID(leftDeviceID) {
@@ -543,7 +468,8 @@ final class GlassToKeyController: ObservableObject {
 
     private func resolvedLayoutPreset() -> TrackpadLayoutPreset {
         let stored = UserDefaults.standard.string(forKey: GlassToKeyDefaultsKeys.layoutPreset)
-        return TrackpadLayoutPreset.resolveByNameOrDefault(stored)
+        let preset = TrackpadLayoutPreset.resolveByNameOrDefault(stored)
+        return preset == .mobile || preset == .mobileOrtho12x4 ? .sixByThree : preset
     }
 
     private func resolvedColumnSettings(
@@ -573,7 +499,6 @@ final class GlassToKeyController: ObservableObject {
 
     private func applySavedInteractionSettings() {
         let defaults = UserDefaults.standard
-        viewModel.updateGestureRecognitionEnabled(defaults.bool(forKey: GlassToKeyDefaultsKeys.gestureRecognitionEnabled))
         let tapHoldMs = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.tapHoldDuration,
             defaults: defaults,
@@ -599,11 +524,6 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.forceClickThreshold
         )
-        let hapticStrengthPercent = GlassToKeySettings.persistedDouble(
-            forKey: GlassToKeyDefaultsKeys.hapticStrength,
-            defaults: defaults,
-            fallback: GlassToKeySettings.hapticStrengthPercent
-        )
         let typingGraceMs = GlassToKeySettings.persistedDouble(
             forKey: GlassToKeyDefaultsKeys.typingGraceMs,
             defaults: defaults,
@@ -624,17 +544,18 @@ final class GlassToKeyController: ObservableObject {
             defaults: defaults,
             fallback: GlassToKeySettings.tapClickCadenceMs
         )
-        let snapRadiusPercent = GlassToKeySettings.persistedDouble(
-            forKey: GlassToKeyDefaultsKeys.snapRadiusPercent,
-            defaults: defaults,
-            fallback: GlassToKeySettings.snapRadiusPercent
-        )
+
         let keyboardModeEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled
         ) as? Bool ?? GlassToKeySettings.keyboardModeEnabled
         let holdRepeatEnabled = defaults.object(
             forKey: GlassToKeyDefaultsKeys.holdRepeatEnabled
         ) as? Bool ?? GlassToKeySettings.holdRepeatEnabled
+        let hapticPercent = GlassToKeySettings.persistedDouble(
+            forKey: GlassToKeyDefaultsKeys.hapticStrength, defaults: defaults,
+            fallback: GlassToKeySettings.hapticStrengthPercent
+        )
+        viewModel.updateHapticStrength(hapticPercent / 100.0)
         viewModel.updateHoldThreshold(tapHoldMs / 1000.0)
         viewModel.updateDragCancelDistance(CGFloat(dragDistance))
         let clampedForceMin = max(0, min(255, forceMin))
@@ -643,88 +564,22 @@ final class GlassToKeyController: ObservableObject {
         viewModel.updateForceClickMin(clampedForceMin)
         viewModel.updateForceClickCap(clampedForceCap)
         viewModel.updateForceClickThreshold(clampedForceClickThreshold)
-        viewModel.updateHapticStrength(hapticStrengthPercent / 100.0)
         viewModel.updateTypingGraceMs(typingGraceMs)
         viewModel.updateIntentMoveThresholdMm(intentMoveThresholdMm)
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSec)
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateTapClickCadenceMs(tapClickCadenceMs)
-        viewModel.updateSnapRadiusPercent(snapRadiusPercent)
+        viewModel.updateSnapRadiusPercent(0)
         viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
-        viewModel.updateGestureActions(resolvedGestureActions(from: defaults))
-        viewModel.updateGestureRepeatCadenceMsById(
-            GestureRepeatCadenceStorage.decode(
-                from: defaults.data(forKey: GlassToKeyDefaultsKeys.gestureRepeatCadenceMsById) ?? Data()
-            )
-        )
+
     }
 
     private func stringValue(forKey key: String) -> String {
         UserDefaults.standard.string(forKey: key) ?? ""
     }
 
-    private func resolvedGestureAction(
-        from defaults: UserDefaults,
-        key: String,
-        fallbackLabel: String
-    ) -> KeyAction {
-        let label = defaults.string(forKey: key) ?? fallbackLabel
-        return KeyActionCatalog.action(for: label)
-            ?? KeyActionCatalog.action(for: fallbackLabel)
-            ?? KeyActionCatalog.noneAction
-    }
 
-    private func resolvedGestureActions(from defaults: UserDefaults) -> GestureActionSet {
-        let systemThreeFingerDragEnabled = SystemThreeFingerDragDetector.detectedStatus().isEnabled
-        return GestureActionSet(
-            twoFingerTap: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.twoFingerTapGestureAction, fallbackLabel: GlassToKeySettings.twoFingerTapGestureActionLabel),
-            threeFingerTap: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerTapGestureAction, fallbackLabel: GlassToKeySettings.threeFingerTapGestureActionLabel),
-            twoFingerHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.twoFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.twoFingerHoldGestureActionLabel),
-            threeFingerHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.threeFingerHoldGestureActionLabel),
-            fourFingerHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerHoldGestureAction, fallbackLabel: GlassToKeySettings.fourFingerHoldGestureActionLabel),
-            outerCornersHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.outerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.outerCornersHoldGestureActionLabel),
-            innerCornersHold: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.innerCornersHoldGestureAction, fallbackLabel: GlassToKeySettings.innerCornersHoldGestureActionLabel),
-            leftEdgeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.leftEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeUpGestureActionLabel),
-            leftEdgeDown: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.leftEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.leftEdgeDownGestureActionLabel),
-            rightEdgeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.rightEdgeUpGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeUpGestureActionLabel),
-            rightEdgeDown: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.rightEdgeDownGestureAction, fallbackLabel: GlassToKeySettings.rightEdgeDownGestureActionLabel),
-            topEdgeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.topEdgeLeftGestureActionLabel),
-            topEdgeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.topEdgeRightGestureActionLabel),
-            bottomEdgeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomEdgeLeftGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeLeftGestureActionLabel),
-            bottomEdgeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomEdgeRightGestureAction, fallbackLabel: GlassToKeySettings.bottomEdgeRightGestureActionLabel),
-            threeFingerSwipeLeft: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeLeftGestureActionLabel),
-            threeFingerSwipeRight: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeRightGestureActionLabel),
-            threeFingerSwipeUp: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeUpGestureActionLabel),
-            threeFingerSwipeDown: systemThreeFingerDragEnabled ? KeyActionCatalog.noneAction : resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.threeFingerSwipeDownGestureActionLabel),
-            fourFingerSwipeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeLeftGestureActionLabel),
-            fourFingerSwipeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeRightGestureActionLabel),
-            fourFingerSwipeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeUpGestureActionLabel),
-            fourFingerSwipeDown: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fourFingerSwipeDownGestureActionLabel),
-            fiveFingerSwipeLeft: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fiveFingerSwipeLeftGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeLeftGestureActionLabel),
-            fiveFingerSwipeRight: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fiveFingerSwipeRightGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeRightGestureActionLabel),
-            fiveFingerSwipeUp: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fiveFingerSwipeUpGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeUpGestureActionLabel),
-            fiveFingerSwipeDown: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fiveFingerSwipeDownGestureAction, fallbackLabel: GlassToKeySettings.fiveFingerSwipeDownGestureActionLabel),
-            topLeftCornerSwipe: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topLeftCornerSwipeGestureActionLabel),
-            topRightCornerSwipe: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.topRightCornerSwipeGestureActionLabel),
-            bottomLeftCornerSwipe: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomLeftCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftCornerSwipeGestureActionLabel),
-            bottomRightCornerSwipe: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomRightCornerSwipeGestureAction, fallbackLabel: GlassToKeySettings.bottomRightCornerSwipeGestureActionLabel),
-            topLeftTriangle: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.topLeftTriangleGestureActionLabel),
-            topRightTriangle: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.topRightTriangleGestureActionLabel),
-            bottomLeftTriangle: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomLeftTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftTriangleGestureActionLabel),
-            bottomRightTriangle: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomRightTriangleGestureAction, fallbackLabel: GlassToKeySettings.bottomRightTriangleGestureActionLabel),
-            upperLeftCornerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.upperLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperLeftCornerClickGestureActionLabel),
-            upperRightCornerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.upperRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.upperRightCornerClickGestureActionLabel),
-            lowerLeftCornerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.lowerLeftCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerLeftCornerClickGestureActionLabel),
-            lowerRightCornerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.lowerRightCornerClickGestureAction, fallbackLabel: GlassToKeySettings.lowerRightCornerClickGestureActionLabel),
-            threeFingerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.threeFingerClickGestureAction, fallbackLabel: GlassToKeySettings.threeFingerClickGestureActionLabel),
-            fourFingerClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.fourFingerClickGestureAction, fallbackLabel: GlassToKeySettings.fourFingerClickGestureActionLabel),
-            topLeftForceClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.topLeftForceClickGestureActionLabel),
-            topRightForceClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.topRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.topRightForceClickGestureActionLabel),
-            bottomLeftForceClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomLeftForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomLeftForceClickGestureActionLabel),
-            bottomRightForceClick: resolvedGestureAction(from: defaults, key: GlassToKeyDefaultsKeys.bottomRightForceClickGestureAction, fallbackLabel: GlassToKeySettings.bottomRightForceClickGestureActionLabel)
-        )
-    }
 }
 
 @MainActor

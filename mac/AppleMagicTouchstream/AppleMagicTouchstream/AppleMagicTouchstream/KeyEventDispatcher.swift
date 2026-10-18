@@ -213,7 +213,6 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
         qos: .userInteractive
     )
     private let eventSourceLock = OSAllocatedUnfairLock<CGEventSource?>(uncheckedState: nil)
-    private let threeFingerHoldDragSuppressor = ThreeFingerHoldDragSuppressor()
 
     func postKeyStroke(
         code: CGKeyCode,
@@ -263,24 +262,12 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 ) else {
                     return
                 }
-                AutocorrectEngine.shared.recordDispatchedKey(
-                    code: Self.emojiTriggerCode,
-                    flags: Self.emojiTriggerFlags,
-                    keyDown: true,
-                    altAscii: 0
-                )
                 emojiDown.flags = Self.emojiTriggerFlags
                 emojiUp.flags = Self.emojiTriggerFlags
                 emojiDown.post(tap: .cghidEventTap)
                 emojiUp.post(tap: .cghidEventTap)
                 return
             }
-            AutocorrectEngine.shared.recordDispatchedKey(
-                code: code,
-                flags: resolvedFlags(for: code, flags: flags, keyDown: true),
-                keyDown: true,
-                altAscii: altAscii
-            )
             configureKeyboardEvent(keyDown, code: code, keyDown: true, flags: flags)
             configureKeyboardEvent(keyUp, code: code, keyDown: false, flags: flags)
             keyDown.post(tap: .cghidEventTap)
@@ -325,14 +312,6 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
                 keyDown: keyDown
             ) else {
                 return
-            }
-            if keyDown {
-                AutocorrectEngine.shared.recordDispatchedKey(
-                    code: code,
-                    flags: resolvedFlags(for: code, flags: flags, keyDown: true),
-                    keyDown: true,
-                    altAscii: altAscii
-                )
             }
             configureKeyboardEvent(event, code: code, keyDown: keyDown, flags: flags)
             event.post(tap: .cghidEventTap)
@@ -438,7 +417,7 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 
     func setThreeFingerHoldDragSuppression(_ enabled: Bool) {
-        threeFingerHoldDragSuppressor.setEnabled(enabled)
+        // Legacy dispatch protocol compatibility; GTK hold-drag suppression was removed.
     }
 
     func postMiddleClick() {
@@ -571,177 +550,6 @@ private final class CGEventKeyDispatcher: @unchecked Sendable, KeyDispatching {
     }
 }
 
-private final class ThreeFingerHoldDragSuppressor: @unchecked Sendable {
-    private struct State {
-        var isEnabled = false
-    }
-
-    private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
-    private let installLock = NSLock()
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-
-    func setEnabled(_ enabled: Bool) {
-        stateLock.withLockUnchecked { state in
-            state.isEnabled = enabled
-        }
-        if enabled {
-            ensureEventTap()
-        }
-    }
-
-    private func ensureEventTap() {
-        guard InputMonitoringPermission.hasListenAccess() else { return }
-        if Thread.isMainThread {
-            installEventTapIfNeeded()
-            return
-        }
-        DispatchQueue.main.sync {
-            installEventTapIfNeeded()
-        }
-    }
-
-    private func installEventTapIfNeeded() {
-        installLock.lock()
-        defer { installLock.unlock() }
-
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
-            return
-        }
-
-        let mask = (1 << CGEventType.leftMouseDown.rawValue)
-            | (1 << CGEventType.leftMouseUp.rawValue)
-            | (1 << CGEventType.leftMouseDragged.rawValue)
-
-        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: CGEventMask(mask),
-            callback: Self.eventTapCallback,
-            userInfo: refcon
-        ) else {
-            return
-        }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        eventTap = tap
-        runLoopSource = source
-        CGEvent.tapEnable(tap: tap, enable: true)
-    }
-
-    private func shouldSuppress(type: CGEventType) -> Bool {
-        guard Self.isSuppressible(type) else { return false }
-        return stateLock.withLockUnchecked { $0.isEnabled }
-    }
-
-    private func reenableIfNeeded(for type: CGEventType) {
-        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
-        }
-    }
-
-    private static func isSuppressible(_ type: CGEventType) -> Bool {
-        switch type {
-        case .leftMouseDown,
-             .leftMouseUp,
-             .leftMouseDragged:
-            return true
-        default:
-            return false
-        }
-    }
-
-    private static let eventTapCallback: CGEventTapCallBack = { _, type, event, refcon in
-        guard let refcon else { return Unmanaged.passUnretained(event) }
-        let suppressor = Unmanaged<ThreeFingerHoldDragSuppressor>.fromOpaque(refcon).takeUnretainedValue()
-        suppressor.reenableIfNeeded(for: type)
-        if suppressor.shouldSuppress(type: type) {
-            return nil
-        }
-        return Unmanaged.passUnretained(event)
-    }
-}
-
-private final class AppLaunchDispatcher: @unchecked Sendable {
-    func open(_ actionLabel: String) {
-        guard let spec = AppLaunchActionHelper.parse(actionLabel) else { return }
-
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        process.arguments = launchArguments(for: spec)
-        try? process.run()
-    }
-
-    private func launchArguments(for spec: AppLaunchActionSpec) -> [String] {
-        var arguments = [spec.fileName]
-        let appArguments = tokenizeArguments(spec.arguments)
-        if !appArguments.isEmpty {
-            arguments.append("--args")
-            arguments.append(contentsOf: appArguments)
-        }
-        return arguments
-    }
-
-    private func tokenizeArguments(_ text: String) -> [String] {
-        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmed.isEmpty else { return [] }
-
-        var arguments: [String] = []
-        var current = ""
-        var quote: Character?
-        var escaped = false
-
-        for character in trimmed {
-            if escaped {
-                current.append(character)
-                escaped = false
-                continue
-            }
-
-            if character == "\\" {
-                escaped = true
-                continue
-            }
-
-            if let activeQuote = quote {
-                if character == activeQuote {
-                    self.flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
-                    quote = nil
-                } else {
-                    current.append(character)
-                }
-                continue
-            }
-
-            if character == "\"" || character == "'" {
-                quote = character
-                continue
-            }
-
-            if character.isWhitespace {
-                flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
-                continue
-            }
-
-            current.append(character)
-        }
-
-        flushCurrentArgumentIfNeeded(into: &arguments, current: &current)
-        return arguments
-    }
-
-    private func flushCurrentArgumentIfNeeded(into arguments: inout [String], current: inout String) {
-        guard !current.isEmpty else { return }
-        arguments.append(current)
-        current.removeAll(keepingCapacity: true)
-    }
-}
-
 final class DispatchService: @unchecked Sendable {
     struct Metrics: Sendable {
         var queueDepth: Int = 0
@@ -828,7 +636,6 @@ final class DispatchService: @unchecked Sendable {
     private let keyDispatcher: KeyEventDispatcher?
     private let recordingSink: ((RuntimeDispatchEvent) -> Void)?
     private let recordingScheduler: (any TouchEngineScheduler)?
-    private let appLaunchDispatcher = AppLaunchDispatcher()
     private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
     private let recordedEventHandlerLock = OSAllocatedUnfairLock<((RuntimeDispatchEvent) -> Void)?>(uncheckedState: nil)
     private let dispatchQueue = DispatchQueue(
@@ -1040,8 +847,9 @@ final class DispatchService: @unchecked Sendable {
                 altAscii: altAscii,
                 token: token
             )
-        case let .appLaunch(actionLabel):
-            appLaunchDispatcher.open(actionLabel)
+        case .appLaunch:
+            // Retained solely for legacy capture decoding; GTK app launching is unsupported.
+            break
         case let .leftClick(clickCount):
             keyDispatcher?.postLeftClickImmediate(clickCount: clickCount)
         case .rightClick:

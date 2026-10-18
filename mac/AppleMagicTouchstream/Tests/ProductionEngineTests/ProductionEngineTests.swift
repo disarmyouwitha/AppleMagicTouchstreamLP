@@ -387,7 +387,69 @@ final class ProductionEngineTests: XCTestCase {
     }
 
 
-    func testGestureToggleStopsAndRestoresSwipeRecognition() async {
+    func testHapticThrottleIsIndependentPerTrackpad() async {
+        let run = session()
+        run.engine.updateHapticStrength(0.6)
+        func tap(_ time: Double, side: Int = 0) {
+            frame(run, time, [contact(state: .making)], side: side)
+            frame(run, time + 0.004, [contact(state: .breaking)], side: side)
+        }
+        tap(1)
+        tap(1.006) // Same pad inside 20 ms: coalesced.
+        tap(1.012, side: 1) // Other pad still gets feedback.
+        tap(1.032)
+        let devices = run.output.events.compactMap { event -> String? in
+            guard case let .haptic(strength, deviceID) = event.kind else { return nil }
+            XCTAssertEqual(strength, 0.6)
+            return deviceID
+        }
+        XCTAssertEqual(devices, ["42", "43", "42"])
+        XCTAssertEqual(keys(run).count, 4)
+    }
+
+    func testHapticStrengthClampsAndZeroDisablesFeedback() async {
+        let run = session()
+        run.engine.updateHapticStrength(2)
+        frame(run, 1, [contact(state: .making)])
+        frame(run, 1.08, [contact(state: .breaking)])
+        run.engine.updateHapticStrength(0)
+        frame(run, 2, [contact(state: .making)])
+        frame(run, 2.08, [contact(state: .breaking)])
+        run.engine.updateHapticStrength(.nan)
+        frame(run, 3, [contact(state: .making)])
+        frame(run, 3.08, [contact(state: .breaking)])
+        let strengths = run.output.events.compactMap { event -> Double? in
+            if case let .haptic(strength, _) = event.kind { return strength }
+            return nil
+        }
+        XCTAssertEqual(strengths, [1])
+        XCTAssertEqual(keys(run).count, 3)
+    }
+
+    func testReplayProfileHapticPercentIsNormalized() async throws {
+        let run = session()
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with: JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String: Any])
+        json["hapticStrength"] = 40
+        json["leftDeviceID"] = "42"
+        json["rightDeviceID"] = "43"
+        let profile = try JSONDecoder().decode(AppKeymapProfile.self, from: JSONSerialization.data(withJSONObject: json))
+        run.configure(profile: profile, leftIndex: 0, rightIndex: 1)
+        let size = CGSize(width: 160, height: 115)
+        let layout = ContentViewModel.Layout(keyRects: [[CGRect(x: 10, y: 40, width: 35, height: 30)]], trackpadSize: size)
+        run.engine.updateKeyMappings([:])
+        run.engine.updateCustomButtons([])
+        run.engine.updateLayouts(leftLayout: layout, rightLayout: layout,
+            leftLabels: [["F"]], rightLabels: [["F"]], trackpadSize: size, trackpadWidthMm: 160)
+        frame(run, 1, [contact(state: .making)])
+        frame(run, 1.08, [contact(state: .breaking)])
+        let strengths = run.output.events.compactMap { event -> Double? in
+            if case let .haptic(strength, _) = event.kind { return strength }
+            return nil
+        }
+        XCTAssertEqual(strengths, [0.4])
+    }
+
+    func testLegacyGestureToggleCannotRestoreGTKSwipeRecognition() async {
         let run = session(keyboardOnly: false)
         var actions = noGestures()
         actions.threeFingerSwipeRight = KeyActionCatalog.action(for: "G")!
@@ -401,13 +463,13 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertTrue(keys(run).isEmpty)
         run.engine.updateGestureRecognitionEnabled(true)
         swipe(2)
-        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_G):0"])
+        XCTAssertTrue(keys(run).isEmpty)
         run.engine.updateGestureRecognitionEnabled(false)
         swipe(3)
-        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_G):0"])
+        XCTAssertTrue(keys(run).isEmpty)
     }
 
-    func testGestureToggleControlsTapClick() async {
+    func testLegacyGestureToggleCannotRestoreGTKTapClick() async {
         let run = session(keyboardOnly: false)
         var actions = noGestures()
         actions.twoFingerTap = KeyAction(label: "Left Click", keyCode: 0, flags: 0, kind: .leftClick)
@@ -418,7 +480,7 @@ final class ProductionEngineTests: XCTestCase {
         run.engine.updateGestureRecognitionEnabled(true)
         frame(run, 2, [contact(1, x: 0.12), contact(2, x: 0.20)])
         frame(run, 2.08, [])
-        XCTAssertTrue(run.output.events.contains { if case .leftClick = $0.kind { true } else { false } })
+        XCTAssertFalse(run.output.events.contains { if case .leftClick = $0.kind { true } else { false } })
     }
 
     func testOriginalHoldShortcutSurvivesClassifierReplacement() async {
@@ -457,6 +519,43 @@ final class ProductionEngineTests: XCTestCase {
         legacy.removeValue(forKey: "gestureRecognitionEnabled")
         let decoded = try JSONDecoder().decode(AppKeymapProfile.self, from: JSONSerialization.data(withJSONObject: legacy))
         XCTAssertFalse(decoded.gestureRecognitionEnabled ?? false)
+    }
+
+    func testImportedGTKActionKindsCannotDispatchThroughKeysOrCustomButtons() async throws {
+        let removed: [KeyActionKind] = [.appLaunch, .voice, .typingToggle,
+            .gestureTwoFingerTap, .gestureThreeFingerTap, .gestureFourFingerHold,
+            .gestureInnerCornersHold, .gestureFiveFingerSwipeLeft, .gestureFiveFingerSwipeRight,
+            .volumeUpSmall, .volumeDownSmall, .brightnessUp, .brightnessDown,
+            .brightnessUpSmall, .brightnessDownSmall]
+        for kind in removed {
+            let action = try JSONDecoder().decode(KeyAction.self, from: JSONEncoder().encode(
+                KeyAction(label: "Legacy unsupported action", keyCode: 0, flags: 0, kind: kind)))
+            let run = session(allowHold: true)
+            let key = GridKeyPosition(side: .left, row: 0, column: 0).storageKey
+            run.engine.updateKeyMappings([0: [key: KeyMapping(primary: action, hold: action)]])
+            run.engine.updateCustomButtons([CustomButton(id: UUID(), side: .left,
+                rect: NormalizedRect(x: 0.65, y: 0.3, width: 0.3, height: 0.4), action: action, hold: action)])
+            frame(run, 1, [contact(state: .making)])
+            frame(run, 1.5, [contact()])
+            frame(run, 1.6, [])
+            frame(run, 2, [contact(state: .making, x: 0.8)])
+            frame(run, 2.5, [contact(x: 0.8)])
+            frame(run, 2.6, [])
+            run.finish(at: 3)
+            XCTAssertTrue(run.output.events.isEmpty, "Unsupported imported kind \(kind) produced output")
+        }
+    }
+
+    func testActionCatalogOffersOnlySupportedBootstrapActions() {
+        let allowed: Set<KeyActionKind> = [.key, .leftClick, .doubleClick, .rightClick,
+            .middleClick, .volumeUp, .volumeDown, .layerMomentary, .layerToggle, .none]
+        for group in KeyActionCatalog.primaryActionGroups {
+            for action in group.actions { XCTAssertTrue(allowed.contains(action.kind), action.label) }
+        }
+        XCTAssertNil(KeyActionCatalog.action(for: "TT"))
+        XCTAssertNil(KeyActionCatalog.action(for: "VOICE"))
+        let app = AppLaunchActionHelper.createActionLabel(fileName: "/Applications/Calculator.app")!
+        XCTAssertNil(KeyActionCatalog.action(for: app))
     }
 
 }

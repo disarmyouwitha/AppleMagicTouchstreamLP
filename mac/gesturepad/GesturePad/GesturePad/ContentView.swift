@@ -11,7 +11,6 @@ struct ContentView: View {
     static let displayScale: CGFloat = 2.7
     @State private var showTouchTelemetry = true
     @State private var showContactPaths = true
-    @State private var showInspector = false
     @State private var blackholeSide: TrackpadSide = .left
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
@@ -37,45 +36,49 @@ struct ContentView: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
-            Text("FingerWorks Playground").font(.title2).bold()
-            Text("Raw contacts only · no GTK gestures, chords, or keyboard layout")
-                .foregroundStyle(.secondary)
-            DevicesSectionView(availableDevices: viewModel.availableDevices,
-                leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
-                onSelectLeft: { device in
-                    viewModel.selectLeftDevice(device)
-                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
-                },
-                onSelectRight: { device in
-                    viewModel.selectRightDevice(device)
-                    UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
-                },
-                onRefresh: { viewModel.refreshDevicesAndListeners() })
-            hidBlackholeControls
-            if let state = viewModel.replayTimelineState { replayTimelineView(state) }
-            HStack {
-                Toggle("Inspect touch data", isOn: $showTouchTelemetry)
-                Toggle("Contact paths", isOn: $showContactPaths)
-                Button("Live values…") { showInspector = true }
-                    .popover(isPresented: $showInspector) { TouchTelemetryInspector(viewModel: viewModel) }
-            }.toggleStyle(.checkbox)
-            HStack {
-                Text("Left Trackpad · peak: \(leftPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
-                Text("Right Trackpad · peak: \(rightPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
+        ScrollView([.horizontal, .vertical]) {
+            VStack(alignment: .leading, spacing: 16) {
+                Text("FingerWorks Playground").font(.title2).bold()
+                Text("Raw contacts only · no GTK gestures, chords, or keyboard layout")
+                    .foregroundStyle(.secondary)
+                DevicesSectionView(availableDevices: viewModel.availableDevices,
+                    leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
+                    onSelectLeft: { device in
+                        viewModel.selectLeftDevice(device)
+                        UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
+                    },
+                    onSelectRight: { device in
+                        viewModel.selectRightDevice(device)
+                        UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
+                    },
+                    onRefresh: { viewModel.refreshDevicesAndListeners() })
+                hidBlackholeControls
+                if let state = viewModel.replayTimelineState { replayTimelineView(state) }
+                HStack {
+                    Toggle("Inspect touch data", isOn: $showTouchTelemetry)
+                    Toggle("Contact paths", isOn: $showContactPaths)
+                }.toggleStyle(.checkbox)
+                InlineTouchTelemetry(viewModel: viewModel) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        HStack(spacing: 16) {
+                            Text("Left Trackpad · peak: \(leftPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
+                            Text("Right Trackpad · peak: \(rightPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
+                        }
+                        TrackpadSurfaceRepresentable(snapshot: surfaceSnapshot, viewModel: viewModel,
+                            selectionHandler: { _ in }, peakPressureHandler: { left, right in
+                                leftPeakPressure = left
+                                rightPeakPressure = right
+                            })
+                            .frame(width: size.width * 2 + 16, height: size.height)
+                        Text("1 Thumb · 2 Index · 3 Middle · 4 Ring · 5 Pinky · 6 Palm. H = hand ID.")
+                            .font(.caption).foregroundStyle(.secondary)
+                    }
+                }
+
             }
-            TrackpadSurfaceRepresentable(snapshot: surfaceSnapshot, viewModel: viewModel,
-                selectionHandler: { _ in }, peakPressureHandler: { left, right in
-                    leftPeakPressure = left
-                    rightPeakPressure = right
-                })
-                .frame(width: size.width * 2 + 16, height: size.height)
-            Text("1 Thumb · 2 Index · 3 Middle · 4 Ring · 5 Pinky · 6 Palm. H = hand ID.")
-                .font(.caption).foregroundStyle(.secondary)
-            Spacer(minLength: 0)
+            .padding(16)
         }
-        .padding(16)
-        .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 240)
+        .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 400)
         .onAppear { synchronizeHIDTarget() }
         .onChange(of: blackholeSide) { _ in synchronizeHIDTarget() }
         .onChange(of: viewModel.leftDevice) { _ in
@@ -129,23 +132,6 @@ struct ContentView: View {
                     .disabled(!hidBlackhole.isActive)
             }
             Text(hidBlackhole.summary).font(.caption)
-            DisclosureGroup("HID interfaces and report counts") {
-                HStack {
-                    Text(ProcessInfo.processInfo.operatingSystemVersionString).font(.caption)
-                    Spacer()
-                    Button("Copy diagnostics") {
-                        let report = [ProcessInfo.processInfo.operatingSystemVersionString,
-                            hidBlackhole.groups.first(where: { $0.id == hidBlackhole.selectedGroupID })?.label ?? "No selection",
-                            hidBlackhole.summary, hidBlackhole.diagnostics].joined(separator: "\n")
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(report, forType: .string)
-                    }
-                }
-                ScrollView {
-                    Text(hidBlackhole.diagnostics).font(.system(size: 10, design: .monospaced))
-                        .textSelection(.enabled).frame(maxWidth: .infinity, alignment: .leading)
-                }.frame(height: 120)
-            }
         }.padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
@@ -295,8 +281,10 @@ struct ContentView: View {
             )
         }
     }
-    private struct TouchTelemetryInspector: View {
+    private struct InlineTouchTelemetry<Visualizer: View>: View {
         @ObservedObject var viewModel: ContentViewModel
+        @ViewBuilder let visualizer: () -> Visualizer
+        private let columnWidth: CGFloat = 300
         @State private var frozenSnapshot: ContentViewModel.TouchSnapshot?
         @State private var freezePending = false
         @State private var freezeTask: Task<Void, Never>?
@@ -307,7 +295,7 @@ struct ContentView: View {
                 let snapshot = frozenSnapshot ?? viewModel.snapshotTouchData()
                 VStack(alignment: .leading, spacing: 10) {
                     HStack {
-                        Text("Touch data inspector").font(.headline)
+                        Text("Live touch values").font(.headline)
                         Spacer()
                         Text(frozenSnapshot == nil ? "Live · 10 Hz" : "Frozen")
                             .foregroundStyle(.secondary)
@@ -332,18 +320,24 @@ struct ContentView: View {
                         .font(.caption)
                         .foregroundStyle(.secondary)
                     if let copyError { Text(copyError).foregroundStyle(.red) }
-                    ScrollView {
-                        HStack(alignment: .top, spacing: 16) {
+                    HStack(alignment: .top, spacing: 16) {
+                        ScrollView(.vertical) {
                             contactColumn("Left trackpad", touches: snapshot.left)
+                        }
+                        .frame(width: columnWidth, height: 520)
+                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
+                        visualizer()
+                        ScrollView(.vertical) {
                             contactColumn("Right trackpad", touches: snapshot.right)
                         }
+                        .frame(width: columnWidth, height: 520)
+                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
                     }
                     Text("New Capture recordings retain these fields. Older recordings show unavailable. Freeze in 3s lets you put both hands back on the pads.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
-                .padding(16)
-                .frame(width: 820, height: 480)
+                .padding(.vertical, 12)
             }
             .onDisappear { freezeTask?.cancel() }
         }
@@ -356,20 +350,31 @@ struct ContentView: View {
                 }
                 ForEach(Array(touches.enumerated()), id: \.offset) { _, touch in
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Contact #\(touch.id) · \(touch.state.rawValue)").fontWeight(.semibold)
-                        Text(String(format: "Normalized position  % .4f, % .4f", touch.position.x, touch.position.y))
-                        if let raw = touch.telemetry {
-                            Text("\(raw.fingerName) · Finger ID \(raw.fingerID)    Hand ID \(raw.handID)")
-                            Text(String(format: "Normalized velocity  % .4f, % .4f", raw.velocityX, raw.velocityY))
-                            Text(String(format: "Absolute position    % .4f, % .4f", raw.absoluteX, raw.absoluteY))
-                            Text(String(format: "Absolute velocity    % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
-                            Text(String(format: "Frame %d · source time %.6f", raw.sourceFrame, raw.sourceTimestamp))
-                        } else {
-                            Text("Identity / velocity / absolute data unavailable")
-                                .foregroundStyle(.secondary)
+                        HStack {
+                            Text("#\(touch.id) · \(touch.telemetry?.fingerName ?? "Unknown")").fontWeight(.semibold)
+                            Spacer()
+                            Text(String(format: "p: %.3f", touch.pressure)).fontWeight(.semibold)
                         }
-                        Text(String(format: "Axes %.3f / %.3f · angle %.3f", touch.axis.major, touch.axis.minor, touch.angle))
-                        Text(String(format: "Total %.3f · density %.3f · pressure %.3f", touch.total, touch.density, touch.pressure))
+                        Text("\(touch.telemetry.map { "Finger \($0.fingerID) · Hand \($0.handID)" } ?? "Identity unavailable") · \(touch.state.rawValue)")
+                            .foregroundStyle(.secondary)
+                        Text(String(format: "Position % .4f, % .4f", touch.position.x, touch.position.y))
+                        if let raw = touch.telemetry {
+                            Text(String(format: "Velocity % .4f, % .4f", raw.velocityX, raw.velocityY))
+                        }
+                        DisclosureGroup("Raw measurements") {
+                            VStack(alignment: .leading, spacing: 3) {
+                                if let raw = touch.telemetry {
+                                    Text(String(format: "Absolute position % .4f, % .4f", raw.absoluteX, raw.absoluteY))
+                                    Text(String(format: "Absolute velocity % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
+                                    Text(String(format: "Frame %d · time %.6f", raw.sourceFrame, raw.sourceTimestamp))
+                                } else {
+                                    Text("Velocity / absolute data unavailable")
+                                        .foregroundStyle(.secondary)
+                                }
+                                Text(String(format: "Axes %.3f / %.3f · angle %.3f", touch.axis.major, touch.axis.minor, touch.angle))
+                                Text(String(format: "Total %.3f · density %.3f", touch.total, touch.density))
+                            }
+                        }
                     }
                     .font(.system(size: 11, design: .monospaced))
                     .textSelection(.enabled)
@@ -378,7 +383,7 @@ struct ContentView: View {
                     .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
                 }
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(width: columnWidth, alignment: .leading)
         }
 
         private func copySnapshot(_ snapshot: ContentViewModel.TouchSnapshot) {

@@ -19,7 +19,7 @@ struct ReplayHarnessMain {
         let replay: ProductionReplayHarness.Result
         do {
             let profileURL = options.profilePath.map { URL(fileURLWithPath: $0, relativeTo: cwd).standardizedFileURL }
-            replay = try await ProductionReplayHarness.run(captureURL: fixtureURL, profileURL: profileURL)
+            replay = try ProductionReplayHarness.run(captureURL: fixtureURL, profileURL: profileURL)
         } catch {
             fputs("Failed to replay production engine: \(error)\n", stderr)
             Foundation.exit(1)
