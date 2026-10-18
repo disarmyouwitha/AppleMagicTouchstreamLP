@@ -1,5 +1,6 @@
 `GesturePad`:  
 2. Can we figure out how to give mouse access back without disabling the driver extension?
+> most important
 0. Can I allow certain actions to pass through blackhole? 
 > Can we allow forceClicks through?
 1. can we "translate" 2finger movement to 1 finger.. like take the movement/velocity and make it just as smooth as OSX?
@@ -7,15 +8,9 @@
 ===
 
  
- >  yep, then we just need seamless handoff back to native Mac
-&&3. When you quit the program you  have to put in your password to turn off the driver to release back to apple.. can we find another way to do it?
+0. 1. lets make "synthetic 2finger pointer" off by default. 2. lets add another checkbox "allow click" that also defaults off?
 
-00. 1. lets make "synthetic 2finger pointer" off by default. 2. lets add another checkbox "allow click" that also defaults off?
-
-0. quick break: Velocity are we calculating this or getting it over the line now? there is velocity reconstructed and reconstructed native
-
-1. I guess it's like.. can't we just always leave the driver on? If a device isn't synced we can click a "sync" button. Or do we need to solve this problem first:
-> With our current static matching, it also doesn’t solve arbitrary pad selection.
+1. quick break: Velocity are we calculating this or getting it over the line now? there is velocity reconstructed and reconstructed native
 
 2. sync button / release trackpads first. (*or make sync trigger it)
 
