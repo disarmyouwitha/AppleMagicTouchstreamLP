@@ -2,6 +2,7 @@ import AppKit
 import SystemExtensions
 import IOKit
 import Darwin
+import Security
 
 @main
 final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequestDelegate {
@@ -9,35 +10,79 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     private var request: OSSystemExtensionRequest?
     private var managedToken: String?
     private var ownerPID: Int32 = 0
+    private var ownerLease = DriverOwnerLease(ownerPID: 0)
+    private var ownerObserver: NSObjectProtocol?
+    private var selectionObserver: NSObjectProtocol?
+    private var selectedSerials: Set<String> = []
     private var watchdog: Timer?
     private var releaseObserver: NSObjectProtocol?
     private var requestedRemoval = false
     private var removalInFlight = false
     private var managedStarted = Date()
-    private var activationFinished: Date?
-    private var firstOpened: Date?
-    private var observedOpen = false
     private var checkingRemoval = false
     private var removalCompleted = false
     private var propertiesQuery: OSSystemExtensionRequest?
     private func reportState(_ state: String) {
         guard let token = managedToken else { return }
         DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverState"), object: token,
-            userInfo: ["state": state], deliverImmediately: true)
+            userInfo: ["state": state, "helperPID": ProcessInfo.processInfo.processIdentifier], deliverImmediately: true)
     }
     private func beginManagedSessionIfRequested() {
         let args = ProcessInfo.processInfo.arguments
         guard let index = args.firstIndex(of: "--gesturepad-session"), args.count > index + 1,
               let pidIndex = args.firstIndex(of: "--owner-pid"), args.count > pidIndex + 1,
               let pid = Int32(args[pidIndex+1]), pid > 1 else { return }
+        guard UUID(uuidString: args[index+1]) != nil, isSignedGesturePad(pid),
+           let selectedIndex = args.firstIndex(of: "--selected-serials"), args.count > selectedIndex + 1,
+           let data = args[selectedIndex+1].data(using: .utf8),
+           let selected = try? JSONDecoder().decode([String].self, from: data), selected.count <= 2,
+           Set(selected).count == selected.count,
+           selected.allSatisfy({ !$0.isEmpty && $0.utf8.count < 128 }) else { return }
         managedToken = args[index+1]; ownerPID = pid; managedStarted = Date()
+        selectedSerials = Set(selected)
+        ownerLease = DriverOwnerLease(ownerPID: pid)
+        ownerObserver = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverOwner"), object: managedToken, queue: .main) { [weak self] note in
+            let action = note.userInfo?["action"] as? String
+            let nonce = note.userInfo?["nonce"] as? String
+            let pid = (note.userInfo?["pid"] as? NSNumber)?.int32Value
+            Task { @MainActor [weak self] in
+                guard let self, !self.requestedRemoval, let action, let nonce,
+                      let pid, self.isSignedGesturePad(pid) else { return }
+                switch action {
+                case "prepare":
+                    if self.ownerLease.prepare(pid: pid, nonce: nonce, now: Date()) {
+                        self.reportState("restart-ready:\(nonce)")
+                    }
+                case "cancel": self.ownerLease.cancel(pid: pid, nonce: nonce)
+                case "claim":
+                    if self.ownerLease.claim(pid: pid, nonce: nonce, now: Date()) {
+                        self.ownerPID = pid
+                        self.reportState("owner:\(pid):\(nonce)")
+                        self.log("Transferred live driver session to replacement GesturePad PID\(pid).")
+                    }
+                default: break
+                }
+            }
+        }
+        selectionObserver = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverSelection"), object: managedToken, queue: .main) { [weak self] note in
+            let pid = (note.userInfo?["pid"] as? NSNumber)?.int32Value
+            let selected = note.userInfo?["serials"] as? [String]
+            Task { @MainActor [weak self] in
+                guard let self, !self.requestedRemoval, let pid, pid == self.ownerPID,
+                      self.isSignedGesturePad(pid), let selected, selected.count <= 2,
+                      selected.allSatisfy({ !$0.isEmpty && $0.utf8.count < 128 }) else { return }
+                self.selectedSerials = Set(selected)
+                HandoffCommand.syncSelection(self.selectedSerials)
+                self.reportState("selection-applied")
+            }
+        }
         releaseObserver = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverRelease"), object: managedToken, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in self?.requestManagedRemoval() }
         }
         watchdog = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
             Task { @MainActor [weak self] in self?.managedTick() }
         }
-        log("GesturePad-managed session: both known selected pads, active until released. This helper stays open to restore ownership if GesturePad quits.")
+        log("GesturePad-managed session: the selected supported Magic Trackpads, active until released. This helper stays open to restore ownership if GesturePad quits.")
         activate()
     }
     private func requestManagedRemoval() {
@@ -51,37 +96,25 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
         guard managedToken != nil else { return }
         if removalCompleted { checkRemoval(); return }
         if requestedRemoval { return }
-        if firstOpened == nil, let activationFinished, Date().timeIntervalSince(activationFinished) > 5 {
-            log("No receiver matched within5s after activation; requesting removal.")
+        if ownerLease.shouldRelease(ownerAlive: kill(ownerPID, 0) == 0, now: Date()) {
             requestManagedRemoval(); return
         }
-        if kill(ownerPID, 0) != 0 {
-            requestManagedRemoval(); return
-        }
-        var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("IOUserService"), &iterator) == KERN_SUCCESS else { return }
-        defer { IOObjectRelease(iterator) }
-        var count = 0; var closed = false
-        while true {
-            let service = IOIteratorNext(iterator); if service == 0 { break }
-            defer { IOObjectRelease(service) }
-            var raw: Unmanaged<CFMutableDictionary>?
-            if IORegistryEntryCreateCFProperties(service, &raw, kCFAllocatorDefault, 0) == KERN_SUCCESS,
-               let values = raw?.takeRetainedValue() as? [String: Any],
-               (values["StreamBuild"] as? NSNumber)?.intValue == 7 {
-                count += 1
-                if (values["StreamOpened"] as? NSNumber)?.intValue != 1 { closed = true }
-            }
-        }
-        if count > 0 {
-            observedOpen = true
-            if firstOpened == nil { firstOpened = Date() }
-        }
-        if closed || (observedOpen && count < 2 && Date().timeIntervalSince(firstOpened ?? Date()) > 2) {
-            requestManagedRemoval()
-        }
+        // Device presence is managed by the user's explicit Takeover click.
+        // A pad disconnect must never remove the extension for the other pad.
+        HandoffCommand.releaseUnselected(selectedSerials)
+    }
+    private func isSignedGesturePad(_ pid: Int32) -> Bool {
+        var code: SecCode?
+        let attributes = [kSecGuestAttributePid as String: NSNumber(value: pid)] as CFDictionary
+        guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
+              let code else { return false }
+        var requirement: SecRequirement?
+        let rule = "identifier \"ink.ranna.glasstokey.gesturepad\" and anchor apple generic and certificate leaf[subject.OU] = \"N9XQZJR4EP\""
+        guard SecRequirementCreateWithString(rule as CFString, [], &requirement) == errSecSuccess else { return false }
+        return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
     }
     static func main() {
+        if HandoffCommand.runIfRequested() { return }
         let app = NSApplication.shared
         let delegate = ProbeHost()
         app.delegate = delegate
@@ -112,7 +145,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     private func submit(_ next: OSSystemExtensionRequest) {
         guard request == nil else { log("An activation/deactivation request is already pending."); return }
         request = next; next.delegate = self; OSSystemExtensionManager.shared.submitRequest(next)
-        log("Submitted system-extension request. Approval installs/enables the driver; Activate again does not restart a finished receiver. This version captures both selected pads until released; USB0201 once after 2 seconds, no Bluetooth mode command.")
+        log("Submitted system-extension request. Approval installs/enables the driver; Activate again does not restart a finished receiver. Selected pads remain controlled until released. USB/Bluetooth multitouch initialization follows the tested model protocol.")
     }
     func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
         log("macOS requires approval in System Settings → General → Login Items & Extensions → Driver Extensions.")
@@ -126,7 +159,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
             reportState("restoring")
             checkRemoval()
         } else if requestedRemoval { requestManagedRemoval() }
-        else { activationFinished = Date(); reportState("activated") }
+        else { reportState("activated") }
     }
     private func checkRemoval() {
         guard !checkingRemoval else { return }
@@ -137,10 +170,10 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     }
     func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
         checkingRemoval = false; propertiesQuery = nil
-        // A reboot-pending historical build1 must not masquerade as active build7.
-        if !properties.contains(where: { $0.bundleVersion == "7" }) {
+        // A reboot-pending historical build1 must not masquerade as active build21.
+        if !properties.contains(where: { $0.bundleVersion == "21" }) {
             reportState("removed"); watchdog?.invalidate(); watchdog = nil
-            log("Verified build7 is no longer registered. Check native trackpad behavior.")
+            log("Verified build21 is no longer registered. Check native trackpad behavior.")
             NSApp.terminate(nil)
         } else { reportState("restoring") }
     }

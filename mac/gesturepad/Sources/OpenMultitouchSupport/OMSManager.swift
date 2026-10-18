@@ -21,10 +21,23 @@ public struct OMSDeviceInfo: Sendable, Hashable {
         let identity = [transport, serialNumber].filter { !$0.isEmpty }.joined(separator: " · ")
         return identity.isEmpty ? "\(deviceName) (ID: \(deviceID))" : "\(deviceName) · \(identity)"
     }
-    internal nonisolated(unsafe) let deviceInfo: OpenMTDeviceInfo
+    internal nonisolated(unsafe) let deviceInfo: OpenMTDeviceInfo?
+    public let driverDeviceIndex: Int?
+
+    /// Metadata for an independently delivered DriverKit source, not a native
+    /// callback object. Keep selectors usable while Apple's services are absent.
+    public init(driverDeviceName: String, deviceID: UInt64, registryEntryID: UInt64,
+                serialNumber: String, transport: String, deviceIndex: Int) {
+        deviceInfo = nil; driverDeviceIndex = deviceIndex
+        deviceName = driverDeviceName; self.deviceID = String(deviceID)
+        deviceIDNumeric = deviceID; isBuiltIn = false
+        self.registryEntryID = registryEntryID; self.serialNumber = serialNumber
+        self.transport = transport
+    }
     
     internal init(_ deviceInfo: OpenMTDeviceInfo) {
         self.deviceInfo = deviceInfo
+        self.driverDeviceIndex = nil
         self.deviceName = deviceInfo.deviceName
         self.deviceID = deviceInfo.deviceID
         self.deviceIDNumeric = UInt64(deviceInfo.deviceID) ?? 0
@@ -164,14 +177,32 @@ public final class OMSManager: Sendable {
         set { protectedTimestampEnabled.withLockUnchecked { $0 = newValue } }
     }
     
+    // Native services can be absent while DriverKit owns the pads. An app
+    // launched then must recover on explicit Refresh after native restoration.
+    private func captureManagerIfAvailable() -> OpenMTManagerV2? {
+        if let current = protectedCaptureManager.withLockUnchecked(\.self) { return current }
+        guard let recovered = Self.loadManagerV2() else { return nil }
+        return protectedCaptureManager.withLockUnchecked { current in
+            if current == nil { current = recovered }
+            return current
+        }
+    }
+
     public var availableDevices: [OMSDeviceInfo] {
-        guard let manager = protectedCaptureManager.withLockUnchecked(\.self) else { return [] }
-        manager.refreshAvailableDevices()
-        return manager.availableDevices().map { OMSDeviceInfo($0) }
+        let manager = captureManagerIfAvailable()
+        manager?.refreshAvailableDevices()
+        let native = manager?.availableDevices().map { OMSDeviceInfo($0) } ?? []
+        let ids = Set(native.map(\.deviceIDNumeric))
+        return native + driverInventory.withLock { $0.filter { !ids.contains($0.deviceIDNumeric) } }
+    }
+
+    private let driverInventory = OSAllocatedUnfairLock(initialState: [OMSDeviceInfo]())
+    public func setDriverInventory(_ devices: [OMSDeviceInfo]) {
+        driverInventory.withLock { $0 = devices }
     }
     
     public var activeDevices: [OMSDeviceInfo] {
-        guard let manager = protectedCaptureManager.withLockUnchecked(\.self) else { return [] }
+        guard let manager = captureManagerIfAvailable() else { return [] }
         return manager.activeDevices().map { OMSDeviceInfo($0) }
     }
 
@@ -190,7 +221,7 @@ public final class OMSManager: Sendable {
 
     @discardableResult
     public func startListening() -> Bool {
-        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
+        guard let captureManager = captureManagerIfAvailable(),
               protectedRawListener.withLockUnchecked({ $0 == nil }) else {
             return false
         }
@@ -209,7 +240,7 @@ public final class OMSManager: Sendable {
 
     @discardableResult
     public func stopListening() -> Bool {
-        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self),
+        guard let captureManager = captureManagerIfAvailable(),
               let listener = protectedRawListener.withLockUnchecked(\.self) else {
             return false
         }
@@ -220,8 +251,8 @@ public final class OMSManager: Sendable {
     
     @discardableResult
     public func setActiveDevices(_ devices: [OMSDeviceInfo]) -> Bool {
-        guard let captureManager = protectedCaptureManager.withLockUnchecked(\.self) else { return false }
-        let deviceInfos = devices.map { $0.deviceInfo }
+        guard let captureManager = captureManagerIfAvailable() else { return false }
+        let deviceInfos = devices.compactMap { $0.deviceInfo }
         guard captureManager.setActiveDevices(deviceInfos) else {
             return false
         }
@@ -262,12 +293,14 @@ public final class OMSManager: Sendable {
 
     public func deviceIndex(for deviceID: String) -> Int? {
         guard let parsedID = UInt64(deviceID) else { return nil }
-        return resolveDeviceIndex(for: parsedID)
+        return deviceIndex(for: parsedID)
     }
 
     public func deviceIndex(for deviceIDNumeric: UInt64) -> Int? {
         guard deviceIDNumeric > 0 else { return nil }
-        return resolveDeviceIndex(for: deviceIDNumeric)
+        return driverInventory.withLock {
+            $0.first { $0.deviceIDNumeric == deviceIDNumeric }?.driverDeviceIndex
+        } ?? resolveDeviceIndex(for: deviceIDNumeric)
     }
 
     private func handleRawFrame(

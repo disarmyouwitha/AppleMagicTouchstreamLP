@@ -550,7 +550,8 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
     }
 
     func ingestDriverContacts(device: UInt64, index: Int, timestamp: Double, touches: [OMSRawTouch]) async {
-        guard inputRuntimeService.isRunning else { return }
+        // DriverKit has its own explicit session/lifecycle gate. Native OMS may
+        // have no callback source while the driver owns both selected pads.
         let frame = RuntimeRawFrame(sequence: inputRuntimeService.nextExternalSequence(), timestamp: timestamp,
             deviceNumericID: device, deviceIndex: index,
             contacts: touches.map { RuntimeRawContact(id: $0.id, posX: $0.posX, posY: $0.posY,

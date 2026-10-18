@@ -110,3 +110,11 @@ fix; only the build product was updated, without interrupting or reactivating it
   evidence. Synthetic decoder parity does not prove those delivery behaviors.
 - Continuous DriverKit ownership is unchanged; explicit release and lifecycle
   safeguards remain. No automatic hardware activation occurred during this work.
+
+### Follow-up installation check
+
+The reported persistent notTouching display was observed while the installed app
+was still the 08:01 build, preceding the 09:07 render fix. On the next follow-up,
+69 tests passed including single-pad selection guards; the installer was rerun to
+update `/Applications/GesturePad.app`. New both-pad recording not yet located:
+the capture folder still contains the earlier 08:56 right-only recording.

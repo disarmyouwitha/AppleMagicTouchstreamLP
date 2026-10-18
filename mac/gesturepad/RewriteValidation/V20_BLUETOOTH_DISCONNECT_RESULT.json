@@ -1,0 +1,17 @@
+{
+  "build": 20,
+  "checkedAt": "2026-10-18T17:18:22.464806+00:00",
+  "userObservation": "Bluetooth off; captured USB continues visualizing contacts",
+  "driverPIDBefore": 36112,
+  "driverPIDAfter": 36112,
+  "helperPIDBefore": 36103,
+  "helperPIDAfter": 36103,
+  "usbReceiverBefore": 4294987221,
+  "usbReceiverAfter": 4294987221,
+  "usbSequenceBefore": 582,
+  "usbSequenceAfter": 1145,
+  "usbOpenedAfter": true,
+  "extensionRemainedActivatedEnabled": true,
+  "latestCrashReportUnchanged": "AMTRawHIDReceiver-2026-10-18-112724.ips",
+  "scope": "Bluetooth power-off isolation passed. Reconnect, manual Sync and warm Restart remain unverified."
+}

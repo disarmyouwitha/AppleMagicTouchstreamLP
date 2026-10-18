@@ -61,11 +61,12 @@ final class GesturePadController: ObservableObject {
             trackpadWidthMm: ContentView.trackpadWidthMM)
         let leftDeviceID = stringValue(forKey: GesturePadDefaultsKeys.leftDeviceID)
         let rightDeviceID = stringValue(forKey: GesturePadDefaultsKeys.rightDeviceID)
-        if let leftDevice = deviceForID(leftDeviceID) {
-            viewModel.selectLeftDevice(leftDevice)
+        let saved = UserDefaults.standard.persistentDomain(forName: Bundle.main.bundleIdentifier ?? "") ?? [:]
+        if saved[GesturePadDefaultsKeys.leftDeviceID] != nil {
+            viewModel.selectLeftDevice(deviceForID(leftDeviceID))
         }
-        if let rightDevice = deviceForID(rightDeviceID) {
-            viewModel.selectRightDevice(rightDevice)
+        if saved[GesturePadDefaultsKeys.rightDeviceID] != nil {
+            viewModel.selectRightDevice(deviceForID(rightDeviceID))
         }
         let autoResyncEnabled = UserDefaults.standard.bool(
             forKey: GesturePadDefaultsKeys.autoResyncMissingTrackpads

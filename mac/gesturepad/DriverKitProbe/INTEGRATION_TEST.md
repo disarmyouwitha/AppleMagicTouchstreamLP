@@ -88,3 +88,40 @@ It refuses if a receiver is registered/awaiting approval (except a historical
 terminated build pending reboot cleanup). It **does not activate** a driver.
 The test is explicitly launched inside GesturePad. Existing app bundle ID,
 menu shape, selector IDs and original nonseizing filter controls are preserved.
+
+## Development build location and single-pad selection (2026-10-18)
+
+DriverKit takeover currently starts only from `/Applications/GesturePad.app`.
+Xcode Debug remains supported for ordinary app development, but launching its
+DerivedData product does not update the installed copy. After rebuilding, release
+and quit GesturePad, then run `DriverKitProbe/install-integration.sh` to rebuild,
+verify and install the app and embedded signed service. Launch the installed copy.
+This prevents testing stale UI/telemetry code while assuming Xcode updated it.
+
+One selected tested pad is now accepted if the other known pad is disconnected.
+The v7 extension has static matching personalities for both known serials, so it
+still refuses a connected known pad left unselected: simply ignoring its stream
+would not prevent the driver from taking ownership. Fully independent selection
+with both connected still requires driver matching changes. No broadening to
+arbitrary devices, transport changes, or automatic driver activation was added.
+
+## v19 regression check
+
+The v18 Bluetooth-disconnect crash was symbolicated to timer cancellation after
+timer free. v19 waits for timer and action cancellation before super Stop and uses
+that drain for startup failure too. App Restart waits for confirmed full removal
+before launching its replacement. Offline cancellation-order and app tests pass;
+physical validation is pending. Enable Takeover with both selected, power off only
+Bluetooth, and touch USB: USB should remain captured and continue visualizing.
+Then test app Restart while takeover is active; authorize removal if requested.
+The replacement should discover the pads that are physically connected.
+
+## v20 selected-pad lifecycle candidate
+
+See [TAKEOVER_SPEC.md](TAKEOVER_SPEC.md). It supersedes the historical hardcoded
+serial/both-selected restrictions above and v19's removal-before-Restart behavior.
+Build/install with --development-userclients while testing the development profile.
+Only the supported0324 family is generalized to arbitrary serials. Driver Takeover
+activates once; Sync applies current selectors; Restart transfers the live session;
+Exit requests removal and waits. The control-only coordinator should remain with
+zero selected receivers. Hardware validation and reverse-native retake are pending.

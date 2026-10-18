@@ -2,7 +2,26 @@
 2. Can we figure out how to give mouse access back without disabling the driver extension?
 0. Can I allow certain actions to pass through blackhole? 
 > Can we allow forceClicks through?
-1. can we "translate" 2finger movement to 1 finger.. or 4 fingers to 2 (so I could scroll with 4 fingers ?) Or is this really not any different than sythensizing it?
+1. can we "translate" 2finger movement to 1 finger.. like take the movement/velocity and make it just as smooth as OSX?
+> Should we allow the user to change the mouse speed in our app, or try to pull speed settings from OSX?
+===
+
+00. 1. lets make "synthetic 2finger pointer" off by default. 2. lets add another checkbox "allow click" that also defaults off?
+
+0. quick break: Velocity are we calculating this or getting it over the line now? there is velocity reconstructed and reconstructed native
+
+1. I guess it's like.. can't we just always leave the driver on? If a device isn't synced we can click a "sync" button. Or do we need to solve this problem first:
+> With our current static matching, it also doesn’t solve arbitrary pad selection.
+
+2. sync button / release trackpads first. (*or make sync trigger it)
+
+3. how many frames per second do we get from HID? Is it better/worse than OMS?
+
+---
+
+? Do we have to remove it on exit/install every start?
+
+===
 
 `AppleMagicTouchstream`: 
 

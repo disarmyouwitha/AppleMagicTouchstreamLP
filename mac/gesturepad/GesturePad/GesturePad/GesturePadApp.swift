@@ -5,6 +5,7 @@ import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 import os
+import OpenMultitouchSupport
 
 
 @main
@@ -35,6 +36,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var captureInProgress = false
     private var replayInProgress = false
     private var isTerminatingApp = false
+    private var restartTask: Task<Void, Never>?
+    private var quitTask: Task<Void, Never>?
     private static let persistedConfigKeys: [String] = [
         GesturePadDefaultsKeys.leftDeviceID,
         GesturePadDefaultsKeys.rightDeviceID,
@@ -43,6 +46,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
+        let resume = DriverKitTakeover.restartSnapshot(arguments: ProcessInfo.processInfo.arguments)
+        if let resume { DriverKitTakeover.installInventory(resume.devices) }
         guard enforceSingleInstancePolicyAtLaunch() else { return }
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config")
         initializeRunAtStartupPreference()
@@ -57,6 +62,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             controller?.viewModel.refreshDevicesAndListeners()
             controller?.viewModel.setAutoResyncEnabled(UserDefaults.standard.bool(forKey: GesturePadDefaultsKeys.autoResyncMissingTrackpads))
         }
+        if let resume { hidBlackhole.driverControl.adoptRestart(resume) }
         configureStatusItem()
         registerReleaseHIDShortcut()
         observeStatus()
@@ -66,6 +72,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        let control = hidBlackhole.driverControl
+        if control.isTransferringRestart || !control.hasOwnershipRequest { return .terminateNow }
+        if quitTask == nil {
+            hidBlackhole.release(reason: "App exiting")
+            quitTask = Task { @MainActor in
+                while control.hasOwnershipRequest {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+        }
+        return .terminateLater
+    }
 
 
 
@@ -504,14 +525,50 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 
     private func restartAppProcess() {
-        guard !isTerminatingApp else { return }
-        isTerminatingApp = true
-        let bundlePath = Bundle.main.bundlePath
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-        task.arguments = ["-n", bundlePath, "--args", Self.relaunchArgument]
-        try? task.run()
-        NSApp.terminate(nil)
+        guard !isTerminatingApp, restartTask == nil else { return }
+        restartTask = Task { @MainActor [self] in
+            if captureInProgress { await stopCaptureFlow() }
+            if hidBlackhole.driverControl.isActive {
+                guard let transfer = await hidBlackhole.driverControl.prepareRestart() else {
+                    restartTask = nil
+                    return
+                }
+                let task = Process()
+                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+                task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument,
+                    "--open-config", "--resume-driver", transfer.session, transfer.nonce]
+                do {
+                    try task.run()
+                    isTerminatingApp = true
+                    NSApp.terminate(nil)
+                } catch {
+                    hidBlackhole.driverControl.cancelRestart(nonce: transfer.nonce)
+                    restartTask = nil
+                    NSLog("GesturePad live restart failed: %@", error.localizedDescription)
+                }
+                return
+            }
+            // Keep the owning app/helper alive until removal is confirmed.
+            // Launching first lets the new process cache an empty native device
+            // inventory while the previous process still owns the trackpads.
+            hidBlackhole.release(reason: "App restart")
+            while hidBlackhole.driverControl.hasOwnershipRequest {
+                do { try await Task.sleep(for: .milliseconds(100)) }
+                catch { return }
+            }
+            guard !isTerminatingApp else { return }
+            let task = Process()
+            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+            task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument]
+            do {
+                try task.run()
+                isTerminatingApp = true
+                NSApp.terminate(nil)
+            } catch {
+                restartTask = nil
+                NSLog("GesturePad restart failed: %@", error.localizedDescription)
+            }
+        }
     }
 }
 

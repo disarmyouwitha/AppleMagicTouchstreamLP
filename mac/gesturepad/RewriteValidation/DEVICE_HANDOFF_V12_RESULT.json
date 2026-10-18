@@ -1,0 +1,124 @@
+{
+  "build": 12,
+  "timeUTC": "2026-10-18T15:39:36Z",
+  "scope": "Bluetooth native input physically confirmed while USB remains controlled; reverse retake and zero-pad persistence not yet validated",
+  "terminateEvidence": "/tmp/GesturePad-handoff-pgYhm2i1",
+  "rematchEvidence": "/tmp/GesturePad-handoff-qrX8rWoz",
+  "registry": [
+    {
+      "serial": "J84HMA00H0B0000501",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294972276
+    },
+    {
+      "serial": "J84HMA00H0B0000501",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294972275
+    },
+    {
+      "serial": "J84HMA00H0B0000501",
+      "class": "IOUserService",
+      "name": "AMTRawHIDReceiver",
+      "registryID": 4294983278,
+      "StreamBuild": 12,
+      "StreamOpened": 1,
+      "StreamHandoffRequested": 0,
+      "StreamSequence": 170
+    },
+    {
+      "serial": "J84HMA00H0B0000501",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294972274
+    },
+    {
+      "serial": "J84HMA00H0B0000501",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294972284
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294969934
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294969935
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294969929
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "AppleMultitouchTrackpadHIDEventDriver",
+      "name": "AppleMultitouchTrackpadHIDEventDriver",
+      "registryID": 4294983332
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "AppleMultitouchDevice",
+      "name": "AppleMultitouchDevice",
+      "registryID": 4294983336
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "AppleMultitouchDeviceUserClient",
+      "name": "AppleMultitouchDeviceUserClient",
+      "registryID": 4294983338
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294969928
+    },
+    {
+      "serial": "D0:C0:50:D4:75:6C",
+      "class": "IOHIDInterface",
+      "name": "IOHIDInterface",
+      "registryID": 4294969927
+    }
+  ],
+  "command": {
+    "after": [
+      {
+        "HandoffRematchOperation": 4,
+        "HandoffRematchProviderID": 4294969929,
+        "HandoffRematchResult": 0,
+        "StreamBuild": 12,
+        "StreamHandoffRequested": 0,
+        "StreamNativeGateMask": 2,
+        "StreamOpened": 1,
+        "StreamReports": 170,
+        "StreamSequence": 170,
+        "StreamSerial": "J84HMA00H0B0000501"
+      }
+    ],
+    "before": [
+      {
+        "StreamBuild": 12,
+        "StreamHandoffRequested": 0,
+        "StreamNativeGateMask": 2,
+        "StreamOpened": 1,
+        "StreamReports": 170,
+        "StreamSequence": 170,
+        "StreamSerial": "J84HMA00H0B0000501"
+      }
+    ],
+    "commandResult": 0,
+    "operation": "rematch",
+    "serial": "D0:C0:50:D4:75:6C",
+    "time": "2026-10-18T15:39:36Z",
+    "userClientOpen": 0
+  },
+  "physicalConfirmation": "User: Bluetooth works normally! (no contacts shown) USB stays controlled"
+}

@@ -95,3 +95,50 @@ never add those offsets or native binary fragments to the production app.
 Synthetic parity and right USB live parity (1,686 samples, zero mismatches) are
 established; matching Bluetooth live validation remains. Preserve terminal
 notTouching records in capture but exclude them from the visible render snapshot.
+
+v8 adds an explicit per-device handoff experiment through AMTHandoffClient and the
+embedded service's --handoff command. Keep exact caller identity and argument
+validation, same receiver dispatch queue, per-pad deliberate-handoff tracking,
+owner watchdog and full Release fallback. Do not interpret Close/Terminate success
+as native restoration: this remains a physical test pending validation. Do not
+broaden static matching before native handoff is demonstrated. Both-pad live
+telemetry parity passed 2,815 samples with zero mismatches (see saved JSON result).
+
+v15 adds the exact Linux Magic Trackpad2 Bluetooth multitouch-enable featureF1 02 01,
+once after2s only when no full contact packet arrived. User authorized driver
+completion/reconnect testing; preserve tested model/serial/transport checks and
+report exact mode result/first packet bytes. Earlier "no Bluetooth mode write"
+notes describe pre-reconnect experiments, superseded for this initialization test.
+
+User explicitly stopped automatic reconnect work. v17 requires manual selector
+verification + another DriverKit Takeover click after stream loss/replacement.
+Never remove the whole extension solely because a receiver/pad disconnects. The
+Takeover button remains enabled while active and resyncs stream routing; no
+inventory polling or automatic reconnect retry. Preserve explicit/lifecycle
+release and owner-process cleanup. Older reconnect-watchdog instructions above
+are superseded by this user-requested workflow simplification.
+
+v19: DriverKit Stop must wait for timer/action cancellation completions before
+calling super Stop. v18 still crashed at timer Cancel completion because the timer
+was freed first; duplicate-Cancel guards alone were insufficient. Keep receiver
+and provider retained across drain, including failed Start. Run driver tests with
+`python3 -m unittest discover -s DriverKitProbe/Tests -p 'test_*.py'` as well as
+app tests. App Restart must await confirmed driver removal before relaunching;
+never start its replacement while the previous helper still owns the devices.
+
+v20 user spec supersedes v19's restart-removal rule: keep the live extension across
+an explicit app Restart, using the signed helper's bounded owner-transfer lease.
+Actual Exit still removes/releases. Sync applies selectors without driver cycling;
+zero/one/two selections are valid. Model0324 USB/Bluetooth matching uses arbitrary
+serials; do not claim all AMT generations. A control-only IOUserResources service
+keeps per-device handoff available with zero receivers. Preserve exact helper
+user-client identity validation. Native-to-driver reverse reclaim is unproven;
+never silently deactivate the extension to implement Sync. See
+DriverKitProbe/TAKEOVER_SPEC.md for the acceptance checks and bootstrap limitation.
+
+v21 Bluetooth framing: macOS IOHIDUserDevice's KeyholeReportIDF1 transport prepends
+F1. Pass reportIDF1 with payload02 01, not F1 02 01; v20 logs proved the latter sent
+F1 F1 02 01 and was rejected. Keep USB payload02 01 unchanged. Use/test the shared
+Driver/MultitouchMode.h command. Explicit helper --initialize-bluetooth diagnostic
+is guarded to supported, already-controlled, zero-contact Bluetooth sources; its
+user-space Open was denied in the live test, so do not assert it repaired hardware.

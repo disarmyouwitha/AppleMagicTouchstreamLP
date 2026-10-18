@@ -52,7 +52,7 @@ struct ContentView: View {
                         UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
                     onRefresh: {
-                        if hidBlackhole.hasOpenHIDDevices { hidBlackhole.release(reason: "Trackpads refreshed") }
+                        if hidBlackhole.hasOpenHIDDevices && !hidBlackhole.driverControl.isActive { hidBlackhole.release(reason: "Trackpads refreshed") }
                         viewModel.refreshDevicesAndListeners()
                         synchronizeHIDTarget()
                     }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
@@ -96,7 +96,7 @@ struct ContentView: View {
 
     private func synchronizeHIDTarget() {
         hidBlackhole.pointerIdentityProbe.stop()
-        if hidBlackhole.hasOpenHIDDevices {
+        if hidBlackhole.hasOpenHIDDevices && !hidBlackhole.driverControl.isActive {
             hidBlackhole.release(reason: "Selected trackpads changed")
             guard !hidBlackhole.hasOpenHIDDevices else { return }
         }
@@ -123,7 +123,7 @@ struct ContentView: View {
             DriverKitControls(control: hidBlackhole.driverControl,
                 unavailable: viewModel.replayTimelineState != nil,
                 start: {
-                    guard !hidBlackhole.hasOpenHIDDevices else { return }
+                    guard !hidBlackhole.hasOpenHIDDevices || hidBlackhole.driverControl.isActive else { return }
                     synchronizeHIDTarget()
                     hidBlackhole.pointerControl.stop()
                     hidBlackhole.pointerIdentityProbe.stop()
@@ -379,8 +379,10 @@ private struct DriverKitControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Button("DriverKit Takeover", action: start)
-                    .disabled(unavailable || control.hasOwnershipRequest)
+                Button("Driver Takeover", action: start)
+                    .disabled(unavailable || control.isRestoring || control.isActive)
+                Button("Sync Trackpads", action: start)
+                    .disabled(unavailable || control.isRestoring || !control.isActive)
                 Button("Release Trackpads", action: release).disabled(!control.hasOwnershipRequest)
                 Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
             }

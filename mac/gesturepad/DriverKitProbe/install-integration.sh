@@ -1,13 +1,21 @@
 #!/bin/zsh
 set -euo pipefail
 probe_root=${0:A:h}
+probe_sign_options=()
+if (( $# )); then
+    if [[ "$1" == --development-userclients && $# == 1 ]]; then
+        probe_sign_options=(--development-userclients)
+    else
+        print -u2 "Usage: $0 [--development-userclients]"; exit 2
+    fi
+fi
 probe_state=$(systemextensionsctl list)
 if print -r -- "$probe_state" | /usr/bin/grep 'ink.ranna.glasstokey.gesturepad.rawhidprobe.driver' | /usr/bin/grep -v 'terminated waiting to uninstall on reboot' >/dev/null; then
     print -u2 'Release the AMT receiver before installing. No files were replaced.'
     exit 1
 fi
 "$probe_root/build.sh"
-python3 "$probe_root/sign.py" --driver-profile "$probe_root/profiles/driver.provisionprofile" --host-profile "$probe_root/profiles/host.provisionprofile"
+python3 "$probe_root/sign.py" --driver-profile "$probe_root/profiles/driver.provisionprofile" --host-profile "$probe_root/profiles/host.provisionprofile" "${probe_sign_options[@]}"
 "$probe_root/../build.sh"
 probe_main="$probe_root/../build/DerivedData/Build/Products/Debug/GesturePad.app"
 codesign --verify --deep --strict "$probe_main"

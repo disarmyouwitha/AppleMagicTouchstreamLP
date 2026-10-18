@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        BDD200000000000000000001 /* DriverSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD200000000000000000002; };
         BDD000000000000000000004 /* GesturePadDriverService.app in Embed Driver Service */ = {isa = PBXBuildFile; fileRef = BDD000000000000000000005; settings = {ATTRIBUTES = (CodeSignOnCopy,); }; };
         BDD000000000000000000001 /* DriverKitTakeover.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD000000000000000000002; };
 		BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA000000000000000000002 /* HIDBlackholeExperiment.swift */; };
@@ -31,6 +32,7 @@ FEED10000000000000000005 = {isa = PBXBuildFile; fileRef = FEED000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        BDD200000000000000000002 /* DriverSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverSession.swift; sourceTree = "<group>"; };
         BDD000000000000000000005 /* GesturePadDriverService.app */ = {isa = PBXFileReference; lastKnownFileType = wrapper.application; path = ../DriverKitProbe/build/GesturePadDriverService.app; sourceTree = SOURCE_ROOT; };
         BDD000000000000000000002 /* DriverKitTakeover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverKitTakeover.swift; sourceTree = "<group>"; };
 		BAA000000000000000000002 /* HIDBlackholeExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDBlackholeExperiment.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@ FEED00000000000000000005,
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				BAA000000000000000000002 /* HIDBlackholeExperiment.swift */,
                 BDD000000000000000000002 /* DriverKitTakeover.swift */,
+                BDD200000000000000000002 /* DriverSession.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
 			);
@@ -243,6 +246,7 @@ FEED10000000000000000005,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */,
                 BDD000000000000000000001 /* DriverKitTakeover.swift in Sources */,
+                BDD200000000000000000001 /* DriverSession.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,
 				C0A1B2C3D4E5F60718293A44 /* EngineActorBoundary.swift in Sources */,

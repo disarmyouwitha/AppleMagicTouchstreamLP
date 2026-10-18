@@ -4,6 +4,76 @@ import XCTest
 @testable import GesturePadRuntime
 
 final class DriverKitTakeoverTests: XCTestCase {
+    @MainActor
+    func testCurrentCoordinatorAndReceiverAreAcceptedWithSameProtocolVersion() {
+        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 21), "StreamCoordinator": 1]))
+        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 21), "StreamSerial": "any-pad"]))
+        XCTAssertFalse(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 20), "StreamCoordinator": 1]))
+        XCTAssertFalse(DriverKitTakeover.acceptsStream(["StreamCoordinator": 1]))
+    }
+    @MainActor
+    func testTakeoverSelectionAllowsOneConnectedPadWithoutClaimingAnother() {
+        let usb = (serial: "J84HMA00H0B0000501", transport: "USB", id: UInt64(1))
+        let bt = (serial: "D0:C0:50:D4:75:6C", transport: "Bluetooth", id: UInt64(2))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [usb], connectedSerials: [usb.serial]))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [bt], connectedSerials: [bt.serial]))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [usb, bt], connectedSerials: [usb.serial, bt.serial]))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [usb], connectedSerials: [usb.serial, bt.serial]))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [("another-AMT", "Bluetooth", 3)], connectedSerials: []))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [], connectedSerials: [usb.serial, bt.serial]))
+        XCTAssertNil(DriverKitTakeover.selectionError(selected: [], connectedSerials: []))
+        XCTAssertNotNil(DriverKitTakeover.selectionError(selected: [usb, usb], connectedSerials: [usb.serial]))
+    }
+
+    func testDriverFramesRenderWithoutRunningNativeListener() async throws {
+        let engine = RuntimeCore()
+        await engine.updateActiveDevices(leftIndex: 0, rightIndex: 1, leftDeviceID: "41", rightDeviceID: "42")
+        let input = InputRuntimeService()
+        XCTAssertFalse(input.isRunning)
+        let render = RuntimeRenderSnapshotService()
+        render.setRecordingEnabled(true)
+        let lifecycle = RuntimeLifecycleCoordinatorService(inputRuntimeService: input,
+            renderSnapshotService: render, runtimeEngine: engine,
+            runtimeCommandService: RuntimeCommandService(runtimeEngine: engine))
+        let contact = try XCTUnwrap(MagicTrackpadPacket.decode(packet(usb: true))?.contacts.first)
+        await lifecycle.ingestDriverContacts(device: 41, index: 0, timestamp: 1, touches: [contact])
+        await lifecycle.ingestDriverContacts(device: 42, index: 1, timestamp: 2, touches: [contact])
+        XCTAssertEqual(render.snapshot().left.count, 1)
+        XCTAssertEqual(render.snapshot().right.count, 1)
+        await lifecycle.ingestDriverContacts(device: 41, index: 0, timestamp: 3, touches: [])
+        XCTAssertTrue(render.snapshot().left.isEmpty)
+        XCTAssertEqual(render.snapshot().right.count, 1, "Clearing one source cannot stop the other pad")
+    }
+
+    func testResettingOnePadPreservesOtherPadsVelocityAndPointerBaseline() throws {
+        func frame(_ x: Int) throws -> [OMSRawTouch] {
+            var bytes = packet(usb: false, x: x, id: 1)
+            bytes.append(packet(usb: false, x: x + 300, id: 2).dropFirst(4))
+            return try XCTUnwrap(MagicTrackpadPacket.decode(bytes)).contacts
+        }
+        var estimator = DriverContactEstimator(), tracker = TwoFingerPointerTracker()
+        for device: UInt64 in [1, 2] {
+            _ = estimator.process(device: device, time: 1, sequence: 1, contacts: try frame(0), sensorTicks: 1000)
+            _ = tracker.process(device: device, time: 1, contacts: try frame(0))
+        }
+        estimator.reset(device: 1); tracker.reset(device: 1)
+        let healthy = estimator.process(device: 2, time: 1.01, sequence: 2, contacts: try frame(30), sensorTicks: 1010)
+        XCTAssertEqual(healthy.first?.telemetry?.driverKit?.velocityAvailable, true)
+        XCTAssertNotNil(tracker.process(device: 2, time: 1.01, contacts: try frame(30)))
+        XCTAssertEqual(estimator.process(device: 1, time: 1.01, sequence: 2, contacts: try frame(30), sensorTicks: 1010).first?.telemetry?.driverKit?.velocityAvailable, false)
+        XCTAssertNil(tracker.process(device: 1, time: 1.01, contacts: try frame(30)))
+    }
+
+    @MainActor
+    func testDriverInventorySurvivesMissingNativeServicesWithOriginalRouting() {
+        let manager = OMSManager.shared
+        defer { manager.setDriverInventory([]) }
+        DriverKitTakeover.installInventory([DriverSessionDevice(serial: "arbitrary-pad", transport: "USB",
+            id: UInt64.max - 1, index: 7, registryID: 999, name: "Magic Trackpad")])
+        XCTAssertTrue(manager.availableDevices.contains { $0.serialNumber == "arbitrary-pad" })
+        XCTAssertEqual(manager.deviceIndex(for: UInt64.max - 1), 7)
+    }
+
     private func packet(usb: Bool, x: Int = 0, y: Int = 0, id: UInt8 = 7, down: Bool = true) -> Data {
         var b = [UInt8](repeating: 0, count: usb ? 21 : 13)
         b[0] = usb ? 2 : 0x31

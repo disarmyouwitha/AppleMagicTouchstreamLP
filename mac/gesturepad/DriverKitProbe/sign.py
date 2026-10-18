@@ -8,7 +8,7 @@ BASE='ink.ranna.glasstokey.gesturepad.rawhidprobe'
 def installed_identities():
     output=subprocess.check_output(['security','find-identity','-v','-p','codesigning'],text=True)
     return set(re.findall(r'\b[0-9A-F]{40}\b',output))
-def load_profile(path,bundle,required):
+def load_profile(path,bundle,required,userclient=None):
     raw=subprocess.check_output(['security','cms','-D','-i',str(path)],stderr=subprocess.DEVNULL)
     profile=plistlib.loads(raw); ent=profile.get('Entitlements',{})
     expiry=profile.get('ExpirationDate')
@@ -16,20 +16,26 @@ def load_profile(path,bundle,required):
     teams=profile.get('TeamIdentifier',[])
     if len(teams)!=1:raise ValueError(f'{path.name}: ambiguous team')
     team=teams[0]
-    key='com.apple.application-identifier' if 'com.apple.application-identifier' in ent else 'application-identifier'
-    pattern=ent.get(key,'')
+    identity_key='com.apple.application-identifier' if 'com.apple.application-identifier' in ent else 'application-identifier'
+    pattern=ent.get(identity_key,'')
     if not fnmatch.fnmatchcase(team+'.'+bundle,pattern):raise ValueError(f'{path.name}: does not authorize {bundle}')
     for entitlement in required:
         if ent.get(entitlement) is not True:raise ValueError(f'{path.name}: missing {entitlement}')
     requested={k:True for k in required}
-    requested[key]=team+'.'+bundle
+    if userclient:
+        key='com.apple.developer.driverkit.userclient-access'
+        allowed=ent.get(key,[])
+        if not isinstance(allowed,list) or not any(isinstance(pattern,str) and fnmatch.fnmatchcase(userclient,pattern) for pattern in allowed):
+            raise ValueError(f'{path.name}: missing {key} authorization for {userclient}; enable DriverKit User Client Access on the host App ID and regenerate its provisioning profile')
+        requested[key]=[userclient]
+    requested[identity_key]=team+'.'+bundle
     requested['com.apple.developer.team-identifier']=team
     if ent.get('get-task-allow') is True:requested['get-task-allow']=True
     certs={hashlib.sha1(c).hexdigest().upper() for c in profile.get('DeveloperCertificates',[])}
     return team,certs,requested
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--driver-profile',type=pathlib.Path);parser.add_argument('--host-profile',type=pathlib.Path);args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--driver-profile',type=pathlib.Path);parser.add_argument('--host-profile',type=pathlib.Path);parser.add_argument('--development-userclients',action='store_true',help='Require Apple development profile authorizing allow-any-userclient-access; never use for distribution');args=parser.parse_args()
     if not args.driver_profile or not args.host_profile:
         locations=[pathlib.Path.home()/'Library/Developer/Xcode/UserData/Provisioning Profiles',pathlib.Path.home()/'Library/MobileDevice/Provisioning Profiles',ROOT/'profiles']
         profiles=[f for folder in locations if folder.exists() for f in folder.iterdir() if f.suffix in ['.provisionprofile','.mobileprovision']]
@@ -39,8 +45,14 @@ def main():
         print(BASE+': com.apple.developer.system-extension.install')
         print('Supply --driver-profile FILE --host-profile FILE. No signing/install/activation performed.')
         return 2
-    driver=load_profile(args.driver_profile,BASE+'.driver',['com.apple.developer.driverkit','com.apple.developer.driverkit.transport.hid'])
-    host=load_profile(args.host_profile,BASE,['com.apple.developer.system-extension.install'])
+    driver_required=['com.apple.developer.driverkit','com.apple.developer.driverkit.transport.hid']
+    if args.development_userclients:
+        driver_required.append('com.apple.developer.driverkit.allow-any-userclient-access')
+    driver=load_profile(args.driver_profile,BASE+'.driver',driver_required)
+    host=load_profile(args.host_profile,BASE,['com.apple.developer.system-extension.install'],
+                      userclient=None if args.development_userclients else BASE+'.driver')
+    if args.development_userclients and driver[2].get('get-task-allow') is not True:
+        raise ValueError('Development user clients require a debugging-enabled development driver profile; distribution signing refused')
     if driver[0]!=host[0]:raise ValueError('Driver and host profiles must authorize the same team')
     common=driver[1]&host[1]&installed_identities()
     if not common:raise ValueError('No installed signing identity is authorized by BOTH profiles')

@@ -113,6 +113,7 @@ struct DriverContactEstimator {
     private var clocks: [UInt64: Clock] = [:]
     private var previous: [UInt64: [Int32: Sample]] = [:]
     mutating func reset() { previous.removeAll(keepingCapacity: true); clocks.removeAll(keepingCapacity: true) }
+    mutating func reset(device: UInt64) { previous[device] = nil; clocks[device] = nil }
     mutating func process(device: UInt64, time: Double, sequence: UInt64, contacts: [OMSRawTouch], sensorTicks: UInt32? = nil) -> [OMSRawTouch] {
         let old = previous[device] ?? [:]
         var next: [Int32: Sample] = [:]
@@ -213,7 +214,10 @@ struct DriverStreamCursor {
 
 @MainActor
 final class DriverKitTakeover: ObservableObject {
-    static let knownSerials: Set<String> = ["J84HMA00H0B0000501", "D0:C0:50:D4:75:6C"]
+    static let streamBuild = 21
+    static func acceptsStream(_ properties: [String: Any]) -> Bool {
+        (properties["StreamBuild"] as? NSNumber)?.intValue == streamBuild
+    }
     static var helperURL: URL {
         Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/GesturePadDriverService.app")
     }
@@ -227,6 +231,13 @@ final class DriverKitTakeover: ObservableObject {
     var onSessionBegan: (() -> Void)?
     var onSessionEnded: (() -> Void)?
     private var devices: [String: (id: UInt64, index: Int)] = [:]
+    private var deviceMetadata: [DriverSessionDevice] = []
+    private var helperPID: Int32 = 0
+    private(set) var isTransferringRestart = false
+    private var handedOffSerials: Set<String> = []
+    private var disconnectedSerials: Set<String> = []
+    private var refreshedNativeServices: Set<UInt64> = []
+    private var lastNativeRefreshCheck = Date.distantPast
     private var cursors: [String: DriverStreamCursor] = [:]
     private var lastFrame: [String: Double] = [:]
     private var task: Task<Void, Never>?
@@ -248,58 +259,96 @@ final class DriverKitTakeover: ObservableObject {
         observer = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverState"), object: nil, queue: .main) { [weak self] note in
             let session = note.object as? String
             let state = note.userInfo?["state"] as? String
+            let pid = (note.userInfo?["helperPID"] as? NSNumber)?.int32Value
             Task { @MainActor [weak self] in
                 guard let self, session == self.token, let state else { return }
                 self.helperState = state
+                if let pid { self.helperPID = pid }
             }
         }
     }
 
+    static func selectionError(selected: [(serial: String, transport: String, id: UInt64)],
+                               connectedSerials: Set<String>) -> String? {
+        guard selected.count <= 2, Set(selected.map(\.id)).count == selected.count,
+              Set(selected.map(\.serial)).count == selected.count,
+              selected.allSatisfy({ !$0.serial.isEmpty && $0.serial.utf8.count < 128 &&
+                  $0.id > 0 && ["USB", "Bluetooth"].contains($0.transport) }) else {
+            return "Select up to two distinct external Magic Trackpads with device identities."
+        }
+        return nil
+    }
+
     func start(selected: [OMSDeviceInfo]) {
-        guard !hasOwnershipRequest else { return }
-        guard selected.count == 2, Set(selected.map(\.serialNumber)) == Self.knownSerials,
-              selected.contains(where: { $0.serialNumber == "J84HMA00H0B0000501" && $0.transport == "USB" }),
-              selected.contains(where: { $0.serialNumber == "D0:C0:50:D4:75:6C" && $0.transport == "Bluetooth" }),
-              Set(selected.map(\.deviceIDNumeric)).count == 2 else {
-            status = "This build requires both tested pads selected: J84HMA00H0B0000501 via USB and D0:C0:50:D4:75:6C via Bluetooth."
+        guard !isRestoring else { return }
+        if let error = Self.selectionError(
+            selected: selected.map { ($0.serialNumber, $0.transport, $0.deviceIDNumeric) },
+            connectedSerials: Set(OMSManager.shared.availableDevices.map(\.serialNumber))) {
+            status = error
             return
         }
         guard Bundle.main.bundlePath.hasPrefix("/Applications/") else {
             status = "Run the installed /Applications/GesturePad.app for DriverKit takeover."
             return
         }
-        guard let info = Bundle(url: Self.helperURL), info.infoDictionary?["CFBundleVersion"] as? String == "7" else {
+        guard let info = Bundle(url: Self.helperURL), info.infoDictionary?["CFBundleVersion"] as? String == String(Self.streamBuild) else {
             status = "Rebuild and install GesturePad using DriverKitProbe/install-integration.sh to include its driver service."
             return
         }
-        if synthesizeTwoFingerPointer && !AXIsProcessTrusted() {
+        if !selected.isEmpty && synthesizeTwoFingerPointer && !AXIsProcessTrusted() {
             let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
             status = "Grant GesturePad Accessibility access, then retry (or turn off synthetic pointer for a visual-only test)."
             return
         }
-        devices = [:]
+        var resolved: [String: (id: UInt64, index: Int)] = [:]
         for device in selected {
-            guard Self.hasVerifiedSurface(device) else {
+            guard isActive || Self.hasVerifiedSurface(device) else {
                 status = "Native telemetry calibration did not match this pad. Release/refresh before retrying; no takeover started."
                 return
             }
             guard let index = OMSManager.shared.deviceIndex(for: device.deviceID) else {
                 status = "Refresh trackpads before starting DriverKit."; return
             }
-            devices[device.serialNumber] = (device.deviceIDNumeric, index)
+            resolved[device.serialNumber] = (device.deviceIDNumeric, index)
         }
+        if isActive {
+            // Clear/reset only changed or disconnected routes. A healthy pad's
+            // cursor, sensor clock and motion baseline survive another pad's Sync.
+            let previous = devices
+            for (serial, route) in previous where resolved[serial]?.id != route.id || resolved[serial]?.index != route.index {
+                awaitClear(route: route)
+                resetStream(serial: serial)
+            }
+            for (serial, route) in resolved where previous[serial]?.id != route.id ||
+                previous[serial]?.index != route.index || disconnectedSerials.contains(serial) || handedOffSerials.contains(serial) {
+                resetStream(serial: serial)
+                InterpretedTrackpadPointer.shared.resetBaseline(device: route.id)
+                estimator.reset(device: route.id)
+            }
+            devices = resolved
+            rememberMetadata(selected)
+            DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))
+            updateInterpreter()
+            DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverSelection"), object: token,
+                userInfo: ["pid": ProcessInfo.processInfo.processIdentifier, "serials": Array(devices.keys)], deliverImmediately: true)
+            status = "Synced selected trackpads. Unselected pads are handed back individually; driver remains enabled."
+            return
+        }
+        devices = resolved
+        rememberMetadata(selected)
         isActive = true; isRestoring = false; token = UUID().uuidString
         received = 0; gaps = 0; receivedAt = nil; began = Date(); helperState = ""
-        cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]; estimator.reset()
+        handedOffSerials = []; disconnectedSerials = []; refreshedNativeServices = []; lastNativeRefreshCheck = .distantPast; cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]; estimator.reset()
         NSLog("GesturePad DriverKit session %@ requested", token)
         // Source gate is enabled before activation and cleared only after restoration.
         onSessionBegan?()
         DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))
         updateInterpreter()
-        status = "Requesting DriverKit. Approve AMT Raw HID Receiver in Driver Extensions; touch both pads once enabled."
+        status = "Requesting DriverKit. Approve AMT Raw HID Receiver in Driver Extensions; touch the selected trackpad(s) once enabled."
         let config = NSWorkspace.OpenConfiguration()
-        config.arguments = ["--gesturepad-session", token, "--owner-pid", String(ProcessInfo.processInfo.processIdentifier)]
+        let selectedJSON = String(data: (try? JSONEncoder().encode(Array(devices.keys))) ?? Data("[]".utf8), encoding: .utf8) ?? "[]"
+        config.arguments = ["--gesturepad-session", token, "--owner-pid", String(ProcessInfo.processInfo.processIdentifier), "--selected-serials", selectedJSON]
         config.createsNewApplicationInstance = true
         config.activates = false
         config.addsToRecentItems = false
@@ -308,6 +357,11 @@ final class DriverKitTakeover: ObservableObject {
                 Task { @MainActor [weak self] in self?.helperState = "error: \(error.localizedDescription)" }
             }
         }
+        beginPolling()
+    }
+
+    private func beginPolling() {
+        task?.cancel()
         task = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self else { return }
@@ -315,6 +369,139 @@ final class DriverKitTakeover: ObservableObject {
                 try? await Task.sleep(for: .milliseconds(16))
             }
         }
+    }
+
+    private func resetDerivedState(serial: String) {
+        guard let device = devices[serial] else { return }
+        estimator.reset(device: device.id)
+        InterpretedTrackpadPointer.shared.resetBaseline(device: device.id)
+    }
+
+    private func resetStream(serial: String) {
+        resetDerivedState(serial: serial)
+        cursors[serial] = nil; lastFrame[serial] = nil; activeServices[serial] = nil
+        disconnectedSerials.remove(serial); handedOffSerials.remove(serial)
+    }
+
+    private func awaitClear(route: (id: UInt64, index: Int)) {
+        let sink = onContacts
+        Task { await sink?(route.id, route.index, ProcessInfo.processInfo.systemUptime, []) }
+    }
+
+    private func rememberMetadata(_ selected: [OMSDeviceInfo]) {
+        deviceMetadata = selected.compactMap { device in
+            guard let route = devices[device.serialNumber] else { return nil }
+            return DriverSessionDevice(serial: device.serialNumber, transport: device.transport,
+                id: route.id, index: route.index, registryID: device.registryEntryID, name: device.deviceName)
+        }
+        Self.installInventory(deviceMetadata)
+    }
+
+    static func installInventory(_ metadata: [DriverSessionDevice]) {
+        OMSManager.shared.setDriverInventory(metadata.map {
+            OMSDeviceInfo(driverDeviceName: $0.name, deviceID: $0.id, registryEntryID: $0.registryID,
+                serialNumber: $0.serial, transport: $0.transport, deviceIndex: $0.index)
+        })
+    }
+
+    private func ownerMessage(_ action: String, nonce: String) {
+        DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverOwner"), object: token,
+            userInfo: ["action": action, "nonce": nonce, "pid": ProcessInfo.processInfo.processIdentifier], deliverImmediately: true)
+    }
+
+    func prepareRestart() async -> DriverRestartSnapshot? {
+        guard isActive, !isRestoring, helperPID > 1 else {
+            status = "Restart postponed: wait for the driver service to acknowledge activation or finish release."
+            return nil
+        }
+        isTransferringRestart = true
+        let nonce = UUID().uuidString
+        ownerMessage("prepare", nonce: nonce)
+        let deadline = Date().addingTimeInterval(5)
+        while Date() < deadline && isActive {
+            if helperState == "restart-ready:\(nonce)" {
+                let snapshot = DriverRestartSnapshot(session: token, nonce: nonce, helperPID: helperPID,
+                    ownerPID: ProcessInfo.processInfo.processIdentifier, expiresAt: Date().addingTimeInterval(15),
+                    devices: deviceMetadata, synthesize: synthesizeTwoFingerPointer)
+                if let data = try? JSONEncoder().encode(snapshot) {
+                    UserDefaults.standard.set(data, forKey: DriverRestartSnapshot.defaultsKey)
+                    UserDefaults.standard.synchronize() // Replacement is a different process starting immediately.
+                    return snapshot
+                }
+                break
+            }
+            try? await Task.sleep(for: .milliseconds(50))
+        }
+        cancelRestart(nonce: nonce)
+        status = "Restart postponed: the driver service did not acknowledge session transfer. Takeover remains active."
+        return nil
+    }
+
+    func cancelRestart(nonce: String) {
+        ownerMessage("cancel", nonce: nonce)
+        isTransferringRestart = false
+        UserDefaults.standard.removeObject(forKey: DriverRestartSnapshot.defaultsKey)
+    }
+
+    static func restartSnapshot(arguments: [String]) -> DriverRestartSnapshot? {
+        UserDefaults.standard.synchronize()
+        guard let i = arguments.firstIndex(of: "--resume-driver"), arguments.count > i + 2,
+              let data = UserDefaults.standard.data(forKey: DriverRestartSnapshot.defaultsKey),
+              let snapshot = try? JSONDecoder().decode(DriverRestartSnapshot.self, from: data),
+              snapshot.isValid(session: arguments[i+1], nonce: arguments[i+2], now: Date()),
+              kill(snapshot.helperPID, 0) == 0 else { return nil }
+        return snapshot
+    }
+
+    func adoptRestart(_ snapshot: DriverRestartSnapshot) {
+        token = snapshot.session; helperPID = snapshot.helperPID
+        deviceMetadata = snapshot.devices
+        devices = Dictionary(uniqueKeysWithValues: snapshot.devices.map { ($0.serial, (id: $0.id, index: $0.index)) })
+        synthesizeTwoFingerPointer = snapshot.synthesize
+        isActive = true; began = Date(); helperState = ""
+        onSessionBegan?()
+        DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))
+        status = "Resuming live driver session after Restart."
+        ownerMessage("claim", nonce: snapshot.nonce)
+        Task { [weak self] in
+            let deadline = Date().addingTimeInterval(5)
+            while let self, Date() < deadline, self.isActive {
+                if self.helperState == "owner:\(ProcessInfo.processInfo.processIdentifier):\(snapshot.nonce)" {
+                    UserDefaults.standard.removeObject(forKey: DriverRestartSnapshot.defaultsKey)
+                    self.updateInterpreter(); self.beginPolling()
+                    return
+                }
+                try? await Task.sleep(for: .milliseconds(50))
+            }
+            guard let self else { return }
+            self.status = "Driver session transfer was not confirmed; requesting release."
+            self.release(); self.beginPolling()
+        }
+    }
+
+    // Refresh OMS callback objects after native reattachment, without changing the
+    // app's selected devices or restarting DriverKit's independent raw ingestion.
+    private func refreshReattachedNativeListenersIfNeeded() {
+        guard !handedOffSerials.isEmpty, Date().timeIntervalSince(lastNativeRefreshCheck) >= 0.5 else { return }
+        lastNativeRefreshCheck = Date()
+        var iterator: io_iterator_t = 0
+        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("AppleMultitouchDevice"), &iterator) == KERN_SUCCESS else { return }
+        defer { IOObjectRelease(iterator) }
+        var discovered: Set<UInt64> = []
+        while true {
+            let service = IOIteratorNext(iterator); if service == 0 { break }
+            defer { IOObjectRelease(service) }
+            guard let serial = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
+                "SerialNumber" as CFString, kCFAllocatorDefault,
+                IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)) as? String,
+                handedOffSerials.contains(serial) else { continue }
+            var id: UInt64 = 0
+            if IORegistryEntryGetRegistryEntryID(service, &id) == KERN_SUCCESS,
+               !refreshedNativeServices.contains(id) { discovered.insert(id) }
+        }
+        guard !discovered.isEmpty else { return }
+        _ = OMSManager.shared.availableDevices
+        refreshedNativeServices.formUnion(discovered)
     }
 
     private static func hasVerifiedSurface(_ device: OMSDeviceInfo) -> Bool {
@@ -331,7 +518,7 @@ final class DriverKitTakeover: ObservableObject {
     }
 
     func release() {
-        guard hasOwnershipRequest else { return }
+        guard hasOwnershipRequest, !isTransferringRestart else { return }
         saveEvidence(reason: "release requested")
         isActive = false; isRestoring = true; restoreBegan = Date()
         InterpretedTrackpadPointer.shared.stop()
@@ -340,7 +527,7 @@ final class DriverKitTakeover: ObservableObject {
     }
 
     private func saveEvidence(reason: String) {
-        let evidence: [String: Any] = ["schema": 1, "session": token, "build": 7,
+        let evidence: [String: Any] = ["schema": 1, "session": token, "build": Self.streamBuild,
             "reason": reason, "received": received, "gaps": gaps,
             "syntheticMoves": InterpretedTrackpadPointer.shared.postedEventCount,
             "pads": perPad, "helperState": helperState]
@@ -362,6 +549,8 @@ final class DriverKitTakeover: ObservableObject {
         task?.cancel(); task = nil
         for device in devices.values { await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, []) }
         DriverInputSourceGate.shared.set([])
+        OMSManager.shared.setDriverInventory([])
+        UserDefaults.standard.removeObject(forKey: DriverRestartSnapshot.defaultsKey)
         isActive = false; isRestoring = false
         status = "Driver removed. Verify normal trackpad input has returned. Received \(received) packets; stream gaps \(gaps)."
         onSessionEnded?()
@@ -387,7 +576,7 @@ final class DriverKitTakeover: ObservableObject {
         guard IOServiceGetMatchingServices(kIOMainPortDefault, matching, &iterator) == KERN_SUCCESS else { return }
         defer { IOObjectRelease(iterator) }
         var found: Set<String> = []
-        var ended = false
+        var coordinatorSeen = false
         var frames: [(String, DriverStreamRecord)] = []
         while true {
             let service = IOIteratorNext(iterator); if service == 0 { break }
@@ -395,37 +584,82 @@ final class DriverKitTakeover: ObservableObject {
             var raw: Unmanaged<CFMutableDictionary>?
             guard IORegistryEntryCreateCFProperties(service, &raw, kCFAllocatorDefault, 0) == KERN_SUCCESS,
                   let p = raw?.takeRetainedValue() as? [String: Any],
-                  (p["StreamBuild"] as? NSNumber)?.intValue == 7,
-                  let serial = p["StreamSerial"] as? String, devices[serial] != nil,
+                  Self.acceptsStream(p) else { continue }
+            if (p["StreamCoordinator"] as? NSNumber)?.boolValue == true {
+                coordinatorSeen = true
+                continue
+            }
+            guard let serial = p["StreamSerial"] as? String, devices[serial] != nil,
                   let session = (p["StreamSession"] as? NSNumber)?.uint64Value,
                   let data = p["StreamBatch"] as? Data,
                   let records = DriverStreamRecord.decodeBatch(data) else { continue }
+            if (p["StreamHandoffRequested"] as? NSNumber)?.intValue == 1 {
+                if handedOffSerials.insert(serial).inserted, let device = devices[serial] {
+                    resetDerivedState(serial: serial)
+                    DriverInputSourceGate.shared.set(Set(devices.filter { !handedOffSerials.contains($0.key) }.values.map(\.id)))
+                    await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, [])
+                }
+                found.insert(serial)
+                continue
+            }
+            if handedOffSerials.remove(serial) != nil {
+                cursors[serial] = nil; lastFrame[serial] = nil; activeServices[serial] = nil
+                resetDerivedState(serial: serial)
+                DriverInputSourceGate.shared.set(Set(devices.filter { !handedOffSerials.contains($0.key) }.values.map(\.id)))
+            }
             var rid: UInt64 = 0; IORegistryEntryGetRegistryEntryID(service, &rid)
-            if let previous = activeServices[serial], previous != rid { ended = true }
+            // Reconnection is explicit. Keep ignoring replacement streams until
+            // the user verifies the selectors and clicks DriverKit Takeover.
+            if disconnectedSerials.contains(serial) { continue }
+            if let previous = activeServices[serial], previous != rid {
+                disconnectedSerials.insert(serial)
+                cursors[serial] = nil; lastFrame[serial] = nil
+                resetDerivedState(serial: serial)
+                if let device = devices[serial] {
+                    await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, [])
+                }
+                continue
+            }
             activeServices[serial] = rid
             found.insert(serial)
-            if (p["StreamOpened"] as? NSNumber)?.intValue != 1 { ended = true }
+            if (p["StreamOpened"] as? NSNumber)?.intValue != 1 {
+                disconnectedSerials.insert(serial)
+                cursors[serial] = nil; lastFrame[serial] = nil
+                resetDerivedState(serial: serial)
+                if let device = devices[serial] {
+                    await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, [])
+                }
+                continue
+            }
             var cursor = cursors[serial] ?? DriverStreamCursor()
             let next = cursor.take(session: session, records: records); cursors[serial] = cursor
             if next.discontinuity {
                 gaps += next.records.first?.sequence == 1 ? 0 : 1
-                InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset()
+                resetDerivedState(serial: serial)
             }
             frames += next.records.map { (serial, $0) }
         }
-        // Stop on a disappeared previously opened service, never guess device identity.
-        if !Set(activeServices.keys).isSubset(of: found) { ended = true }
+        refreshReattachedNativeListenersIfNeeded()
+        let missing = Set(activeServices.keys).subtracting(handedOffSerials).subtracting(found)
+        for serial in missing where !disconnectedSerials.contains(serial) {
+            disconnectedSerials.insert(serial)
+            cursors[serial] = nil; lastFrame[serial] = nil
+            resetDerivedState(serial: serial)
+            if let device = devices[serial] {
+                await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, [])
+            }
+        }
         for (serial, record) in frames.sorted(by: { $0.1.timestamp < $1.1.timestamp }) {
-            guard isActive, let device = devices[serial], let packet = MagicTrackpadPacket.decode(record.payload) else { continue }
+            guard isActive, !handedOffSerials.contains(serial), !disconnectedSerials.contains(serial), let device = devices[serial], let packet = MagicTrackpadPacket.decode(record.payload) else { continue }
             let sourceNow = Double(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) / 1e9
             guard sourceNow >= record.timestamp, sourceNow - record.timestamp < 0.15 else {
-                gaps += 1; InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset(); continue
+                gaps += 1; resetDerivedState(serial: serial); continue
             }
             let now = ProcessInfo.processInfo.systemUptime - (sourceNow - record.timestamp)
             // Source clock is monotonic-raw; only compare intervals within that clock.
             let previous = lastFrame[serial]; lastFrame[serial] = record.timestamp
             if let previous, record.timestamp <= previous || record.timestamp - previous > 0.15 {
-                InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset()
+                resetDerivedState(serial: serial)
             }
             let contacts = estimator.process(device: device.id, time: record.timestamp,
                 sequence: record.sequence, contacts: packet.contacts, sensorTicks: packet.sensorTicks)
@@ -443,11 +677,18 @@ final class DriverKitTakeover: ObservableObject {
             NSLog("GesturePad DriverKit %@: %llu packets, %llu gaps, %llu synthetic moves", token, received, gaps,
                 InterpretedTrackpadPointer.shared.postedEventCount)
         }
-        if ended { release(); return }
-        if receivedAt != nil {
-            status = "DriverKit \(found.count)/2 pads · \(received) packets · gaps \(gaps) · synthetic moves \(InterpretedTrackpadPointer.shared.postedEventCount) · active until released"
+        if !coordinatorSeen && Date().timeIntervalSince(began) > 5 && helperState != "approval" {
+            status = "Driver coordinator not found. Release Trackpads and report this state; Sync ownership is not available."
+        } else if devices.isEmpty && coordinatorSeen {
+            status = "Driver enabled · no trackpads selected. Native handoff requested; Sync Trackpads applies new selections."
+        } else if !disconnectedSerials.isEmpty {
+            status = "Trackpad stream changed. Verify Left/Right Trackpad selections, then click Sync Trackpads. Other pads stay controlled."
+        } else if found.subtracting(handedOffSerials).count < devices.count && Date().timeIntervalSince(began) > 5 && coordinatorSeen {
+            status = "Driver enabled · \(found.subtracting(handedOffSerials).count)/\(devices.count) selected streams. Verify selections and Sync. A pad still using native input may need its own reconnect; other pads remain controlled."
+        } else if receivedAt != nil {
+            status = "DriverKit \(found.subtracting(handedOffSerials).count)/\(devices.count) pads · \(handedOffSerials.count) handoff requested · \(received) packets · gaps \(gaps) · synthetic moves \(InterpretedTrackpadPointer.shared.postedEventCount) · active until released"
         } else {
-            status = "DriverKit \(found.count)/2 pads; waiting for touches. If pending, approve in Driver Extensions."
+            status = "DriverKit \(found.subtracting(handedOffSerials).count)/\(devices.count) pads · \(handedOffSerials.count) handoff requested; waiting for touches. If pending, approve in Driver Extensions."
         }
     }
 }

@@ -737,6 +737,7 @@ struct TwoFingerPointerTracker {
     struct Baseline { let first: Int32; let second: Int32; let point: CGPoint; let time: Double }
     private var baselines: [UInt64: Baseline] = [:]
     mutating func reset() { baselines.removeAll(keepingCapacity: true) }
+    mutating func reset(device: UInt64) { baselines[device] = nil }
     mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
         process(device: device, time: time, contacts: touches)
     }
@@ -785,12 +786,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             bounds = displays.prefix(Int(count)).map { CGDisplayBounds($0) }
         } else { bounds = [] }
         lock.withLock { state in
-            state.devices = devices; state.tracker.reset(); state.displayBounds = bounds; state.postedEvents = 0
+            for device in state.devices.symmetricDifference(devices) { state.tracker.reset(device: device) }
+            state.devices = devices; state.displayBounds = bounds
         }
     }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
     func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.tracker.reset() } }
     func resetBaseline() { lock.withLock { $0.tracker.reset() } }
+    func resetBaseline(device: UInt64) { lock.withLock { $0.tracker.reset(device: device) } }
     func process(_ frame: OMSRawTouchFrame) {
         process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
     }
