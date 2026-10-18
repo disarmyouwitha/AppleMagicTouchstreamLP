@@ -692,27 +692,11 @@ struct ContentView: View {
             .onChange(of: snapRadiusPercentSetting) { newValue in
                 viewModel.updateSnapRadiusPercent(0)
             }
-            .onChange(of: keyboardModeEnabled) { newValue in
-                if newValue && !InputMonitoringPermission.requestListenAccessIfNeeded() {
-                    keyboardModeEnabled = false
-                    return
-                }
-                viewModel.updateKeyboardModeEnabled(newValue)
-            }
+
             .onChange(of: holdRepeatEnabled) { newValue in
                 viewModel.updateHoldRepeatEnabled(newValue)
             }
-            .onChange(of: runAtStartupEnabled) { newValue in
-                do {
-                    try LaunchAtLoginManager.shared.setEnabled(newValue)
-                    let resolved = LaunchAtLoginManager.shared.isEnabled
-                    if resolved != newValue {
-                        runAtStartupEnabled = resolved
-                    }
-                } catch {
-                    runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
-                }
-            }
+
 
             .onChange(of: storedCustomButtonsData) { _ in
                 refreshActionGroupCaches()
@@ -1634,6 +1618,9 @@ struct ContentView: View {
     }
 
     private struct DevicesSectionView: View {
+        @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
+        @AppStorage("AppleMagicTouchstream.showTouchTelemetry") private var showTouchTelemetry = false
+
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
@@ -1647,7 +1634,7 @@ struct ContentView: View {
                     Text("No trackpads detected.")
                         .foregroundStyle(.secondary)
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Left Trackpad")
                                 .font(.caption)
@@ -1691,6 +1678,17 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            HStack(spacing: 16) {
+                                Toggle("Contact paths", isOn: $showContactPaths)
+                                    .toggleStyle(.checkbox)
+                                    .help("Show colored movement trails for each contact; trails fade after release.")
+                                Toggle("Inspect touch data", isOn: $showTouchTelemetry)
+                                    .toggleStyle(.checkbox)
+                                    .help("Show raw finger/hand IDs and velocity direction on each contact.")
+                            }
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(10)
+                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -2903,14 +2901,6 @@ struct ContentView: View {
         var body: some View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
                 GridRow {
-                    Text("Keyboard/Mouse").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $keyboardModeEnabled)
-                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
-                    Text("Run at Startup").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $runAtStartupEnabled)
-                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
-                }
-                GridRow {
                     Text("Hold Repeat").frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $holdRepeatEnabled)
                         .toggleStyle(SwitchToggleStyle()).labelsHidden()
@@ -3005,23 +2995,7 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
 
-                    GridRow {
-                        Text("Typing Grace (ms)")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "120",
-                            value: $typingGraceMsSetting,
-                            formatter: ContentView.typingGraceFormatter
-                        )
-                        .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $typingGraceMsSetting,
-                            in: ContentView.typingGraceRange,
-                            step: 100
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
+
 
                     GridRow {
                         Text("Force Min")
@@ -3205,7 +3179,7 @@ struct ContentView: View {
         @State private var leftPeakPressure = 0
         @State private var rightPeakPressure = 0
         @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
-        @State private var showTouchTelemetry = false
+        @AppStorage("AppleMagicTouchstream.showTouchTelemetry") private var showTouchTelemetry = false
         @State private var showTelemetryInspector = false
 
         private let trackpadSpacing: CGFloat = 16
@@ -3222,19 +3196,11 @@ struct ContentView: View {
 
             VStack(alignment: .leading, spacing: 6) {
                 HStack(spacing: 12) {
-                    Toggle("Contact paths", isOn: $showContactPaths)
-                        .toggleStyle(.checkbox)
-                        .help("Show colored movement trails for each contact; trails fade after release.")
-                    Toggle("Inspect touch data", isOn: $showTouchTelemetry)
-                        .toggleStyle(.checkbox)
-                        .help("Show raw finger/hand IDs and velocity direction on each contact.")
                     Button("Live values…") { showTelemetryInspector = true }
                         .popover(isPresented: $showTelemetryInspector) {
                             TouchTelemetryInspector(viewModel: viewModel)
                         }
-                    Text("1 Thumb · 2 Index · 3 Middle · 4 Ring · 5 Pinky · 6 Palm. H = hand ID.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
                 }
                 HStack(spacing: trackpadSpacing) {
                     pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure)
@@ -4027,9 +3993,8 @@ struct ContentView: View {
         viewModel.updateIntentVelocityThresholdMmPerSec(intentVelocityThresholdMmPerSecSetting)
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateSnapRadiusPercent(0)
-        viewModel.updateKeyboardModeEnabled(keyboardModeEnabled)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
-        runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+        runAtStartupEnabled = false
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.setTouchSnapshotRecordingEnabled(true)
     }
@@ -4291,18 +4256,7 @@ struct ContentView: View {
         storedRightDeviceID = profile.rightDeviceID
         storedLayoutPreset = profile.layoutPreset
         storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
-        if let runAtStartupEnabled = profile.runAtStartupEnabled {
-            do {
-                try LaunchAtLoginManager.shared.setEnabled(runAtStartupEnabled)
-            } catch {
-                showKeymapAlert(
-                    title: "Run at startup update failed",
-                    message: error.localizedDescription,
-                    style: .warning
-                )
-            }
-            self.runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
-        }
+
         tapHoldDurationMs = profile.tapHoldDurationMs
         dragCancelDistanceSetting = profile.dragCancelDistance
         forceClickMinSetting = profile.forceClickMin ?? GlassToKeySettings.forceClickMin

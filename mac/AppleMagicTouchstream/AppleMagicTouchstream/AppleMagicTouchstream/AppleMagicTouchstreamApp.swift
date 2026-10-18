@@ -1,6 +1,5 @@
 import AppKit
 import Combine
-import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
 import os
@@ -25,7 +24,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
     private var replayStateCancellable: AnyCancellable?
-    private let mouseEventBlocker = MouseEventBlocker()
     private static let configWindowDefaultHeight: CGFloat = 600
     private var captureMenuItem: NSMenuItem?
     private var replayMenuItem: NSMenuItem?
@@ -72,9 +70,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard enforceSingleInstancePolicyAtLaunch() else { return }
         GlassToKeyController.seedBundledDefaultsIfNeeded()
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
-        initializeRunAtStartupPreference()
         controller.start()
-        normalizeKeyboardModePermissionState()
         configureStatusItem()
         observeStatus()
         if shouldOpenConfigOnLaunch {
@@ -84,19 +80,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
 
-    private func normalizeKeyboardModePermissionState() {
-        guard controller.viewModel.keyboardModeEnabled else { return }
-        guard !InputMonitoringPermission.hasListenAccess() else { return }
-        UserDefaults.standard.set(false, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
-        controller.viewModel.updateKeyboardModeEnabled(false)
-    }
+
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
               window == configWindow else {
             return
         }
-        mouseEventBlocker.setAllowedRect(nil)
         controller.viewModel.setTouchSnapshotRecordingEnabled(false)
         controller.viewModel.setStatusVisualsEnabled(false)
         controller.viewModel.clearVisualCaches()
@@ -170,11 +160,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         updateStatusIndicator(
             isTypingEnabled: controller.viewModel.isTypingEnabled,
             activeLayer: controller.viewModel.activeLayer,
-            hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads,
-            keyboardModeEnabled: controller.viewModel.keyboardModeEnabled
-        )
-        mouseEventBlocker.setBlockingEnabled(
-            controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled
+            hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads
         )
         captureInProgress = controller.isATPCaptureActive
         replayInProgress = controller.isATPReplayActive
@@ -182,20 +168,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func observeStatus() {
-        statusCancellable = Publishers.CombineLatest4(
+        statusCancellable = Publishers.CombineLatest3(
             controller.viewModel.$isTypingEnabled.removeDuplicates(),
             controller.viewModel.$activeLayer.removeDuplicates(),
-            controller.viewModel.$hasDisconnectedTrackpads.removeDuplicates(),
-            controller.viewModel.$keyboardModeEnabled.removeDuplicates()
+            controller.viewModel.$hasDisconnectedTrackpads.removeDuplicates()
         )
-        .sink { [weak self] isTypingEnabled, activeLayer, hasDisconnected, keyboardModeEnabled in
+        .sink { [weak self] isTypingEnabled, activeLayer, hasDisconnected in
             self?.updateStatusIndicator(
                 isTypingEnabled: isTypingEnabled,
                 activeLayer: activeLayer,
-                hasDisconnectedTrackpads: hasDisconnected,
-                keyboardModeEnabled: keyboardModeEnabled
+                hasDisconnectedTrackpads: hasDisconnected
             )
-            self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
         replayStateCancellable = controller.viewModel.$replayTimelineState
             .map { $0 != nil }
@@ -209,19 +192,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func updateStatusIndicator(
         isTypingEnabled: Bool,
         activeLayer: Int,
-        hasDisconnectedTrackpads: Bool,
-        keyboardModeEnabled: Bool
+        hasDisconnectedTrackpads: Bool
     ) {
         guard let button = statusItem?.button else { return }
         button.image = statusIndicatorImage(
             isTypingEnabled: isTypingEnabled,
             activeLayer: activeLayer,
-            hasWarning: hasDisconnectedTrackpads,
-            keyboardModeEnabled: keyboardModeEnabled
+            hasWarning: hasDisconnectedTrackpads
         )
         let modeText: String
         if isTypingEnabled {
-            modeText = keyboardModeEnabled ? "Keyboard mode" : "Mixed mode"
+            modeText = "Typing enabled"
         } else {
             modeText = "Mouse mode"
         }
@@ -233,8 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private func statusIndicatorImage(
         isTypingEnabled: Bool,
         activeLayer: Int,
-        hasWarning: Bool,
-        keyboardModeEnabled: Bool
+        hasWarning: Bool
     ) -> NSImage {
         let size = NSSize(width: 10, height: 10)
         let image = NSImage(size: size)
@@ -245,7 +225,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let color = activeLayer > KeyLayerConfig.baseLayer
             ? NSColor.systemBlue
             : (isTypingEnabled
-                ? (keyboardModeEnabled ? NSColor.systemPurple : NSColor.systemGreen)
+                ? NSColor.systemGreen
                 : NSColor.systemRed)
         color.setFill()
         path.fill()
@@ -277,7 +257,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.setTouchSnapshotRecordingEnabled(true)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
-        updateMouseBlockerWindowFrame(window)
     }
 
     @objc private func syncDevices() {
@@ -373,22 +352,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         alert.runModal()
     }
 
-    private func initializeRunAtStartupPreference() {
-        let defaults = UserDefaults.standard
-        let key = GlassToKeyDefaultsKeys.runAtStartupEnabled
-        let manager = LaunchAtLoginManager.shared
-        if defaults.object(forKey: key) == nil {
-            defaults.set(manager.isEnabled, forKey: key)
-            return
-        }
-        let desired = defaults.bool(forKey: key)
-        do {
-            try manager.setEnabled(desired)
-            defaults.set(manager.isEnabled, forKey: key)
-        } catch {
-            defaults.set(manager.isEnabled, forKey: key)
-        }
-    }
+
 
     private func hasSavedConfiguration(defaults: UserDefaults = .standard) -> Bool {
         for key in Self.persistedConfigKeys {
@@ -523,48 +487,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return window
     }
 
-    func windowDidMove(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              window == configWindow else {
-            return
-        }
-        updateMouseBlockerWindowFrame(window)
-    }
 
-    func windowDidResize(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              window == configWindow else {
-            return
-        }
-        updateMouseBlockerWindowFrame(window)
-    }
 
-    func windowDidMiniaturize(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              window == configWindow else {
-            return
-        }
-        updateMouseBlockerWindowFrame(window)
-    }
 
-    func windowDidDeminiaturize(_ notification: Notification) {
-        guard let window = notification.object as? NSWindow,
-              window == configWindow else {
-            return
-        }
-        updateMouseBlockerWindowFrame(window)
-    }
 
-    private func updateMouseBlockerWindowFrame(_ window: NSWindow?) {
-        guard let window,
-              window == configWindow,
-              window.isVisible,
-              !window.isMiniaturized else {
-            mouseEventBlocker.setAllowedRect(nil)
-            return
-        }
-        mouseEventBlocker.setAllowedRect(window.frame)
-    }
+
+
+
+
+
 
     private func restartAppProcess() {
         guard !isTerminatingApp else { return }
@@ -575,92 +506,5 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         task.arguments = ["-n", bundlePath, "--args", Self.relaunchArgument]
         try? task.run()
         NSApp.terminate(nil)
-    }
-}
-
-private final class MouseEventBlocker {
-    private struct State {
-        var isBlocking = false
-        var allowedRect: CGRect?
-    }
-
-    private let stateLock = OSAllocatedUnfairLock<State>(uncheckedState: State())
-    private var eventTap: CFMachPort?
-    private var runLoopSource: CFRunLoopSource?
-
-    func setBlockingEnabled(_ enabled: Bool) {
-        stateLock.withLockUnchecked { $0.isBlocking = enabled }
-        if enabled {
-            ensureEventTap()
-        }
-    }
-
-    func setAllowedRect(_ rect: CGRect?) {
-        stateLock.withLockUnchecked { $0.allowedRect = rect }
-    }
-
-    private func ensureEventTap() {
-        guard InputMonitoringPermission.hasListenAccess() else { return }
-        guard eventTap == nil else {
-            if let tap = eventTap {
-                CGEvent.tapEnable(tap: tap, enable: true)
-            }
-            return
-        }
-
-        let mask = (1 << CGEventType.leftMouseDown.rawValue)
-            | (1 << CGEventType.leftMouseUp.rawValue)
-            | (1 << CGEventType.leftMouseDragged.rawValue)
-            | (1 << CGEventType.rightMouseDown.rawValue)
-            | (1 << CGEventType.rightMouseUp.rawValue)
-            | (1 << CGEventType.rightMouseDragged.rawValue)
-            | (1 << CGEventType.otherMouseDown.rawValue)
-            | (1 << CGEventType.otherMouseUp.rawValue)
-            | (1 << CGEventType.otherMouseDragged.rawValue)
-
-        let refcon = UnsafeMutableRawPointer(Unmanaged.passUnretained(self).toOpaque())
-        guard let tap = CGEvent.tapCreate(
-            tap: .cgSessionEventTap,
-            place: .headInsertEventTap,
-            options: .defaultTap,
-            eventsOfInterest: CGEventMask(mask),
-            callback: Self.eventTapCallback,
-            userInfo: refcon
-        ) else {
-            return
-        }
-
-        let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, tap, 0)
-        CFRunLoopAddSource(CFRunLoopGetMain(), source, .commonModes)
-        eventTap = tap
-        runLoopSource = source
-        CGEvent.tapEnable(tap: tap, enable: true)
-    }
-
-    private func shouldAllow(event: CGEvent) -> Bool {
-        let state = stateLock.withLockUnchecked { $0 }
-        guard state.isBlocking else { return true }
-        if let rect = state.allowedRect, rect.contains(event.location) {
-            return true
-        }
-        return false
-    }
-
-    private func reenableIfNeeded(for type: CGEventType) {
-        guard type == .tapDisabledByTimeout || type == .tapDisabledByUserInput else { return }
-        if let tap = eventTap {
-            CGEvent.tapEnable(tap: tap, enable: true)
-        }
-    }
-
-    private static let eventTapCallback: CGEventTapCallBack = { _, type, event, refcon in
-        guard let refcon else { return Unmanaged.passUnretained(event) }
-        let blocker = Unmanaged<MouseEventBlocker>.fromOpaque(refcon).takeUnretainedValue()
-        blocker.reenableIfNeeded(for: type)
-
-        if blocker.shouldAllow(event: event) {
-            return Unmanaged.passUnretained(event)
-        }
-        return nil
     }
 }

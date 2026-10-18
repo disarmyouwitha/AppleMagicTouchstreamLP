@@ -140,7 +140,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private struct IntentConfig {
-        var typingGraceSeconds: TimeInterval = 0.12
     }
 
     private struct IntentTouchInfo {
@@ -537,7 +536,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var isListening = false
     private var keymapEditingEnabled = false
     private let isTypingEnabled = true
-    private var keyboardModeEnabled = false
     private var holdRepeatEnabled = false
     private var activeLayer: Int = 0
     private var persistentLayer: Int = 0
@@ -630,8 +628,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var captureFrameDiagnosticsEnabled = false
     private var currentFrameDecisions: [TouchKey: FrameDecisionRecord] = [:]
     private var unitsPerMillimeter: CGFloat = 1.0
-    private var typingGraceDeadline: TimeInterval?
-    private var typingGraceGeneration: UInt64 = 0
 
 #if DEBUG
     private let signposter = OSSignposter(
@@ -738,8 +734,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func updateTypingGrace(_ milliseconds: Double) {
-        let clampedMs = max(0, milliseconds)
-        intentConfig.typingGraceSeconds = clampedMs / 1000.0
+        // Legacy capture/profile compatibility only. GTK typing grace is removed.
     }
 
     func updateIntentMoveThreshold(_ millimeters: Double) {
@@ -798,7 +793,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
-        keyboardModeEnabled = enabled
+        // Legacy replay setter; keyboard/mouse mode is removed.
     }
 
     func updateHoldRepeatEnabled(_ enabled: Bool) {
@@ -2347,7 +2342,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         #if DEBUG
         onDebugBindingDetected(binding)
         #endif
-        extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         let modifierFlags = currentModifierFlags()
@@ -2597,14 +2591,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     @inline(__always)
-    private func isTypingGraceActive(now: TimeInterval? = nil) -> Bool {
-        let currentNow = now ?? currentTime()
-        if let deadline = typingGraceDeadline, currentNow < deadline {
-            return true
-        }
-        typingGraceDeadline = nil
-        return false
-    }
+
 
     private func updatePhysicalScale() {
         guard trackpadWidthMm > 0 else {
@@ -3060,7 +3047,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
-        extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         sendKey(
@@ -3103,7 +3089,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         #if DEBUG
         onDebugBindingDetected(binding)
         #endif
-        extendTypingGrace(for: binding.side, now: currentTime())
         playHapticIfNeeded(on: binding.side, touchKey: touchKey)
 
         recordFrameDecision(
@@ -3447,8 +3432,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         layerToggleTouchStarts.removeAll()
         momentaryLayerTouches.removeAll()
         touchInitialContactPoint.removeAll()
-        typingGraceDeadline = nil
-        typingGraceGeneration &+= 1
         updateActiveLayer()
         intentState = IntentState()
         updateIntentDisplayIfNeeded()
@@ -3479,8 +3462,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func enterMouseIntentFromDragCancel() {
-        typingGraceDeadline = nil
-        typingGraceGeneration &+= 1
         intentState.mode = .mouseActive
         updateIntentDisplayIfNeeded()
     }
@@ -3501,42 +3482,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
         updateActiveLayer()
     }
 
-    private func extendTypingGrace(for side: TrackpadSide?, now: TimeInterval) {
-        guard intentConfig.typingGraceSeconds > 0 else { return }
-        let deadline = now + intentConfig.typingGraceSeconds
-        typingGraceDeadline = deadline
-        scheduleTypingGraceExpiry(deadline: deadline)
-        if case .typingCommitted = intentState.mode {
-            // Keep existing typing mode.
-        } else {
-            intentState.mode = .typingCommitted(untilAllUp: true)
-        }
-        updateIntentDisplayIfNeeded()
-    }
 
-    private func scheduleTypingGraceExpiry(deadline: TimeInterval) {
-        typingGraceGeneration &+= 1
-        let generation = typingGraceGeneration
-        let delay = max(0, deadline - currentTime())
-        scheduler.schedule(after: delay) { [weak self] in
-            guard let self, self.typingGraceGeneration == generation else { return }
-            self.expireTypingGraceIfNeeded(deadline: deadline)
-        }
-    }
 
-    private func expireTypingGraceIfNeeded(deadline: TimeInterval) {
-        guard let currentDeadline = typingGraceDeadline,
-              currentDeadline == deadline,
-              currentTime() >= deadline else {
-            return
-        }
-        typingGraceDeadline = nil
-        typingGraceGeneration &+= 1
-        if intentState.touches.isEmpty, case .typingCommitted = intentState.mode {
-            intentState.mode = .idle
-        }
-        updateIntentDisplayIfNeeded()
-    }
+
+
+
 
     private func updateActiveLayer() {
         let previousMomentaryLayer = lastMomentaryLayer

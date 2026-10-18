@@ -1150,8 +1150,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     func updateKeyboardModeEnabled(_ enabled: Bool) {
-        keyboardModeEnabled = enabled
-        runtimeCommandService.updateKeyboardModeEnabled(enabled)
+        // Archived profiles remain readable; native mouse blocking is removed.
     }
 
     func updateHoldRepeatEnabled(_ enabled: Bool) {

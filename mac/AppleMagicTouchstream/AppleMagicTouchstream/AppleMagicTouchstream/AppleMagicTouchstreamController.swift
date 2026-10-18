@@ -1,5 +1,4 @@
 import SwiftUI
-import ServiceManagement
 import OpenMultitouchSupport
 
 enum GlassToKeySettings {
@@ -580,31 +579,4 @@ final class GlassToKeyController: ObservableObject {
     }
 
 
-}
-
-@MainActor
-final class LaunchAtLoginManager {
-    static let shared = LaunchAtLoginManager()
-
-    private init() {}
-
-    var isEnabled: Bool {
-        if #available(macOS 13.0, *) {
-            return SMAppService.mainApp.status == .enabled
-        }
-        return false
-    }
-
-    func setEnabled(_ enabled: Bool) throws {
-        if #available(macOS 13.0, *) {
-            if enabled == isEnabled {
-                return
-            }
-            if enabled {
-                try SMAppService.mainApp.register()
-            } else {
-                try SMAppService.mainApp.unregister()
-            }
-        }
-    }
 }

@@ -39,3 +39,11 @@ These scripts work from any current directory. `release.sh --check` validates pa
 ## Configuration interface
 
 The original interface is retained: trackpad selectors show device names **and IDs**, with the original visualizers, pressure peaks, touch inspection, test area, layout selector, keymap/shortcut/custom-button editor, column geometry and Typing Tuning. Feature removal is surgical: GTK Gesture Tuning/recognition toggle, autocorrect status/toggle, app-launch builder, snap toggle, macOS three-finger-drag workaround and mechanical-keyboard spacing/auto-splay controls are removed in place. Core layout, modifier/layer/hold mapping and haptics controls remain. Capture/profile compatibility does not reactivate removed recognizers or effects.
+
+## Feature audit
+
+- **Keyboard/Mouse removed:** no mode toggle, mouse-event tap/blocker, or permission prompt. Legacy profile fields remain inert. Future native-input suppression will use blackhole technology.
+- **Auto-resync retained:** Apple-device recovery outside the recognition engine; useful during disconnect/sleep testing.
+- **Run at Startup removed:** no control, registration manager, startup synchronization or imported-profile side effect. Existing OS login-item registration is not changed automatically; remove any previously enabled entry in macOS Login Items.
+- **Hold Repeat retained:** testable output scaffolding for future original typematic. Current fixed repeat is not faithful pressure-dependent typematic.
+- **Typing Grace removed:** no UI slider, post-key deadline or scheduled expiry. Legacy profile/replay setter is inert; the temporary classifier owns intent directly.

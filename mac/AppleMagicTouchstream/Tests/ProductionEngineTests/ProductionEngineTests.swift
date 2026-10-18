@@ -154,6 +154,7 @@ final class ProductionEngineTests: XCTestCase {
 
     func testClassifierReturnsIdleAfterAllContactsLiftDespiteSavedGrace() async {
         let run = session(keyboardOnly: false)
+        run.engine.updateTypingGrace(60_000) // Archived GTK value must not change intent timing.
         frame(run, 1.00, [contact(state: .making)])
         frame(run, 1.04, [contact()])
         frame(run, 1.08, [contact(state: .breaking)])

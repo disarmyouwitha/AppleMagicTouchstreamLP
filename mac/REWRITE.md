@@ -1,6 +1,7 @@
 ## Rewrite
 
 `GesturePad`:  
+0. Can I allow certain actions to pass through blackhole? Lets test Ignoring all mouse movement sent from device, but allow click and gestures. 
 
 
 `AppleMagicTouchstream`: 
@@ -9,9 +10,6 @@
 `GlassToKey`:
 
 ===
-
-`GesturePad`: 
-0. NEXT TEST: Can I allow certain actions to pass through blackhole? Lets test Ignoring all mouse movement sent from device, but allow click and gestures. 
 
 `AppleMagicTouchstream`: 
 0. Lets move blackhole test into `AppleMagicTouchstream`. In the Touchstream you have to use 2-finger drag to move the mouse. We should blackhole all AMT movement data. If we detect 2-finger drag we should synthesize mouse data to move the mouse.
