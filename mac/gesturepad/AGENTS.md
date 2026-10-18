@@ -1,7 +1,7 @@
 # GesturePad
 
 ## Scope and purpose
-This folder is the independent FingerWorks/TouchStream gesture/chord playground. Keep raw-touch inspection, finger/pressure telemetry, traces, device selection, capture/replay, and the opt-in HID blackhole experiment. It currently generates no keyboard, mouse, voice, app-launch, or haptic output. The separate device-link refresh control stays separate from trackpad refresh.
+This folder is the independent FingerWorks/TouchStream gesture/chord playground. Keep raw-touch inspection, finger/pressure telemetry, traces, device selection, capture/replay, and the opt-in HID blackhole experiment. It currently generates no keyboard, mouse, voice, app-launch, or haptic output. Blackhole input applies to both selected trackpads; device links refresh automatically. Preserve deduplication and release safeguards.
 
 ## Build and test
 - `./build.sh`: app `GesturePad/GesturePad.xcodeproj`, target/scheme `GesturePad`.

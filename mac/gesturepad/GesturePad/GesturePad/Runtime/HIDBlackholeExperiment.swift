@@ -112,7 +112,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var secondsRemaining = 0
     @Published private(set) var summary = "Off. Refresh HID devices, choose a trackpad, then enable the 30-second test."
     @Published private(set) var diagnostics = ""
-    @Published private(set) var selectedGroupID = ""
+    @Published private(set) var selectedGroupIDs: Set<String> = []
     private var devices: [UInt64: IOHIDDevice] = [:]
     private var held: [HIDBlackholeOpenDevice] = []
     private var openResults: [String] = []
@@ -150,28 +150,36 @@ final class HIDBlackholeExperiment: ObservableObject {
             let sorted = interfaces.sorted { $0.registryID < $1.registryID }
             return Group(id: id, label: (sorted.first(where: \.isTrackpad) ?? sorted[0]).label, interfaces: sorted)
         }.sorted { $0.id < $1.id }
-        if !groups.contains(where: { $0.id == selectedGroupID }) { selectedGroupID = "" }
+        selectedGroupIDs.formIntersection(groups.map(\.id))
         diagnostics = groups.flatMap { $0.interfaces.map { Self.describe($0) } }.joined(separator: "\n")
         summary = groups.isEmpty ? "No trackpad HID interfaces found. Connect the trackpad and refresh." : "Found \(groups.count) trackpad(s), \(related.count) related HID interfaces. No device has been opened."
     }
 
-    /// Select the physical HID group containing the selected OMS service's HID ancestor.
-    /// Never fall back to array order, model name, or truncating MT's numeric ID.
-    func selectTrackpad(registryEntryID: UInt64?) {
+    /// Link every selected physical trackpad, deduplicating shared selections.
+    func selectTrackpads(registryEntryIDs: [UInt64]) {
         guard !isActive else { return }
-        selectedGroupID = ""
-        guard let registryEntryID, registryEntryID != 0 else {
-            summary = "Choose a trackpad in the existing Left/Right selector for this test."
+        selectedGroupIDs = []
+        guard !registryEntryIDs.isEmpty else {
+            summary = "Select trackpads above to enable the 30-second test."
             return
         }
-        let path = Self.registryPath(startingAt: registryEntryID)
-        guard let match = Self.matchingGroupID(registryPath: path, groups: groups),
-              let group = groups.first(where: { $0.id == match }) else {
-            summary = "No unambiguous HID link for the selected trackpad. Refresh device link after connecting or changing transport."
+        let paths = registryEntryIDs.map { Self.registryPath(startingAt: $0) }
+        guard let matches = Self.matchingGroupIDs(registryPaths: paths, groups: groups) else {
+            summary = "Could not link every selected trackpad. Refresh trackpads after connecting or changing transport."
             return
         }
-        selectedGroupID = match
-        summary = "Linked to \(group.label) · \(group.interfaces.count) HID interfaces. Blackhole is off."
+        selectedGroupIDs = matches
+        summary = "Linked to \(matches.count) selected trackpad(s). Blackhole is off."
+    }
+
+    nonisolated static func matchingGroupIDs(registryPaths: [[UInt64]], groups: [Group]) -> Set<String>? {
+        guard !registryPaths.isEmpty else { return nil }
+        var matches: Set<String> = []
+        for path in registryPaths {
+            guard let match = matchingGroupID(registryPath: path, groups: groups) else { return nil }
+            matches.insert(match)
+        }
+        return matches
     }
 
     nonisolated static func matchingGroupID(registryPath: [UInt64], groups: [Group]) -> String? {
@@ -200,10 +208,11 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     func setEnabled(_ enabled: Bool) {
         if !enabled { release(reason: "Released by toggle"); return }
-        guard !isActive, let group = groups.first(where: { $0.id == selectedGroupID }) else { return }
+        guard !isActive, !selectedGroupIDs.isEmpty else { return }
+        let interfaces = groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces)
         openResults.removeAll()
         // Never seize a keyboard interface, including a keyboard sharing a composite device.
-        for identity in group.interfaces {
+        for identity in interfaces {
             guard !identity.isKeyboard else { openResults.append("\(Self.describe(identity)) — skipped keyboard"); continue }
             guard let device = devices[identity.registryID] else { continue }
             let handle = HIDBlackholeOpenDevice(device: device, identity: identity)
@@ -251,7 +260,7 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     private func updateReadout() {
         secondsRemaining = max(0, Int(ceil(deadline?.timeIntervalSinceNow ?? 0)))
-        let total = groups.first(where: { $0.id == selectedGroupID })?.interfaces.filter { !$0.isKeyboard }.count ?? 0
+        let total = groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces).filter { !$0.isKeyboard }.count
         summary = "Seized \(held.count)/\(total) eligible interfaces · auto-release in \(secondsRemaining)s. OS output suppression is unverified; test movement, clicks, scroll, and gestures."
         let reports = held.map { handle in
             let value = handle.reports.withLock { $0 }

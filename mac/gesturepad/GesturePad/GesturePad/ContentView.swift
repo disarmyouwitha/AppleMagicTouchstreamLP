@@ -11,7 +11,6 @@ struct ContentView: View {
     static let displayScale: CGFloat = 2.7
     @State private var showTouchTelemetry = true
     @State private var showContactPaths = true
-    @State private var blackholeSide: TrackpadSide = .left
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
     @State private var replayScrubValue: Double = 0
@@ -51,7 +50,11 @@ struct ContentView: View {
                         viewModel.selectRightDevice(device)
                         UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
-                    onRefresh: { viewModel.refreshDevicesAndListeners() })
+                    onRefresh: {
+                        if hidBlackhole.isActive { hidBlackhole.release(reason: "Trackpads refreshed") }
+                        viewModel.refreshDevicesAndListeners()
+                        synchronizeHIDTarget()
+                    })
                 hidBlackholeControls
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                 HStack {
@@ -70,8 +73,6 @@ struct ContentView: View {
                                 rightPeakPressure = right
                             })
                             .frame(width: size.width * 2 + 16, height: size.height)
-                        Text("1 Thumb · 2 Index · 3 Middle · 4 Ring · 5 Pinky · 6 Palm. H = hand ID.")
-                            .font(.caption).foregroundStyle(.secondary)
                     }
                 }
 
@@ -80,13 +81,8 @@ struct ContentView: View {
         }
         .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 400)
         .onAppear { synchronizeHIDTarget() }
-        .onChange(of: blackholeSide) { _ in synchronizeHIDTarget() }
-        .onChange(of: viewModel.leftDevice) { _ in
-            if blackholeSide == .left { synchronizeHIDTarget() }
-        }
-        .onChange(of: viewModel.rightDevice) { _ in
-            if blackholeSide == .right { synchronizeHIDTarget() }
-        }
+        .onChange(of: viewModel.leftDevice) { _ in synchronizeHIDTarget() }
+        .onChange(of: viewModel.rightDevice) { _ in synchronizeHIDTarget() }
         .onDisappear { hidBlackhole.release(reason: "Config closed") }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             hidBlackhole.release(reason: "App quitting")
@@ -102,31 +98,25 @@ struct ContentView: View {
         }
     }
 
-    private var blackholeTarget: OMSDeviceInfo? {
-        blackholeSide == .left ? viewModel.leftDevice : viewModel.rightDevice
-    }
-
     private func synchronizeHIDTarget() {
-        if hidBlackhole.isActive { hidBlackhole.release(reason: "Selected trackpad changed") }
+        if hidBlackhole.isActive {
+            hidBlackhole.release(reason: "Selected trackpads changed")
+            guard !hidBlackhole.isActive else { return }
+        }
         hidBlackhole.refresh()
-        hidBlackhole.selectTrackpad(registryEntryID: blackholeTarget?.registryEntryID)
+        let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
+        hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID))
     }
 
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Picker("Blackhole target", selection: $blackholeSide) {
-                    Text("Left trackpad").tag(TrackpadSide.left)
-                    Text("Right trackpad").tag(TrackpadSide.right)
-                }.disabled(hidBlackhole.isActive)
-                Text(blackholeTarget?.selectionLabel ?? "No trackpad selected")
-                    .font(.caption).foregroundStyle(.secondary)
-                Button("Refresh device link") { synchronizeHIDTarget() }.disabled(hidBlackhole.isActive)
-            }
-            HStack {
                 Toggle("Blackhole trackpad HID input (30-second test)", isOn: Binding(
-                    get: { hidBlackhole.isActive }, set: { hidBlackhole.setEnabled($0) }))
-                    .disabled(hidBlackhole.selectedGroupID.isEmpty || viewModel.replayTimelineState != nil)
+                    get: { hidBlackhole.isActive }, set: { enabled in
+                        if enabled { synchronizeHIDTarget() }
+                        hidBlackhole.setEnabled(enabled)
+                    }))
+                    .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
                 Button("Release HID now") { hidBlackhole.release() }
                     .keyboardShortcut(.escape, modifiers: [.command])
                     .disabled(!hidBlackhole.isActive)
@@ -285,41 +275,10 @@ struct ContentView: View {
         @ObservedObject var viewModel: ContentViewModel
         @ViewBuilder let visualizer: () -> Visualizer
         private let columnWidth: CGFloat = 300
-        @State private var frozenSnapshot: ContentViewModel.TouchSnapshot?
-        @State private var freezePending = false
-        @State private var freezeTask: Task<Void, Never>?
-        @State private var copyError: String?
-
         var body: some View {
             TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-                let snapshot = frozenSnapshot ?? viewModel.snapshotTouchData()
+                let snapshot = viewModel.snapshotTouchData()
                 VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Live touch values").font(.headline)
-                        Spacer()
-                        Text(frozenSnapshot == nil ? "Live · 10 Hz" : "Frozen")
-                            .foregroundStyle(.secondary)
-                        Button(frozenSnapshot == nil ? "Freeze" : "Resume") {
-                            freezeTask?.cancel()
-                            freezePending = false
-                            frozenSnapshot = frozenSnapshot == nil ? viewModel.snapshotTouchData() : nil
-                        }
-                        Button(freezePending ? "Waiting…" : "Freeze in 3s") {
-                            freezePending = true
-                            frozenSnapshot = nil
-                            freezeTask = Task { @MainActor in
-                                do { try await Task.sleep(for: .seconds(3)) } catch { return }
-                                frozenSnapshot = viewModel.snapshotTouchData()
-                                freezePending = false
-                            }
-                        }
-                        .disabled(freezePending)
-                        Button("Copy JSON") { copySnapshot(snapshot) }
-                    }
-                    Text("Finger labels: 1 Thumb, 2 Index, 3 Middle, 4 Ring, 5 Pinky, 6 Palm. Other codes are unknown; velocity arrows show direction only.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let copyError { Text(copyError).foregroundStyle(.red) }
                     HStack(alignment: .top, spacing: 16) {
                         ScrollView(.vertical) {
                             contactColumn("Left trackpad", touches: snapshot.left)
@@ -333,13 +292,10 @@ struct ContentView: View {
                         .frame(width: columnWidth, height: 520)
                         .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
                     }
-                    Text("New Capture recordings retain these fields. Older recordings show unavailable. Freeze in 3s lets you put both hands back on the pads.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+
                 }
                 .padding(.vertical, 12)
             }
-            .onDisappear { freezeTask?.cancel() }
         }
 
         private func contactColumn(_ title: String, touches: [OMSTouchData]) -> some View {
@@ -386,18 +342,5 @@ struct ContentView: View {
             .frame(width: columnWidth, alignment: .leading)
         }
 
-        private func copySnapshot(_ snapshot: ContentViewModel.TouchSnapshot) {
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                let data = try encoder.encode(["left": snapshot.left, "right": snapshot.right])
-                guard let text = String(data: data, encoding: .utf8) else { return }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-                copyError = nil
-            } catch {
-                copyError = "Could not copy contact data: \(error.localizedDescription)"
-            }
-        }
     }
 }

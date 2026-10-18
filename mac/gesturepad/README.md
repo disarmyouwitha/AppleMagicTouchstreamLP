@@ -22,10 +22,11 @@ This is an independent source copy of `../GlassToKey`, without generated build/r
 
 ## Temporary HID blackhole experiment
 
-In Config, choose the left and right trackpads, then use the original **Blackhole target** Left/Right picker in the blackhole panel. **Refresh device link** stays separate from the trackpad-list refresh. Enable **Blackhole trackpad HID input (30-second test)** to seize the selected device. Linking uses the selected OMS device's registry ancestry, not an assumption that its OMS ID equals an HID registry ID. Keyboard interfaces are excluded.
+In Config, choose the left and right trackpads in the trackpad section. **Blackhole trackpad HID input (30-second test)** applies to both selected physical devices (or the one selected pad). Selecting the same physical trackpad twice opens it once. HID links refresh automatically on selection, trackpad refresh, and enabling the test. If either selected pad cannot be linked unambiguously, the test stays off. Keyboard interfaces are excluded.
+
 Each eligible interface is opened with `IOHIDDeviceOpen(..., kIOHIDOptionsTypeSeizeDevice)`. Successfully opened interfaces register raw input-report callbacks that count reports/bytes/IDs and discard their payloads. Nothing forwards or synthesizes events. There is no CGEvent-tap fallback. Apple documents this as an [exclusive HID link](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen); success on one HID interface does not demonstrate control of other input routes.
 
-The original blackhole panel is restored: choose Left/Right with the Blackhole target picker, inspect the selected device identity, and use the separate Refresh device link button. The HID interfaces/report-count disclosure and Copy diagnostics button are hidden; the target picker, refresh and release controls are unchanged. Opening a collection does not establish suppression of every system route. Internal report callbacks and release safeguards remain.
+The separate blackhole-target picker and device-link refresh button are removed. The toggle uses both trackpad selections; **Release HID now** releases all seized interfaces. HID interface/report-count and diagnostic-copy controls remain hidden.
 
 The experiment defaults off and auto-releases after **30 seconds**. It also releases on toggle-off, **Release HID now** (Command–Escape while Config has focus), target change, Config close, sleep, replay start, and app termination. The system closes HID clients when their process exits.
 
@@ -45,6 +46,6 @@ Keyboard event posting, autocorrect, dictation, key semantic mapping, mobile lay
 
 ## Inline touch workspace
 
-Live contact values flank the paired visualizers: left contacts in the left sidebar, right contacts in the right sidebar. Each sidebar scrolls independently; the workspace scrolls horizontally on narrower displays. Each contact shows its finger name, `p:` pressure, identity/state, normalized position, and available velocity. Expand **Raw measurements** for absolute coordinates, frame/time, axes, total, and density. Per-pad peak pressure and contact paths remain on the visualizers. **Freeze**, **Freeze in 3s**, and **Copy JSON** work on both columns together, including during replay. The workspace scrolls vertically when the window cannot fit all contacts; there is no live-values popover.
+Live contact values flank the paired visualizers: left contacts in the left sidebar, right contacts in the right sidebar. Each sidebar scrolls independently; the workspace scrolls horizontally on narrower displays. Each contact shows its finger name, `p:` pressure, identity/state, normalized position, and available velocity. Expand **Raw measurements** for absolute coordinates, frame/time, axes, total, and density. Per-pad peak pressure and contact paths remain on the visualizers. Contact columns update live, including during replay; use Capture for recorded telemetry. The workspace scrolls vertically when the window cannot fit all contacts; there is no live-values popover.
 
-The blackhole controls and target selection have been reverted to the pre-redesign panel. Inline left/right touch telemetry remains in sidebars flanking the visualizers. The HID open/report/release implementation is unchanged.
+Inline left/right touch telemetry remains in sidebars flanking the visualizers. The HID test opens the union of interfaces belonging to the selected trackpads and preserves per-interface open/close results.

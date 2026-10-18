@@ -1,9 +1,8 @@
 ## Rewrite
 
 `GesturePad`:  
-0. Move "Live Values" into a column to the left of the visualizer and right in a column to the right. (like the column to the right in AppleMagicTouchstream, but for each side!)
 3. Lets remove the blackhole target, refresh device. Lets have Blackhole trackpad HID input affect both selected trackpads from the trackpad section. 
-4. Lets move Blackhole info under trackpad left/right
+4. Lets move Blackhole info under left / right trackpad pickers (In the same envelope)
 
 `AppleMagicTouchstream`: 
 0. Lets go through each feature and you make a case for why it's still there, or remove it: (keyboard/mouse, auto-resync, run at startup, hold repeat); (Typing Grace) 

@@ -71,4 +71,17 @@ final class HIDBlackholeIdentityTests: XCTestCase {
         XCTAssertNil(HIDBlackholeExperiment.matchingGroupID(registryPath: [30, 20, 10], groups: groups))
     }
 
+    func testBothSelectedPadsAreLinkedAndDuplicateSelectionIsDeduplicated() {
+        let left = device(id: 10)
+        let right = device(id: 40, serial: "other-trackpad")
+        let groups = [
+            HIDBlackholeExperiment.Group(id: left.groupID, label: "left", interfaces: [left]),
+            HIDBlackholeExperiment.Group(id: right.groupID, label: "right", interfaces: [right])
+        ]
+        XCTAssertEqual(HIDBlackholeExperiment.matchingGroupIDs(registryPaths: [[30, 10], [60, 40]], groups: groups), Set([left.groupID, right.groupID]))
+        XCTAssertEqual(HIDBlackholeExperiment.matchingGroupIDs(registryPaths: [[30, 10], [30, 10]], groups: groups), Set([left.groupID]))
+        XCTAssertNil(HIDBlackholeExperiment.matchingGroupIDs(registryPaths: [[30, 10], [999]], groups: groups))
+        XCTAssertNil(HIDBlackholeExperiment.matchingGroupIDs(registryPaths: [], groups: groups))
+    }
+
 }
