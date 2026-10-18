@@ -270,7 +270,7 @@ final class HIDBlackholeExperiment: ObservableObject {
         held = failed
         isActive = !held.isEmpty
         secondsRemaining = 0
-        summary = isActive ? "Release failed for \(held.count) interface(s). Retry Release, or quit the app." : "\(reason). Normal HID ownership restored for successfully closed interfaces."
+        summary = isActive ? "Release failed for \(held.count) interface(s). Retry Release, or quit the app." : "Released. Normal HID ownership restored."
         diagnostics = openResults.joined(separator: "\n")
     }
 

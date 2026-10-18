@@ -132,9 +132,12 @@ struct ContentView: View {
                 Button("Release Trackpads") { hidBlackhole.release() }
                     .keyboardShortcut(.escape, modifiers: [.command])
                     .disabled(!hidBlackhole.isActive)
-            }
-            if !hidBlackhole.summary.hasPrefix("Linked to ") {
-                Text(hidBlackhole.summary).font(.caption)
+                if !hidBlackhole.summary.hasPrefix("Linked to ") {
+                    Text(hidBlackhole.summary)
+                        .font(.caption)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
