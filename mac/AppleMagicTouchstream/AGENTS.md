@@ -13,3 +13,15 @@ Keep Swift bridge work in `Sources/OpenMultitouchSupport`, Objective-C work in `
 Haptic settings remain percent in saved profiles and 0...1 in the engine. Route feedback to the selected originating pad, rate-limit per pad, and keep replay recording-only.
 
 Feature audit: keep Auto-resync as device recovery and Hold Repeat as output scaffolding. Keyboard/Mouse and its native mouse-event blocker are removed; do not restore them from legacy profiles. Run at Startup and GTK Typing Grace are removed. Preserve profile decoding without reactivating them; preserve GUI layout when removing controls.
+
+
+DriverKit takeover is ported from GesturePad v22; see DriverKitProbe/README.md.
+Keep capture/decoder independent of output. AppleMagicTouchstream consumes contacts
+through its keyboard engine, without GesturePad's synthetic pointer consumer or
+legacy blackhole experiments. All supported model0324 pads remain captured; selectors
+and manual Sync route app input. Preserve exact signed-owner validation, bounded
+restart lease/watchdog, driver cancellation drain, release shortcut Control-Option-R,
+release on sleep/replay/Exit, background warm restart on Config close, and Refresh
+lock through pending ownership/removal. Do not launch or activate hardware tests
+without explicit user request. Shared helper/driver identities permit one owning
+app at a time. Run the driver Python tests as well as ./test.sh after changes.

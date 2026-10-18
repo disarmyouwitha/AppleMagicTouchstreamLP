@@ -109,7 +109,7 @@ bool MTDeviceDriverIsReady(MTDeviceRef);
 bool MTDevicePowerControlSupported(MTDeviceRef);
 
 // Device information getters
-io_service_t MTDeviceGetService(MTDeviceRef);
+io_service_t MTDeviceGetService(MTDeviceRef) __attribute__ ((weak_import));
 OSStatus MTDeviceGetSensorSurfaceDimensions(MTDeviceRef, int*, int*);
 OSStatus MTDeviceGetSensorDimensions(MTDeviceRef, int*, int*);
 OSStatus MTDeviceGetFamilyID(MTDeviceRef, int*);

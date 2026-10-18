@@ -13,6 +13,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @ObservedObject var driverControl: DriverKitTakeover
     private struct SelectedGridKey: Equatable {
         let row: Int
         let column: Int
@@ -511,7 +512,8 @@ struct ContentView: View {
         ].joined(separator: "\u{1F}")
     }
 
-    init(viewModel: ContentViewModel = ContentViewModel()) {
+    init(viewModel: ContentViewModel = ContentViewModel(), driverControl: DriverKitTakeover = DriverKitTakeover()) {
+        self.driverControl = driverControl
         _viewModel = StateObject(wrappedValue: viewModel)
         let size = CGSize(
             width: Self.trackpadWidthMM * Self.displayScale,
@@ -821,8 +823,15 @@ struct ContentView: View {
                 viewModel.selectRightDevice(device)
             },
             onRefresh: {
+                guard !driverControl.hasOwnershipRequest else { return }
                 viewModel.refreshDevicesAndListeners()
-            }
+            },
+            driverControl: driverControl,
+            takeover: {
+                guard viewModel.replayTimelineState == nil else { return }
+                driverControl.start(selected: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 })
+            },
+            replayActive: viewModel.replayTimelineState != nil
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1627,12 +1636,26 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        @ObservedObject var driverControl: DriverKitTakeover
+        let takeover: () -> Void
+        let replayActive: Bool
+
+        private var refreshButton: some View {
+            Button(action: onRefresh) {
+                Image(systemName: "arrow.clockwise").imageScale(.medium)
+            }
+            .buttonStyle(.bordered)
+            .disabled(driverControl.hasOwnershipRequest)
+            .help("Release Trackpads before refreshing the trackpad list")
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 if availableDevices.isEmpty {
-                    Text("No trackpads detected.")
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text("No trackpads detected.").foregroundStyle(.secondary)
+                        refreshButton
+                    }
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1648,7 +1671,7 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
@@ -1671,7 +1694,7 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
@@ -1692,17 +1715,21 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Button(action: {
-                            onRefresh()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .imageScale(.medium)
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Refresh trackpad list")
+                        refreshButton
                         .padding(.top, 20)
                     }
                 }
+                HStack {
+                    Button("Takeover Trackpads", action: takeover)
+                        .disabled(replayActive || driverControl.isRestoring || driverControl.isActive)
+                    Button("Sync Trackpads", action: takeover)
+                        .disabled(replayActive || driverControl.isRestoring || !driverControl.isActive)
+                    Button("Release Trackpads") { driverControl.release() }
+                        .disabled(!driverControl.hasOwnershipRequest)
+                }
+                Text("Takeover captures all supported connected model 0324 trackpads, including unselected pads. Left/right selections route app input; apply changes with Sync.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(driverControl.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             }
             .padding(12)
             .background(

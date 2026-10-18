@@ -1,0 +1,18 @@
+{
+  "driverBuild": 22,
+  "driverVersion": "0.22",
+  "appBundleID": "ink.ranna.applemagictouchstream",
+  "helperBundleID": "ink.ranna.trackpadtakeover",
+  "driverBundleID": "ink.ranna.trackpadtakeover.driver",
+  "teamID": "N9XQZJR4EP",
+  "helperAppName": "AppleMagicTouchstreamDriverService.app",
+  "helperExecutable": "GesturePadRawHIDProbe",
+  "driverExecutable": "AMTRawHIDReceiver",
+  "stateNotification": "GesturePadDriverState",
+  "ownerNotification": "GesturePadDriverOwner",
+  "releaseNotification": "GesturePadDriverRelease",
+  "sessionArgument": "--gesturepad-session",
+  "restartDefaultsKey": "AppleMagicTouchstream.DriverKit.restartTransfer",
+  "diagnosticPrefix": "AppleMagicTouchstream-driverkit-session-",
+  "pointerEventTag": 5138699878734057044
+}
