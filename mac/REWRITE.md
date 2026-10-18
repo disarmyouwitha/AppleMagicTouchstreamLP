@@ -1,11 +1,9 @@
-## Rewrite
-
 `GesturePad`:  
 0. Can I allow certain actions to pass through blackhole? Lets test Ignoring all mouse movement sent from device, but allow click and gestures. 
 
 
 `AppleMagicTouchstream`: 
-0. Lets go through each feature and you make a case for why it's still there, or remove it: (keyboard/mouse, auto-resync, run at startup, hold repeat); (Typing Grace) 
+
 
 `GlassToKey`:
 

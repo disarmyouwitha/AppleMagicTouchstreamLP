@@ -52,7 +52,7 @@ struct ContentView: View {
                         UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
                     onRefresh: {
-                        if hidBlackhole.isActive { hidBlackhole.release(reason: "Trackpads refreshed") }
+                        if hidBlackhole.hasOpenHIDDevices { hidBlackhole.release(reason: "Trackpads refreshed") }
                         viewModel.refreshDevicesAndListeners()
                         synchronizeHIDTarget()
                     }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
@@ -95,13 +95,15 @@ struct ContentView: View {
     }
 
     private func synchronizeHIDTarget() {
-        if hidBlackhole.isActive {
+        hidBlackhole.pointerIdentityProbe.stop()
+        if hidBlackhole.hasOpenHIDDevices {
             hidBlackhole.release(reason: "Selected trackpads changed")
-            guard !hidBlackhole.isActive else { return }
+            guard !hidBlackhole.hasOpenHIDDevices else { return }
         }
         hidBlackhole.refresh()
         let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
-        hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID))
+        hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID),
+            touchDeviceIDs: Set(selected.map(\.deviceIDNumeric)))
     }
 
     private var touchDisplayControls: some View {
@@ -117,28 +119,23 @@ struct ContentView: View {
 
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Toggle("Blackhole trackpad HID input", isOn: Binding(
-                    get: { hidBlackhole.isActive }, set: { enabled in
-                        if enabled && !hidBlackhole.isActive { synchronizeHIDTarget() }
-                        hidBlackhole.setEnabled(enabled)
-                    }))
-                    .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
-                Button("30sec test") {
-                    if !hidBlackhole.isActive { synchronizeHIDTarget() }
+            TrackpadControlControls(control: hidBlackhole.pointerControl,
+                unavailable: hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil,
+                setEnabled: { enabled in
+                    if enabled && !hidBlackhole.pointerControl.isActive { synchronizeHIDTarget() }
+                    hidBlackhole.setEnabled(enabled)
+                }, timedTest: {
+                    if !hidBlackhole.pointerControl.isActive { synchronizeHIDTarget() }
                     hidBlackhole.startTimedTest()
-                }
-                .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
-                Button("Release Trackpads") { hidBlackhole.release() }
-                    .keyboardShortcut(.escape, modifiers: [.command])
-                    .disabled(!hidBlackhole.isActive)
-                if !hidBlackhole.summary.hasPrefix("Linked to ") {
-                    Text(hidBlackhole.summary)
-                        .font(.caption)
-                        .fixedSize(horizontal: false, vertical: true)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
+                }, release: { hidBlackhole.release() })
+            PointerIdentityControls(probe: hidBlackhole.pointerIdentityProbe) {
+                hidBlackhole.release(reason: "Pointer identity test started")
+                guard !hidBlackhole.hasOpenHIDDevices else { return }
+                synchronizeHIDTarget()
+                hidBlackhole.pointerIdentityProbe.start(selectedTrackpads:
+                    hidBlackhole.groups.filter { hidBlackhole.selectedGroupIDs.contains($0.id) })
             }
+            .disabled(viewModel.replayTimelineState != nil)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -368,5 +365,57 @@ struct ContentView: View {
             .frame(width: columnWidth, alignment: .leading)
         }
 
+    }
+}
+
+private struct PointerIdentityControls: View {
+    @ObservedObject var probe: PointerIdentityProbe
+    let start: () -> Void
+    var body: some View {
+        HStack {
+            Button("Test pointer sources (40s)", action: start).disabled(probe.isObserving)
+            Button("Stop observer") { probe.stop() }.disabled(!probe.isObserving)
+            Text(probe.status).font(.caption).textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+    }
+}
+
+private struct TrackpadControlControls: View {
+    @ObservedObject var control: SelectedTrackpadEventFilter
+    let unavailable: Bool
+    let setEnabled: (Bool) -> Void
+    let timedTest: () -> Void
+    let release: () -> Void
+    @State private var threeFingerDrag: Bool? = GesturePadThreeFingerDragStatus.detected()
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+        HStack {
+            Toggle("Control selected trackpads", isOn: Binding(get: { control.isActive }, set: { value in setEnabled(value) }))
+                .disabled(unavailable)
+            Button("30sec test", action: timedTest).disabled(unavailable)
+            Button("Release Trackpads", action: release)
+                .keyboardShortcut(.escape, modifiers: [.command]).disabled(!control.isActive)
+            Text(control.status).font(.caption)
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        HStack {
+            Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
+                .help("Generate pointer movement from exactly two contacts while control is enabled.")
+            Toggle("macOS 3-finger drag", isOn: .constant(threeFingerDrag ?? false))
+                .disabled(true)
+                .help("Read-only macOS setting. Native drag events pass through.")
+            Text(threeFingerDrag.map { $0 ? "On" : "Off" } ?? "Unknown").font(.caption)
+            Button("Trackpad Options…") {
+                if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension") {
+                    NSWorkspace.shared.open(url)
+                }
+            }
+        }
+        }
+        .onAppear { threeFingerDrag = GesturePadThreeFingerDragStatus.detected() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            threeFingerDrag = GesturePadThreeFingerDragStatus.detected()
+        }
     }
 }

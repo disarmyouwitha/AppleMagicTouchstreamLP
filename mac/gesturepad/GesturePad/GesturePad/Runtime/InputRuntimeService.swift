@@ -71,6 +71,7 @@ final class InputRuntimeService: @unchecked Sendable {
 
     @discardableResult
     func stop() -> Bool {
+        InterpretedTrackpadPointer.shared.stop()
         let shouldStop = stateLock.withLockUnchecked { state -> Bool in
             guard state.isRunning else { return false }
             state.isRunning = false
@@ -137,6 +138,7 @@ final class InputRuntimeService: @unchecked Sendable {
                 frame.release()
                 return
             }
+            InterpretedTrackpadPointer.shared.process(frame)
             liveHandler(frame, ingress)
         } else {
             frame.release()
