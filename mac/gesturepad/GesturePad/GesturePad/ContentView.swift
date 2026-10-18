@@ -79,7 +79,13 @@ struct ContentView: View {
         .onAppear { synchronizeHIDTarget() }
         .onChange(of: viewModel.leftDevice) { _ in synchronizeHIDTarget() }
         .onChange(of: viewModel.rightDevice) { _ in synchronizeHIDTarget() }
-        .onDisappear { hidBlackhole.release(reason: "Config closed") }
+        .onDisappear {
+            // Config close restarts the app through its owner-transfer lease.
+            // Releasing here races that transfer and triggers driver removal.
+            if !hidBlackhole.driverControl.hasOwnershipRequest {
+                hidBlackhole.release(reason: "Config closed")
+            }
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             hidBlackhole.release(reason: "App quitting")
         }
@@ -385,6 +391,7 @@ private struct DriverKitControls: View {
                     .disabled(unavailable || control.isRestoring || !control.isActive)
                 Button("Release Trackpads", action: release).disabled(!control.hasOwnershipRequest)
                 Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
+                Toggle("Allow click", isOn: $control.allowClick)
             }
             Text("Takeover captures all supported connected trackpads. Left/right selections control visualization.")
                 .font(.caption).foregroundStyle(.secondary)

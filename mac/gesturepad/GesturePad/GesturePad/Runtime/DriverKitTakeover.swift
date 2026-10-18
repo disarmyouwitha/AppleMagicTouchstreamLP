@@ -212,6 +212,44 @@ struct DriverStreamCursor {
     }
 }
 
+/// Merge physical button state across selected pads. A new/reset source must
+/// report buttons-up before it can press, so enabling mid-click cannot click.
+struct DriverButtonChange: Equatable {
+    let mask: UInt8
+    let down: Bool
+}
+struct DriverClickTracker {
+    private var buttons: [UInt64: UInt8] = [:]
+    private var armed: Set<UInt64> = []
+    private var combined: UInt8 { buttons.values.reduce(0, |) }
+    private func changes(from old: UInt8) -> [DriverButtonChange] {
+        let next = combined
+        guard old != next else { return [] }
+        return [UInt8(1), 2].compactMap { mask in
+            guard old & mask != next & mask else { return nil }
+            return DriverButtonChange(mask: mask, down: next & mask != 0)
+        }
+    }
+    mutating func update(device: UInt64, buttons value: UInt8) -> [DriverButtonChange] {
+        let value = value & 3
+        if value == 0 { armed.insert(device) }
+        guard armed.contains(device) else { return [] }
+        let old = combined
+        buttons[device] = value
+        return changes(from: old)
+    }
+    mutating func reset(device: UInt64) -> [DriverButtonChange] {
+        let old = combined
+        buttons[device] = nil; armed.remove(device)
+        return changes(from: old)
+    }
+    mutating func reset() -> [DriverButtonChange] {
+        let old = combined
+        buttons.removeAll(keepingCapacity: true); armed.removeAll(keepingCapacity: true)
+        return changes(from: old)
+    }
+}
+
 @MainActor
 final class DriverKitTakeover: ObservableObject {
     static let streamBuild = 22
@@ -224,9 +262,13 @@ final class DriverKitTakeover: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var isRestoring = false
     @Published private(set) var status = "DriverKit ready. Takeover stays active until Release Trackpads."
-    @Published var synthesizeTwoFingerPointer = true {
+    @Published var synthesizeTwoFingerPointer = false {
         didSet { updateInterpreter() }
     }
+    @Published var allowClick = false {
+        didSet { updateInterpreter() }
+    }
+    private var clickTracker = DriverClickTracker()
     var onContacts: ((UInt64, Int, Double, [OMSRawTouch]) async -> Void)?
     var onSessionBegan: (() -> Void)?
     var onSessionEnded: (() -> Void)?
@@ -293,10 +335,10 @@ final class DriverKitTakeover: ObservableObject {
             status = "Rebuild and install GesturePad using DriverKitProbe/install-integration.sh to include its driver service."
             return
         }
-        if !selected.isEmpty && synthesizeTwoFingerPointer && !AXIsProcessTrusted() {
+        if !selected.isEmpty && (synthesizeTwoFingerPointer || allowClick) && !AXIsProcessTrusted() {
             let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
             _ = AXIsProcessTrustedWithOptions(options)
-            status = "Grant GesturePad Accessibility access, then retry (or turn off synthetic pointer for a visual-only test)."
+            status = "Grant GesturePad Accessibility access, then retry (or turn off pointer and click output for a visual-only test)."
             return
         }
         var resolved: [String: (id: UInt64, index: Int)] = [:]
@@ -368,6 +410,7 @@ final class DriverKitTakeover: ObservableObject {
 
     private func resetDerivedState(serial: String) {
         guard let device = devices[serial] else { return }
+        postClicks(clickTracker.reset(device: device.id))
         estimator.reset(device: device.id)
         InterpretedTrackpadPointer.shared.resetBaseline(device: device.id)
     }
@@ -428,10 +471,11 @@ final class DriverKitTakeover: ObservableObject {
             if helperState == "restart-ready:\(nonce)" {
                 let snapshot = DriverRestartSnapshot(session: token, nonce: nonce, helperPID: helperPID,
                     ownerPID: ProcessInfo.processInfo.processIdentifier, expiresAt: Date().addingTimeInterval(15),
-                    devices: deviceMetadata, synthesize: synthesizeTwoFingerPointer, inventory: inventoryMetadata)
+                    devices: deviceMetadata, synthesize: synthesizeTwoFingerPointer, inventory: inventoryMetadata, allowClick: allowClick)
                 if let data = try? JSONEncoder().encode(snapshot) {
                     UserDefaults.standard.set(data, forKey: DriverRestartSnapshot.defaultsKey)
                     UserDefaults.standard.synchronize() // Replacement is a different process starting immediately.
+                    postClicks(clickTracker.reset())
                     return snapshot
                 }
                 break
@@ -466,6 +510,7 @@ final class DriverKitTakeover: ObservableObject {
         Self.installInventory(inventoryMetadata)
         devices = Dictionary(uniqueKeysWithValues: snapshot.devices.map { ($0.serial, (id: $0.id, index: $0.index)) })
         synthesizeTwoFingerPointer = snapshot.synthesize
+        allowClick = snapshot.allowClick ?? false
         isActive = true; began = Date(); helperState = ""
         onSessionBegan?()
         DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))
@@ -505,6 +550,7 @@ final class DriverKitTakeover: ObservableObject {
         saveEvidence(reason: "release requested")
         isActive = false; isRestoring = true; restoreBegan = Date()
         InterpretedTrackpadPointer.shared.stop()
+        postClicks(clickTracker.reset())
         status = "Releasing driver. macOS may ask for authorization; normal ownership is not confirmed yet."
         DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverRelease"), object: token, userInfo: nil, deliverImmediately: true)
     }
@@ -521,13 +567,38 @@ final class DriverKitTakeover: ObservableObject {
         } catch { NSLog("GesturePad DriverKit evidence failed: %@", error.localizedDescription) }
     }
 
+    private func postClicks(_ changes: [DriverButtonChange]) {
+        guard !changes.isEmpty, let location = CGEvent(source: nil)?.location else { return }
+        for change in changes {
+            let right = change.mask == 2
+            let type: CGEventType = right ? (change.down ? .rightMouseDown : .rightMouseUp)
+                : (change.down ? .leftMouseDown : .leftMouseUp)
+            guard let event = CGEvent(mouseEventSource: nil, mouseType: type,
+                mouseCursorPosition: location, mouseButton: right ? .right : .left) else { continue }
+            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
+            event.setIntegerValueField(.mouseEventClickState, value: 1)
+            event.post(tap: .cghidEventTap)
+        }
+    }
+
     private func updateInterpreter() {
+        if !isActive || !allowClick { postClicks(clickTracker.reset()) }
+        guard !isActive || !(synthesizeTwoFingerPointer || allowClick) || AXIsProcessTrusted() else {
+            InterpretedTrackpadPointer.shared.stop()
+            postClicks(clickTracker.reset())
+            let options = ["AXTrustedCheckOptionPrompt": true] as CFDictionary
+            _ = AXIsProcessTrustedWithOptions(options)
+            status = "Grant GesturePad Accessibility access to enable pointer or click output."
+            return
+        }
         if isActive && synthesizeTwoFingerPointer {
             InterpretedTrackpadPointer.shared.enable(devices: Set(devices.values.map(\.id)))
         } else { InterpretedTrackpadPointer.shared.stop() }
     }
 
     private func finishRestoration() async {
+        postClicks(clickTracker.reset())
+        InterpretedTrackpadPointer.shared.stop()
         saveEvidence(reason: "driver removed")
         task?.cancel(); task = nil
         for device in devices.values { await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, []) }
@@ -636,6 +707,9 @@ final class DriverKitTakeover: ObservableObject {
             perPad[serial, default: [:]]["maxContacts"] = max(perPad[serial]?["maxContacts"] ?? 0,
                 packet.contacts.filter { $0.state == .touching }.count)
             if receivedAt == nil { receivedAt = Date() }
+            if allowClick && AXIsProcessTrusted() {
+                postClicks(clickTracker.update(device: device.id, buttons: packet.buttons))
+            }
             InterpretedTrackpadPointer.shared.process(device: device.id, time: record.timestamp,
                 contacts: contacts, suppress: packet.buttons != 0)
             await onContacts?(device.id, device.index, now, contacts)

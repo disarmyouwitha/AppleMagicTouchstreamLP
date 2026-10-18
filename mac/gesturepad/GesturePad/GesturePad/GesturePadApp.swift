@@ -49,7 +49,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let resume = DriverKitTakeover.restartSnapshot(arguments: ProcessInfo.processInfo.arguments)
         if let resume { DriverKitTakeover.installInventory(resume.inventory ?? resume.devices) }
         guard enforceSingleInstancePolicyAtLaunch() else { return }
-        let shouldOpenConfigOnLaunch = !hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config")
+        let shouldOpenConfigOnLaunch = !ProcessInfo.processInfo.arguments.contains("--background") &&
+            (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
         initializeRunAtStartupPreference()
         controller.start()
         hidBlackhole.driverControl.onContacts = { [weak controller] device, index, time, touches in
@@ -109,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             await controller.endReplaySession()
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
-            restartAppProcess()
+            restartAppProcess(reopenConfig: false)
         }
     }
 
@@ -524,7 +525,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 
 
-    private func restartAppProcess() {
+    private func restartAppProcess(reopenConfig: Bool = true) {
         guard !isTerminatingApp, restartTask == nil else { return }
         restartTask = Task { @MainActor [self] in
             if captureInProgress { await stopCaptureFlow() }
@@ -536,7 +537,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 let task = Process()
                 task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
                 task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument,
-                    "--open-config", "--resume-driver", transfer.session, transfer.nonce]
+                    reopenConfig ? "--open-config" : "--background", "--resume-driver", transfer.session, transfer.nonce]
                 do {
                     try task.run()
                     isTerminatingApp = true
@@ -560,6 +561,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             let task = Process()
             task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
             task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument]
+            if !reopenConfig { task.arguments?.append("--background") }
             do {
                 try task.run()
                 isTerminatingApp = true

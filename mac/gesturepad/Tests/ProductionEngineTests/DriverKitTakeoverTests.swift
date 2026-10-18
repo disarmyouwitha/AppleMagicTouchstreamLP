@@ -5,6 +5,31 @@ import XCTest
 
 final class DriverKitTakeoverTests: XCTestCase {
     @MainActor
+    func testPointerAndClickOutputDefaultOff() {
+        let control = DriverKitTakeover()
+        XCTAssertFalse(control.synthesizeTwoFingerPointer)
+        XCTAssertFalse(control.allowClick)
+    }
+    func testClicksRequireReleaseBeforeArmingAndDoNotRepeatHeldDown() {
+        var tracker = DriverClickTracker()
+        XCTAssertEqual(tracker.update(device: 1, buttons: 1), [])
+        XCTAssertEqual(tracker.update(device: 1, buttons: 0), [])
+        XCTAssertEqual(tracker.update(device: 1, buttons: 1), [.init(mask: 1, down: true)])
+        XCTAssertEqual(tracker.update(device: 1, buttons: 1), [])
+        XCTAssertEqual(tracker.update(device: 1, buttons: 0), [.init(mask: 1, down: false)])
+    }
+    func testBothPadsShareButtonsAndDisconnectReleasesOnlyTheirOwnContribution() {
+        var tracker = DriverClickTracker()
+        _ = tracker.update(device: 1, buttons: 0)
+        _ = tracker.update(device: 2, buttons: 0)
+        XCTAssertEqual(tracker.update(device: 1, buttons: 3), [.init(mask: 1, down: true), .init(mask: 2, down: true)])
+        XCTAssertEqual(tracker.update(device: 2, buttons: 1), [])
+        XCTAssertEqual(tracker.reset(device: 1), [.init(mask: 2, down: false)])
+        XCTAssertEqual(tracker.reset(), [.init(mask: 1, down: false)])
+        XCTAssertEqual(tracker.update(device: 2, buttons: 1), [], "Must lift after disabling/restarting output")
+        XCTAssertEqual(tracker.reset(), [])
+    }
+    @MainActor
     func testCurrentCoordinatorAndReceiverAreAcceptedWithSameProtocolVersion() {
         XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 22), "StreamCoordinator": 1]))
         XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 22), "StreamSerial": "any-pad"]))

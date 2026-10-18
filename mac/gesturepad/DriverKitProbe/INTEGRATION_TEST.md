@@ -140,3 +140,14 @@ installed driver and helper entitlements inspected: neither UserClient entitleme
 is present, and driver symbols contain no Handoff/NewUserClient implementation.
 Installed/opened /Applications/GesturePad.app with takeover off. Physical v22
 acceptance awaits the user's next enable/test; do not claim it is hardware-proven.
+
+## Optional pointer/click output defaults
+
+Synthetic 2-finger pointer and Allow click default off. Physical button transitions
+from selected live packets may be synthesized only with Allow click and Accessibility
+permission; tap-to-click is not implemented. Shared button state across both pads
+avoids one pad lifting the other's held button. Reset/release emits required ups;
+new sources must report buttons-up before arming. Explicit Restart preserves choices.
+81 app tests passed, including option defaults, mid-press enable suppression,
+held-down deduplication and independent/together button release. Physical click
+behavior needs the user's hardware check in the installed app.

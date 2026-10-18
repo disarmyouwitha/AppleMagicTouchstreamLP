@@ -156,3 +156,22 @@ Use DriverKitProbe/install-integration.sh with no development-userclients flag.
 Preserve independent receiver drain, Bluetooth framing, full telemetry, manual Sync,
 warm Restart with signed owner lease, retained unselected inventory, and full
 Release/Exit safeguards. UI must state that unselected supported pads stay captured.
+
+User authorized optional physical click synthesis in GesturePad. Synthetic 2-finger
+pointer and Allow click both default OFF on a fresh app launch. Allow click uses
+only selected live DriverKit packet button bits, not tap/gesture recognition or
+native event passthrough. Preserve Accessibility gating, merged two-pad button
+ownership, held-button arming suppression, and forced button-up on disable,
+route removal/disconnect, Release and explicit Restart transfer. Replay stays
+output-free. Restart preserves explicit option choices; ordinary launches use OFF.
+
+Config window close uses the same warm Restart as the menu command. Its SwiftUI
+onDisappear must not release an active/pending DriverKit ownership request before
+AppDelegate prepares the owner-transfer lease. This supersedes older config-close
+DriverKit release rules. Legacy non-DriverKit experiments still release on close;
+actual Exit, sleep, replay and explicit Release retain full cleanup.
+
+Config-close Restart must launch in menu-bar/background mode, never reopen Config.
+Pass --background for that path; it overrides first-run/open-config presentation.
+The explicit menu Restart retains its previous presentation behavior. Both paths
+preserve active DriverKit ownership through the same signed owner-transfer lease.
