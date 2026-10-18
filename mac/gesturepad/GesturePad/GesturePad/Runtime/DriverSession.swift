@@ -37,7 +37,7 @@ struct DriverSessionDevice: Codable, Equatable, Sendable {
 }
 
 struct DriverRestartSnapshot: Codable, Sendable {
-    static let defaultsKey = "GesturePad.DriverKit.restartTransfer"
+    static let defaultsKey = TakeoverConfiguration.restartDefaultsKey
     let session: String
     let nonce: String
     let helperPID: Int32

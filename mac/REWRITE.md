@@ -3,35 +3,33 @@
 > Should we allow the user to change the mouse speed in our app, or try to pull speed settings from OSX?
 ===
 
-2. When you click the Trackpad refresh (After Trackpad Takeover) should we Release Trackpads automatically before refresh? Sometimes it can bug out when they are locked
 
-3. how many frames per second do we get from HID? Is it better/worse than OMS?
-
----
-
-? Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that?
 
 ===
 
 `AppleMagicTouchstream`: 
+0. Can we copy GesturePad Trackpad take over, sync, release, refresh, menu items, 2finger synth and click allow into AppleMagicTouchstream?
+1. Can we place the Touchstream keypad image in the background along with the squared background. I want to create a touchstream keymap
 
 
 `GlassToKey`:
+1. Copy touchstream keymap from AMT to GTK 
+
+? Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I could set up a scaled down keymap that matches 
 
 ===
 
-`AppleMagicTouchstream`: 
-0. Lets move blackhole test into `AppleMagicTouchstream`. In the Touchstream you have to use 2-finger drag to move the mouse. We should blackhole all AMT movement data. If we detect 2-finger drag we should synthesize mouse data to move the mouse.
-> We can experiment with mouse/synthetic mouse to get it right here, then transfer to GTK
-> FUTURE: I will need to make a Touchstream keymap / then we can remove Column tuning as well. We will need to scale the touchstream logic for the smaller AMT
 
 `GlassToKey`: 
 0. Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal than 3mm intent classifier. I would like maybe 3 options to switch between to test feel: 1. Current setup. 2. 3mm intent classifier 3. Velocity/Pressure/Timing based. (Let me know if we need to do a typing test to get data on this)
-> a. TOGGLE for gestures? b. remove extra Typing Tuning flags from logic
-1. Move Blackhole logic into GTK
+* We should still work on this independently of Trackpad Takeover (which should be an *Preferred* Option, but an option)
+1. a. TOGGLE for gestures? b. remove extra Typing Tuning flags from logic
+2. Move Blackhole logic into GTK
+
 
 ===
 
+# refactor 
 0. Update GTK Windows Driver instructions they should be dead simple now. 
 
 1. Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.

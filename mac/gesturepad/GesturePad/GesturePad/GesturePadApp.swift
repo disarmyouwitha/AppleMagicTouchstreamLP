@@ -53,8 +53,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
         initializeRunAtStartupPreference()
         controller.start()
-        hidBlackhole.driverControl.onContacts = { [weak controller] device, index, time, touches in
-            await controller?.viewModel.ingestDriverContacts(device: device, index: index, timestamp: time, touches: touches)
+        hidBlackhole.driverControl.onFrame = { [weak controller] frame in
+            await controller?.viewModel.ingestDriverContacts(device: frame.deviceID, index: frame.deviceIndex,
+                timestamp: frame.timestamp, touches: frame.contacts)
         }
         hidBlackhole.driverControl.onSessionBegan = { [weak controller] in
             controller?.viewModel.setAutoResyncEnabled(false)

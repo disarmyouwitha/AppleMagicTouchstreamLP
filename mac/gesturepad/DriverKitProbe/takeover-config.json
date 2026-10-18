@@ -1,0 +1,18 @@
+{
+  "driverBuild": 22,
+  "driverVersion": "0.22",
+  "appBundleID": "ink.ranna.glasstokey.gesturepad",
+  "helperBundleID": "ink.ranna.glasstokey.gesturepad.rawhidprobe",
+  "driverBundleID": "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver",
+  "teamID": "N9XQZJR4EP",
+  "helperAppName": "GesturePadDriverService.app",
+  "helperExecutable": "GesturePadRawHIDProbe",
+  "driverExecutable": "AMTRawHIDReceiver",
+  "stateNotification": "GesturePadDriverState",
+  "ownerNotification": "GesturePadDriverOwner",
+  "releaseNotification": "GesturePadDriverRelease",
+  "sessionArgument": "--gesturepad-session",
+  "restartDefaultsKey": "GesturePad.DriverKit.restartTransfer",
+  "diagnosticPrefix": "GesturePad-driverkit-session-",
+  "pointerEventTag": 5138699878734057044
+}

@@ -1,5 +1,6 @@
 #include "AMTRawHIDReceiver.h"
 #include "MultitouchMode.h"
+#include "TakeoverConfiguration.h"
 #include <DriverKit/IOLib.h>
 #include <DriverKit/IODispatchQueue.h>
 #include <DriverKit/IOMemoryMap.h>
@@ -70,7 +71,7 @@ kern_return_t IMPL(AMTRawHIDReceiver, Start) {
         if(isCoordinator) {
             auto p=OSDictionary::withCapacity(2);
             if(!p) return fail(kIOReturnNoMemory);
-            put(p,"StreamBuild",22);put(p,"StreamCoordinator",1);SetProperties(p);p->release();
+            put(p,"StreamBuild",AMTTakeoverBuild);put(p,"StreamCoordinator",1);SetProperties(p);p->release();
             r=RegisterService();if(r) return fail(r);
             return kIOReturnSuccess;
         }
@@ -182,7 +183,7 @@ void IMPL(AMTRawHIDReceiver, Expired) {
 }
 void AMTRawHIDReceiver::Publish() {
     auto p=OSDictionary::withCapacity(10);if(!p) return;
-    put(p,"StreamBuild",22);put(p,"StreamSession",ivars->started);put(p,"StreamOpened",ivars->opened);
+    put(p,"StreamBuild",AMTTakeoverBuild);put(p,"StreamSession",ivars->started);put(p,"StreamOpened",ivars->opened);
     auto transport=OSString::withCString(ivars->usb?"USB":"Bluetooth");
     if(transport) {p->setObject("StreamTransport",transport);transport->release();}
     put(p,"StreamSequence",ivars->sequence);put(p,"StreamReports",ivars->reports);
@@ -207,7 +208,7 @@ void AMTRawHIDReceiver::Finish(const char *reason) {
     Publish();
     auto p=OSDictionary::withCapacity(12);
     if(p) {
-        put(p,"ProbeBuild",22);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
+        put(p,"ProbeBuild",AMTTakeoverBuild);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
         put(p,"ModeResult",ivars->modeResult);put(p,"Reports",ivars->reports);put(p,"Bytes",ivars->bytes);
         put(p,"Reports13",ivars->lengths[13]);put(p,"Reports22",ivars->lengths[22]);
         put(p,"Reports31",ivars->lengths[31]);put(p,"Reports40",ivars->lengths[40]);

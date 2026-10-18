@@ -4,8 +4,9 @@ probe_root=${0:A:h}
 if (( $# )); then
     print -u2 "Usage: $0"; exit 2
 fi
+probe_driver_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["driverBundleID"])' "$probe_root/takeover-config.json")
 probe_state=$(systemextensionsctl list)
-if print -r -- "$probe_state" | /usr/bin/grep 'ink.ranna.glasstokey.gesturepad.rawhidprobe.driver' | /usr/bin/grep -v 'terminated waiting to uninstall on reboot' >/dev/null; then
+if print -r -- "$probe_state" | /usr/bin/grep -F "$probe_driver_id" | /usr/bin/grep -v 'terminated waiting to uninstall on reboot' >/dev/null; then
     print -u2 'Release the AMT receiver before installing. No files were replaced.'
     exit 1
 fi

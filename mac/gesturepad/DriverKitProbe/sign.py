@@ -2,9 +2,11 @@
 """Validate Apple-issued profiles, then sign the already-built local prototype.
 Never installs or activates a driver, changes SIP, or requests account credentials.
 """
+import json
 import argparse,datetime,fnmatch,hashlib,pathlib,plistlib,re,shutil,subprocess,sys
 ROOT=pathlib.Path(__file__).resolve().parent
-BASE='ink.ranna.glasstokey.gesturepad.rawhidprobe'
+CONFIG=json.loads((ROOT/'takeover-config.json').read_text())
+BASE=CONFIG['helperBundleID']
 def installed_identities():
     output=subprocess.check_output(['security','find-identity','-v','-p','codesigning'],text=True)
     return set(re.findall(r'\b[0-9A-F]{40}\b',output))
@@ -46,15 +48,15 @@ def main():
         print('Supply --driver-profile FILE --host-profile FILE. No signing/install/activation performed.')
         return 2
     driver_required=['com.apple.developer.driverkit','com.apple.developer.driverkit.transport.hid']
-    driver=load_profile(args.driver_profile,BASE+'.driver',driver_required)
+    driver=load_profile(args.driver_profile,CONFIG['driverBundleID'],driver_required)
     host=load_profile(args.host_profile,BASE,['com.apple.developer.system-extension.install'])
     if driver[0]!=host[0]:raise ValueError('Driver and host profiles must authorize the same team')
     common=driver[1]&host[1]&installed_identities()
     if not common:raise ValueError('No installed signing identity is authorized by BOTH profiles')
     identity=sorted(common)[0]
-    app=ROOT/'build/GesturePadDriverService.app'
-    dext=app/'Contents/Library/SystemExtensions'/f'{BASE}.driver.dext'
-    if not (dext/'AMTRawHIDReceiver').exists() or not (app/'Contents/MacOS/GesturePadRawHIDProbe').exists():raise ValueError('Build prototype first')
+    app=ROOT/'build'/CONFIG['helperAppName']
+    dext=app/'Contents/Library/SystemExtensions'/(CONFIG['driverBundleID']+'.dext')
+    if not (dext/CONFIG['driverExecutable']).exists() or not (app/'Contents/MacOS'/CONFIG['helperExecutable']).exists():raise ValueError('Build prototype first')
     for target,profile,result,name in [(dext,args.driver_profile,driver,'driver'),(app,args.host_profile,host,'host')]:
         destination=target/'embedded.provisionprofile' if name=='driver' else target/'Contents/embedded.provisionprofile'
         shutil.copyfile(profile,destination)

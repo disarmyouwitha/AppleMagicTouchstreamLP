@@ -281,7 +281,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     let pointerIdentityProbe = PointerIdentityProbe()
     let gainProbe = TrackpadGainProbe()
     let pointerControl = SelectedTrackpadEventFilter()
-    let driverControl = DriverKitTakeover()
+    let driverControl = DriverKitTakeover(output: SyntheticTrackpadOutput())
     var driverSelectedDevices: [OMSDeviceInfo] = []
     @Published private(set) var groups: [Group] = []
     @Published private(set) var singleInterfaceTestID: UInt64?
@@ -732,108 +732,6 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 }
 
-/// Experimental two-contact relative pointer; per-device baselines never cross pads.
-struct TwoFingerPointerTracker {
-    struct Baseline { let first: Int32; let second: Int32; let point: CGPoint; let time: Double }
-    private var baselines: [UInt64: Baseline] = [:]
-    mutating func reset() { baselines.removeAll(keepingCapacity: true) }
-    mutating func reset(device: UInt64) { baselines[device] = nil }
-    mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
-        process(device: device, time: time, contacts: touches)
-    }
-    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
-        var first: OMSRawTouch?, second: OMSRawTouch?
-        var count = 0
-        for touch in contacts where touch.state == .starting || touch.state == .making || touch.state == .touching {
-            count += 1
-            if count > 2 || touch.telemetry?.fingerID == 6 {
-                baselines.removeValue(forKey: device); return nil
-            }
-            if first == nil { first = touch } else { second = touch }
-        }
-        guard count == 2, let a = first, let b = second,
-              a.id != b.id, time.isFinite,
-              a.posX.isFinite, a.posY.isFinite, b.posX.isFinite, b.posY.isFinite else {
-            baselines.removeValue(forKey: device); return nil
-        }
-        let point = CGPoint(x: Double(a.posX + b.posX) / 2, y: Double(a.posY + b.posY) / 2)
-        let next = Baseline(first: min(a.id, b.id), second: max(a.id, b.id), point: point, time: time)
-        let old = baselines.updateValue(next, forKey: device)
-        guard let old, old.first == next.first, old.second == next.second,
-              time > old.time, time - old.time < 0.15 else { return nil }
-        // Provisional constant gain: 6 screen points per mm on a 160 x 114.9 mm pad.
-        let delta = CGPoint(x: (point.x - old.point.x) * 160 * 6,
-                            y: -(point.y - old.point.y) * 114.9 * 6)
-        guard abs(delta.x) < 150, abs(delta.y) < 150 else { return nil }
-        return delta
-    }
-}
-
-final class InterpretedTrackpadPointer: @unchecked Sendable {
-    static let shared = InterpretedTrackpadPointer()
-    private struct State {
-        var devices: Set<UInt64> = []
-        var tracker = TwoFingerPointerTracker()
-        var displayBounds: [CGRect] = []
-        var postedEvents: UInt64 = 0
-    }
-    private let lock = OSAllocatedUnfairLock(initialState: State())
-    func enable(devices: Set<UInt64>) {
-        var displays = [CGDirectDisplayID](repeating: 0, count: 16)
-        var count: UInt32 = 0
-        let bounds: [CGRect]
-        if CGGetActiveDisplayList(16, &displays, &count) == .success {
-            bounds = displays.prefix(Int(count)).map { CGDisplayBounds($0) }
-        } else { bounds = [] }
-        lock.withLock { state in
-            for device in state.devices.symmetricDifference(devices) { state.tracker.reset(device: device) }
-            state.devices = devices; state.displayBounds = bounds
-        }
-    }
-    var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
-    func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.tracker.reset() } }
-    func resetBaseline() { lock.withLock { $0.tracker.reset() } }
-    func resetBaseline(device: UInt64) { lock.withLock { $0.tracker.reset(device: device) } }
-    func process(_ frame: OMSRawTouchFrame) {
-        process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
-    }
-    func process<C: Collection & Sendable>(device: UInt64, time: Double, contacts: C, suppress: Bool = false) where C.Element == OMSRawTouch {
-        lock.withLock { state in
-            guard state.devices.contains(device) else { return }
-            // Native click-and-drag remains in charge while a mouse button is held.
-            if suppress || CGEventSource.buttonState(.combinedSessionState, button: .left)
-                || CGEventSource.buttonState(.combinedSessionState, button: .right)
-                || CGEventSource.buttonState(.combinedSessionState, button: .center) {
-                state.tracker.reset()
-                return
-            }
-            guard
-                  let delta = state.tracker.process(device: device,
-                    time: time, contacts: contacts),
-                  delta.x != 0 || delta.y != 0,
-                  let current = CGEvent(source: nil)?.location else { return }
-            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
-            // Clamp to the nearest actual display, including negative-origin displays.
-            var closest: CGPoint?; var distance = Double.infinity
-            for bounds in state.displayBounds {
-                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
-                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
-                let dx = candidate.x - location.x, dy = candidate.y - location.y
-                let d = dx * dx + dy * dy
-                if d < distance { distance = d; closest = candidate }
-            }
-            if let closest { location = closest }
-            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
-                                       mouseCursorPosition: location, mouseButton: .left) else { return }
-            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
-            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
-            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
-            event.post(tap: .cghidEventTap)
-            state.postedEvents &+= 1
-        }
-    }
-}
-
 /// Bounded aggregates keep event-tap work small. Labels describe the requested
 /// test phase, not an inferred device identity.
 struct PointerIdentityStats: Codable, Sendable {
@@ -1067,7 +965,7 @@ final class PointerIdentityProbe: ObservableObject {
 }
 
 struct SelectedTrackpadEventPolicy {
-    static let interpreterTag: Int64 = 0x475054504F494E54
+    static let interpreterTag: Int64 = TakeoverConfiguration.pointerEventTag
     static func matches(ancestry: [UInt64], selectedInterfaces: Set<UInt64>) -> Bool {
         ancestry.contains { selectedInterfaces.contains($0) }
     }

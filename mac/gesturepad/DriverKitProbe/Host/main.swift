@@ -6,7 +6,7 @@ import Security
 
 @main
 final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequestDelegate {
-    private let extensionID = "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver"
+    private let extensionID = TakeoverConfiguration.driverBundleID
     private var request: OSSystemExtensionRequest?
     private var managedToken: String?
     private var ownerPID: Int32 = 0
@@ -22,24 +22,24 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     private var propertiesQuery: OSSystemExtensionRequest?
     private func reportState(_ state: String) {
         guard let token = managedToken else { return }
-        DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverState"), object: token,
+        DistributedNotificationCenter.default().postNotificationName(.init(TakeoverConfiguration.stateNotification), object: token,
             userInfo: ["state": state, "helperPID": ProcessInfo.processInfo.processIdentifier], deliverImmediately: true)
     }
     private func beginManagedSessionIfRequested() {
         let args = ProcessInfo.processInfo.arguments
-        guard let index = args.firstIndex(of: "--gesturepad-session"), args.count > index + 1,
+        guard let index = args.firstIndex(of: TakeoverConfiguration.sessionArgument), args.count > index + 1,
               let pidIndex = args.firstIndex(of: "--owner-pid"), args.count > pidIndex + 1,
               let pid = Int32(args[pidIndex+1]), pid > 1 else { return }
-        guard UUID(uuidString: args[index+1]) != nil, isSignedGesturePad(pid) else { return }
+        guard UUID(uuidString: args[index+1]) != nil, isSignedOwner(pid) else { return }
         managedToken = args[index+1]; ownerPID = pid; managedStarted = Date()
         ownerLease = DriverOwnerLease(ownerPID: pid)
-        ownerObserver = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverOwner"), object: managedToken, queue: .main) { [weak self] note in
+        ownerObserver = DistributedNotificationCenter.default().addObserver(forName: .init(TakeoverConfiguration.ownerNotification), object: managedToken, queue: .main) { [weak self] note in
             let action = note.userInfo?["action"] as? String
             let nonce = note.userInfo?["nonce"] as? String
             let pid = (note.userInfo?["pid"] as? NSNumber)?.int32Value
             Task { @MainActor [weak self] in
                 guard let self, !self.requestedRemoval, let action, let nonce,
-                      let pid, self.isSignedGesturePad(pid) else { return }
+                      let pid, self.isSignedOwner(pid) else { return }
                 switch action {
                 case "prepare":
                     if self.ownerLease.prepare(pid: pid, nonce: nonce, now: Date()) {
@@ -56,7 +56,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
                 }
             }
         }
-        releaseObserver = DistributedNotificationCenter.default().addObserver(forName: .init("GesturePadDriverRelease"), object: managedToken, queue: .main) { [weak self] _ in
+        releaseObserver = DistributedNotificationCenter.default().addObserver(forName: .init(TakeoverConfiguration.releaseNotification), object: managedToken, queue: .main) { [weak self] _ in
             Task { @MainActor [weak self] in self?.requestManagedRemoval() }
         }
         watchdog = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
@@ -83,13 +83,13 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
         // Device presence is managed by the user's explicit Takeover click.
         // A pad disconnect must never remove the extension for the other pad.
     }
-    private func isSignedGesturePad(_ pid: Int32) -> Bool {
+    private func isSignedOwner(_ pid: Int32) -> Bool {
         var code: SecCode?
         let attributes = [kSecGuestAttributePid as String: NSNumber(value: pid)] as CFDictionary
         guard SecCodeCopyGuestWithAttributes(nil, attributes, [], &code) == errSecSuccess,
               let code else { return false }
         var requirement: SecRequirement?
-        let rule = "identifier \"ink.ranna.glasstokey.gesturepad\" and anchor apple generic and certificate leaf[subject.OU] = \"N9XQZJR4EP\""
+        let rule = "identifier \"\(TakeoverConfiguration.appBundleID)\" and anchor apple generic and certificate leaf[subject.OU] = \"\(TakeoverConfiguration.teamID)\""
         guard SecRequirementCreateWithString(rule as CFString, [], &requirement) == errSecSuccess else { return false }
         return SecCodeCheckValidity(code, [], requirement) == errSecSuccess
     }
@@ -150,9 +150,9 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
         checkingRemoval = false; propertiesQuery = nil
         // A reboot-pending historical build1 must not masquerade as active build22.
-        if !properties.contains(where: { $0.bundleVersion == "22" }) {
+        if !properties.contains(where: { $0.bundleVersion == String(TakeoverConfiguration.driverBuild) }) {
             reportState("removed"); watchdog?.invalidate(); watchdog = nil
-            log("Verified build22 is no longer registered. Check native trackpad behavior.")
+            log("Verified build\(TakeoverConfiguration.driverBuild) is no longer registered. Check native trackpad behavior.")
             NSApp.terminate(nil)
         } else { reportState("restoring") }
     }

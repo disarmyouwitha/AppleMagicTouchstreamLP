@@ -184,3 +184,12 @@ Trackpad Refresh must simply be disabled while DriverKit has an active/pending
 ownership request, including release in progress. It becomes available after
 explicit Release completes. No automatic release, polling, native-readiness
 coordinator or refresh-triggered app restart; user explicitly rejected those.
+
+Takeover refactor boundaries: read DriverKitProbe/PORTING.md before porting. Keep
+TrackpadContactDecoder independent of AppKit/output/lifecycle. DriverKitTakeover
+constructs no synthetic consumer by default and delivers TrackpadContactFrame via
+onFrame; GesturePad explicitly injects its optional SyntheticTrackpadOutput.
+Other apps implement output independently. Identities/version/wire names live in
+DriverKitProbe/takeover-config.json; run generate-config.py after edits. Preserve
+exact signed-owner validation, existing profiles, parser arithmetic and driver
+cancellation drain. Do not port legacy blackhole experiments as takeover dependencies.
