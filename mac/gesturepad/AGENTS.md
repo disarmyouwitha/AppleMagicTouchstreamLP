@@ -142,3 +142,6 @@ F1 F1 02 01 and was rejected. Keep USB payload02 01 unchanged. Use/test the shar
 Driver/MultitouchMode.h command. Explicit helper --initialize-bluetooth diagnostic
 is guarded to supported, already-controlled, zero-contact Bluetooth sources; its
 user-space Open was denied in the live test, so do not assert it repaired hardware.
+
+User reverted the transport identity policy/helper-adoption change. Selection uses
+only the explicit selected serials again; no USB↔BT alias expansion or cache.

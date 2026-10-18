@@ -85,6 +85,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
         log("GesturePad-managed session: the selected supported Magic Trackpads, active until released. This helper stays open to restore ownership if GesturePad quits.")
         activate()
     }
+
     private func requestManagedRemoval() {
         requestedRemoval = true
         guard request == nil, !removalInFlight else { return }

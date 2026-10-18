@@ -544,3 +544,43 @@ running bundle until its old processes have exited.
 ### v21 warm Restart physically confirmed
 
 User confirmed visualization and takeover returned through Restart. App PID37166→37738; helper37318 and driver37325 unchanged. Both receiver IDs unchanged (USB4294987808, BT4294987804), still opened; sequences95→1295 /145→991. Extension remains activated/enabled. See V21_WARM_RESTART_RESULT.json. This proves live Restart transfer for this session; it does not yet prove Bluetooth power-cycle recovery with corrected framing or arbitrary native reverse reclaim. Keep the preserved previous bundle while its helper process is still running.
+
+### v21 physical transport identity transition
+
+User confirmed full Bluetooth off/on + manual Sync succeeds with USB uninterrupted;
+see V21_BLUETOOTH_RESYNC_RESULT.json. Unplugging right USB then selecting its new BT
+MAC failed: helper log12:41:59 handed D0:C0:50:D5:69:55 back because it wasn't selected
+yet; Sync12:42:23 requested retake0 but native AppleMultitouchDevice4294989076 remained.
+The left BT stream remained controlled. This is the known native reverse-claim gap.
+
+Found authoritative cross-transport association in the earlier native USB registry
+snapshot: AppleDeviceManagementHIDEventService exposes DeviceAddress alongside the
+USB SerialNumber (J84HMA00H0B0000501→d0-c0-50-d5-69-55). New helper policy learns/caches
+these associations from supported USB management services, normalizes MACs, rejects
+ambiguous links and treats positively paired transport identities as one selected
+physical pad. It does not infer from names/timing, keep unrelated arrivals captured,
+automatically update visualizer routing, or cycle the extension. Sync remains manual.
+
+Helper update was signed/built with79 app tests passing, including alias symmetry,
+no unrelated-device inclusion, empty selection and invalid/ambiguous rejection.
+Atomically deployed app bundle; a replacement manager38607 adopted the existing
+session/coordinator before old manager37318 was retired (without AppKit deactivation).
+Driver37325 remained enabled/running throughout. The new manager uses current owner
+app37738 and selected two BT identities. Seeded one cache association by parsing the
+saved native USB registry snapshot; no personal IDs were hardcoded into product code.
+
+Already-native right pad still needs one physical reconnect to match after the old
+policy's handback. Future USB→BT transitions should avoid that premature handback;
+physical validation is pending. Matching truly unrelated already-native newly selected
+pads still has the reverse-reclaim limitation. IOHIDDeviceForceInterfaceRematch exists
+in Apple source but its IOHIDLibUserClient route is gated by the separate
+com.apple.hid.manager.user-access-interface-rematch entitlement; no entitlement was
+added, no privileged rematch bypass attempted, and no security settings changed.
+Preserve old bundles while their running processes remain alive.
+
+### Transport identity change reverted at user request
+
+Removed physical-identity alias policy, USB management scanning/cache, its two tests
+and --adopt-existing-driver helper mode. Retained corrected Bluetooth framing,
+current-build stream filter, Sync and warm Restart. Historical experiment notes
+above are evidence only, not current behavior. Rebuilt without changing live ownership.
