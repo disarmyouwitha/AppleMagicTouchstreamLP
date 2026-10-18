@@ -1,5 +1,7 @@
 # Tomorrow's GlassToKey capture session
 
+**Latest native-input takeover research:** [DriverKit USB/Bluetooth checkpoint, 2026-10-18](DRIVERKIT_TAKEOVER_CHECKPOINT.md). Full contact delivery succeeded with SIP enabled on both transports; integration remains pending.
+
 For the next session after native-parser research, use the [AMT follow-up test plan](AMT_FOLLOWUP_TEST_PLAN.md). It prioritizes independent scalar preservation, strength/area, coordinate/velocity calibration, ellipse orientation, and contextual label revisions. The instructions below document the earlier session.
 
 Use **GesturePad** for this first session. The new `RewriteProbe` tool reads saved `.atpcap` files offline; it never posts keys, moves the pointer or changes recognizer settings. Native macOS trackpad movement can still happen while recording.

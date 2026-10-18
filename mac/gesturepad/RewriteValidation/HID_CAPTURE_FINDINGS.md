@@ -1,5 +1,7 @@
 # First raw HID capture findings
 
+**Current conclusion:** see the [2026-10-18 DriverKit takeover checkpoint](DRIVERKIT_TAKEOVER_CHECKPOINT.md) for successful SIP-enabled USB and Bluetooth results. The sections below are chronological research history, including superseded hypotheses.
+
 Inputs: `captures/left_hid_capture.json`, `captures/right_hid_capture.json`.
 
 Both recordings ran approximately 15 seconds and ended through the automatic capture deadline. Both selected physical trackpads were connected via Bluetooth (product ID 804 / 0x0324). Each session successfully seized and closed all ten eligible interfaces, five per trackpad. Both files contain descriptors and identities, but **zero input reports**, zero bytes received, and zero dropped reports across every interface. No USB recording is present in these two files.
@@ -379,3 +381,156 @@ Preserved usb_original_seized.log, usb_original_seized_app.json,
 usb_original_seized.json (actual-length payloads + decoded contacts and paired
 summary). No additional touch test is needed to establish this mechanism. No
 runtime interpreter or SIP-on driver has been installed by these experiments.
+
+## SIP-enabled DriverKit prototype built; provisioning dependency
+
+Added independent DriverKitProbe receiver + activation/result host. Exact USB
+05AC:0324/serial J84HMA00H0B0000501/usage0001:0002 match is enforced twice.
+Driver uses IOHIDInterface ordinary Open, preseeded shared report pool, actual
+reportLength, one bounded full-packet sample and counts.15s timer closes; Stop and
+Start-error cleanup cancel actions and timer. It does not reuse IOHIDDevice seize,
+which would block this interface delivery. Native-output control is not yet solved.
+Host uses explicit SystemExtensions activate/deactivate requests and reads registry
+summary/first packet; no activation on launch. Activation may displace Apple event
+handling; Close does not prove native driver rematching. Reconnect/deactivation
+may be needed at the eventual live test.
+
+Build validated: IIG generation, DriverKit C++ compile/link (Intel, platform10,
+min20.0, SDK25.2), macOS host build (min13), packaging/plist lint, narrow hardware
+matching checks, expected DriverKit library load paths. No runtime activation or
+packet test. Existing GesturePad app/sibling projects not altered for prototype.
+
+Found two local valid signing identities, team N9XQZJR4EP, but zero provisioning
+profiles in standard/local folders. sign.py preflight correctly exits2 before
+signing; output remains unsigned. Real dependency is Apple-issued profiles for
+ink.ranna.glasstokey.gesturepad.rawhidprobe.driver (driverkit + transport.hid) and
+ink.ranna.glasstokey.gesturepad.rawhidprobe (system-extension.install), same team
+and authorized installed certificate. No credentials requested/read, driver
+installed/activated, or SIP settings changed. User must manage Apple account
+capabilities/provisioning before SIP-on deployment can be attempted. Exact steps,
+validation and signing commands are in DriverKitProbe/README.md.
+
+## Apple development provisioning completed, SIP-on live test pending
+
+With explicit user confirmation, registered driver AppID with DriverKit development
+and HID Transport development capabilities and host AppID with System Extension.
+User completed annual device review retaining existing devices, then authorized
+sending this iMac UUID to Apple. Registered nap iMac GesturePad Development.
+Generated driver/host development profiles with only this iMac selected, downloaded
+through the signed-in Apple portal and saved in ignored DriverKitProbe/profiles.
+Decoded Apple profiles confirm required Boolean entitlements, matching team/appIDs,
+thisMac included, and a common authorized locally installed certificate.
+sign.py signed driver then host and strict signature verification passed for both.
+Driver profile expires2027-03-01; host2027-10-18. No private key exported, new
+certificate created, extension installed/activated, or SIP change performed.
+Next step is explicit system-extension activation/hardware test; still no runtime
+proof of DriverKit matching/full-report access or native-output suppression.
+
+### First activation rejected before loading: required usage metadata
+
+sysextd logs explicitly rejected the initial driver: category property check
+requires OSBundleUsageDescription. No extension remained installed/activated;
+this was packaging failure, not matching/report access. Added required explanatory
+usage string in generated dext Info.plist. Host now scrolls and emits explicit
+NSError domain/code/details to unified logs. Rebuilt host/driver, re-signed with
+authorized profiles, verified both signatures and required metadata, reinstalled
+host under /Applications and reopened without automatic activation. User must
+retry explicit activation/approval before any live packet result is possible.
+
+### SIP-on driver loaded/opened, zero reports
+
+After user approved extension, systemextensionsctl reports activated enabled.
+Kernel logs show matching right USB IOHIDInterface, Start success, ordinary parent
+HID open, and15s later close0success. Receiver reports0, bytes0, firstFullLength0,
+no mapping/malformed errors. Therefore mouse freeze is NOT successful raw-report
+acquisition. The default-match receiver displaced the native Apple consumer; its
+15s Close does not unload/rematch Apple's driver. Additional Activate presses do
+not rearm the already matched receiver. Host deactivation requests later returned
+OSSystemExtensionErrorDomain13; cannot assume native restoration. User should
+disable the probe in Driver Extensions and reconnect USB before further testing.
+Read-only full registry snapshot saved /tmp/gesturepad-dext-current.plist. No new
+activation, hardware mode command, or runtime security changes performed.
+
+### Receiver v0.2 prepared: initialization hypothesis
+
+User disabled original receiver and restored native input. Registry DebugState
+showed0 ReportAvailableCalls, so first failure occurred before action delivery,
+not decoding/map/callback allocation. Receiver replaced native Apple handler;
+loss of its report-mode initialization is a hypothesis, not established cause.
+Prepared v0.2/build2: first timer at2s sends exact previously tested USB feature
+ID02 bytes0201 via IOHIDInterface::SetReport. Records ModeAttempted/ModeResult,
+baseline count in log, all callback invocations. Second timer closes at fixed15s
+deadline. No guessed commands/retries/reset. DriverKit path still may return an
+error; packet recording continues until deadline regardless. Rebuilt, signed and
+verified; installed updated host, restarted host only. System extension remains
+old build1 activated-disabled until user explicitly requests replacement/approval.
+Next live test requires Activate in v2 host and enabling v2 in Driver Extensions,
+then gestures. Do not merely re-enable old build1. Matching Apple's native handler
+replacement/recovery is still unresolved; disable and reconnect after test.
+
+### Teardown crash investigation and build3 delivery diagnostic
+
+Both crash reports021446/021824 have identical DriverKit asynchronous dispatch
+null-pointer faults on Default queue, during deactivation. Source passed nullptr
+to OSAction/IOTimerDispatchSource Cancel completion, whose SDK declarations do not
+mark completion optional (unlike SetEnableWithCompletion). Replaced all such
+cancellation handlers with empty valid blocks. This is a code-level candidate
+fix, not runtime-confirmed crash resolution.
+
+Recovered host output confirms build2 actually ran: ModeAttempted1 ModeResult0
+Callbacks0. Thus the mode command succeeded through DriverKit but did not unlock
+report delivery. Do not describe the failed result solely as stale build1.
+
+Build3 preserves one-shot mode test but adds ProbeBuild3 to registry/host and
+visible host version0.3. Built, signed/strict-verified, installed and restarted
+host only. Existing extension state: build1 pending reboot removal, build2 waiting
+user approval. No new activation requested automatically. Prepared trace-delivery.sh:
+45s USB/HID ktrace (sudo), pre/post full registry, extension states and driver logs,
+then offline summary comparing exact ancestor provider HID_HandleReport events
+against interface DebugState and receiver counters. Script sends no device command;
+receiver retains exact0201 at2s and15sclose. User authentication + activation
+replacement/approval + touch input is next dependency. Deactivation/recovery should
+be checked only after snapshots are saved; disabling already restored nativeinput
+without reconnect per user, so reconnect is fallback only.
+
+### Build3 attempt captured approval-wait, not a live driver session
+
+Evidence1792308243 parses137908 metadata events, no receiver in final registry.
+Extension remains0.3/3 activated waiting for user; host repeatedly reports pending
+request, no build3 Start log. No report-delivery or crash-fix conclusion follows.
+The missing step is enabling/approving the pending extension in Driver Extensions,
+not pressing Activate again. Increased trace window90s to allow Settings approval,
+and made Settings vs host distinction explicit. Script changes only metadata
+capture duration/instructions; no driver activation performed by agent.
+
+### Build 3 received full USB contact reports with SIP enabled
+
+2026-10-18 02:31 CDT host Read results identifies ProbeBuild 3, Callbacks/Reports
+369, Bytes 9630, Reports8 0, Reports21 160, Reports30 209, Reports39/48 0.
+ModeAttempted 1, ModeResult 0, Malformed 0, MappingErrors 0, CloseResult 0.
+FirstFullLength 21; first full report:
+02000000000000013180ab80ce1b442089881208aa.
+This proves actual-length DriverKit delivery of one/two-contact USB packets,
+without the earlier userspace eight-byte truncation. It does not yet prove live
+OMS replacement, Bluetooth support, or continuous control/release behavior.
+At 02:32:50 user-authorized deactivation uninstalled v0.3 successfully. No newer
+receiver crash report than 02:18:24 was present when checked at 02:33. The old
+v0.1 remains pending reboot removal. Missing Settings row after uninstall is
+consistent with no currently installed v0.3, not missing pending approval.
+Preserved host/state logs in ignored DriverKitProbe/evidence/build3-success/.
+
+### Build 4 Bluetooth baseline succeeded without mode writes
+
+2026-10-18 02:39:02–02:39:17 CDT, exact left Bluetooth serial
+D0:C0:50:D4:75:6C, vendor76/product804 usage1:2, IOHIDInterface0x100000a49.
+Kernel confirms successful Start/open and timed Close. User observed native
+mouse control being taken. Host Read results at02:39:22 identifies ProbeBuild4:
+884 callbacks/reports,14588 bytes;540 length13 and344 length22 packets,
+zero malformed or mapping errors, CloseResult0, ModeAttempted0.
+First full report13 bytes:319c22810582f42332550e0a6b (Bluetooth ID31,
+4-byte prefix + one9-byte contact). No USB0201 or Bluetooth feature command sent.
+User subsequently deactivated successfully at02:39:41; registry no longer holds
+receiver. Evidence preserved in ignored evidence/build4-bluetooth-success/.
+Together USB/build3 and Bluetooth/build4 prove full packet access on both
+transports with SIP enabled. Continuous delivery to GesturePad, output synthesis,
+reconnection and robust native-handler restoration remain integration work.
