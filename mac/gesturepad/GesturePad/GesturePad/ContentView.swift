@@ -4,7 +4,7 @@ import OpenMultitouchSupport
 
 /// Raw-touch workspace for future FingerWorks gesture and chord experiments.
 struct ContentView: View {
-    @StateObject private var hidBlackhole = HIDBlackholeExperiment()
+    @ObservedObject var hidBlackhole: HIDBlackholeExperiment
     @ObservedObject var viewModel: ContentViewModel
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
@@ -16,7 +16,10 @@ struct ContentView: View {
     @State private var replayScrubValue: Double = 0
     @State private var replayScrubInProgress = false
 
-    init(viewModel: ContentViewModel = ContentViewModel()) { self.viewModel = viewModel }
+    init(viewModel: ContentViewModel, hidBlackhole: HIDBlackholeExperiment) {
+        self.viewModel = viewModel
+        self.hidBlackhole = hidBlackhole
+    }
 
     private var size: CGSize {
         CGSize(width: Self.trackpadWidthMM * Self.displayScale,
@@ -117,7 +120,7 @@ struct ContentView: View {
                         hidBlackhole.setEnabled(enabled)
                     }))
                     .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
-                Button("Release HID now") { hidBlackhole.release() }
+                Button("Release Trackpads") { hidBlackhole.release() }
                     .keyboardShortcut(.escape, modifiers: [.command])
                     .disabled(!hidBlackhole.isActive)
             }

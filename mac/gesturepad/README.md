@@ -26,9 +26,9 @@ In Config, choose the left and right trackpads in the trackpad section. **Blackh
 
 Each eligible interface is opened with `IOHIDDeviceOpen(..., kIOHIDOptionsTypeSeizeDevice)`. Successfully opened interfaces register raw input-report callbacks that count reports/bytes/IDs and discard their payloads. Nothing forwards or synthesizes events. There is no CGEvent-tap fallback. Apple documents this as an [exclusive HID link](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen); success on one HID interface does not demonstrate control of other input routes.
 
-The separate blackhole-target picker and device-link refresh button are removed. The toggle uses both trackpad selections; **Release HID now** releases all seized interfaces. HID interface/report-count and diagnostic-copy controls remain hidden.
+The separate blackhole-target picker and device-link refresh button are removed. The toggle uses both trackpad selections; **Release Trackpads** releases all seized interfaces. HID interface/report-count and diagnostic-copy controls remain hidden.
 
-The experiment defaults off and auto-releases after **30 seconds**. It also releases on toggle-off, **Release HID now** (Command–Escape while Config has focus), target change, Config close, sleep, replay start, and app termination. The system closes HID clients when their process exits.
+The experiment defaults off and auto-releases after **30 seconds**. It also releases on toggle-off, **Release Trackpads** (Command–Escape while Config has focus), target change, Config close, sleep, replay start, and app termination. The system closes HID clients when their process exits.
 
 For each physical trackpad and transport (Bluetooth / USB), test cursor movement, physical click/drag, tap-click, scrolling, and macOS gestures. Record which outputs still occur, the displayed link/open status, and whether the OMS finger display continues updating. Release and confirm native input returns. Repeat with the other device/transport separately. Hidden or unexposed collections/routes are not ruled out by this inventory.
 
@@ -49,3 +49,5 @@ Keyboard event posting, autocorrect, dictation, key semantic mapping, mobile lay
 Live contact values flank the paired visualizers: left contacts in the left sidebar, right contacts in the right sidebar. Each sidebar scrolls independently; the workspace scrolls horizontally on narrower displays. Each contact shows its finger name, `p:` pressure, identity/state, normalized position, and available velocity. Expand **Raw measurements** for absolute coordinates, frame/time, axes, total, and density. Per-pad peak pressure and contact paths remain on the visualizers. Contact columns update live, including during replay; use Capture for recorded telemetry. The workspace scrolls vertically when the window cannot fit all contacts; there is no live-values popover.
 
 Inline left/right touch telemetry remains in sidebars flanking the visualizers. The HID test opens the union of interfaces belonging to the selected trackpads and preserves per-interface open/close results.
+
+**Release Trackpads** is directly below Config in the menu. **Control–Option–R** is registered as a global keyboard shortcut and releases the same session even when another app is focused (if the shortcut is available). The Config button and Command–Escape shortcut remain available as well.

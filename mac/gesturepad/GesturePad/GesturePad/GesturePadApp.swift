@@ -1,5 +1,6 @@
 import AppKit
 import Combine
+import Carbon
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
@@ -21,6 +22,9 @@ struct GesturePadApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let relaunchArgument = "--relaunch"
     private let controller = GesturePadController()
+    private let hidBlackhole = HIDBlackholeExperiment()
+    private var releaseHotKey: EventHotKeyRef?
+    private var releaseHotKeyHandler: EventHandlerRef?
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
@@ -44,6 +48,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         initializeRunAtStartupPreference()
         controller.start()
         configureStatusItem()
+        registerReleaseHIDShortcut()
         observeStatus()
         if shouldOpenConfigOnLaunch {
             openConfigWindow()
@@ -92,6 +97,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         configItem.target = self
         menu.addItem(configItem)
+        let releaseItem = NSMenuItem(title: "Release Trackpads",
+            action: #selector(releaseHIDNow), keyEquivalent: "r")
+        releaseItem.keyEquivalentModifierMask = [.control, .option]
+        releaseItem.target = self
+        menu.addItem(releaseItem)
         menu.addItem(.separator())
         let captureItem = NSMenuItem(
             title: "Capture...",
@@ -133,6 +143,38 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         captureInProgress = controller.isATPCaptureActive
         replayInProgress = controller.isATPReplayActive
         refreshCaptureReplayMenuState()
+    }
+
+    @objc private func releaseHIDNow() {
+        hidBlackhole.release(reason: "Released from menu or keyboard shortcut")
+    }
+
+    private func registerReleaseHIDShortcut() {
+        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
+                                  eventKind: UInt32(kEventHotKeyPressed))
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
+            guard let context else { return OSStatus(eventNotHandledErr) }
+            MainActor.assumeIsolated {
+                Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue().releaseHIDNow()
+            }
+            return noErr
+        }, 1, &event, context, &releaseHotKeyHandler)
+        guard installed == noErr else { return }
+        // Carbon hotkeys use the keyboard independently of seized trackpad interfaces.
+        let identifier = EventHotKeyID(signature: 0x47504852, id: 1)
+        let result = RegisterEventHotKey(UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey),
+            identifier, GetApplicationEventTarget(), 0, &releaseHotKey)
+        if result != noErr {
+            if let handler = releaseHotKeyHandler { RemoveEventHandler(handler) }
+            releaseHotKeyHandler = nil
+        }
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        hidBlackhole.release(reason: "App quitting")
+        if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
+        if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
     }
 
     private func observeStatus() {
@@ -420,7 +462,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func makeConfigWindow() -> NSWindow {
-        let contentView = ContentView(viewModel: controller.viewModel)
+        let contentView = ContentView(viewModel: controller.viewModel, hidBlackhole: hidBlackhole)
         let window = NSWindow(
             contentRect: NSRect(
                 x: 0,
