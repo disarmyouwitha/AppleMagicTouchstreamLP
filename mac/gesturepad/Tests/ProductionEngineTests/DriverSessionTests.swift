@@ -44,4 +44,15 @@ final class DriverSessionTests: XCTestCase {
         XCTAssertFalse(decoded.isValid(session: UUID().uuidString, nonce: nonce, now: now))
         XCTAssertFalse(decoded.isValid(session: session, nonce: nonce, now: now.addingTimeInterval(11)))
     }
+    func testRestartRetainsUnselectedInventoryWhenNoRoutesSelected() throws {
+        let pad = DriverSessionDevice(serial: "arbitrary-pad", transport: "Bluetooth", id: 42,
+            index: 1, registryID: 99, name: "Magic Trackpad")
+        let snapshot = DriverRestartSnapshot(session: UUID().uuidString, nonce: UUID().uuidString,
+            helperPID: 10, ownerPID: 11, expiresAt: Date().addingTimeInterval(10),
+            devices: [], synthesize: false, inventory: [pad])
+        let decoded = try JSONDecoder().decode(DriverRestartSnapshot.self, from: JSONEncoder().encode(snapshot))
+        XCTAssertTrue(decoded.devices.isEmpty)
+        XCTAssertEqual(decoded.inventory, [pad], "Unselected captured pad must remain selectable after Restart")
+    }
+
 }

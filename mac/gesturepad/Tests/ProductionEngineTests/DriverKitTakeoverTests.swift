@@ -6,13 +6,13 @@ import XCTest
 final class DriverKitTakeoverTests: XCTestCase {
     @MainActor
     func testCurrentCoordinatorAndReceiverAreAcceptedWithSameProtocolVersion() {
-        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 21), "StreamCoordinator": 1]))
-        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 21), "StreamSerial": "any-pad"]))
+        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 22), "StreamCoordinator": 1]))
+        XCTAssertTrue(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 22), "StreamSerial": "any-pad"]))
         XCTAssertFalse(DriverKitTakeover.acceptsStream(["StreamBuild": NSNumber(value: 20), "StreamCoordinator": 1]))
         XCTAssertFalse(DriverKitTakeover.acceptsStream(["StreamCoordinator": 1]))
     }
     @MainActor
-    func testTakeoverSelectionAllowsOneConnectedPadWithoutClaimingAnother() {
+    func testVisualizationSelectionAllowsZeroOneOrTwoConnectedPads() {
         let usb = (serial: "J84HMA00H0B0000501", transport: "USB", id: UInt64(1))
         let bt = (serial: "D0:C0:50:D4:75:6C", transport: "Bluetooth", id: UInt64(2))
         XCTAssertNil(DriverKitTakeover.selectionError(selected: [usb], connectedSerials: [usb.serial]))

@@ -47,7 +47,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         let resume = DriverKitTakeover.restartSnapshot(arguments: ProcessInfo.processInfo.arguments)
-        if let resume { DriverKitTakeover.installInventory(resume.devices) }
+        if let resume { DriverKitTakeover.installInventory(resume.inventory ?? resume.devices) }
         guard enforceSingleInstancePolicyAtLaunch() else { return }
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config")
         initializeRunAtStartupPreference()

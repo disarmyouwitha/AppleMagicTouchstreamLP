@@ -214,7 +214,7 @@ struct DriverStreamCursor {
 
 @MainActor
 final class DriverKitTakeover: ObservableObject {
-    static let streamBuild = 21
+    static let streamBuild = 22
     static func acceptsStream(_ properties: [String: Any]) -> Bool {
         (properties["StreamBuild"] as? NSNumber)?.intValue == streamBuild
     }
@@ -232,12 +232,10 @@ final class DriverKitTakeover: ObservableObject {
     var onSessionEnded: (() -> Void)?
     private var devices: [String: (id: UInt64, index: Int)] = [:]
     private var deviceMetadata: [DriverSessionDevice] = []
+    private var inventoryMetadata: [DriverSessionDevice] = []
     private var helperPID: Int32 = 0
     private(set) var isTransferringRestart = false
-    private var handedOffSerials: Set<String> = []
     private var disconnectedSerials: Set<String> = []
-    private var refreshedNativeServices: Set<UInt64> = []
-    private var lastNativeRefreshCheck = Date.distantPast
     private var cursors: [String: DriverStreamCursor] = [:]
     private var lastFrame: [String: Double] = [:]
     private var task: Task<Void, Never>?
@@ -321,7 +319,7 @@ final class DriverKitTakeover: ObservableObject {
                 resetStream(serial: serial)
             }
             for (serial, route) in resolved where previous[serial]?.id != route.id ||
-                previous[serial]?.index != route.index || disconnectedSerials.contains(serial) || handedOffSerials.contains(serial) {
+                previous[serial]?.index != route.index || disconnectedSerials.contains(serial) {
                 resetStream(serial: serial)
                 InterpretedTrackpadPointer.shared.resetBaseline(device: route.id)
                 estimator.reset(device: route.id)
@@ -330,16 +328,14 @@ final class DriverKitTakeover: ObservableObject {
             rememberMetadata(selected)
             DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))
             updateInterpreter()
-            DistributedNotificationCenter.default().postNotificationName(.init("GesturePadDriverSelection"), object: token,
-                userInfo: ["pid": ProcessInfo.processInfo.processIdentifier, "serials": Array(devices.keys)], deliverImmediately: true)
-            status = "Synced selected trackpads. Unselected pads are handed back individually; driver remains enabled."
+            status = "Synced visualization routes. All supported connected pads remain controlled until Release Trackpads."
             return
         }
         devices = resolved
         rememberMetadata(selected)
         isActive = true; isRestoring = false; token = UUID().uuidString
         received = 0; gaps = 0; receivedAt = nil; began = Date(); helperState = ""
-        handedOffSerials = []; disconnectedSerials = []; refreshedNativeServices = []; lastNativeRefreshCheck = .distantPast; cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]; estimator.reset()
+        disconnectedSerials = []; cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]; estimator.reset()
         NSLog("GesturePad DriverKit session %@ requested", token)
         // Source gate is enabled before activation and cleared only after restoration.
         onSessionBegan?()
@@ -347,8 +343,7 @@ final class DriverKitTakeover: ObservableObject {
         updateInterpreter()
         status = "Requesting DriverKit. Approve AMT Raw HID Receiver in Driver Extensions; touch the selected trackpad(s) once enabled."
         let config = NSWorkspace.OpenConfiguration()
-        let selectedJSON = String(data: (try? JSONEncoder().encode(Array(devices.keys))) ?? Data("[]".utf8), encoding: .utf8) ?? "[]"
-        config.arguments = ["--gesturepad-session", token, "--owner-pid", String(ProcessInfo.processInfo.processIdentifier), "--selected-serials", selectedJSON]
+        config.arguments = ["--gesturepad-session", token, "--owner-pid", String(ProcessInfo.processInfo.processIdentifier)]
         config.createsNewApplicationInstance = true
         config.activates = false
         config.addsToRecentItems = false
@@ -380,7 +375,7 @@ final class DriverKitTakeover: ObservableObject {
     private func resetStream(serial: String) {
         resetDerivedState(serial: serial)
         cursors[serial] = nil; lastFrame[serial] = nil; activeServices[serial] = nil
-        disconnectedSerials.remove(serial); handedOffSerials.remove(serial)
+        disconnectedSerials.remove(serial)
     }
 
     private func awaitClear(route: (id: UInt64, index: Int)) {
@@ -394,7 +389,18 @@ final class DriverKitTakeover: ObservableObject {
             return DriverSessionDevice(serial: device.serialNumber, transport: device.transport,
                 id: route.id, index: route.index, registryID: device.registryEntryID, name: device.deviceName)
         }
-        Self.installInventory(deviceMetadata)
+        // Capturing an unselected pad removes its native OMS service too. Keep
+        // the full pre-takeover inventory available for later selector changes.
+        var inventory = Dictionary(uniqueKeysWithValues: inventoryMetadata.map { ($0.id, $0) })
+        for device in OMSManager.shared.availableDevices {
+            guard !device.serialNumber.isEmpty, ["USB", "Bluetooth"].contains(device.transport),
+                  let index = OMSManager.shared.deviceIndex(for: device.deviceID) else { continue }
+            inventory[device.deviceIDNumeric] = DriverSessionDevice(serial: device.serialNumber,
+                transport: device.transport, id: device.deviceIDNumeric, index: index,
+                registryID: device.registryEntryID, name: device.deviceName)
+        }
+        inventoryMetadata = inventory.values.sorted { $0.index < $1.index }
+        Self.installInventory(inventoryMetadata)
     }
 
     static func installInventory(_ metadata: [DriverSessionDevice]) {
@@ -422,7 +428,7 @@ final class DriverKitTakeover: ObservableObject {
             if helperState == "restart-ready:\(nonce)" {
                 let snapshot = DriverRestartSnapshot(session: token, nonce: nonce, helperPID: helperPID,
                     ownerPID: ProcessInfo.processInfo.processIdentifier, expiresAt: Date().addingTimeInterval(15),
-                    devices: deviceMetadata, synthesize: synthesizeTwoFingerPointer)
+                    devices: deviceMetadata, synthesize: synthesizeTwoFingerPointer, inventory: inventoryMetadata)
                 if let data = try? JSONEncoder().encode(snapshot) {
                     UserDefaults.standard.set(data, forKey: DriverRestartSnapshot.defaultsKey)
                     UserDefaults.standard.synchronize() // Replacement is a different process starting immediately.
@@ -456,6 +462,8 @@ final class DriverKitTakeover: ObservableObject {
     func adoptRestart(_ snapshot: DriverRestartSnapshot) {
         token = snapshot.session; helperPID = snapshot.helperPID
         deviceMetadata = snapshot.devices
+        inventoryMetadata = snapshot.inventory ?? snapshot.devices
+        Self.installInventory(inventoryMetadata)
         devices = Dictionary(uniqueKeysWithValues: snapshot.devices.map { ($0.serial, (id: $0.id, index: $0.index)) })
         synthesizeTwoFingerPointer = snapshot.synthesize
         isActive = true; began = Date(); helperState = ""
@@ -477,31 +485,6 @@ final class DriverKitTakeover: ObservableObject {
             self.status = "Driver session transfer was not confirmed; requesting release."
             self.release(); self.beginPolling()
         }
-    }
-
-    // Refresh OMS callback objects after native reattachment, without changing the
-    // app's selected devices or restarting DriverKit's independent raw ingestion.
-    private func refreshReattachedNativeListenersIfNeeded() {
-        guard !handedOffSerials.isEmpty, Date().timeIntervalSince(lastNativeRefreshCheck) >= 0.5 else { return }
-        lastNativeRefreshCheck = Date()
-        var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(kIOMainPortDefault, IOServiceMatching("AppleMultitouchDevice"), &iterator) == KERN_SUCCESS else { return }
-        defer { IOObjectRelease(iterator) }
-        var discovered: Set<UInt64> = []
-        while true {
-            let service = IOIteratorNext(iterator); if service == 0 { break }
-            defer { IOObjectRelease(service) }
-            guard let serial = IORegistryEntrySearchCFProperty(service, kIOServicePlane,
-                "SerialNumber" as CFString, kCFAllocatorDefault,
-                IOOptionBits(kIORegistryIterateRecursively | kIORegistryIterateParents)) as? String,
-                handedOffSerials.contains(serial) else { continue }
-            var id: UInt64 = 0
-            if IORegistryEntryGetRegistryEntryID(service, &id) == KERN_SUCCESS,
-               !refreshedNativeServices.contains(id) { discovered.insert(id) }
-        }
-        guard !discovered.isEmpty else { return }
-        _ = OMSManager.shared.availableDevices
-        refreshedNativeServices.formUnion(discovered)
     }
 
     private static func hasVerifiedSurface(_ device: OMSDeviceInfo) -> Bool {
@@ -593,20 +576,6 @@ final class DriverKitTakeover: ObservableObject {
                   let session = (p["StreamSession"] as? NSNumber)?.uint64Value,
                   let data = p["StreamBatch"] as? Data,
                   let records = DriverStreamRecord.decodeBatch(data) else { continue }
-            if (p["StreamHandoffRequested"] as? NSNumber)?.intValue == 1 {
-                if handedOffSerials.insert(serial).inserted, let device = devices[serial] {
-                    resetDerivedState(serial: serial)
-                    DriverInputSourceGate.shared.set(Set(devices.filter { !handedOffSerials.contains($0.key) }.values.map(\.id)))
-                    await onContacts?(device.id, device.index, ProcessInfo.processInfo.systemUptime, [])
-                }
-                found.insert(serial)
-                continue
-            }
-            if handedOffSerials.remove(serial) != nil {
-                cursors[serial] = nil; lastFrame[serial] = nil; activeServices[serial] = nil
-                resetDerivedState(serial: serial)
-                DriverInputSourceGate.shared.set(Set(devices.filter { !handedOffSerials.contains($0.key) }.values.map(\.id)))
-            }
             var rid: UInt64 = 0; IORegistryEntryGetRegistryEntryID(service, &rid)
             // Reconnection is explicit. Keep ignoring replacement streams until
             // the user verifies the selectors and clicks DriverKit Takeover.
@@ -639,8 +608,7 @@ final class DriverKitTakeover: ObservableObject {
             }
             frames += next.records.map { (serial, $0) }
         }
-        refreshReattachedNativeListenersIfNeeded()
-        let missing = Set(activeServices.keys).subtracting(handedOffSerials).subtracting(found)
+        let missing = Set(activeServices.keys).subtracting(found)
         for serial in missing where !disconnectedSerials.contains(serial) {
             disconnectedSerials.insert(serial)
             cursors[serial] = nil; lastFrame[serial] = nil
@@ -650,7 +618,7 @@ final class DriverKitTakeover: ObservableObject {
             }
         }
         for (serial, record) in frames.sorted(by: { $0.1.timestamp < $1.1.timestamp }) {
-            guard isActive, !handedOffSerials.contains(serial), !disconnectedSerials.contains(serial), let device = devices[serial], let packet = MagicTrackpadPacket.decode(record.payload) else { continue }
+            guard isActive, !disconnectedSerials.contains(serial), let device = devices[serial], let packet = MagicTrackpadPacket.decode(record.payload) else { continue }
             let sourceNow = Double(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) / 1e9
             guard sourceNow >= record.timestamp, sourceNow - record.timestamp < 0.15 else {
                 gaps += 1; resetDerivedState(serial: serial); continue
@@ -678,17 +646,17 @@ final class DriverKitTakeover: ObservableObject {
                 InterpretedTrackpadPointer.shared.postedEventCount)
         }
         if !coordinatorSeen && Date().timeIntervalSince(began) > 5 && helperState != "approval" {
-            status = "Driver coordinator not found. Release Trackpads and report this state; Sync ownership is not available."
+            status = "Driver coordinator not found. Release Trackpads and report this state; Driver activation is not confirmed."
         } else if devices.isEmpty && coordinatorSeen {
-            status = "Driver enabled · no trackpads selected. Native handoff requested; Sync Trackpads applies new selections."
+            status = "Driver enabled · no trackpads selected. All supported connected pads remain captured; Sync Trackpads applies visualization selections."
         } else if !disconnectedSerials.isEmpty {
             status = "Trackpad stream changed. Verify Left/Right Trackpad selections, then click Sync Trackpads. Other pads stay controlled."
-        } else if found.subtracting(handedOffSerials).count < devices.count && Date().timeIntervalSince(began) > 5 && coordinatorSeen {
-            status = "Driver enabled · \(found.subtracting(handedOffSerials).count)/\(devices.count) selected streams. Verify selections and Sync. A pad still using native input may need its own reconnect; other pads remain controlled."
+        } else if found.count < devices.count && Date().timeIntervalSince(began) > 5 && coordinatorSeen {
+            status = "Driver enabled · \(found.count)/\(devices.count) selected streams. Verify selections and Sync. A pad still using native input may need its own reconnect; other pads remain controlled."
         } else if receivedAt != nil {
-            status = "DriverKit \(found.subtracting(handedOffSerials).count)/\(devices.count) pads · \(handedOffSerials.count) handoff requested · \(received) packets · gaps \(gaps) · synthetic moves \(InterpretedTrackpadPointer.shared.postedEventCount) · active until released"
+            status = "DriverKit \(found.count)/\(devices.count) pads · \(received) packets · gaps \(gaps) · synthetic moves \(InterpretedTrackpadPointer.shared.postedEventCount) · active until released"
         } else {
-            status = "DriverKit \(found.subtracting(handedOffSerials).count)/\(devices.count) pads · \(handedOffSerials.count) handoff requested; waiting for touches. If pending, approve in Driver Extensions."
+            status = "DriverKit \(found.count)/\(devices.count) pads; waiting for touches. If pending, approve in Driver Extensions."
         }
     }
 }

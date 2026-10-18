@@ -35,7 +35,7 @@ def load_profile(path,bundle,required,userclient=None):
     return team,certs,requested
 
 def main():
-    parser=argparse.ArgumentParser();parser.add_argument('--driver-profile',type=pathlib.Path);parser.add_argument('--host-profile',type=pathlib.Path);parser.add_argument('--development-userclients',action='store_true',help='Require Apple development profile authorizing allow-any-userclient-access; never use for distribution');args=parser.parse_args()
+    parser=argparse.ArgumentParser();parser.add_argument('--driver-profile',type=pathlib.Path);parser.add_argument('--host-profile',type=pathlib.Path);args=parser.parse_args()
     if not args.driver_profile or not args.host_profile:
         locations=[pathlib.Path.home()/'Library/Developer/Xcode/UserData/Provisioning Profiles',pathlib.Path.home()/'Library/MobileDevice/Provisioning Profiles',ROOT/'profiles']
         profiles=[f for folder in locations if folder.exists() for f in folder.iterdir() if f.suffix in ['.provisionprofile','.mobileprovision']]
@@ -46,13 +46,8 @@ def main():
         print('Supply --driver-profile FILE --host-profile FILE. No signing/install/activation performed.')
         return 2
     driver_required=['com.apple.developer.driverkit','com.apple.developer.driverkit.transport.hid']
-    if args.development_userclients:
-        driver_required.append('com.apple.developer.driverkit.allow-any-userclient-access')
     driver=load_profile(args.driver_profile,BASE+'.driver',driver_required)
-    host=load_profile(args.host_profile,BASE,['com.apple.developer.system-extension.install'],
-                      userclient=None if args.development_userclients else BASE+'.driver')
-    if args.development_userclients and driver[2].get('get-task-allow') is not True:
-        raise ValueError('Development user clients require a debugging-enabled development driver profile; distribution signing refused')
+    host=load_profile(args.host_profile,BASE,['com.apple.developer.system-extension.install'])
     if driver[0]!=host[0]:raise ValueError('Driver and host profiles must authorize the same team')
     common=driver[1]&host[1]&installed_identities()
     if not common:raise ValueError('No installed signing identity is authorized by BOTH profiles')

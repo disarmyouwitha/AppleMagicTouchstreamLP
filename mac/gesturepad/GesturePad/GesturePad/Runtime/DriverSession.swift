@@ -45,6 +45,7 @@ struct DriverRestartSnapshot: Codable, Sendable {
     let expiresAt: Date
     let devices: [DriverSessionDevice]
     let synthesize: Bool
+    var inventory: [DriverSessionDevice]? = nil
 
     func isValid(session: String, nonce: String, now: Date) -> Bool {
         self.session == session && self.nonce == nonce && now < expiresAt &&

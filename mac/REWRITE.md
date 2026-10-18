@@ -6,6 +6,10 @@
 > Should we allow the user to change the mouse speed in our app, or try to pull speed settings from OSX?
 ===
 
+ 
+ >  yep, then we just need seamless handoff back to native Mac
+&&3. When you quit the program you  have to put in your password to turn off the driver to release back to apple.. can we find another way to do it?
+
 00. 1. lets make "synthetic 2finger pointer" off by default. 2. lets add another checkbox "allow click" that also defaults off?
 
 0. quick break: Velocity are we calculating this or getting it over the line now? there is velocity reconstructed and reconstructed native

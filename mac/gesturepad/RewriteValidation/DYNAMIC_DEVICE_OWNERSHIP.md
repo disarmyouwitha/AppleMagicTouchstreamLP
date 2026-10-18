@@ -584,3 +584,12 @@ Removed physical-identity alias policy, USB management scanning/cache, its two t
 and --adopt-existing-driver helper mode. Retained corrected Bluetooth framing,
 current-build stream filter, Sync and warm Restart. Historical experiment notes
 above are evidence only, not current behavior. Rebuilt without changing live ownership.
+
+## v22 scope change (2026-10-18)
+
+User reported one-pad and no-pad selections work well, then requested removal of
+per-pad handoff/retake and the user-client-access dependency. New policy captures
+all supported connected pads together; selectors only route app input. Sync does
+not contact the driver. Release/Exit restores all pads together. Historical native
+handoff experiments below/above do not describe the current implementation. See
+DriverKitProbe/TAKEOVER_SPEC.md. Pending Apple request remains Submitted in portal.

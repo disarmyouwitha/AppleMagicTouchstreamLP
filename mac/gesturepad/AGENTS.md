@@ -145,3 +145,14 @@ user-space Open was denied in the live test, so do not assert it repaired hardwa
 
 User reverted the transport identity policy/helper-adoption change. Selection uses
 only the explicit selected serials again; no USB↔BT alias expansion or cache.
+
+v22 user-requested simplification supersedes the per-pad ownership rules above.
+Takeover captures all supported connected model0324 USB/Bluetooth pads together;
+Left/Right selectors and Sync only route visualization/synthetic output. Zero, one
+and two selections remain valid. Never hand back/retake/rematch individual pads.
+No NewUserClient/AMTHandoffClient or userclient-access/allow-any-userclient-access
+entitlement is part of the production build. The coordinator is status-only.
+Use DriverKitProbe/install-integration.sh with no development-userclients flag.
+Preserve independent receiver drain, Bluetooth framing, full telemetry, manual Sync,
+warm Restart with signed owner lease, retained unselected inventory, and full
+Release/Exit safeguards. UI must state that unselected supported pads stay captured.

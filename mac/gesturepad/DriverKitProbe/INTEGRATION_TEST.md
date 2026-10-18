@@ -125,3 +125,18 @@ Only the supported0324 family is generalized to arbitrary serials. Driver Takeov
 activates once; Sync applies current selectors; Restart transfers the live session;
 Exit requests removal and waits. The control-only coordinator should remain with
 zero selected receivers. Hardware validation and reverse-native retake are pending.
+
+## v22: shared takeover, no user-client permission
+
+Per-pad handoff/retake commands and client implementation are removed. Use
+`./install-integration.sh` without flags. Signing omits both user-client entitlements.
+See TAKEOVER_SPEC.md for the current all-supported-pads ownership policy and manual
+acceptance checks. Apple portal checked2026-10-18: host DriverKit UserClient Access
+request still shows **Submitted**, not Assigned. No portal permissions changed.
+
+Validation completed: DriverKit and Xcode Debug builds succeeded;78 Swift tests
+and8 driver/signing tests passed. Installed bundle deep/strict signature verified;
+installed driver and helper entitlements inspected: neither UserClient entitlement
+is present, and driver symbols contain no Handoff/NewUserClient implementation.
+Installed/opened /Applications/GesturePad.app with takeover off. Physical v22
+acceptance awaits the user's next enable/test; do not claim it is hardware-proven.

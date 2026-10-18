@@ -20,9 +20,6 @@ using kern_return_t = int;
 constexpr int kIOReturnSuccess = 0;
 #define SUPERDISPATCH 1
 #define os_log(...) ((void)0)
-static uint32_t activeReceivers;
-static int cleared;
-static void clearNativeInterfaces() { ++cleared; }
 static std::deque<void(^)(void)> pending;
 struct Source {
     bool alive=true, completed=false;
@@ -78,10 +75,8 @@ int main() {
         usbState.timer=&usbTimer;
         Receiver receiver{&state}, usb{&usbState};
         Service provider;
-        activeReceivers=2; cleared=0;
         assert(receiver.Stop_Impl(&provider)==0);
         assert(receiver.Stop_Impl(&provider)==0); // Repeated Stop must not recancel.
-        assert(activeReceivers==1 && cleared==0);
         if(mask) assert(!receiver.stopped && !receiver.freed);
         while(!pending.empty()) {
             auto callback=pending.front(); pending.pop_front();
@@ -99,7 +94,7 @@ class ShutdownTests(unittest.TestCase):
     def test_delayed_cancellation_and_partial_startup_do_not_destroy_live_sources(self):
         source = (ROOT / 'Driver/AMTRawHIDReceiver.cpp').read_text()
         start = source.index('kern_return_t IMPL(AMTRawHIDReceiver, Stop) {')
-        end = source.index('// Test operations', start)
+        end = len(source)
         production = source[start:end].replace(
             'kern_return_t IMPL(AMTRawHIDReceiver, Stop)',
             'int Receiver::Stop_Impl(Service *provider)')

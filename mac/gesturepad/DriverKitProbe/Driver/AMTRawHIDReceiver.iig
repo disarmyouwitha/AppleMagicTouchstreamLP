@@ -1,5 +1,4 @@
 #include <DriverKit/IOService.iig>
-#include <DriverKit/IOUserClient.iig>
 #include <DriverKit/IOTimerDispatchSource.iig>
 #include <HIDDriverKit/IOHIDInterface.iig>
 class AMTRawHIDReceiver : public IOService {
@@ -13,8 +12,6 @@ public:
         OSAction *action) TYPE(IOHIDInterface::ReportAvailable);
     virtual void Expired(OSAction *action, uint64_t time)
         TYPE(IOTimerDispatchSource::TimerOccurred);
-    virtual kern_return_t NewUserClient(uint32_t type, IOUserClient **userClient) override;
-    virtual kern_return_t Handoff(uint64_t operation);
     void Publish() LOCALONLY;
     void Finish(const char *reason) LOCALONLY;
 };

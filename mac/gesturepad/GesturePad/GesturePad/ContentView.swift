@@ -379,13 +379,15 @@ private struct DriverKitControls: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Button("Driver Takeover", action: start)
+                Button("Takeover Trackpads", action: start)
                     .disabled(unavailable || control.isRestoring || control.isActive)
                 Button("Sync Trackpads", action: start)
                     .disabled(unavailable || control.isRestoring || !control.isActive)
                 Button("Release Trackpads", action: release).disabled(!control.hasOwnershipRequest)
                 Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
             }
+            Text("Takeover captures all supported connected trackpads. Left/right selections control visualization.")
+                .font(.caption).foregroundStyle(.secondary)
             Text(control.status).font(.caption).fixedSize(horizontal: false, vertical: true)
         }
     }
