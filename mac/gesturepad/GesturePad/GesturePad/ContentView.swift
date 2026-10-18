@@ -330,9 +330,9 @@ struct ContentView: View {
                         HStack {
                             Text("#\(touch.id) · \(touch.telemetry?.fingerName ?? "Unknown")").fontWeight(.semibold)
                             Spacer()
-                            Text(String(format: "p: %.3f", touch.pressure)).fontWeight(.semibold)
+                            Text(String(format: "P: %.3f", touch.pressure)).fontWeight(.semibold)
                         }
-                        Text("\(touch.telemetry.map { "Finger \($0.fingerID) · " + "Hand \($0.handID)" } ?? "Identity unavailable") · \(touch.state.rawValue)")
+                        Text("\(touch.telemetry.map { "Finger \($0.fingerID)" } ?? "Identity unavailable") · \(touch.state.rawValue)")
                             .foregroundStyle(.secondary)
                         Text(String(format: "Position % .4f, % .4f", touch.position.x, touch.position.y))
                         if let raw = touch.telemetry {

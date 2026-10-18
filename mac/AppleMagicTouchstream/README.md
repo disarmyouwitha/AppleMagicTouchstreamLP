@@ -21,7 +21,7 @@ Haptics are the deliberate GTK exception for Apple trackpads. The original Typin
 
 `AppleMagicTouchstream/AppleMagicTouchstream/Compatibility/LegacyGTKProfile.swift` holds historical profile/capture serialization. Old gesture, dictation and GTK tuning fields remain decodable so captures and saved keyboard layouts are not lost. They never configure live recognizers or effects. The engine's small legacy replay setters are inert; imported unsupported action kinds cannot dispatch through either keys or custom buttons. The mobile geometry helper remains only for offline replay of historical captures; live startup falls back to the bootstrap split layout.
 
-The existing `ink.ranna.glasstokey.keyboard` bundle ID and `GlassToKey.*` preferences are retained for continuity. Existing keymap resources are compatibility/bootstrap data. Run only one touch-processing app at a time when testing.
+The permanent bundle ID is `ink.ranna.applemagictouchstream`. On first launch, preferences migrate from the former `ink.ranna.glasstokey.keyboard` domain without overwriting settings in the new domain; `GlassToKey.*` serialized keys remain compatible. Existing keymap resources are compatibility/bootstrap data. Run only one touch-processing app at a time when testing.
 
 ## Build and test
 

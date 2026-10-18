@@ -1,9 +1,9 @@
 {
   "driverBuild": 22,
   "driverVersion": "0.22",
-  "appBundleID": "ink.ranna.glasstokey.gesturepad",
-  "helperBundleID": "ink.ranna.glasstokey.gesturepad.rawhidprobe",
-  "driverBundleID": "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver",
+  "appBundleID": "ink.ranna.gesturepad",
+  "helperBundleID": "ink.ranna.trackpadtakeover",
+  "driverBundleID": "ink.ranna.trackpadtakeover.driver",
   "teamID": "N9XQZJR4EP",
   "helperAppName": "GesturePadDriverService.app",
   "helperExecutable": "GesturePadRawHIDProbe",

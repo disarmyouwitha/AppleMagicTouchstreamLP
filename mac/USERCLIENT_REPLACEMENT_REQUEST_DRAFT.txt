@@ -1,0 +1,11 @@
+Please treat this as the corrected replacement for requests TZ5M9X67Q9 and P6HGP368G8, which referenced prototype bundle IDs. We could not find a cancellation or amendment control in Request History. Please supersede those requests with this one. Team: N9XQZJR4EP.
+
+Our macOS products are GlassToKey (ink.ranna.glasstokey) and AppleMagicTouchstream (ink.ranna.applemagictouchstream). GesturePad (ink.ranna.gesturepad) is our research/test app. All three will use a shared background helper, ink.ranna.trackpadtakeover, to communicate with our DriverKit extension, ink.ranna.trackpadtakeover.driver. All five permanent App IDs are registered to our team.
+
+We request scoped com.apple.developer.driverkit.userclient-access for the direct client helper ink.ranna.trackpadtakeover, targeting only ink.ranna.trackpadtakeover.driver. The product apps will communicate with the helper; they do not require direct driver connections in this design.
+
+Our existing extension receives raw contact reports from supported Apple Magic Trackpad2 USB/Bluetooth HID interfaces. We want an authenticated UserClient channel for asynchronous contact delivery and explicit release/close commands, replacing registry polling and investigating handback to Apple native input without uninstalling the extension. Full handback still requires implementation and hardware validation.
+
+The helper will validate the signed product app identity and team before accepting control requests. The driver will validate the signed helper identity and command inputs. We are not requesting Allow Any UserClient Access or access for unrelated third-party clients.
+
+This capability is optional: existing takeover with authorized extension removal remains our fallback. A separate Virtual HID report-relay investigation is an alternative transport, not a requirement for this request.

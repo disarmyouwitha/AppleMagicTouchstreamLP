@@ -22,7 +22,21 @@ struct GesturePadApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let relaunchArgument = "--relaunch"
-    private let controller = GesturePadController()
+    private let controller: GesturePadController = {
+        // Run before constructing the model, which reads preferences immediately.
+        // Keep serialized keys unchanged and never overwrite the new domain.
+        let defaults = UserDefaults.standard
+        let domain = "ink.ranna.gesturepad"
+        let marker = "BundleIdentity.preferencesMigrated"
+        if Bundle.main.bundleIdentifier == domain,
+           !(defaults.persistentDomain(forName: domain)?[marker] as? Bool ?? false) {
+            var values = defaults.persistentDomain(forName: "ink.ranna.glasstokey.gesturepad") ?? [:]
+            values.merge(defaults.persistentDomain(forName: domain) ?? [:]) { _, current in current }
+            values[marker] = true
+            defaults.setPersistentDomain(values, forName: domain)
+        }
+        return GesturePadController()
+    }()
     private let hidBlackhole = HIDBlackholeExperiment()
     private var releaseHotKey: EventHotKeyRef?
     private var releaseHotKeyHandler: EventHandlerRef?

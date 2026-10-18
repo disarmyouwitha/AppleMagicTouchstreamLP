@@ -447,7 +447,7 @@ final class TrackpadSurfaceView: NSView {
     ) {
         let label: String
         if let raw = touch.telemetry {
-            label = "#\(touch.id)  \(raw.fingerName) (F:\(raw.fingerID)) H:\(raw.handID)  p:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
+            label = "#\(touch.id)  \(raw.fingerName) (F:\(raw.fingerID))  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
             // Show direction only: do not assume a calibrated velocity unit.
             let vx = CGFloat(raw.velocityX)
             let vy = CGFloat(raw.velocityY)
@@ -468,7 +468,7 @@ final class TrackpadSurfaceView: NSView {
                 arrow.stroke()
             }
         } else {
-            label = "#\(touch.id)  IDs unavailable  p:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
+            label = "#\(touch.id)  IDs unavailable  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
         }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),

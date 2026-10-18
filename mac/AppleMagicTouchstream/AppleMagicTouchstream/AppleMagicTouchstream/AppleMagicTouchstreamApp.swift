@@ -19,7 +19,21 @@ struct AppleMagicTouchstreamApp: App {
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let relaunchArgument = "--relaunch"
-    private let controller = GlassToKeyController()
+    private let controller: GlassToKeyController = {
+        // Run before constructing the model, which reads preferences immediately.
+        // Keep serialized keys unchanged and never overwrite the new domain.
+        let defaults = UserDefaults.standard
+        let domain = "ink.ranna.applemagictouchstream"
+        let marker = "BundleIdentity.preferencesMigrated"
+        if Bundle.main.bundleIdentifier == domain,
+           !(defaults.persistentDomain(forName: domain)?[marker] as? Bool ?? false) {
+            var values = defaults.persistentDomain(forName: "ink.ranna.glasstokey.keyboard") ?? [:]
+            values.merge(defaults.persistentDomain(forName: domain) ?? [:]) { _, current in current }
+            values[marker] = true
+            defaults.setPersistentDomain(values, forName: domain)
+        }
+        return GlassToKeyController()
+    }()
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?

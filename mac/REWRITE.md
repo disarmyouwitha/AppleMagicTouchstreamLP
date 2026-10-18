@@ -8,7 +8,7 @@
 ===
 
 `AppleMagicTouchstream`: 
-0. Can we copy GesturePad Trackpad take over, sync, release, refresh, menu items, 2finger synth and click allow into AppleMagicTouchstream?
+0. Can we copy GesturePad Trackpad take over, sync, release, refresh, menu items, into AppleMagicTouchstream?
 1. Can we place the Touchstream keypad image in the background along with the squared background. I want to create a touchstream keymap
 
 

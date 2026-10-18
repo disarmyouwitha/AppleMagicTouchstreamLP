@@ -61,8 +61,8 @@ DriverKit capabilities. The following steps document regeneration.
 In Apple Developer Account → Certificates, Identifiers & Profiles:
 
 1. Register explicit macOS identifiers:
-   - `ink.ranna.glasstokey.gesturepad.rawhidprobe.driver`
-   - `ink.ranna.glasstokey.gesturepad.rawhidprobe`
+   - `ink.ranna.trackpadtakeover.driver`
+   - `ink.ranna.trackpadtakeover`
 2. Driver profile must grant BOTH Boolean entitlements:
    - `com.apple.developer.driverkit`
    - `com.apple.developer.driverkit.transport.hid`

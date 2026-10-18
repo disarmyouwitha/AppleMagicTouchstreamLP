@@ -2,9 +2,9 @@
 enum TakeoverConfiguration {
     static let driverBuild: Int = 22
     static let driverVersion: String = "0.22"
-    static let appBundleID: String = "ink.ranna.glasstokey.gesturepad"
-    static let helperBundleID: String = "ink.ranna.glasstokey.gesturepad.rawhidprobe"
-    static let driverBundleID: String = "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver"
+    static let appBundleID: String = "ink.ranna.gesturepad"
+    static let helperBundleID: String = "ink.ranna.trackpadtakeover"
+    static let driverBundleID: String = "ink.ranna.trackpadtakeover.driver"
     static let teamID: String = "N9XQZJR4EP"
     static let helperAppName: String = "GesturePadDriverService.app"
     static let helperExecutable: String = "GesturePadRawHIDProbe"

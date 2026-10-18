@@ -1122,7 +1122,7 @@ struct ContentView: View {
         var body: some View {
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 2) {
-                    Text("GlassToKey")
+                    Text("AppleMagicTouchstream")
                         .font(.title2)
                         .bold()
                     HStack(spacing: 10) {
@@ -3059,108 +3059,6 @@ struct ContentView: View {
 
     }
 
-    /// Samples the existing display snapshot at 10 Hz, never the ingestion hot path.
-    private struct TouchTelemetryInspector: View {
-        @ObservedObject var viewModel: ContentViewModel
-        @State private var frozenSnapshot: ContentViewModel.TouchSnapshot?
-        @State private var freezePending = false
-        @State private var freezeTask: Task<Void, Never>?
-        @State private var copyError: String?
-
-        var body: some View {
-            TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-                let snapshot = frozenSnapshot ?? viewModel.snapshotTouchData()
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack {
-                        Text("Touch data inspector").font(.headline)
-                        Spacer()
-                        Text(frozenSnapshot == nil ? "Live · 10 Hz" : "Frozen")
-                            .foregroundStyle(.secondary)
-                        Button(frozenSnapshot == nil ? "Freeze" : "Resume") {
-                            freezeTask?.cancel()
-                            freezePending = false
-                            frozenSnapshot = frozenSnapshot == nil ? viewModel.snapshotTouchData() : nil
-                        }
-                        Button(freezePending ? "Waiting…" : "Freeze in 3s") {
-                            freezePending = true
-                            frozenSnapshot = nil
-                            freezeTask = Task { @MainActor in
-                                do { try await Task.sleep(for: .seconds(3)) } catch { return }
-                                frozenSnapshot = viewModel.snapshotTouchData()
-                                freezePending = false
-                            }
-                        }
-                        .disabled(freezePending)
-                        Button("Copy JSON") { copySnapshot(snapshot) }
-                    }
-                    Text("Place known fingers on the pads, one at a time, then together. Compare F/H codes across lifts. Zero is a raw value, not a confirmed finger name. Absolute units and identity meanings are unverified.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                    if let copyError { Text(copyError).foregroundStyle(.red) }
-                    ScrollView {
-                        HStack(alignment: .top, spacing: 16) {
-                            contactColumn("Left trackpad", touches: snapshot.left)
-                            contactColumn("Right trackpad", touches: snapshot.right)
-                        }
-                    }
-                    Text("New Capture recordings retain these fields. Older recordings show unavailable. Freeze in 3s lets you put both hands back on the pads.")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                .padding(16)
-                .frame(width: 820, height: 480)
-            }
-            .onDisappear { freezeTask?.cancel() }
-        }
-
-        private func contactColumn(_ title: String, touches: [OMSTouchData]) -> some View {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(title) · \(touches.count) contacts").font(.headline)
-                if touches.isEmpty {
-                    Text("No contacts").foregroundStyle(.secondary)
-                }
-                ForEach(Array(touches.enumerated()), id: \.offset) { _, touch in
-                    VStack(alignment: .leading, spacing: 3) {
-                        Text("Contact #\(touch.id) · \(touch.state.rawValue)").fontWeight(.semibold)
-                        Text(String(format: "Normalized position  % .4f, % .4f", touch.position.x, touch.position.y))
-                        if let raw = touch.telemetry {
-                            Text("\(raw.fingerName) · Finger ID \(raw.fingerID)    Hand ID \(raw.handID)")
-                            Text(String(format: "Normalized velocity  % .4f, % .4f", raw.velocityX, raw.velocityY))
-                            Text(String(format: "Absolute position    % .4f, % .4f", raw.absoluteX, raw.absoluteY))
-                            Text(String(format: "Absolute velocity    % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
-                            Text(String(format: "Frame %d · source time %.6f", raw.sourceFrame, raw.sourceTimestamp))
-                        } else {
-                            Text("Identity / velocity / absolute data unavailable")
-                                .foregroundStyle(.secondary)
-                        }
-                        Text(String(format: "Axes %.3f / %.3f · angle %.3f", touch.axis.major, touch.axis.minor, touch.angle))
-                        Text(String(format: "Total %.3f · density %.3f · pressure %.3f", touch.total, touch.density, touch.pressure))
-                    }
-                    .font(.system(size: 11, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-                }
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-        }
-
-        private func copySnapshot(_ snapshot: ContentViewModel.TouchSnapshot) {
-            do {
-                let encoder = JSONEncoder()
-                encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-                let data = try encoder.encode(["left": snapshot.left, "right": snapshot.right])
-                guard let text = String(data: data, encoding: .utf8) else { return }
-                NSPasteboard.general.clearContents()
-                NSPasteboard.general.setString(text, forType: .string)
-                copyError = nil
-            } catch {
-                copyError = "Could not copy contact data: \(error.localizedDescription)"
-            }
-        }
-    }
-
     private struct TrackpadDeckView: View {
         @ObservedObject var viewModel: ContentViewModel
         let trackpadSize: CGSize
@@ -3180,7 +3078,6 @@ struct ContentView: View {
         @State private var rightPeakPressure = 0
         @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
         @AppStorage("AppleMagicTouchstream.showTouchTelemetry") private var showTouchTelemetry = false
-        @State private var showTelemetryInspector = false
 
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
@@ -3195,13 +3092,6 @@ struct ContentView: View {
             let selectedRightKey = selectedGridKey?.side == .right ? selectedGridKey : nil
 
             VStack(alignment: .leading, spacing: 6) {
-                HStack(spacing: 12) {
-                    Button("Live values…") { showTelemetryInspector = true }
-                        .popover(isPresented: $showTelemetryInspector) {
-                            TouchTelemetryInspector(viewModel: viewModel)
-                        }
-
-                }
                 HStack(spacing: trackpadSpacing) {
                     pressureHeader(title: "Left Trackpad", peakPressure: leftPeakPressure)
                         .frame(width: trackpadSize.width, alignment: .leading)

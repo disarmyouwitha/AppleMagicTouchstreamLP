@@ -20,6 +20,8 @@ probe_helper_executable=$(python3 -c 'import json,sys; print(json.load(open(sys.
 probe_driver_executable=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["driverExecutable"])' "$probe_root/takeover-config.json")
 probe_app="$probe_output/$probe_helper_name"
 probe_dext="$probe_app/Contents/Library/SystemExtensions/$probe_driver_id.dext"
+# Repackage from scratch so renamed extensions cannot remain embedded.
+rm -rf "$probe_app"
 mkdir -p "$probe_app/Contents/MacOS" "$probe_dext"
 cp "$probe_output/AMTRawHIDReceiver" "$probe_dext/$probe_driver_executable"
 python3 "$probe_root/package.py" "$probe_app" "$probe_dext"

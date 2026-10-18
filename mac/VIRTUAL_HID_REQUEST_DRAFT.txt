@@ -1,0 +1,9 @@
+We are investigating a DriverKit-based, vendor-defined HID report relay for GlassToKey (ink.ranna.glasstokey) and AppleMagicTouchstream (ink.ranna.applemagictouchstream), team N9XQZJR4EP. GesturePad (ink.ranna.gesturepad) is our research app. Our permanent shared helper is ink.ranna.trackpadtakeover and driver is ink.ranna.trackpadtakeover.driver. These replace older prototype IDs referenced in request TZ5M9X67Q9.
+
+Our existing DriverKit receiver captures raw contact reports from supported Apple Magic Trackpad2 USB/Bluetooth interfaces. It publishes bounded report batches in the registry for the app to poll. We want to investigate lower-latency callback-driven delivery without a custom DriverKit UserClient connection.
+
+The proposed relay would subclass IOUserHIDDevice and expose a data-only, vendor-defined HID collection. It would forward original contact packets, source identity, sequence and timestamps through normal HID input-report callbacks. It would advertise no keyboard, pointer or consumer-control usages and generate no native UI actions itself. The apps separately interpret contacts as user-configured keyboard/pointer input or TouchStream-style gestures/chords.
+
+Please clarify which permissions this driver-created relay requires: com.apple.developer.driverkit.family.hid.device, com.apple.developer.driverkit.family.hid.virtual.device, and/or com.apple.developer.hid.virtual.device. This relay is not implemented or hardware-validated yet.
+
+This is separate from pending optional UserClient Access request TZ5M9X67Q9. We are investigating a standard HID callback route that does not require that entitlement.

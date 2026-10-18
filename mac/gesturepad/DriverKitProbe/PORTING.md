@@ -2,7 +2,7 @@
 
 GesturePad is the validated playground. This refactor changes source boundaries,
 not the hardware protocol, identity, entitlements, matching or takeover lifecycle.
-AppleMagicTouchstream and GlassToKey have not been modified.
+The bundle identity migration is documented in `../../BUNDLE_IDENTITIES.md`.
 
 ## Capture and session code
 
@@ -48,15 +48,13 @@ reject stale bindings.
 The helper, packaging and signing tools consume the same manifest. Caller checking
 still requires the exact app bundle ID, Apple signing anchor and team. Do not
 replace it with a wildcard or accept an arbitrary client-supplied identity. No
-UserClient entitlement has been added. Existing profile IDs and wire/session
-identities are unchanged by this refactor.
+UserClient entitlement has been added. Wire/session names remain compatible. Profiles must authorize the permanent bundle IDs.
 
 When choosing destination identities, deliberately configure each app/helper,
 provisioning profiles, embedding path/build target, installer destination and
 owner validation. Xcode's existing explicit helper embed reference and the app's
-project.env remain project-specific. A shared permanent driver/helper identity and
-simultaneous use by multiple apps are separate design decisions, not implemented
-by this extraction. Preserve the single-owner watchdog/lease semantics.
+project.env remain project-specific. The permanent shared helper/driver IDs are settled in the manifest. Simultaneous
+use by multiple apps remains unimplemented. Preserve the single-owner watchdog/lease semantics.
 
 ## Preserved behavior and verification
 

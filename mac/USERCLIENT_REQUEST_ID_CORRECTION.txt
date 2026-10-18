@@ -1,0 +1,23 @@
+Subject: Bundle ID correction for DriverKit UserClient Access request TZ5M9X67Q9
+
+Please update the bundle IDs in pending request TZ5M9X67Q9, team N9XQZJR4EP.
+We have finalized our permanent identities and registered them in Apple Developer:
+
+GlassToKey app: ink.ranna.glasstokey
+AppleMagicTouchstream app: ink.ranna.applemagictouchstream
+GesturePad research app: ink.ranna.gesturepad
+Shared background helper: ink.ranna.trackpadtakeover
+Target DriverKit extension: ink.ranna.trackpadtakeover.driver
+
+The former AppleMagicTouchstream app ID was ink.ranna.glasstokey.keyboard.
+The former target extension ID was ink.ranna.glasstokey.gesturepad.rawhidprobe.driver.
+Please use the permanent driver ID as the target for scoped UserClient Access.
+The shared helper is the intended direct client of the driver; the three apps
+are intended consumers of that helper, with GesturePad used for development.
+
+The purpose and optional nature of UserClient Access remain unchanged: authenticated
+commands for native handback, with existing authorized extension removal as fallback.
+We are not requesting Allow Any UserClient Access.
+
+Can this pending request be amended with the corrected identities, or should
+we cancel it and submit a replacement?
