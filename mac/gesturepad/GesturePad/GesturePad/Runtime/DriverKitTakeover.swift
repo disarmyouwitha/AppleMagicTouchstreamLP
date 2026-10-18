@@ -262,10 +262,10 @@ final class DriverKitTakeover: ObservableObject {
     @Published private(set) var isActive = false
     @Published private(set) var isRestoring = false
     @Published private(set) var status = "DriverKit ready. Takeover stays active until Release Trackpads."
-    @Published var synthesizeTwoFingerPointer = false {
+    @Published var synthesizeTwoFingerPointer = true {
         didSet { updateInterpreter() }
     }
-    @Published var allowClick = false {
+    @Published var allowClick = true {
         didSet { updateInterpreter() }
     }
     private var clickTracker = DriverClickTracker()
@@ -510,7 +510,7 @@ final class DriverKitTakeover: ObservableObject {
         Self.installInventory(inventoryMetadata)
         devices = Dictionary(uniqueKeysWithValues: snapshot.devices.map { ($0.serial, (id: $0.id, index: $0.index)) })
         synthesizeTwoFingerPointer = snapshot.synthesize
-        allowClick = snapshot.allowClick ?? false
+        allowClick = snapshot.allowClick ?? true
         isActive = true; began = Date(); helperState = ""
         onSessionBegan?()
         DriverInputSourceGate.shared.set(Set(devices.values.map(\.id)))

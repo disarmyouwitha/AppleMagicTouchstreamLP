@@ -175,3 +175,12 @@ Config-close Restart must launch in menu-bar/background mode, never reopen Confi
 Pass --background for that path; it overrides first-run/open-config presentation.
 The explicit menu Restart retains its previous presentation behavior. Both paths
 preserve active DriverKit ownership through the same signed owner-transfer lease.
+
+Latest user preference: Synthetic 2-finger pointer and Allow click now default ON.
+This supersedes the default-OFF instructions above. Restart preserves explicit
+choices; output still requires active takeover and Accessibility permission.
+
+Trackpad Refresh must simply be disabled while DriverKit has an active/pending
+ownership request, including release in progress. It becomes available after
+explicit Release completes. No automatic release, polling, native-readiness
+coordinator or refresh-triggered app restart; user explicitly rejected those.

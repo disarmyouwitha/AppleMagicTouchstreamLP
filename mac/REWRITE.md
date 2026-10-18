@@ -3,9 +3,7 @@
 > Should we allow the user to change the mouse speed in our app, or try to pull speed settings from OSX?
 ===
 
-1. quick break: Velocity are we calculating this or getting it over the line now? there is velocity reconstructed and reconstructed native
-
-2. sync button / release trackpads first. (*or make sync trigger it)?
+2. When you click the Trackpad refresh (After Trackpad Takeover) should we Release Trackpads automatically before refresh? Sometimes it can bug out when they are locked
 
 3. how many frames per second do we get from HID? Is it better/worse than OMS?
 

@@ -151,3 +151,7 @@ new sources must report buttons-up before arming. Explicit Restart preserves cho
 81 app tests passed, including option defaults, mid-press enable suppression,
 held-down deduplication and independent/together button release. Physical click
 behavior needs the user's hardware check in the installed app.
+
+Latest preference update: Synthetic 2-finger pointer and Allow click now default ON.
+This supersedes the default-off note above. Explicit warm Restart still preserves
+current choices; both outputs remain gated by active takeover and Accessibility.

@@ -52,10 +52,10 @@ struct ContentView: View {
                         UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
                     onRefresh: {
-                        if hidBlackhole.hasOpenHIDDevices && !hidBlackhole.driverControl.isActive { hidBlackhole.release(reason: "Trackpads refreshed") }
+                        guard !hidBlackhole.driverControl.hasOwnershipRequest else { return }
                         viewModel.refreshDevicesAndListeners()
                         synchronizeHIDTarget()
-                    }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
+                    }, driverControl: hidBlackhole.driverControl, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                 InlineTouchTelemetry(viewModel: viewModel) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -215,14 +215,19 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        let driverControl: DriverKitTakeover
         @ViewBuilder let blackholeControls: () -> BlackholeControls
         @ViewBuilder let touchControls: () -> TouchControls
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 if availableDevices.isEmpty {
-                    Text("No trackpads detected.")
-                        .foregroundStyle(.secondary)
+                    HStack {
+                        Text("No trackpads detected.")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        TrackpadRefreshButton(control: driverControl, refresh: onRefresh)
+                    }
                     blackholeControls()
                     touchControls()
                 } else {
@@ -275,14 +280,7 @@ struct ContentView: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        Button(action: {
-                            onRefresh()
-                        }) {
-                            Image(systemName: "arrow.clockwise")
-                                .imageScale(.medium)
-                        }
-                        .buttonStyle(.bordered)
-                        .help("Refresh trackpad list")
+                        TrackpadRefreshButton(control: driverControl, refresh: onRefresh)
                         .padding(.top, 20)
                     }
                 }
@@ -374,6 +372,19 @@ struct ContentView: View {
             .frame(width: columnWidth, alignment: .leading)
         }
 
+    }
+}
+
+private struct TrackpadRefreshButton: View {
+    @ObservedObject var control: DriverKitTakeover
+    let refresh: () -> Void
+    var body: some View {
+        Button(action: refresh) {
+            Image(systemName: "arrow.clockwise").imageScale(.medium)
+        }
+        .buttonStyle(.bordered)
+        .disabled(control.hasOwnershipRequest)
+        .help("Release Trackpads before refreshing the trackpad list")
     }
 }
 

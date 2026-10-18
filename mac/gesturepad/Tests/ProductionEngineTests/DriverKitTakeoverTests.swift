@@ -5,10 +5,10 @@ import XCTest
 
 final class DriverKitTakeoverTests: XCTestCase {
     @MainActor
-    func testPointerAndClickOutputDefaultOff() {
+    func testPointerAndClickOutputDefaultOn() {
         let control = DriverKitTakeover()
-        XCTAssertFalse(control.synthesizeTwoFingerPointer)
-        XCTAssertFalse(control.allowClick)
+        XCTAssertTrue(control.synthesizeTwoFingerPointer)
+        XCTAssertTrue(control.allowClick)
     }
     func testClicksRequireReleaseBeforeArmingAndDoNotRepeatHeldDown() {
         var tracker = DriverClickTracker()
