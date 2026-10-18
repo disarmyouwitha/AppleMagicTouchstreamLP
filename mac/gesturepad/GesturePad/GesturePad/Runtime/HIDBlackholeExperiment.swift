@@ -30,6 +30,11 @@ struct HIDBlackholeIdentity: Hashable, Sendable, Codable {
         return "registry:\(registryID)"
     }
 
+    var supportsUSBMultitouchProbe: Bool {
+        transport.caseInsensitiveCompare("USB") == .orderedSame && vendor == 0x05ac
+            && productID == 0x0324 && usagePage == 1 && usage == 2
+    }
+
     var isTrackpad: Bool {
         product.localizedCaseInsensitiveContains("trackpad") || (usagePage == 0x0d && usage == 0x05)
     }
@@ -209,6 +214,16 @@ private final class HIDBlackholeOpenDevice: @unchecked Sendable {
         return result
     }
 
+    func requestUSBMultitouchMode() -> IOReturn {
+        guard opened, identity.supportsUSBMultitouchProbe else { return kIOReturnUnsupported }
+        // Linux hid-magicmouse: USB-C 05AC:0324 uses feature ID 02,
+        // bytes 02 01. Preserve the leading report ID in the feature buffer.
+        let bytes: [UInt8] = [0x02, 0x01]
+        return bytes.withUnsafeBufferPointer {
+            IOHIDDeviceSetReport(device, kIOHIDReportTypeFeature, 0x02, $0.baseAddress!, $0.count)
+        }
+    }
+
     // All callbacks and these methods run on the main thread (dispatch target: main).
     func beginCapture() {
         captureDescriptor = IOHIDDeviceGetProperty(device, kIOHIDReportDescriptorKey as CFString) as? Data
@@ -264,11 +279,19 @@ final class HIDBlackholeExperiment: ObservableObject {
         let interfaces: [HIDBlackholeIdentity]
     }
     let pointerIdentityProbe = PointerIdentityProbe()
+    let gainProbe = TrackpadGainProbe()
     let pointerControl = SelectedTrackpadEventFilter()
     @Published private(set) var groups: [Group] = []
+    @Published private(set) var singleInterfaceTestID: UInt64?
+    private var usbModeRequestAt: Double?
+    private var usbModeAttempted = false
+    var selectedInterfaces: [HIDBlackholeIdentity] {
+        groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces).filter { !$0.isKeyboard }
+    }
+
     @Published private(set) var isActive = false
     @Published private(set) var isObservingHID = false
-    var hasOpenHIDDevices: Bool { isActive || isObservingHID || pointerControl.isActive }
+    var hasOpenHIDDevices: Bool { isActive || isObservingHID || pointerControl.isActive || gainProbe.isActive }
     private var openIsExclusive = true
     private var captureMode = "exclusive"
     @Published private(set) var secondsRemaining = 0
@@ -379,6 +402,77 @@ final class HIDBlackholeExperiment: ObservableObject {
         return path
     }
 
+    func testSingleInterface(registryID: UInt64, requestUSBMultitouch: Bool = false) {
+        guard !isSavingHID else { return }
+        release(reason: "Single-interface test starting")
+        guard !hasOpenHIDDevices,
+              let identity = selectedInterfaces.first(where: { $0.registryID == registryID }),
+              let source = devices[registryID],
+              let device = IOHIDDeviceCreate(kCFAllocatorDefault, IOHIDDeviceGetService(source)) else {
+            summary = "Could not open the selected interface. Refresh trackpads and retry."
+            return
+        }
+        guard !requestUSBMultitouch || identity.supportsUSBMultitouchProbe else {
+            summary = "USB mode probe requires USB 05AC:0324, usage 0001:0002. No interface opened."
+            return
+        }
+        InterfaceTouchEvidence.shared.start(devices: selectedTouchDeviceIDs)
+        let handle = HIDBlackholeOpenDevice(device: device, identity: identity)
+        // Register bounded byte storage before opening; no report bytes are
+        // inserted, stripped or interpreted by this capture.
+        handle.beginCapture()
+        let startedAt = Date()
+        let startedUptime = ProcessInfo.processInfo.systemUptime
+        let result = handle.open(exclusive: true)
+        openResults = ["Single-interface test: \(identity.label), \(Self.describe(identity)); seize \(Self.status(result))"]
+        guard result == kIOReturnSuccess else {
+            InterfaceTouchEvidence.shared.stop()
+            summary = "Single-interface seize failed: \(Self.status(result))"
+            diagnostics = openResults.joined(separator: "\n")
+            saveSingleInterfaceResult(identity: identity, status: summary)
+            return
+        }
+        captureURL = URL(fileURLWithPath: "/tmp/GesturePad-\(identity.transport)-HID-\(registryID)-\(Int(startedAt.timeIntervalSince1970)).json")
+        captureStartedAt = startedAt
+        captureStartedUptime = startedUptime
+        captureInputMonitoring = Self.inputMonitoringStatus()
+        captureMode = requestUSBMultitouch ? "exclusive-single-interface-usb-multitouch-request" : "exclusive-single-interface"
+        usbModeAttempted = false
+        usbModeRequestAt = requestUSBMultitouch ? ProcessInfo.processInfo.systemUptime + 2 : nil
+        captureDeadline = nil
+        isCapturingHID = true
+        captureStatus = "Capturing original HID report bytes; saves automatically after release."
+        held = [handle]
+        singleInterfaceTestID = registryID
+        if identity.supportsUSBMultitouchProbe && !requestUSBMultitouch {
+            // Diagnostic handshake only: the standalone USB tool waits for this
+            // new capture, then validates it again immediately before its write.
+            let marker = "\(identity.serial)\n\(registryID)\n\(startedAt.timeIntervalSince1970)\n\(startedUptime)\n"
+            do {
+                try marker.write(toFile: "/tmp/GesturePad-active-usb-capture.txt", atomically: true, encoding: .utf8)
+                openResults.append("Direct USB synchronization marker written; wall clock \(startedAt.timeIntervalSince1970), uptime \(startedUptime).")
+            } catch {
+                openResults.append("Direct USB synchronization unavailable: \(error.localizedDescription)")
+            }
+        }
+        isActive = true
+        openIsExclusive = true
+        configureDuration(15)
+    }
+
+    private func saveSingleInterfaceResult(identity: HIDBlackholeIdentity, status: String) {
+        let report: [String: Any] = ["format": "GesturePad.SingleInterfaceSeize", "status": status,
+            "registryID": identity.registryID, "transport": identity.transport,
+            "product": identity.product, "serial": identity.serial,
+            "usagePage": identity.usagePage, "usage": identity.usage,
+            "log": openResults, "contactEvidence": InterfaceTouchEvidence.shared.snapshot(),
+            "note": "Only this interface was opened. Check native cursor/scroll/click behavior physically; contact evidence counts live OMS callbacks and nonempty frames. No synthetic output or cursor correction."]
+        let url = URL(fileURLWithPath: "/tmp/GesturePad-interface-\(identity.registryID).json")
+        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.sortedKeys, .prettyPrinted]) {
+            try? data.write(to: url, options: .atomic)
+        }
+    }
+
     func setEnabled(_ enabled: Bool) {
         if !enabled { release(reason: "Released by toggle"); return }
         startPointerControl(duration: nil)
@@ -387,6 +481,8 @@ final class HIDBlackholeExperiment: ObservableObject {
     func startTimedTest() { startPointerControl(duration: 30) }
 
     private func startPointerControl(duration: TimeInterval?) {
+        gainProbe.restore()
+        guard !gainProbe.isActive else { return }
         guard !isCapturingHID else { return }
         pointerIdentityProbe.stop()
         if !held.isEmpty {
@@ -444,6 +540,7 @@ final class HIDBlackholeExperiment: ObservableObject {
         captureDeadline = nil
         captureURL = nil
         isSavingHID = true
+        let modeWasRequested = usbModeAttempted
         captureStatus = "Saving \(count) raw HID reports…"
         Task {
             let failure: String? = await Task.detached(priority: .utility) {
@@ -461,6 +558,7 @@ final class HIDBlackholeExperiment: ObservableObject {
                 let values = interfaces.reduce(UInt64(0)) { $0 + $1.inputValueCallbackCount }
                 captureStatus = "No raw reports; \(values) input-value callbacks. Saved diagnostic capture: \(url.path)"
             } else { captureStatus = "Saved \(count) reports (\(dropped) dropped): \(url.path)" }
+            if modeWasRequested { captureStatus += " Reconnect USB if native behavior does not recover after release." }
         }
     }
 
@@ -522,6 +620,10 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func release(reason: String = "Released") {
+        try? FileManager.default.removeItem(atPath: "/tmp/GesturePad-active-usb-capture.txt")
+        let interfaceIdentity = held.first(where: { $0.identity.registryID == singleInterfaceTestID })?.identity
+        usbModeRequestAt = nil
+        gainProbe.restore()
         pointerControl.stop()
         pointerIdentityProbe.stop()
         InterpretedTrackpadPointer.shared.stop()
@@ -546,9 +648,29 @@ final class HIDBlackholeExperiment: ObservableObject {
         secondsRemaining = 0
         summary = hasOpenHIDDevices ? "Release failed for \(held.count) interface(s). Retry Release, or quit the app." : "Released. Normal HID ownership restored."
         diagnostics = openResults.joined(separator: "\n")
+        if let interfaceIdentity {
+            InterfaceTouchEvidence.shared.stop()
+            saveSingleInterfaceResult(identity: interfaceIdentity, status: "\(reason). \(summary)")
+        }
+        if usbModeAttempted {
+            captureStatus += " USB mode was requested; reconnect the USB pad if native behavior does not recover after release."
+        }
+        usbModeAttempted = false
+        singleInterfaceTestID = nil
     }
 
     private func tick() {
+        if let requestAt = usbModeRequestAt, ProcessInfo.processInfo.systemUptime >= requestAt {
+            usbModeRequestAt = nil
+            if let id = singleInterfaceTestID, let handle = held.first(where: { $0.identity.registryID == id }) {
+                let before = handle.reports.withLock { $0.count }
+                let time = ProcessInfo.processInfo.systemUptime - captureStartedUptime
+                let result = handle.requestUSBMultitouchMode()
+                usbModeAttempted = true
+                openResults.append("USB multitouch feature request at +\(time)s; ID 02, bytes 02 01; before \(before) reports; result \(Self.status(result)). No reverse mode command is assumed.")
+                captureStatus = "USB multitouch request: \(Self.status(result)). Recording packets regardless of result."
+            }
+        }
         if let captureDeadline {
             let remaining = max(0, Int(ceil(captureDeadline - ProcessInfo.processInfo.systemUptime)))
             let count = held.reduce(0) { $0 + $1.captureReportCount }
@@ -559,11 +681,20 @@ final class HIDBlackholeExperiment: ObservableObject {
             captureStatus = "Recording \(captureMode) HID: \(remaining)s · \(count) reports · \(values) values · \(dropped) dropped"
             if remaining == 0 { release(reason: "15-second HID capture completed"); return }
         }
-        if let deadline, Date() >= deadline { release(reason: "30-second test ended"); return }
+        if let deadline, Date() >= deadline {
+            release(reason: singleInterfaceTestID != nil ? "15-second single-interface test ended" : "30-second test ended")
+            return
+        }
         updateReadout()
     }
 
     private func updateReadout() {
+        if let id = singleInterfaceTestID, let handle = held.first(where: { $0.identity.registryID == id }) {
+            secondsRemaining = max(0, Int(ceil(deadline?.timeIntervalSinceNow ?? 0)))
+            summary = "ONE interface: \(handle.identity.transport) \(String(format: "%04X:%04X", handle.identity.usagePage, handle.identity.usage)) RID \(id) · release in \(secondsRemaining)s · \(handle.captureReportCount) raw reports (\(handle.captureDroppedCount) dropped) · \(InterfaceTouchEvidence.shared.summary())"
+            saveSingleInterfaceResult(identity: handle.identity, status: summary)
+            return
+        }
         secondsRemaining = max(0, Int(ceil(deadline?.timeIntervalSinceNow ?? 0)))
         let total = groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces).filter { !$0.isKeyboard }.count
         let timing = isContinuous ? "enabled until released" : "auto-release in \(secondsRemaining)s"
@@ -948,8 +1079,6 @@ final class SelectedTrackpadEventFilter: ObservableObject {
         }
     }
     private var touchDevices: Set<UInt64> = []
-    private var acceptedCursorPosition: CGPoint?
-    private var cursorCorrections = 0
     private var tap: CFMachPort?
     private var source: CFRunLoopSource?
     private var timer: Timer?
@@ -993,9 +1122,8 @@ final class SelectedTrackpadEventFilter: ObservableObject {
             return
         }
         selectedSenders = routing.senders
-        movements = 0; scrolls = 0; unknown = 0; cursorCorrections = 0
+        movements = 0; scrolls = 0; unknown = 0
         self.touchDevices = touchDevices
-        acceptedCursorPosition = CGEvent(source: nil)?.location
         let types: [CGEventType] = [.mouseMoved, .scrollWheel, .leftMouseDragged, .rightMouseDragged,
             .otherMouseDragged, .leftMouseDown, .leftMouseUp, .rightMouseDown, .rightMouseUp, .otherMouseDown, .otherMouseUp]
         let mask = types.reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
@@ -1051,41 +1179,24 @@ final class SelectedTrackpadEventFilter: ObservableObject {
         }
         let tag = event.getIntegerValueField(.eventSourceUserData)
         if tag == SelectedTrackpadEventPolicy.interpreterTag {
-            acceptedCursorPosition = event.location
             return false
         }
         // Track allowed cursor destinations, including native physical/OS drag.
         // Buttons and drag are observed only to keep the cursor anchor current.
         guard type == .mouseMoved || type == .scrollWheel else {
-            acceptedCursorPosition = event.location
             return false
         }
         let hid = copyHIDEvent?(event)?.takeRetainedValue()
         let senderID = hid.flatMap { getSenderID?($0) } ?? 0
         if senderID == 0 {
             unknown += 1
-            if type == .mouseMoved { acceptedCursorPosition = event.location }
             return false
         }
         let suppress = SelectedTrackpadEventPolicy.suppress(type: type.rawValue,
             senderID: senderID, selectedSenders: selectedSenders, tag: tag)
         if suppress {
-            if type == .mouseMoved {
-                // Dropping CGEvents can stop app delivery while the hardware
-                // cursor still advances. Correct only identified selected-pad
-                // motion; never globally dissociate mouse/cursor movement.
-                guard let position = acceptedCursorPosition,
-                      CGWarpMouseCursorPosition(position) == .success else {
-                    stop(message: "Cursor correction failed. Native input restored.")
-                    return false
-                }
-                event.location = position
-                event.setIntegerValueField(.mouseEventDeltaX, value: 0)
-                event.setIntegerValueField(.mouseEventDeltaY, value: 0)
-                movements += 1
-                cursorCorrections += 1
-            } else { scrolls += 1 }
-        } else if type == .mouseMoved { acceptedCursorPosition = event.location }
+            if type == .mouseMoved { movements += 1 } else { scrolls += 1 }
+        }
         return suppress
     }
 
@@ -1105,7 +1216,7 @@ final class SelectedTrackpadEventFilter: ObservableObject {
     private func updateStatus() {
         let timing = deadline.map { "release in \(max(0, Int(ceil($0 - ProcessInfo.processInfo.systemUptime))))s" } ?? "until released"
         let synthesis = synthesizeTwoFingerPointer ? "2-finger synthesis ON" : "2-finger synthesis OFF"
-        status = "Controlling \(selectedGroups.count) pad(s) · \(timing) · corrected \(cursorCorrections) moves / blocked \(scrolls) scrolls · \(unknown) unidentified passed · \(synthesis) (\(InterpretedTrackpadPointer.shared.postedEventCount) posted)"
+        status = "Controlling \(selectedGroups.count) pad(s) · \(timing) · discarded \(movements) movement events (native cursor still enabled) / blocked \(scrolls) scrolls · \(unknown) unidentified passed · \(synthesis) (\(InterpretedTrackpadPointer.shared.postedEventCount) posted)"
 
     }
 
@@ -1117,7 +1228,7 @@ final class SelectedTrackpadEventFilter: ObservableObject {
         if let tap { CGEvent.tapEnable(tap: tap, enable: false); CFMachPortInvalidate(tap) }
         if let source { CFRunLoopRemoveSource(CFRunLoopGetMain(), source, .commonModes) }
         tap = nil; source = nil
-        selectedSenders = []; selectedGroups = []; touchDevices = []; acceptedCursorPosition = nil
+        selectedSenders = []; selectedGroups = []; touchDevices = []
         status = message
     }
 
@@ -1201,5 +1312,198 @@ enum GesturePadThreeFingerDragStatus {
             }
         }
         return nil
+    }
+}
+
+/// Timed per-service gain experiment. Never writes defaults or global properties.
+@MainActor
+final class TrackpadGainProbe: ObservableObject {
+    private typealias Create = @convention(c) (CFAllocator?, UInt32, CFDictionary?) -> Unmanaged<CFTypeRef>?
+    private typealias Services = @convention(c) (CFTypeRef) -> Unmanaged<CFArray>?
+    private typealias Copy = @convention(c) (CFTypeRef, CFString) -> Unmanaged<CFTypeRef>?
+    private typealias SetProperty = @convention(c) (CFTypeRef, CFString, CFTypeRef) -> Bool
+    private typealias RegistryID = @convention(c) (CFTypeRef) -> Unmanaged<CFTypeRef>?
+    private struct Original {
+        let service: CFTypeRef
+        let id: UInt64
+        let value: NSNumber
+    }
+    @Published private(set) var isActive = false
+    @Published private(set) var status = "Minimum-gain test: selected pads only, synthesis off, restores after 15s."
+    private let key = "HIDPointerAccelerationMultiplier" as CFString
+    private var originals: [Original] = []
+    private var client: CFTypeRef?
+    private var setter: SetProperty?
+    private var copy: Copy?
+    private var timer: Timer?
+    private var deadline: Double = 0
+    private var lastSampleSecond = -1
+    private var log: [String] = []
+
+    func start(groups: [HIDBlackholeExperiment.Group]) {
+        guard !isActive, !groups.isEmpty, let process = dlopen(nil, RTLD_NOW) else { return }
+        defer { dlclose(process) }
+        guard let createSymbol = dlsym(process, "IOHIDEventSystemClientCreateWithType"),
+              let servicesSymbol = dlsym(process, "IOHIDEventSystemClientCopyServices"),
+              let copySymbol = dlsym(process, "IOHIDServiceClientCopyProperty"),
+              let setSymbol = dlsym(process, "IOHIDServiceClientSetProperty"),
+              let idSymbol = dlsym(process, "IOHIDServiceClientGetRegistryID") else {
+            status = "Per-service property APIs unavailable. No values changed."
+            return
+        }
+        let create = unsafeBitCast(createSymbol, to: Create.self)
+        let services = unsafeBitCast(servicesSymbol, to: Services.self)
+        let copy = unsafeBitCast(copySymbol, to: Copy.self)
+        let setter = unsafeBitCast(setSymbol, to: SetProperty.self)
+        let registryID = unsafeBitCast(idSymbol, to: RegistryID.self)
+        guard let client = create(kCFAllocatorDefault, 2, nil)?.takeRetainedValue(),
+              let available = services(client)?.takeRetainedValue() as? [AnyObject] else {
+            status = "Could not enumerate pointer services. No values changed."
+            return
+        }
+        log = ["Precheck: \(groups.count) selected pad(s); multiplier fixed-point value 1 for 15s"]
+        let targets = groups.map { ($0.id, Set($0.interfaces.map(\.registryID))) }
+        var matched: Set<String> = []
+        var candidates: [Original] = []
+        for service in available {
+            // GetRegistryID returns a borrowed CFNumber, not a raw UInt64.
+            guard let number = registryID(service)?.takeUnretainedValue() as? NSNumber else { continue }
+            let id = number.uint64Value
+            let path = Self.ancestry(id)
+            for (group, interfaces) in targets where SelectedTrackpadEventPolicy.matches(ancestry: path, selectedInterfaces: interfaces) {
+                // Only alter services with an existing numeric value, so exact
+                // restoration never depends on a guessed default or deletion.
+                let value = copy(service, key)?.takeRetainedValue() as? NSNumber
+                log.append("Matched selected group \(group), service RID \(id), original multiplier \(value?.description ?? "missing")")
+                if let value {
+                    candidates.append(Original(service: service, id: id, value: value))
+                    matched.insert(group)
+                }
+            }
+        }
+        guard matched == Set(groups.map(\.id)), !candidates.isEmpty else {
+            let missing = groups.filter { !matched.contains($0.id) }.map(\.label).joined(separator: "; ")
+            status = "No restorable multiplier for: \(missing). No values changed."
+            save()
+            return
+        }
+        self.client = client; self.setter = setter; self.copy = copy
+        log.append("Property: HIDPointerAccelerationMultiplier; proposed fixed-point value: 1; duration: 15s")
+        for original in candidates {
+            originals.append(original) // Retain original before attempting write.
+            let accepted = setter(original.service, key, NSNumber(value: 1))
+            let readback = copy(original.service, key)?.takeRetainedValue() as? NSNumber
+            log.append("RID \(original.id): original \(original.value), write accepted \(accepted), readback \(readback?.description ?? "missing")")
+            guard accepted else {
+                restore()
+                status = isActive
+                    ? "Minimum-gain write rejected; restoration needs retry. Use Restore pointer gain."
+                    : "Minimum-gain write rejected; original readbacks match after restoration."
+                save()
+                return
+            }
+        }
+        isActive = true
+        lastSampleSecond = -1
+        deadline = ProcessInfo.processInfo.systemUptime + 15
+        timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+            MainActor.assumeIsolated { self?.tick() }
+        }
+        if let timer { RunLoop.main.add(timer, forMode: .common) }
+        tick()
+    }
+
+    private func tick() {
+        let remaining = max(0, Int(ceil(deadline - ProcessInfo.processInfo.systemUptime)))
+        if remaining == 0 { restore(); return }
+        let elapsed = 15 - remaining
+        if elapsed != lastSampleSecond, let copy {
+            lastSampleSecond = elapsed
+            for original in originals {
+                let value = copy(original.service, key)?.takeRetainedValue() as? NSNumber
+                log.append("After \(elapsed)s, RID \(original.id): readback \(value?.description ?? "missing") (accepted write remains under physical test)")
+            }
+        }
+        status = "Accepted minimum-gain writes · \(remaining)s · effect unverified: move one finger; check contacts and mouse."
+        save()
+    }
+
+    func restore() {
+        timer?.invalidate(); timer = nil
+        guard !originals.isEmpty, let setter, let copy else { return }
+        for original in originals {
+            let value = copy(original.service, key)?.takeRetainedValue() as? NSNumber
+            log.append("Before restore, RID \(original.id): final test readback \(value?.description ?? "missing")")
+        }
+        var failures: [Original] = []
+        for original in originals {
+            let accepted = setter(original.service, key, original.value)
+            let readback = copy(original.service, key)?.takeRetainedValue() as? NSNumber
+            let verified = accepted && readback == original.value
+            log.append("RID \(original.id): restore accepted \(accepted), readback \(readback?.description ?? "missing"), verified \(verified)")
+            if !verified { failures.append(original) }
+        }
+        originals = failures
+        isActive = !failures.isEmpty
+        status = failures.isEmpty ? "Original pointer multipliers restored. Normal native movement enabled."
+            : "Could not verify restoration for \(failures.count) service(s). Retry Release Trackpads."
+        if failures.isEmpty { client = nil }
+        save()
+    }
+
+    private func save() {
+        let report: [String: Any] = ["format": "GesturePad.TrackpadGainProbe", "active": isActive,
+            "status": status, "log": log, "note": "Readback is not proof of physical suppression. No synthesis, cursor correction or global changes."]
+        if let data = try? JSONSerialization.data(withJSONObject: report, options: [.prettyPrinted, .sortedKeys]) {
+            try? data.write(to: URL(fileURLWithPath: "/tmp/GesturePad-gain-probe.json"), options: .atomic)
+        }
+    }
+
+    private static func ancestry(_ id: UInt64) -> [UInt64] {
+        var entry = IOServiceGetMatchingService(kIOMainPortDefault, IORegistryEntryIDMatching(id))
+        var path: [UInt64] = []
+        while entry != 0, path.count < 16 {
+            var current: UInt64 = 0
+            IORegistryEntryGetRegistryEntryID(entry, &current); path.append(current)
+            var parent: io_registry_entry_t = 0
+            let result = IORegistryEntryGetParentEntry(entry, kIOServicePlane, &parent)
+            IOObjectRelease(entry); entry = result == KERN_SUCCESS ? parent : 0
+        }
+        if entry != 0 { IOObjectRelease(entry) }
+        return path
+    }
+}
+
+/// Lock-protected evidence at the live ingestion boundary, independent of output.
+final class InterfaceTouchEvidence: @unchecked Sendable {
+    static let shared = InterfaceTouchEvidence()
+    private struct State {
+        var active = false
+        var devices: Set<UInt64> = []
+        var frames: [UInt64: Int] = [:]
+        var nonempty: [UInt64: Int] = [:]
+    }
+    private let lock = OSAllocatedUnfairLock(initialState: State())
+    func start(devices: Set<UInt64>) {
+        lock.withLock { $0 = State(active: true, devices: devices) }
+    }
+    func stop() { lock.withLock { $0.active = false } }
+    func record(_ frame: OMSRawTouchFrame) {
+        lock.withLock {
+            guard $0.active, $0.devices.contains(frame.deviceIDNumeric) else { return }
+            $0.frames[frame.deviceIDNumeric, default: 0] += 1
+            if !frame.touches.isEmpty { $0.nonempty[frame.deviceIDNumeric, default: 0] += 1 }
+        }
+    }
+    func snapshot() -> [[String: String]] {
+        lock.withLock { state in state.devices.sorted().map {
+            ["deviceID": String($0), "frames": String(state.frames[$0, default: 0]),
+             "nonemptyFrames": String(state.nonempty[$0, default: 0])]
+        } }
+    }
+    func summary() -> String {
+        lock.withLock { state in
+            "OMS: \(state.frames.values.reduce(0,+)) frames / \(state.nonempty.values.reduce(0,+)) with contacts"
+        }
     }
 }

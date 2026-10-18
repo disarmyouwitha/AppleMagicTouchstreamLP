@@ -128,6 +128,8 @@ struct ContentView: View {
                     if !hidBlackhole.pointerControl.isActive { synchronizeHIDTarget() }
                     hidBlackhole.startTimedTest()
                 }, release: { hidBlackhole.release() })
+            SingleInterfaceControls(experiment: hidBlackhole)
+                .disabled(viewModel.replayTimelineState != nil)
             PointerIdentityControls(probe: hidBlackhole.pointerIdentityProbe) {
                 hidBlackhole.release(reason: "Pointer identity test started")
                 guard !hidBlackhole.hasOpenHIDDevices else { return }
@@ -374,7 +376,7 @@ private struct PointerIdentityControls: View {
     var body: some View {
         HStack {
             Button("Test pointer sources (40s)", action: start).disabled(probe.isObserving)
-            Button("Stop observer") { probe.stop() }.disabled(!probe.isObserving)
+            if probe.isObserving { Button("Stop observer") { probe.stop() } }
             Text(probe.status).font(.caption).textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
@@ -416,6 +418,50 @@ private struct TrackpadControlControls: View {
         .onAppear { threeFingerDrag = GesturePadThreeFingerDragStatus.detected() }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             threeFingerDrag = GesturePadThreeFingerDragStatus.detected()
+        }
+    }
+}
+
+private struct SingleInterfaceControls: View {
+    @ObservedObject var experiment: HIDBlackholeExperiment
+    @State private var interfaceID: UInt64 = 0
+    @State private var requestUSBMultitouch = false
+    private var canRequestUSBMode: Bool {
+        experiment.selectedInterfaces.first { $0.registryID == interfaceID }?.supportsUSBMultitouchProbe == true
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Picker("Single-interface test", selection: $interfaceID) {
+                    Text("Choose interface…").tag(UInt64(0))
+                    ForEach(experiment.selectedInterfaces, id: \.registryID) { device in
+                        Text("\(device.label) · \(String(format: "%04X:%04X", device.usagePage, device.usage)) · RID \(device.registryID)")
+                            .tag(device.registryID)
+                    }
+                }
+                .frame(maxWidth: 560)
+                .disabled(experiment.hasOpenHIDDevices)
+                Button("Capture one (15s)") {
+                    experiment.testSingleInterface(registryID: interfaceID,
+                        requestUSBMultitouch: requestUSBMultitouch && canRequestUSBMode)
+                }
+                    .disabled(experiment.hasOpenHIDDevices || experiment.isSavingHID || !experiment.selectedInterfaces.contains { $0.registryID == interfaceID })
+                if experiment.singleInterfaceTestID != nil || experiment.isActive {
+                    Button("Release interface") { experiment.release() }
+                }
+            }
+            if canRequestUSBMode {
+                Toggle("Request USB multitouch mode after 2s (02 01)", isOn: $requestUSBMultitouch)
+                    .disabled(experiment.hasOpenHIDDevices)
+                if requestUSBMultitouch {
+                    Text("Records 2s baseline, then sends the Linux mode command. Reconnect USB if native input does not recover after release.")
+                        .font(.caption)
+                }
+            }
+            Text(experiment.summary).font(.caption).textSelection(.enabled)
+            if !experiment.captureStatus.isEmpty {
+                Text(experiment.captureStatus).font(.caption).textSelection(.enabled)
+            }
         }
     }
 }

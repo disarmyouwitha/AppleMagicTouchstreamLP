@@ -138,6 +138,7 @@ final class InputRuntimeService: @unchecked Sendable {
                 frame.release()
                 return
             }
+            InterfaceTouchEvidence.shared.record(frame)
             InterpretedTrackpadPointer.shared.process(frame)
             liveHandler(frame, ingress)
         } else {

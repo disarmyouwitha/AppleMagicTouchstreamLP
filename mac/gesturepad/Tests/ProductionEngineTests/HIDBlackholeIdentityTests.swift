@@ -234,3 +234,21 @@ final class ThreeFingerDragStatusTests: XCTestCase {
         XCTAssertNil(GesturePadThreeFingerDragStatus.parse("unknown"))
     }
 }
+
+final class USBMultitouchProbeEligibilityTests: XCTestCase {
+    func testModeCommandIsRestrictedToExactUSBMouseInterface() {
+        func identity(transport: String = "USB", vendor: Int = 0x05ac, product: Int = 0x0324,
+                      page: Int = 1, usage: Int = 2) -> HIDBlackholeIdentity {
+            HIDBlackholeIdentity(registryID: 1, product: "Magic Trackpad", vendor: vendor,
+                productID: product, transport: transport, serial: "test", location: 1,
+                usagePage: page, usage: usage)
+        }
+        XCTAssertTrue(identity().supportsUSBMultitouchProbe)
+        XCTAssertTrue(identity(transport: "usb").supportsUSBMultitouchProbe)
+        XCTAssertFalse(identity(transport: "Bluetooth").supportsUSBMultitouchProbe)
+        XCTAssertFalse(identity(vendor: 76).supportsUSBMultitouchProbe)
+        XCTAssertFalse(identity(product: 0x0265).supportsUSBMultitouchProbe)
+        XCTAssertFalse(identity(page: 0xff00).supportsUSBMultitouchProbe)
+        XCTAssertFalse(identity(usage: 6).supportsUSBMultitouchProbe)
+    }
+}

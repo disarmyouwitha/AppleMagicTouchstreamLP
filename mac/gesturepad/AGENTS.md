@@ -30,4 +30,23 @@ TwoFingerPointerTracker uses per-device two-contact midpoint deltas; count/ident
 
 SelectedTrackpadEventPolicy must only suppress positively identified selected-device mouseMoved/scrollWheel events. No last-active-device or click/drag timing guesses. Resolve sender services through current selected interface ancestry, including AppleMultitouchDevice children; never hardcode sender IDs or do registry I/O inside the event tap. Generated pointer events bypass the filter by tag. Stop control if selected services change or the tap disables. Test source observation and control are mutually exclusive.
 
-Selected-pad ordinary movement currently requires experimental cursor correction: dropping CGEvents alone was observed to leave the cursor moving. Only matched selected-pad events may correct position; allowed/unknown/native-drag/tagged synthetic events update the anchor. Never globally dissociate cursor and mouse. Preserve the independent synthetic two-finger toggle, posted-event counter, and read-only OS three-finger-drag indicator. Hardware verification remains necessary for correction smoothness and mixed devices.
+Cursor correction/warping was rejected by the user and removed. Do not reintroduce it or global mouse/cursor dissociation. Dropping matched movement CGEvents alone was observed to leave the visible cursor moving; preserve that limitation in UI/docs until an upstream solution is validated. Keep working scroll filtering, synthesis toggle/counter, native button/drag passthrough and OS three-finger-drag status.
+
+The user has authorized a separate single-interface exclusive-open experiment: choose exactly one non-keyboard interface belonging to the selected pads, seize for 15 seconds, with synthesis/filtering stopped and independent live-contact frame evidence. Preserve timed/manual/lifecycle release and per-interface result files. Do not combine interfaces automatically. This exception does not change the normal control checkbox's nonseizing event-filter behavior. The unsuccessful minimum-gain controls have been replaced; retain Test Pointer Sources while verifying.
+
+User authorized one exact Linux-documented USB multitouch mode command as an optional single-interface capture variant. Restrict to transport USB, vendor 05AC, product 0324, usage 0001:0002. Default off; capture baseline for 2s, then send feature report ID02 bytes0201 once. Preserve exact bytes/result/timing and full 15s capture even on command error. Do not invent reverse commands or firmware writes. Release restores ownership, not a proven device mode; reconnect may be necessary. No automated hardware activation without the user's live test.
+
+The same exact USB 0201 request also has a standalone direct-parent-USB transport
+probe in Tools/USBTransportProbe. Ordinary parent USBDeviceOpen and report-descriptor
+read were validated without displacing Apple's interface driver. The synchronized
+script waits for a new selected eligible single-interface capture start marker;
+helper checks it again before sending the one command. Preserve marker cleanup
+on release, exact known right USB pad serial guard, two-second baseline, and both
+wall-clock/uptime command logs. Do not automatically activate this hardware test.
+
+A standalone lower-layer single-interface variant now exists as
+Tools/USBTransportProbe/run-interface-capture.sh: explicit15s USBInterfaceOpenSeize
+for only the known right05AC:0324 serial/interface1, async endpoint83 capture.
+Keep app control released, refuse other identities, stop on denied open, and retain
+15s/interrupt cleanup. No driver detach/terminate/reset/configuration changes or
+mode writes are part of this variant. Do not activate it without the user's live test.

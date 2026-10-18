@@ -68,3 +68,314 @@ A read-only run of the production routing functions against the current registry
 User reported two-finger movement functioning, native one-finger movement still moving the cursor, and the blocked-moves counter increasing during that leak. This supports successful identification/drop decisions but demonstrates that dropping CGEvents alone did not suppress the visible pointer in this configuration. It does not implicate missing sender identity.
 
 The follow-up implementation anchors the cursor at the last allowed destination and calls CGWarpMouseCursorPosition only for positively matched selected-pad mouseMoved events before discarding them. Other-mouse/unknown/native-drag/tagged synthetic destinations update the anchor. There is no global mouse/cursor disassociation. Synthetic output has its own visible toggle and posted-event count so it can be disabled during isolation testing. GTK's read-only system three-finger-drag preference status is reproduced independently in GesturePad. Physical correction quality, mixed-input behavior and jitter have not been verified by automated tests.
+
+## Cursor correction rejected and removed
+
+The user rejected cursor warping and confirmed the other behavior worked as expected. Removed CGWarpMouseCursorPosition, cursor anchors and correction counters, leaving sender-based event filtering, scroll suppression, synthetic two-finger output, native button/drag passthrough and system drag status intact. UI now explicitly says discarded movement events do not disable the native cursor. An upstream service/driver-level pointer suppression path remains an investigation, not a proven replacement. Do not repeat warp-based or global cursor-dissociation approaches.
+
+## Upstream access probe prepared
+
+Apple's HIDEventSystemClient header documents a private entitlement requirement for event-filter callbacks. A local standalone capability check found all required symbols present and all four requested client types allocatable despite no grants among the queried private HID keys. Thus allocation is not evidence of authorization. The new in-app Test upstream access control checks the running process and registers an always-pass admin-client filter callback for 15 seconds. It writes API/client/entitlement/callback diagnostics to `/tmp/GesturePad-upstream-access.json`. No suppression, mutation, device opens, property changes, entitlement changes or cursor correction are performed. A positive callback count would justify a later selected-source suppression test; zero callbacks remain a negative delivery result rather than a proved cause. The exact event-filter entitlement string is not confirmed and is labeled a candidate in diagnostics.
+
+## Minimum per-device gain probe prepared
+
+A read-only passive-client inspection found `HIDPointerAccelerationMultiplier` equal to 46603 on both currently selected Bluetooth and USB pads. Apple IOHIDPointerScrollFilter source explicitly converts a missing or zero multiplier to 1.0 before setupPointerAcceleration, so setting zero cannot test suppression. The next optional 15-second experiment uses the smallest positive fixed-point value (1) and restores the exact pre-existing numeric values, checking setter/readback results. Service selection uses registry ancestry; missing restorable values abort before any writes. No global properties or acceleration curves are modified. This is a test of whether the service property is writable and affects native motion, not proof of exact suppression. Synthesis remains off for the test. Results go to `/tmp/GesturePad-gain-probe.json`; no automated hardware mutation has been performed.
+
+## Restorable multiplier precheck corrected
+
+The first in-app minimum-gain precheck aborted before writes. Root cause: IOHIDServiceClientGetRegistryID was declared as returning UInt64, but its return is a borrowed CFNumber. Interpreting the tagged/object reference as an integer produced invalid registry lookups. Corrected the runtime declaration to an unmanaged CF object and extract NSNumber.uint64Value. A read-only check now resolves service 4295108038 to Bluetooth interface 4295108009 and service 4295137219 to USB interface 4295137189; both report multiplier 46603. No hardware property was written during diagnosis. Failed prechecks now identify unmatched selected labels and save their diagnostics, rather than returning an unsaved generic message.
+
+## First multiplier-write result
+
+Preserved `captures/gain_probe_first_write.json`. Both pads matched and exposed original multiplier 46603. The Bluetooth service was attempted first: setter returned true for value 1, but the immediate property read returned 46603. The probe immediately restored the original; setter returned true and readback matched 46603. USB was not written because the first mismatch aborted the test. No timed physical-effect interval ran. `active` is false.
+
+This is accepted-call/unverified-change evidence, not a rejected write and not proof the property cannot influence motion. Apple's filter caches property writes and applies setupAcceleration on its filter queue; therefore the public service-property read alone is not established as authoritative for the applied filter state. A subsequent test would need delayed/fresh reads or filter-state evidence and a bounded physical-effect interval; the prior immediate-readback gate must not be described as evidence of a permissions failure.
+
+## Accepted-write physical window
+
+Minimum-gain test now aborts only on a false setter result, not a readback mismatch. If writes to both selected services are accepted, they remain in the 15-second test window while synthesis stays disabled. Diagnostics record immediate, once-per-second delayed, and pre-restoration readbacks. UI explicitly calls the physical effect unverified. Timed/manual/lifecycle restoration is unchanged; write-rejection status preserves whether restoration needs retry rather than claiming it succeeded unconditionally. The previous attempt restored too quickly to assess native pointer speed.
+
+## Full-window gain test: no physical effect
+
+Preserved `captures/gain_probe_full_window.json`. Both Bluetooth and USB service property setters returned true for multiplier 1, but every readback from 0 through 14 seconds and immediately before restoration stayed at the original 46603. Restoration calls returned true and readbacks again matched 46603. User observed normal pointer speed during the full interval. Therefore this property-write experiment did not demonstrate native speed reduction or suppression on either transport. Setter acceptance and matching original readbacks must not be presented as proof that a changed multiplier was applied and subsequently restored. No repeat with the same API/property/value is justified by current evidence.
+
+## Single-interface matrix prepared
+
+User chose the Mac-only selective-seizure investigation and rejected VM/external bridge approaches. Added a picker for individual non-keyboard HID interfaces of the selected pads and a 15-second exclusive-open test. Exactly one interface is held per run; other experiments/synthesis stop first. An independent lock-protected counter at live OMS ingress records total/nonempty contact frames per selected numeric touch-device ID, separate from HID report callbacks. Timed/manual/lifecycle release saves exact interface/open/close/contact evidence under `/tmp/GesturePad-interface-<RID>.json`. Physical pointer/scroll/click suppression and cross-device effects require user observation. No automated physical seize was performed. The minimum-gain controls are removed from UI; Test Pointer Sources remains.
+
+## Single-interface matrix results
+
+User reports one interface per pad stopped both contact data and native motion. Saved nine result files under `captures/single-interface/`. In both transports the combined mouse/digitizer interface (usage 0001:0002) is the boundary: Bluetooth RID 4295108009 had only one contact frame; USB RID 4295137189 had five total/four nonempty frames, versus hundreds during other same-pad interface tests. The few frames do not demonstrate sustained delivery and may be queued/in-flight data. Other non-keyboard interfaces seized successfully and preserved contact callbacks when the tested pad was touched. No tested interface separated native motion suppression from OMS contact suppression.
+
+Important new evidence: USB RID 4295137189 received **319 raw input reports / 2552 bytes**, last report ID 2 and length 8, while exclusively open. This contradicts any blanket assertion that raw HID callbacks never work in this environment. These reports were counted, not payload-captured by this test, and may be ordinary relative mouse packets; they do not prove raw multitouch contacts are available. Bluetooth mouse/digitizer and all other interfaces showed zero raw reports. Next useful raw-HID investigation is bounded USB payload capture and descriptor comparison, potentially device multitouch mode negotiation if justified by observed reports and exact model protocol. No VM, external bridge or cursor-correction solution is proposed.
+
+## USB single-interface byte capture prepared
+
+Single-interface button is now Capture one (15s). Each run primes the existing bounded report buffer before opening exactly the chosen interface and exports a standalone original-byte capture on release, alongside the existing contact/open/close evidence. Automatic files use `/tmp/GesturePad-<transport>-HID-<RID>-<timestamp>.json`; no extra save interaction is required. Capture mode is exclusive-single-interface, with synthesis and other control stopped. This reuses the tested copy/bounds/serialization path; no protocol decoding or mode negotiation is introduced. The eight-byte ID 2 packets observed previously are not yet classified as PTP; Windows confirmed ID 5 / 50-byte format is only a comparison reference.
+
+## USB payload capture: relative mouse reports, not contact frames
+
+Preserved `captures/usb_single_interface_payload.json`. The approximately 15.07-second exclusive single-interface recording contains 384 successful eight-byte reports, all report ID 2, zero dropped reports. Payloads arrived from roughly 0.14s through 6.33s; the remainder of the capture contains no reports.
+
+The captured HID descriptor declares ID 2 as a relative mouse report: byte 0 report ID, byte 1 three button bits plus padding, bytes 2/3 signed eight-bit relative X/Y, bytes 4–7 declared constant padding. Captured byte 1 toggles between 0 and 1; relative X/Y change during movement. Bytes 4–6 are always zero; byte 7 varies between 2 and 3 despite its descriptor declaring constant padding, so its actual meaning remains unknown. It must not be labeled finger count/phase without evidence.
+
+Descriptor additionally advertises vendor input IDs 0x3F (16 bytes payload) and 0x44 (1387 bytes payload), but neither was received. No ID 5 / 50-byte Windows-format reports or contact-coordinate records were captured. This establishes USB mouse-report delivery while seized, not raw multitouch delivery. A next investigation could determine the correct model/transport-specific multitouch-mode negotiation before sending any feature report; blind Linux feature-command transplantation is not justified by this payload alone. Current capture sends no mode-changing commands.
+
+## Exact USB multitouch mode variant prepared
+
+Added a default-off checkbox to the current capture for USB 05AC:0324 usage 0001:0002 only. After a 2s capture baseline, the active main-runloop timer sends one feature report ID02 with payload0201, records relative time/result/pre-command report count, and keeps capturing regardless of result until15s. Eligibility tests exclude Bluetooth/wrong vendor/wrong model/other usages. The Linux source explicitly selects this command for USB-C0324 and parses ID2 multitouch input as12+9N bytes. No reverse mode command is assumed; UI/docs distinguish release of ownership from mode restoration and provide reconnect guidance. No feature command has been sent by automated verification.
+
+## USB feature 02 01 request: no contact reports observed
+
+Preserved `captures/usb_multitouch_mode_request.json`. Exclusive open succeeded; at +2.071s, after 53 baseline reports, the feature request ID02 bytes0201 returned success. The full ~15.07s recording contains 434 successful eight-byte ID2 reports /3472 bytes, zero drops, and no other report ID/length. Packets arrived ~1.47s to8.66s. Thus no12+9N touch packets, ID3F/44 reports or Windows-format contact packets were delivered after the request. Exclusive close succeeded. A successful feature call did not demonstrate a mode transition or raw contact delivery. This result cannot distinguish ignored command, alternate transport/interface routing, or macOS descriptor/report filtering; do not claim mode switched based on return code.
+
+## 2026-10-18: underlying USB access gate
+
+Added `Tools/USBTransportProbe/main.c`, a standalone read-only access probe,
+independent of the application. Built with clang and ran against connected
+05AC:0324 USB interface 1 (registry 4295137178). Plugin creation and interface
+query succeeded. Ordinary USBInterfaceOpen returned 0xe00002c5
+(kIOReturnExclusiveAccess, confirmed in the installed SDK). No USB control
+request was sent; no seizure, driver detachment, reset or report write occurred.
+The ordinary direct-interface path is unavailable while the existing driver owns
+it. This is not proof about feature-report forwarding and does not warrant
+another identical touch recording. Physical packet tracing or a separately
+validated access route remains necessary before a direct USB mode test.
+
+### Follow-up: parent-device access succeeds
+
+Continued beyond the interface access failure. Ordinary USBDeviceOpen on the
+parent IOUSBHostDevice succeeded while Apple's interface driver remained attached.
+A standard GET_DESCRIPTOR for interface 1's HID report descriptor succeeded,
+returning 110 bytes matching the HID-visible descriptor. USBDeviceClose succeeded.
+This invalidates the broader inference above that direct USB access is unavailable;
+only the ordinary interface open was denied.
+
+Prepared standalone opt-in `Tools/USBTransportProbe/run-test.sh`, which sends one
+exact 0201 feature command via USB DeviceRequestTO, interface 1, after a countdown,
+while the existing app captures HID input. No feature command was sent by the
+agent during preparation. This variant bypasses IOHIDDeviceSetReport and records
+wall-clock command timing/result; it does not capture physical interrupt packets.
+Build passed with Wall/Wextra and read-only path executed successfully. Next step
+requires the user's live app capture and gestures; no driver detachment is needed.
+
+### Direct USB command completed, but no post-command reports captured
+
+User ran the direct transport test. USB DeviceRequestTO returned success and
+wLenDone=2 for SET_REPORT 21/09/0302, interface 1, data 0201, at Unix
+1792300079.272319. The app capture began at ISO timestamp 2026-10-18T05:07:44Z
+(whole-second precision), lasted 15.070939 s, and recorded 603 reports/4824 bytes,
+all successful ID02 length8, no drops. Last report was +13.533801 s; even allowing
+for the truncated start timestamp, that report preceded the USB command. There
+are no captured post-command reports to evaluate. Do not interpret this recording
+as proof that direct USB SET_REPORT failed to change the stream.
+
+Preserved as captures/usb_direct_command_capture.json and
+captures/usb_direct_command_result.log. Prepared capture-start marker handshake:
+updated app writes serial/RID/precise wall clock/uptime after exclusive open;
+release removes marker. Script waits for a new, fresh, matching marker; helper
+rechecks it after its two-second baseline and before writing. Command log now
+includes mach_absolute_time-derived uptime for exact report alignment. No new
+hardware command sent during preparation.
+
+### Synchronized direct USB test: unchanged HID stream confirmed
+
+Capture usb_direct_synchronized_capture.json began at uptime452500.034425734.
+Direct USB SET_REPORT completed success, two bytes, sent at uptime452502.450059805
+(+2.415634071s). Of 870 successful ID02/length8 reports, 102 preceded the command
+and 768 followed it; last packet +13.276599209s. No drops, longer reports, or other
+IDs. This establishes that direct delivery of this exact command does not expose
+multitouch through the captured HID callbacks in this setup. It does not establish
+physical interrupt packet contents or rule out driver translation/mode override.
+
+Read-only physical configuration inspection succeeded through parent-device open:
+interface0 endpoint81 max16; interface1 endpoint83 max64; interface2 endpoint84
+max16 and OUT04 max64; interface3 endpoint85 max64. All interrupt endpoints,
+configuration1, alternate0. Therefore endpoint1's capacity does not itself impose
+an eight-byte ceiling. No interface detachment or extra feature command attempted.
+
+Checked kernel tracing: `ktrace trace -T 1 -f C05` refused with
+"ktrace must be run as root when tracing the current system". Prepared bounded
+Tools/USBTransportProbe/run-kernel-trace.sh for human-authenticated sudo execution
+of Apple's ktrace only, 20s, IOKit USB/HID subclasses052d/0523 from installed SDK.
+This is a trace-availability/evidence check, not a claim that payloads or adequate
+release-build tracepoints will be available. No SIP changes requested. User touch
+input and administrator authentication are now required for this next check.
+
+## Kernel trace baseline: candidate contact-sized USB completions
+
+Normal ownership trace /tmp/GesturePad-usb-hid-kernel-1792300491.ndjson contains
+58,042 parsed events. USB event052d0000, key140f8300, selector10: 471 final values21
+and 500 values30. 971 HID_HandleReport events identify registry4295137189. Live
+IORegistry confirms physical right pad USB address15 (0x0f), endpoint83 on
+interface1; bus/key association is consistent with140f8300. Other endpoint keys
+show eight-byte values for ordinary mouse routes. The 21/30 values match Linux
+trackpad2 USB layout12+9N, suggesting contact-sized transfers reach the USB driver
+under normal ownership. The modern private tracepoint's field layout has not been
+independently sourced, so these are candidate completion lengths, not recovered
+packet payloads or proven decoded contacts. Preserve this distinction.
+
+Saved baseline and summary in captures/usb_kernel_normal_ownership.ndjson and
+usb_kernel_normal_ownership_summary.json. Prepared run-test.sh --kernel-trace:
+authenticate sudo first, wait for the app's fresh eligible capture marker, start
+18s USB/HID kernel trace, then run the synchronized one-shot direct USB0201 probe.
+This should compare seized baseline, post-command, and post-release data without
+adding unrelated controls. App need not change/rebuild. Script syntax checked;
+this live variant requires the user's capture and gestures. No additional mode
+command or seizure was activated during preparation.
+
+## Combined seized USB/HID trace
+
+Synchronized capture started uptime452923.689271788; direct USB command success,
+2 bytes, at452926.509383909 (+2.820112121s). App captured916 ID02/8-byte reports.
+Candidate endpoint83 USB completion values remained21/30 throughout:
+before command (already seized)86x21 +62x30; after command while seized301x21
++467x30; after release76x30. Thus these candidate contact-sized transfers survive
+HID seizure; no evidence for an eight-byte transport switch. Source definition
+of the private USB tracepoint remains unconfirmed; packet payload not recovered.
+Saved usb_kernel_seized_ownership.ndjson, usb_kernel_seized_command.log and
+usb_kernel_seized_hid_capture.json. This is evidence for investigating report
+handling below the Apple HID presentation, not proof that raw contacts are usable.
+
+Prepared explicit standalone15s USBInterfaceOpenSeize capture for exactly
+05AC:0324, tested right serialJ84HMA00H0B0000501, interface1/interruptIN endpoint83
+maxPacket64. This is lower than the prior IOHIDDeviceOpen seizure. SDK documents
+that it asks the existing client to close and returns ExclusiveAccess if refused.
+No detach/terminate/reset or mode command is used. If accepted, async reads copy
+bounded packets (2048x4096-byte capacity); logging happens after abort/close.
+SIGINT/SIGTERM request early release;15s monotonic deadline, AbortPipe, close.
+Tool compiled with Wall/Wextra/Werror; usage-only path checked without activating
+hardware. New live test requires user run-interface-capture.sh with app released.
+
+## USB-interface seizure refused; descriptor-sized callback explanation
+
+User's direct interface capture stopped immediately with
+USBInterfaceOpenSeize=0xe00002c5 (ExclusiveAccess). No packet read was queued and
+no mode command was sent. Preserved captures/usb_interface_seize_refused.log.
+Retrying this unchanged open is not a new experiment.
+
+Continued static investigation of installed BootKernelExtensions.kc (read-only
+extraction into /tmp, no executable/kernel changes). AppleUSBTopCaseHIDDriver8420.1
+only overrides handleStart; its superclass is IOUSBHostHIDDevice. Its static
+wrapper has no own report-processing override. Open-source IOHIDElementContainer
+creates interrupt-report handler elements using descriptor report->inputBitCount.
+IOHIDElementPrivate::processReport copies _reportBits*_reportCount into the queued
+element value. Current device InputReportElements declares ID02 ReportSize64bits.
+This supplies a concrete explanation for an eight-byte userspace report even if
+the underlying transfer is longer. Increasing our callback buffer does not change
+this descriptor-sized kernel element. Installed build/source correspondence is
+not fully established; do not claim recovered contacts from this analysis alone.
+Sources:
+https://github.com/apple-oss-distributions/IOHIDFamily/blob/main/IOHIDFamily/IOHIDElementContainer.cpp
+https://github.com/apple-oss-distributions/IOHIDFamily/blob/main/IOHIDFamily/IOHIDElementPrivate.cpp
+
+Also investigated pre-copy hid_trace hook in IOHIDDevice. It is an empty function
+intended for function-boundary tracing, NOT a registered static hid DTrace provider.
+Its invocation is gated by boot arg hid_dtrace_debug, read once by
+IOHIDFamilyPrivate.h. A simple sudo static-provider listing is therefore not a
+prepared capture solution. SIP is enabled. No boot args or security settings were
+changed. Source:
+https://github.com/apple-oss-distributions/IOHIDFamily/blob/main/IOHIDFamily/IOHIDFamilyPrivate.h
+
+Read-only direct USB GET_REPORT(input02, interface1, max64) succeeded with8 bytes
+0200000000000000 while idle. This is a control-report snapshot, not the interrupt
+contact stream. Parent close succeeded. The probe's default diagnostic now logs
+this read. Compiled with Wall/Wextra/Werror. No extra live touch test is warranted
+for these established eight-byte paths. Remaining raw interrupt paths require
+replacing/matching the owning driver or protected kernel instrumentation; neither
+is accomplished by root ktrace metadata alone.
+
+### User requests testing the descriptor-truncation theory
+
+Prepared check-kernel-hooks.sh for root-authenticated probe inventory only, matching
+hid_trace and potential direct pre-copy IOHIDDevice/USB completion entry points.
+Current boot args empty; SIP enabled; unprivileged DTrace cannot initialize. No
+security/boot changes made. Script syntax checked. Need human authentication for
+this read-only inventory before deciding whether an instrumentation capture can
+work under the current security configuration. Presence of hid_trace alone is
+insufficient because its call is boot-argument gated.
+
+### Root inventory confirms SIP restriction
+
+User supplied check-kernel-hooks output (log1792301203): all three FBT patterns
+explicitly rejected with "System Integrity Protection is on", including
+hid_trace, IOHIDDevice handleReportWithTime and USB completion. No probes listed.
+Exit0 is not evidence of access: -Z permits unmatched probes. Therefore the
+current configuration cannot run the proposed FBT capture even with sudo.
+Continuing this specific diagnostic route needs the user's explicit decision
+about temporary security configuration changes/reboot. No such changes authorized
+or performed; preserve distinction from ordinary root ktrace metadata access.
+
+## SIP-off hook inventory and prepared original-buffer capture
+
+User explicitly disabled SIP in Recovery and returned with available FBT entry
+probes for hid_trace, IOHIDDevice::handleReportWithTime and USB completion.
+Boot args still empty. Prepared run-original-report-capture.sh without boot-arg
+changes: follow selected-device handleReportWithTime input calls and capture
+IOMemoryDescriptor::getLength / IOBufferMemoryDescriptor::getBytesNoCopy returns.
+Exact current right USB physical driver registry ID resolves dynamically (now
+4294968429); filter class to exclude IOHIDInterface descendants with copied keys.
+Installed Intel24G517 disassembly verifies registry ID offsets10h/+8 and actual
+virtual getLength/getBytesNoCopy calls before report processing. Record64-byte
+buffer dump plus actual length<=64 from known1388-byte-capacity USB buffer.
+No kernel writes. Bounded15s/2048 reports, compile check before activation, build
+and architecture guards. Shell syntax/identity resolution verified; DTrace
+compile and live hooks require human-authenticated run. No live test initiated.
+
+### Original-buffer probe compile fix
+
+User's compile check found no FBT getBytesNoCopy entry probe despite a symbol in
+the installed kernel. Reworked capture to depend only on available USB completion
+entry/return and HID handleReportWithTime entry. Exact Intel24G517 disassembly
+verified IOMemoryDescriptor length at50h and IOBufferMemoryDescriptor bytes pointer:
+(flags@20h & f0h)==20h -> pointer@b8h, otherwise first range pointer via60h.
+Filter USB-success call path and selected physical RID before descriptor reads;
+only dump nonzero lengths<=64 and kernel-space buffers. Retain64-byte bound with
+actual payload length metadata. No kernel writes, mode commands or new boot args.
+Shell syntax checked; compile check remains user-authenticated before activation.
+
+## Original pre-copy report bytes recovered
+
+Successful normal-ownership FBT capture1792304085:442 reports,188 length21 and254
+length30. Every payload has ID02 and fits Linux USB Trackpad2 prefix12 +9N.
+Decoded contacts using hid-magicmouse.c signed13-bit coordinate packing, tracking
+IDs, pressure, dimensions, orientation and state. Pressure range0..32; X-1220..823,
+Y-2019..1630;673 state80h down contacts,23 other lifecycle states. Tracking IDs are
+identifiers, not anatomical finger labels. Contact payloads are present beyond
+byte8 before descriptor-sized user queue processing. This validates the raw-data
+lead under normal ownership; usable access with SIP enabled remains unresolved.
+
+Preserved raw log and decoded/truncated actual-length packets as
+captures/usb_original_unseized.log and usb_original_unseized.json. Added offline
+decode-original-report.py (stdlib, works with systemPython3.9), validated against
+all442 real report blocks/end-count. It excludes bytes beyond actual reportlength.
+First DTrace timestamp label uptime_ns has not been aligned to system uptime;
+new template calls it trace_timestamp_ns and includes walltimestamp unix_ns for
+comparison against app capture start/end timestamps.
+
+Prepared --seized variant:30s trace with same exact-device filtering, no firmware
+commands, while user starts existing app15s single-interface seizure (mode checkbox
+off) after READY. User moves one/two fingers during/after seizure. This is the next
+live check of raw pre-copy contacts while OMS/native events are blocked. No new
+seizure or trace activated during preparation; no app rebuild required.
+
+## Definitive paired capture: full contacts survive HID seizure
+
+Original FBT trace1792304367 logged1146 valid ID02 packets. App seizure window
+Unix1792304374.20816..1792304389.232792 contains668 original packets and exactly668
+app callbacks (no app drops). All668 app payloads match the first8 bytes of their
+corresponding original packet, in order. Original seized packets:265 length21
+(one contact),341 length30 (two),2 length39 (three),60 length48 (four). Decoded
+pressure range0..59.478 more original packets arrived after release.
+
+This directly establishes complete packets reach IOHIDDevice during the exclusive
+session and userspace receives a truncated8-byte prefix, consistent with the
+64-bit report-handler element from the descriptor. Contact data itself is not lost
+at the USB transport during seizure. Decoding is Linux Trackpad2 layout, not yet
+validated anatomical classification. Capture is kernel tracing with SIP disabled;
+this does NOT supply a production SIP-enabled acquisition method.
+
+Preserved usb_original_seized.log, usb_original_seized_app.json,
+usb_original_seized.json (actual-length payloads + decoded contacts and paired
+summary). No additional touch test is needed to establish this mechanism. No
+runtime interpreter or SIP-on driver has been installed by these experiments.

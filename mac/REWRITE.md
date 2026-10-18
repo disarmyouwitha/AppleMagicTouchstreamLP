@@ -1,5 +1,6 @@
 `GesturePad`:  
 0. Can I allow certain actions to pass through blackhole? Lets test Ignoring all mouse movement sent from device, but allow click and gestures. 
+1. Cursor correction but.. better?
 
 
 `AppleMagicTouchstream`: 
