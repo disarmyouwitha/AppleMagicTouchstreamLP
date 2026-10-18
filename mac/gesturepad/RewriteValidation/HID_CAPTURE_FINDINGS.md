@@ -577,3 +577,14 @@ Installer now installs a single /Applications/GesturePad.app and archives/remove
 the obsolete standalone probe application. Deep strict signature validation and
 Xcode embedded-binary validation passed. Unmanaged service smoke launch exited,
 with no driver activated; nested-package activation still needs the live test.
+
+
+### DriverKit telemetry/visualizer adapter correction
+
+Compared BEFORE_takeover.atpcap and AFTER_takeover.atpcap without modifying them.
+Detailed numbers and protocol evidence: DRIVERKIT_TELEMETRY_COMPARISON.md.
+The huge ellipse was a units error (median major7.76 vs85), not huge physical
+contacts. Recovered dedicated finger bits, full3-bit states and orientation;
+added provenance/raw9-byte record preservation and explicitly derived velocity.
+Hand/density remain unavailable, raw pressure/size are not Apple-calibrated values.
+Build and61 tests pass. Live visual verification remains pending.

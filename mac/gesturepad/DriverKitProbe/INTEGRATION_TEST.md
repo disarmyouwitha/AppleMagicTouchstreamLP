@@ -44,7 +44,10 @@ It includes per-pad packet/max-contact counts, stream gaps and synthetic moves.
 Unified logs include the UUID, periodic counters and helper/driver events.
 Regular Capture is fed by the same runtime ingestion/capture boundary; raw fields
 have DriverKit semantics: pressure is the raw byte, size/axes are uncalibrated,
-and anatomical finger telemetry is absent. Tracking IDs must not become finger labels.
+finger type is decoded from its own bitfield and velocity is explicitly derived.
+Hand ID/density are unavailable. Raw nine-byte contacts are retained in optional
+telemetry.driverKit. See ../RewriteValidation/DRIVERKIT_TELEMETRY_COMPARISON.md.
+Tracking IDs must not become finger labels.
 An optional .atpcap recording can establish stream/replay behavior after the first
 basic test; capture/replay on the hardware is not yet verified for this backend.
 

@@ -54,6 +54,16 @@ public enum OMSState: String, Codable, Sendable {
 
 /// Raw device fields. Identity codes and absolute-coordinate units are unverified.
 /// A missing telemetry object means the source did not record these fields.
+/// Raw nine-byte contact record retained for future decoder corrections.
+/// DriverKit velocity/absolute coordinates are derived, not Apple's processed values.
+public struct OMSDriverKitTelemetry: Codable, Sendable, Equatable {
+    public let contactBytes: [UInt8]
+    public let velocityAvailable: Bool
+    public init(contactBytes: [UInt8], velocityAvailable: Bool) {
+        self.contactBytes = contactBytes; self.velocityAvailable = velocityAvailable
+    }
+}
+
 public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
     public let fingerID: Int32
 
@@ -77,6 +87,7 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
     public let absoluteVelocityY: Float
     public let sourceFrame: Int32
     public let sourceTimestamp: Double
+    public let driverKit: OMSDriverKitTelemetry?
 
     public init(
         fingerID: Int32,
@@ -88,7 +99,8 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
         absoluteVelocityX: Float,
         absoluteVelocityY: Float,
         sourceFrame: Int32,
-        sourceTimestamp: Double
+        sourceTimestamp: Double,
+        driverKit: OMSDriverKitTelemetry? = nil
     ) {
         self.fingerID = fingerID
         self.handID = handID
@@ -100,6 +112,7 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
         self.absoluteVelocityY = absoluteVelocityY
         self.sourceFrame = sourceFrame
         self.sourceTimestamp = sourceTimestamp
+        self.driverKit = driverKit
     }
 }
 

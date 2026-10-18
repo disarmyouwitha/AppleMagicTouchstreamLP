@@ -31,16 +31,58 @@ struct MagicTrackpadPacket {
             let x = signed13(Int(b[i]) | (Int(b[i+1] & 0x1f) << 8))
             // Keep sensor Y upward like OMS; Linux negates it for input ABS_Y.
             let y = signed13((Int(b[i+1]) >> 5) | (Int(b[i+2]) << 3) | (Int(b[i+3] & 3) << 11))
-            let down = b[i+3] & 0xc0 == 0x80
+            let state = [OMSState.notTouching, .starting, .hovering, .making,
+                         .touching, .breaking, .lingering, .leaving][Int(b[i+3] >> 5)]
+            let px = Float(x + 3678) / 7612, py = Float(y + 2587) / 5065
+            let telemetry = OMSTouchTelemetry(fingerID: Int32((b[i+3] >> 2) & 7), handID: 0,
+                velocityX: 0, velocityY: 0, absoluteX: (px - 0.5) * 160,
+                absoluteY: (py - 0.5) * 114.9, absoluteVelocityX: 0, absoluteVelocityY: 0,
+                sourceFrame: 0, sourceTimestamp: 0,
+                driverKit: OMSDriverKitTelemetry(contactBytes: Array(b[i..<(i+9)]), velocityAvailable: false))
             contacts.append(OMSRawTouch(id: Int32(b[i+8] & 15),
-                posX: Float(x + 3678) / 7612, posY: Float(y + 2587) / 5065,
+                posX: px, posY: py,
                 total: Float(b[i+6]), pressure: Float(b[i+7]),
-                majorAxis: Float(b[i+4]), minorAxis: Float(b[i+5]),
-                angle: Float(Int(b[i+8] >> 5) - 4), density: 0,
-                state: down ? .touching : .leaving))
+                // Linux exposes touch extents in sensor units (raw byte << 2).
+                // Renderer expects a percent of pad width for both ellipse axes.
+                majorAxis: Float(b[i+4]) * 400 / 7612, minorAxis: Float(b[i+5]) * 400 / 7612,
+                angle: Float(b[i+8] >> 5) * .pi / 8, density: 0,
+                state: state, telemetry: telemetry))
         }
-        // Tracking IDs are not anatomical finger labels: telemetry stays nil.
+        // Finger type comes from separate bits26..28, never from the tracking ID.
         return Self(contacts: contacts, buttons: b[1] & 3)
+    }
+}
+
+/// Bounded, per-device finite differences. No cross-contact or cross-gap velocity.
+struct DriverContactEstimator {
+    private struct Sample { let x: Float; let y: Float; let time: Double }
+    private var previous: [UInt64: [Int32: Sample]] = [:]
+    mutating func reset() { previous.removeAll(keepingCapacity: true) }
+    mutating func process(device: UInt64, time: Double, sequence: UInt64, contacts: [OMSRawTouch]) -> [OMSRawTouch] {
+        let old = previous[device] ?? [:]
+        var next: [Int32: Sample] = [:]
+        let result = contacts.map { c -> OMSRawTouch in
+            guard let t = c.telemetry, let raw = t.driverKit else { return c }
+            let active = c.state == .touching || c.state == .making || c.state == .starting
+            var vx: Float = 0, vy: Float = 0; var available = false
+            if active, let p = old[c.id], time > p.time, time - p.time < 0.15 {
+                vx = (c.posX - p.x) / Float(time - p.time)
+                vy = (c.posY - p.y) / Float(time - p.time)
+                available = vx.isFinite && vy.isFinite
+            }
+            if active { next[c.id] = Sample(x: c.posX, y: c.posY, time: time) }
+            let telemetry = OMSTouchTelemetry(fingerID: t.fingerID, handID: 0,
+                velocityX: available ? vx : 0, velocityY: available ? vy : 0,
+                absoluteX: t.absoluteX, absoluteY: t.absoluteY,
+                absoluteVelocityX: available ? vx * 160 : 0, absoluteVelocityY: available ? vy * 114.9 : 0,
+                sourceFrame: Int32(truncatingIfNeeded: sequence), sourceTimestamp: time,
+                driverKit: OMSDriverKitTelemetry(contactBytes: raw.contactBytes, velocityAvailable: available))
+            return OMSRawTouch(id: c.id, posX: c.posX, posY: c.posY, total: c.total,
+                pressure: c.pressure, majorAxis: c.majorAxis, minorAxis: c.minorAxis,
+                angle: c.angle, density: c.density, state: c.state, telemetry: telemetry)
+        }
+        previous[device] = next
+        return result
     }
 }
 
@@ -105,6 +147,7 @@ final class DriverKitTakeover: ObservableObject {
     private var perPad: [String: [String: Int]] = [:]
     private var lastDiagnostic = Date.distantPast
     private var gaps: UInt64 = 0
+    private var estimator = DriverContactEstimator()
     private var token = ""
     private var began = Date()
     private var receivedAt: Date?
@@ -157,7 +200,7 @@ final class DriverKitTakeover: ObservableObject {
         }
         isActive = true; isRestoring = false; token = UUID().uuidString
         received = 0; gaps = 0; receivedAt = nil; began = Date(); helperState = ""
-        cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]
+        cursors = [:]; lastFrame = [:]; activeServices = [:]; perPad = [:]; estimator.reset()
         NSLog("GesturePad DriverKit session %@ requested", token)
         // Source gate is enabled before activation and cleared only after restoration.
         onSessionBegan?()
@@ -262,7 +305,7 @@ final class DriverKitTakeover: ObservableObject {
             let next = cursor.take(session: session, records: records); cursors[serial] = cursor
             if next.discontinuity {
                 gaps += next.records.first?.sequence == 1 ? 0 : 1
-                InterpretedTrackpadPointer.shared.resetBaseline()
+                InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset()
             }
             frames += next.records.map { (serial, $0) }
         }
@@ -272,22 +315,24 @@ final class DriverKitTakeover: ObservableObject {
             guard isActive, let device = devices[serial], let packet = MagicTrackpadPacket.decode(record.payload) else { continue }
             let sourceNow = Double(clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW)) / 1e9
             guard sourceNow >= record.timestamp, sourceNow - record.timestamp < 0.15 else {
-                gaps += 1; InterpretedTrackpadPointer.shared.resetBaseline(); continue
+                gaps += 1; InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset(); continue
             }
             let now = ProcessInfo.processInfo.systemUptime - (sourceNow - record.timestamp)
             // Source clock is monotonic-raw; only compare intervals within that clock.
             let previous = lastFrame[serial]; lastFrame[serial] = record.timestamp
             if let previous, record.timestamp <= previous || record.timestamp - previous > 0.15 {
-                InterpretedTrackpadPointer.shared.resetBaseline()
+                InterpretedTrackpadPointer.shared.resetBaseline(); estimator.reset()
             }
+            let contacts = estimator.process(device: device.id, time: record.timestamp,
+                sequence: record.sequence, contacts: packet.contacts)
             received += 1
             perPad[serial, default: [:]]["packets", default: 0] += 1
             perPad[serial, default: [:]]["maxContacts"] = max(perPad[serial]?["maxContacts"] ?? 0,
                 packet.contacts.filter { $0.state == .touching }.count)
             if receivedAt == nil { receivedAt = Date() }
             InterpretedTrackpadPointer.shared.process(device: device.id, time: record.timestamp,
-                contacts: packet.contacts, suppress: packet.buttons != 0)
-            await onContacts?(device.id, device.index, now, packet.contacts)
+                contacts: contacts, suppress: packet.buttons != 0)
+            await onContacts?(device.id, device.index, now, contacts)
         }
         if Date().timeIntervalSince(lastDiagnostic) > 5 {
             lastDiagnostic = Date()
