@@ -12,5 +12,6 @@ public:
         OSAction *action) TYPE(IOHIDInterface::ReportAvailable);
     virtual void Expired(OSAction *action, uint64_t time)
         TYPE(IOTimerDispatchSource::TimerOccurred);
+    void Publish() LOCALONLY;
     void Finish(const char *reason) LOCALONLY;
 };

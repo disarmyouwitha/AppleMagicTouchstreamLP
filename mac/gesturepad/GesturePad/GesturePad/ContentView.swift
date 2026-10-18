@@ -102,6 +102,7 @@ struct ContentView: View {
         }
         hidBlackhole.refresh()
         let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
+        hidBlackhole.driverSelectedDevices = selected
         hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID),
             touchDeviceIDs: Set(selected.map(\.deviceIDNumeric)))
     }
@@ -119,25 +120,16 @@ struct ContentView: View {
 
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            TrackpadControlControls(control: hidBlackhole.pointerControl,
-                unavailable: hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil,
-                setEnabled: { enabled in
-                    if enabled && !hidBlackhole.pointerControl.isActive { synchronizeHIDTarget() }
-                    hidBlackhole.setEnabled(enabled)
-                }, timedTest: {
-                    if !hidBlackhole.pointerControl.isActive { synchronizeHIDTarget() }
-                    hidBlackhole.startTimedTest()
+            DriverKitControls(control: hidBlackhole.driverControl,
+                unavailable: viewModel.replayTimelineState != nil,
+                start: {
+                    guard !hidBlackhole.hasOpenHIDDevices else { return }
+                    synchronizeHIDTarget()
+                    hidBlackhole.pointerControl.stop()
+                    hidBlackhole.pointerIdentityProbe.stop()
+                    hidBlackhole.driverControl.start(selected: hidBlackhole.driverSelectedDevices)
                 }, release: { hidBlackhole.release() })
-            SingleInterfaceControls(experiment: hidBlackhole)
-                .disabled(viewModel.replayTimelineState != nil)
-            PointerIdentityControls(probe: hidBlackhole.pointerIdentityProbe) {
-                hidBlackhole.release(reason: "Pointer identity test started")
-                guard !hidBlackhole.hasOpenHIDDevices else { return }
-                synchronizeHIDTarget()
-                hidBlackhole.pointerIdentityProbe.start(selectedTrackpads:
-                    hidBlackhole.groups.filter { hidBlackhole.selectedGroupIDs.contains($0.id) })
-            }
-            .disabled(viewModel.replayTimelineState != nil)
+
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
@@ -370,98 +362,20 @@ struct ContentView: View {
     }
 }
 
-private struct PointerIdentityControls: View {
-    @ObservedObject var probe: PointerIdentityProbe
-    let start: () -> Void
-    var body: some View {
-        HStack {
-            Button("Test pointer sources (40s)", action: start).disabled(probe.isObserving)
-            if probe.isObserving { Button("Stop observer") { probe.stop() } }
-            Text(probe.status).font(.caption).textSelection(.enabled)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-    }
-}
-
-private struct TrackpadControlControls: View {
-    @ObservedObject var control: SelectedTrackpadEventFilter
+private struct DriverKitControls: View {
+    @ObservedObject var control: DriverKitTakeover
     let unavailable: Bool
-    let setEnabled: (Bool) -> Void
-    let timedTest: () -> Void
+    let start: () -> Void
     let release: () -> Void
-    @State private var threeFingerDrag: Bool? = GesturePadThreeFingerDragStatus.detected()
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-        HStack {
-            Toggle("Control selected trackpads", isOn: Binding(get: { control.isActive }, set: { value in setEnabled(value) }))
-                .disabled(unavailable)
-            Button("30sec test", action: timedTest).disabled(unavailable)
-            Button("Release Trackpads", action: release)
-                .keyboardShortcut(.escape, modifiers: [.command]).disabled(!control.isActive)
-            Text(control.status).font(.caption)
-                .fixedSize(horizontal: false, vertical: true)
-        }
-        HStack {
-            Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
-                .help("Generate pointer movement from exactly two contacts while control is enabled.")
-            Toggle("macOS 3-finger drag", isOn: .constant(threeFingerDrag ?? false))
-                .disabled(true)
-                .help("Read-only macOS setting. Native drag events pass through.")
-            Text(threeFingerDrag.map { $0 ? "On" : "Off" } ?? "Unknown").font(.caption)
-            Button("Trackpad Options…") {
-                if let url = URL(string: "x-apple.systempreferences:com.apple.Accessibility-Settings.extension") {
-                    NSWorkspace.shared.open(url)
-                }
-            }
-        }
-        }
-        .onAppear { threeFingerDrag = GesturePadThreeFingerDragStatus.detected() }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
-            threeFingerDrag = GesturePadThreeFingerDragStatus.detected()
-        }
-    }
-}
-
-private struct SingleInterfaceControls: View {
-    @ObservedObject var experiment: HIDBlackholeExperiment
-    @State private var interfaceID: UInt64 = 0
-    @State private var requestUSBMultitouch = false
-    private var canRequestUSBMode: Bool {
-        experiment.selectedInterfaces.first { $0.registryID == interfaceID }?.supportsUSBMultitouchProbe == true
-    }
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
             HStack {
-                Picker("Single-interface test", selection: $interfaceID) {
-                    Text("Choose interface…").tag(UInt64(0))
-                    ForEach(experiment.selectedInterfaces, id: \.registryID) { device in
-                        Text("\(device.label) · \(String(format: "%04X:%04X", device.usagePage, device.usage)) · RID \(device.registryID)")
-                            .tag(device.registryID)
-                    }
-                }
-                .frame(maxWidth: 560)
-                .disabled(experiment.hasOpenHIDDevices)
-                Button("Capture one (15s)") {
-                    experiment.testSingleInterface(registryID: interfaceID,
-                        requestUSBMultitouch: requestUSBMultitouch && canRequestUSBMode)
-                }
-                    .disabled(experiment.hasOpenHIDDevices || experiment.isSavingHID || !experiment.selectedInterfaces.contains { $0.registryID == interfaceID })
-                if experiment.singleInterfaceTestID != nil || experiment.isActive {
-                    Button("Release interface") { experiment.release() }
-                }
+                Button("DriverKit Takeover", action: start)
+                    .disabled(unavailable || control.hasOwnershipRequest)
+                Button("Release Trackpads", action: release).disabled(!control.hasOwnershipRequest)
+                Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
             }
-            if canRequestUSBMode {
-                Toggle("Request USB multitouch mode after 2s (02 01)", isOn: $requestUSBMultitouch)
-                    .disabled(experiment.hasOpenHIDDevices)
-                if requestUSBMultitouch {
-                    Text("Records 2s baseline, then sends the Linux mode command. Reconnect USB if native input does not recover after release.")
-                        .font(.caption)
-                }
-            }
-            Text(experiment.summary).font(.caption).textSelection(.enabled)
-            if !experiment.captureStatus.isEmpty {
-                Text(experiment.captureStatus).font(.caption).textSelection(.enabled)
-            }
+            Text(control.status).font(.caption).fixedSize(horizontal: false, vertical: true)
         }
     }
 }

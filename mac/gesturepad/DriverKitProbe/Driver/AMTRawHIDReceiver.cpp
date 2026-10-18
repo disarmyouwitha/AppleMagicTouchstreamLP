@@ -9,12 +9,16 @@
 #include <os/log.h>
 #include <time.h>
 
+// Wire layout v1, little-endian x86_64. Fixed ring keeps callback work bounded.
+struct StreamRecord { uint64_t sequence, timestampNS; uint32_t length, reportID; uint8_t payload[148]; uint32_t reserved; };
+static_assert(sizeof(StreamRecord)==176,"wire record size");
 struct AMTRawHIDReceiver_IVars {
     IOHIDInterface *interface;
     OSAction *reportAction, *timerAction;
     IOTimerDispatchSource *timer;
-    bool opened, modeAttempted;
-    uint64_t deadline, callbacks;
+    bool opened, modeAttempted, usb;
+    uint64_t callbacks, started, sequence;
+    StreamRecord ring[64];
     uint32_t modeResult;
     uint64_t reports, bytes, malformed, mappingErrors;
     uint64_t lengths[65];
@@ -55,9 +59,12 @@ kern_return_t IMPL(AMTRawHIDReceiver, Start) {
     OSDictionary *properties=nullptr;
     r=provider->CopyProperties(&properties);
     if(r || !properties) return fail(kIOReturnNotPermitted);
-    bool allowed=number(properties,"VendorID")==76 && number(properties,"ProductID")==804 &&
-        number(properties,"PrimaryUsagePage")==1 && number(properties,"PrimaryUsage")==2 &&
-        stringIs(properties,"Transport","Bluetooth") && stringIs(properties,"SerialNumber","D0:C0:50:D4:75:6C");
+    ivars->usb=number(properties,"VendorID")==1452 && stringIs(properties,"Transport","USB") &&
+        stringIs(properties,"SerialNumber","J84HMA00H0B0000501");
+    bool bluetooth=number(properties,"VendorID")==76 && stringIs(properties,"Transport","Bluetooth") &&
+        stringIs(properties,"SerialNumber","D0:C0:50:D4:75:6C");
+    bool allowed=(ivars->usb || bluetooth) && number(properties,"ProductID")==804 &&
+        number(properties,"PrimaryUsagePage")==1 && number(properties,"PrimaryUsage")==2;
     properties->release();if(!allowed) return fail(kIOReturnNotPermitted);
     ivars->interface=OSDynamicCast(IOHIDInterface,provider);
     if(!ivars->interface) return fail(kIOReturnBadArgument);
@@ -83,10 +90,10 @@ kern_return_t IMPL(AMTRawHIDReceiver, Start) {
     if(r) return fail(r);
     ivars->opened=true;
     auto now=clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
-    ivars->deadline=now+15ULL*1000000000ULL;
-    r=ivars->timer->WakeAtTime(kIOTimerClockMonotonicRaw,ivars->deadline,0);
+    ivars->started=now;
+    r=ivars->timer->WakeAtTime(kIOTimerClockMonotonicRaw,now+16000000ULL,0);
     if(r) return fail(r);
-    os_log(OS_LOG_DEFAULT,"AMTRawHIDReceiver build4 started15s LEFT Bluetooth baseline receiver");
+    os_log(OS_LOG_DEFAULT,"AMTRawHIDReceiver build6 started continuous integrated stream receiver");
     r=RegisterService();
     if(r) return fail(r);
     return r;
@@ -97,17 +104,22 @@ void IMPL(AMTRawHIDReceiver, InputReport) {
     if(!ivars->opened || type!=kIOHIDReportTypeInput) return;
     ivars->reports++;ivars->bytes+=reportLength;
     if(reportLength<=64) ivars->lengths[reportLength]++;
-    if(reportLength<=64 && ((reportID==2 && reportLength>=12 && (reportLength-12)%9==0) ||
-        (reportID==0x31 && reportLength>=4 && (reportLength-4)%9==0))) {
-        if(!ivars->firstFullLength) {
-            IOMemoryMap *map=nullptr;
-            auto r=report->CreateMapping(0,0,0,reportLength,0,&map);
-            if(!r && map && map->GetLength()>=reportLength) {
-                memcpy(ivars->firstFull,reinterpret_cast<void*>(map->GetAddress()),reportLength);
-                ivars->firstFullLength=reportLength;
-            } else ivars->mappingErrors++;
-            OSSafeReleaseNULL(map);
-        }
+    bool full=(reportID==2 && ivars->usb && reportLength>=12 && reportLength<=147 && (reportLength-12)%9==0) ||
+        (reportID==0x31 && !ivars->usb && reportLength>=4 && reportLength<=139 && (reportLength-4)%9==0);
+    if(full) {
+        IOMemoryMap *map=nullptr;
+        auto r=report->CreateMapping(0,0,0,reportLength,0,&map);
+        if(!r && map && map->GetLength()>=reportLength) {
+            auto &record=ivars->ring[ivars->sequence%64];
+            record.sequence=++ivars->sequence;
+            record.timestampNS=clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+            record.length=reportLength;record.reportID=reportID;
+            memcpy(record.payload,reinterpret_cast<void*>(map->GetAddress()),reportLength);
+            if(!ivars->firstFullLength && reportLength<=64) {
+                memcpy(ivars->firstFull,record.payload,reportLength);ivars->firstFullLength=reportLength;
+            }
+        } else ivars->mappingErrors++;
+        OSSafeReleaseNULL(map);
     } else ivars->malformed++;
     // Return shared buffers to the provider pool, not retained per packet.
     auto pool=OSDynamicCast(IOBufferMemoryDescriptor,report);
@@ -116,7 +128,34 @@ void IMPL(AMTRawHIDReceiver, InputReport) {
 void IMPL(AMTRawHIDReceiver, Expired) {
     (void)action;(void)time;
     if(!ivars->opened) return;
-    Finish("15s Bluetooth baseline complete");
+    auto now=clock_gettime_nsec_np(CLOCK_MONOTONIC_RAW);
+    if(ivars->usb && !ivars->modeAttempted && now-ivars->started>=2000000000ULL) {
+        ivars->modeAttempted=true;
+        IOBufferMemoryDescriptor *command=nullptr;IOMemoryMap *map=nullptr;
+        auto result=IOBufferMemoryDescriptor::Create(kIOMemoryDirectionOutIn,2,0,&command);
+        if(!result) result=command->SetLength(2);
+        if(!result) result=command->CreateMapping(0,0,0,2,0,&map);
+        if(!result && map && map->GetLength()>=2) {
+            auto bytes=reinterpret_cast<uint8_t*>(map->GetAddress());bytes[0]=2;bytes[1]=1;
+            result=ivars->interface->SetReport(command,kIOHIDReportTypeFeature,2,0);
+        } else if(!result) result=kIOReturnNoMemory;
+        ivars->modeResult=static_cast<uint32_t>(result);
+        OSSafeReleaseNULL(map);OSSafeReleaseNULL(command);
+    }
+    Publish();
+    auto r=ivars->timer->WakeAtTime(kIOTimerClockMonotonicRaw,now+16000000ULL,0);
+    if(r) Finish("stream timer failed");
+}
+void AMTRawHIDReceiver::Publish() {
+    auto p=OSDictionary::withCapacity(10);if(!p) return;
+    put(p,"StreamBuild",6);put(p,"StreamSession",ivars->started);put(p,"StreamOpened",ivars->opened);
+    put(p,"StreamSequence",ivars->sequence);put(p,"StreamReports",ivars->reports);
+    put(p,"StreamMalformed",ivars->malformed);put(p,"StreamMappingErrors",ivars->mappingErrors);
+    auto serial=OSString::withCString(ivars->usb?"J84HMA00H0B0000501":"D0:C0:50:D4:75:6C");
+    if(serial) {p->setObject("StreamSerial",serial);serial->release();}
+    auto data=OSData::withBytes(ivars->ring,sizeof(ivars->ring));
+    if(data) {p->setObject("StreamBatch",data);data->release();}
+    SetProperties(p);p->release();
 }
 void AMTRawHIDReceiver::Finish(const char *reason) {
     if(!ivars->opened) return;
@@ -124,9 +163,10 @@ void AMTRawHIDReceiver::Finish(const char *reason) {
     auto closeResult=ivars->interface->Close(this,0);
     ivars->timer->SetEnable(false);
     ivars->reportAction->Cancel(^{});
+    Publish();
     auto p=OSDictionary::withCapacity(12);
     if(p) {
-        put(p,"ProbeBuild",4);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
+        put(p,"ProbeBuild",6);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
         put(p,"ModeResult",ivars->modeResult);put(p,"Reports",ivars->reports);put(p,"Bytes",ivars->bytes);
         put(p,"Reports13",ivars->lengths[13]);put(p,"Reports22",ivars->lengths[22]);
         put(p,"Reports31",ivars->lengths[31]);put(p,"Reports40",ivars->lengths[40]);

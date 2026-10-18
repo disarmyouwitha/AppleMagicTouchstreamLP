@@ -47,6 +47,11 @@ Bluetooth succeeded without any feature/mode write.
 
 ## Current code and evidence
 
+**Subsequent integration:** v0.6 now builds continuous dual-pad streaming inside
+GesturePad. See [integration test and limits](../DriverKitProbe/INTEGRATION_TEST.md).
+Hardware verification of that integrated build is pending. The next paragraph
+records the exact source state at the earlier successful baseline checkpoint.
+
 Current source and installed standalone host are **v0.4, left Bluetooth only**.
 They do not currently contain a dual-device runtime selector. The signed working
 USB v0.3 app is archived in ignored

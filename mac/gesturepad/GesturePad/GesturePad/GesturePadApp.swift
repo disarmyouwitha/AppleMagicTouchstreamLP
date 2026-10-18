@@ -44,9 +44,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         guard enforceSingleInstancePolicyAtLaunch() else { return }
-        let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
+        let shouldOpenConfigOnLaunch = !hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config")
         initializeRunAtStartupPreference()
         controller.start()
+        hidBlackhole.driverControl.onContacts = { [weak controller] device, index, time, touches in
+            await controller?.viewModel.ingestDriverContacts(device: device, index: index, timestamp: time, touches: touches)
+        }
+        hidBlackhole.driverControl.onSessionBegan = { [weak controller] in
+            controller?.viewModel.setAutoResyncEnabled(false)
+        }
+        hidBlackhole.driverControl.onSessionEnded = { [weak controller] in
+            controller?.viewModel.refreshDevicesAndListeners()
+            controller?.viewModel.setAutoResyncEnabled(UserDefaults.standard.bool(forKey: GesturePadDefaultsKeys.autoResyncMissingTrackpads))
+        }
         configureStatusItem()
         registerReleaseHIDShortcut()
         observeStatus()
@@ -187,6 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .map { $0 != nil }
             .removeDuplicates()
             .sink { [weak self] isReplayActive in
+                if isReplayActive { self?.hidBlackhole.release(reason: "Replay started") }
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }

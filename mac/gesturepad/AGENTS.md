@@ -50,3 +50,27 @@ for only the known right05AC:0324 serial/interface1, async endpoint83 capture.
 Keep app control released, refuse other identities, stop on denied open, and retain
 15s/interrupt cleanup. No driver detach/terminate/reset/configuration changes or
 mode writes are part of this variant. Do not activate it without the user's live test.
+
+
+## DriverKit integration (user-authorized 2026-10-18)
+
+The separate DriverKit 30sec takeover button now uses v0.5 of DriverKitProbe with
+both exact tested pad serials (rightUSB/leftBluetooth) and requires both selected.
+This is an exception to the normal checkbox's nonseizing CGEvent filtering path.
+See DriverKitProbe/INTEGRATION_TEST.md. Preserve hard30s driver close, independent
+signed helper owner-process watchdog/removal, global release shortcut, lifecycle
+release, and honest restoration-pending state. No tool should automatically
+activate the hardware test without the user ready to touch it. Build/install
+alone does not activate. Do not lift the cap before integrated restoration is
+verified. Continuous/general-device control is follow-up work, not yet validated.
+Keep registry stream publication on the timer, bounded ring/mapping in callbacks,
+per-session deduplication, stale/gap resets, duplicate OMS source gate and replay
+output suppression. Tracking IDs must never become anatomical finger labels.
+
+
+User explicitly requested continuous DriverKit takeover and removal of obsolete
+filter/test GUI controls after the v0.5 integration build. Current v0.6 therefore
+has no30s session deadline. Preserve explicit Release Trackpads/global shortcut,
+owner-process watchdog and lifecycle release; do not restore a timed cap based on
+older instructions above. UI contains only DriverKit Takeover, Release Trackpads,
+one synthetic two-finger checkbox and status. Diagnostic backend schemas remain.

@@ -534,3 +534,32 @@ receiver. Evidence preserved in ignored evidence/build4-bluetooth-success/.
 Together USB/build3 and Bluetooth/build4 prove full packet access on both
 transports with SIP enabled. Continuous delivery to GesturePad, output synthesis,
 reconnection and robust native-handler restoration remain integration work.
+
+### v0.5 integrated GesturePad test prepared (not hardware-verified)
+
+Built signed dual-pad DriverKit receiver/helper and GesturePad integration.
+Current helper installed under /Applications; fresh GesturePad Debug launched
+with --open-config. No extension activation performed by agent. Normal app build,
+strict signatures and58 package tests passed, including transport decode, signed
+coordinates, stream wire validation/dedup/gaps, and decoded two-finger movement.
+Only unrelated AppIntents metadata-extraction notice in app build.
+See ../DriverKitProbe/INTEGRATION_TEST.md for exact steps and remaining limits.
+Both tested serials must be selected in their tested transports. Ring snapshots
+feed the runtime render/capture path, with duplicate OMS gate, stale/gap reset,
+replay suppression and existing pointer interpreter. Hard30s driver deadlines plus
+independent signed helper removal watchdog; restoration remains a live-test question.
+Session diagnostics save to /tmp/GesturePad-driverkit-session-<UUID>.json.
+Continuous ownership and optimized user-client IPC are deliberately pending this
+first integrated contact/suppression/pointer/release hardware result.
+
+
+### v0.6 continuous takeover and GUI cleanup (explicit user request)
+
+Removed the legacy control checkbox/buttons, duplicate synthetic pointer toggle,
+OS drag-setting controls, single-interface test and pointer-source observer from
+the visible GUI. Kept diagnostic backend/capture schemas. The sole control group
+now contains DriverKit Takeover, Release Trackpads, one synthetic pointer toggle
+and status. Removed driver30s, helper31s/120s session and app120s session limits.
+Owner-process monitoring and lifecycle/device-loss removal remain. Build/profile
+identity incremented to0.6/6 so stale bounded drivers cannot appear current.
+Continuous operation and restoration still need a live hardware check.

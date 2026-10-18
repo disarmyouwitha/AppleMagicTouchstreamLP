@@ -91,7 +91,15 @@ final class InputRuntimeService: @unchecked Sendable {
         stateLock.withLockUnchecked { $0.isRunning }
     }
 
+    func nextExternalSequence() -> UInt64 {
+        stateLock.withLockUnchecked { state in
+            state.sequence &+= 1; state.metrics.ingestedFrames &+= 1; state.metrics.emittedFrames &+= 1
+            return state.sequence
+        }
+    }
+
     private func handleRawFrame(_ frame: OMSRawTouchFrame) {
+        guard !DriverInputSourceGate.shared.contains(frame.deviceIDNumeric) else { frame.release(); return }
         let stateSnapshot = stateLock.withLockUnchecked { state -> (isRunning: Bool, generation: UInt64) in
             guard state.isRunning else { return (false, state.generation) }
             state.metrics.ingestedFrames &+= 1
@@ -539,6 +547,18 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
             captureRenderSnapshot: shouldCaptureRenderSnapshot,
             renderSnapshotSink: shouldCaptureRenderSnapshot ? renderSnapshotService : nil
         )
+    }
+
+    func ingestDriverContacts(device: UInt64, index: Int, timestamp: Double, touches: [OMSRawTouch]) async {
+        guard inputRuntimeService.isRunning else { return }
+        let frame = RuntimeRawFrame(sequence: inputRuntimeService.nextExternalSequence(), timestamp: timestamp,
+            deviceNumericID: device, deviceIndex: index,
+            contacts: touches.map { RuntimeRawContact(id: $0.id, posX: $0.posX, posY: $0.posY,
+                total: $0.total, pressure: $0.pressure, majorAxis: $0.majorAxis,
+                minorAxis: $0.minorAxis, angle: $0.angle, density: $0.density,
+                state: $0.state, telemetry: $0.telemetry) }, rawTouches: touches)
+        let result = await runtimeEngine.ingest(frame, ingress: nil, captureRenderSnapshot: renderSnapshotService.isRecordingEnabled)
+        if let snapshot = result.renderSnapshot { renderSnapshotService.submitRuntimeRenderSnapshot(snapshot) }
     }
 
     @discardableResult

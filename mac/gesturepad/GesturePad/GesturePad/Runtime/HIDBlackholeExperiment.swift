@@ -281,6 +281,8 @@ final class HIDBlackholeExperiment: ObservableObject {
     let pointerIdentityProbe = PointerIdentityProbe()
     let gainProbe = TrackpadGainProbe()
     let pointerControl = SelectedTrackpadEventFilter()
+    let driverControl = DriverKitTakeover()
+    var driverSelectedDevices: [OMSDeviceInfo] = []
     @Published private(set) var groups: [Group] = []
     @Published private(set) var singleInterfaceTestID: UInt64?
     private var usbModeRequestAt: Double?
@@ -291,7 +293,7 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     @Published private(set) var isActive = false
     @Published private(set) var isObservingHID = false
-    var hasOpenHIDDevices: Bool { isActive || isObservingHID || pointerControl.isActive || gainProbe.isActive }
+    var hasOpenHIDDevices: Bool { isActive || isObservingHID || pointerControl.isActive || gainProbe.isActive || driverControl.hasOwnershipRequest }
     private var openIsExclusive = true
     private var captureMode = "exclusive"
     @Published private(set) var secondsRemaining = 0
@@ -403,6 +405,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func testSingleInterface(registryID: UInt64, requestUSBMultitouch: Bool = false) {
+        guard !driverControl.hasOwnershipRequest else { return }
         guard !isSavingHID else { return }
         release(reason: "Single-interface test starting")
         guard !hasOpenHIDDevices,
@@ -481,6 +484,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     func startTimedTest() { startPointerControl(duration: 30) }
 
     private func startPointerControl(duration: TimeInterval?) {
+        guard !driverControl.hasOwnershipRequest else { return }
         gainProbe.restore()
         guard !gainProbe.isActive else { return }
         guard !isCapturingHID else { return }
@@ -494,6 +498,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func captureHID(exclusive: Bool = true) {
+        guard !driverControl.hasOwnershipRequest else { return }
         guard !isCapturingHID, !isSavingHID, !selectedGroupIDs.isEmpty else { return }
         if IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) != kIOHIDAccessTypeGranted {
             // Successful exclusive opens alone do not prove permission to receive reports.
@@ -620,6 +625,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func release(reason: String = "Released") {
+        driverControl.release()
         try? FileManager.default.removeItem(atPath: "/tmp/GesturePad-active-usb-capture.txt")
         let interfaceIdentity = held.first(where: { $0.identity.registryID == singleInterfaceTestID })?.identity
         usbModeRequestAt = nil
@@ -784,19 +790,23 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
     func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.tracker.reset() } }
+    func resetBaseline() { lock.withLock { $0.tracker.reset() } }
     func process(_ frame: OMSRawTouchFrame) {
+        process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
+    }
+    func process<C: Collection & Sendable>(device: UInt64, time: Double, contacts: C, suppress: Bool = false) where C.Element == OMSRawTouch {
         lock.withLock { state in
-            guard state.devices.contains(frame.deviceIDNumeric) else { return }
+            guard state.devices.contains(device) else { return }
             // Native click-and-drag remains in charge while a mouse button is held.
-            if CGEventSource.buttonState(.combinedSessionState, button: .left)
+            if suppress || CGEventSource.buttonState(.combinedSessionState, button: .left)
                 || CGEventSource.buttonState(.combinedSessionState, button: .right)
                 || CGEventSource.buttonState(.combinedSessionState, button: .center) {
                 state.tracker.reset()
                 return
             }
             guard
-                  let delta = state.tracker.process(device: frame.deviceIDNumeric,
-                    time: frame.timestamp, touches: frame.touches),
+                  let delta = state.tracker.process(device: device,
+                    time: time, contacts: contacts),
                   delta.x != 0 || delta.y != 0,
                   let current = CGEvent(source: nil)?.location else { return }
             var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)

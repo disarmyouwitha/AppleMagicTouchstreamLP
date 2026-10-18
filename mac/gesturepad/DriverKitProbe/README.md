@@ -3,10 +3,12 @@
 **USB and Bluetooth full-contact delivery succeeded with SIP enabled on2026-10-18.**
 Read the [takeover checkpoint](../RewriteValidation/DRIVERKIT_TAKEOVER_CHECKPOINT.md)
 first: it records measured results, working architecture, local evidence, activation
-pitfalls and remaining integration work. This is a standalone15s diagnostic, not
+pitfalls and remaining integration work. This is a development takeover implementation, not
 an integrated or production-ready GesturePad backend.
 
-Current source/host: **v0.4, exact left Bluetooth pad only**, no mode command.
+Current source/host: **v0.6, both exact tested pads**, continuous stream integration.
+See [the integration test](INTEGRATION_TEST.md) before activating. v0.4 was the
+successful Bluetooth-only baseline with no mode command.
 USB v0.3 succeeded previously; its signed app is archived locally (see checkpoint).
 The receiver preallocates report buffers before ordinary IOHIDInterface Open,
 counts actual-length reports, retains one sample and closes after15s. No automatic
@@ -64,17 +66,11 @@ Profile files/approved signing entitlements/build outputs are ignored by Git.
 
 ## Live test and diagnostics
 
-Install the signed host under `/Applications`. Keep GesturePad control released
-and a normal mouse connected. Activate explicitly and approve in Settings →
-General → Login Items & Extensions → Driver Extensions. When enabled, immediately
-move one then two fingers on the LEFT Bluetooth pad for15s. Read results **before**
-deactivating. Expect ProbeBuild4 and Bluetooth lengths13/22, not USB lengths21/30.
-Activation pending approval is not a capture. A completed timer does not guarantee
-Apple's handler rematches; disable/deactivate to restore and power-cycle only if
-needed. No public distribution validation has been performed.
+Use [INTEGRATION_TEST.md](INTEGRATION_TEST.md) for the current v0.6 test, launched
+from GesturePad with the signed helper installed. Do not follow older standalone
+v0.3/v0.4 instructions with this dual-pad build. Takeover remains active until Release Trackpads or lifecycle release.
 
-`trace-delivery.sh` is an older USB-oriented90s metadata diagnostic; its v0.3/right
-USB prompts do **not** describe the current v0.4 Bluetooth test. It does not activate
-a driver. `summarize-delivery.py` analyzes its saved registry/kernel evidence.
-Chronological earlier failures and the Cancel completion fix are in
+`trace-delivery.sh` remains an older USB-oriented90s metadata diagnostic; its v0.3
+prompts do not describe the v0.6 integration. It does not activate a driver.
+Chronological earlier failures and baseline successes are in
 [HID_CAPTURE_FINDINGS.md](../RewriteValidation/HID_CAPTURE_FINDINGS.md).
