@@ -6,7 +6,7 @@
 | [AppleMagicTouchstream](AppleMagicTouchstream/) | Faithful TouchStream emulation on Apple Magic Trackpads. GTK-specific recognizers/product features are removed; the basic keyboard bootstrap remains while original TouchStream logic is developed. | `AppleMagicTouchstream/AppleMagicTouchstream.xcodeproj` / `AppleMagicTouchstream` | `AppleMagicTouchstream.app` |
 | [gesturepad](gesturepad/) | Independent FingerWorks/TouchStream gesture and chord playground, without keyboard output; findings can be ported to AppleMagicTouchstream. | `GesturePad/GesturePad.xcodeproj` / `GesturePad` | `GesturePad.app` |
 
-Each folder owns its app, bridge, Swift package, tests, and fixtures. No project depends on a sibling's source. Legacy runtime symbols, settings keys, bundle identifiers, and capture schemas remain intact for compatibility.
+Each folder owns its app, bridge, Swift package, tests, and fixtures. No project depends on a sibling's source. Legacy runtime symbols, settings keys and capture schemas remain compatible; permanent app/helper/driver IDs are recorded in [bundle identities](BUNDLE_IDENTITIES.md).
 
 From the repository root:
 
@@ -25,4 +25,4 @@ Scripts work from any working directory. App products are under each project's `
 
 Use the wrappers for fresh build caches after moving projects. Old `.build` and DerivedData folders may contain absolute paths from the previous layout. If Xcode retains an obsolete generated bridge module map after a module-map change, use Product → Clean Build Folder in that project; its cache is separate from the script’s DerivedData.
 
-[Architecture review](ARCHITECTURE_REVIEW.md) and [FingerWorks plan](FINGERWORKS_IMPLEMENTATION_PLAN.md) retain historical design context. The SDK reference material lives under `sdk` (outside all three Swift packages, so Xcode does not discover its legacy sample projects) and is ignored by Git.
+[FingerWorks plan](FINGERWORKS_IMPLEMENTATION_PLAN.md) tracks current implementation and next steps. The SDK reference material lives under `sdk` (outside all three Swift packages, so Xcode does not discover its legacy sample projects) and is ignored by Git.

@@ -6,7 +6,7 @@ if (( $# )); then
 fi
 probe_driver_id=$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1]))["driverBundleID"])' "$probe_root/takeover-config.json")
 probe_state=$(systemextensionsctl list)
-if print -r -- "$probe_state" | /usr/bin/grep -F -e "$probe_driver_id" -e "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver" | /usr/bin/grep -v 'terminated waiting to uninstall on reboot' >/dev/null; then
+if print -r -- "$probe_state" | /usr/bin/grep -F -e "$probe_driver_id" | /usr/bin/grep -v 'terminated waiting to uninstall on reboot' >/dev/null; then
     print -u2 'Release the AMT receiver before installing. No files were replaced.'
     exit 1
 fi
@@ -19,10 +19,10 @@ mkdir -p "$probe_root/build/previous"
 if [[ -d /Applications/AppleMagicTouchstream.app ]]; then
     ditto /Applications/AppleMagicTouchstream.app "$probe_root/build/previous/AppleMagicTouchstream.app"
 fi
-# Receiver is not registered; safe to stop the old UI before replacing the bundle.
+# Active receiver ownership was ruled out; stop the UI before replacement.
 killall AppleMagicTouchstream 2>/dev/null || true
 killall GesturePadRawHIDProbe 2>/dev/null || true
-# ditto merges directories: move the old bundle aside to avoid stale renamed dexts.
+# Replace the app bundle rather than merging stale embedded files.
 if [[ -d /Applications/AppleMagicTouchstream.app ]]; then
     mv /Applications/AppleMagicTouchstream.app "$probe_root/build/previous/AppleMagicTouchstream-before-install-$(date +%Y%m%d-%H%M%S).app"
 fi

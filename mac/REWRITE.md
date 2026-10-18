@@ -1,9 +1,9 @@
 `AppleMagicTouchstream`: 
-0. Can we copy GesturePad Trackpad take over, sync, release, refresh, menu items, into AppleMagicTouchstream?
 1. Can we place the Touchstream keypad image in the background along with the squared background. I want to create a touchstream keymap
 
 
 `GlassToKey`:
+0. Can we copy GesturePad Trackpad takeover, sync, release, refresh, menu items, into AppleMagicTouchstream?
 1. Copy touchstream keymap from AMT to GTK 
 
 ? Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I could set up a scaled down keymap that matches 

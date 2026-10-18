@@ -1,5 +1,7 @@
 # Permanent bundle identities
 
+Current source/deployment map · 2026-10-18
+
 | Product | Bundle ID |
 | --- | --- |
 | GlassToKey | `ink.ranna.glasstokey` |
@@ -8,60 +10,55 @@
 | Shared takeover background service | `ink.ranna.trackpadtakeover` |
 | Shared takeover DriverKit extension | `ink.ranna.trackpadtakeover.driver` |
 
-Team: `N9XQZJR4EP`. App build/release identities live in each `project.env`
-and Xcode project. Takeover deployment/signing identities live in
-`gesturepad/DriverKitProbe/takeover-config.json`; regenerate its bindings with
-`generate-config.py`. Exact owner verification currently authorizes GesturePad
-only. Porting to another app requires explicitly configuring its owner identity;
-settling shared names does not authorize multiple concurrent owners.
+Team: `N9XQZJR4EP`. These five explicit App IDs are registered with Apple.
+Keep this file as the cross-project signing map; configuration files, signed
+entitlements and Apple-issued profiles are the authority for a particular build.
 
-On their first launch under the permanent ID, AppleMagicTouchstream and GesturePad
-copy their former preference domains (`ink.ranna.glasstokey.keyboard` and
-`ink.ranna.glasstokey.gesturepad`) without replacing values in the new domains.
-The old domains remain intact. Existing serialized keys, capture schemas, queue
-labels, notification names and restart-transfer keys remain compatible.
-The embedded OpenMultitouchSupportXCF framework retains its own existing identity.
+## Configuration and ownership
 
-## Signing and deployment transition
+- Each app's `project.env` and Xcode project define its app bundle ID.
+- GesturePad's [takeover manifest](gesturepad/DriverKitProbe/takeover-config.json)
+  authorizes the exact signed owner `ink.ranna.gesturepad`.
+- AppleMagicTouchstream's [takeover manifest](AppleMagicTouchstream/DriverKitProbe/takeover-config.json)
+  authorizes the exact signed owner `ink.ranna.applemagictouchstream`.
+- Both use the same permanent helper/driver IDs. Run that project's
+  `DriverKitProbe/generate-config.py` after manifest edits; generated Swift bindings
+  feed the app/helper and generated C++ bindings feed the driver build.
+- **One owning app at a time.** Each packaged helper accepts its configured exact
+  app identity and team, not both apps or a wildcard. Release and quit the owning
+  app before switching to another app's takeover build. Shared names alone do not
+  provide concurrent ownership or inter-app handoff.
+- GlassToKey has not received the takeover port. Adding it requires its own explicit
+  owner configuration and integration, not a bundle-ID change alone.
 
-The old prototype driver ID was
-`ink.ranna.glasstokey.gesturepad.rawhidprobe.driver`; its helper was the same
-without `.driver`. Existing profiles for those IDs cannot sign the permanent IDs.
-New explicit helper/driver profiles are required. The current code signs only
-DriverKit + HID transport on the driver and system-extension.install on the
-helper. No UserClient access or Allow Any UserClient entitlement is added.
+The helper filenames differ by project (`GesturePadDriverService.app` and
+`AppleMagicTouchstreamDriverService.app`); filenames are not bundle IDs. Existing
+wire notification names and executable names are compatibility details.
 
-Release the old extension before replacing the installed app. The installer
-refuses installation while either old or new driver identity is registered and
-not terminated. Changing IDs may require fresh macOS extension approval and
-Accessibility/Input Monitoring approval; existing grants are identity-specific.
-Do not delete the old IDs/profiles until the new signed installation passes a
-physical takeover, Sync, restart and release test.
+## Signing and installation
 
-## Apple request correction
+Current takeover builds sign DriverKit + HID transport on the driver and
+`system-extension.install` on the helper. **No UserClient Access, Allow Any
+UserClient Access or Virtual HID entitlement is signed into these builds.**
+Development capabilities/profiles do not establish distribution authorization.
 
-Pending UserClient request `TZ5M9X67Q9` was submitted with the old prototype
-identities. It needs the permanent IDs above supplied to Apple before approval.
-The Virtual HID request draft has been corrected and remains unsubmitted.
-Historical capture/research documents retain the IDs actually used in those tests.
+Apple-issued replacement development profiles authorize the shared identities:
+driver portal profile `626XJXDMS8`, helper profile `NKWTA82SMW`. Profiles live in
+project-local ignored `DriverKitProbe/profiles/` directories. Existing certificates,
+profile validity, device coverage and authorized entitlements must still be checked
+when signing. Do not commit profiles or signing/notarization credentials.
 
-## Migration completed 2026-10-18
+Release the active extension before replacing its owning app. The installers check
+the configured driver ID and refuse replacement while ownership/removal is pending.
+Driver builds recreate the helper bundle; installers back up and replace the app
+instead of merging stale embedded files. macOS may request fresh extension/Accessibility/Input
+Monitoring approval after identity changes. Follow each project's takeover README
+for installation and physical acceptance; a signed build is not a hardware pass.
 
-All five permanent App IDs are registered in Apple Developer. The driver has
-DriverKit (development) and DriverKit Transport HID (development); the helper has
-System Extension. Replacement profiles are downloaded, verified and installed
-in the ignored DriverKitProbe/profiles folder, with the former profiles backed up.
-Driver profile portal ID: `626XJXDMS8`; helper profile ID: `NKWTA82SMW`.
-The signed app is installed at `/Applications/GesturePad.app`. Its only embedded
-driver is `ink.ranna.trackpadtakeover.driver`; deep strict signature validation
-passes. Hardware takeover under the new identity still needs user verification.
+## Settings compatibility
 
-The installer now moves the old installed bundle aside instead of overlaying it,
-and the driver build reconstructs the generated helper bundle before packaging.
-This prevents stale old-ID extensions from surviving a bundle rename.
-
-Apple still lists UserClient request `TZ5M9X67Q9` as **Submitted**, type **Team**.
-Its Request History dialog exposes no amendment control. No request was cancelled
-or resubmitted. Supply `USERCLIENT_REQUEST_ID_CORRECTION.txt` through the existing
-Apple correspondence; ask whether they can amend it before cancelling/replacing
-the pending request. The corrected Virtual HID draft remains unsubmitted.
+AppleMagicTouchstream migrates the former `ink.ranna.glasstokey.keyboard` preference
+domain, and GesturePad migrates `ink.ranna.glasstokey.gesturepad`. Migration copies
+missing values without replacing the new domain's settings and leaves old domains
+intact. Serialized `GlassToKey.*` keys, capture formats and restart compatibility
+keys are deliberately preserved. OpenMultitouchSupportXCF retains its own identity.

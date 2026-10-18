@@ -1649,6 +1649,25 @@ struct ContentView: View {
             .help("Release Trackpads before refreshing the trackpad list")
         }
 
+        private var takeoverControls: some View {
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Button("Takeover Trackpads", action: takeover)
+                        .disabled(replayActive || driverControl.isRestoring || driverControl.isActive)
+                    Button("Sync Trackpads", action: takeover)
+                        .disabled(replayActive || driverControl.isRestoring || !driverControl.isActive)
+                    Button("Release Trackpads") { driverControl.release() }
+                        .disabled(!driverControl.hasOwnershipRequest)
+                }
+                Text("Takeover captures all supported connected model 0324 trackpads, including unselected pads. Left/right selections route app input; apply changes with Sync.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text(driverControl.status).font(.caption).fixedSize(horizontal: false, vertical: true)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(10)
+            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        }
+
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 if availableDevices.isEmpty {
@@ -1656,6 +1675,7 @@ struct ContentView: View {
                         Text("No trackpads detected.").foregroundStyle(.secondary)
                         refreshButton
                     }
+                    takeoverControls
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1678,6 +1698,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            takeoverControls
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1719,17 +1740,7 @@ struct ContentView: View {
                         .padding(.top, 20)
                     }
                 }
-                HStack {
-                    Button("Takeover Trackpads", action: takeover)
-                        .disabled(replayActive || driverControl.isRestoring || driverControl.isActive)
-                    Button("Sync Trackpads", action: takeover)
-                        .disabled(replayActive || driverControl.isRestoring || !driverControl.isActive)
-                    Button("Release Trackpads") { driverControl.release() }
-                        .disabled(!driverControl.hasOwnershipRequest)
-                }
-                Text("Takeover captures all supported connected model 0324 trackpads, including unselected pads. Left/right selections route app input; apply changes with Sync.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Text(driverControl.status).font(.caption).fixedSize(horizontal: false, vertical: true)
+
             }
             .padding(12)
             .background(
