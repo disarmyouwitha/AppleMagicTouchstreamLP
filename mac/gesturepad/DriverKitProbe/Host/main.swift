@@ -6,8 +6,6 @@ import Darwin
 @main
 final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequestDelegate {
     private let extensionID = "ink.ranna.glasstokey.gesturepad.rawhidprobe.driver"
-    private var window: NSWindow!
-    private let output = NSTextView()
     private var request: OSSystemExtensionRequest?
     private var managedToken: String?
     private var ownerPID: Int32 = 0
@@ -70,7 +68,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
             var raw: Unmanaged<CFMutableDictionary>?
             if IORegistryEntryCreateCFProperties(service, &raw, kCFAllocatorDefault, 0) == KERN_SUCCESS,
                let values = raw?.takeRetainedValue() as? [String: Any],
-               (values["StreamBuild"] as? NSNumber)?.intValue == 6 {
+               (values["StreamBuild"] as? NSNumber)?.intValue == 7 {
                 count += 1
                 if (values["StreamOpened"] as? NSNumber)?.intValue != 1 { closed = true }
             }
@@ -87,43 +85,16 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
         let app = NSApplication.shared
         let delegate = ProbeHost()
         app.delegate = delegate
-        app.setActivationPolicy(.regular)
+        app.setActivationPolicy(.accessory)
         app.run()
         withExtendedLifetime(delegate) {}
     }
     func applicationDidFinishLaunching(_ notification: Notification) {
-        window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 740, height: 460),
-                          styleMask: [.titled, .closable, .miniaturizable, .resizable], backing: .buffered, defer: false)
-        window.title = "GesturePad Raw HID Driver Probe v0.6"
-        let stack = NSStackView(); stack.orientation = .vertical; stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        let info = NSTextField(wrappingLabelWithString: "Experimental receiver: both tested selected trackpads (right USB + left Bluetooth). Opening may displace Apple's handler and affect native input. The receiver stays active until released; deactivation and a trackpad power cycle may be needed to restore native handling. Keep a mouse connected.")
-        stack.addArrangedSubview(info)
-        let buttons = NSStackView()
-        for (title, selector) in [("Take over trackpads", #selector(activate)), ("Deactivate driver", #selector(deactivate)), ("Read results", #selector(readResults))] {
-            buttons.addArrangedSubview(NSButton(title: title, target: self, action: selector))
-        }
-        stack.addArrangedSubview(buttons)
-        output.isEditable = false; output.font = .monospacedSystemFont(ofSize: 12, weight: .regular)
-        let scroll = NSScrollView(); scroll.documentView = output; scroll.hasVerticalScroller = true
-        stack.addArrangedSubview(scroll)
-        window.contentView!.addSubview(stack)
-        NSLayoutConstraint.activate([
-            stack.leadingAnchor.constraint(equalTo: window.contentView!.leadingAnchor, constant: 16),
-            stack.trailingAnchor.constraint(equalTo: window.contentView!.trailingAnchor, constant: -16),
-            stack.topAnchor.constraint(equalTo: window.contentView!.topAnchor, constant: 16),
-            stack.bottomAnchor.constraint(equalTo: window.contentView!.bottomAnchor, constant: -16),
-            scroll.heightAnchor.constraint(greaterThanOrEqualToConstant: 250)
-        ])
-        window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate(ignoringOtherApps: true)
+        // Internal background manager: no window, Dock item or independent controls.
         beginManagedSessionIfRequested()
-        log("HOST BUILD 6. No driver is activated automatically. Read results must show ProbeBuild: 6 to identify this receiver; activation alone does not rearm a finished session.")
+        if managedToken == nil { NSApp.terminate(nil) }
     }
-    private func log(_ message: String) {
-        output.string += message + "\n"
-        output.scrollToEndOfDocument(nil)
-        NSLog("GesturePadRawHIDProbe: %@", message)
-    }
+    private func log(_ message: String) { NSLog("GesturePad Driver Service: %@", message) }
     @objc private func activate() {
         guard Bundle.main.bundlePath.hasPrefix("/Applications/") else {
             log("Install the signed host in /Applications before activating."); return
@@ -142,31 +113,6 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
         guard request == nil else { log("An activation/deactivation request is already pending."); return }
         request = next; next.delegate = self; OSSystemExtensionManager.shared.submitRequest(next)
         log("Submitted system-extension request. Approval installs/enables the driver; Activate again does not restart a finished receiver. This version captures both selected pads until released; USB0201 once after 2 seconds, no Bluetooth mode command.")
-    }
-    @objc private func readResults() {
-        var iterator: io_iterator_t = 0
-        guard let matching = IOServiceMatching("IOUserService") else { return }
-        let criteria = matching as NSMutableDictionary
-        criteria["IOPropertyMatch"] = ["IOUserClass": "AMTRawHIDReceiver"]
-        let status = IOServiceGetMatchingServices(kIOMainPortDefault, criteria as CFDictionary, &iterator)
-        guard status == KERN_SUCCESS else { log("Registry lookup failed: \(status)"); return }
-        defer { IOObjectRelease(iterator) }
-        var found = false
-        while true {
-            let service = IOIteratorNext(iterator); if service == 0 { break }
-            defer { IOObjectRelease(service) }; found = true
-            var props: Unmanaged<CFMutableDictionary>?
-            if IORegistryEntryCreateCFProperties(service, &props, kCFAllocatorDefault, 0) == KERN_SUCCESS,
-               let values = props?.takeRetainedValue() as? [String: Any] {
-                for key in ["ProbeBuild", "Callbacks", "ModeAttempted", "ModeResult", "Reports", "Bytes", "Reports13", "Reports22", "Reports31", "Reports40", "Reports8", "Reports21", "Reports30", "Reports39", "Reports48", "FirstFullLength", "Malformed", "MappingErrors", "CloseResult"] {
-                    log("\(key): \(values[key].map { String(describing: $0) } ?? "pending")")
-                }
-                if let bytes = values["FirstFullReport"] as? Data {
-                    log("First full report: " + bytes.map { String(format: "%02x", $0) }.joined())
-                }
-            }
-        }
-        if !found { log("No matched receiver service. Activation alone does not prove device matching or report access.") }
     }
     func requestNeedsUserApproval(_ request: OSSystemExtensionRequest) {
         log("macOS requires approval in System Settings → General → Login Items & Extensions → Driver Extensions.")
@@ -191,10 +137,10 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     }
     func request(_ request: OSSystemExtensionRequest, foundProperties properties: [OSSystemExtensionProperties]) {
         checkingRemoval = false; propertiesQuery = nil
-        // A reboot-pending historical build1 must not masquerade as active build6.
-        if !properties.contains(where: { $0.bundleVersion == "6" }) {
+        // A reboot-pending historical build1 must not masquerade as active build7.
+        if !properties.contains(where: { $0.bundleVersion == "7" }) {
             reportState("removed"); watchdog?.invalidate(); watchdog = nil
-            log("Verified build6 is no longer registered. Check native trackpad behavior.")
+            log("Verified build7 is no longer registered. Check native trackpad behavior.")
             NSApp.terminate(nil)
         } else { reportState("restoring") }
     }
@@ -216,7 +162,7 @@ final class ProbeHost: NSObject, NSApplicationDelegate, OSSystemExtensionRequest
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { managedToken == nil }
     func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
         guard managedToken != nil, watchdog != nil else { return .terminateNow }
-        requestManagedRemoval(); window.makeKeyAndOrderFront(nil)
+        requestManagedRemoval()
         log("Waiting for driver removal before quitting. Approve the macOS removal prompt.")
         return .terminateCancel
     }

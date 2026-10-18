@@ -85,7 +85,9 @@ struct DriverStreamCursor {
 @MainActor
 final class DriverKitTakeover: ObservableObject {
     static let knownSerials: Set<String> = ["J84HMA00H0B0000501", "D0:C0:50:D4:75:6C"]
-    static let helperURL = URL(fileURLWithPath: "/Applications/GesturePadRawHIDProbe.app")
+    static var helperURL: URL {
+        Bundle.main.bundleURL.appendingPathComponent("Contents/Helpers/GesturePadDriverService.app")
+    }
     @Published private(set) var isActive = false
     @Published private(set) var isRestoring = false
     @Published private(set) var status = "DriverKit ready. Takeover stays active until Release Trackpads."
@@ -132,8 +134,12 @@ final class DriverKitTakeover: ObservableObject {
             status = "This build requires both tested pads selected: J84HMA00H0B0000501 via USB and D0:C0:50:D4:75:6C via Bluetooth."
             return
         }
-        guard let info = Bundle(url: Self.helperURL), info.infoDictionary?["CFBundleVersion"] as? String == "6" else {
-            status = "Install the signed DriverKit helper v0.6 using DriverKitProbe/install-integration.sh first."
+        guard Bundle.main.bundlePath.hasPrefix("/Applications/") else {
+            status = "Run the installed /Applications/GesturePad.app for DriverKit takeover."
+            return
+        }
+        guard let info = Bundle(url: Self.helperURL), info.infoDictionary?["CFBundleVersion"] as? String == "7" else {
+            status = "Rebuild and install GesturePad using DriverKitProbe/install-integration.sh to include its driver service."
             return
         }
         if synthesizeTwoFingerPointer && !AXIsProcessTrusted() {
@@ -161,6 +167,8 @@ final class DriverKitTakeover: ObservableObject {
         let config = NSWorkspace.OpenConfiguration()
         config.arguments = ["--gesturepad-session", token, "--owner-pid", String(ProcessInfo.processInfo.processIdentifier)]
         config.createsNewApplicationInstance = true
+        config.activates = false
+        config.addsToRecentItems = false
         NSWorkspace.shared.openApplication(at: Self.helperURL, configuration: config) { [weak self] _, error in
             if let error {
                 Task { @MainActor [weak self] in self?.helperState = "error: \(error.localizedDescription)" }
@@ -185,7 +193,7 @@ final class DriverKitTakeover: ObservableObject {
     }
 
     private func saveEvidence(reason: String) {
-        let evidence: [String: Any] = ["schema": 1, "session": token, "build": 6,
+        let evidence: [String: Any] = ["schema": 1, "session": token, "build": 7,
             "reason": reason, "received": received, "gaps": gaps,
             "syntheticMoves": InterpretedTrackpadPointer.shared.postedEventCount,
             "pads": perPad, "helperState": helperState]
@@ -240,7 +248,7 @@ final class DriverKitTakeover: ObservableObject {
             var raw: Unmanaged<CFMutableDictionary>?
             guard IORegistryEntryCreateCFProperties(service, &raw, kCFAllocatorDefault, 0) == KERN_SUCCESS,
                   let p = raw?.takeRetainedValue() as? [String: Any],
-                  (p["StreamBuild"] as? NSNumber)?.intValue == 6,
+                  (p["StreamBuild"] as? NSNumber)?.intValue == 7,
                   let serial = p["StreamSerial"] as? String, devices[serial] != nil,
                   let session = (p["StreamSession"] as? NSNumber)?.uint64Value,
                   let data = p["StreamBatch"] as? Data,

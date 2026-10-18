@@ -6,13 +6,32 @@ first: it records measured results, working architecture, local evidence, activa
 pitfalls and remaining integration work. This is a development takeover implementation, not
 an integrated or production-ready GesturePad backend.
 
-Current source/host: **v0.6, both exact tested pads**, continuous stream integration.
+Current source/host: **v0.7, both exact tested pads**, continuous stream integration.
 See [the integration test](INTEGRATION_TEST.md) before activating. v0.4 was the
 successful Bluetooth-only baseline with no mode command.
 USB v0.3 succeeded previously; its signed app is archived locally (see checkpoint).
 The receiver preallocates report buffers before ordinary IOHIDInterface Open,
 counts actual-length reports, retains one sample and closes after15s. No automatic
 activation/rearm, synthetic output or concurrent application HID seizure.
+
+## Bundled service (v0.7)
+
+The driver manager is now an internal, windowless agent at
+`GesturePad.app/Contents/Helpers/GesturePadDriverService.app`, embedded and
+CodeSignOnCopy-validated by the GesturePad Xcode target. No standalone probe app
+is installed. Its historical bundle identifier is retained for existing profiles.
+Only a GesturePad-managed session argument can activate it; launching it directly
+without that argument exits without activating. LSUIElement and accessory policy
+keep it out of the Dock. Errors/approval/removal state go back to GesturePad.
+The independent owner-process watchdog remains. macOS authorization dialogs may
+still appear. Activation from the nested packaging needs a live verification.
+
+`install-integration.sh` builds/signs the service, builds GesturePad, verifies the
+complete nested signatures and installs `/Applications/GesturePad.app`. Normal
+Xcode/`build.sh` builds embed the prebuilt service; run the integration installer
+first after cloning or whenever the DriverKit/service sources change.
+Run the installed GesturePad app for takeover; workspace Debug builds still serve
+normal UI development but activation requires an Applications installation.
 
 ## Build and sign
 
@@ -23,7 +42,7 @@ python3 mac/gesturepad/DriverKitProbe/sign.py \
   --host-profile mac/gesturepad/DriverKitProbe/profiles/host.provisionprofile
 ```
 
-Output: `build/GesturePadRawHIDProbe.app`. Rebuilding requires signing again.
+Output: `build/GesturePadDriverService.app`. Rebuilding requires signing again.
 Signing verifies profile expiry, app identity, capabilities, team and a common
 authorized installed certificate. It does not install or activate. Xcode26.3 /
 DriverKit25.2 SDK compilation and strict signature verification passed.
@@ -66,11 +85,11 @@ Profile files/approved signing entitlements/build outputs are ignored by Git.
 
 ## Live test and diagnostics
 
-Use [INTEGRATION_TEST.md](INTEGRATION_TEST.md) for the current v0.6 test, launched
+Use [INTEGRATION_TEST.md](INTEGRATION_TEST.md) for the current v0.7 test, launched
 from GesturePad with the signed helper installed. Do not follow older standalone
 v0.3/v0.4 instructions with this dual-pad build. Takeover remains active until Release Trackpads or lifecycle release.
 
 `trace-delivery.sh` remains an older USB-oriented90s metadata diagnostic; its v0.3
-prompts do not describe the v0.6 integration. It does not activate a driver.
+prompts do not describe the v0.7 integration. It does not activate a driver.
 Chronological earlier failures and baseline successes are in
 [HID_CAPTURE_FINDINGS.md](../RewriteValidation/HID_CAPTURE_FINDINGS.md).

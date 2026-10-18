@@ -93,7 +93,7 @@ kern_return_t IMPL(AMTRawHIDReceiver, Start) {
     ivars->started=now;
     r=ivars->timer->WakeAtTime(kIOTimerClockMonotonicRaw,now+16000000ULL,0);
     if(r) return fail(r);
-    os_log(OS_LOG_DEFAULT,"AMTRawHIDReceiver build6 started continuous integrated stream receiver");
+    os_log(OS_LOG_DEFAULT,"AMTRawHIDReceiver build7 started continuous integrated stream receiver");
     r=RegisterService();
     if(r) return fail(r);
     return r;
@@ -148,7 +148,7 @@ void IMPL(AMTRawHIDReceiver, Expired) {
 }
 void AMTRawHIDReceiver::Publish() {
     auto p=OSDictionary::withCapacity(10);if(!p) return;
-    put(p,"StreamBuild",6);put(p,"StreamSession",ivars->started);put(p,"StreamOpened",ivars->opened);
+    put(p,"StreamBuild",7);put(p,"StreamSession",ivars->started);put(p,"StreamOpened",ivars->opened);
     put(p,"StreamSequence",ivars->sequence);put(p,"StreamReports",ivars->reports);
     put(p,"StreamMalformed",ivars->malformed);put(p,"StreamMappingErrors",ivars->mappingErrors);
     auto serial=OSString::withCString(ivars->usb?"J84HMA00H0B0000501":"D0:C0:50:D4:75:6C");
@@ -166,7 +166,7 @@ void AMTRawHIDReceiver::Finish(const char *reason) {
     Publish();
     auto p=OSDictionary::withCapacity(12);
     if(p) {
-        put(p,"ProbeBuild",6);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
+        put(p,"ProbeBuild",7);put(p,"Callbacks",ivars->callbacks);put(p,"ModeAttempted",ivars->modeAttempted);
         put(p,"ModeResult",ivars->modeResult);put(p,"Reports",ivars->reports);put(p,"Bytes",ivars->bytes);
         put(p,"Reports13",ivars->lengths[13]);put(p,"Reports22",ivars->lengths[22]);
         put(p,"Reports31",ivars->lengths[31]);put(p,"Reports40",ivars->lengths[40]);

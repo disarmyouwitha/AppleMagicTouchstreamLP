@@ -563,3 +563,17 @@ and status. Removed driver30s, helper31s/120s session and app120s session limits
 Owner-process monitoring and lifecycle/device-loss removal remain. Build/profile
 identity incremented to0.6/6 so stale bounded drivers cannot appear current.
 Continuous operation and restoration still need a live hardware check.
+
+
+### v0.7 packages driver management inside GesturePad
+
+User rejected the visible standalone probe host. Removed its entire diagnostic UI
+and independent controls, made it an LSUIElement/accessory background service,
+and embedded it with Xcode Copy Files + CodeSignOnCopy at
+GesturePad.app/Contents/Helpers/GesturePadDriverService.app. Retained its existing
+provisioned bundle ID and independent watchdog. GesturePad launches it without
+activation/focus; no managed arguments means immediate exit without driver activation.
+Installer now installs a single /Applications/GesturePad.app and archives/removes
+the obsolete standalone probe application. Deep strict signature validation and
+Xcode embedded-binary validation passed. Unmanaged service smoke launch exited,
+with no driver activated; nested-package activation still needs the live test.

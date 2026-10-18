@@ -74,3 +74,11 @@ has no30s session deadline. Preserve explicit Release Trackpads/global shortcut,
 owner-process watchdog and lifecycle release; do not restore a timed cap based on
 older instructions above. UI contains only DriverKit Takeover, Release Trackpads,
 one synthetic two-finger checkbox and status. Diagnostic backend schemas remain.
+
+
+As of v0.7, the user explicitly rejected a separate probe application. Package the
+windowless driver service inside GesturePad.app/Contents/Helpers, with no Dock
+item or independent controls. Preserve existing signing/profile identifiers and
+watchdog. The installer installs only /Applications/GesturePad.app; do not restore
+the separate /Applications/GesturePadRawHIDProbe.app. Activation/removal state is
+shown by GesturePad; native macOS authorization prompts are still expected.

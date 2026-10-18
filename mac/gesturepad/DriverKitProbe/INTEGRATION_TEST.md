@@ -1,11 +1,11 @@
-# GesturePad DriverKit integration test — v0.6
+# GesturePad DriverKit integration test — v0.7
 
 Status: built and signed; **the integrated hardware path has not yet been tested**.
 The earlier standalone USB/build3 and Bluetooth/build4 captures both succeeded.
 
 ## First live session
 
-1. Run the fresh GesturePad Debug build. Select left Bluetooth
+1. Run `/Applications/GesturePad.app`. Select left Bluetooth
    `D0:C0:50:D4:75:6C` and right USB `J84HMA00H0B0000501`. Both must be selected:
    the development extension contains exactly these two matching personalities.
    Other selections are refused before activation, rather than claiming control
@@ -13,7 +13,7 @@ The earlier standalone USB/build3 and Bluetooth/build4 captures both succeeded.
 2. Under the left trackpad selector, use
    **DriverKit Takeover**. Synthetic 2-finger pointer defaults on. Grant
    GesturePad Accessibility if requested, then retry the button.
-3. The signed helper opens and submits activation. If macOS asks, enable
+3. The internal background service submits activation without opening another app window. If macOS asks, enable
    **AMT Raw HID Receiver** in General → Login Items & Extensions → Driver Extensions.
    Takeover remains active until Release Trackpads. A pending approval is not
    an active receiver. Do not click Activate again.
@@ -25,7 +25,7 @@ The earlier standalone USB/build3 and Bluetooth/build4 captures both succeeded.
    Confirm the separate physical mouse still moves and clicks normally.
 5. Try **Release Trackpads**, or existing global **Control–Option–R**, before timeout.
    There is no session timeout. macOS may require
-   authentication to remove the driver. The helper remains alive if GesturePad
+   authentication to remove the driver. The internal service remains alive if GesturePad
    quits, and watches for owner-process exit. It does not quit while removal is pending.
 6. Wait for **Driver removed** in GesturePad, then confirm normal native input has
    returned on both pads. That message verifies deregistration, not native-handler
@@ -80,7 +80,7 @@ basic test; capture/replay on the hardware is not yet verified for this backend.
 ```
 
 The installer builds, signs with existing ignored development profiles, validates,
-backs up the previous helper and installs `/Applications/GesturePadRawHIDProbe.app`.
+backs up previous installs, embeds the service and installs `GesturePad.app/Contents/Helpers/GesturePadDriverService.app`.
 It refuses if a receiver is registered/awaiting approval (except a historical
 terminated build pending reboot cleanup). It **does not activate** a driver.
 The test is explicitly launched inside GesturePad. Existing app bundle ID,

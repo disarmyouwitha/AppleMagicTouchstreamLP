@@ -45,7 +45,7 @@ def main():
     common=driver[1]&host[1]&installed_identities()
     if not common:raise ValueError('No installed signing identity is authorized by BOTH profiles')
     identity=sorted(common)[0]
-    app=ROOT/'build/GesturePadRawHIDProbe.app'
+    app=ROOT/'build/GesturePadDriverService.app'
     dext=app/'Contents/Library/SystemExtensions'/f'{BASE}.driver.dext'
     if not (dext/'AMTRawHIDReceiver').exists() or not (app/'Contents/MacOS/GesturePadRawHIDProbe').exists():raise ValueError('Build prototype first')
     for target,profile,result,name in [(dext,args.driver_profile,driver,'driver'),(app,args.host_profile,host,'host')]:

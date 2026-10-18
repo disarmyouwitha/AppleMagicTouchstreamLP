@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        BDD000000000000000000004 /* GesturePadDriverService.app in Embed Driver Service */ = {isa = PBXBuildFile; fileRef = BDD000000000000000000005; settings = {ATTRIBUTES = (CodeSignOnCopy,); }; };
         BDD000000000000000000001 /* DriverKitTakeover.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDD000000000000000000002; };
 		BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA000000000000000000002 /* HIDBlackholeExperiment.swift */; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
@@ -30,6 +31,7 @@ FEED10000000000000000005 = {isa = PBXBuildFile; fileRef = FEED000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        BDD000000000000000000005 /* GesturePadDriverService.app */ = {isa = PBXFileReference; lastKnownFileType = wrapper.application; path = ../DriverKitProbe/build/GesturePadDriverService.app; sourceTree = SOURCE_ROOT; };
         BDD000000000000000000002 /* DriverKitTakeover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverKitTakeover.swift; sourceTree = "<group>"; };
 		BAA000000000000000000002 /* HIDBlackholeExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDBlackholeExperiment.swift; sourceTree = "<group>"; };
 		77292A842B931953001CA3F6 /* GesturePad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GesturePad.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -150,6 +152,7 @@ FEED00000000000000000005,
 				77292A802B931953001CA3F6 /* Sources */,
 				77292A812B931953001CA3F6 /* Frameworks */,
 				77292A822B931953001CA3F6 /* Resources */,
+                BDD000000000000000000003 /* Embed Driver Service */,
 			);
 			buildRules = (
 			);
@@ -209,6 +212,18 @@ FEED00000000000000000005,
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+        BDD000000000000000000003 /* Embed Driver Service */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = Contents/Helpers;
+            dstSubfolderSpec = 1;
+            files = (BDD000000000000000000004 /* GesturePadDriverService.app in Embed Driver Service */,);
+            name = "Embed Driver Service";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		77292A802B931953001CA3F6 /* Sources */ = {
