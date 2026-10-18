@@ -41,8 +41,6 @@ struct ContentView: View {
         ScrollView([.horizontal, .vertical]) {
             VStack(alignment: .leading, spacing: 16) {
                 Text("FingerWorks Playground").font(.title2).bold()
-                Text("Raw contacts only · no GTK gestures, chords, or keyboard layout")
-                    .foregroundStyle(.secondary)
                 DevicesSectionView(availableDevices: viewModel.availableDevices,
                     leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
                     onSelectLeft: { device in
@@ -57,13 +55,8 @@ struct ContentView: View {
                         if hidBlackhole.isActive { hidBlackhole.release(reason: "Trackpads refreshed") }
                         viewModel.refreshDevicesAndListeners()
                         synchronizeHIDTarget()
-                    })
-                hidBlackholeControls
+                    }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
-                HStack {
-                    Toggle("Inspect touch data", isOn: $showTouchTelemetry)
-                    Toggle("Contact paths", isOn: $showContactPaths)
-                }.toggleStyle(.checkbox)
                 InlineTouchTelemetry(viewModel: viewModel) {
                     VStack(alignment: .leading, spacing: 12) {
                         HStack(spacing: 16) {
@@ -111,21 +104,42 @@ struct ContentView: View {
         hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID))
     }
 
+    private var touchDisplayControls: some View {
+        HStack(spacing: 16) {
+            Toggle("Inspect touch data", isOn: $showTouchTelemetry)
+            Toggle("Contact paths", isOn: $showContactPaths)
+        }
+        .toggleStyle(.checkbox)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Toggle("Blackhole trackpad HID input (30-second test)", isOn: Binding(
+                Toggle("Blackhole trackpad HID input", isOn: Binding(
                     get: { hidBlackhole.isActive }, set: { enabled in
-                        if enabled { synchronizeHIDTarget() }
+                        if enabled && !hidBlackhole.isActive { synchronizeHIDTarget() }
                         hidBlackhole.setEnabled(enabled)
                     }))
                     .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
+                Button("30sec test") {
+                    if !hidBlackhole.isActive { synchronizeHIDTarget() }
+                    hidBlackhole.startTimedTest()
+                }
+                .disabled(hidBlackhole.selectedGroupIDs.isEmpty || viewModel.replayTimelineState != nil)
                 Button("Release Trackpads") { hidBlackhole.release() }
                     .keyboardShortcut(.escape, modifiers: [.command])
                     .disabled(!hidBlackhole.isActive)
             }
-            Text(hidBlackhole.summary).font(.caption)
-        }.padding(10).background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+            if !hidBlackhole.summary.hasPrefix("Linked to ") {
+                Text(hidBlackhole.summary).font(.caption)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private func replayTimelineView(
@@ -194,21 +208,25 @@ struct ContentView: View {
             millisecondsComponent
         )
     }
-    private struct DevicesSectionView: View {
+    private struct DevicesSectionView<BlackholeControls: View, TouchControls: View>: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        @ViewBuilder let blackholeControls: () -> BlackholeControls
+        @ViewBuilder let touchControls: () -> TouchControls
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 if availableDevices.isEmpty {
                     Text("No trackpads detected.")
                         .foregroundStyle(.secondary)
+                    blackholeControls()
+                    touchControls()
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Left Trackpad")
                                 .font(.caption)
@@ -229,6 +247,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            blackholeControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -252,6 +271,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            touchControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 

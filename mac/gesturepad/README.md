@@ -22,13 +22,13 @@ This is an independent source copy of `../GlassToKey`, without generated build/r
 
 ## Temporary HID blackhole experiment
 
-In Config, choose the left and right trackpads in the trackpad section. **Blackhole trackpad HID input (30-second test)** applies to both selected physical devices (or the one selected pad). Selecting the same physical trackpad twice opens it once. HID links refresh automatically on selection, trackpad refresh, and enabling the test. If either selected pad cannot be linked unambiguously, the test stays off. Keyboard interfaces are excluded.
+In Config, choose the left and right trackpads in the trackpad section. **Blackhole trackpad HID input** applies to both selected physical devices (or the one selected pad). Selecting the same physical trackpad twice opens it once. HID links refresh automatically on selection, trackpad refresh, and enabling the test. If either selected pad cannot be linked unambiguously, the test stays off. Keyboard interfaces are excluded.
 
 Each eligible interface is opened with `IOHIDDeviceOpen(..., kIOHIDOptionsTypeSeizeDevice)`. Successfully opened interfaces register raw input-report callbacks that count reports/bytes/IDs and discard their payloads. Nothing forwards or synthesizes events. There is no CGEvent-tap fallback. Apple documents this as an [exclusive HID link](https://developer.apple.com/documentation/iokit/1588670-iohiddeviceopen); success on one HID interface does not demonstrate control of other input routes.
 
 The separate blackhole-target picker and device-link refresh button are removed. The toggle uses both trackpad selections; **Release Trackpads** releases all seized interfaces. HID interface/report-count and diagnostic-copy controls remain hidden.
 
-The experiment defaults off and auto-releases after **30 seconds**. It also releases on toggle-off, **Release Trackpads** (Command–Escape while Config has focus), target change, Config close, sleep, replay start, and app termination. The system closes HID clients when their process exits.
+The checkbox defaults off and enables blackhole continuously until released. **30sec test**, immediately left of **Release Trackpads**, enables a timed session that releases after **30 seconds**. Starting a timed test during continuous mode switches to the timed session; the checkbox reflects active ownership in either mode and unchecks when the test expires or the trackpads are released. Both modes release on toggle-off, **Release Trackpads** (Command–Escape while Config has focus), target change, Config close, sleep, replay start, and app termination. The system closes HID clients when their process exits.
 
 For each physical trackpad and transport (Bluetooth / USB), test cursor movement, physical click/drag, tap-click, scrolling, and macOS gestures. Record which outputs still occur, the displayed link/open status, and whether the OMS finger display continues updating. Release and confirm native input returns. Repeat with the other device/transport separately. Hidden or unexposed collections/routes are not ruled out by this inventory.
 

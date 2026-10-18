@@ -23,3 +23,5 @@ Scripts resolve their own directory. Identity is defined in `project.env`.
 
 ## Rules
 Preserve the menu-bar shape, existing defaults keys/bundle ID, capture formats, and deterministic replay. Keep sources independent of sibling projects. Do not add avoidable allocations, logging, or I/O on touch hot paths. Update the Xcode project when adding sources. Keep Swift bridge APIs in Sources/OpenMultitouchSupport and Objective-C bridge sources in Framework/OpenMultitouchSupportXCF; rebuild XCFramework after bridge changes and never hand-edit generated bundles. Report build/test limitations.
+
+The checkbox enables continuous blackhole (no timeout); the separate 30sec test button enables a timed session. Preserve explicit release/global shortcut plus selection-change, config-close, sleep, replay and termination cleanup for both modes.

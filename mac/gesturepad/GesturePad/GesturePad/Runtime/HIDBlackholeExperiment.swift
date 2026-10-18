@@ -110,6 +110,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var groups: [Group] = []
     @Published private(set) var isActive = false
     @Published private(set) var secondsRemaining = 0
+    @Published private(set) var isContinuous = false
     @Published private(set) var summary = "Off. Refresh HID devices, choose a trackpad, then enable the 30-second test."
     @Published private(set) var diagnostics = ""
     @Published private(set) var selectedGroupIDs: Set<String> = []
@@ -208,7 +209,19 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     func setEnabled(_ enabled: Bool) {
         if !enabled { release(reason: "Released by toggle"); return }
-        guard !isActive, !selectedGroupIDs.isEmpty else { return }
+        activate(testDuration: nil)
+    }
+
+    func startTimedTest() {
+        activate(testDuration: 30)
+    }
+
+    private func activate(testDuration: TimeInterval?) {
+        if isActive {
+            configureDuration(testDuration)
+            return
+        }
+        guard !selectedGroupIDs.isEmpty else { return }
         let interfaces = groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces)
         openResults.removeAll()
         // Never seize a keyboard interface, including a keyboard sharing a composite device.
@@ -226,7 +239,14 @@ final class HIDBlackholeExperiment: ObservableObject {
             summary = "No interfaces seized. Review the exact errors below; permission/privilege or an existing owner may prevent opening."
             return
         }
-        deadline = Date().addingTimeInterval(30)
+        configureDuration(testDuration)
+    }
+
+    private func configureDuration(_ duration: TimeInterval?) {
+        timer?.invalidate()
+        timer = nil
+        isContinuous = duration == nil
+        deadline = duration.map { Date().addingTimeInterval($0) }
         updateReadout()
         timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
             MainActor.assumeIsolated { self?.tick() }
@@ -238,6 +258,7 @@ final class HIDBlackholeExperiment: ObservableObject {
         timer?.invalidate()
         timer = nil
         deadline = nil
+        isContinuous = false
         var failed: [HIDBlackholeOpenDevice] = []
         for handle in held {
             let result = handle.close()
@@ -254,14 +275,15 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     private func tick() {
-        guard let deadline, Date() < deadline else { release(reason: "30-second test ended"); return }
+        if let deadline, Date() >= deadline { release(reason: "30-second test ended"); return }
         updateReadout()
     }
 
     private func updateReadout() {
         secondsRemaining = max(0, Int(ceil(deadline?.timeIntervalSinceNow ?? 0)))
         let total = groups.filter { selectedGroupIDs.contains($0.id) }.flatMap(\.interfaces).filter { !$0.isKeyboard }.count
-        summary = "Seized \(held.count)/\(total) eligible interfaces · auto-release in \(secondsRemaining)s. OS output suppression is unverified; test movement, clicks, scroll, and gestures."
+        let timing = isContinuous ? "enabled until released" : "auto-release in \(secondsRemaining)s"
+        summary = "Seized \(held.count)/\(total) eligible interfaces · \(timing)."
         let reports = held.map { handle in
             let value = handle.reports.withLock { $0 }
             return "RID \(handle.identity.registryID): \(value.count) reports / \(value.bytes) bytes · last ID \(value.lastID), length \(value.lastLength), \(Self.status(value.lastResult))"
