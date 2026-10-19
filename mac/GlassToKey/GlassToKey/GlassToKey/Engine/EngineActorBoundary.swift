@@ -624,7 +624,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private static func renderTouches(from frame: OMSRawTouchFrame) -> [OMSTouchData] {
         let touches = frame.touches
         guard !touches.isEmpty else { return [] }
-        return touches.map { touch in
+        return touches.filter { $0.state != .notTouching }.map { touch in
             OMSTouchData(
                 deviceID: frame.deviceID,
                 deviceIndex: frame.deviceIndex,
@@ -646,7 +646,7 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         let touches = frame.rawTouches
         let deviceID = String(frame.deviceNumericID)
         if !touches.isEmpty {
-            return touches.map { touch in
+            return touches.filter { $0.state != .notTouching }.map { touch in
                 OMSTouchData(
                     deviceID: deviceID,
                     deviceIndex: frame.deviceIndex,

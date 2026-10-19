@@ -111,3 +111,18 @@
 
 ## Current project layout
 Use `./build.sh` and `./test.sh` from this package, or invoke them by absolute path. `project.env` defines the app identity used by build/release scripts. See `../README.md` for project roles. Legacy runtime symbols, defaults keys, and capture formats remain compatible.
+
+
+## DriverKit takeover
+The optional v22 takeover port is documented in DriverKitProbe/README.md. It captures
+all connected supported model0324 USB/Bluetooth pads; selectors and manual Sync route
+GlassToKey input. Keep decoder/session files independent of GesturePad pointer output
+and legacy blackhole experiments. Preserve the exact signed GlassToKey owner check,
+shared permanent helper/driver identities, owner watchdog and bounded restart lease,
+keyboard reset before transfer, background warm restart on Config close, Release/menu/
+Control-Option-R, and release on sleep/replay/Exit. Refresh must stay disabled through
+ownership/removal and visible with an empty inventory. Disable the ordinary native
+MouseEventBlocker while DriverKit owns/restores pads; retain ordinary mode behavior.
+Replay stays recording-only. Build/install does not authorize automatic takeover or
+live input testing. Run ./test.sh and the DriverKitProbe/Tests Python tests. No scoped
+UserClient Access or Allow Any UserClient entitlement is needed by this v22 port.

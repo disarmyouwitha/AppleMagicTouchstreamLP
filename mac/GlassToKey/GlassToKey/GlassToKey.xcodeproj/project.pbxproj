@@ -7,6 +7,12 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        BDD000000000000000000004 /* Driver Service in Embed Driver Service */ = {isa = PBXBuildFile; fileRef = BDD000000000000000000005; settings = {ATTRIBUTES = (CodeSignOnCopy,); }; };
+        1DF6D8FE86852192B5030001 /* TakeoverConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1DF6D8FE86852192B5030002; };
+        229BD43EC54452894FDFA701 /* TrackpadContactDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 229BD43EC54452894FDFA702; };
+        7A10EE5105CA449C32133A01 /* TrackpadContactFrame.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7A10EE5105CA449C32133A02; };
+        AEFE84ED770F3D6CC348CF01 /* DriverSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = AEFE84ED770F3D6CC348CF02; };
+        2EC0D225EF0B73FB6E862901 /* DriverKitTakeover.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EC0D225EF0B73FB6E862902; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
 		31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */; };
 		3C193E5CB3384DBB97B4BD76 /* MobileLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21D5BB43B585451E9D83C8ED /* MobileLayout.swift */; };
@@ -33,6 +39,12 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        BDD000000000000000000005 /* Driver Service */ = {isa = PBXFileReference; lastKnownFileType = wrapper.application; path = ../DriverKitProbe/build/GlassToKeyDriverService.app; sourceTree = SOURCE_ROOT; };
+        1DF6D8FE86852192B5030002 /* TakeoverConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TakeoverConfiguration.swift; sourceTree = "<group>"; };
+        229BD43EC54452894FDFA702 /* TrackpadContactDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadContactDecoder.swift; sourceTree = "<group>"; };
+        7A10EE5105CA449C32133A02 /* TrackpadContactFrame.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackpadContactFrame.swift; sourceTree = "<group>"; };
+        AEFE84ED770F3D6CC348CF02 /* DriverSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverSession.swift; sourceTree = "<group>"; };
+        2EC0D225EF0B73FB6E862902 /* DriverKitTakeover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DriverKitTakeover.swift; sourceTree = "<group>"; };
 		21D5BB43B585451E9D83C8ED /* MobileLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileLayout.swift; sourceTree = "<group>"; };
 		31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColumnLayoutSettings.swift; sourceTree = "<group>"; };
 		5A1C2D3E4F5061728394A5B5 /* AutocorrectEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AutocorrectEngine.swift; sourceTree = "<group>"; };
@@ -125,6 +137,11 @@
 		C0A1B2C3D4E5F60718293C41 /* Runtime */ = {
 			isa = PBXGroup;
 			children = (
+                1DF6D8FE86852192B5030002 /* TakeoverConfiguration.swift */,
+                229BD43EC54452894FDFA702 /* TrackpadContactDecoder.swift */,
+                7A10EE5105CA449C32133A02 /* TrackpadContactFrame.swift */,
+                AEFE84ED770F3D6CC348CF02 /* DriverSession.swift */,
+                2EC0D225EF0B73FB6E862902 /* DriverKitTakeover.swift */,
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
@@ -159,6 +176,7 @@
 				77292A802B931953001CA3F6 /* Sources */,
 				77292A812B931953001CA3F6 /* Frameworks */,
 				77292A822B931953001CA3F6 /* Resources */,
+                BDD000000000000000000003 /* Embed Driver Service */,
 			);
 			buildRules = (
 			);
@@ -221,11 +239,28 @@
 		};
 /* End PBXResourcesBuildPhase section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+        BDD000000000000000000003 /* Embed Driver Service */ = {
+            isa = PBXCopyFilesBuildPhase;
+            buildActionMask = 2147483647;
+            dstPath = Contents/Helpers;
+            dstSubfolderSpec = 1;
+            files = (BDD000000000000000000004 /* Driver Service in Embed Driver Service */,);
+            name = "Embed Driver Service";
+            runOnlyForDeploymentPostprocessing = 0;
+        };
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		77292A802B931953001CA3F6 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                1DF6D8FE86852192B5030001 /* TakeoverConfiguration.swift in Sources */,
+                229BD43EC54452894FDFA701 /* TrackpadContactDecoder.swift in Sources */,
+                7A10EE5105CA449C32133A01 /* TrackpadContactFrame.swift in Sources */,
+                AEFE84ED770F3D6CC348CF01 /* DriverSession.swift in Sources */,
+                2EC0D225EF0B73FB6E862901 /* DriverKitTakeover.swift in Sources */,
 				5A1C2D3E4F5061728394A5B8 /* AccessibilityTextReplacer.swift in Sources */,
 				5A1C2D3E4F5061728394A5B6 /* AutocorrectEngine.swift in Sources */,
 				77292A8A2B931953001CA3F6 /* ContentView.swift in Sources */,

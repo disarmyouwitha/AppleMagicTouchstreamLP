@@ -1024,7 +1024,38 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    func ingestDriverContacts(device: UInt64, index: Int, timestamp: Double, touches: [OMSRawTouch]) async {
+        guard replayTimelineState == nil, !driverOutputSuspended else { return }
+        await runtimeLifecycleCoordinator.ingestDriverContacts(device: device, index: index, timestamp: timestamp, touches: touches)
+    }
+
+    private var driverOutputSuspended = false
+    private(set) var driverOwnsTrackpads = false
+
+    func cancelDriverOutput() {
+        driverOutputSuspended = true
+        runtimeCommandService.stopListeningAndReset(stopVoiceDictation: true)
+    }
+
+    func suspendDriverOutput() async {
+        driverOutputSuspended = true
+        await runtimeLifecycleCoordinator.suspendDriverOutput()
+    }
+
+    func resumeDriverOutput() {
+        driverOutputSuspended = false
+        runtimeCommandService.setListening(driverOwnsTrackpads || isListening)
+    }
+
+    func setDriverOwnership(_ owned: Bool) {
+        driverOwnsTrackpads = owned
+        driverOutputSuspended = false
+        setAutoResyncEnabled(UserDefaults.standard.bool(forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads))
+        runtimeCommandService.setListening(owned || isListening)
+    }
+
     func refreshDevicesAndListeners() {
+        guard !driverOwnsTrackpads else { return }
         let shouldRestart = isListening
         if shouldRestart {
             stop()
@@ -1051,7 +1082,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     func setAutoResyncEnabled(_ enabled: Bool) {
-        deviceSessionService.setAutoResyncEnabled(enabled)
+        deviceSessionService.setAutoResyncEnabled(enabled && !driverOwnsTrackpads)
     }
 
     func configureLayouts(

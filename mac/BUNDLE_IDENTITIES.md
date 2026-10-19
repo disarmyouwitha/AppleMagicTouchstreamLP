@@ -21,18 +21,18 @@ entitlements and Apple-issued profiles are the authority for a particular build.
   authorizes the exact signed owner `ink.ranna.gesturepad`.
 - AppleMagicTouchstream's [takeover manifest](AppleMagicTouchstream/DriverKitProbe/takeover-config.json)
   authorizes the exact signed owner `ink.ranna.applemagictouchstream`.
-- Both use the same permanent helper/driver IDs. Run that project's
+- All three use the same permanent helper/driver IDs. Run that project's
   `DriverKitProbe/generate-config.py` after manifest edits; generated Swift bindings
   feed the app/helper and generated C++ bindings feed the driver build.
 - **One owning app at a time.** Each packaged helper accepts its configured exact
   app identity and team, not both apps or a wildcard. Release and quit the owning
   app before switching to another app's takeover build. Shared names alone do not
   provide concurrent ownership or inter-app handoff.
-- GlassToKey has not received the takeover port. Adding it requires its own explicit
-  owner configuration and integration, not a bundle-ID change alone.
+- GlassToKey's [takeover manifest](GlassToKey/DriverKitProbe/takeover-config.json)
+  authorizes the exact signed owner `ink.ranna.glasstokey`.
 
-The helper filenames differ by project (`GesturePadDriverService.app` and
-`AppleMagicTouchstreamDriverService.app`); filenames are not bundle IDs. Existing
+The helper filenames differ by project (`GesturePadDriverService.app`,
+`AppleMagicTouchstreamDriverService.app`, and `GlassToKeyDriverService.app`); filenames are not bundle IDs. Existing
 wire notification names and executable names are compatibility details.
 
 ## Signing and installation
