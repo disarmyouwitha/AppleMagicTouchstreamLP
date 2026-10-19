@@ -2,11 +2,6 @@
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I could set up a scaled down keymap that matches?
 
----
-
-- Can you make sure release scripts for each Mac program are updated to reflect their current bundles and setup?
-- 
-
 ===
 
 `AppleMagicTouchstream`: 
@@ -32,3 +27,5 @@
 1. a. TOGGLE for gestures? b. remove extra Typing Tuning flags from logic
 2. Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
 > I want to rebuild or at least relook at how the keys and keymap are done.. If I knew I wanted every key to be movable (yet could still be associated with a column) would I have build it the same way? Can we PLEASE implement click&drag columns and/or keys?
+777. Can we copy AppleMagicTrackpad's "Trackpad takeover" driver, buttons, sync, "trackpad release", refresh lock logic, and menu item with shortcut into GlassToKey? [PORTING.md](mac/gesturepad/DriverKitProbe/PORTING.md)
+> The takeover code is saved in commit fc117e2 for late
