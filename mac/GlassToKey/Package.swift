@@ -62,8 +62,7 @@ let package = Package(
         .testTarget(
             name: "ProductionEngineTests",
             dependencies: ["GlassToKeyRuntime", "ReplayFixtureKit"],
-            path: "Tests/ProductionEngineTests",
-            resources: [.copy("Fixtures")]
+            path: "Tests/ProductionEngineTests"
         ),
         .executableTarget(
             name: "ReplayFixtureCapture",

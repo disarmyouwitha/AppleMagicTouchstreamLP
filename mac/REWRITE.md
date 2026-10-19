@@ -2,6 +2,11 @@
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I could set up a scaled down keymap that matches?
 
+---
+
+- Can you make sure release scripts for each Mac program are updated to reflect their current bundles and setup?
+- 
+
 ===
 
 `AppleMagicTouchstream`: 

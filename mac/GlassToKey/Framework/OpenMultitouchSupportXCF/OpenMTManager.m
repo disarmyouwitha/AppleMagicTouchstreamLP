@@ -8,7 +8,6 @@
 
 #import <Cocoa/Cocoa.h>
 #import <IOKit/IOKitLib.h>
-#import <IOKit/hid/IOHIDKeys.h>
 #import <os/lock.h>
 #import <stdlib.h>
 
@@ -27,13 +26,6 @@ typedef struct {
     BOOL usesRefcon;
 } MTDeviceCallbackContext;
 
-static NSString *OMSRegistryIdentityString(io_registry_entry_t service, CFStringRef key) {
-    if (!service) return @"";
-    id value = CFBridgingRelease(IORegistryEntrySearchCFProperty(service, kIOServicePlane, key,
-        kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents));
-    return [value isKindOfClass:[NSString class]] ? value : @"";
-}
-
 @implementation OpenMTDeviceInfo
 
 - (instancetype)initWithDeviceRef:(MTDeviceRef)deviceRef {
@@ -48,14 +40,6 @@ static NSString *OMSRegistryIdentityString(io_registry_entry_t service, CFString
             _deviceID = @"Unknown";
             _deviceNumericID = 0;
         }
-        // MT's numeric ID and the HID registry ID are different namespaces.
-        // Preserve the original ID; expose the actual service for exact HID ancestry matching.
-        io_service_t service = MTDeviceGetService ? MTDeviceGetService(deviceRef) : IO_OBJECT_NULL;
-        _registryEntryID = 0;
-        if (service) IORegistryEntryGetRegistryEntryID(service, &_registryEntryID);
-        _serialNumber = OMSRegistryIdentityString(service, CFSTR(kIOHIDSerialNumberKey));
-        _transport = OMSRegistryIdentityString(service, CFSTR(kIOHIDTransportKey));
-        // MTDeviceGetService returns a borrowed service; MT owns its lifetime.
         // Determine if built-in
         _isBuiltIn = MTDeviceIsBuiltIn ? MTDeviceIsBuiltIn(deviceRef) : YES;
         // Get family ID for precise device identification

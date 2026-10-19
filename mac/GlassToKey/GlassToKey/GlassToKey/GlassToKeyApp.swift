@@ -1,7 +1,5 @@
 import AppKit
 import Combine
-import Carbon
-import OpenMultitouchSupport
 import ServiceManagement
 import SwiftUI
 import UniformTypeIdentifiers
@@ -23,13 +21,6 @@ struct GlassToKeyApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let relaunchArgument = "--relaunch"
     private let controller = GlassToKeyController()
-    private let driverControl = DriverKitTakeover()
-    private var releaseHotKey: EventHotKeyRef?
-    private var releaseHotKeyHandler: EventHandlerRef?
-    private var restartTask: Task<Void, Never>?
-    private var quitTask: Task<Void, Never>?
-    private var sleepObserver: NSObjectProtocol?
-    private var driverOwnershipCancellable: AnyCancellable?
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
@@ -77,37 +68,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
-        let resume = DriverKitTakeover.restartSnapshot(arguments: ProcessInfo.processInfo.arguments)
-        if let resume { DriverKitTakeover.installInventory(resume.inventory ?? resume.devices) }
         guard enforceSingleInstancePolicyAtLaunch() else { return }
         GlassToKeyController.seedBundledDefaultsIfNeeded()
-        let shouldOpenConfigOnLaunch = !ProcessInfo.processInfo.arguments.contains("--background") &&
-            (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
+        let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
         controller.start()
         normalizeKeyboardModePermissionState()
-        driverControl.onFrame = { [weak controller] frame in
-            await controller?.viewModel.ingestDriverContacts(device: frame.deviceID, index: frame.deviceIndex,
-                timestamp: frame.timestamp, touches: frame.contacts)
-        }
-        driverControl.onSessionBegan = { [weak controller] in
-            controller?.viewModel.setDriverOwnership(true)
-        }
-        driverControl.onSessionWillRelease = { [weak controller] in
-            controller?.viewModel.cancelDriverOutput()
-        }
-        driverControl.onSessionEnded = { [weak controller] in
-            controller?.viewModel.setDriverOwnership(false)
-            controller?.viewModel.refreshDevicesAndListeners()
-            controller?.viewModel.start()
-        }
-        if let resume { driverControl.adoptRestart(resume) }
-        registerReleaseHIDShortcut()
-        sleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
-            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
-        ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.driverControl.release() }
-        }
         configureStatusItem()
         observeStatus()
         if shouldOpenConfigOnLaunch {
@@ -123,23 +89,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         UserDefaults.standard.set(false, forKey: GlassToKeyDefaultsKeys.keyboardModeEnabled)
         controller.viewModel.updateKeyboardModeEnabled(false)
     }
-
-    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-        let control = driverControl
-        if control.isTransferringRestart || !control.hasOwnershipRequest { return .terminateNow }
-        if quitTask == nil {
-            driverControl.release()
-            quitTask = Task { @MainActor in
-                while control.hasOwnershipRequest {
-                    try? await Task.sleep(for: .milliseconds(100))
-                }
-                sender.reply(toApplicationShouldTerminate: true)
-            }
-        }
-        return .terminateLater
-    }
-
-
 
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
@@ -161,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             await controller.endReplaySession()
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
-            restartAppProcess(reopenConfig: false)
+            restartAppProcess()
         }
     }
 
@@ -180,12 +129,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         configItem.target = self
         menu.addItem(configItem)
-        menu.addItem(.separator())
-        let releaseItem = NSMenuItem(title: "Release Trackpads",
-            action: #selector(releaseHIDNow), keyEquivalent: "r")
-        releaseItem.keyEquivalentModifierMask = [.control, .option]
-        releaseItem.target = self
-        menu.addItem(releaseItem)
         menu.addItem(.separator())
         let captureItem = NSMenuItem(
             title: "Capture...",
@@ -229,58 +172,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads,
             keyboardModeEnabled: controller.viewModel.keyboardModeEnabled
         )
-        updateMouseBlocking()
+        mouseEventBlocker.setBlockingEnabled(
+            controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled
+        )
         captureInProgress = controller.isATPCaptureActive
         replayInProgress = controller.isATPReplayActive
         refreshCaptureReplayMenuState()
     }
 
-    @objc private func releaseHIDNow() {
-        driverControl.release()
-    }
-
-    private func registerReleaseHIDShortcut() {
-        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard),
-                                  eventKind: UInt32(kEventHotKeyPressed))
-        let context = Unmanaged.passUnretained(self).toOpaque()
-        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
-            guard let context else { return OSStatus(eventNotHandledErr) }
-            MainActor.assumeIsolated {
-                Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue().releaseHIDNow()
-            }
-            return noErr
-        }, 1, &event, context, &releaseHotKeyHandler)
-        guard installed == noErr else { return }
-        // Carbon hotkeys use the keyboard independently of seized trackpad interfaces.
-        let identifier = EventHotKeyID(signature: 0x47544B52, id: 1)
-        let result = RegisterEventHotKey(UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey),
-            identifier, GetApplicationEventTarget(), 0, &releaseHotKey)
-        if result != noErr {
-            if let handler = releaseHotKeyHandler { RemoveEventHandler(handler) }
-            releaseHotKeyHandler = nil
-        }
-    }
-
-    func applicationWillTerminate(_ notification: Notification) {
-        driverControl.release()
-        if let sleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(sleepObserver) }
-        if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
-        if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
-    }
-
-    private func updateMouseBlocking() {
-        mouseEventBlocker.setBlockingEnabled(!driverControl.hasOwnershipRequest &&
-            controller.viewModel.isTypingEnabled && controller.viewModel.keyboardModeEnabled)
-    }
-
     private func observeStatus() {
-        driverOwnershipCancellable = driverControl.$isActive.combineLatest(driverControl.$isRestoring)
-            .sink { [weak self] active, restoring in
-                guard let self else { return }
-                self.mouseEventBlocker.setBlockingEnabled(!active && !restoring &&
-                    self.controller.viewModel.isTypingEnabled && self.controller.viewModel.keyboardModeEnabled)
-            }
-
         statusCancellable = Publishers.CombineLatest4(
             controller.viewModel.$isTypingEnabled.removeDuplicates(),
             controller.viewModel.$activeLayer.removeDuplicates(),
@@ -294,13 +194,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 hasDisconnectedTrackpads: hasDisconnected,
                 keyboardModeEnabled: keyboardModeEnabled
             )
-            self?.updateMouseBlocking()
+            self?.mouseEventBlocker.setBlockingEnabled(isTypingEnabled && keyboardModeEnabled)
         }
         replayStateCancellable = controller.viewModel.$replayTimelineState
             .map { $0 != nil }
             .removeDuplicates()
             .sink { [weak self] isReplayActive in
-                if isReplayActive { self?.driverControl.release() }
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }
@@ -559,10 +458,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         openConfigWindow()
         do {
-            driverControl.release()
-            while driverControl.hasOwnershipRequest {
-                try await Task.sleep(for: .milliseconds(100))
-            }
             try await controller.beginReplaySession(from: inputURL)
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
@@ -607,7 +502,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func makeConfigWindow() -> NSWindow {
-        let contentView = ContentView(viewModel: controller.viewModel, driverControl: driverControl)
+        let contentView = ContentView(viewModel: controller.viewModel)
         let window = NSWindow(
             contentRect: NSRect(
                 x: 0,
@@ -670,55 +565,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         mouseEventBlocker.setAllowedRect(window.frame)
     }
 
-    private func restartAppProcess(reopenConfig: Bool = true) {
-        guard !isTerminatingApp, restartTask == nil else { return }
-        restartTask = Task { @MainActor [self] in
-            if captureInProgress { await stopCaptureFlow() }
-            if driverControl.isActive {
-                await controller.viewModel.suspendDriverOutput()
-                guard let transfer = await driverControl.prepareRestart() else {
-                    controller.viewModel.resumeDriverOutput()
-                    restartTask = nil
-                    return
-                }
-                let task = Process()
-                task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-                task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument,
-                    reopenConfig ? "--open-config" : "--background", "--resume-driver", transfer.session, transfer.nonce]
-                do {
-                    try task.run()
-                    isTerminatingApp = true
-                    NSApp.terminate(nil)
-                } catch {
-                    driverControl.cancelRestart(nonce: transfer.nonce)
-                    controller.viewModel.resumeDriverOutput()
-                    restartTask = nil
-                    NSLog("GlassToKey live restart failed: %@", error.localizedDescription)
-                }
-                return
-            }
-            // Keep the owning app/helper alive until removal is confirmed.
-            // Launching first lets the new process cache an empty native device
-            // inventory while the previous process still owns the trackpads.
-            driverControl.release()
-            while driverControl.hasOwnershipRequest {
-                do { try await Task.sleep(for: .milliseconds(100)) }
-                catch { return }
-            }
-            guard !isTerminatingApp else { return }
-            let task = Process()
-            task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            task.arguments = ["-n", Bundle.main.bundlePath, "--args", Self.relaunchArgument]
-            if !reopenConfig { task.arguments?.append("--background") }
-            do {
-                try task.run()
-                isTerminatingApp = true
-                NSApp.terminate(nil)
-            } catch {
-                restartTask = nil
-                NSLog("GlassToKey restart failed: %@", error.localizedDescription)
-            }
-        }
+    private func restartAppProcess() {
+        guard !isTerminatingApp else { return }
+        isTerminatingApp = true
+        let bundlePath = Bundle.main.bundlePath
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/bin/open")
+        task.arguments = ["-n", bundlePath, "--args", Self.relaunchArgument]
+        try? task.run()
+        NSApp.terminate(nil)
     }
 }
 

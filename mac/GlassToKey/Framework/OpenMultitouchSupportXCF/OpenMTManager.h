@@ -25,9 +25,6 @@ NS_ASSUME_NONNULL_BEGIN
 @property (nonatomic, readonly) NSString *deviceID;
 @property (nonatomic, readonly) UInt64 deviceNumericID;
 @property (nonatomic, readonly) BOOL isBuiltIn;
-@property (nonatomic, readonly) UInt64 registryEntryID;
-@property (nonatomic, readonly) NSString *serialNumber;
-@property (nonatomic, readonly) NSString *transport;
 @end
 
 @interface OpenMTManager: NSObject

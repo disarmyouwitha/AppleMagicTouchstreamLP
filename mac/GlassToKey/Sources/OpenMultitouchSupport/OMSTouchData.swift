@@ -54,20 +54,6 @@ public enum OMSState: String, Codable, Sendable {
 
 /// Raw device fields. Identity codes and absolute-coordinate units are unverified.
 /// A missing telemetry object means the source did not record these fields.
-/// Raw nine-byte contact record retained for future decoder corrections.
-/// Conversion version2 reconstructs the native Compact V7 numeric contract.
-public struct OMSDriverKitTelemetry: Codable, Sendable, Equatable {
-    public let contactBytes: [UInt8]
-    public let velocityAvailable: Bool
-    public let conversionVersion: Int?
-    public let sensorTicks: UInt32?
-    public let reportBytes: [UInt8]?
-    public init(contactBytes: [UInt8], velocityAvailable: Bool, conversionVersion: Int? = nil, sensorTicks: UInt32? = nil, reportBytes: [UInt8]? = nil) {
-        self.contactBytes = contactBytes; self.velocityAvailable = velocityAvailable
-        self.conversionVersion = conversionVersion; self.sensorTicks = sensorTicks; self.reportBytes = reportBytes
-    }
-}
-
 public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
     public let fingerID: Int32
 
@@ -91,7 +77,6 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
     public let absoluteVelocityY: Float
     public let sourceFrame: Int32
     public let sourceTimestamp: Double
-    public let driverKit: OMSDriverKitTelemetry?
 
     public init(
         fingerID: Int32,
@@ -103,8 +88,7 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
         absoluteVelocityX: Float,
         absoluteVelocityY: Float,
         sourceFrame: Int32,
-        sourceTimestamp: Double,
-        driverKit: OMSDriverKitTelemetry? = nil
+        sourceTimestamp: Double
     ) {
         self.fingerID = fingerID
         self.handID = handID
@@ -116,7 +100,6 @@ public struct OMSTouchTelemetry: Codable, Sendable, Equatable {
         self.absoluteVelocityY = absoluteVelocityY
         self.sourceFrame = sourceFrame
         self.sourceTimestamp = sourceTimestamp
-        self.driverKit = driverKit
     }
 }
 

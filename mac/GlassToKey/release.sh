@@ -117,6 +117,7 @@ preflight() {
         log_fail "Entitlements file not found: $ENTITLEMENTS_PATH"
     fi
 
+    require_tool python3
     log_pass "Local prerequisites look sane"
 }
 
@@ -191,7 +192,7 @@ sign_app() {
         --sign "$DEVELOPER_ID_APPLICATION_CERT" \
         "$APP_PATH"
 
-    codesign --verify --strict --verbose=2 "$APP_PATH"
+    codesign --verify --deep --strict --verbose=2 "$APP_PATH"
     log_pass "App signing verified"
 }
 
@@ -199,7 +200,18 @@ notarize() {
     local artifact_path="$1"
     local label="$2"
     log_step "Submitting $label for notarization"
-    xcrun notarytool submit "$artifact_path" --wait "${NOTARY_ARGS[@]}"
+    local result_path="$artifact_path.notary-result.json"
+    local log_path="$artifact_path.notary-log.json"
+    local submit_exit=0
+    xcrun notarytool submit "$artifact_path" --wait --output-format json "${NOTARY_ARGS[@]}" > "$result_path" || submit_exit=$?
+    local submission_id
+    submission_id="$(python3 -c 'import json,sys; print(json.load(open(sys.argv[1])).get("id", ""))' "$result_path" 2>/dev/null || true)"
+    if (( submit_exit != 0 )) || ! python3 "$SCRIPT_DIR/Tools/Release/check_notary_result.py" "$result_path"; then
+        if [[ -n "$submission_id" ]]; then
+            xcrun notarytool log "$submission_id" "${NOTARY_ARGS[@]}" "$log_path" || true
+        fi
+        log_fail "$label notarization was not accepted. Result: $result_path; details: $log_path. Stapling skipped."
+    fi
     log_pass "$label notarization accepted"
 }
 
