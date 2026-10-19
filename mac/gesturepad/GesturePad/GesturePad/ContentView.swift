@@ -404,8 +404,6 @@ private struct DriverKitControls: View {
                 Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
                 Toggle("Allow click", isOn: $control.allowClick)
             }
-            Text("Takeover captures all supported connected trackpads. Left/right selections control visualization.")
-                .font(.caption).foregroundStyle(.secondary)
             Text(control.status).font(.caption).fixedSize(horizontal: false, vertical: true)
         }
     }
