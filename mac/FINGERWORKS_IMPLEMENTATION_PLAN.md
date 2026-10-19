@@ -23,6 +23,27 @@ not proof of TouchStream variable-speed typematic fidelity. GesturePad has no
 keyboard output. Each project owns its sources, bridge and tests; port validated
 boundaries deliberately. Run one owning/output application at a time.
 
+## Pad dimensions and layout scaling
+
+User-provided per-pad dimensions for the hardware comparison:
+
+| Surface | Width × height |
+| --- | --- |
+| FingerWorks TouchStream, each pad | 16.5 × 12.1 cm (165 × 121 mm) |
+| Apple Magic Trackpad | 16.0 × 11.49 cm (160 × 114.9 mm) |
+
+TouchStream is only 5 mm wider and 6.1 mm taller per pad. The surfaces are close
+in size, making a slightly scaled TouchStream keymap a useful starting point for
+AppleMagicTouchstream experiments. Fitting the full layout by axis would use
+approximately 97.0% width and 95.0% height; preserving aspect ratio would use a
+uniform scale of approximately 95.0%, leaving some horizontal margin.
+
+These are user-provided comparison dimensions, not verified active sensing bounds.
+The original “16.5 mm” width is interpreted as 16.5 cm to match the stated size
+comparison. Confirm usable touch extents before calibrating a physical keymap.
+Keep physical millimetres and normalized coordinates explicit; similar pad sizes
+do not establish identical key placement, contact calibration or gesture thresholds.
+
 ## Input ownership: what we have established
 
 GesturePad established raw contact delivery while suppressing Apple's native

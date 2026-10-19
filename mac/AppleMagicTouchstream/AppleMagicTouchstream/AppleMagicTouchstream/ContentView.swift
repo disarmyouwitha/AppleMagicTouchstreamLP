@@ -1659,8 +1659,6 @@ struct ContentView: View {
                     Button("Release Trackpads") { driverControl.release() }
                         .disabled(!driverControl.hasOwnershipRequest)
                 }
-                Text("Takeover captures all supported connected model 0324 trackpads, including unselected pads. Left/right selections route app input; apply changes with Sync.")
-                    .font(.caption).foregroundStyle(.secondary)
                 Text(driverControl.status).font(.caption).fixedSize(horizontal: false, vertical: true)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
