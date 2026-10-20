@@ -167,3 +167,38 @@ continued touching the selected pad during recovery require user observation.
 This establishes the core eight-second result on this machine, not a reliable
 release/reacquisition lifecycle or production readiness. Keep this evidence;
 do not replace it with an unverified alternative transport experiment.
+
+## Third run: continuous one-finger test
+
+[Preserved log](captures/native-filter/third-run-one-finger.log), original
+`/tmp/amt-native-filter.svByTM/session.log`. User reports moving one finger the
+entire time: cursor before, no cursor during FILTER, cursor after.
+
+| Phase | Frames | With contacts | Cursor span X/Y |
+| --- | --- | --- | --- |
+|Baseline (5s)|383|382|802.47 / 167.50|
+|Filter (8s)|712|712|4.11 / 3.43|
+|Recovery (5s)|447|447|822.44 / 675.42|
+
+Filter counts increased every printed interval, contact coordinates changed,
+and the maximum reported contact count was one. The kernel verified one own
+FilterEnabled client during the window and none afterward. All start/stop
+statuses were success. This supports the core user-space contact receive,
+visibly suppressed native movement, and release/recovery combination on this
+Bluetooth pad without activating our DriverKit extension.
+
+The filter cursor span is small but nonzero. It must not be described as exact
+zero movement. Transition/in-flight movement is a possible explanation; this
+log lacks per-sample timestamps to establish that explanation. The prior second
+run measured exactly zero filter span, but that does not erase this residual.
+
+The user also clarified the second run: the right pad resumed native cursor
+movement and fingers continued moving during recovery, despite the monitor
+recording zero recovery callbacks. The third run recovered both cursor behavior
+and contact delivery. The earlier monitor failure remains a lifecycle/reliability
+issue to investigate, not a reason to discard the successful receive mechanism.
+
+Still unverified: clicks/drags, all native gestures/scroll suppression, simultaneous
+second-pad/mouse isolation, long sessions, repeated cycles/crash/sleep/reconnect
+recovery, and other macOS builds/architectures. No production integration has
+been authorized or performed on the basis of this result.

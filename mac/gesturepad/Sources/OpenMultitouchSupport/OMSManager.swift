@@ -22,22 +22,9 @@ public struct OMSDeviceInfo: Sendable, Hashable {
         return identity.isEmpty ? "\(deviceName) (ID: \(deviceID))" : "\(deviceName) · \(identity)"
     }
     internal nonisolated(unsafe) let deviceInfo: OpenMTDeviceInfo?
-    public let driverDeviceIndex: Int?
 
-    /// Metadata for an independently delivered DriverKit source, not a native
-    /// callback object. Keep selectors usable while Apple's services are absent.
-    public init(driverDeviceName: String, deviceID: UInt64, registryEntryID: UInt64,
-                serialNumber: String, transport: String, deviceIndex: Int) {
-        deviceInfo = nil; driverDeviceIndex = deviceIndex
-        deviceName = driverDeviceName; self.deviceID = String(deviceID)
-        deviceIDNumeric = deviceID; isBuiltIn = false
-        self.registryEntryID = registryEntryID; self.serialNumber = serialNumber
-        self.transport = transport
-    }
-    
     internal init(_ deviceInfo: OpenMTDeviceInfo) {
         self.deviceInfo = deviceInfo
-        self.driverDeviceIndex = nil
         self.deviceName = deviceInfo.deviceName
         self.deviceID = deviceInfo.deviceID
         self.deviceIDNumeric = UInt64(deviceInfo.deviceID) ?? 0
@@ -177,8 +164,7 @@ public final class OMSManager: Sendable {
         set { protectedTimestampEnabled.withLockUnchecked { $0 = newValue } }
     }
     
-    // Native services can be absent while DriverKit owns the pads. An app
-    // launched then must recover on explicit Refresh after native restoration.
+    // Recover native services on explicit Refresh if they were absent at launch.
     private func captureManagerIfAvailable() -> OpenMTManagerV2? {
         if let current = protectedCaptureManager.withLockUnchecked(\.self) { return current }
         guard let recovered = Self.loadManagerV2() else { return nil }
@@ -191,16 +177,9 @@ public final class OMSManager: Sendable {
     public var availableDevices: [OMSDeviceInfo] {
         let manager = captureManagerIfAvailable()
         manager?.refreshAvailableDevices()
-        let native = manager?.availableDevices().map { OMSDeviceInfo($0) } ?? []
-        let ids = Set(native.map(\.deviceIDNumeric))
-        return native + driverInventory.withLock { $0.filter { !ids.contains($0.deviceIDNumeric) } }
+        return manager?.availableDevices().map { OMSDeviceInfo($0) } ?? []
     }
 
-    private let driverInventory = OSAllocatedUnfairLock(initialState: [OMSDeviceInfo]())
-    public func setDriverInventory(_ devices: [OMSDeviceInfo]) {
-        driverInventory.withLock { $0 = devices }
-    }
-    
     public var activeDevices: [OMSDeviceInfo] {
         guard let manager = captureManagerIfAvailable() else { return [] }
         return manager.activeDevices().map { OMSDeviceInfo($0) }
@@ -262,6 +241,18 @@ public final class OMSManager: Sendable {
         return true
     }
     
+    public func beginNativeFilterTest(deviceID: UInt64) -> Bool {
+        captureManagerIfAvailable()?.beginNativeFilterTest(forDeviceID: deviceID) ?? false
+    }
+
+    public func endNativeFilterTest() {
+        protectedCaptureManager.withLockUnchecked { $0 }?.endNativeFilterTest()
+    }
+
+    public var nativeFilterTestStatus: [String: Any] {
+        protectedCaptureManager.withLockUnchecked { $0 }?.nativeFilterTestStatus() ?? [:]
+    }
+
     public var isHapticEnabled: Bool {
         guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.isHapticEnabled()
@@ -298,9 +289,7 @@ public final class OMSManager: Sendable {
 
     public func deviceIndex(for deviceIDNumeric: UInt64) -> Int? {
         guard deviceIDNumeric > 0 else { return nil }
-        return driverInventory.withLock {
-            $0.first { $0.deviceIDNumeric == deviceIDNumeric }?.driverDeviceIndex
-        } ?? resolveDeviceIndex(for: deviceIDNumeric)
+        return resolveDeviceIndex(for: deviceIDNumeric)
     }
 
     private func handleRawFrame(

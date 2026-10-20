@@ -281,8 +281,48 @@ final class HIDBlackholeExperiment: ObservableObject {
     let pointerIdentityProbe = PointerIdentityProbe()
     let gainProbe = TrackpadGainProbe()
     let pointerControl = SelectedTrackpadEventFilter()
-    let driverControl = DriverKitTakeover(output: SyntheticTrackpadOutput())
-    var driverSelectedDevices: [OMSDeviceInfo] = []
+    @Published private(set) var nativeFilterActive = false
+    @Published private(set) var nativeFilterStatus = "Private native filter test · automatically releases after 15 seconds."
+    private var nativeFilterTimer: Timer?
+    private var nativeFilterCursorBounds: CGRect?
+    private var nativeFilterStartedAt: Date?
+
+    func startNativeFilterTest(device: OMSDeviceInfo) {
+        guard !hasOpenHIDDevices else { return }
+        nativeFilterCursorBounds = nil
+        nativeFilterStartedAt = Date()
+        _ = OMSManager.shared.beginNativeFilterTest(deviceID: device.deviceIDNumeric)
+        updateNativeFilterStatus()
+        if nativeFilterActive {
+            nativeFilterTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.updateNativeFilterStatus() }
+            }
+        }
+    }
+
+    private func updateNativeFilterStatus() {
+        let state = OMSManager.shared.nativeFilterTestStatus
+        nativeFilterActive = state["active"] as? Bool ?? false
+        if nativeFilterActive, let point = CGEvent(source: nil)?.location {
+            if let bounds = nativeFilterCursorBounds {
+                let x = min(bounds.minX, point.x), y = min(bounds.minY, point.y)
+                nativeFilterCursorBounds = CGRect(x: x, y: y,
+                    width: max(bounds.maxX, point.x) - x, height: max(bounds.maxY, point.y) - y)
+            } else { nativeFilterCursorBounds = CGRect(origin: point, size: .zero) }
+        }
+        nativeFilterStatus = "\(state["message"] as? String ?? "Unavailable")\nFilter frames: \(state["frames"] as? UInt64 ?? 0) · with contacts: \(state["contacts"] as? UInt64 ?? 0)"
+        if let bounds = nativeFilterCursorBounds {
+            nativeFilterStatus += String(format: " · sampled cursor span %.1f × %.1f", bounds.width, bounds.height)
+        }
+        if nativeFilterActive, let start = nativeFilterStartedAt {
+            nativeFilterStatus += " · \(max(0, 15 - Int(Date().timeIntervalSince(start))))s remaining"
+        }
+        if !nativeFilterActive {
+            nativeFilterTimer?.invalidate()
+            nativeFilterTimer = nil
+        }
+    }
+
     @Published private(set) var groups: [Group] = []
     @Published private(set) var singleInterfaceTestID: UInt64?
     private var usbModeRequestAt: Double?
@@ -293,7 +333,7 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     @Published private(set) var isActive = false
     @Published private(set) var isObservingHID = false
-    var hasOpenHIDDevices: Bool { isActive || isObservingHID || pointerControl.isActive || gainProbe.isActive || driverControl.hasOwnershipRequest }
+    var hasOpenHIDDevices: Bool { nativeFilterActive || isActive || isObservingHID || pointerControl.isActive || gainProbe.isActive }
     private var openIsExclusive = true
     private var captureMode = "exclusive"
     @Published private(set) var secondsRemaining = 0
@@ -405,7 +445,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func testSingleInterface(registryID: UInt64, requestUSBMultitouch: Bool = false) {
-        guard !driverControl.hasOwnershipRequest else { return }
+        guard !nativeFilterActive else { return }
         guard !isSavingHID else { return }
         release(reason: "Single-interface test starting")
         guard !hasOpenHIDDevices,
@@ -484,7 +524,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     func startTimedTest() { startPointerControl(duration: 30) }
 
     private func startPointerControl(duration: TimeInterval?) {
-        guard !driverControl.hasOwnershipRequest else { return }
+        guard !nativeFilterActive else { return }
         gainProbe.restore()
         guard !gainProbe.isActive else { return }
         guard !isCapturingHID else { return }
@@ -498,7 +538,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func captureHID(exclusive: Bool = true) {
-        guard !driverControl.hasOwnershipRequest else { return }
+        guard !nativeFilterActive else { return }
         guard !isCapturingHID, !isSavingHID, !selectedGroupIDs.isEmpty else { return }
         if IOHIDCheckAccess(kIOHIDRequestTypeListenEvent) != kIOHIDAccessTypeGranted {
             // Successful exclusive opens alone do not prove permission to receive reports.
@@ -625,7 +665,8 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func release(reason: String = "Released") {
-        driverControl.release()
+        OMSManager.shared.endNativeFilterTest()
+        updateNativeFilterStatus()
         try? FileManager.default.removeItem(atPath: "/tmp/GesturePad-active-usb-capture.txt")
         let interfaceIdentity = held.first(where: { $0.identity.registryID == singleInterfaceTestID })?.identity
         usbModeRequestAt = nil
@@ -965,7 +1006,7 @@ final class PointerIdentityProbe: ObservableObject {
 }
 
 struct SelectedTrackpadEventPolicy {
-    static let interpreterTag: Int64 = TakeoverConfiguration.pointerEventTag
+    static let interpreterTag: Int64 = 5138699878734057044
     static func matches(ancestry: [UInt64], selectedInterfaces: Set<UInt64>) -> Bool {
         ancestry.contains { selectedInterfaces.contains($0) }
     }
@@ -1415,6 +1456,109 @@ final class InterfaceTouchEvidence: @unchecked Sendable {
     func summary() -> String {
         lock.withLock { state in
             "OMS: \(state.frames.values.reduce(0,+)) frames / \(state.nonempty.values.reduce(0,+)) with contacts"
+        }
+    }
+}
+
+// Retained legacy native-input diagnostics; the FLTR test never enables this output.
+/// Experimental two-contact relative pointer; per-device baselines never cross pads.
+struct TwoFingerPointerTracker {
+    struct Baseline { let first: Int32; let second: Int32; let point: CGPoint; let time: Double }
+    private var baselines: [UInt64: Baseline] = [:]
+    mutating func reset() { baselines.removeAll(keepingCapacity: true) }
+    mutating func reset(device: UInt64) { baselines[device] = nil }
+    mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
+        process(device: device, time: time, contacts: touches)
+    }
+    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
+        var first: OMSRawTouch?, second: OMSRawTouch?
+        var count = 0
+        for touch in contacts where touch.state == .starting || touch.state == .making || touch.state == .touching {
+            count += 1
+            if count > 2 || touch.telemetry?.fingerID == 6 {
+                baselines.removeValue(forKey: device); return nil
+            }
+            if first == nil { first = touch } else { second = touch }
+        }
+        guard count == 2, let a = first, let b = second,
+              a.id != b.id, time.isFinite,
+              a.posX.isFinite, a.posY.isFinite, b.posX.isFinite, b.posY.isFinite else {
+            baselines.removeValue(forKey: device); return nil
+        }
+        let point = CGPoint(x: Double(a.posX + b.posX) / 2, y: Double(a.posY + b.posY) / 2)
+        let next = Baseline(first: min(a.id, b.id), second: max(a.id, b.id), point: point, time: time)
+        let old = baselines.updateValue(next, forKey: device)
+        guard let old, old.first == next.first, old.second == next.second,
+              time > old.time, time - old.time < 0.15 else { return nil }
+        // Provisional constant gain: 6 screen points per mm on a 160 x 114.9 mm pad.
+        let delta = CGPoint(x: (point.x - old.point.x) * 160 * 6,
+                            y: -(point.y - old.point.y) * 114.9 * 6)
+        guard abs(delta.x) < 150, abs(delta.y) < 150 else { return nil }
+        return delta
+    }
+}
+
+final class InterpretedTrackpadPointer: @unchecked Sendable {
+    static let shared = InterpretedTrackpadPointer()
+    private struct State {
+        var devices: Set<UInt64> = []
+        var tracker = TwoFingerPointerTracker()
+        var displayBounds: [CGRect] = []
+        var postedEvents: UInt64 = 0
+    }
+    private let lock = OSAllocatedUnfairLock(initialState: State())
+    func enable(devices: Set<UInt64>) {
+        var displays = [CGDirectDisplayID](repeating: 0, count: 16)
+        var count: UInt32 = 0
+        let bounds: [CGRect]
+        if CGGetActiveDisplayList(16, &displays, &count) == .success {
+            bounds = displays.prefix(Int(count)).map { CGDisplayBounds($0) }
+        } else { bounds = [] }
+        lock.withLock { state in
+            for device in state.devices.symmetricDifference(devices) { state.tracker.reset(device: device) }
+            state.devices = devices; state.displayBounds = bounds
+        }
+    }
+    var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
+    func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.tracker.reset() } }
+    func resetBaseline() { lock.withLock { $0.tracker.reset() } }
+    func resetBaseline(device: UInt64) { lock.withLock { $0.tracker.reset(device: device) } }
+    func process(_ frame: OMSRawTouchFrame) {
+        process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
+    }
+    func process<C: Collection & Sendable>(device: UInt64, time: Double, contacts: C, suppress: Bool = false) where C.Element == OMSRawTouch {
+        lock.withLock { state in
+            guard state.devices.contains(device) else { return }
+            // Native click-and-drag remains in charge while a mouse button is held.
+            if suppress || CGEventSource.buttonState(.combinedSessionState, button: .left)
+                || CGEventSource.buttonState(.combinedSessionState, button: .right)
+                || CGEventSource.buttonState(.combinedSessionState, button: .center) {
+                state.tracker.reset()
+                return
+            }
+            guard
+                  let delta = state.tracker.process(device: device,
+                    time: time, contacts: contacts),
+                  delta.x != 0 || delta.y != 0,
+                  let current = CGEvent(source: nil)?.location else { return }
+            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
+            // Clamp to the nearest actual display, including negative-origin displays.
+            var closest: CGPoint?; var distance = Double.infinity
+            for bounds in state.displayBounds {
+                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
+                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
+                let dx = candidate.x - location.x, dy = candidate.y - location.y
+                let d = dx * dx + dy * dy
+                if d < distance { distance = d; closest = candidate }
+            }
+            if let closest { location = closest }
+            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
+                                       mouseCursorPosition: location, mouseButton: .left) else { return }
+            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
+            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
+            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
+            event.post(tap: .cghidEventTap)
+            state.postedEvents &+= 1
         }
     }
 }

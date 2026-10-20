@@ -52,10 +52,10 @@ struct ContentView: View {
                         UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
                     onRefresh: {
-                        guard !hidBlackhole.driverControl.hasOwnershipRequest else { return }
+                        guard !hidBlackhole.nativeFilterActive else { return }
                         viewModel.refreshDevicesAndListeners()
                         synchronizeHIDTarget()
-                    }, driverControl: hidBlackhole.driverControl, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
+                    }, nativeFilterActive: hidBlackhole.nativeFilterActive, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                 InlineTouchTelemetry(viewModel: viewModel) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -80,11 +80,7 @@ struct ContentView: View {
         .onChange(of: viewModel.leftDevice) { _ in synchronizeHIDTarget() }
         .onChange(of: viewModel.rightDevice) { _ in synchronizeHIDTarget() }
         .onDisappear {
-            // Config close restarts the app through its owner-transfer lease.
-            // Releasing here races that transfer and triggers driver removal.
-            if !hidBlackhole.driverControl.hasOwnershipRequest {
-                hidBlackhole.release(reason: "Config closed")
-            }
+            hidBlackhole.release(reason: "Config closed")
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             hidBlackhole.release(reason: "App quitting")
@@ -102,13 +98,12 @@ struct ContentView: View {
 
     private func synchronizeHIDTarget() {
         hidBlackhole.pointerIdentityProbe.stop()
-        if hidBlackhole.hasOpenHIDDevices && !hidBlackhole.driverControl.isActive {
+        if hidBlackhole.hasOpenHIDDevices {
             hidBlackhole.release(reason: "Selected trackpads changed")
             guard !hidBlackhole.hasOpenHIDDevices else { return }
         }
         hidBlackhole.refresh()
         let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
-        hidBlackhole.driverSelectedDevices = selected
         hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID),
             touchDeviceIDs: Set(selected.map(\.deviceIDNumeric)))
     }
@@ -126,20 +121,37 @@ struct ContentView: View {
 
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
-            DriverKitControls(control: hidBlackhole.driverControl,
-                unavailable: viewModel.replayTimelineState != nil,
-                start: {
-                    guard !hidBlackhole.hasOpenHIDDevices || hidBlackhole.driverControl.isActive else { return }
-                    synchronizeHIDTarget()
-                    hidBlackhole.pointerControl.stop()
-                    hidBlackhole.pointerIdentityProbe.stop()
-                    hidBlackhole.driverControl.start(selected: hidBlackhole.driverSelectedDevices)
-                }, release: { hidBlackhole.release() })
+            nativeFilterControls
 
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+    }
+
+    private var nativeFilterCandidates: [OMSDeviceInfo] {
+        let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
+        return Array(Set(selected)).filter { !$0.isBuiltIn && $0.transport == "Bluetooth" }
+            .sorted { $0.deviceIDNumeric < $1.deviceIDNumeric }
+    }
+
+    private var nativeFilterControls: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text("Native filter experiment").font(.subheadline).bold()
+            HStack {
+                ForEach(nativeFilterCandidates, id: \.deviceID) { device in
+                    Button("Test \(device.serialNumber) · 15s") {
+                        hidBlackhole.startNativeFilterTest(device: device)
+                    }
+                    .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil)
+                }
+                Button("Release test") { hidBlackhole.release(reason: "Native filter test released") }
+                    .disabled(!hidBlackhole.nativeFilterActive)
+            }
+            Text(hidBlackhole.nativeFilterStatus).font(.caption).textSelection(.enabled)
+            Text("Keep another mouse available. Move one finger: cursor should stop while contacts update below, then resume after release. Ctrl–Option–R releases early.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
     }
 
     private func replayTimelineView(
@@ -215,7 +227,7 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
-        let driverControl: DriverKitTakeover
+        let nativeFilterActive: Bool
         @ViewBuilder let blackholeControls: () -> BlackholeControls
         @ViewBuilder let touchControls: () -> TouchControls
 
@@ -226,7 +238,8 @@ struct ContentView: View {
                         Text("No trackpads detected.")
                             .foregroundStyle(.secondary)
                         Spacer()
-                        TrackpadRefreshButton(control: driverControl, refresh: onRefresh)
+                        TrackpadRefreshButton(refresh: onRefresh)
+                            .disabled(nativeFilterActive)
                     }
                     blackholeControls()
                     touchControls()
@@ -252,6 +265,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            .disabled(nativeFilterActive)
                             blackholeControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -276,11 +290,13 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            .disabled(nativeFilterActive)
                             touchControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
-                        TrackpadRefreshButton(control: driverControl, refresh: onRefresh)
+                        TrackpadRefreshButton(refresh: onRefresh)
+                            .disabled(nativeFilterActive)
                         .padding(.top, 20)
                     }
                 }
@@ -376,35 +392,12 @@ struct ContentView: View {
 }
 
 private struct TrackpadRefreshButton: View {
-    @ObservedObject var control: DriverKitTakeover
     let refresh: () -> Void
     var body: some View {
         Button(action: refresh) {
             Image(systemName: "arrow.clockwise").imageScale(.medium)
         }
         .buttonStyle(.bordered)
-        .disabled(control.hasOwnershipRequest)
-        .help("Release Trackpads before refreshing the trackpad list")
-    }
-}
-
-private struct DriverKitControls: View {
-    @ObservedObject var control: DriverKitTakeover
-    let unavailable: Bool
-    let start: () -> Void
-    let release: () -> Void
-    var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Button("Takeover Trackpads", action: start)
-                    .disabled(unavailable || control.isRestoring || control.isActive)
-                Button("Sync Trackpads", action: start)
-                    .disabled(unavailable || control.isRestoring || !control.isActive)
-                Button("Release Trackpads", action: release).disabled(!control.hasOwnershipRequest)
-                Toggle("Synthetic 2-finger pointer", isOn: $control.synthesizeTwoFingerPointer)
-                Toggle("Allow click", isOn: $control.allowClick)
-            }
-            Text(control.status).font(.caption).fixedSize(horizontal: false, vertical: true)
-        }
+        .help("Release the native filter test before refreshing the trackpad list")
     }
 }

@@ -52,144 +52,23 @@ Keep app control released, refuse other identities, stop on denied open, and ret
 mode writes are part of this variant. Do not activate it without the user's live test.
 
 
-## DriverKit integration (user-authorized 2026-10-18)
+## Current takeover policy (2026-10-19; supersedes historical experiments above)
 
-The separate DriverKit 30sec takeover button now uses v0.5 of DriverKitProbe with
-both exact tested pad serials (rightUSB/leftBluetooth) and requires both selected.
-This is an exception to the normal checkbox's nonseizing CGEvent filtering path.
-See DriverKitProbe/INTEGRATION_TEST.md. Preserve hard30s driver close, independent
-signed helper owner-process watchdog/removal, global release shortcut, lifecycle
-release, and honest restoration-pending state. No tool should automatically
-activate the hardware test without the user ready to touch it. Build/install
-alone does not activate. Do not lift the cap before integrated restoration is
-verified. Continuous/general-device control is follow-up work, not yet validated.
-Keep registry stream publication on the timer, bounded ring/mapping in callbacks,
-per-session deduplication, stale/gap resets, duplicate OMS source gate and replay
-output suppression. Tracking IDs must never become anatomical finger labels.
+The user removed the entire custom DriverKit implementation from GesturePad and
+AppleMagicTouchstream. Do not restore its driver/helper, raw decoder, synthetic
+button output, signing/provisioning integration, inventory or restart transfer.
+The only takeover UI in GesturePad is the explicit 15-second Native filter
+experiment; see TRACKPAD_TAKEOVER.md and NATIVE_FILTER_TEST.md. Keep exact selected
+Bluetooth model0324/type4 validation, own-client registry verification, state-queue
+deadline, release shortcut Ctrl-Option-R, lifecycle cleanup and refresh/selection
+lock. The test uses native callbacks, with no synthetic output and no elevation.
+It is not enabled automatically. User reported integrated hardware success.
 
+APPLE_CONTACT_HID_LAYOUT.md preserves the removed raw decoder's bit layout and
+native Compact V7 conversions. Retain optional telemetry.driverKit serialization,
+reference vectors and historical research/capture files for compatibility; these
+are not executable DriverKit integration. Use ./test.sh and ./release.sh --check;
+the removed DriverKitProbe Python test suite no longer applies.
 
-User explicitly requested continuous DriverKit takeover and removal of obsolete
-filter/test GUI controls after the v0.5 integration build. Current v0.6 therefore
-has no30s session deadline. Preserve explicit Release Trackpads/global shortcut,
-owner-process watchdog and lifecycle release; do not restore a timed cap based on
-older instructions above. UI contains only DriverKit Takeover, Release Trackpads,
-one synthetic two-finger checkbox and status. Diagnostic backend schemas remain.
-
-
-As of v0.7, the user explicitly rejected a separate probe application. Package the
-windowless driver service inside GesturePad.app/Contents/Helpers, with no Dock
-item or independent controls. Preserve existing signing/profile identifiers and
-watchdog. The installer installs only /Applications/GesturePad.app; do not restore
-the separate /Applications/GesturePadRawHIDProbe.app. Activation/removal state is
-shown by GesturePad; native macOS authorization prompts are still expected.
-
-
-DriverKit telemetry conversionVersion2 is a native Compact V7 reconstruction.
-Read RewriteValidation/COMPACT_V7_TELEMETRY_PARITY.md before altering conversions.
-Do not replace native nonlinear scalar conversions with Linux raw byte scaling.
-Hand1 is a native parser flag, code7→12 preserved; tracking ID is not anatomy.
-Preserve original report/contact bytes, sensor-clock timestamps, native clipping
-and quantized velocity, per-device resets and descriptor calibration check.
-Tools/TelemetryParity uses pinned private addresses for offline research only;
-never add those offsets or native binary fragments to the production app.
-Synthetic parity and right USB live parity (1,686 samples, zero mismatches) are
-established; matching Bluetooth live validation remains. Preserve terminal
-notTouching records in capture but exclude them from the visible render snapshot.
-
-v8 adds an explicit per-device handoff experiment through AMTHandoffClient and the
-embedded service's --handoff command. Keep exact caller identity and argument
-validation, same receiver dispatch queue, per-pad deliberate-handoff tracking,
-owner watchdog and full Release fallback. Do not interpret Close/Terminate success
-as native restoration: this remains a physical test pending validation. Do not
-broaden static matching before native handoff is demonstrated. Both-pad live
-telemetry parity passed 2,815 samples with zero mismatches (see saved JSON result).
-
-v15 adds the exact Linux Magic Trackpad2 Bluetooth multitouch-enable featureF1 02 01,
-once after2s only when no full contact packet arrived. User authorized driver
-completion/reconnect testing; preserve tested model/serial/transport checks and
-report exact mode result/first packet bytes. Earlier "no Bluetooth mode write"
-notes describe pre-reconnect experiments, superseded for this initialization test.
-
-User explicitly stopped automatic reconnect work. v17 requires manual selector
-verification + another DriverKit Takeover click after stream loss/replacement.
-Never remove the whole extension solely because a receiver/pad disconnects. The
-Takeover button remains enabled while active and resyncs stream routing; no
-inventory polling or automatic reconnect retry. Preserve explicit/lifecycle
-release and owner-process cleanup. Older reconnect-watchdog instructions above
-are superseded by this user-requested workflow simplification.
-
-v19: DriverKit Stop must wait for timer/action cancellation completions before
-calling super Stop. v18 still crashed at timer Cancel completion because the timer
-was freed first; duplicate-Cancel guards alone were insufficient. Keep receiver
-and provider retained across drain, including failed Start. Run driver tests with
-`python3 -m unittest discover -s DriverKitProbe/Tests -p 'test_*.py'` as well as
-app tests. App Restart must await confirmed driver removal before relaunching;
-never start its replacement while the previous helper still owns the devices.
-
-v20 user spec supersedes v19's restart-removal rule: keep the live extension across
-an explicit app Restart, using the signed helper's bounded owner-transfer lease.
-Actual Exit still removes/releases. Sync applies selectors without driver cycling;
-zero/one/two selections are valid. Model0324 USB/Bluetooth matching uses arbitrary
-serials; do not claim all AMT generations. A control-only IOUserResources service
-keeps per-device handoff available with zero receivers. Preserve exact helper
-user-client identity validation. Native-to-driver reverse reclaim is unproven;
-never silently deactivate the extension to implement Sync. See
-DriverKitProbe/TAKEOVER_SPEC.md for the acceptance checks and bootstrap limitation.
-
-v21 Bluetooth framing: macOS IOHIDUserDevice's KeyholeReportIDF1 transport prepends
-F1. Pass reportIDF1 with payload02 01, not F1 02 01; v20 logs proved the latter sent
-F1 F1 02 01 and was rejected. Keep USB payload02 01 unchanged. Use/test the shared
-Driver/MultitouchMode.h command. Explicit helper --initialize-bluetooth diagnostic
-is guarded to supported, already-controlled, zero-contact Bluetooth sources; its
-user-space Open was denied in the live test, so do not assert it repaired hardware.
-
-User reverted the transport identity policy/helper-adoption change. Selection uses
-only the explicit selected serials again; no USB↔BT alias expansion or cache.
-
-v22 user-requested simplification supersedes the per-pad ownership rules above.
-Takeover captures all supported connected model0324 USB/Bluetooth pads together;
-Left/Right selectors and Sync only route visualization/synthetic output. Zero, one
-and two selections remain valid. Never hand back/retake/rematch individual pads.
-No NewUserClient/AMTHandoffClient or userclient-access/allow-any-userclient-access
-entitlement is part of the production build. The coordinator is status-only.
-Use DriverKitProbe/install-integration.sh with no development-userclients flag.
-Preserve independent receiver drain, Bluetooth framing, full telemetry, manual Sync,
-warm Restart with signed owner lease, retained unselected inventory, and full
-Release/Exit safeguards. UI must state that unselected supported pads stay captured.
-
-User authorized optional physical click synthesis in GesturePad. Synthetic 2-finger
-pointer and Allow click both default OFF on a fresh app launch. Allow click uses
-only selected live DriverKit packet button bits, not tap/gesture recognition or
-native event passthrough. Preserve Accessibility gating, merged two-pad button
-ownership, held-button arming suppression, and forced button-up on disable,
-route removal/disconnect, Release and explicit Restart transfer. Replay stays
-output-free. Restart preserves explicit option choices; ordinary launches use OFF.
-
-Config window close uses the same warm Restart as the menu command. Its SwiftUI
-onDisappear must not release an active/pending DriverKit ownership request before
-AppDelegate prepares the owner-transfer lease. This supersedes older config-close
-DriverKit release rules. Legacy non-DriverKit experiments still release on close;
-actual Exit, sleep, replay and explicit Release retain full cleanup.
-
-Config-close Restart must launch in menu-bar/background mode, never reopen Config.
-Pass --background for that path; it overrides first-run/open-config presentation.
-The explicit menu Restart retains its previous presentation behavior. Both paths
-preserve active DriverKit ownership through the same signed owner-transfer lease.
-
-Latest user preference: Synthetic 2-finger pointer and Allow click now default ON.
-This supersedes the default-OFF instructions above. Restart preserves explicit
-choices; output still requires active takeover and Accessibility permission.
-
-Trackpad Refresh must simply be disabled while DriverKit has an active/pending
-ownership request, including release in progress. It becomes available after
-explicit Release completes. No automatic release, polling, native-readiness
-coordinator or refresh-triggered app restart; user explicitly rejected those.
-
-Takeover refactor boundaries: read DriverKitProbe/PORTING.md before porting. Keep
-TrackpadContactDecoder independent of AppKit/output/lifecycle. DriverKitTakeover
-constructs no synthetic consumer by default and delivers TrackpadContactFrame via
-onFrame; GesturePad explicitly injects its optional SyntheticTrackpadOutput.
-Other apps implement output independently. Identities/version/wire names live in
-DriverKitProbe/takeover-config.json; run generate-config.py after edits. Preserve
-exact signed-owner validation, existing profiles, parser arithmetic and driver
-cancellation drain. Do not port legacy blackhole experiments as takeover dependencies.
+Preserve ordinary Config-close background restart and explicit Restart. Both
+release the native test before relaunch; no ownership transfer lease remains.

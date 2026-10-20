@@ -335,10 +335,6 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
-    func ingestDriverContacts(device: UInt64, index: Int, timestamp: Double, touches: [OMSRawTouch]) async {
-        guard replayTimelineState == nil else { return }
-        await runtimeLifecycleCoordinator.ingestDriverContacts(device: device, index: index, timestamp: timestamp, touches: touches)
-    }
 
     func refreshDevicesAndListeners() {
         let shouldRestart = isListening

@@ -1,4 +1,7 @@
 #import <Cocoa/Cocoa.h>
+#import <IOKit/hid/IOHIDKeys.h>
+#include <stdatomic.h>
+#include <unistd.h>
 
 #import "OpenMTManagerV2.h"
 #import "OpenMTInternal.h"
@@ -7,6 +10,8 @@
 typedef struct {
     __unsafe_unretained OpenMTManagerV2 *manager;
     uint64_t deviceID;
+    atomic_uint_fast64_t frames;
+    atomic_uint_fast64_t contactFrames;
 } MTDeviceV2CallbackContext;
 
 static void openMTManagerV2ContactFrameCallback(
@@ -33,6 +38,11 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 @property (strong, nonatomic) NSMutableDictionary<NSNumber *, NSValue *> *deviceRefsByNumericID;
 @property (strong, nonatomic) NSMutableDictionary<NSValue *, NSValue *> *callbackContextsByRef;
 @property (assign, nonatomic) BOOL callbacksRunning;
+@property (assign, nonatomic) uint64_t filterDeviceID;
+@property (assign, nonatomic) NSUInteger filterGeneration;
+@property (copy, nonatomic) NSString *filterResult;
+@property (assign, nonatomic) uint64_t filterFrames;
+@property (assign, nonatomic) uint64_t filterContactFrames;
 
 - (void)withStateSync:(dispatch_block_t)block;
 - (void)withStateAsync:(dispatch_block_t)block;
@@ -257,6 +267,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
         }
         context->manager = self;
         context->deviceID = numericID.unsignedLongLongValue;
+        atomic_init(&context->frames, 0);
+        atomic_init(&context->contactFrames, 0);
 
         BOOL registered = MTRegisterContactFrameCallbackWithRefcon(
             deviceRef,
@@ -281,6 +293,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 }
 
 - (void)stopHandlingRawCallbacks {
+    [self endNativeFilterTest];
+    if (self.filterDeviceID) return;
     if (!self.callbacksRunning && self.deviceRefsByNumericID.count == 0) {
         return;
     }
@@ -350,6 +364,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 - (void)refreshAvailableDevices {
     [self withStateSync:^{
+        if (self.filterDeviceID) return;
         NSArray<OpenMTDeviceInfo *> *devices = [self collectAvailableDevices];
         self.availableDeviceInfos = devices;
 
@@ -389,7 +404,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos {
     __block BOOL success = NO;
     [self withStateSync:^{
-        if (deviceInfos.count == 0) {
+        if (self.filterDeviceID || deviceInfos.count == 0) {
             success = NO;
             return;
         }
@@ -464,6 +479,101 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     return listening;
 }
 
+// Registry inspection is read-only. Refuse to join an existing filter owner.
+static int filterClients(MTDeviceRef device, BOOL requireOwn) {
+    if (!MTDeviceGetService) return -1;
+    io_iterator_t iterator = IO_OBJECT_NULL;
+    if (IORegistryEntryGetChildIterator(MTDeviceGetService(device), kIOServicePlane, &iterator)) return -1;
+    int count = 0;
+    NSString *prefix = [NSString stringWithFormat:@"pid %d,", getpid()];
+    io_service_t child;
+    while ((child = IOIteratorNext(iterator))) {
+        if (IOObjectConformsTo(child, "AppleMultitouchDeviceUserClient")) {
+            id enabled = CFBridgingRelease(IORegistryEntryCreateCFProperty(child, CFSTR("FilterEnabled"), kCFAllocatorDefault, 0));
+            id owner = CFBridgingRelease(IORegistryEntryCreateCFProperty(child, CFSTR("IOUserClientCreator"), kCFAllocatorDefault, 0));
+            if ([enabled isEqual:@YES] && (!requireOwn || ([owner isKindOfClass:NSString.class] && [owner hasPrefix:prefix]))) count++;
+        }
+        IOObjectRelease(child);
+    }
+    IOObjectRelease(iterator);
+    return count;
+}
+
+- (BOOL)beginNativeFilterTestForDeviceID:(uint64_t)deviceID {
+    __block BOOL success = NO;
+    [self withStateSync:^{
+        if (self.filterDeviceID) return;
+        self.filterResult = @"Not started: requires a selected Bluetooth model 0324 pad, driver type 4, and no existing filter.";
+        OpenMTDeviceInfo *info = nil;
+        for (OpenMTDeviceInfo *candidate in self.activeDeviceInfos) {
+            if (candidate.deviceNumericID == deviceID) info = candidate;
+        }
+        MTDeviceRef device = self.deviceRefsByNumericID[@(deviceID)].pointerValue;
+        int type = -1;
+        if (!info || info.isBuiltIn || ![info.transport isEqualToString:@"Bluetooth"] || !device ||
+            !MTDeviceGetService || MTDeviceGetDriverType(device, &type) || type != 4) return;
+        io_service_t service = MTDeviceGetService(device);
+        id product = CFBridgingRelease(IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR(kIOHIDProductIDKey), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents));
+        id vendor = CFBridgingRelease(IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR(kIOHIDVendorIDKey), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents));
+        if (![product isKindOfClass:NSNumber.class] || ![vendor isKindOfClass:NSNumber.class] || [product unsignedIntValue] != 0x324 || [vendor unsignedIntValue] != 0x4c || filterClients(device, NO) != 0) return;
+        MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+        if (!context) return;
+        OSStatus stop = MTDeviceStop(device);
+        if (stop) { self.filterResult = [NSString stringWithFormat:@"Ordinary stop failed: %d", (int)stop]; return; }
+        atomic_store(&context->frames, 0);
+        atomic_store(&context->contactFrames, 0);
+        self.filterFrames = self.filterContactFrames = 0;
+        self.filterDeviceID = deviceID;
+        NSUInteger generation = ++self.filterGeneration;
+        // Independent of the main run loop: a stalled UI cannot prolong the test.
+        dispatch_after(dispatch_time(DISPATCH_TIME_NOW, 15 * NSEC_PER_SEC), self.stateQueue, ^{
+            if (self.filterDeviceID && self.filterGeneration == generation) [self endNativeFilterTest];
+        });
+        OSStatus start = MTDeviceStart(device, (MTRunMode)0x40000000u);
+        if (start || filterClients(device, NO) != 1 || filterClients(device, YES) != 1) {
+            [self endNativeFilterTest];
+            self.filterResult = [NSString stringWithFormat:@"Filter start/ownership verification failed (start=%d). %@", (int)start, self.filterResult];
+            return;
+        }
+        self.filterResult = @"Filtering for 15 seconds. Move fingers; contacts should continue while the native pointer stops.";
+        success = YES;
+    }];
+    return success;
+}
+
+- (void)endNativeFilterTest {
+    [self withStateSync:^{
+        if (!self.filterDeviceID) return;
+        MTDeviceRef device = self.deviceRefsByNumericID[@(self.filterDeviceID)].pointerValue;
+        MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+        OSStatus stop = device ? MTDeviceStop(device) : -1;
+        if (context) {
+            self.filterFrames = atomic_load(&context->frames);
+            self.filterContactFrames = atomic_load(&context->contactFrames);
+        }
+        // Keep ownership visible and allow Release to retry if native stop fails.
+        if (stop) { self.filterResult = [NSString stringWithFormat:@"Filter stop failed: %d. Retry Release Trackpads.", (int)stop]; return; }
+        self.filterDeviceID = 0;
+        ++self.filterGeneration;
+        int remaining = filterClients(device, YES);
+        OSStatus recovery = MTDeviceStart(device, 0);
+        self.filterResult = [NSString stringWithFormat:@"Released: recovery=%d, owned filters=%d. Verify native movement and contacts resume.", (int)recovery, remaining];
+    }];
+}
+
+- (NSDictionary<NSString *, id> *)nativeFilterTestStatus {
+    __block NSDictionary *status;
+    [self withStateSync:^{
+        MTDeviceRef device = self.deviceRefsByNumericID[@(self.filterDeviceID)].pointerValue;
+        MTDeviceV2CallbackContext *context = device ? self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue : NULL;
+        status = @{ @"active": @(self.filterDeviceID != 0),
+                    @"frames": @(context ? atomic_load(&context->frames) : self.filterFrames),
+                    @"contacts": @(context ? atomic_load(&context->contactFrames) : self.filterContactFrames),
+                    @"message": self.filterResult ?: @"Private native filter experiment. Automatically releases after 15 seconds." };
+    }];
+    return status;
+}
+
 - (void)willSleep:(NSNotification *)note {
     (void)note;
     [self withStateAsync:^{
@@ -505,6 +615,8 @@ static void openMTManagerV2ContactFrameCallback(
         if (!manager) {
             return;
         }
+        atomic_fetch_add(&context->frames, 1);
+        if (numTouches) atomic_fetch_add(&context->contactFrames, 1);
         [manager handleRawFrameWithTouches:eventTouches
                                      count:(int)numTouches
                                  timestamp:timestamp

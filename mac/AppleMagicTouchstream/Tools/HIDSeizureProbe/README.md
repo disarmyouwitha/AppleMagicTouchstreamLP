@@ -2,7 +2,7 @@
 
 **Latest result:** [reconnect observer saw the device, but no HID channels](RECONNECT_TEST.md#hardware-result-2026-10-19).
 **Latest request result:** [input GET_REPORT failed in the F1 keyhole path; no seizure attempted](GET_REPORT_TEST.md#hardware-result-2026-10-19).
-**Next experiment:** [native multitouch FLTR receive mode](NATIVE_FILTER_TEST.md).
+**Positive Bluetooth hardware result:** [native FLTR mode delivered continuous contacts, suppressed visible cursor movement, and recovered](NATIVE_FILTER_TEST.md#third-run-continuous-one-finger-test).
 Do not repeat the earlier Bluetooth channel tests.
 The former second-channel test is disabled: [hardware result and correction](BLUETOOTH_TEST.md).
 The earlier raw-HID/native-contact seizure results and their limits remain below.
