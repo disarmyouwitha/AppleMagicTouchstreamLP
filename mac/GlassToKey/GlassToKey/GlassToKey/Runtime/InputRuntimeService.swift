@@ -538,6 +538,15 @@ final class RuntimeLifecycleCoordinatorService: @unchecked Sendable {
         )
     }
 
+    func prepareNativeTakeoverRelease() async {
+        await runtimeEngine.setListening(false)
+        await runtimeEngine.reset(stopVoiceDictation: true)
+    }
+
+    func finishNativeTakeoverRelease(listening: Bool) async {
+        await runtimeEngine.setListening(listening)
+    }
+
     @discardableResult
     func start() -> Bool {
         let started = inputRuntimeService.start()

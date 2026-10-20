@@ -1024,7 +1024,23 @@ final class ContentViewModel: ObservableObject {
         }
     }
 
+    private(set) var nativeTakeoverOwnsTrackpads = false
+
+    func setNativeTakeoverOwnership(_ owned: Bool) {
+        nativeTakeoverOwnsTrackpads = owned
+        deviceSessionService.setAutoResyncEnabled(!owned && UserDefaults.standard.bool(forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads))
+    }
+
+    func prepareNativeTakeoverRelease() async {
+        await runtimeLifecycleCoordinator.prepareNativeTakeoverRelease()
+    }
+
+    func finishNativeTakeoverRelease() async {
+        await runtimeLifecycleCoordinator.finishNativeTakeoverRelease(listening: isListening && replayTimelineState == nil)
+    }
+
     func refreshDevicesAndListeners() {
+        guard !nativeTakeoverOwnsTrackpads else { return }
         let shouldRestart = isListening
         if shouldRestart {
             stop()
@@ -1041,17 +1057,19 @@ final class ContentViewModel: ObservableObject {
     }
 
     func selectLeftDevice(_ device: OMSDeviceInfo?) {
+        guard !nativeTakeoverOwnsTrackpads else { return }
         deviceSessionService.selectLeftDevice(device)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
     func selectRightDevice(_ device: OMSDeviceInfo?) {
+        guard !nativeTakeoverOwnsTrackpads else { return }
         deviceSessionService.selectRightDevice(device)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
     func setAutoResyncEnabled(_ enabled: Bool) {
-        deviceSessionService.setAutoResyncEnabled(enabled)
+        deviceSessionService.setAutoResyncEnabled(enabled && !nativeTakeoverOwnsTrackpads)
     }
 
     func configureLayouts(

@@ -13,6 +13,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     private struct SelectedGridKey: Equatable {
         let row: Int
         let column: Int
@@ -511,7 +512,8 @@ struct ContentView: View {
         ].joined(separator: "\u{1F}")
     }
 
-    init(viewModel: ContentViewModel = ContentViewModel()) {
+    init(viewModel: ContentViewModel = ContentViewModel(), nativeTakeover: NativeTrackpadTakeover = NativeTrackpadTakeover()) {
+        self.nativeTakeover = nativeTakeover
         _viewModel = StateObject(wrappedValue: viewModel)
         let size = CGSize(
             width: Self.trackpadWidthMM * Self.displayScale,
@@ -815,14 +817,19 @@ struct ContentView: View {
             leftDevice: viewModel.leftDevice,
             rightDevice: viewModel.rightDevice,
             onSelectLeft: { device in
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.selectLeftDevice(device)
             },
             onSelectRight: { device in
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.selectRightDevice(device)
             },
             onRefresh: {
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.refreshDevicesAndListeners()
-            }
+            },
+            nativeTakeover: nativeTakeover,
+            replayActive: viewModel.replayTimelineState != nil
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1627,12 +1634,20 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        @ObservedObject var nativeTakeover: NativeTrackpadTakeover
+        let replayActive: Bool
+
+        private var takeoverControls: some View {
+            NativeTakeoverControls(control: nativeTakeover,
+                selected: [leftDevice, rightDevice].compactMap { $0 }, unavailable: replayActive)
+        }
 
         private var refreshButton: some View {
             Button(action: onRefresh) {
                 Image(systemName: "arrow.clockwise").imageScale(.medium)
             }
             .buttonStyle(.bordered)
+            .disabled(nativeTakeover.hasOwnership)
             .help("Refresh the trackpad list")
         }
 
@@ -1644,6 +1659,7 @@ struct ContentView: View {
                         Text("No trackpads detected.").foregroundStyle(.secondary)
                         refreshButton
                     }
+                    takeoverControls
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -1666,7 +1682,9 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                                }
+                            .disabled(nativeTakeover.hasOwnership)
+                            takeoverControls
+                        }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         VStack(alignment: .leading, spacing: 6) {
@@ -1689,6 +1707,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            .disabled(nativeTakeover.hasOwnership)
                             HStack(spacing: 16) {
                                 Toggle("Contact paths", isOn: $showContactPaths)
                                     .toggleStyle(.checkbox)

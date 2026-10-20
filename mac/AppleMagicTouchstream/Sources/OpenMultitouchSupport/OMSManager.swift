@@ -241,6 +241,18 @@ public final class OMSManager: Sendable {
         return true
     }
     
+    public func beginNativeTakeover(deviceIDs: [UInt64]) -> Bool {
+        captureManagerIfAvailable()?.beginNativeTakeover(forDeviceIDs: deviceIDs.map { NSNumber(value: $0) }) ?? false
+    }
+
+    public func endNativeTakeover() {
+        protectedCaptureManager.withLockUnchecked { $0 }?.endNativeTakeover()
+    }
+
+    public var nativeTakeoverStatus: [String: Any] {
+        protectedCaptureManager.withLockUnchecked { $0 }?.nativeTakeoverStatus() ?? [:]
+    }
+
     public var isHapticEnabled: Bool {
         guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.isHapticEnabled()

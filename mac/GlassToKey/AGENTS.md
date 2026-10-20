@@ -111,3 +111,19 @@
 
 ## Current project layout
 Use `./build.sh` and `./test.sh` from this package, or invoke them by absolute path. `project.env` defines the app identity used by build/release scripts. See `../README.md` for project roles. Legacy runtime symbols, defaults keys, and capture formats remain compatible.
+
+
+## Native Trackpad Takeover (user-authorized 2026-10-20)
+
+The app now has GesturePad's continuous selected-device FLTR takeover, independent
+of custom DriverKit. See TRACKPAD_TAKEOVER.md. Keep exact USB VID05ac/BT VID004c,
+PID0324/type4 validation, all-selection preflight, deduplication, own-client checks,
+partial-start rollback and release retry. No helper, restricted driver entitlement,
+startup/reconnect auto-takeover or separate synthetic pointer output is added.
+Preserve native keyboard ingestion and capture/replay, selection/refresh locks,
+paused auto-resync, and awaited keyboard reset before filter release. Explicit
+Release/menu/Ctrl-Option-R, sleep, replay and Quit release. Config close/reopen and
+active Restart retain the same owner process/controller/native clients; inactive
+Restart still relaunches. Test with ./test.sh (includes offline native lifecycle
+and coordinator tests), rebuild the XCFramework after native edits, and do not
+activate live takeover without the user's hardware test request.

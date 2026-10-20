@@ -34,11 +34,11 @@ profiles or signing/notarization credentials.
 GesturePad now provides continuous selected-pad native FLTR takeover, following
 user-confirmed Bluetooth/USB tests, using Apple's existing multitouch driver
 without installing our own extension. See
-[TRACKPAD_TAKEOVER.md](gesturepad/TRACKPAD_TAKEOVER.md). AppleMagicTouchstream uses
-ordinary native contact capture and does not include native takeover. Existing optional
+[TRACKPAD_TAKEOVER.md](gesturepad/TRACKPAD_TAKEOVER.md). As of 2026-10-20, AppleMagicTouchstream and GlassToKey also include independently
+ported native FLTR takeover, using their existing native keyboard pipelines. Existing optional
 raw-report capture provenance remains readable in both projects.
 
-GlassToKey's earlier takeover port is also absent from its app and release
+GlassToKey's earlier DriverKit takeover port is also absent from its app and release
 pipeline; the original port is preserved in commit `fc117e2`. The apps' normal
 Developer ID signing/notarization pipelines remain in place. A source removal or
 successful build does not itself uninstall an already registered system extension;

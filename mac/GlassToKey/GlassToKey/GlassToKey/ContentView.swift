@@ -13,6 +13,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 struct ContentView: View {
+    @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     private struct SelectedGridKey: Equatable {
         let row: Int
         let column: Int
@@ -519,7 +520,8 @@ struct ContentView: View {
         )
     }
 
-    init(viewModel: ContentViewModel = ContentViewModel()) {
+    init(viewModel: ContentViewModel = ContentViewModel(), nativeTakeover: NativeTrackpadTakeover = NativeTrackpadTakeover()) {
+        self.nativeTakeover = nativeTakeover
         _viewModel = StateObject(wrappedValue: viewModel)
         let size = CGSize(
             width: Self.trackpadWidthMM * Self.displayScale,
@@ -851,14 +853,19 @@ struct ContentView: View {
             leftDevice: viewModel.leftDevice,
             rightDevice: viewModel.rightDevice,
             onSelectLeft: { device in
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.selectLeftDevice(device)
             },
             onSelectRight: { device in
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.selectRightDevice(device)
             },
             onRefresh: {
+                guard !nativeTakeover.hasOwnership else { return }
                 viewModel.refreshDevicesAndListeners()
-            }
+            },
+            nativeTakeover: nativeTakeover,
+            replayActive: viewModel.replayTimelineState != nil
         )
         .frame(maxWidth: .infinity, alignment: .leading)
     }
@@ -1756,14 +1763,22 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        @ObservedObject var nativeTakeover: NativeTrackpadTakeover
+        let replayActive: Bool
+
+        private var takeoverControls: some View {
+            NativeTakeoverControls(control: nativeTakeover,
+                selected: [leftDevice, rightDevice].compactMap { $0 }, unavailable: replayActive)
+        }
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
                 if availableDevices.isEmpty {
                     Text("No trackpads detected.")
                         .foregroundStyle(.secondary)
+                    takeoverControls
                 } else {
-                    HStack(spacing: 10) {
+                    HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
                             Text("Left Trackpad")
                                 .font(.caption)
@@ -1777,13 +1792,15 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            .disabled(nativeTakeover.hasOwnership)
+                            takeoverControls
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1800,13 +1817,14 @@ struct ContentView: View {
                                 Text("None")
                                     .tag(nil as OMSDeviceInfo?)
                                 ForEach(availableDevices, id: \.self) { device in
-                                    Text("\(device.deviceName) (ID: \(device.deviceID))")
+                                    Text(device.selectionLabel)
                                         .tag(device as OMSDeviceInfo?)
                                 }
                             }
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
+                            .disabled(nativeTakeover.hasOwnership)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1819,6 +1837,7 @@ struct ContentView: View {
                         .buttonStyle(.bordered)
                         .help("Refresh trackpad list")
                         .padding(.top, 20)
+                        .disabled(nativeTakeover.hasOwnership)
                     }
                 }
             }

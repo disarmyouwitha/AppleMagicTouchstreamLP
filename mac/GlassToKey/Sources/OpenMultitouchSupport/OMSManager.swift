@@ -13,6 +13,12 @@ public struct OMSDeviceInfo: Sendable, Hashable {
     public let deviceID: String
     public let deviceIDNumeric: UInt64
     public let isBuiltIn: Bool
+    public let serialNumber: String
+    public let transport: String
+    public var selectionLabel: String {
+        let identity = [transport, serialNumber].filter { !$0.isEmpty }.joined(separator: " · ")
+        return identity.isEmpty ? "\(deviceName) (ID: \(deviceID))" : "\(deviceName) · \(identity)"
+    }
     internal nonisolated(unsafe) let deviceInfo: OpenMTDeviceInfo
     
     internal init(_ deviceInfo: OpenMTDeviceInfo) {
@@ -21,6 +27,8 @@ public struct OMSDeviceInfo: Sendable, Hashable {
         self.deviceID = deviceInfo.deviceID
         self.deviceIDNumeric = UInt64(deviceInfo.deviceID) ?? 0
         self.isBuiltIn = deviceInfo.isBuiltIn
+        self.serialNumber = deviceInfo.serialNumber
+        self.transport = deviceInfo.transport
     }
 }
 
@@ -220,6 +228,18 @@ public final class OMSManager: Sendable {
         return true
     }
     
+    public func beginNativeTakeover(deviceIDs: [UInt64]) -> Bool {
+        protectedCaptureManager.withLockUnchecked { $0 }?.beginNativeTakeover(forDeviceIDs: deviceIDs.map { NSNumber(value: $0) }) ?? false
+    }
+
+    public func endNativeTakeover() {
+        protectedCaptureManager.withLockUnchecked { $0 }?.endNativeTakeover()
+    }
+
+    public var nativeTakeoverStatus: [String: Any] {
+        protectedCaptureManager.withLockUnchecked { $0 }?.nativeTakeoverStatus() ?? [:]
+    }
+
     public var isHapticEnabled: Bool {
         guard let xcfManager = protectedHapticManager.withLockUnchecked(\.self) else { return false }
         return xcfManager.isHapticEnabled()

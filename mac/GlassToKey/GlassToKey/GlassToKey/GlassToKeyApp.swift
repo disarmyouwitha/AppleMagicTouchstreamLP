@@ -1,4 +1,5 @@
 import AppKit
+import Carbon
 import Combine
 import ServiceManagement
 import SwiftUI
@@ -21,6 +22,11 @@ struct GlassToKeyApp: App {
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private static let relaunchArgument = "--relaunch"
     private let controller = GlassToKeyController()
+    private let nativeTakeover = NativeTrackpadTakeover()
+    private var releaseHotKey: EventHotKeyRef?
+    private var releaseHotKeyHandler: EventHandlerRef?
+    private var takeoverSleepObserver: NSObjectProtocol?
+    private var takeoverQuitTask: Task<Void, Never>?
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
@@ -72,6 +78,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyController.seedBundledDefaultsIfNeeded()
         let shouldOpenConfigOnLaunch = !hasSavedConfiguration()
         initializeRunAtStartupPreference()
+        nativeTakeover.onOwnershipChanged = { [weak controller] owned in
+            controller?.viewModel.setNativeTakeoverOwnership(owned)
+        }
+        nativeTakeover.beforeRelease = { [weak controller] in
+            await controller?.viewModel.prepareNativeTakeoverRelease()
+        }
+        nativeTakeover.afterRelease = { [weak controller] in
+            await controller?.viewModel.finishNativeTakeoverRelease()
+        }
+        takeoverSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.nativeTakeover.release() }
+        }
+        registerReleaseTrackpadShortcut()
         controller.start()
         normalizeKeyboardModePermissionState()
         configureStatusItem()
@@ -90,6 +111,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.viewModel.updateKeyboardModeEnabled(false)
     }
 
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard nativeTakeover.hasOwnership else { return .terminateNow }
+        if takeoverQuitTask == nil {
+            takeoverQuitTask = Task { @MainActor [self] in
+                await nativeTakeover.release()
+                sender.reply(toApplicationShouldTerminate: true)
+            }
+        }
+        return .terminateLater
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
+        if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
+        if let takeoverSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverSleepObserver) }
+    }
+
+    @objc private func releaseTrackpads() {
+        Task { await nativeTakeover.release() }
+    }
+
+    private func registerReleaseTrackpadShortcut() {
+        var event = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
+        let context = Unmanaged.passUnretained(self).toOpaque()
+        let installed = InstallEventHandler(GetApplicationEventTarget(), { _, _, context in
+            guard let context else { return OSStatus(eventNotHandledErr) }
+            MainActor.assumeIsolated {
+                Unmanaged<AppDelegate>.fromOpaque(context).takeUnretainedValue().releaseTrackpads()
+            }
+            return noErr
+        }, 1, &event, context, &releaseHotKeyHandler)
+        guard installed == noErr else { return }
+        let identifier = EventHotKeyID(signature: 0x4E545250, id: 1)
+        let result = RegisterEventHotKey(UInt32(kVK_ANSI_R), UInt32(controlKey | optionKey), identifier,
+            GetApplicationEventTarget(), 0, &releaseHotKey)
+        nativeTakeover.releaseShortcutRegistered = result == noErr
+        if result != noErr {
+            if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
+            releaseHotKeyHandler = nil
+        }
+    }
+
     func windowWillClose(_ notification: Notification) {
         guard let window = notification.object as? NSWindow,
               window == configWindow else {
@@ -103,6 +166,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        if nativeTakeover.hasOwnership { return }
         Task { @MainActor in
             if captureInProgress {
                 await stopCaptureFlow()
@@ -129,6 +193,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         )
         configItem.target = self
         menu.addItem(configItem)
+        let releaseItem = NSMenuItem(title: "Release Trackpads", action: #selector(releaseTrackpads), keyEquivalent: "r")
+        releaseItem.keyEquivalentModifierMask = [.control, .option]
+        releaseItem.target = self
+        menu.addItem(releaseItem)
         menu.addItem(.separator())
         let captureItem = NSMenuItem(
             title: "Capture...",
@@ -200,6 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .map { $0 != nil }
             .removeDuplicates()
             .sink { [weak self] isReplayActive in
+                if isReplayActive { Task { await self?.nativeTakeover.release() } }
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }
@@ -274,12 +343,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = configWindow ?? makeConfigWindow()
         configWindow = window
         controller.viewModel.setTouchSnapshotRecordingEnabled(true)
+        controller.viewModel.setStatusVisualsEnabled(true)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         updateMouseBlockerWindowFrame(window)
     }
 
     @objc private func syncDevices() {
+        guard !nativeTakeover.hasOwnership else { return }
         controller.viewModel.refreshDevicesAndListeners()
     }
 
@@ -458,6 +529,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         openConfigWindow()
         do {
+            await nativeTakeover.release()
+            guard !nativeTakeover.hasOwnership else { return }
             try await controller.beginReplaySession(from: inputURL)
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
@@ -502,7 +575,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func makeConfigWindow() -> NSWindow {
-        let contentView = ContentView(viewModel: controller.viewModel)
+        let contentView = ContentView(viewModel: controller.viewModel, nativeTakeover: nativeTakeover)
         let window = NSWindow(
             contentRect: NSRect(
                 x: 0,
@@ -566,6 +639,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func restartAppProcess() {
+        if nativeTakeover.hasOwnership {
+            configWindow?.close()
+            openConfigWindow()
+            return
+        }
         guard !isTerminatingApp else { return }
         isTerminatingApp = true
         let bundlePath = Bundle.main.bundlePath

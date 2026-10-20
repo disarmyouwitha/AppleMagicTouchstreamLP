@@ -17,6 +17,22 @@ Feature audit: keep Auto-resync as device recovery and Hold Repeat as output sca
 
 As of 2026-10-19, the user removed the entire custom DriverKit takeover implementation,
 helper embedding, decoder, restart transfer, UI, menu and release shortcut from this
-project. Native contact capture is the input path. Do not restore DriverKit or add
-the FLTR test here incidentally; that test remains in GesturePad only. Preserve
+project. Native contact capture is the input path. Do not restore DriverKit. The user explicitly authorized the native FLTR feature
+port on 2026-10-20; see the current policy below. Preserve
 optional legacy telemetry.driverKit serialization for existing captures.
+
+
+## Native Trackpad Takeover (user-authorized 2026-10-20)
+
+The app now has GesturePad's continuous selected-device FLTR takeover, independent
+of custom DriverKit. See TRACKPAD_TAKEOVER.md. Keep exact USB VID05ac/BT VID004c,
+PID0324/type4 validation, all-selection preflight, deduplication, own-client checks,
+partial-start rollback and release retry. No helper, restricted driver entitlement,
+startup/reconnect auto-takeover or separate synthetic pointer output is added.
+Preserve native keyboard ingestion and capture/replay, selection/refresh locks,
+paused auto-resync, and awaited keyboard reset before filter release. Explicit
+Release/menu/Ctrl-Option-R, sleep, replay and Quit release. Config close/reopen and
+active Restart retain the same owner process/controller/native clients; inactive
+Restart still relaunches. Test with ./test.sh (includes offline native lifecycle
+and coordinator tests), rebuild the XCFramework after native edits, and do not
+activate live takeover without the user's hardware test request.

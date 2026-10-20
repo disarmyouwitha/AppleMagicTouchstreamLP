@@ -1,4 +1,7 @@
 #import <Cocoa/Cocoa.h>
+#import <IOKit/hid/IOHIDKeys.h>
+#include <stdatomic.h>
+#include <unistd.h>
 
 #import "OpenMTManagerV2.h"
 #import "OpenMTInternal.h"
@@ -7,6 +10,8 @@
 typedef struct {
     __unsafe_unretained OpenMTManagerV2 *manager;
     uint64_t deviceID;
+    atomic_uint_fast64_t frames;
+    atomic_uint_fast64_t contactFrames;
 } MTDeviceV2CallbackContext;
 
 static void openMTManagerV2ContactFrameCallback(
@@ -33,6 +38,10 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 @property (strong, nonatomic) NSMutableDictionary<NSNumber *, NSValue *> *deviceRefsByNumericID;
 @property (strong, nonatomic) NSMutableDictionary<NSValue *, NSValue *> *callbackContextsByRef;
 @property (assign, nonatomic) BOOL callbacksRunning;
+@property (strong, nonatomic) NSMutableSet<NSNumber *> *filterDeviceIDs;
+@property (copy, nonatomic) NSString *filterResult;
+@property (assign, nonatomic) uint64_t filterFrames;
+@property (assign, nonatomic) uint64_t filterContactFrames;
 
 - (void)withStateSync:(dispatch_block_t)block;
 - (void)withStateAsync:(dispatch_block_t)block;
@@ -257,6 +266,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
         }
         context->manager = self;
         context->deviceID = numericID.unsignedLongLongValue;
+        atomic_init(&context->frames, 0);
+        atomic_init(&context->contactFrames, 0);
 
         BOOL registered = MTRegisterContactFrameCallbackWithRefcon(
             deviceRef,
@@ -281,6 +292,8 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 }
 
 - (void)stopHandlingRawCallbacks {
+    [self endNativeTakeover];
+    if (self.filterDeviceIDs.count) return;
     if (!self.callbacksRunning && self.deviceRefsByNumericID.count == 0) {
         return;
     }
@@ -350,6 +363,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 
 - (void)refreshAvailableDevices {
     [self withStateSync:^{
+        if (self.filterDeviceIDs.count) return;
         NSArray<OpenMTDeviceInfo *> *devices = [self collectAvailableDevices];
         self.availableDeviceInfos = devices;
 
@@ -389,7 +403,7 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos {
     __block BOOL success = NO;
     [self withStateSync:^{
-        if (deviceInfos.count == 0) {
+        if (self.filterDeviceIDs.count || deviceInfos.count == 0) {
             success = NO;
             return;
         }
@@ -464,6 +478,150 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
     return listening;
 }
 
+// Registry inspection is read-only. Refuse to join an existing filter owner.
+static int filterClients(MTDeviceRef device, BOOL requireOwn) {
+    if (!MTDeviceGetService) return -1;
+    io_iterator_t iterator = IO_OBJECT_NULL;
+    if (IORegistryEntryGetChildIterator(MTDeviceGetService(device), kIOServicePlane, &iterator)) return -1;
+    int count = 0;
+    NSString *prefix = [NSString stringWithFormat:@"pid %d,", getpid()];
+    io_service_t child;
+    while ((child = IOIteratorNext(iterator))) {
+        if (IOObjectConformsTo(child, "AppleMultitouchDeviceUserClient")) {
+            id enabled = CFBridgingRelease(IORegistryEntryCreateCFProperty(child, CFSTR("FilterEnabled"), kCFAllocatorDefault, 0));
+            id owner = CFBridgingRelease(IORegistryEntryCreateCFProperty(child, CFSTR("IOUserClientCreator"), kCFAllocatorDefault, 0));
+            if ([enabled isEqual:@YES] && (!requireOwn || ([owner isKindOfClass:NSString.class] && [owner hasPrefix:prefix]))) count++;
+        }
+        IOObjectRelease(child);
+    }
+    IOObjectRelease(iterator);
+    return count;
+}
+
+- (OSStatus)startNativeDevice:(MTDeviceRef)device mode:(MTRunMode)mode { return MTDeviceStart(device, mode); }
+- (OSStatus)stopNativeDevice:(MTDeviceRef)device { return MTDeviceStop(device); }
+- (int)nativeFilterClients:(MTDeviceRef)device own:(BOOL)own { return filterClients(device, own); }
+
+- (NSString *)validatedNativeFilterLabelForDeviceID:(NSNumber *)deviceID {
+    OpenMTDeviceInfo *info = nil;
+    for (OpenMTDeviceInfo *candidate in self.activeDeviceInfos) {
+        if (candidate.deviceNumericID == deviceID.unsignedLongLongValue) info = candidate;
+    }
+    MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+    int type = -1;
+    self.filterResult = @"Takeover refused: every selection must be an active external USB/Bluetooth model 0324 trackpad.";
+    if (!info || info.isBuiltIn || !device || !MTDeviceGetService ||
+        !([info.transport isEqualToString:@"USB"] || [info.transport isEqualToString:@"Bluetooth"])) return nil;
+    OSStatus typeStatus = MTDeviceGetDriverType(device, &type);
+    if (typeStatus || type != 4) {
+        self.filterResult = [NSString stringWithFormat:@"Takeover refused: %@ %@ native driver type=%d, status=%d (requires type 4).", info.transport, info.serialNumber, type, (int)typeStatus];
+        return nil;
+    }
+    io_service_t service = MTDeviceGetService(device);
+    id product = CFBridgingRelease(IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR(kIOHIDProductIDKey), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents));
+    id vendor = CFBridgingRelease(IORegistryEntrySearchCFProperty(service, kIOServicePlane, CFSTR(kIOHIDVendorIDKey), kCFAllocatorDefault, kIORegistryIterateRecursively | kIORegistryIterateParents));
+    unsigned int expectedVendor = [info.transport isEqualToString:@"USB"] ? 0x05ac : 0x004c;
+    if (![product isKindOfClass:NSNumber.class] || ![vendor isKindOfClass:NSNumber.class] ||
+        [product unsignedIntValue] != 0x324 || [vendor unsignedIntValue] != expectedVendor) {
+        self.filterResult = [NSString stringWithFormat:@"Takeover refused: %@ requires vendor %04x/model 0324; observed vendor=%@, product=%@.", info.transport, expectedVendor, vendor, product];
+        return nil;
+    }
+    if ([self nativeFilterClients:device own:NO] != 0 ||
+        !self.callbackContextsByRef[[NSValue valueWithPointer:device]]) {
+        self.filterResult = @"Takeover refused: a selection has an existing/unreadable filter owner or no contact callback.";
+        return nil;
+    }
+    return [NSString stringWithFormat:@"%@ %@", info.transport, info.serialNumber];
+}
+
+- (BOOL)beginNativeTakeoverForDeviceIDs:(NSArray<NSNumber *> *)deviceIDs {
+    __block BOOL success = NO;
+    [self withStateSync:^{
+        if (self.filterDeviceIDs.count) return;
+        NSArray<NSNumber *> *uniqueIDs = [NSOrderedSet orderedSetWithArray:deviceIDs].array;
+        self.filterResult = @"Select at least one supported USB/Bluetooth trackpad.";
+        if (!uniqueIDs.count) return;
+        NSMutableArray<NSString *> *labels = NSMutableArray.new;
+        // Validate every selected device before changing any native session.
+        for (NSNumber *deviceID in uniqueIDs) {
+            NSString *label = [self validatedNativeFilterLabelForDeviceID:deviceID];
+            if (!label) return;
+            [labels addObject:label];
+        }
+        self.filterFrames = self.filterContactFrames = 0;
+        self.filterDeviceIDs = NSMutableSet.new;
+        for (NSNumber *deviceID in uniqueIDs) {
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+            OSStatus stop = [self stopNativeDevice:device];
+            if (stop) {
+                [self endNativeTakeover];
+                self.filterResult = [NSString stringWithFormat:@"Takeover failed: ordinary stop=%d. %@", (int)stop, self.filterResult];
+                return;
+            }
+            atomic_store(&context->frames, 0);
+            atomic_store(&context->contactFrames, 0);
+            // Track it before start so failure cleanup also restores this device.
+            [self.filterDeviceIDs addObject:deviceID];
+            OSStatus start = [self startNativeDevice:device mode:(MTRunMode)0x40000000u];
+            if (start || [self nativeFilterClients:device own:NO] != 1 || [self nativeFilterClients:device own:YES] != 1) {
+                [self endNativeTakeover];
+                self.filterResult = [NSString stringWithFormat:@"Takeover start/ownership verification failed (start=%d). %@", (int)start, self.filterResult];
+                return;
+            }
+        }
+        self.filterResult = [NSString stringWithFormat:@"Trackpad Takeover active: %@.", [labels componentsJoinedByString:@", "]];
+        success = YES;
+    }];
+    return success;
+}
+
+- (void)endNativeTakeover {
+    [self withStateSync:^{
+        if (!self.filterDeviceIDs.count) return;
+        NSMutableArray<NSString *> *results = NSMutableArray.new;
+        // Attempt every device even if another fails to release.
+        for (NSNumber *deviceID in self.filterDeviceIDs.allObjects) {
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+            OSStatus stop = device ? [self stopNativeDevice:device] : -1;
+            if (stop) {
+                [results addObject:[NSString stringWithFormat:@"%@ stop=%d; retry Release Trackpads", deviceID, (int)stop]];
+                continue;
+            }
+            if (context) {
+                self.filterFrames += atomic_load(&context->frames);
+                self.filterContactFrames += atomic_load(&context->contactFrames);
+            }
+            [self.filterDeviceIDs removeObject:deviceID];
+            int remaining = [self nativeFilterClients:device own:YES];
+            OSStatus recovery = [self startNativeDevice:device mode:0];
+            [results addObject:[NSString stringWithFormat:@"%@ recovery=%d, owned filters=%d", deviceID, (int)recovery, remaining]];
+        }
+        self.filterResult = [NSString stringWithFormat:@"%@ %@", self.filterDeviceIDs.count ? @"Release incomplete." : @"Released trackpads.", [results componentsJoinedByString:@"; "]];
+    }];
+}
+
+- (NSDictionary<NSString *, id> *)nativeTakeoverStatus {
+    __block NSDictionary *status;
+    [self withStateSync:^{
+        uint64_t frames = self.filterFrames, contacts = self.filterContactFrames;
+        for (NSNumber *deviceID in self.filterDeviceIDs) {
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            MTDeviceV2CallbackContext *context = device ? self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue : NULL;
+            if (context) {
+                frames += atomic_load(&context->frames);
+                contacts += atomic_load(&context->contactFrames);
+            }
+        }
+        status = @{ @"active": @(self.filterDeviceIDs.count != 0),
+                    @"deviceIDs": self.filterDeviceIDs.allObjects ?: @[],
+                    @"frames": @(frames), @"contacts": @(contacts),
+                    @"message": self.filterResult ?: @"Off. Take over the currently selected trackpads." };
+    }];
+    return status;
+}
+
 - (void)willSleep:(NSNotification *)note {
     (void)note;
     [self withStateAsync:^{
@@ -505,6 +663,8 @@ static void openMTManagerV2ContactFrameCallback(
         if (!manager) {
             return;
         }
+        atomic_fetch_add(&context->frames, 1);
+        if (numTouches) atomic_fetch_add(&context->contactFrames, 1);
         [manager handleRawFrameWithTouches:eventTouches
                                      count:(int)numTouches
                                  timestamp:timestamp

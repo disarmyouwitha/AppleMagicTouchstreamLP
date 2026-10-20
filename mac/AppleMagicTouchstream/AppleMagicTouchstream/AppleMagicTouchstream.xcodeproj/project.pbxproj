@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        CAFE00000000000000000001 /* NativeTrackpadTakeover.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFE00000000000000000002; };
 		AB01AB01AB01AB01AB01AB01 /* LegacyGTKProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
 		31AB052C2F14DA2600EEE33E /* ColumnLayoutSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */; };
@@ -31,6 +32,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        CAFE00000000000000000002 /* NativeTrackpadTakeover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTrackpadTakeover.swift; sourceTree = "<group>"; };
 		AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compatibility/LegacyGTKProfile.swift; sourceTree = "<group>"; };
 		21D5BB43B585451E9D83C8ED /* LegacyMobileLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compatibility/LegacyMobileLayout.swift; sourceTree = "<group>"; };
 		31AB052B2F14DA2600EEE33E /* ColumnLayoutSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ColumnLayoutSettings.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@
 		C0A1B2C3D4E5F60718293C41 /* Runtime */ = {
 			isa = PBXGroup;
 			children = (
+                CAFE00000000000000000002 /* NativeTrackpadTakeover.swift */,
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
@@ -221,6 +224,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+                CAFE00000000000000000001 /* NativeTrackpadTakeover.swift in Sources */,
 				77292A8A2B931953001CA3F6 /* ContentView.swift in Sources */,
 				77292A982B931D60001CA3F6 /* ContentViewModel.swift in Sources */,
 				AB01AB01AB01AB01AB01AB01 /* LegacyGTKProfile.swift in Sources */,
