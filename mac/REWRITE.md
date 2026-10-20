@@ -4,13 +4,10 @@
 
 ===
 
-
 `GlassToKey`:
-0. Can we place the Touchstream keypad image in the background under the squared background? I want to create a touchstream keymap
-1. I want to create a Layout based on @left_layout.jpeg @full_layout.gif
-> I want to lock this project to the AppleMagicTouchstream layout
+0. Fit layout to image
 1. Update GTK Windows Driver instructions they should be dead simple now.
-
+2. DecalGirl left and right pads
 
 `AppleMagicTouchstream`: 
 0. Copy touchstream Layout from AMT to GTK!

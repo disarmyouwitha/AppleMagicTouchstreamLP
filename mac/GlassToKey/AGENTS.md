@@ -127,3 +127,17 @@ active Restart retain the same owner process/controller/native clients; inactive
 Restart still relaunches. Test with ./test.sh (includes offline native lifecycle
 and coordinator tests), rebuild the XCFramework after native edits, and do not
 activate live takeover without the user's hardware test request.
+
+
+## TouchStream LP reference layout (2026-10-20)
+
+User requested a TouchStream keypad image below the sensor grid and a layout
+from mac/left_layout.jpeg + mac/full_layout.gif. See TOUCHSTREAM_LAYOUT.md.
+Preserve existing preset identities/settings. TouchStream has independent traced
+left/right geometry; editor, startup and replay must all use the same geometry
+and per-key overrides. The original GIF is a bundled visual-only reference below
+grid/contacts, automatically visible only for the TouchStream layout; do not read
+source-tree files at runtime.
+Unsupported Hand/Caps Lock/PC-only legends remain inactive editable placeholders.
+Do not infer proprietary TouchStream gestures from printed legends. No native
+bridge changes or automatic live input activation are needed for this layout.

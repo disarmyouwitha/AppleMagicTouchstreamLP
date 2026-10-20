@@ -29,6 +29,7 @@ struct TrackpadSurfaceSnapshot {
     var spacing: CGFloat
     var showDetailed: Bool
     var showTouchTelemetry: Bool = false
+    var showTouchStreamReference: Bool = false
     var showContactPaths: Bool = false
     var replayModeEnabled: Bool
     var leftLayout: ContentViewModel.Layout
@@ -65,6 +66,7 @@ extension TrackpadSurfaceSnapshot {
 }
 
 private struct TrackpadSurfaceStaticRenderInput: Equatable {
+    var showTouchStreamReference: Bool
     var trackpadSize: CGSize
     var spacing: CGFloat
     var showDetailed: Bool
@@ -78,6 +80,7 @@ private struct TrackpadSurfaceStaticRenderInput: Equatable {
     var rightCustomButtons: [CustomButton]
 
     init(snapshot: TrackpadSurfaceSnapshot) {
+        showTouchStreamReference = snapshot.showTouchStreamReference
         trackpadSize = snapshot.trackpadSize
         spacing = snapshot.spacing
         showDetailed = snapshot.showDetailed
@@ -146,6 +149,15 @@ struct ContactPathHistory {
 }
 
 final class TrackpadSurfaceView: NSView {
+    private static let touchStreamReference: NSImage? = {
+#if SWIFT_PACKAGE
+        let url = Bundle.module.url(forResource: "TouchStreamReference", withExtension: "gif", subdirectory: "Resources")
+#else
+        let url = Bundle.main.url(forResource: "TouchStreamReference", withExtension: "gif")
+#endif
+        return url.flatMap { NSImage(contentsOf: $0) }
+    }()
+
     private static let replayFallbackTouchDiameter: CGFloat = 24
 
     private var cachedStaticRenderInput: TrackpadSurfaceStaticRenderInput?
@@ -309,6 +321,7 @@ final class TrackpadSurfaceView: NSView {
 
         drawTrackpadStaticSide(
             origin: leftOrigin,
+            referenceSide: .left,
             layout: snapshot.leftLayout,
             labels: input.leftLabels,
             customButtons: input.leftCustomButtons,
@@ -317,6 +330,7 @@ final class TrackpadSurfaceView: NSView {
         )
         drawTrackpadStaticSide(
             origin: rightOrigin,
+            referenceSide: .right,
             layout: snapshot.rightLayout,
             labels: input.rightLabels,
             customButtons: input.rightCustomButtons,
@@ -328,6 +342,7 @@ final class TrackpadSurfaceView: NSView {
 
     private func drawTrackpadStaticSide(
         origin: CGPoint,
+        referenceSide: TrackpadSide,
         layout: ContentViewModel.Layout,
         labels: [[TrackpadSurfaceLabel]],
         customButtons: [CustomButton],
@@ -342,6 +357,15 @@ final class TrackpadSurfaceView: NSView {
 
         guard showDetailed else { return }
 
+        if snapshot.showTouchStreamReference, let reference = Self.touchStreamReference {
+            NSGraphicsContext.saveGraphicsState()
+            borderPath.addClip()
+            let half = reference.size.width / 2
+            reference.draw(in: trackpadRect,
+                from: CGRect(x: referenceSide == .left ? 0 : half, y: 0, width: half, height: reference.size.height),
+                operation: .sourceOver, fraction: 0.42, respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
+            NSGraphicsContext.restoreGraphicsState()
+        }
         drawSensorGrid(origin: origin, trackpadSize: trackpadSize)
         drawKeyGrid(layout.normalizedKeyRects, origin: origin, trackpadSize: trackpadSize)
         drawCustomButtons(customButtons, origin: origin, trackpadSize: trackpadSize)
@@ -593,11 +617,17 @@ final class TrackpadSurfaceView: NSView {
                 let rect = normalizedKeyRects[rowIndex][columnIndex]
                 let baseRect = rect.rect(in: trackpadSize).offsetBy(dx: origin.x, dy: origin.y)
                 let label = labels[rowIndex][columnIndex]
+                let primary = ["Caps Lock": "Caps\nLock", "Scroll Lock": "Scroll\nLock",
+                               "Num Lock": "Num\nLock", "Print Screen": "Print\nScreen",
+                               "PageUp": "Page\nUp", "PageDown": "Page\nDown"][label.primary] ?? label.primary
+                let nominalFont = NSFont.monospacedSystemFont(ofSize: 10, weight: .semibold)
+                let measured = (primary as NSString).size(withAttributes: [.font: nominalFont]).width
+                let pointSize = max(6, min(10, 10 * (baseRect.width - 6) / max(1, measured)))
                 drawCenteredText(
-                    label.primary,
+                    primary,
                     in: baseRect,
                     yOffset: -4,
-                    font: .monospacedSystemFont(ofSize: 10, weight: .semibold),
+                    font: .monospacedSystemFont(ofSize: pointSize, weight: .semibold),
                     color: .secondaryLabelColor.withAlphaComponent(0.95),
                     rotationDegrees: rect.rotationDegrees
                 )
@@ -836,9 +866,12 @@ final class TrackpadSurfaceView: NSView {
         rotationDegrees: Double = 0
     ) {
         guard !string.isEmpty else { return }
+        let paragraph = NSMutableParagraphStyle()
+        paragraph.alignment = .center
         let attributes: [NSAttributedString.Key: Any] = [
             .font: font,
-            .foregroundColor: color
+            .foregroundColor: color,
+            .paragraphStyle: paragraph
         ]
         let attributed = NSAttributedString(string: string, attributes: attributes)
         let size = attributed.size()
@@ -847,29 +880,25 @@ final class TrackpadSurfaceView: NSView {
             y: -(size.height * 0.5) + yOffset
         )
         guard abs(rotationDegrees) >= 0.000_01 else {
-            attributed.draw(
-                at: CGPoint(
-                    x: rect.midX + drawPoint.x,
-                    y: rect.midY + drawPoint.y
-                )
-            )
+            attributed.draw(in: CGRect(
+                origin: CGPoint(x: rect.midX + drawPoint.x, y: rect.midY + drawPoint.y),
+                size: size
+            ))
             return
         }
 
         NSGraphicsContext.saveGraphicsState()
         defer { NSGraphicsContext.restoreGraphicsState() }
         guard let cgContext = NSGraphicsContext.current?.cgContext else {
-            attributed.draw(
-                at: CGPoint(
-                    x: rect.midX + drawPoint.x,
-                    y: rect.midY + drawPoint.y
-                )
-            )
+            attributed.draw(in: CGRect(
+                origin: CGPoint(x: rect.midX + drawPoint.x, y: rect.midY + drawPoint.y),
+                size: size
+            ))
             return
         }
         cgContext.translateBy(x: rect.midX, y: rect.midY)
         cgContext.rotate(by: CGFloat(rotationDegrees * .pi / 180.0))
-        attributed.draw(at: drawPoint)
+        attributed.draw(in: CGRect(origin: drawPoint, size: size))
     }
 }
 

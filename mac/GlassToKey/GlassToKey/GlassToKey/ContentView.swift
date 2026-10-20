@@ -572,7 +572,7 @@ struct ContentView: View {
         mainLayout
             .padding()
             .background(backgroundGradient)
-            .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 340)
+            .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 390)
             .frame(maxHeight: .infinity, alignment: .top)
     }
 
@@ -880,6 +880,7 @@ struct ContentView: View {
     private var trackpadSectionView: some View {
             TrackpadSectionView(
                 viewModel: viewModel,
+                showTouchStreamReference: layoutOption == .touchstream,
                 trackpadSize: trackpadSize,
                 leftLayout: leftLayout,
                 rightLayout: rightLayout,
@@ -1264,6 +1265,7 @@ struct ContentView: View {
 
     private struct TrackpadSectionView: View {
         @ObservedObject var viewModel: ContentViewModel
+        let showTouchStreamReference: Bool
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
@@ -1286,6 +1288,7 @@ struct ContentView: View {
                 VStack(alignment: .leading, spacing: 12) {
                         TrackpadDeckView(
                             viewModel: viewModel,
+                            showTouchStreamReference: showTouchStreamReference,
                             trackpadSize: trackpadSize,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
@@ -2098,7 +2101,9 @@ struct ContentView: View {
                     }
                 } else {
                     Text(layoutOption.hasGrid
-                        ? "This preset uses a fixed right-side layout; column tuning is disabled."
+                        ? (layoutOption == .touchstream
+                            ? "TouchStream uses traced left/right key positions. Select a key to edit its size, rotation, and action."
+                            : "This preset uses a fixed right-side layout; column tuning is disabled.")
                         : "Layout has no grid. Pick one of the presets to show keys.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
@@ -3984,6 +3989,7 @@ struct ContentView: View {
 
     private struct TrackpadDeckView: View {
         @ObservedObject var viewModel: ContentViewModel
+        let showTouchStreamReference: Bool
         let trackpadSize: CGSize
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
@@ -4002,6 +4008,7 @@ struct ContentView: View {
         @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
         @State private var showTouchTelemetry = false
 
+
         private let trackpadSpacing: CGFloat = 16
         private var combinedWidth: CGFloat {
             (trackpadSize.width * 2) + trackpadSpacing
@@ -4019,6 +4026,7 @@ struct ContentView: View {
                     Toggle("Contact paths", isOn: $showContactPaths)
                         .toggleStyle(.checkbox)
                         .help("Show colored movement trails for each contact; trails fade after release.")
+
                     Toggle("Inspect touch data", isOn: $showTouchTelemetry)
                         .toggleStyle(.checkbox)
                         .help("Show finger IDs, pressure and velocity direction on each contact.")
@@ -4036,6 +4044,7 @@ struct ContentView: View {
                             spacing: trackpadSpacing,
                             showDetailed: showDetailedView,
                             showTouchTelemetry: showTouchTelemetry,
+                            showTouchStreamReference: showTouchStreamReference,
                             showContactPaths: showContactPaths,
                             replayModeEnabled: viewModel.replayTimelineState != nil,
                             leftLayout: leftLayout,
@@ -4323,6 +4332,25 @@ struct ContentView: View {
             width: rect.width / size.width,
             height: rect.height / size.height
         )
+    }
+
+    static func makeTouchStreamKeyLayout(
+        size: CGSize, side: TrackpadSide, keyGeometryOverrides: KeyGeometryOverrides = [:]
+    ) -> ContentViewModel.Layout {
+        var rects = TouchStreamLayoutDefinition.rows(for: side).map { $0.map(\.rect) }
+        for row in rects.indices {
+            for column in rects[row].indices {
+                let key = GridKeyPosition(side: side, row: row, column: column).storageKey
+                guard let edit = keyGeometryOverrides[key] else { continue }
+                let original = rects[row][column]
+                let width = min(1, max(0.001, original.width * CGFloat(edit.widthScale)))
+                let height = min(1, max(0.001, original.height * CGFloat(edit.heightScale)))
+                rects[row][column] = NormalizedRect(x: original.centerX - width / 2,
+                    y: original.centerY - height / 2, width: width, height: height,
+                    rotationDegrees: original.rotationDegrees - edit.rotationDegrees)
+            }
+        }
+        return ContentViewModel.Layout(normalizedKeyRects: rects, trackpadSize: size)
     }
 
     static func makeMobileKeyLayout(
@@ -4672,6 +4700,15 @@ struct ContentView: View {
     }
 
     private func rebuildLayouts() {
+        if layoutOption == .touchstream {
+            leftLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
+            rightLayout = Self.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)
+            viewModel.configureLayouts(leftLayout: leftLayout, rightLayout: rightLayout,
+                leftLabels: leftGridLabels, rightLabels: rightGridLabels,
+                trackpadSize: trackpadSize, trackpadWidthMm: Self.trackpadWidthMM)
+            return
+        }
+
         guard layoutColumns > 0,
               layoutRows > 0,
               layoutColumnAnchors.count == layoutColumns else {
@@ -5767,6 +5804,9 @@ struct ContentView: View {
     }
 
     private func defaultKeyMapping(for label: String) -> KeyMapping? {
+        if layoutOption == .touchstream, let placeholder = TouchStreamLayoutDefinition.placeholderMapping(for: label) {
+            return placeholder
+        }
         guard let primary = KeyActionCatalog.action(for: label) else { return nil }
         return KeyMapping(primary: primary, hold: nil)
     }

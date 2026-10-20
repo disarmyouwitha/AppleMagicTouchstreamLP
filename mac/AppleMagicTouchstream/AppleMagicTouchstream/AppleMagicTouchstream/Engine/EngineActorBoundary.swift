@@ -737,6 +737,9 @@ final class ProductionReplaySession {
         let geometry = profile.keyGeometryByLayout?[name] ?? [:]
         let spacing = profile.keySpacingPercentByLayout?[name] ?? LayoutKeySpacingDefaults.defaultPercent
         func layout(mirrored: Bool) -> ContentViewModel.Layout {
+            if preset == .touchstream {
+                return ContentView.makeTouchStreamKeyLayout(size: size, side: mirrored ? .left : .right, keyGeometryOverrides: geometry)
+            }
             if preset == .mobile {
                 return mirrored ? ContentViewModel.Layout(keyRects: [], trackpadSize: size)
                     : ContentView.makeMobileKeyLayout(size: size, keyGeometryOverrides: geometry)

@@ -32,7 +32,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var statusCancellable: AnyCancellable?
     private var replayStateCancellable: AnyCancellable?
     private let mouseEventBlocker = MouseEventBlocker()
-    private static let configWindowDefaultHeight: CGFloat = 600
+    private static let configWindowDefaultHeight: CGFloat = 650
     private var captureMenuItem: NSMenuItem?
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false

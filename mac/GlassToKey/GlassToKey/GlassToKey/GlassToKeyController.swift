@@ -403,7 +403,10 @@ final class GlassToKeyController: ObservableObject {
 
         let leftLayout: ContentViewModel.Layout
         let rightLayout: ContentViewModel.Layout
-        if layout == .mobile {
+        if layout == .touchstream {
+            leftLayout = ContentView.makeTouchStreamKeyLayout(size: trackpadSize, side: .left, keyGeometryOverrides: keyGeometryOverrides)
+            rightLayout = ContentView.makeTouchStreamKeyLayout(size: trackpadSize, side: .right, keyGeometryOverrides: keyGeometryOverrides)
+        } else if layout == .mobile {
             leftLayout = ContentViewModel.Layout(keyRects: [], trackpadSize: trackpadSize)
             rightLayout = ContentView.makeMobileKeyLayout(
                 size: trackpadSize,

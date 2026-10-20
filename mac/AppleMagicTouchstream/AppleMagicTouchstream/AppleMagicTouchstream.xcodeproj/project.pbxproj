@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        CBAA00000000000000000002 /* TouchStreamReference.gif in Resources */ = {isa = PBXBuildFile; fileRef = CBAA00000000000000000001; };
         CAFE00000000000000000001 /* NativeTrackpadTakeover.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAFE00000000000000000002; };
 		AB01AB01AB01AB01AB01AB01 /* LegacyGTKProfile.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
@@ -32,6 +33,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        CBAA00000000000000000001 /* TouchStreamReference.gif */ = {isa = PBXFileReference; lastKnownFileType = image.gif; path = AppleMagicTouchstream/Resources/TouchStreamReference.gif; sourceTree = SOURCE_ROOT; };
         CAFE00000000000000000002 /* NativeTrackpadTakeover.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeTrackpadTakeover.swift; sourceTree = "<group>"; };
 		AB02AB02AB02AB02AB02AB02 /* LegacyGTKProfile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compatibility/LegacyGTKProfile.swift; sourceTree = "<group>"; };
 		21D5BB43B585451E9D83C8ED /* LegacyMobileLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Compatibility/LegacyMobileLayout.swift; sourceTree = "<group>"; };
@@ -90,7 +92,8 @@
 			77292A862B931953001CA3F6 /* AppleMagicTouchstream */ = {
 				isa = PBXGroup;
 				children = (
-					77292A8B2B931954001CA3F6 /* Assets.xcassets */,
+					CBAA00000000000000000001 /* TouchStreamReference.gif */,
+                    77292A8B2B931954001CA3F6 /* Assets.xcassets */,
 					B1C2D3E4F5A60718293A4B5C /* GLASSTOKEY_DEFAULT_KEYMAP.json */,
 					B1C2D3E4F5A60718293A4B60 /* MY_KEYMAP.json */,
 					77292A872B931953001CA3F6 /* AppleMagicTouchstreamApp.swift */,
@@ -210,7 +213,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
+				CBAA00000000000000000002 /* TouchStreamReference.gif in Resources */,
+                77292A8C2B931954001CA3F6 /* Assets.xcassets in Resources */,
 				B1C2D3E4F5A60718293A4B5D /* GLASSTOKEY_DEFAULT_KEYMAP.json in Resources */,
 				B1C2D3E4F5A60718293A4B61 /* MY_KEYMAP.json in Resources */,
 			);

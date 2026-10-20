@@ -57,6 +57,7 @@ let package = Package(
             path: "GlassToKey/GlassToKey",
             exclude: ["GlassToKeyApp.swift", "Assets.xcassets", "GlassToKey.entitlements",
                       "GLASSTOKEY_DEFAULT_KEYMAP.json", "MY_KEYMAP.json"],
+            resources: [.copy("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

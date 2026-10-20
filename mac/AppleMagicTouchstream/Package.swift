@@ -57,6 +57,7 @@ let package = Package(
             path: "AppleMagicTouchstream/AppleMagicTouchstream",
             exclude: ["AppleMagicTouchstreamApp.swift", "Assets.xcassets", "AppleMagicTouchstream.entitlements",
                       "GLASSTOKEY_DEFAULT_KEYMAP.json", "MY_KEYMAP.json"],
+            resources: [.copy("Resources")],
             swiftSettings: [.swiftLanguageMode(.v6)]
         ),
         .testTarget(

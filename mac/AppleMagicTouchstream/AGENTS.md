@@ -36,3 +36,15 @@ active Restart retain the same owner process/controller/native clients; inactive
 Restart still relaunches. Test with ./test.sh (includes offline native lifecycle
 and coordinator tests), rebuild the XCFramework after native edits, and do not
 activate live takeover without the user's hardware test request.
+
+
+## TouchStream layout (2026-10-20)
+
+The user authorized the GlassToKey TouchStream preset/reference port. Preserve
+independent traced left/right regions, editable per-key geometry and inert
+placeholders for unsupported legends. Editor, startup and replay use
+ContentView.makeTouchStreamKeyLayout. Bundle Resources/TouchStreamReference.gif
+in Xcode and SwiftPM; the visual-only background follows the selected TouchStream
+layout with no separate checkbox. See
+TOUCHSTREAM_LAYOUT.md and the offline TouchStreamLayoutTests. Existing hidden
+Mobile/Planck presets remain hidden. Do not restore removed gesture features.
