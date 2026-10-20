@@ -132,17 +132,20 @@ struct ContentView: View {
     }
 
     private var nativeFilterControls: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack {
-                Button("Trackpad Takeover") {
-                    hidBlackhole.startNativeTakeover(devices: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 })
-                }
-                .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil ||
-                    (viewModel.leftDevice == nil && viewModel.rightDevice == nil))
-                Button("Release Trackpads") { hidBlackhole.release(reason: "Trackpads released") }
-                    .disabled(!hidBlackhole.nativeFilterActive)
+        HStack(spacing: 12) {
+            Button("Trackpad Takeover") {
+                hidBlackhole.startNativeTakeover(devices: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 })
             }
-            Text(hidBlackhole.nativeFilterStatus).font(.caption).textSelection(.enabled)
+            .fixedSize()
+            .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil ||
+                (viewModel.leftDevice == nil && viewModel.rightDevice == nil))
+            Button("Release Trackpads") { hidBlackhole.release(reason: "Trackpads released") }
+                .fixedSize()
+                .disabled(!hidBlackhole.nativeFilterActive)
+            Text(hidBlackhole.nativeFilterStatus + (hidBlackhole.nativeFilterActive ? " Press ⌃⌥R to release" : ""))
+                .font(.caption)
+                .textSelection(.enabled)
+                .fixedSize(horizontal: false, vertical: true)
         }
     }
 
