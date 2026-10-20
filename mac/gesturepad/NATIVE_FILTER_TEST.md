@@ -1,41 +1,32 @@
-# Native filter experiment in GesturePad
+# Native Trackpad Takeover acceptance
 
-Implementation and discovery details: [TRACKPAD_TAKEOVER.md](TRACKPAD_TAKEOVER.md).
+The user confirmed the original 15-second FLTR test works through both Bluetooth
+and USB. GesturePad now has continuous selected-pad **Trackpad Takeover** and
+**Release Trackpads**. [Implementation details](TRACKPAD_TAKEOVER.md).
 
-This is an explicit 15-second Bluetooth test. The previous custom DriverKit
-implementation has been removed from GesturePad and AppleMagicTouchstream. It uses the private MultitouchSupport FLTR mode already exercised by the
-standalone probe. It is not a production default or a compatibility guarantee.
-No restricted entitlement, provisioning profile, helper or elevation is added for
-this experiment.
+1. Keep another mouse/keyboard available. Open GesturePad and select the intended
+   Left/Right trackpads. Check their transport and serial in the selectors.
+2. Click **Trackpad Takeover**. Move one finger on each selected pad. Contacts and
+   paths should keep updating while its native pointer movement is suppressed.
+3. Continue past 15 seconds: the full feature has no test deadline.
+4. Verify an unselected pad/other mouse remains usable. Test one selected pad,
+   both pads, and the same pad in both selectors (one physical takeover).
+5. Click **Release Trackpads**, or press **Ctrl–Option–R**. Confirm native input
+   and contact callbacks both work. Release before refreshing/changing selection.
+6. Repeat a start/release cycle. Test scrolling, click/drag and gestures separately;
+   movement success is not proof of every native behavior.
+7. Check sleep, replay, Config close and Exit release. Reopen/reselect manually
+   after a reconnect; no automatic takeover is performed.
 
-1. Quit other trackpad apps. Keep another mouse
-   available. Open the newly built GesturePad and select your Bluetooth pad(s).
-2. Under Left Trackpad, find **Native filter experiment**. Press the **Test
-   [serial] · 15s** button for one pad. Only that selected native device is filtered.
-3. Move one finger continuously. Its native cursor should stop while its contacts
-   and contact paths continue updating. Do not move another mouse while assessing
-   the sampled cursor span. The other pad should retain normal input.
-4. After 15 seconds, native input should resume and contacts should keep updating.
-   **Release test**, the menu's **Release Trackpads**, or **Ctrl–Option–R** ends early.
-5. Copy the selectable status text if anything fails. Note whether contacts, native
-   cursor, scrolling, and click recover, and whether the other pad was unaffected.
-   Repeat once to check reuse. Start with movement only before testing clicks.
+Start validates all selected pads before changing any. Unsupported selections or
+existing filter owners fail preflight. Failed partial starts attempt rollback.
+Status identifies captured transports/serials and aggregate contact-frame counts;
+release reports recovery results. Copy it if something fails. A failed release
+keeps the remaining owned pads active in the UI so Release can be retried.
 
-The status shows native callback counts, contact-bearing frames, sampled cursor
-span, time remaining, recovery status and remaining owned filter-client count.
-Cursor samples are periodic observations, not proof that no intermediate motion
-occurred. Human observation remains part of the test.
+USB requires VID05ac/PID0324; Bluetooth requires VID004c/PID0324. Both require
+native driver type4. These are the tested model gates, not support for all Apple
+trackpads. No new driver, mode write, USB seizure or synthetic output is involved.
 
-The bridge rejects built-in/USB devices, unsupported product/vendor/driver types,
-inactive selections, and devices already owned by a filter client. It verifies its
-own FilterEnabled client after starting. The 15-second deadline runs on the native
-state queue, independently of the UI timer. Release restores ordinary callback
-mode; sleep, replay, configuration close and exit follow existing cleanup paths.
-Refresh and selection are locked during the experiment. Legacy experiments cannot
-start concurrently. No synthetic pointer/click output is added.
-
-Hardware update, 2026-10-19: after testing the integrated GesturePad build, the
-user reported that it works “phenomenally well.” The GUI test path contains no sudo
-or elevation step. No new integrated-run diagnostic log was supplied; repeated
-lifecycle tests and other machines remain follow-up validation. A failed start is
-reported and rolled back.
+Individual Bluetooth/USB trials were hardware-confirmed. Continuous multi-pad
+operation and the lifecycle matrix above still require physical acceptance.

@@ -129,27 +129,19 @@ struct ContentView: View {
         .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
-    private var nativeFilterCandidates: [OMSDeviceInfo] {
-        let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
-        return Array(Set(selected)).filter { !$0.isBuiltIn && $0.transport == "Bluetooth" }
-            .sorted { $0.deviceIDNumeric < $1.deviceIDNumeric }
-    }
-
     private var nativeFilterControls: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text("Native filter experiment").font(.subheadline).bold()
             HStack {
-                ForEach(nativeFilterCandidates, id: \.deviceID) { device in
-                    Button("Test \(device.serialNumber) · 15s") {
-                        hidBlackhole.startNativeFilterTest(device: device)
-                    }
-                    .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil)
+                Button("Trackpad Takeover") {
+                    hidBlackhole.startNativeTakeover(devices: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 })
                 }
-                Button("Release test") { hidBlackhole.release(reason: "Native filter test released") }
+                .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil ||
+                    (viewModel.leftDevice == nil && viewModel.rightDevice == nil))
+                Button("Release Trackpads") { hidBlackhole.release(reason: "Trackpads released") }
                     .disabled(!hidBlackhole.nativeFilterActive)
             }
             Text(hidBlackhole.nativeFilterStatus).font(.caption).textSelection(.enabled)
-            Text("Keep another mouse available. Move one finger: cursor should stop while contacts update below, then resume after release. Ctrl–Option–R releases early.")
+            Text("Applies to the selected trackpads. Ctrl–Option–R releases. Release before changing selection or refreshing.")
                 .font(.caption).foregroundStyle(.secondary)
         }
     }

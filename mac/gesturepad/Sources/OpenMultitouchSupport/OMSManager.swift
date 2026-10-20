@@ -241,16 +241,16 @@ public final class OMSManager: Sendable {
         return true
     }
     
-    public func beginNativeFilterTest(deviceID: UInt64) -> Bool {
-        captureManagerIfAvailable()?.beginNativeFilterTest(forDeviceID: deviceID) ?? false
+    public func beginNativeTakeover(deviceIDs: [UInt64]) -> Bool {
+        captureManagerIfAvailable()?.beginNativeTakeover(forDeviceIDs: deviceIDs.map { NSNumber(value: $0) }) ?? false
     }
 
-    public func endNativeFilterTest() {
-        protectedCaptureManager.withLockUnchecked { $0 }?.endNativeFilterTest()
+    public func endNativeTakeover() {
+        protectedCaptureManager.withLockUnchecked { $0 }?.endNativeTakeover()
     }
 
-    public var nativeFilterTestStatus: [String: Any] {
-        protectedCaptureManager.withLockUnchecked { $0 }?.nativeFilterTestStatus() ?? [:]
+    public var nativeTakeoverStatus: [String: Any] {
+        protectedCaptureManager.withLockUnchecked { $0 }?.nativeTakeoverStatus() ?? [:]
     }
 
     public var isHapticEnabled: Bool {

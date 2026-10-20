@@ -57,12 +57,15 @@ mode writes are part of this variant. Do not activate it without the user's live
 The user removed the entire custom DriverKit implementation from GesturePad and
 AppleMagicTouchstream. Do not restore its driver/helper, raw decoder, synthetic
 button output, signing/provisioning integration, inventory or restart transfer.
-The only takeover UI in GesturePad is the explicit 15-second Native filter
-experiment; see TRACKPAD_TAKEOVER.md and NATIVE_FILTER_TEST.md. Keep exact selected
-Bluetooth model0324/type4 validation, own-client registry verification, state-queue
-deadline, release shortcut Ctrl-Option-R, lifecycle cleanup and refresh/selection
-lock. The test uses native callbacks, with no synthetic output and no elevation.
-It is not enabled automatically. User reported integrated hardware success.
+GesturePad now has continuous native Trackpad Takeover/Release Trackpads controls
+for the current nonempty Left/Right selection, following user confirmation of both
+Bluetooth and USB FLTR tests. Deduplicate identical selections, validate all before
+starting, roll back partial starts, attempt release for all owned pads and retain
+failed-stop ownership for retry. Keep model0324/type4, USB VID05ac / Bluetooth
+VID004c validation, own-client verification, Ctrl-Option-R, lifecycle release,
+refresh/selection locks and paused auto-resync while owning pads. No timeout,
+automatic reconnect takeover, startup activation or synthetic output. See
+TRACKPAD_TAKEOVER.md and NATIVE_FILTER_TEST.md.
 
 APPLE_CONTACT_HID_LAYOUT.md preserves the removed raw decoder's bit layout and
 native Compact V7 conversions. Retain optional telemetry.driverKit serialization,
@@ -72,3 +75,7 @@ the removed DriverKitProbe Python test suite no longer applies.
 
 Preserve ordinary Config-close background restart and explicit Restart. Both
 release the native test before relaunch; no ownership transfer lease remains.
+
+The USB test was confirmed by the user. The requested continuous selected-pad
+feature is now implemented; simultaneous multi-pad/lifecycle hardware acceptance
+is still pending. ./test.sh also runs offline native lifecycle checks.

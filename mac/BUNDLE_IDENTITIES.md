@@ -31,10 +31,11 @@ change keychain certificates. Earlier portal profile IDs were `626XJXDMS8` (driv
 and `NKWTA82SMW` (helper). These are not current build dependencies. Do not commit
 profiles or signing/notarization credentials.
 
-GesturePad retains only its explicit 15-second native FLTR test, using Apple's
-existing multitouch driver without installing our own extension. See
+GesturePad now provides continuous selected-pad native FLTR takeover, following
+user-confirmed Bluetooth/USB tests, using Apple's existing multitouch driver
+without installing our own extension. See
 [TRACKPAD_TAKEOVER.md](gesturepad/TRACKPAD_TAKEOVER.md). AppleMagicTouchstream uses
-ordinary native contact capture and does not include that test. Existing optional
+ordinary native contact capture and does not include native takeover. Existing optional
 raw-report capture provenance remains readable in both projects.
 
 GlassToKey's earlier takeover port is also absent from its app and release

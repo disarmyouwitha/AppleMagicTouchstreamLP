@@ -63,6 +63,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let shouldOpenConfigOnLaunch = !ProcessInfo.processInfo.arguments.contains("--background") &&
             (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
         initializeRunAtStartupPreference()
+        hidBlackhole.onNativeOwnershipChanged = { [weak controller] active in
+            let enabled = UserDefaults.standard.bool(forKey: GesturePadDefaultsKeys.autoResyncMissingTrackpads)
+            controller?.viewModel.setAutoResyncEnabled(enabled && !active)
+        }
         controller.start()
         configureStatusItem()
         registerReleaseHIDShortcut()
@@ -264,6 +268,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func syncDevices() {
+        guard !hidBlackhole.nativeFilterActive else { return }
         controller.viewModel.refreshDevicesAndListeners()
     }
 

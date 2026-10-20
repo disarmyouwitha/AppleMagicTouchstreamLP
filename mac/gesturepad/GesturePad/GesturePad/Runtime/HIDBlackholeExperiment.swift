@@ -282,41 +282,28 @@ final class HIDBlackholeExperiment: ObservableObject {
     let gainProbe = TrackpadGainProbe()
     let pointerControl = SelectedTrackpadEventFilter()
     @Published private(set) var nativeFilterActive = false
-    @Published private(set) var nativeFilterStatus = "Private native filter test · automatically releases after 15 seconds."
+    @Published private(set) var nativeFilterStatus = "Off. Take over the currently selected trackpads."
     private var nativeFilterTimer: Timer?
-    private var nativeFilterCursorBounds: CGRect?
-    private var nativeFilterStartedAt: Date?
+    var onNativeOwnershipChanged: ((Bool) -> Void)?
 
-    func startNativeFilterTest(device: OMSDeviceInfo) {
+    func startNativeTakeover(devices: [OMSDeviceInfo]) {
         guard !hasOpenHIDDevices else { return }
-        nativeFilterCursorBounds = nil
-        nativeFilterStartedAt = Date()
-        _ = OMSManager.shared.beginNativeFilterTest(deviceID: device.deviceIDNumeric)
+        _ = OMSManager.shared.beginNativeTakeover(deviceIDs: devices.map(\.deviceIDNumeric))
         updateNativeFilterStatus()
         if nativeFilterActive {
-            nativeFilterTimer = Timer.scheduledTimer(withTimeInterval: 0.25, repeats: true) { [weak self] _ in
+            nativeFilterTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.updateNativeFilterStatus() }
             }
+            if let nativeFilterTimer { RunLoop.main.add(nativeFilterTimer, forMode: .common) }
         }
     }
 
     private func updateNativeFilterStatus() {
-        let state = OMSManager.shared.nativeFilterTestStatus
+        let state = OMSManager.shared.nativeTakeoverStatus
+        let wasActive = nativeFilterActive
         nativeFilterActive = state["active"] as? Bool ?? false
-        if nativeFilterActive, let point = CGEvent(source: nil)?.location {
-            if let bounds = nativeFilterCursorBounds {
-                let x = min(bounds.minX, point.x), y = min(bounds.minY, point.y)
-                nativeFilterCursorBounds = CGRect(x: x, y: y,
-                    width: max(bounds.maxX, point.x) - x, height: max(bounds.maxY, point.y) - y)
-            } else { nativeFilterCursorBounds = CGRect(origin: point, size: .zero) }
-        }
-        nativeFilterStatus = "\(state["message"] as? String ?? "Unavailable")\nFilter frames: \(state["frames"] as? UInt64 ?? 0) · with contacts: \(state["contacts"] as? UInt64 ?? 0)"
-        if let bounds = nativeFilterCursorBounds {
-            nativeFilterStatus += String(format: " · sampled cursor span %.1f × %.1f", bounds.width, bounds.height)
-        }
-        if nativeFilterActive, let start = nativeFilterStartedAt {
-            nativeFilterStatus += " · \(max(0, 15 - Int(Date().timeIntervalSince(start))))s remaining"
-        }
+        nativeFilterStatus = "\(state["message"] as? String ?? "Unavailable")\nFrames: \(state["frames"] as? UInt64 ?? 0) · with contacts: \(state["contacts"] as? UInt64 ?? 0)"
+        if wasActive != nativeFilterActive { onNativeOwnershipChanged?(nativeFilterActive) }
         if !nativeFilterActive {
             nativeFilterTimer?.invalidate()
             nativeFilterTimer = nil
@@ -665,7 +652,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func release(reason: String = "Released") {
-        OMSManager.shared.endNativeFilterTest()
+        OMSManager.shared.endNativeTakeover()
         updateNativeFilterStatus()
         try? FileManager.default.removeItem(atPath: "/tmp/GesturePad-active-usb-capture.txt")
         let interfaceIdentity = held.first(where: { $0.identity.registryID == singleInterfaceTestID })?.identity

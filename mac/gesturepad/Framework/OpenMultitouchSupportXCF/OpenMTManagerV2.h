@@ -26,10 +26,10 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)removeRawListener:(OpenMTListener *)listener;
 - (BOOL)isListening;
 
-// Bounded, opt-in private-API experiment; never persisted across sessions.
-- (BOOL)beginNativeFilterTestForDeviceID:(uint64_t)deviceID;
-- (void)endNativeFilterTest;
-- (NSDictionary<NSString *, id> *)nativeFilterTestStatus;
+// Explicit selected-device private-API takeover; never persisted across sessions.
+- (BOOL)beginNativeTakeoverForDeviceIDs:(NSArray<NSNumber *> *)deviceIDs;
+- (void)endNativeTakeover;
+- (NSDictionary<NSString *, id> *)nativeTakeoverStatus;
 
 @end
 
