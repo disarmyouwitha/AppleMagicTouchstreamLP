@@ -302,7 +302,7 @@ final class HIDBlackholeExperiment: ObservableObject {
         let state = OMSManager.shared.nativeTakeoverStatus
         let wasActive = nativeFilterActive
         nativeFilterActive = state["active"] as? Bool ?? false
-        nativeFilterStatus = "\(state["message"] as? String ?? "Unavailable")\nFrames: \(state["frames"] as? UInt64 ?? 0) · with contacts: \(state["contacts"] as? UInt64 ?? 0)"
+        nativeFilterStatus = state["message"] as? String ?? "Unavailable"
         if wasActive != nativeFilterActive { onNativeOwnershipChanged?(nativeFilterActive) }
         if !nativeFilterActive {
             nativeFilterTimer?.invalidate()

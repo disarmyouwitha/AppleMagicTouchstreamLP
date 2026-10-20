@@ -570,7 +570,7 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
                 return;
             }
         }
-        self.filterResult = [NSString stringWithFormat:@"Trackpad Takeover active: %@. Release Trackpads to restore native input.", [labels componentsJoinedByString:@", "]];
+        self.filterResult = [NSString stringWithFormat:@"Trackpad Takeover active: %@.", [labels componentsJoinedByString:@", "]];
         success = YES;
     }];
     return success;

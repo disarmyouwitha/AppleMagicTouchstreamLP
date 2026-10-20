@@ -76,11 +76,13 @@ struct ContentView: View {
             .padding(16)
         }
         .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 400)
-        .onAppear { synchronizeHIDTarget() }
+        .onAppear {
+            if !hidBlackhole.nativeFilterActive { synchronizeHIDTarget() }
+        }
         .onChange(of: viewModel.leftDevice) { _ in synchronizeHIDTarget() }
         .onChange(of: viewModel.rightDevice) { _ in synchronizeHIDTarget() }
         .onDisappear {
-            hidBlackhole.release(reason: "Config closed")
+            if !hidBlackhole.nativeFilterActive { hidBlackhole.release(reason: "Config closed") }
         }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
             hidBlackhole.release(reason: "App quitting")
@@ -141,8 +143,6 @@ struct ContentView: View {
                     .disabled(!hidBlackhole.nativeFilterActive)
             }
             Text(hidBlackhole.nativeFilterStatus).font(.caption).textSelection(.enabled)
-            Text("Applies to the selected trackpads. Ctrl–Option–R releases. Release before changing selection or refreshing.")
-                .font(.caption).foregroundStyle(.secondary)
         }
     }
 

@@ -19,8 +19,13 @@ implementation remains removed from both GesturePad and AppleMagicTouchstream.
 - **Release Trackpads**, the menu action, and **Ctrl–Option–R** release ownership.
 - Release before changing the selectors or using Refresh; both are disabled while
   ownership remains. Auto-resync is paused during ownership and restored afterward.
-- Config close, Restart, sleep, replay and Exit release the native clients. There
-  is no restart transfer lease, automatic takeover on reconnect, or driver helper.
+- Config close preserves takeover and leaves the process/native capture running.
+  Restart rebuilds Config in the same process while takeover is active, retaining
+  the controller and native clients. A real process relaunch would close FLTR
+  ownership; no interprocess transfer is attempted. Inactive Restart still relaunches.
+- Sleep, replay and Exit release the native clients. A process-level sleep observer
+  works even with Config closed. There is no automatic takeover on reconnect or
+  driver helper.
 
 USB and Bluetooth were individually hardware-confirmed by the user. Continuous
 simultaneous two-pad operation is the next integrated hardware acceptance check.

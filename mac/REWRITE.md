@@ -2,8 +2,9 @@
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I could set up a scaled down keymap that matches?
 
-> If I deselect a trackpad can it automatically release it? When I exit the app does it release trackpads automatically?
-> Restart / can I keep trackpads captured?
+1. Lets move the new Trackpad Takeover into AppleMagicTrackpad
+2. Lets move the new Trackpad Takeover into GlassToKey
+3. Lets make the Touchstream layout ;3
 
 ===
 

@@ -73,8 +73,13 @@ reference vectors and historical research/capture files for compatibility; these
 are not executable DriverKit integration. Use ./test.sh and ./release.sh --check;
 the removed DriverKitProbe Python test suite no longer applies.
 
-Preserve ordinary Config-close background restart and explicit Restart. Both
-release the native test before relaunch; no ownership transfer lease remains.
+While native takeover is active, Config close hides/destroys only the window and
+keeps the owning process/capture running. Restart rebuilds Config in the same
+process, preserving native clients/controller; it is not a process relaunch in
+this state. Reopening Config must not synchronize/release ownership. Inactive
+Restart/Config-close retain ordinary process relaunch. Keep process-level sleep
+release even when no Config view exists, plus replay/Exit/explicit release.
+No interprocess ownership transfer lease is used.
 
 The USB test was confirmed by the user. The requested continuous selected-pad
 feature is now implemented; simultaneous multi-pad/lifecycle hardware acceptance

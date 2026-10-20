@@ -51,6 +51,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var replayInProgress = false
     private var isTerminatingApp = false
     private var restartTask: Task<Void, Never>?
+    private var takeoverSleepObserver: NSObjectProtocol?
     private static let persistedConfigKeys: [String] = [
         GesturePadDefaultsKeys.leftDeviceID,
         GesturePadDefaultsKeys.rightDeviceID,
@@ -68,6 +69,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             controller?.viewModel.setAutoResyncEnabled(enabled && !active)
         }
         controller.start()
+        takeoverSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in self?.hidBlackhole.release(reason: "System sleeping") }
+        }
         configureStatusItem()
         registerReleaseHIDShortcut()
         observeStatus()
@@ -98,6 +104,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         window.contentView = nil
         window.contentViewController = nil
         configWindow = nil
+        // FLTR user clients belong to this process. Keep native capture alive
+        // when hiding Config; rebuilding this window must not cycle ownership.
+        if hidBlackhole.nativeFilterActive { return }
         Task { @MainActor in
             if captureInProgress {
                 await stopCaptureFlow()
@@ -199,6 +208,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        if let takeoverSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverSleepObserver) }
         hidBlackhole.release(reason: "App quitting")
         if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
         if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
@@ -263,6 +273,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = configWindow ?? makeConfigWindow()
         configWindow = window
         controller.viewModel.setTouchSnapshotRecordingEnabled(true)
+        controller.viewModel.setStatusVisualsEnabled(true)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
@@ -523,6 +534,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func restartAppProcess(reopenConfig: Bool = true) {
         guard !isTerminatingApp, restartTask == nil else { return }
+        if hidBlackhole.nativeFilterActive {
+            // A process relaunch would close its native user clients. Rebuild
+            // Config in place while preserving the controller and filter refs.
+            configWindow?.close()
+            if reopenConfig { openConfigWindow() }
+            return
+        }
         restartTask = Task { @MainActor [self] in
             if captureInProgress { await stopCaptureFlow() }
             hidBlackhole.release(reason: "App restart")

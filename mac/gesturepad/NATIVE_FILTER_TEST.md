@@ -15,8 +15,11 @@ and USB. GesturePad now has continuous selected-pad **Trackpad Takeover** and
    and contact callbacks both work. Release before refreshing/changing selection.
 6. Repeat a start/release cycle. Test scrolling, click/drag and gestures separately;
    movement success is not proof of every native behavior.
-7. Check sleep, replay, Config close and Exit release. Reopen/reselect manually
-   after a reconnect; no automatic takeover is performed.
+7. Close and reopen Config; takeover should remain active. Select Restart while
+   active; Config should rebuild with contact delivery and suppression preserved.
+   This keeps the same owning process alive. Check sleep/replay/Exit release,
+   including sleep with Config closed. Reopen/reselect manually after a reconnect;
+   no automatic takeover is performed.
 
 Start validates all selected pads before changing any. Unsupported selections or
 existing filter owners fail preflight. Failed partial starts attempt rollback.
