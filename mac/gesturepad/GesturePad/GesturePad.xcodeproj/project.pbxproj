@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        ACCE20000000000000000002 /* ScrollGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE20000000000000000001; };
         ACCE10000000000000000002 /* PointerAcceleration.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE10000000000000000001; };
 		BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA000000000000000000002 /* HIDBlackholeExperiment.swift */; };
 		315FA11D2F4A890900FAE9EC /* OpenMultitouchSupport in Frameworks */ = {isa = PBXBuildFile; productRef = 315FA11C2F4A890900FAE9EC /* OpenMultitouchSupport */; };
@@ -30,6 +31,7 @@ FEED10000000000000000005 = {isa = PBXBuildFile; fileRef = FEED000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        ACCE20000000000000000001 /* ScrollGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollGesture.swift; sourceTree = "<group>"; };
         ACCE10000000000000000001 /* PointerAcceleration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointerAcceleration.swift; sourceTree = "<group>"; };
 		BAA000000000000000000002 /* HIDBlackholeExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDBlackholeExperiment.swift; sourceTree = "<group>"; };
 		77292A842B931953001CA3F6 /* GesturePad.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = GesturePad.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -116,6 +118,7 @@ FEED00000000000000000005,
 			children = (
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				ACCE10000000000000000001 /* PointerAcceleration.swift */,
+				ACCE20000000000000000001 /* ScrollGesture.swift */,
                 BAA000000000000000000002 /* HIDBlackholeExperiment.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
@@ -228,6 +231,7 @@ FEED10000000000000000005,
 				A1B2C3D4E5F6A7B8C9D0E1F5 /* GesturePadDefaultsKeys.swift in Sources */,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				ACCE10000000000000000002 /* PointerAcceleration.swift in Sources */,
+				ACCE20000000000000000002 /* ScrollGesture.swift in Sources */,
                 BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,

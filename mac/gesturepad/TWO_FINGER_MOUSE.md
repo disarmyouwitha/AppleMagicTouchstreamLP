@@ -29,7 +29,10 @@ off for a new user). Config close/reopen and the existing in-process Restart
 preserve the current state. Sensitivity remains process-local and starts at 1.00×.
 The previous Fixed response is retained in the pure offline diagnostic model,
 without a production response selector. The numerical model is unchanged from
-the hardware-accepted release.
+the hardware-accepted release. The four-finger scroll addition introduces a shared
+0.2 mm initial movement threshold to choose a two/four-finger chord before latching;
+see [FOUR_FINGER_SCROLL.md](FOUR_FINGER_SCROLL.md). Added fingers never switch an
+already latched mouse gesture into scroll.
 
 ## Behavior and boundaries
 

@@ -102,7 +102,7 @@ struct ContentView: View {
                 ))
                 .toggleStyle(.checkbox)
                 .fixedSize()
-                .help("Two-finger pointer with acceleration. Requires Trackpad Takeover and Accessibility. No click, drag, pinch or scroll output.")
+                .help("Two-finger pointer with acceleration. Requires Trackpad Takeover and Accessibility. Lift all fingers before starting a different gesture.")
                 Text("Sensitivity").font(.caption)
                 Slider(value: Binding(get: { hidBlackhole.pointerSensitivity },
                     set: { hidBlackhole.setPointerSensitivity($0) }), in: 0.25...2, step: 0.01)
@@ -110,6 +110,27 @@ struct ContentView: View {
                     .help("Adjusts pointer sensitivity before acceleration.")
                 Text(String(format: "%.2f×", hidBlackhole.pointerSensitivity))
                     .font(.caption).monospacedDigit()
+            }
+            HStack(spacing: 12) {
+                Toggle("4-finger scroll", isOn: Binding(
+                    get: { hidBlackhole.fourFingerScrollEnabled },
+                    set: { hidBlackhole.setFourFingerScrollEnabled($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .fixedSize()
+                .help("Start moving with four fingers to scroll. The gesture stays latched until all fingers lift.")
+                Text("Sensitivity").font(.caption)
+                Slider(value: Binding(get: { hidBlackhole.scrollSensitivity },
+                    set: { hidBlackhole.setScrollSensitivity($0) }), in: 0.25...2, step: 0.01)
+                    .frame(width: 90)
+                Text(String(format: "%.2f×", hidBlackhole.scrollSensitivity))
+                    .font(.caption).monospacedDigit()
+            }
+            if takeoverPreference.enabled && hidBlackhole.fourFingerScrollEnabled
+                && hidBlackhole.fourFingerScrollStatus != "Active" {
+                Text(hidBlackhole.fourFingerScrollStatus)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
             }
             if takeoverPreference.enabled && hidBlackhole.twoFingerMouseEnabled
                 && hidBlackhole.twoFingerMouseStatus != "Active" {

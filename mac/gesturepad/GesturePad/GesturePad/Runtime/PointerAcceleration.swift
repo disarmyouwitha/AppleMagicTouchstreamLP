@@ -57,6 +57,7 @@ struct ApplePointerCurve: Sendable, Equatable {
 
 struct ApplePointerAccelerationProfile: Sendable, Equatable {
     let resolution: Double
+    let algorithmRate: Double
     let reportRate: Double
     let fixedMultiplier: Double
     let acceleration: Double
@@ -69,10 +70,10 @@ struct ApplePointerAccelerationProfile: Sendable, Equatable {
     let b1: Double
 
     init(resolution: Double, reportRate: Double = 0, fixedMultiplier: Double = 1,
-         acceleration: Double, curves: [ApplePointerCurve]) throws {
-        guard resolution.isFinite && resolution > 0, reportRate.isFinite && reportRate >= 0,
+         acceleration: Double, curves: [ApplePointerCurve], algorithmRate: Double = 67) throws {
+        guard algorithmRate.isFinite && algorithmRate > 0, resolution.isFinite && resolution > 0, reportRate.isFinite && reportRate >= 0,
               fixedMultiplier.isFinite && fixedMultiplier > 0 else { throw PointerCurveError.invalid("Invalid pointer settings.") }
-        self.resolution = resolution; self.reportRate = reportRate
+        self.algorithmRate = algorithmRate; self.resolution = resolution; self.reportRate = reportRate
         self.fixedMultiplier = fixedMultiplier; self.acceleration = acceleration
         curve = try ApplePointerCurve.interpolate(curves, at: acceleration)
         var t0 = Double.infinity, t1 = Double.infinity
@@ -94,7 +95,7 @@ struct ApplePointerAccelerationProfile: Sendable, Equatable {
     }
 
     func acceleratedVelocity(_ velocity: Double) -> Double {
-        let x = velocity/(resolution/67)
+        let x = velocity/(resolution/algorithmRate)
         let result: Double
         if x <= tangent0 { result = curve.polynomial(x) }
         else if x <= tangent1 && tangent0 == curve.tangentLinear { result = m0*x+b0 }
@@ -196,6 +197,9 @@ struct TwoFingerPointerMotionEngine {
             accelerators[device]?.reset()
             return nil
         }
+        return processMotion(device:device,time:time,millimetres:mm)
+    }
+    mutating func processMotion(device: UInt64, time: Double, millimetres mm: CGPoint) -> CGPoint? {
         let delta: CGPoint
         switch response {
         case .fixed:

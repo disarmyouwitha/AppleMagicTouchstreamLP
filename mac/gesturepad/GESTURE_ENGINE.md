@@ -21,6 +21,18 @@ future gestures may need explicit transitions or different completion rules.
 Document and test those policies instead of assuming every recognizer shares
 the mouse continuation count.
 
+## Initial chord arbitration (four-finger scroll addition)
+
+The live router now waits for 0.2 mm of initial coherent movement before latching
+an enabled two-finger mouse or four-finger scroll chord. Contact-count changes
+reset pending displacement while the fingers finish landing. Once committed,
+any positive count continues that mode; mouse does not turn into scroll merely
+because a fourth finger joins. Scroll likewise continues after fingers lift.
+The existing per-ID common-displacement rule applies to both. All-up or explicit
+cancellation releases ownership. See [FOUR_FINGER_SCROLL.md](FOUR_FINGER_SCROLL.md)
+for acceleration, fine event handling and acceptance checks. The initial threshold
+is new and needs hardware acceptance; the accepted pointer curve is unchanged.
+
 ## Current mouse behavior
 
 | Situation | Result |

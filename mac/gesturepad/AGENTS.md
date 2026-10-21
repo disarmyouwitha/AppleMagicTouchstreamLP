@@ -195,3 +195,26 @@ and a transition-frame motion pause. All-up, no shared IDs or existing explicit
 safety/lifecycle cancellation ends the old session. Fixed inline contact storage
 avoids hot-path arrays/sets; duplicate IDs/capacity overflow cancel safely. Keep
 future gesture activation separate from continuation. See GESTURE_ENGINE.md.
+
+
+## Four-finger scroll (2026-10-20; explicit user-authorized output extension)
+
+The user requested four-finger scrolling with native-like acceleration and fine
+control, checkbox default on alongside takeover. ScrollGesture.swift provides
+independent scroll curves/history per pad and axis, continuous pixel CGEvents,
+fractional fixed-point deltas plus carried pixel remainder, natural direction,
+and began/changed/ended/cancelled phases. Do not silently use pointer curves.
+The input mm-to-count scale is provisional. Momentum is not implemented yet;
+do not claim exact native equivalence before hardware acceptance.
+
+Live arbitration now waits for 0.2 mm initial coherent motion to choose enabled
+2-finger mouse vs 4-finger scroll, allowing fingers to finish landing. Once
+latched, counts do not switch modes: both continue through any positive count
+until all-up or explicit cancellation. Preserve matched-ID motion and accepted
+mouse acceleration. Both feature checkboxes default on for restored takeover
+and explicit enable; independent manual off overrides survive ordinary lifecycle
+restoration. Missing profile/permission, failed transition, stale input, selection,
+release and replay guards remain; scroll cancellation closes active event phases.
+Only the live selected-and-owned path posts. Never launch/activate automated
+hardware tests. No new keyboard, button, drag or pinch synthesis. See
+FOUR_FINGER_SCROLL.md and GESTURE_ENGINE.md.
