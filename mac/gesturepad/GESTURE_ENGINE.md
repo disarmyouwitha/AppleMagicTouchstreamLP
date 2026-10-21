@@ -18,10 +18,11 @@ one as approval to change the other.
 | Three-finger drag/select | Exactly three close, aligned non-thumb contacts and ≥ 0.35 mm motion | Any positive count after activation | All fingers up | Primary down, accelerated primary drag, primary up |
 | Four-finger scroll | Exactly four active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up; eligible release can start momentum | Horizontal/vertical precise scrolling |
 | Two-finger tap | A short stationary pair satisfying the tap limits | Only the original two IDs, with bounded landing/lift skew | Both fingers up within the limits | One primary click |
-| Three-finger tap | A short stationary three-contact chord satisfying the tap limits | Only the original three IDs, bounded landing/lift skew | All three up within the limits | One primary double-click (two balanced click pairs) |
+| Three-finger tap | A short stationary three-contact chord without an identified thumb, satisfying the tap limits | Only the original three IDs, bounded landing/lift skew | All three up within the limits | One primary double-click (two balanced click pairs) |
+| Thumb–middle–ring right-click | Short stationary tap with positively identified Thumb=1, Middle=3, Ring=4 | Original tracking IDs and bounded tap timing; no contradictory known identities | All fingers up within tap limits | One balanced secondary down/up pair |
 | Scroll momentum | Fresh, sufficiently fast release of an active scroll | Decelerates without fingers | Stop speed or duration reached | Momentum scroll events |
 
-One finger cannot start continuous motion. Three fingers can start either a stationary double-click tap or a moving drag chord. Extra fingers do not switch an established gesture. Tap recognition
+One finger cannot start continuous motion. Three fingers can start a stationary double-click/right-click tap according to identity, or a moving drag chord. Extra fingers do not switch an established gesture. Tap recognition
 is discrete; it does not hold a mouse button or inherit continuous count latching.
 
 **Acceptance:** the user confirmed mouse acceleration, count latching, scroll
@@ -80,7 +81,7 @@ cancellation. Counts of one, two, three, four or more continue the same mode.
 Mouse plus a fourth finger stays mouse; scroll reduced to one stays scroll.
 Lift all before deliberately choosing a different continuous gesture.
 
-A recognized mouse/scroll gesture rejects tap-to-click for that entire touch
+A recognized mouse/scroll/drag gesture rejects tap-to-click for that entire touch
 cycle. Stopping movement and lifting after mousing must never produce a click.
 Before continuous recognition, a tap candidate may be tracked in parallel.
 
@@ -241,7 +242,7 @@ algorithm. Hardware-accepted feel does not establish exact native equivalence.
 - Check each finger's displacement even if opposing motion keeps the centroid
   stationary. The movement router takes priority: its 0.35 mm mouse recognition can
   reject a tap before the 1 mm individual outer limit is reached.
-- Recognized mouse/scroll, physical button suppression, momentum braking or an
+- Recognized mouse/scroll/drag, physical button suppression, momentum braking or an
   explicit reset blocks the tap until all-up. Do not re-arm as fingers leave.
 - Idle watchdog cleanup must not consume the next fresh tap. It invalidates an
   existing candidate rather than inventing a blocked session on an idle pad.
@@ -258,7 +259,7 @@ Feature detail and acceptance steps: [TWO_FINGER_TAP.md](TWO_FINGER_TAP.md).
 
 ### Three-finger tap to double-click
 
-A stationary three-finger tap completes on all-up and sends exactly two primary
+A stationary three-finger tap without a classified thumb completes on all-up and sends exactly two primary
 click pairs, with counts 1 then 2. All four events are created before posting;
 each is tagged, uses the same cursor/modifiers, and posts immediately under the
 output lock. No delayed mouse-up or held-button/drag state is introduced. The
@@ -284,6 +285,48 @@ transition/lifecycle and manual-override behavior matches the existing tap contr
 Tap-only double-click works independently of mouse/scroll profiles. It is a
 GesturePad-only addition and awaits hardware acceptance.
 
+### Thumb–middle–ring tap to right-click
+
+The user requested the FingerWorks TouchStream chord: **thumb + middle + ring**.
+`ThreeFingerTapRecognizer` arbitrates three-contact taps before any click output.
+Its timing/motion validation delegates to the same count-based recognizer as
+other taps: 500 ms total, 80 ms landing and final-lift skew, 20 ms full-chord
+overlap, 1 mm individual slop and ≤150 ms frame gaps. It completes immediately
+on final lift, never waits a fixed half-second, and posts one secondary click.
+There is no held right button, repeat or right-drag output.
+
+At least one full three-contact frame must positively identify exactly one each
+of native telemetry `fingerID` 1 (Thumb), 3 (Middle), and 4 (Ring). These values
+come from the existing OMS anatomical labels, not contact tracking IDs, array
+order, pad side or geometry. Conflicting nonzero `handID` values reject the cycle;
+unknown hand does not invent a hand assignment. After matching, bind anatomical
+slots to tracking IDs. Temporary Unknown labels are tolerated on those same
+contacts, but contradictory known labels/hand assignments reject until all-up.
+Classification can settle before matching; a positive match is always required.
+
+Seeing a classified thumb reserves that tap cycle from generic primary
+three-finger double-click, even if right-click is disabled or the chord fails.
+This prevents an invalid right-click attempt falling through to primary output.
+Other/unknown three-contact taps retain generic double-click compatibility when
+that feature is enabled; wholly unknown identities cannot produce right-click.
+Two-finger tap rejects upon the third contact. Continuous mouse/scroll/drag
+ownership, physical-button suppression, momentum braking and lifecycle cleanup
+cancel the entire tap cycle. Established latches never reclassify as right-click.
+Drag activation already rejects classified thumbs; this chord adds no movement
+threshold, geometry substitute or change to pointer/scroll acceleration.
+
+The **Thumb + middle + ring: right-click** checkbox defaults on with restored or
+freshly enabled takeover and follows the same per-process manual-off policy.
+It is independent of pointer/scroll profiles and the double-click checkbox.
+Only live, selected-and-owned, armed, Accessibility-approved input may post.
+Prepare both tagged rightMouseDown/rightMouseUp events before posting either,
+with the same cursor/modifiers, right button number 1, click count 1 and balanced
+pressure. Reset primary multi-click history when dispatching either three-finger
+action. Existing output lock/lifecycle resets cover the identity candidate too.
+Native anatomical classification quality and context-menu behavior need hardware
+acceptance; this implements the user's specified chord, not recovered proprietary
+FingerWorks timing/classification logic.
+
 ### Three-finger drag/select
 
 The **3-finger drag/select** checkbox defaults on alongside takeover. Starting
@@ -302,9 +345,8 @@ is rotation-independent, allowing natural hand angles. Classified thumb
 (`fingerID == 1`) or palm rejects drag, even when the points happen to align.
 Unknown/missing finger classification uses geometry only; it cannot prove which
 anatomical fingers are down. These ergonomic bounds await hardware tuning.
-The planned thumb–middle–ring right-click must have a separate finger-identity
-rule and arbitration against existing three-finger taps; it is not implemented
-here. Contact tracking IDs and anatomical finger classifications are distinct.
+Thumb–middle–ring right-click uses the separate anatomical tap rule and
+arbitration described above. Contact tracking IDs and anatomical finger classifications are distinct.
 
 Evidence is checked at activation only. Once latched, drag continues smoothly
 through 3→2→1 or added fingers, using matched-ID motion. An established mouse or
@@ -388,6 +430,7 @@ subsequent valid input must establish a new baseline.
 | Multi-click interval | `NSEvent.doubleClickInterval` |
 | Multi-click cursor tolerance | ≤ 4 points, matching modifier flags |
 | Repeated two-finger tap click count | 1–3, saturating at 3 |
+| Identified right-click | Exact anatomical set {1,3,4}; shared tap limits; classified-thumb cycle reserved from primary double-click |
 | Dedicated three-finger tap double-click | Two down/up pairs, counts 1 then 2; reset ordinary click history |
 
 ### Momentum
@@ -410,7 +453,7 @@ subsequent valid input must establish a new baseline.
 | Setting/action | Rule |
 | --- | --- |
 | Trackpad Takeover | Persistent opt-in, default off for new users |
-| Mouse, drag, scroll and both tap checkboxes | Default on with restored takeover and fresh explicit takeover enable |
+| Mouse, drag, scroll and all tap checkboxes | Default on with restored takeover and fresh explicit takeover enable |
 | Manual feature-off overrides | Remain for the current process through ordinary selection/sleep/replay restoration |
 | Sensitivity | Separate process-local values, default 1.00× each launch |
 | Config close/reopen or in-process Restart during takeover | Preserve process/ownership and current settings; do not release solely for the window |
@@ -424,7 +467,7 @@ subsequent valid input must establish a new baseline.
 Control changes can cancel all current gesture output state, even when changing
 only one feature. Disabling mouse does not disable independently eligible scroll
 or tap recognition. Each tap checkbox is independent; disabling two-finger click
-does not disable three-finger double-click. No output from unselected pads, stale bridge index slots or
+does not disable three-finger double-click or identified right-click. No output from unselected pads, stale bridge index slots or
 extra ownership retained only for failed cleanup.
 
 ## 10. Source map and verification
@@ -436,13 +479,14 @@ extra ownership retained only for failed cleanup.
 | Shared contact continuity, generic ownership/lifecycle and activation/continuation rules | `Engine/GestureSessionEngine.swift` |
 | Mouse/scroll/drag rule registration adapter, scroll curves/events, momentum | `Runtime/ScrollGesture.swift` |
 | Pointer curve evaluation and motion engine | `Runtime/PointerAcceleration.swift` |
-| Two/three-finger tap recognition, drag chord evidence, click pairs and held primary output | `Runtime/TapClick.swift` |
+| Two/three-finger tap and anatomical action arbitration, drag chord evidence, primary/secondary click pairs and held primary output | `Runtime/TapClick.swift` |
 | Additional recognition extension point | `Engine/TouchProcessorEngine.swift` |
 | Shared ownership, priority, lifecycle and recognizer activation-filter tests | `GestureSessionEngineTests` |
 | Mouse/latch/eligibility regression checks | `NativeTwoFingerMouseTests`, `HIDBlackholeIdentityTests`, `ApplePointerAccelerationTests` |
 | Scroll/arbitration/fine events | `FourFingerScrollTests` |
 | Momentum decay, phases, interruption and rate independence | `ScrollMomentumTests` |
 | Drag shape/identity, shared latch, tap arbitration, cancellation and reserved release | `ThreeFingerDragTests` |
+| Anatomical right-click specificity, identity binding, lifecycle and balanced secondary events | `IdentifiedRightClickTests` |
 | Tap rejection/completion and click events | `TwoFingerTapTests`, `ThreeFingerTapTests` |
 | Capture-backed tap/mouse arbitration | `TapCaptureAnalysisTests` |
 | Takeover preference and source identity | `NativeTakeoverPreferenceTests`, `SelectedDeviceSourceTests`, native lifecycle tests |
@@ -452,9 +496,9 @@ Paths above are relative to `GesturePad/GesturePad/` for production Swift and
 can inspect generated events but must never post them. Optional registry checks
 are read-only. Do not launch the app or activate hardware as an automated check.
 
-The current output inventory is pointer movement, primary click pairs, held primary
-dragging, precise scroll and scroll momentum. Right-click,
-pinch/zoom, keyboard output and new gesture families are not implemented by
+The current output inventory is pointer movement, primary and secondary click pairs,
+held primary dragging, precise scroll and scroll momentum.
+Pinch/zoom, keyboard output and new gesture families are not implemented by
 these rules. They need explicit behavior definitions and authorization.
 
 ## Capture-backed tap tuning (2026-10-20)
@@ -474,6 +518,7 @@ actual click delivery or user intent. See
 
 | Behavior | Evidence retained | Remaining limit |
 | --- | --- | --- |
+| Identified thumb–middle–ring right-click | Offline exact/incorrect/unknown/mixed-hand identities, specificity, shared tap timing/cancellation and balanced secondary events. | New feature; native classification quality, context menus and hardware feel await acceptance. |
 | Three-finger drag/select | Offline aligned/rotated vs splayed/thumb chords, latching, stationary-tap separation, cancellation and balanced output tests. | User reported jitter/repeated selection in the first build. Own-button polling was removed in favor of tagged observation and queued destinations; corrected build awaits hardware retest. |
 | Pointer acceleration/fine movement | User reports accepted feel on hardware; independent equation vectors and pure motion replay pass. | Contact-to-count conversion is an explicit hypothesis, not recovered proprietary processing. |
 | Continuous gesture latch | User tested original FingerWorks and GesturePad: 2→3→4→1 transitions feel smooth and match the intended interaction. | Other chord families need their own activation/handoff policy. |

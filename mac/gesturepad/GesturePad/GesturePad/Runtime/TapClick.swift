@@ -212,3 +212,89 @@ enum DragButtonInterference {
             (type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown)
     }
 }
+
+
+/// Anatomical classification chooses a discrete action; the shared count tap
+/// recognizer still owns timing, movement, contact identity and cancellation.
+struct ThreeFingerTapRecognizer {
+    enum Action: Equatable { case doubleClick, rightClick }
+    private struct Identity {
+        var sawThumb = false
+        var matched = false
+        var rejected = false
+        // Slots are anatomical Thumb/Middle/Ring; values are tracking IDs.
+        var trackingIDs = SIMD4<Int32>(repeating:0)
+        var handID: Int32 = 0
+    }
+    private var timing = TwoFingerTapRecognizer(requiredCount:3)
+    private var identities: [UInt64:Identity] = Dictionary(minimumCapacity:2)
+    mutating func cancel(device: UInt64) { timing.cancel(device:device); identities[device] = nil }
+    mutating func invalidate(device: UInt64) { timing.invalidate(device:device); identities[device] = nil }
+    mutating func reset() { timing.reset(); identities.removeAll(keepingCapacity:true) }
+    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
+        gestureActive: Bool = false, doubleClick: Bool, rightClick: Bool) -> Action? where C.Element == OMSRawTouch {
+        let completed = timing.process(device:device,time:time,contacts:contacts,gestureActive:gestureActive)
+        var identity = identities[device] ?? Identity()
+        var count = 0, mask = 0
+        var exact = true
+        var trackingIDs = SIMD4<Int32>(repeating:0)
+        var handID: Int32 = 0
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            count += 1
+            let finger = touch.telemetry?.fingerID ?? 0
+            if finger == 1 { identity.sawThumb = true }
+            let slot: Int
+            switch finger { case 1: slot = 0; case 3: slot = 1; case 4: slot = 2; default: slot = -1 }
+            if slot < 0 { exact = false }
+            else {
+                if mask & (1 << slot) != 0 { exact = false }
+                mask |= 1 << slot; trackingIDs[slot] = touch.id
+            }
+            let hand = touch.telemetry?.handID ?? 0
+            if hand != 0 {
+                if handID != 0 && handID != hand { exact = false; identity.rejected = true }
+                handID = hand
+            }
+            if identity.matched {
+                // A temporary Unknown is tolerated after positive evidence;
+                // contradictory known labels/hand assignments reject the cycle.
+                var expected = -1
+                for index in 0..<3 where identity.trackingIDs[index] == touch.id { expected = index }
+                if expected < 0 || (finger != 0 && slot != expected)
+                    || (hand != 0 && identity.handID != 0 && hand != identity.handID) { identity.rejected = true }
+            }
+        }
+        if count == 0 {
+            identities[device] = nil
+            guard completed else { return nil }
+            if identity.sawThumb {
+                return rightClick && identity.matched && !identity.rejected ? .rightClick : nil
+            }
+            return doubleClick ? .doubleClick : nil
+        }
+        if identity.matched && identity.handID == 0 { identity.handID = handID }
+        if count == 3 && exact && mask == 7 && !identity.matched {
+            identity.matched = true; identity.trackingIDs = trackingIDs; identity.handID = handID
+        }
+        identities[device] = identity
+        return nil
+    }
+}
+
+/// Balanced secondary edges are prepared together; right-click never holds.
+enum SecondaryTapClickOutput {
+    static func events(location: CGPoint, flags: CGEventFlags = []) -> PrimaryTapClickOutput.Events? {
+        guard location.x.isFinite, location.y.isFinite,
+              let down = CGEvent(mouseEventSource:nil,mouseType:.rightMouseDown,mouseCursorPosition:location,mouseButton:.right),
+              let up = CGEvent(mouseEventSource:nil,mouseType:.rightMouseUp,mouseCursorPosition:location,mouseButton:.right) else { return nil }
+        for event in [down,up] {
+            event.flags = flags
+            event.setIntegerValueField(.mouseEventClickState,value:1)
+            event.setIntegerValueField(.mouseEventButtonNumber,value:1)
+            event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        }
+        down.setDoubleValueField(.mouseEventPressure,value:1)
+        up.setDoubleValueField(.mouseEventPressure,value:0)
+        return PrimaryTapClickOutput.Events(down:down,up:up)
+    }
+}

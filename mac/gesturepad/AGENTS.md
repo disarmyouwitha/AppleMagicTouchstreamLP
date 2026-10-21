@@ -351,3 +351,25 @@ Accumulate drag destinations from the last queued drag point so an asynchronous
 system-cursor read cannot rewind it. Mouse acceleration/sensitivity remains shared
 and unchanged; keep equivalent-movement regression and single-down/up sequence
 coverage. Corrected hardware feel awaits retest; do not auto-launch or activate.
+
+
+## Identified thumb–middle–ring right-click (2026-10-21; explicit user request)
+
+The user requested the FingerWorks TouchStream right-click chord using anatomical
+finger identification. ThreeFingerTapRecognizer arbitrates the shared three-contact
+tap timing into double-click or right-click. Require a full positive native set
+{Thumb=1, Middle=3, Ring=4}; never infer anatomy from tracking IDs, order or shape.
+Bind tracking IDs after matching, tolerate temporary Unknown but reject known
+contradictions/mixed known hands. Seeing a classified thumb reserves primary
+triple-tap fallback for that cycle, including right-click disabled/failure. Unknown
+non-thumb generic triples retain existing double-click compatibility, not right-click.
+
+Reuse accepted 500 ms/80 ms/20 ms/1 mm tap limits and continuous-owner/braking/
+physical-button/lifecycle cancellation. New independent checkbox defaults on with
+takeover, same manual-off policy, selected-and-owned/armed/AX/live-only gates;
+no acceleration profile dependency. Prepare both tagged secondary edges before
+posting, same cursor/modifiers, click count 1, button number 1, balanced pressure;
+no held right button or right-drag. Reset ordinary primary click history. Preserve
+accepted mouse/scroll/drag behavior and no replay/test posting. Central spec is
+GESTURE_ENGINE.md; hardware classification/context-menu acceptance is pending.
+Build/install without automatically launching or activating hardware.

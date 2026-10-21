@@ -128,10 +128,22 @@ struct ContentView: View {
                 set: { hidBlackhole.setThreeFingerTapEnabled($0) }
             ))
             .toggleStyle(.checkbox)
-            .help("A short stationary three-finger tap makes a primary double-click when all fingers lift.")
+            .help("A short stationary non-thumb three-finger tap makes a primary double-click when all fingers lift. Thumb chords are reserved for right-click.")
             if takeoverPreference.enabled && hidBlackhole.threeFingerTapEnabled
                 && hidBlackhole.threeFingerTapStatus != "Active" {
                 Text(hidBlackhole.threeFingerTapStatus)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
+            Toggle("Thumb + middle + ring: right-click", isOn: Binding(
+                get: { hidBlackhole.rightClickEnabled },
+                set: { hidBlackhole.setRightClickEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .help("Tap with identified thumb, middle and ring fingers for a right-click when all fingers lift. No finger identity guessing.")
+            if takeoverPreference.enabled && hidBlackhole.rightClickEnabled
+                && hidBlackhole.rightClickStatus != "Active" {
+                Text(hidBlackhole.rightClickStatus)
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }

@@ -288,6 +288,8 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var twoFingerMouseStatus = "Off"
     @Published private(set) var twoFingerTapEnabled = true
     @Published private(set) var twoFingerTapStatus = "Off"
+    @Published private(set) var rightClickEnabled = true
+    @Published private(set) var rightClickStatus = "Off"
     @Published private(set) var threeFingerDragEnabled = true
     @Published private(set) var threeFingerDragStatus = "Off"
     @Published private(set) var threeFingerTapEnabled = true
@@ -314,6 +316,7 @@ final class HIDBlackholeExperiment: ObservableObject {
             setTwoFingerTapEnabled(true)
             setThreeFingerTapEnabled(true)
             setThreeFingerDragEnabled(true)
+            setRightClickEnabled(true)
         }
         takeoverPreference.setEnabled(enabled)
     }
@@ -333,6 +336,16 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     func setTwoFingerTapEnabled(_ enabled: Bool) {
         twoFingerTapEnabled = enabled
+        nativeMouseArmed = true
+        if enabled && !AXIsProcessTrusted() {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
+        }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        updateNativeMouseOutput()
+    }
+
+    func setRightClickEnabled(_ enabled: Bool) {
+        rightClickEnabled = enabled
         nativeMouseArmed = true
         if enabled && !AXIsProcessTrusted() {
             _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
@@ -420,7 +433,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     private func updateNativeMouseOutput() {
-        let trusted = !(twoFingerMouseEnabled || fourFingerScrollEnabled || twoFingerTapEnabled || threeFingerTapEnabled || threeFingerDragEnabled) || AXIsProcessTrusted()
+        let trusted = !(twoFingerMouseEnabled || fourFingerScrollEnabled || twoFingerTapEnabled || threeFingerTapEnabled || threeFingerDragEnabled || rightClickEnabled) || AXIsProcessTrusted()
         var devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
             armed: nativeMouseArmed, takeoverEnabled: takeoverPreference.enabled,
             trusted: trusted, selected: nativeMouseSelectedIDs, owned: nativeMouseOwnedIDs)
@@ -437,6 +450,9 @@ final class HIDBlackholeExperiment: ObservableObject {
         let doubleTapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:threeFingerTapEnabled,
             armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
             trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
+        let rightTapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:rightClickEnabled,
+            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
+            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
         var dragDevices = NativeTwoFingerMouseGate.outputDevices(enabled:threeFingerDragEnabled,
             armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
             trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
@@ -444,17 +460,17 @@ final class HIDBlackholeExperiment: ObservableObject {
         if missingDragCurve { dragDevices = [] }
         InterpretedTrackpadPointer.shared.configureGestures(mouseDevices:devices,scrollDevices:scrollDevices,
             dragDevices:dragDevices,
-            doubleTapDevices:doubleTapDevices,
+            rightTapDevices:rightTapDevices,doubleTapDevices:doubleTapDevices,
             tapDevices:tapDevices,doubleClickInterval:NSEvent.doubleClickInterval,
             profiles:nativeScrollProfiles,sensitivity:scrollSensitivity)
         InterpretedTrackpadPointer.shared.configure(response:.apple,
             sensitivity:pointerSensitivity,profiles:nativeMouseProfiles)
-        if devices.isEmpty && scrollDevices.isEmpty && tapDevices.isEmpty && doubleTapDevices.isEmpty && dragDevices.isEmpty {
+        if devices.isEmpty && scrollDevices.isEmpty && tapDevices.isEmpty && doubleTapDevices.isEmpty && dragDevices.isEmpty && rightTapDevices.isEmpty {
             InterpretedTrackpadPointer.shared.stop()
         } else {
             // Outside the input callback: refresh bounds/permissions while retaining
             // baselines for an unchanged selected native-ID set.
-            InterpretedTrackpadPointer.shared.enable(devices: devices.union(scrollDevices).union(tapDevices).union(doubleTapDevices).union(dragDevices))
+            InterpretedTrackpadPointer.shared.enable(devices: devices.union(scrollDevices).union(tapDevices).union(doubleTapDevices).union(dragDevices).union(rightTapDevices))
         }
         if !twoFingerMouseEnabled { twoFingerMouseStatus = "Off" }
         else if !trusted { twoFingerMouseStatus = "Paused: Accessibility permission required." }
@@ -470,6 +486,10 @@ final class HIDBlackholeExperiment: ObservableObject {
         }
         else if !dragDevices.isEmpty { threeFingerDragStatus = "Active" }
         else { threeFingerDragStatus = "Waiting for selected trackpads in Trackpad Takeover." }
+        if !rightClickEnabled { rightClickStatus = "Off" }
+        else if !trusted { rightClickStatus = "Paused: Accessibility permission required." }
+        else if !rightTapDevices.isEmpty { rightClickStatus = "Active" }
+        else { rightClickStatus = "Waiting for selected trackpads in Trackpad Takeover." }
         if !threeFingerTapEnabled { threeFingerTapStatus = "Off" }
         else if !trusted { threeFingerTapStatus = "Paused: Accessibility permission required." }
         else if !doubleTapDevices.isEmpty { threeFingerTapStatus = "Active" }
@@ -1704,8 +1724,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var scrollDevices: Set<UInt64> = []
         var tapDevices: Set<UInt64> = []
         var doubleTapDevices: Set<UInt64> = []
+        var rightTapDevices: Set<UInt64> = []
         var taps = TwoFingerTapRecognizer()
-        var doubleTaps = TwoFingerTapRecognizer(requiredCount:3)
+        var threeFingerTaps = ThreeFingerTapRecognizer()
         var clicks = PrimaryTapClickOutput()
         var doubleClickInterval = 0.5
         var scrollProfiles: [UInt64:AppleScrollProfile] = [:]
@@ -1727,13 +1748,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         mutating func reset(device: UInt64) {
             drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             finishScroll(device:device,cancelled:true)
-            taps.invalidate(device:device); doubleTaps.invalidate(device:device)
+            taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
             router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
-            taps.reset(); doubleTaps.reset(); clicks.reset()
+            taps.reset(); threeFingerTaps.reset(); clicks.reset()
             router.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
@@ -1746,15 +1767,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles) }
     }
     func configureGestures(mouseDevices: Set<UInt64>, scrollDevices: Set<UInt64>,
-                           dragDevices: Set<UInt64>, doubleTapDevices: Set<UInt64>,
+                           dragDevices: Set<UInt64>, rightTapDevices: Set<UInt64>, doubleTapDevices: Set<UInt64>,
                            tapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double) {
         lock.withLock { state in
             guard state.mouseDevices != mouseDevices || state.scrollDevices != scrollDevices || state.dragDevices != dragDevices
-                || state.tapDevices != tapDevices || state.doubleTapDevices != doubleTapDevices || state.doubleClickInterval != doubleClickInterval
+                || state.rightTapDevices != rightTapDevices || state.tapDevices != tapDevices || state.doubleTapDevices != doubleTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity else { return }
             state.reset()
             state.dragDevices = dragDevices
             state.mouseDevices = mouseDevices; state.scrollDevices = scrollDevices
+            state.rightTapDevices = rightTapDevices
             state.doubleTapDevices = doubleTapDevices
             state.tapDevices = tapDevices; state.doubleClickInterval = doubleClickInterval
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity
@@ -1864,13 +1886,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if suppress || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
                 state.reset()
                 state.taps.cancel(device:device)
-                state.doubleTaps.cancel(device:device)
+                state.threeFingerTaps.cancel(device:device)
                 return
             }
             // Another pad must never release/click/scroll through the held button.
             if let owner = state.drag.owner, owner != device {
                 state.reset(device:device)
-                state.taps.cancel(device:device); state.doubleTaps.cancel(device:device)
+                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
                 return
             }
             let hostTime = CACurrentMediaTime()
@@ -1879,7 +1901,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !allUp && state.momentum[device]?.isCoasting == true {
                 state.cancelMomentum(device:device)
                 state.taps.cancel(device:device)
-                state.doubleTaps.cancel(device:device) // braking a coast must not also click
+                state.threeFingerTaps.cancel(device:device) // braking a coast must not also click
             }
             let update = state.router.update(device:device,time:time,contacts:contacts,
                 mouse:state.mouseDevices.contains(device),scroll:state.scrollDevices.contains(device),
@@ -1894,7 +1916,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 guard let location = CGEvent(source:nil)?.location,
                       let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
                     state.reset(device:device)
-                    state.taps.cancel(device:device); state.doubleTaps.cancel(device:device)
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
                     return
                 }
                 state.clicks.reset()
@@ -1909,16 +1931,25 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 click.down.post(tap:.cghidEventTap)
                 click.up.post(tap:.cghidEventTap)
             }
-            if state.doubleTapDevices.contains(device), state.doubleTaps.process(device:device,time:time,
-                contacts:contacts,gestureActive:motion != nil),
-                let location = CGEvent(source:nil)?.location,
-                let doubleClick = PrimaryTapClickOutput.doubleClickEvents(location:location,
-                    flags:CGEventSource.flagsState(.combinedSessionState)) {
+            if state.doubleTapDevices.contains(device) || state.rightTapDevices.contains(device),
+                let action = state.threeFingerTaps.process(device:device,time:time,contacts:contacts,
+                    gestureActive:motion != nil,doubleClick:state.doubleTapDevices.contains(device),
+                    rightClick:state.rightTapDevices.contains(device)),
+                let location = CGEvent(source:nil)?.location {
                 state.clicks.reset()
-                doubleClick.first.down.post(tap:.cghidEventTap)
-                doubleClick.first.up.post(tap:.cghidEventTap)
-                doubleClick.second.down.post(tap:.cghidEventTap)
-                doubleClick.second.up.post(tap:.cghidEventTap)
+                switch action {
+                case .rightClick:
+                    if let click = SecondaryTapClickOutput.events(location:location,
+                        flags:CGEventSource.flagsState(.combinedSessionState)) {
+                        click.down.post(tap:.cghidEventTap); click.up.post(tap:.cghidEventTap)
+                    }
+                case .doubleClick:
+                    if let click = PrimaryTapClickOutput.doubleClickEvents(location:location,
+                        flags:CGEventSource.flagsState(.combinedSessionState)) {
+                        click.first.down.post(tap:.cghidEventTap); click.first.up.post(tap:.cghidEventTap)
+                        click.second.down.post(tap:.cghidEventTap); click.second.up.post(tap:.cghidEventTap)
+                    }
+                }
             }
             guard let motion else {
                 if allUp {
