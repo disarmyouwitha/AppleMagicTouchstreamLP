@@ -245,6 +245,10 @@ public final class OMSManager: Sendable {
         captureManagerIfAvailable()?.beginNativeTakeover(forDeviceIDs: deviceIDs.map { NSNumber(value: $0) }) ?? false
     }
 
+    public func updateNativeTakeover(deviceIDs: [UInt64]) -> Bool {
+        captureManagerIfAvailable()?.updateNativeTakeover(forDeviceIDs: deviceIDs.map { NSNumber(value: $0) }) ?? false
+    }
+
     public func endNativeTakeover() {
         protectedCaptureManager.withLockUnchecked { $0 }?.endNativeTakeover()
     }

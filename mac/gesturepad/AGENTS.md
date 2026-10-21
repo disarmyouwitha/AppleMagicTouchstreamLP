@@ -84,3 +84,21 @@ No interprocess ownership transfer lease is used.
 The USB test was confirmed by the user. The requested continuous selected-pad
 feature is now implemented; simultaneous multi-pad/lifecycle hardware acceptance
 is still pending. ./test.sh also runs offline native lifecycle checks.
+
+
+## Persistent automatic takeover (2026-10-20; supersedes prior button/lock policy)
+
+The user explicitly authorized a persistent Trackpad Takeover checkbox, default
+false, restored at startup without Config. Only GesturePad has this behavior so
+far. Keep selectors/Refresh unlocked. Native differential transitions validate
+additions first, preserve retained FLTR clients, acquire additions before releasing
+removed pads and roll back failures without committing the new picker/settings.
+Preserve preflight/own-client checks, explicit recovery diagnostics and retryable
+failed ownership. NativeTakeoverPreference owns enabled state, selection and
+sleep/replay/refresh suspensions; the AppDelegate owns lifecycle callbacks even
+with Config closed. Explicit release/menu/Ctrl-Option-R persist off. Quit releases
+without erasing preference. Wake and replay end can restore enabled takeover;
+ordinary auto-resync remains paused during ownership. Refresh releases before
+rebuilding refs and reapplies preference; selection changes use the serial native
+transition without cycling retained refs. See TRACKPAD_TAKEOVER.md. Rebuild the
+XCFramework for native edits, and do not activate hardware during automated tests.

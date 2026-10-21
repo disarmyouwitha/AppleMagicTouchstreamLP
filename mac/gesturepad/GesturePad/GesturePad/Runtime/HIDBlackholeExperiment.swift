@@ -286,16 +286,24 @@ final class HIDBlackholeExperiment: ObservableObject {
     private var nativeFilterTimer: Timer?
     var onNativeOwnershipChanged: ((Bool) -> Void)?
 
-    func startNativeTakeover(devices: [OMSDeviceInfo]) {
-        guard !hasOpenHIDDevices else { return }
-        _ = OMSManager.shared.beginNativeTakeover(deviceIDs: devices.map(\.deviceIDNumeric))
+    lazy var takeoverPreference = NativeTakeoverPreference(
+        defaults: .standard,
+        ownedIDs: { Set((OMSManager.shared.nativeTakeoverStatus["deviceIDs"] as? [NSNumber] ?? []).map { $0.uint64Value }) },
+        transition: { [weak self] ids in self?.updateNativeTakeover(deviceIDs: ids) ?? false },
+        stop: { [weak self] in self?.release(reason: "Trackpad Takeover transition") }
+    )
+
+    private func updateNativeTakeover(deviceIDs: [UInt64]) -> Bool {
+        guard !isActive && !isObservingHID && !pointerControl.isActive && !gainProbe.isActive else { return false }
+        let success = OMSManager.shared.updateNativeTakeover(deviceIDs: deviceIDs)
         updateNativeFilterStatus()
-        if nativeFilterActive {
+        if nativeFilterActive && nativeFilterTimer == nil {
             nativeFilterTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
                 Task { @MainActor in self?.updateNativeFilterStatus() }
             }
             if let nativeFilterTimer { RunLoop.main.add(nativeFilterTimer, forMode: .common) }
         }
+        return success
     }
 
     private func updateNativeFilterStatus() {
@@ -1547,5 +1555,77 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             event.post(tap: .cghidEventTap)
             state.postedEvents &+= 1
         }
+    }
+}
+
+
+/// Process-owned preference and selection reconciliation. No hardware is opened by init.
+/// A failed transition is retried only after a selection/preference/explicit refresh change.
+@MainActor
+final class NativeTakeoverPreference: ObservableObject {
+    static let defaultsKey = "GesturePad.nativeTrackpadTakeoverEnabled"
+    @Published private(set) var enabled: Bool
+    private let defaults: UserDefaults
+    private let ownedIDs: () -> Set<UInt64>
+    private let transition: ([UInt64]) -> Bool
+    private let stop: () -> Void
+    private var selection: Set<UInt64> = []
+    private var attemptedSelection: Set<UInt64>?
+    private var suspensions: Set<String> = []
+
+    init(defaults: UserDefaults, ownedIDs: @escaping () -> Set<UInt64>,
+         transition: @escaping ([UInt64]) -> Bool, stop: @escaping () -> Void) {
+        self.defaults = defaults
+        self.ownedIDs = ownedIDs
+        self.transition = transition
+        self.stop = stop
+        enabled = defaults.bool(forKey: Self.defaultsKey)
+    }
+
+    func setEnabled(_ value: Bool) {
+        enabled = value
+        defaults.set(value, forKey: Self.defaultsKey)
+        attemptedSelection = nil
+        if !value { stop() }
+        reconcile()
+    }
+
+    @discardableResult
+    func updateSelection(_ ids: [UInt64]) -> Bool {
+        let next = Set(ids)
+        guard selection != next || attemptedSelection == nil else { return true }
+        guard reconcile(target: enabled ? next : []) else { return false }
+        selection = next
+        return true
+    }
+
+    @discardableResult
+    func suspend(_ reason: String) -> Bool {
+        suspensions.insert(reason)
+        attemptedSelection = nil
+        if !ownedIDs().isEmpty { stop() }
+        return ownedIDs().isEmpty
+    }
+
+    func resume(_ reason: String) {
+        suspensions.remove(reason)
+        reconcile()
+    }
+
+    @discardableResult
+    private func reconcile() -> Bool {
+        reconcile(target: enabled ? selection : [])
+    }
+
+    private func reconcile(target: Set<UInt64>) -> Bool {
+        guard suspensions.isEmpty else { return true }
+        if ownedIDs() == target { return true }
+        guard attemptedSelection != target else { return false }
+        attemptedSelection = target
+        if target.isEmpty {
+            stop()
+            return ownedIDs().isEmpty
+        }
+        return transition(target.sorted())
     }
 }

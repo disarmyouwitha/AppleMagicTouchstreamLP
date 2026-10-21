@@ -52,7 +52,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var isTerminatingApp = false
     private var restartTask: Task<Void, Never>?
     private var takeoverSleepObserver: NSObjectProtocol?
+    private var takeoverWakeObserver: NSObjectProtocol?
+    private var takeoverWakeTask: Task<Void, Never>?
     private static let persistedConfigKeys: [String] = [
+        NativeTakeoverPreference.defaultsKey,
         GesturePadDefaultsKeys.leftDeviceID,
         GesturePadDefaultsKeys.rightDeviceID,
         GesturePadDefaultsKeys.autoResyncMissingTrackpads
@@ -72,11 +75,46 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         takeoverSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in self?.hidBlackhole.release(reason: "System sleeping") }
+            Task { @MainActor [weak self] in
+                self?.takeoverWakeTask?.cancel()
+                self?.hidBlackhole.takeoverPreference.suspend("sleep")
+            }
+        }
+        takeoverWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.takeoverWakeTask?.cancel()
+                self.takeoverWakeTask = Task { @MainActor [weak self] in
+                    try? await Task.sleep(for: .seconds(1))
+                    guard !Task.isCancelled, let self else { return }
+                    self.controller.viewModel.refreshDevicesAndListeners()
+                    self.hidBlackhole.takeoverPreference.resume("sleep")
+                }
+            }
+        }
+        controller.viewModel.prepareDeviceRefresh = { [weak self] in
+            guard let self else { return false }
+            let released = self.hidBlackhole.takeoverPreference.suspend("selection")
+            if !released { self.hidBlackhole.takeoverPreference.resume("selection") }
+            return released
+        }
+        controller.viewModel.prepareDeviceSelectionChange = { [weak self] ids in
+            self?.hidBlackhole.takeoverPreference.updateSelection(ids) ?? false
+        }
+        controller.viewModel.deviceSelectionStateDidUpdate = { [weak self] in
+            self?.synchronizeTakeoverSelection()
+        }
+        controller.viewModel.deviceSelectionDidChange = { [weak self] in
+            guard let self else { return }
+            self.synchronizeTakeoverSelection()
+            self.hidBlackhole.takeoverPreference.resume("selection")
         }
         configureStatusItem()
         registerReleaseHIDShortcut()
         observeStatus()
+        synchronizeTakeoverSelection()
         if shouldOpenConfigOnLaunch {
             openConfigWindow()
         }
@@ -106,7 +144,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         configWindow = nil
         // FLTR user clients belong to this process. Keep native capture alive
         // when hiding Config; rebuilding this window must not cycle ownership.
-        if hidBlackhole.nativeFilterActive { return }
+        if hidBlackhole.nativeFilterActive || hidBlackhole.takeoverPreference.enabled { return }
         Task { @MainActor in
             if captureInProgress {
                 await stopCaptureFlow()
@@ -182,6 +220,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func releaseHIDNow() {
+        hidBlackhole.takeoverPreference.setEnabled(false)
         hidBlackhole.release(reason: "Released from menu or keyboard shortcut")
     }
 
@@ -208,10 +247,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        takeoverWakeTask?.cancel()
         if let takeoverSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverSleepObserver) }
+        if let takeoverWakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverWakeObserver) }
         hidBlackhole.release(reason: "App quitting")
         if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
         if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
+    }
+
+    private func synchronizeTakeoverSelection() {
+        hidBlackhole.takeoverPreference.updateSelection(
+            [controller.viewModel.leftDevice, controller.viewModel.rightDevice]
+                .compactMap { $0?.deviceIDNumeric })
     }
 
     private func observeStatus() {
@@ -224,7 +271,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .map { $0 != nil }
             .removeDuplicates()
             .sink { [weak self] isReplayActive in
-                if isReplayActive { self?.hidBlackhole.release(reason: "Replay started") }
+                if isReplayActive { self?.hidBlackhole.takeoverPreference.suspend("replay") }
+                else { self?.hidBlackhole.takeoverPreference.resume("replay") }
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }
@@ -279,7 +327,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func syncDevices() {
-        guard !hidBlackhole.nativeFilterActive else { return }
         controller.viewModel.refreshDevicesAndListeners()
     }
 
@@ -534,7 +581,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func restartAppProcess(reopenConfig: Bool = true) {
         guard !isTerminatingApp, restartTask == nil else { return }
-        if hidBlackhole.nativeFilterActive {
+        if hidBlackhole.nativeFilterActive || hidBlackhole.takeoverPreference.enabled {
             // A process relaunch would close its native user clients. Rebuild
             // Config in place while preserving the controller and filter refs.
             configWindow?.close()

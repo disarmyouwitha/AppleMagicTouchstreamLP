@@ -291,6 +291,7 @@ final class ContentViewModel: ObservableObject {
         leftDevice = state.leftDevice
         rightDevice = state.rightDevice
         hasDisconnectedTrackpads = state.hasDisconnectedTrackpads
+        deviceSelectionStateDidUpdate?()
     }
 
     var leftTouches: [OMSTouchData] {
@@ -336,7 +337,15 @@ final class ContentViewModel: ObservableObject {
     }
 
 
+    // Process-level takeover releases before the native active-device set changes.
+    var prepareDeviceSelectionChange: (([UInt64]) -> Bool)?
+    var prepareDeviceRefresh: (() -> Bool)?
+    var deviceSelectionDidChange: (() -> Void)?
+    var deviceSelectionStateDidUpdate: (() -> Void)?
+
     func refreshDevicesAndListeners() {
+        guard prepareDeviceRefresh?() ?? true else { return }
+        defer { deviceSelectionDidChange?() }
         let shouldRestart = isListening
         if shouldRestart {
             stop()
@@ -353,11 +362,17 @@ final class ContentViewModel: ObservableObject {
     }
 
     func selectLeftDevice(_ device: OMSDeviceInfo?) {
+        guard leftDevice != device else { return }
+        guard prepareDeviceSelectionChange?([device, rightDevice].compactMap { $0?.deviceIDNumeric }) ?? true else { return }
+        defer { deviceSelectionDidChange?() }
         deviceSessionService.selectLeftDevice(device)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 
     func selectRightDevice(_ device: OMSDeviceInfo?) {
+        guard rightDevice != device else { return }
+        guard prepareDeviceSelectionChange?([device, leftDevice].compactMap { $0?.deviceIDNumeric }) ?? true else { return }
+        defer { deviceSelectionDidChange?() }
         deviceSessionService.selectRightDevice(device)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }

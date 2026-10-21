@@ -403,7 +403,16 @@ static void dispatchSync(dispatch_queue_t queue, dispatch_block_t block);
 - (BOOL)setActiveDevices:(NSArray<OpenMTDeviceInfo *> *)deviceInfos {
     __block BOOL success = NO;
     [self withStateSync:^{
-        if (self.filterDeviceIDs.count || deviceInfos.count == 0) {
+        if (self.filterDeviceIDs.count) {
+            NSSet *requested = [NSSet setWithArray:[deviceInfos valueForKey:@"deviceNumericID"]];
+            // The selection transition has already prepared the exact native set.
+            if ([requested isEqualToSet:self.filterDeviceIDs]) {
+                self.activeDeviceInfos = [deviceInfos copy];
+                success = YES;
+            }
+            return;
+        }
+        if (deviceInfos.count == 0) {
             success = NO;
             return;
         }
@@ -576,29 +585,155 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
     return success;
 }
 
+// Add ordinary callback sessions for new selections without touching retained refs.
+- (BOOL)prepareNativeTakeoverDeviceID:(NSNumber *)deviceID {
+    MTDeviceRef existing = self.deviceRefsByNumericID[deviceID].pointerValue;
+    if (existing && self.callbackContextsByRef[[NSValue valueWithPointer:existing]]) {
+        BOOL active = NO;
+        for (OpenMTDeviceInfo *candidate in self.activeDeviceInfos) {
+            if (candidate.deviceNumericID == deviceID.unsignedLongLongValue) active = YES;
+        }
+        if (!active) {
+            for (OpenMTDeviceInfo *candidate in self.availableDeviceInfos) {
+                if (candidate.deviceNumericID == deviceID.unsignedLongLongValue) {
+                    self.activeDeviceInfos = [self.activeDeviceInfos arrayByAddingObject:candidate];
+                    break;
+                }
+            }
+        }
+        return YES;
+    }
+    OpenMTDeviceInfo *info = nil;
+    for (OpenMTDeviceInfo *candidate in self.availableDeviceInfos) {
+        if (candidate.deviceNumericID == deviceID.unsignedLongLongValue) info = candidate;
+    }
+    if (!info) { self.filterResult = @"Takeover refused: selected device is no longer available."; return NO; }
+    MTDeviceRef device = existing ?: [self createDeviceRefForNumericID:deviceID.unsignedLongLongValue];
+    if (!device) { self.filterResult = @"Takeover refused: cannot retain selected native device."; return NO; }
+    self.deviceRefsByNumericID[deviceID] = [NSValue valueWithPointer:device];
+    MTDeviceV2CallbackContext *context = calloc(1, sizeof(*context));
+    if (!context) { self.filterResult = @"Takeover refused: cannot allocate contact callback."; return NO; }
+    context->manager = self;
+    context->deviceID = deviceID.unsignedLongLongValue;
+    atomic_init(&context->frames, 0);
+    atomic_init(&context->contactFrames, 0);
+    if (!MTRegisterContactFrameCallbackWithRefcon(device, openMTManagerV2ContactFrameCallback, context)) {
+        free(context);
+        self.filterResult = @"Takeover refused: cannot register contact callback.";
+        return NO;
+    }
+    self.callbackContextsByRef[[NSValue valueWithPointer:device]] = [NSValue valueWithPointer:context];
+    self.activeDeviceInfos = [self.activeDeviceInfos arrayByAddingObject:info];
+    OSStatus ordinary = [self startNativeDevice:device mode:0];
+    self.callbacksRunning = YES;
+    if (ordinary) { self.filterResult = [NSString stringWithFormat:@"Ordinary preparation failed: %d.", (int)ordinary]; return NO; }
+    return YES;
+}
+
+- (BOOL)acquireNativeFilterID:(NSNumber *)deviceID {
+    MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+    OSStatus stopped = device ? [self stopNativeDevice:device] : -1;
+    if (stopped) { self.filterResult = [NSString stringWithFormat:@"%@ ordinary stop=%d", deviceID, (int)stopped]; return NO; }
+    MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+    if (context) {
+        atomic_store(&context->frames, 0);
+        atomic_store(&context->contactFrames, 0);
+    }
+    if (!self.filterDeviceIDs) self.filterDeviceIDs = NSMutableSet.new;
+    // Include failed starts in cleanup, just as in the original all-pad start.
+    [self.filterDeviceIDs addObject:deviceID];
+    OSStatus started = [self startNativeDevice:device mode:(MTRunMode)0x40000000u];
+    if (started || [self nativeFilterClients:device own:NO] != 1 || [self nativeFilterClients:device own:YES] != 1) {
+        self.filterResult = [NSString stringWithFormat:@"%@ start/ownership verification failed: %d", deviceID, (int)started];
+        return NO;
+    }
+    return YES;
+}
+
+- (BOOL)releaseNativeFilterIDs:(NSSet<NSNumber *> *)deviceIDs {
+    BOOL success = YES;
+    NSMutableArray<NSString *> *results = NSMutableArray.new;
+    for (NSNumber *deviceID in deviceIDs) {
+        if (![self.filterDeviceIDs containsObject:deviceID]) continue;
+        MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+        MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
+        OSStatus stopped = device ? [self stopNativeDevice:device] : -1;
+        if (stopped) {
+            success = NO;
+            [results addObject:[NSString stringWithFormat:@"%@ stop=%d; retry Release Trackpads", deviceID, (int)stopped]];
+            continue;
+        }
+        if (context) {
+            self.filterFrames += atomic_load(&context->frames);
+            self.filterContactFrames += atomic_load(&context->contactFrames);
+            atomic_store(&context->frames, 0);
+            atomic_store(&context->contactFrames, 0);
+        }
+        [self.filterDeviceIDs removeObject:deviceID];
+        int remaining = [self nativeFilterClients:device own:YES];
+        OSStatus recovery = [self startNativeDevice:device mode:0];
+        if (recovery || remaining) success = NO;
+        [results addObject:[NSString stringWithFormat:@"%@ recovery=%d, owned filters=%d", deviceID, (int)recovery, remaining]];
+    }
+    self.filterResult = [results componentsJoinedByString:@"; "];
+    return success;
+}
+
+- (BOOL)updateNativeTakeoverForDeviceIDs:(NSArray<NSNumber *> *)deviceIDs {
+    __block BOOL success = NO;
+    [self withStateSync:^{
+        NSSet<NSNumber *> *desired = [NSSet setWithArray:deviceIDs];
+        NSSet<NSNumber *> *previous = [self.filterDeviceIDs copy] ?: NSSet.new;
+        NSMutableSet *retained = [previous mutableCopy]; [retained intersectSet:desired];
+        NSMutableSet *removed = [previous mutableCopy]; [removed minusSet:desired];
+        NSMutableSet *added = [desired mutableCopy]; [added minusSet:previous];
+        // Retained sessions must still be ours; never stop/restart them to validate.
+        for (NSNumber *deviceID in retained) {
+            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+            if (!device || [self nativeFilterClients:device own:NO] != 1 || [self nativeFilterClients:device own:YES] != 1) {
+                self.filterResult = @"Selection unchanged: retained filter ownership verification failed. Release and retry.";
+                return;
+            }
+        }
+        NSMutableArray *labels = NSMutableArray.new;
+        // All additions are prepared/validated before any existing filter changes.
+        for (NSNumber *deviceID in added) {
+            if (![self prepareNativeTakeoverDeviceID:deviceID]) return;
+            NSString *label = [self validatedNativeFilterLabelForDeviceID:deviceID];
+            if (!label) return;
+            [labels addObject:label];
+        }
+        NSString *failure = nil;
+        for (NSNumber *deviceID in added) {
+            if (![self acquireNativeFilterID:deviceID]) { failure = self.filterResult; break; }
+        }
+        if (!failure && ![self releaseNativeFilterIDs:removed]) failure = self.filterResult;
+        if (failure) {
+            NSMutableArray *recovery = NSMutableArray.new;
+            // Old filters were kept until additions succeeded. Undo only additions.
+            if (![self releaseNativeFilterIDs:added]) [recovery addObject:self.filterResult];
+            for (NSNumber *deviceID in previous) {
+                if ([self.filterDeviceIDs containsObject:deviceID]) continue;
+                MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
+                if (!device || [self nativeFilterClients:device own:NO] != 0 || ![self acquireNativeFilterID:deviceID]) {
+                    [recovery addObject:[NSString stringWithFormat:@"%@ previous ownership could not be restored (%@)", deviceID, self.filterResult]];
+                }
+            }
+            self.filterResult = [NSString stringWithFormat:@"Selection change failed: %@. %@", failure,
+                recovery.count ? [@"Recovery incomplete: " stringByAppendingString:[recovery componentsJoinedByString:@"; "]] : @"Previous ownership restored; selection unchanged."];
+            return;
+        }
+        self.filterResult = desired.count ? [NSString stringWithFormat:@"Trackpad Takeover active on %lu selected trackpad(s).", (unsigned long)desired.count] : @"Released trackpads.";
+        success = YES;
+    }];
+    return success;
+}
+
 - (void)endNativeTakeover {
     [self withStateSync:^{
         if (!self.filterDeviceIDs.count) return;
-        NSMutableArray<NSString *> *results = NSMutableArray.new;
-        // Attempt every device even if another fails to release.
-        for (NSNumber *deviceID in self.filterDeviceIDs.allObjects) {
-            MTDeviceRef device = self.deviceRefsByNumericID[deviceID].pointerValue;
-            MTDeviceV2CallbackContext *context = self.callbackContextsByRef[[NSValue valueWithPointer:device]].pointerValue;
-            OSStatus stop = device ? [self stopNativeDevice:device] : -1;
-            if (stop) {
-                [results addObject:[NSString stringWithFormat:@"%@ stop=%d; retry Release Trackpads", deviceID, (int)stop]];
-                continue;
-            }
-            if (context) {
-                self.filterFrames += atomic_load(&context->frames);
-                self.filterContactFrames += atomic_load(&context->contactFrames);
-            }
-            [self.filterDeviceIDs removeObject:deviceID];
-            int remaining = [self nativeFilterClients:device own:YES];
-            OSStatus recovery = [self startNativeDevice:device mode:0];
-            [results addObject:[NSString stringWithFormat:@"%@ recovery=%d, owned filters=%d", deviceID, (int)recovery, remaining]];
-        }
-        self.filterResult = [NSString stringWithFormat:@"%@ %@", self.filterDeviceIDs.count ? @"Release incomplete." : @"Released trackpads.", [results componentsJoinedByString:@"; "]];
+        BOOL released = [self releaseNativeFilterIDs:[self.filterDeviceIDs copy]];
+        self.filterResult = [NSString stringWithFormat:@"%@ %@", released ? @"Released trackpads." : @"Release incomplete.", self.filterResult];
     }];
 }
 

@@ -1,34 +1,51 @@
 # Trackpad Takeover through the native FLTR client
 
-Updated 2026-10-19 after the user confirmed both Bluetooth and USB native-filter
-trials work. GesturePad now offers continuous **Trackpad Takeover** and
-**Release Trackpads** for the currently selected trackpads. The custom DriverKit
-implementation remains removed from both GesturePad and AppleMagicTouchstream.
+Updated 2026-10-20. GesturePad offers a persistent, opt-in **Trackpad Takeover**
+checkbox for the selected trackpads. The custom DriverKit implementation remains
+removed. This preference/selection behavior is currently GesturePad-only.
 
 ## User behavior
 
-- Select zero, one or two pads with the existing Left/Right selectors.
-- **Trackpad Takeover** captures the nonempty current selection, deduplicating a
-  pad selected on both sides. Unselected pads are not opened as filter clients.
-- Every selection must be an active, external, supported USB/Bluetooth pad. An
-  unsupported selection fails the whole preflight rather than being skipped.
-- Native contact callbacks continue through the ordinary GesturePad display and
-  capture pipeline. No synthetic pointer, click or keyboard output is added.
-- Takeover continues until explicit/lifecycle release; the former 15-second cap
-  has been removed following USB confirmation. Nothing activates on app launch.
-- **Release Trackpads**, the menu action, and **Ctrl–Option–R** release ownership.
-- Release before changing the selectors or using Refresh; both are disabled while
-  ownership remains. Auto-resync is paused during ownership and restored afterward.
-- Config close preserves takeover and leaves the process/native capture running.
-  Restart rebuilds Config in the same process while takeover is active, retaining
-  the controller and native clients. A real process relaunch would close FLTR
-  ownership; no interprocess transfer is attempted. Inactive Restart still relaunches.
-- Sleep, replay and Exit release the native clients. A process-level sleep observer
-  works even with Config closed. There is no automatic takeover on reconnect or
-  driver helper.
+- The checkbox defaults off. Enabling it captures the selected supported pads and
+  saves `GesturePad.nativeTrackpadTakeoverEnabled` in the app's existing defaults
+  domain. Startup restores that preference after restoring device selection and
+  starting ordinary contact capture; Config need not be open.
+- Left/Right selectors and Refresh remain enabled. Duplicate selections produce
+  one native filter. Selecting None on both sides releases all pads while leaving
+  the preference checked, ready for the next selection.
+- A selection transition computes retained, added and removed IDs. Retained FLTR
+  clients are verified but not stopped. New additions get ordinary callback
+  sessions and full preflight before any existing filter changes. Additions are
+  acquired first; removed pads are released only after additions succeed.
+- If acquisition/removal fails, only additions are undone and removed previous
+  pads are reacquired where possible. The picker and saved selection stay at their
+  previous values. Recovery failures remain in status and ownership for retry;
+  this is a serial best-effort transition, not an atomic hardware transaction.
+  Preparing a failed addition may leave its ordinary monitoring session cached
+  until the next refresh/teardown; it is not a filter client.
+- Every selection must be external USB/Bluetooth model0324/type4 with the existing
+  vendor and own-client checks. Unsupported selections do not displace working
+  filters. Failure does not cause a timed automatic retry loop.
+- **Release Trackpads**, the menu action and **Ctrl–Option–R** uncheck/save the
+  preference and release ownership. They do not immediately recapture the pads.
+- Refresh temporarily releases all filters before rebuilding native references,
+  then reapplies the current selected set if enabled. A failed stop aborts refresh.
+  Auto-resync remains paused while filters are owned; this is not a new background
+  reconnect scanner. Refresh or selection changes explicitly reconcile devices.
+- Config close/reopen and Restart retain the owner process while takeover is
+  active or the preference is enabled. Quit releases ownership without clearing
+  the preference, allowing the next launch to restore it.
+- Sleep and replay release filters while preserving the preference. Wake refreshes
+  devices after a one-second settling delay, then restores enabled takeover.
+  Replay and sleep suspension overlap safely: both must end before restoration.
+- Contact callbacks still feed the ordinary display/capture pipeline. No synthetic
+  pointer, click, keyboard output, timeout, DriverKit helper or restricted
+  entitlement is added.
 
-USB and Bluetooth were individually hardware-confirmed by the user. Continuous
-simultaneous two-pad operation is the next integrated hardware acceptance check.
+USB and Bluetooth native FLTR were individually hardware-confirmed. Automatic
+startup, selection transitions/rollback, Refresh and sleep/replay restoration
+require hardware acceptance with this version. No live input is activated by
+building or running the offline tests.
 
 ## What made it work
 
@@ -120,8 +137,8 @@ XCFramework from source after Objective-C bridge changes.
 | [OpenMTManagerV2.h](Framework/OpenMultitouchSupportXCF/OpenMTManagerV2.h) | Begin selected IDs, end takeover, snapshot status. |
 | [OpenMTManagerV2.m](Framework/OpenMultitouchSupportXCF/OpenMTManagerV2.m) | Native preflight, ownership set, starts, rollback, release, callback counts. |
 | [OMSManager.swift](Sources/OpenMultitouchSupport/OMSManager.swift) | Swift API wrappers. |
-| [HIDBlackholeExperiment.swift](GesturePad/GesturePad/Runtime/HIDBlackholeExperiment.swift) | Explicit start, status polling, legacy-experiment exclusion, central release. |
-| [ContentView.swift](GesturePad/GesturePad/ContentView.swift) | Selected-pad buttons and selection/refresh locks. |
+| [HIDBlackholeExperiment.swift](GesturePad/GesturePad/Runtime/HIDBlackholeExperiment.swift) | Persistent preference, differential transitions, suspension, polling and release. |
+| [ContentView.swift](GesturePad/GesturePad/ContentView.swift) | Persistent checkbox, unlocked selectors and Refresh. |
 | [GesturePadApp.swift](GesturePad/GesturePad/GesturePadApp.swift) | Menu/shortcut, lifecycle release, auto-resync ownership hook. |
 
 ## Evidence, signing and remaining acceptance
@@ -157,6 +174,10 @@ optional old capture provenance remains readable.
 `test.sh` includes [offline native lifecycle checks](Tests/NativeTakeover/main.m)
 with fake native devices/operations: complete preflight, selection deduplication,
 release/reuse, failed second-pad start rollback, owner-verification rollback, and
-partial-release retry. They never open hardware. The Swift suite checks the
+partial-release retry. They never open hardware. The Swift suite includes NativeTakeoverPreferenceTests for default-off/persistence,
+startup ordering, deduplication, selection changes, refresh ordering, overlapping
+suspensions, emergency release and failed transitions. Native fake-device tests
+cover retained clients, rejected additions, acquisition/removal rollback and
+incomplete recovery as well as the original lifecycle checks. The suite checks the
 remaining app/runtime behavior. Hardware acceptance is in
 [NATIVE_FILTER_TEST.md](NATIVE_FILTER_TEST.md).

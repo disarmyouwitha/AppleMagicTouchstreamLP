@@ -5,6 +5,7 @@ import OpenMultitouchSupport
 /// Raw-touch workspace for future FingerWorks gesture and chord experiments.
 struct ContentView: View {
     @ObservedObject var hidBlackhole: HIDBlackholeExperiment
+    @ObservedObject var takeoverPreference: NativeTakeoverPreference
     @ObservedObject var viewModel: ContentViewModel
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
@@ -19,6 +20,7 @@ struct ContentView: View {
     init(viewModel: ContentViewModel, hidBlackhole: HIDBlackholeExperiment) {
         self.viewModel = viewModel
         self.hidBlackhole = hidBlackhole
+        self.takeoverPreference = hidBlackhole.takeoverPreference
     }
 
     private var size: CGSize {
@@ -45,17 +47,15 @@ struct ContentView: View {
                     leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
                     onSelectLeft: { device in
                         viewModel.selectLeftDevice(device)
-                        UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
+                        UserDefaults.standard.set(viewModel.leftDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
                     },
                     onSelectRight: { device in
                         viewModel.selectRightDevice(device)
-                        UserDefaults.standard.set(device?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
+                        UserDefaults.standard.set(viewModel.rightDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
                     },
                     onRefresh: {
-                        guard !hidBlackhole.nativeFilterActive else { return }
                         viewModel.refreshDevicesAndListeners()
-                        synchronizeHIDTarget()
-                    }, nativeFilterActive: hidBlackhole.nativeFilterActive, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
+                    }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                 InlineTouchTelemetry(viewModel: viewModel) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -76,38 +76,9 @@ struct ContentView: View {
             .padding(16)
         }
         .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 400)
-        .onAppear {
-            if !hidBlackhole.nativeFilterActive { synchronizeHIDTarget() }
-        }
-        .onChange(of: viewModel.leftDevice) { _ in synchronizeHIDTarget() }
-        .onChange(of: viewModel.rightDevice) { _ in synchronizeHIDTarget() }
-        .onDisappear {
-            if !hidBlackhole.nativeFilterActive { hidBlackhole.release(reason: "Config closed") }
-        }
-        .onReceive(NotificationCenter.default.publisher(for: NSApplication.willTerminateNotification)) { _ in
-            hidBlackhole.release(reason: "App quitting")
-        }
-        .onChange(of: viewModel.replayTimelineState != nil) { replaying in
-            if replaying { hidBlackhole.release(reason: "Replay started") }
-        }
-        .onReceive(NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.willSleepNotification)) { _ in
-            hidBlackhole.release(reason: "System sleeping")
-        }
         .onReceive(viewModel.$replayTimelineState) { state in
             if let state, !replayScrubInProgress { replayScrubValue = max(state.currentTimeSeconds, 0) }
         }
-    }
-
-    private func synchronizeHIDTarget() {
-        hidBlackhole.pointerIdentityProbe.stop()
-        if hidBlackhole.hasOpenHIDDevices {
-            hidBlackhole.release(reason: "Selected trackpads changed")
-            guard !hidBlackhole.hasOpenHIDDevices else { return }
-        }
-        hidBlackhole.refresh()
-        let selected = [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 }
-        hidBlackhole.selectTrackpads(registryEntryIDs: selected.map(\.registryEntryID),
-            touchDeviceIDs: Set(selected.map(\.deviceIDNumeric)))
     }
 
     private var touchDisplayControls: some View {
@@ -133,15 +104,15 @@ struct ContentView: View {
 
     private var nativeFilterControls: some View {
         HStack(spacing: 12) {
-            Button("Trackpad Takeover") {
-                hidBlackhole.startNativeTakeover(devices: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0 })
-            }
+            Toggle("Trackpad Takeover", isOn: Binding(
+                get: { takeoverPreference.enabled },
+                set: { takeoverPreference.setEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
             .fixedSize()
-            .disabled(hidBlackhole.hasOpenHIDDevices || viewModel.replayTimelineState != nil ||
-                (viewModel.leftDevice == nil && viewModel.rightDevice == nil))
-            Button("Release Trackpads") { hidBlackhole.release(reason: "Trackpads released") }
+            Button("Release Trackpads") { takeoverPreference.setEnabled(false) }
                 .fixedSize()
-                .disabled(!hidBlackhole.nativeFilterActive)
+                .disabled(!takeoverPreference.enabled && !hidBlackhole.nativeFilterActive)
             Text(hidBlackhole.nativeFilterStatus + (hidBlackhole.nativeFilterActive ? " Press ⌃⌥R to release" : ""))
                 .font(.caption)
                 .textSelection(.enabled)
@@ -222,7 +193,6 @@ struct ContentView: View {
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
-        let nativeFilterActive: Bool
         @ViewBuilder let blackholeControls: () -> BlackholeControls
         @ViewBuilder let touchControls: () -> TouchControls
 
@@ -234,7 +204,6 @@ struct ContentView: View {
                             .foregroundStyle(.secondary)
                         Spacer()
                         TrackpadRefreshButton(refresh: onRefresh)
-                            .disabled(nativeFilterActive)
                     }
                     blackholeControls()
                     touchControls()
@@ -260,7 +229,6 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .disabled(nativeFilterActive)
                             blackholeControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
@@ -285,13 +253,11 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .disabled(nativeFilterActive)
                             touchControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         TrackpadRefreshButton(refresh: onRefresh)
-                            .disabled(nativeFilterActive)
                         .padding(.top, 20)
                     }
                 }
