@@ -106,29 +106,101 @@ struct TrackpadGestureRouter {
     }
 }
 
+/// Release-speed estimate and analytic coast. Constants are provisional feel tuning,
+/// not Apple's unpublished momentum generator. Contact time and host tick time stay separate.
+struct ScrollMomentum {
+    struct Step { let points: CGPoint; let finished: Bool }
+    private var sampleX = SIMD16<Double>(repeating:0)
+    private var sampleY = SIMD16<Double>(repeating:0)
+    private var sampleDT = SIMD16<Double>(repeating:0)
+    private var sampleTime = SIMD16<Double>(repeating:0)
+    private var head = 0, count = 0
+    private var lastContact: Double?
+    private var lastDelta = CGPoint.zero
+    private var velocity = CGPoint.zero
+    private var started = 0.0, lastTick = 0.0
+    private(set) var isCoasting = false
+    mutating func cancel() {
+        head = 0; count = 0; lastContact = nil; lastDelta = .zero
+        velocity = .zero; isCoasting = false
+    }
+    mutating func observe(points: CGPoint, contactTime: Double) {
+        guard !isCoasting, contactTime.isFinite, points.x.isFinite, points.y.isFinite,
+              abs(points.x)<150, abs(points.y)<150 else { cancel(); return }
+        let dt = lastContact.map { contactTime-$0 } ?? 1/90
+        guard dt > 0, dt < 0.15 else { cancel(); return }
+        if points.x*lastDelta.x + points.y*lastDelta.y < 0 { count = 0; head = 0 }
+        lastContact = contactTime
+        if points != .zero { lastDelta = points }
+        sampleX[head] = points.x; sampleY[head] = points.y
+        sampleDT[head] = dt; sampleTime[head] = contactTime
+        head = (head+1)%8; count = min(8,count+1)
+    }
+    mutating func start(contactTime: Double, hostTime: Double) -> Bool {
+        guard !isCoasting, contactTime.isFinite, hostTime.isFinite,
+              let lastContact, contactTime >= lastContact, contactTime-lastContact < 0.08 else {
+            cancel(); return false
+        }
+        var dx = 0.0, dy = 0.0, duration = contactTime-lastContact
+        for age in 0..<count {
+            let i = (head+7-age)%8
+            guard contactTime-sampleTime[i] < 0.08, duration < 0.08 else { break }
+            let weight = min(sampleDT[i],0.08-duration)/sampleDT[i]
+            dx += sampleX[i]*weight; dy += sampleY[i]*weight
+            duration += sampleDT[i]*weight
+        }
+        guard duration > 0 else { cancel(); return false }
+        velocity = CGPoint(x:dx/duration,y:dy/duration)
+        let speed = hypot(velocity.x,velocity.y)
+        guard speed.isFinite, speed >= 30 else { cancel(); return false }
+        if speed > 6000 { velocity.x *= 6000/speed; velocity.y *= 6000/speed }
+        started = hostTime; lastTick = hostTime; isCoasting = true
+        return true
+    }
+    mutating func advance(hostTime: Double) -> Step? {
+        guard isCoasting else { return nil }
+        guard hostTime.isFinite, hostTime > lastTick, hostTime-lastTick <= 0.08 else {
+            cancel(); return Step(points:.zero,finished:true)
+        }
+        let from = lastTick-started, to = min(2.5,hostTime-started)
+        let tau = 0.325
+        let scale = tau*(exp(-from/tau)-exp(-to/tau))
+        let points = CGPoint(x:velocity.x*scale,y:velocity.y*scale)
+        let finished = to >= 2.5 || hypot(velocity.x,velocity.y)*exp(-to/tau) < 5
+        lastTick = hostTime
+        if finished { cancel() }
+        return Step(points:points,finished:finished)
+    }
+}
+
 /// Creates continuous, phase-labelled scroll events; tests can inspect without posting.
 struct PreciseScrollOutput {
     private(set) var active = false
+    private(set) var momentumActive = false
+    private var location: CGPoint?
     private var remainder = CGPoint.zero
-    mutating func event(points: CGPoint) -> CGEvent? {
+    mutating func event(points: CGPoint, momentum: Bool = false) -> CGEvent? {
+        guard momentum ? !active : !momentumActive else { return nil }
         guard points.x.isFinite, points.y.isFinite, abs(points.x)<150, abs(points.y)<150,
               points.x != 0 || points.y != 0 else { return nil }
         let accumulated = CGPoint(x:remainder.x+points.x,y:remainder.y+points.y)
         let ix = Int32(accumulated.x.rounded(.towardZero)), iy = Int32(accumulated.y.rounded(.towardZero))
         guard let event = CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:iy,wheel2:ix,wheel3:0) else { return nil }
+        if !momentum && !active { location = event.location }
+        if let location { event.location = location }
         remainder = CGPoint(x:accumulated.x-Double(ix),y:accumulated.y-Double(iy))
         event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1,value:points.y/10)
         event.setDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2,value:points.x/10)
         event.setIntegerValueField(.scrollWheelEventIsContinuous,value:1)
-        event.setIntegerValueField(.scrollWheelEventScrollPhase,value:active ? 2 : 1)
-        event.setIntegerValueField(.scrollWheelEventMomentumPhase,value:0)
+        event.setIntegerValueField(.scrollWheelEventScrollPhase,value:momentum ? 0 : (active ? 2 : 1))
+        event.setIntegerValueField(.scrollWheelEventMomentumPhase,value:momentum ? (momentumActive ? 2 : 1) : 0)
         event.setIntegerValueField(.scrollWheelEventScrollCount,value:1)
         event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
-        active = true
+        if momentum { momentumActive = true } else { active = true }
         return event
     }
-    mutating func finish(cancelled: Bool) -> CGEvent? {
-        guard active else { remainder = .zero; return nil }
+    mutating func finish(cancelled: Bool, preserveForMomentum: Bool = false) -> CGEvent? {
+        guard active else { return nil }
         guard let event = CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:0,wheel2:0,wheel3:0) else {
             active = false; remainder = .zero; return nil
         }
@@ -136,7 +208,20 @@ struct PreciseScrollOutput {
         event.setIntegerValueField(.scrollWheelEventScrollPhase,value:cancelled ? 8 : 4)
         event.setIntegerValueField(.scrollWheelEventMomentumPhase,value:0)
         event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
-        active = false; remainder = .zero
+        if let location { event.location = location }
+        active = false
+        if !preserveForMomentum { remainder = .zero; location = nil }
+        return event
+    }
+    mutating func finishMomentum() -> CGEvent? {
+        defer { momentumActive = false; remainder = .zero; location = nil }
+        guard momentumActive,
+              let event = CGEvent(scrollWheelEvent2Source:nil,units:.pixel,wheelCount:2,wheel1:0,wheel2:0,wheel3:0) else { return nil }
+        event.setIntegerValueField(.scrollWheelEventIsContinuous,value:1)
+        event.setIntegerValueField(.scrollWheelEventScrollPhase,value:0)
+        event.setIntegerValueField(.scrollWheelEventMomentumPhase,value:3)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        if let location { event.location = location }
         return event
     }
 }

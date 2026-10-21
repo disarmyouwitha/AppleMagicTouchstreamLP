@@ -1675,9 +1675,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
         var scrollOutputs: [UInt64:PreciseScrollOutput] = [:]
         var scrollSensitivity = 1.0
+        var momentum: [UInt64:ScrollMomentum] = [:]
+        var momentumTimer: (any DispatchSourceTimer)?
         var lastReceipt: [UInt64:Double] = Dictionary(minimumCapacity:2)
+        mutating func cancelMomentum(device: UInt64) {
+            scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap)
+            momentum[device]?.cancel()
+        }
         mutating func finishScroll(device: UInt64, cancelled: Bool) {
             scrollOutputs[device]?.finish(cancelled:cancelled)?.post(tap:.cghidEventTap)
+            cancelMomentum(device:device)
             scrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64) {
@@ -1692,6 +1699,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var postedEvents: UInt64 = 0
     }
     private let lock = OSAllocatedUnfairLock(initialState: State())
+    private let momentumQueue = DispatchQueue(label:"GesturePad.scrollMomentum",qos:.userInteractive)
     func configure(response: TwoFingerPointerResponse, sensitivity: Double,
                    profiles: [UInt64:ApplePointerAccelerationProfile]) {
         lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles) }
@@ -1706,6 +1714,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity
             state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
             state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
+            state.momentum = profiles.mapValues { _ in ScrollMomentum() }
+            if scrollDevices.isEmpty { state.momentumTimer?.cancel(); state.momentumTimer = nil }
         }
     }
     func enable(devices: Set<UInt64>) {
@@ -1718,12 +1728,37 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { state in
             for device in state.devices.symmetricDifference(devices) { state.reset(device:device) }
             let now = CACurrentMediaTime()
-            for (device,receipt) in state.lastReceipt where now-receipt > 0.2 { state.reset(device:device) }
+            for (device,receipt) in state.lastReceipt where now-receipt > 0.2 && state.momentum[device]?.isCoasting != true {
+                state.reset(device:device)
+            }
             state.devices = devices; state.displayBounds = bounds
+            if !state.scrollDevices.isEmpty && state.momentumTimer == nil {
+                let timer = DispatchSource.makeTimerSource(queue:momentumQueue)
+                timer.schedule(deadline:.now()+0.008333,repeating:.nanoseconds(8_333_333),leeway:.milliseconds(1))
+                timer.setEventHandler { [weak self] in self?.tickMomentum() }
+                state.momentumTimer = timer
+                timer.resume()
+            }
+        }
+    }
+    private func tickMomentum() {
+        lock.withLock { state in
+            guard !state.devices.isEmpty, state.momentum.values.contains(where: { $0.isCoasting }) else { return }
+            if CGEventSource.buttonState(.combinedSessionState,button:.left)
+                || CGEventSource.buttonState(.combinedSessionState,button:.right)
+                || CGEventSource.buttonState(.combinedSessionState,button:.center) {
+                state.reset(); return
+            }
+            let now = CACurrentMediaTime()
+            for device in state.scrollDevices where state.devices.contains(device) {
+                guard let step = state.momentum[device]?.advance(hostTime:now) else { continue }
+                state.scrollOutputs[device]?.event(points:step.points,momentum:true)?.post(tap:.cghidEventTap)
+                if step.finished { state.scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap) }
+            }
         }
     }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
-    func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.reset() } }
+    func stop() { lock.withLock { $0.devices.removeAll(keepingCapacity: true); $0.reset(); $0.momentumTimer?.cancel(); $0.momentumTimer = nil } }
     func resetBaseline() { lock.withLock { $0.reset() } }
     func resetBaseline(device: UInt64) { lock.withLock { $0.reset(device: device) } }
     func process(_ frame: OMSRawTouchFrame) {
@@ -1739,17 +1774,26 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.reset()
                 return
             }
-            state.lastReceipt[device] = CACurrentMediaTime()
+            let hostTime = CACurrentMediaTime()
+            state.lastReceipt[device] = hostTime
+            let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
+            if !allUp && state.momentum[device]?.isCoasting == true { state.cancelMomentum(device:device) }
             guard let motion = state.router.process(device:device,time:time,contacts:contacts,
                 mouse:state.mouseDevices.contains(device),scroll:state.scrollDevices.contains(device)) else {
-                let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
-                state.finishScroll(device:device,cancelled:!allUp)
+                if allUp {
+                    if state.scrollOutputs[device]?.active == true {
+                        let coasting = state.momentum[device]?.start(contactTime:time,hostTime:hostTime) == true
+                        state.scrollOutputs[device]?.finish(cancelled:false,preserveForMomentum:coasting)?.post(tap:.cghidEventTap)
+                        state.scrollEngines[device]?.reset()
+                    }
+                } else { state.finishScroll(device:device,cancelled:true) }
                 state.tracker.reset(device:device)
                 return
             }
             if motion.gesture == .scroll {
                 if let delta = state.scrollEngines[device]?.process(time:time,millimetres:motion.millimetres,
                     sensitivity:state.scrollSensitivity) {
+                    state.momentum[device]?.observe(points:delta,contactTime:time)
                     state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
                 } else { state.reset(device:device) }
                 return

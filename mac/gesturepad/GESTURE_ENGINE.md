@@ -29,7 +29,9 @@ reset pending displacement while the fingers finish landing. Once committed,
 any positive count continues that mode; mouse does not turn into scroll merely
 because a fourth finger joins. Scroll likewise continues after fingers lift.
 The existing per-ID common-displacement rule applies to both. All-up or explicit
-cancellation releases ownership. See [FOUR_FINGER_SCROLL.md](FOUR_FINGER_SCROLL.md)
+cancellation releases recognition ownership. Scroll may continue a separately
+owned momentum coast after all-up; new contact cancels that coast before
+recognition resumes. Momentum never keeps a gesture latch alive. See [FOUR_FINGER_SCROLL.md](FOUR_FINGER_SCROLL.md)
 for acceleration, fine event handling and acceptance checks. The initial threshold
 is new and needs hardware acceptance; the accepted pointer curve is unchanged.
 

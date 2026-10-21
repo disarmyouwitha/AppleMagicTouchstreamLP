@@ -218,3 +218,21 @@ release and replay guards remain; scroll cancellation closes active event phases
 Only the live selected-and-owned path posts. Never launch/activate automated
 hardware tests. No new keyboard, button, drag or pinch synthesis. See
 FOUR_FINGER_SCROLL.md and GESTURE_ENGINE.md.
+
+
+## Scroll momentum (2026-10-20; supersedes deferred momentum above)
+
+The user explicitly requires momentum after lift as part of four-finger scroll.
+ScrollMomentum estimates recent accelerated pixel velocity and integrates a
+provisional exponential coast, independently per pad. Preserve quiet-release
+suppression, reversal reset, bounded velocity/duration, analytic tick-rate
+independence and no catch-up jump after stalled ticks. Contact and host clocks
+stay separate. Physical ended is followed by momentum begin/continue/end, with
+ordinary phase none and preserved precise remainder/scroll location. A new active
+touch on that pad, mouse buttons, disable/release/selection/lifecycle cleanup or
+loss of eligibility cancels the coast and closes its event phase. Repeated
+all-up frames must not restart/cancel a valid coast, and the contact watchdog must
+not cut one off. The timer is gated by live selected-and-owned eligibility and
+cancelled with capture; tests/replay never post events. Momentum does not extend
+gesture recognition ownership. Decay tuning is not Apple's recovered algorithm;
+keep hardware acceptance explicit. See FOUR_FINGER_SCROLL.md.
