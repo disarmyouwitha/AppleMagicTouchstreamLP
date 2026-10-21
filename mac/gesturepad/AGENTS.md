@@ -336,3 +336,18 @@ cancel itself via the physical HID-state check. Preserve live-only posting and
 emergency release. No drag lock/reposition delay or right-click is implemented.
 Update GESTURE_ENGINE.md thresholds/acceptance with tuning; hardware acceptance is
 pending. No automatic app launch/hardware activation during verification.
+
+
+## Drag hold correction (2026-10-21; supersedes HID-state check above)
+
+The user reported that the first drag build repeatedly selected/jittered rather
+than holding, despite good latching. Do not use global/HID left-button polling
+while owning a synthetic drag: it can classify our own down as interference.
+Both callback and watchdog skip polling during ownership; a live-only listen-only
+button-down observer ignores interpreter tags and cancels on outside edges.
+Observer creation failure pauses drag and observer disable cancels held state;
+stop tears it down. Keep reserved-up, stale/eligibility/lifecycle cleanup.
+Accumulate drag destinations from the last queued drag point so an asynchronous
+system-cursor read cannot rewind it. Mouse acceleration/sensitivity remains shared
+and unchanged; keep equivalent-movement regression and single-down/up sequence
+coverage. Corrected hardware feel awaits retest; do not auto-launch or activate.

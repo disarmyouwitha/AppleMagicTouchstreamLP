@@ -317,13 +317,26 @@ Only one pad can own the global primary button. While it is held, other pads'
 synthetic gestures are suppressed and their pending taps cancelled. Starting a
 drag closes scroll/coast output. `PrimaryDragOutput` creates both down and a
 reserved up before posting down; drag events carry click count 1, modifiers,
-pressure, delta and the interpreter tag. Its private Quartz event source keeps
-its button state separate from physical HID state. During drag, physical-button
-checks use HID state so the synthesized down does not cancel its own drag.
+pressure, delta and the interpreter tag. Its private Quartz event source owns the button pair. While drag owns the
+primary button, **do not poll global/HID button tables to decide interference**:
+that does not reliably distinguish the down we posted ourselves. A live,
+listen-only button-down observer ignores interpreter-tagged edges and cancels
+on outside left/right/other button presses, without filtering those events.
+Failure to create the observer pauses drag only; observer disable cancels held
+output and requires a takeover toggle to retry. Outside drag, the ordinary
+combined-state physical-button suppression remains. The observer is installed
+only by live enable and torn down with drag eligibility or output stop.
+
+Drag movement uses the same pointer acceleration as two-finger mouse. Its next
+destination accumulates from the last queued drag destination, avoiding an older
+WindowServer cursor read while posted movement is still in flight. The first
+down anchors at the current cursor. This does not warp/correct the cursor or
+change the accepted curve, sensitivity, common-ID motion or latch.
 Normal completion, stale/invalid input, permission/eligibility loss, disable,
 selection changes, reset, sleep, replay, release and quit all return the reserved
 up before clearing output state. A 120 Hz watchdog releases a drag after 200 ms
-without a live frame. Release uses a fresh timestamp and current cursor position.
+without a live frame. Release uses a fresh timestamp; normal completion preserves the last queued
+drag destination, while lifecycle/interference cleanup reads the current cursor.
 Output allocation failures also cancel; cleanup is idempotent. Tests inspect
 unposted events. Hardware acceptance, app behavior and geometry feel remain pending.
 
@@ -461,7 +474,7 @@ actual click delivery or user intent. See
 
 | Behavior | Evidence retained | Remaining limit |
 | --- | --- | --- |
-| Three-finger drag/select | Offline aligned/rotated vs splayed/thumb chords, latching, stationary-tap separation, cancellation and balanced output tests. | New feature; geometry, drag/select delivery and physical-input interaction await hardware acceptance. |
+| Three-finger drag/select | Offline aligned/rotated vs splayed/thumb chords, latching, stationary-tap separation, cancellation and balanced output tests. | User reported jitter/repeated selection in the first build. Own-button polling was removed in favor of tagged observation and queued destinations; corrected build awaits hardware retest. |
 | Pointer acceleration/fine movement | User reports accepted feel on hardware; independent equation vectors and pure motion replay pass. | Contact-to-count conversion is an explicit hypothesis, not recovered proprietary processing. |
 | Continuous gesture latch | User tested original FingerWorks and GesturePad: 2→3→4→1 transitions feel smooth and match the intended interaction. | Other chord families need their own activation/handoff policy. |
 | Four-finger scroll and momentum | User reports good feel; per-axis equations, fine pixel fields, phases, decay and cancellation have offline checks. | App-specific effects, OS/device differences and lifecycle edges need broader coverage; momentum is app tuning. |
@@ -508,3 +521,27 @@ Never infer a new gesture from an extra finger in an already owned session
 without an explicit handoff rule. Keep future plans visibly distinct from
 implemented behavior. Preserve hardware-accepted feel unless a reviewed change
 specifically modifies it.
+
+
+## Drag hold correction (2026-10-21)
+
+The first hardware run held the latch but repeatedly selected/jittered instead
+of maintaining a smooth drag. Source review found a fragile self-cancellation
+path: the live callback and watchdog polled HID button state after posting our
+synthetic down, then reset/released output on a true result. It also anchored each
+drag destination from an asynchronously updated system cursor. These are plausible
+causes, not a captured trace proving which path fired on that run.
+
+Both poll sites now bypass global button state during primary ownership. A
+listen-only event tap handles outside button-down interruption by event tag;
+our own down/drag/up cannot interrupt it. The reserved up and all lifecycle,
+stale-frame, eligibility and allocation-failure safeguards remain. Destinations
+accumulate from the last queued drag position. Regression tests cover one down,
+continuous dragged events, one up through 60 frames/count changes while simulating
+a globally held button; tagged/outside interference; and matching Apple-accelerated
+deltas between two- and three-finger motion. Tests create events without posting
+or installing an observer. The fix still needs the user's hardware retest.
+
+Apple documents global source-state tables as accumulated event state, not
+individual physical input provenance:
+[CGEventSourceStateID](https://developer.apple.com/documentation/coregraphics/cgeventsourcestateid).

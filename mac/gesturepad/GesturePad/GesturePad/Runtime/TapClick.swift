@@ -159,6 +159,7 @@ enum ThreeFingerDragChord {
 /// lock (or an offline test). The reserved up event exists before down is returned.
 struct PrimaryDragOutput: @unchecked Sendable {
     private(set) var owner: UInt64?
+    private(set) var location: CGPoint?
     private var releaseEvent: CGEvent?
     private var source: CGEventSource?
     mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
@@ -166,7 +167,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
               let source = CGEventSource(stateID:.privateState),
               let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
               let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
-        self.source = source; owner = device; releaseEvent = up
+        self.source = source; owner = device; self.location = location; releaseEvent = up
         Self.configure(down,flags:flags,pressure:1)
         Self.configure(up,flags:flags,pressure:0)
         return down
@@ -178,6 +179,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
         Self.configure(event,flags:flags,pressure:1)
         event.setDoubleValueField(.mouseEventDeltaX,value:delta.x)
         event.setDoubleValueField(.mouseEventDeltaY,value:delta.y)
+        self.location = location
         releaseEvent?.location = location; releaseEvent?.flags = flags
         return event
     }
@@ -186,7 +188,7 @@ struct PrimaryDragOutput: @unchecked Sendable {
         if let location, location.x.isFinite, location.y.isFinite { releaseEvent?.location = location }
         releaseEvent?.timestamp = DispatchTime.now().uptimeNanoseconds
         let up = releaseEvent
-        owner = nil; releaseEvent = nil; source = nil
+        owner = nil; self.location = nil; releaseEvent = nil; source = nil
         return up
     }
     private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {
@@ -195,5 +197,18 @@ struct PrimaryDragOutput: @unchecked Sendable {
         event.setIntegerValueField(.mouseEventButtonNumber,value:0)
         event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
         event.setDoubleValueField(.mouseEventPressure,value:pressure)
+    }
+}
+
+
+/// Polling global left-button state cannot distinguish our held synthetic down.
+/// During ownership only tagged event observation decides button interference.
+enum DragButtonInterference {
+    static func suppress(polledButtonsDown: Bool, ownsPrimary: Bool) -> Bool {
+        !ownsPrimary && polledButtonsDown
+    }
+    static func interrupts(type: CGEventType, tag: Int64) -> Bool {
+        tag != SelectedTrackpadEventPolicy.interpreterTag &&
+            (type == .leftMouseDown || type == .rightMouseDown || type == .otherMouseDown)
     }
 }

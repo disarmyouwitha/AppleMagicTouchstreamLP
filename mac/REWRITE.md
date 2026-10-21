@@ -9,8 +9,6 @@
 
 `GesturePad`:
 0. right click (thumb,middle,ring) using the finger identification
-2. Next I want to implement 3 finger drag/select (Just like Apple does!)
-> There is something to keep in mind here.. the 3 fingers need to be close together (like in a line) because the next 3-finger gesture is `right click (thumb,middle,ring)` using the finger identification
 3. In Gesturepad I think I want to start by removing the left/right trackpad contacts where it shows a list of each with the raw measurements.
 > Check out sidebar.jpg can we implement a menu like this?
 

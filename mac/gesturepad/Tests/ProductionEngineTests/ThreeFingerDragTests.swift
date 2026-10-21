@@ -99,4 +99,63 @@ final class ThreeFingerDragTests: XCTestCase {
         XCTAssertNotNil(drag.begin(device:2,location:.zero,flags:[]))
         XCTAssertEqual(drag.end(device:2,location:CGPoint(x:9,y:8))?.location,CGPoint(x:9,y:8))
     }
+    func testHeldSyntheticButtonDoesNotReleaseOrRestartAcrossManyFrames() throws {
+        var router = TrackpadGestureRouter(), drag = PrimaryDragOutput()
+        var downCount = 0, dragCount = 0, upCount = 0
+        for index in 0..<60 {
+            let time = 1+Double(index)*0.01
+            let contacts = index == 59 ? touches(0) : touches(index > 30 ? 1 : 3,dx:Float(index)*0.0005)
+            // Models the global button table reporting our own down on every frame.
+            XCTAssertFalse(DragButtonInterference.suppress(polledButtonsDown:drag.owner != nil,ownsPrimary:drag.owner != nil))
+            let update = router.update(device:1,time:time,contacts:contacts,mouse:true,scroll:true,drag:true)
+            if update.phase == .began, update.gesture == .drag {
+                XCTAssertNotNil(drag.begin(device:1,location:CGPoint(x:100,y:100),flags:[])); downCount += 1
+            }
+            if update.phase == .ended || update.phase == .cancelled {
+                if drag.end(device:1) != nil { upCount += 1 }
+            } else if let mm = update.millimetres, update.gesture == .drag {
+                let previous = try XCTUnwrap(drag.location)
+                let next = CGPoint(x:previous.x+mm.x*6,y:previous.y+mm.y*6)
+                XCTAssertNotNil(drag.move(device:1,location:next,delta:CGPoint(x:mm.x*6,y:mm.y*6),flags:[]))
+                XCTAssertGreaterThanOrEqual(try XCTUnwrap(drag.location).x,previous.x)
+                dragCount += 1
+            }
+        }
+        XCTAssertEqual(downCount,1); XCTAssertEqual(upCount,1); XCTAssertGreaterThan(dragCount,45)
+        XCTAssertNil(drag.owner)
+        XCTAssertTrue(DragButtonInterference.suppress(polledButtonsDown:true,ownsPrimary:false))
+    }
+    func testObserverIgnoresOurEdgesAndInterruptsOutsideButtonPresses() {
+        for type in [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown] {
+            XCTAssertFalse(DragButtonInterference.interrupts(type:type,tag:SelectedTrackpadEventPolicy.interpreterTag))
+            XCTAssertTrue(DragButtonInterference.interrupts(type:type,tag:0))
+        }
+        XCTAssertFalse(DragButtonInterference.interrupts(type:.leftMouseDragged,tag:0))
+        XCTAssertFalse(DragButtonInterference.interrupts(type:.leftMouseUp,tag:0))
+    }
+    func testDragAndMouseUseIdenticalAccelerationForEquivalentMovement() throws {
+        let profile = try ApplePointerAccelerationProfile(resolution:400,fixedMultiplier:48545/65536,
+            acceleration:3,curves:[ApplePointerCurve(index:3,linear:1,parabolic:123208/65536,
+                cubic:23593/65536,tangentLinear:7,tangentRoot:12)])
+        var mouseRouter = TrackpadGestureRouter(), dragRouter = TrackpadGestureRouter()
+        var mouse = TwoFingerPointerMotionEngine(), drag = TwoFingerPointerMotionEngine()
+        mouse.configure(response:.apple,sensitivity:1,profiles:[1:profile])
+        drag.configure(response:.apple,sensitivity:1,profiles:[1:profile])
+        var compared = 0
+        for index in 0..<80 {
+            let time = 1+Double(index)*0.01, dx = Float(index)*0.0005
+            let mouseMotion = mouseRouter.process(device:1,time:time,contacts:touches(2,dx:dx),mouse:true,scroll:true,drag:true)
+            let dragMotion = dragRouter.process(device:1,time:time,contacts:touches(3,dx:dx),mouse:true,scroll:true,drag:true)
+            XCTAssertEqual(mouseMotion == nil,dragMotion == nil)
+            if let mouseMotion, let dragMotion {
+                XCTAssertEqual(mouseMotion.gesture,.mouse); XCTAssertEqual(dragMotion.gesture,.drag)
+                let a = try XCTUnwrap(mouse.processMotion(device:1,time:time,millimetres:mouseMotion.millimetres))
+                let b = try XCTUnwrap(drag.processMotion(device:1,time:time,millimetres:dragMotion.millimetres))
+                XCTAssertEqual(a.x,b.x,accuracy:0.005); XCTAssertEqual(a.y,b.y,accuracy:0.005)
+                compared += 1
+            }
+        }
+        XCTAssertGreaterThan(compared,70)
+    }
+
 }
