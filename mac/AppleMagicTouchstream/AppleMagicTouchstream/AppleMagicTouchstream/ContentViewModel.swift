@@ -919,32 +919,35 @@ final class ContentViewModel: ObservableObject {
         let inputRuntimeService = InputRuntimeService(manager: manager)
         renderSnapshotService = RuntimeRenderSnapshotService()
         touchRevisionUpdates = renderSnapshotService.revisionUpdates
-        weak var weakSelf: ContentViewModel?
+        // Keep the @Sendable capture immutable; the reference stays weak.
+        // Initialization and callback access to value are MainActor-confined.
+        final class WeakRef: @unchecked Sendable { weak var value: ContentViewModel? }
+        let weakRef = WeakRef()
         let debugBindingHandler: @Sendable (KeyBinding) -> Void = { binding in
             Task { @MainActor in
-                weakSelf?.recordDebugHit(binding)
+                weakRef.value?.recordDebugHit(binding)
             }
         }
         let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { counts in
             Task { @MainActor in
-                weakSelf?.handleContactCountsChanged(counts)
+                weakRef.value?.handleContactCountsChanged(counts)
             }
         }
         let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { display in
             Task { @MainActor in
-                weakSelf?.handleIntentDisplayChanged(display)
+                weakRef.value?.handleIntentDisplayChanged(display)
             }
         }
         let runtimeEngine = RuntimeCore(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
                 Task { @MainActor in
-                    weakSelf?.isTypingEnabled = isEnabled
+                    weakRef.value?.isTypingEnabled = isEnabled
                 }
             },
             onActiveLayerChanged: { layer in
                 Task { @MainActor in
-                    weakSelf?.activeLayer = layer
+                    weakRef.value?.activeLayer = layer
                 }
             },
             onDebugBindingDetected: debugBindingHandler,
@@ -968,9 +971,9 @@ final class ContentViewModel: ObservableObject {
             manager: manager,
             runtimeEngine: runtimeEngine
         ) { state in
-            weakSelf?.applyDeviceSessionState(state)
+            weakRef.value?.applyDeviceSessionState(state)
         }
-        weakSelf = self
+        weakRef.value = self
         applyDeviceSessionState(deviceSessionService.snapshot)
         loadDevices()
     }
