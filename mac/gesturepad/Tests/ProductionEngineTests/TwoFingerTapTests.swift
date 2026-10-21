@@ -31,15 +31,29 @@ final class TwoFingerTapTests: XCTestCase {
                 _ = tap.process(device:1,time:1.1,contacts:pair)
                 _ = tap.process(device:1,time:1.2,contacts:pair)
                 _ = tap.process(device:1,time:1.3,contacts:pair)
+                _ = tap.process(device:1,time:1.4,contacts:pair)
+                _ = tap.process(device:1,time:1.5,contacts:pair)
+                _ = tap.process(device:1,time:1.6,contacts:pair)
             case 2: _ = tap.process(device:1,time:1.1,contacts:pair)
             case 3: _ = tap.process(device:1,time:1.03,contacts:pair+[touch(3,0.8)])
             default:
                 // Opposing motion has no centroid travel, but is not a tap.
                 _ = tap.process(device:1,time:1.03,contacts:[touch(1,0.28),touch(2,0.62)])
             }
-            XCTAssertFalse(tap.process(device:1,time:kind == 1 ? 1.31 : 1.12,contacts:empty),"kind=\(kind)")
+            XCTAssertFalse(tap.process(device:1,time:kind == 1 ? 1.61 : 1.12,contacts:empty),"kind=\(kind)")
         }
     }
+    func testHalfSecondTapWindowIncludingReleaseBoundary() {
+        for (release,accepted) in [(1.49,true),(1.5,true),(1.501,false)] {
+            var tap = TwoFingerTapRecognizer()
+            _ = tap.process(device:1,time:1,contacts:pair)
+            for frame in [1.1,1.2,1.3,1.4] {
+                XCTAssertFalse(tap.process(device:1,time:frame,contacts:pair))
+            }
+            XCTAssertEqual(tap.process(device:1,time:release,contacts:empty),accepted)
+        }
+    }
+
     func testLongStaggeredReleaseRejoinAndIdentityReplacementRejectTap() {
         for kind in 0..<3 {
             var tap = TwoFingerTapRecognizer()

@@ -4,6 +4,7 @@ import OpenMultitouchSupport
 
 /// A discrete tap completes on all-up, independently of continuous gesture latches.
 struct TwoFingerTapRecognizer {
+    static let maximumDuration = 0.5
     private struct Finger { let id: Int32; let x: Double; let y: Double }
     private struct Session {
         var first: Finger?, second: Finger?
@@ -29,7 +30,7 @@ struct TwoFingerTapRecognizer {
             defer { sessions[device] = nil }
             guard !invalid, !gestureActive, let session = sessions[device], !session.blocked,
                   let paired = session.paired, time > session.lastTime,
-                  time-session.lastTime <= 0.15, time-session.started <= 0.25,
+                  time-session.lastTime <= 0.15, time-session.started <= Self.maximumDuration,
                   (session.lifting ?? time)-paired >= 0.02,
                   time-(session.lifting ?? time) <= 0.08 else { return false }
             return true
@@ -39,7 +40,7 @@ struct TwoFingerTapRecognizer {
         var session = sessions[device] ?? Session(started:time,lastTime:time)
         if sessions[device] != nil {
             guard time > session.lastTime, time-session.lastTime <= 0.15,
-                  time-session.started <= 0.25 else { cancel(device:device); return false }
+                  time-session.started <= Self.maximumDuration else { cancel(device:device); return false }
         }
         for touch in contacts where touch.state == .making || touch.state == .touching {
             let original: Finger

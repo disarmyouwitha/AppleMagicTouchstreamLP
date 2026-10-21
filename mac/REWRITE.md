@@ -1,16 +1,20 @@
 ===
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches? ('TouchStream' layout)
+> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far, the gesture engine, latching, or any timings!
 
-> what i want more than anything is to get the spellchecker logic out of the touchstream. 
+> I really want to get the spellchecker logic out of the touchstream. 
+
+===
+
+In Gesturepad I think I want to start by removing the left/right trackpad contacts where it shows a list of each with the raw measurements.
 
 ===
 
-What is the next step? Can you implement a "2-finger mouse" checkbox in Gesturepad for testing or is there something you wanted to explore before that?
+`GesturePad`:
+0. right click (thumb,middle, ring)
 
-With the FingerWorks TouchStream it like.. "latched" so you could start with 2 fingers mousing, lift 1 (but still mousing) and it would let you do that until you release all fingers. A lot of the gestures were like that.
-
-===
+> Check out sidebar.jpg can we implement a menu like this?
 
 `GlassToKey`:
 0. Fit layout to image
@@ -20,10 +24,6 @@ With the FingerWorks TouchStream it like.. "latched" so you could start with 2 f
 
 `AppleMagicTouchstream`: 
 0. Copy touchstream Layout from AMT to GTK!
-
-
-`GesturePad`:
-0. implement 2finger synthetic mouse, and force click = click
 
 ===
 

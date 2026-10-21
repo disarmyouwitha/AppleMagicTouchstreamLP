@@ -17,7 +17,7 @@ continuous mouse/scroll ownership. Initial test thresholds are:
 
 | Condition | Limit |
 | --- | ---: |
-| Entire tap, from first contact to all-up | 250 ms |
+| Entire tap, from first contact to all-up | 500 ms |
 | Delay before the second finger joins | 80 ms |
 | Minimum simultaneous two-finger overlap | 20 ms |
 | Delay between the first and last lift | 80 ms |

@@ -242,7 +242,7 @@ subsequent valid input must establish a new baseline.
 
 | Parameter | Current value/rule |
 | --- | --- |
-| Total tap duration | ≤ 250 ms, first contact to all-up |
+| Total tap duration | ≤ 500 ms, first contact to all-up |
 | Second finger joins | ≤ 80 ms after first contact |
 | Simultaneous pair overlap | ≥ 20 ms |
 | Final lift after first lift | ≤ 80 ms |
