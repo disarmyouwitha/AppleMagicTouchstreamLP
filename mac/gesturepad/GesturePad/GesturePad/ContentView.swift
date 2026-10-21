@@ -95,7 +95,19 @@ struct ContentView: View {
     private var hidBlackholeControls: some View {
         VStack(alignment: .leading, spacing: 8) {
             nativeFilterControls
-
+            HStack(spacing: 12) {
+                Toggle("2-finger mouse", isOn: Binding(
+                    get: { hidBlackhole.twoFingerMouseEnabled },
+                    set: { hidBlackhole.setTwoFingerMouseEnabled($0) }
+                ))
+                .toggleStyle(.checkbox)
+                .fixedSize()
+                .help("Experimental two-finger pointer at fixed sensitivity. Requires Trackpad Takeover and Accessibility. No click, drag, pinch or scroll output.")
+                Text(hidBlackhole.twoFingerMouseStatus)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(10)

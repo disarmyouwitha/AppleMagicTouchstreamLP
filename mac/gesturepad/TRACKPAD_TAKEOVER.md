@@ -40,9 +40,11 @@ removed. This preference/selection behavior is currently GesturePad-only.
 - Sleep and replay release filters while preserving the preference. Wake refreshes
   devices after a one-second settling delay, then restores enabled takeover.
   Replay and sleep suspension overlap safely: both must end before restoration.
-- Contact callbacks still feed the ordinary display/capture pipeline. No synthetic
-  pointer, click, keyboard output, timeout, DriverKit helper or restricted
-  entitlement is added.
+- Contact callbacks still feed the ordinary display/capture pipeline. Takeover
+  itself does not synthesize output. The separately opt-in **2-finger mouse**
+  checkbox can now post experimental movement while takeover is active; see
+  [TWO_FINGER_MOUSE.md](TWO_FINGER_MOUSE.md). No click/keyboard output, timeout,
+  DriverKit helper or restricted entitlement is added.
 
 USB and Bluetooth native FLTR were individually hardware-confirmed. Automatic
 startup, selection transitions/rollback, Refresh and sleep/replay restoration

@@ -256,9 +256,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     private func synchronizeTakeoverSelection() {
-        hidBlackhole.takeoverPreference.updateSelection(
-            [controller.viewModel.leftDevice, controller.viewModel.rightDevice]
-                .compactMap { $0?.deviceIDNumeric })
+        let selected = [controller.viewModel.leftDevice, controller.viewModel.rightDevice]
+            .compactMap { $0?.deviceIDNumeric }
+        hidBlackhole.configureNativeMouseSelection(selected)
+        hidBlackhole.takeoverPreference.updateSelection(selected)
     }
 
     private func observeStatus() {

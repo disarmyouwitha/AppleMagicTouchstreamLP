@@ -1,0 +1,24 @@
+{
+  "description": "Synthetic analytic unit fixture, not recorded hardware data",
+  "devices": [
+    {
+      "resolution": 400,
+      "algorithm_rate": 67,
+      "acceleration": 0,
+      "fixed_multiplier": 1,
+      "report_rate": 0,
+      "curves": [
+        {
+          "index": 0,
+          "HIDAccelGainLinear": 1,
+          "HIDAccelGainParabolic": 0,
+          "HIDAccelGainCubic": 0,
+          "HIDAccelGainQuartic": 0,
+          "HIDAccelTangentSpeedLinear": 0,
+          "HIDAccelTangentSpeedParabolicRoot": 0
+        }
+      ],
+      "device_id": "synthetic-linear"
+    }
+  ]
+}

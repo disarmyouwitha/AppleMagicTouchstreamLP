@@ -115,3 +115,25 @@ OMS deviceIndex: its two slots can be reused by a third/deselected pad. Parse ID
 once on selection updates and compare integers in the callback/engine path. Clear
 cached render contacts when selection changes. Preserve index fallback for legacy
 recordings without numeric identity; see SelectedDeviceSourceTests.
+
+
+## Standalone pointer acceleration research (2026-10-20)
+
+The user requested the standalone experiment in Tools/PointerAccelerationProbe,
+not app pointer/gesture output. Keep its parametric model and ordinary/listen-only
+recorder isolated from app build/settings. Do not activate recording in automated
+checks. Numeric tests and recorder --help are offline; snapshot is read-only
+registry inspection. OMS contact-to-pointer-count scaling remains unvalidated and
+must be explicit, not marketed as native-equivalent. See the tool README/SOURCES.
+
+
+## Live 2-finger mouse checkbox (2026-10-20; user-authorized output exception)
+
+The user explicitly requested an opt-in 2-finger mouse test in GesturePad. It is
+off each process launch and can post movement only for current selected AND owned
+native FLTR IDs while takeover is enabled and Accessibility is granted. Preserve
+live-only delivery, release/transition/failed-transition pausing and per-pad
+baseline resets; replay never posts. Existing fixed 6 pt/mm centroid sensitivity
+is provisional, separate from Apple-source acceleration research. Do not add
+click/drag/scroll/pinch/keyboard output incidentally. See TWO_FINGER_MOUSE.md.
+Do not activate the test during automated verification or launch the live app.

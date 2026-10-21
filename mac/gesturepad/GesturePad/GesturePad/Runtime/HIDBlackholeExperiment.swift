@@ -284,6 +284,61 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var nativeFilterActive = false
     @Published private(set) var nativeFilterStatus = "Off. Take over the currently selected trackpads."
     private var nativeFilterTimer: Timer?
+    @Published private(set) var twoFingerMouseEnabled = false
+    @Published private(set) var twoFingerMouseStatus = "Off"
+    private var nativeMouseSelectedIDs: Set<UInt64> = []
+    private var nativeMouseOwnedIDs: Set<UInt64> = []
+    private var nativeMouseArmed = false
+    private var nativeMousePermissionDenied = false
+
+    func setTwoFingerMouseEnabled(_ enabled: Bool) {
+        if enabled && !AXIsProcessTrusted() {
+            nativeMousePermissionDenied = true
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+            twoFingerMouseStatus = "Enable Accessibility for GesturePad, then check again."
+            return
+        }
+        nativeMousePermissionDenied = false
+        twoFingerMouseEnabled = enabled
+        nativeMouseArmed = enabled
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        updateNativeMouseOutput()
+    }
+
+    func configureNativeMouseSelection(_ ids: [UInt64]) {
+        let next = Set(ids)
+        if next != nativeMouseSelectedIDs {
+            InterpretedTrackpadPointer.shared.resetBaseline()
+            nativeMouseSelectedIDs = next
+        }
+        updateNativeMouseOutput()
+    }
+
+    private func pauseNativeMouseOutput() {
+        nativeMouseArmed = false
+        InterpretedTrackpadPointer.shared.stop()
+    }
+
+    private func updateNativeMouseOutput() {
+        let trusted = !twoFingerMouseEnabled || AXIsProcessTrusted()
+        let devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
+            armed: nativeMouseArmed, takeoverEnabled: takeoverPreference.enabled,
+            trusted: trusted, selected: nativeMouseSelectedIDs, owned: nativeMouseOwnedIDs)
+        if devices.isEmpty {
+            InterpretedTrackpadPointer.shared.stop()
+        } else {
+            // Outside the input callback: refresh bounds/permissions while retaining
+            // baselines for an unchanged selected native-ID set.
+            InterpretedTrackpadPointer.shared.enable(devices: devices)
+        }
+        if !twoFingerMouseEnabled { twoFingerMouseStatus = nativeMousePermissionDenied
+            ? "Enable Accessibility for GesturePad, then check again." : "Off" }
+        else if !trusted { twoFingerMouseStatus = "Paused: Accessibility permission required." }
+        else if !devices.isEmpty {
+            twoFingerMouseStatus = "Active · 6 pt/mm · \(InterpretedTrackpadPointer.shared.postedEventCount) moves posted"
+        } else { twoFingerMouseStatus = "Waiting for selected trackpads in Trackpad Takeover." }
+    }
+
     var onNativeOwnershipChanged: ((Bool) -> Void)?
 
     lazy var takeoverPreference = NativeTakeoverPreference(
@@ -295,7 +350,9 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     private func updateNativeTakeover(deviceIDs: [UInt64]) -> Bool {
         guard !isActive && !isObservingHID && !pointerControl.isActive && !gainProbe.isActive else { return false }
+        pauseNativeMouseOutput()
         let success = OMSManager.shared.updateNativeTakeover(deviceIDs: deviceIDs)
+        nativeMouseArmed = success && twoFingerMouseEnabled
         updateNativeFilterStatus()
         if nativeFilterActive && nativeFilterTimer == nil {
             nativeFilterTimer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
@@ -311,6 +368,8 @@ final class HIDBlackholeExperiment: ObservableObject {
         let wasActive = nativeFilterActive
         nativeFilterActive = state["active"] as? Bool ?? false
         nativeFilterStatus = state["message"] as? String ?? "Unavailable"
+        nativeMouseOwnedIDs = Set((state["deviceIDs"] as? [NSNumber] ?? []).map { $0.uint64Value })
+        updateNativeMouseOutput()
         if wasActive != nativeFilterActive { onNativeOwnershipChanged?(nativeFilterActive) }
         if !nativeFilterActive {
             nativeFilterTimer?.invalidate()
@@ -660,6 +719,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     func release(reason: String = "Released") {
+        pauseNativeMouseOutput()
         OMSManager.shared.endNativeTakeover()
         updateNativeFilterStatus()
         try? FileManager.default.removeItem(atPath: "/tmp/GesturePad-active-usb-capture.txt")
@@ -1455,11 +1515,11 @@ final class InterfaceTouchEvidence: @unchecked Sendable {
     }
 }
 
-// Retained legacy native-input diagnostics; the FLTR test never enables this output.
+// Shared tracker/output used by the opt-in native FLTR mouse test and legacy diagnostics.
 /// Experimental two-contact relative pointer; per-device baselines never cross pads.
 struct TwoFingerPointerTracker {
     struct Baseline { let first: Int32; let second: Int32; let point: CGPoint; let time: Double }
-    private var baselines: [UInt64: Baseline] = [:]
+    private var baselines: [UInt64: Baseline] = Dictionary(minimumCapacity: 2)
     mutating func reset() { baselines.removeAll(keepingCapacity: true) }
     mutating func reset(device: UInt64) { baselines[device] = nil }
     mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
@@ -1468,7 +1528,7 @@ struct TwoFingerPointerTracker {
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
         var first: OMSRawTouch?, second: OMSRawTouch?
         var count = 0
-        for touch in contacts where touch.state == .starting || touch.state == .making || touch.state == .touching {
+        for touch in contacts where touch.state == .making || touch.state == .touching {
             count += 1
             if count > 2 || touch.telemetry?.fingerID == 6 {
                 baselines.removeValue(forKey: device); return nil
@@ -1627,5 +1687,15 @@ final class NativeTakeoverPreference: ObservableObject {
             return ownedIDs().isEmpty
         }
         return transition(target.sorted())
+    }
+}
+
+
+/// Pure eligibility check; a failed transition's extra owned IDs are never output sources.
+enum NativeTwoFingerMouseGate {
+    static func outputDevices(enabled: Bool, armed: Bool, takeoverEnabled: Bool,
+                              trusted: Bool, selected: Set<UInt64>, owned: Set<UInt64>) -> Set<UInt64> {
+        guard enabled, armed, takeoverEnabled, trusted else { return [] }
+        return selected.intersection(owned)
     }
 }
