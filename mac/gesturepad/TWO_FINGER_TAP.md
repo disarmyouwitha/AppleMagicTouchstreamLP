@@ -94,3 +94,28 @@ The follow-up `2finger_tap_test2.atpcap` supports retaining 0.35 mm: production
 replay accepts all 22 independent tap candidates, while 23 movement cycles have
 no predicted clicks. The user reports improved feel. Larger tested initiation
 thresholds add no accepted taps; no further behavior change was made.
+
+## Three-finger double-click extension
+
+A separate **3-finger tap to double-click** checkbox now defaults on with takeover.
+Three fingers completing a stationary tap cause two primary down/up pairs with
+click counts 1 then 2, after all three lift. It shares the 500 ms maximum, 80 ms
+all-finger arrival/final release limits, 20 ms full-chord overlap and 1 mm
+individual slop. All four events are prepared before any post. No held button,
+drag or delayed release is used. Each dedicated double-click is a fresh sequence;
+ordinary single-tap multi-click history is reset afterward.
+
+A third active contact rejects the two-finger candidate until all-up, so a
+three-finger tap cannot additionally click once during partial lift. Two fingers
+alone cannot trigger the three-finger recognizer. Fourth contacts, recognized
+mouse/scroll, physical-button suppression, momentum braking and lifecycle resets
+reject both candidates. Feature checkboxes and profile-independent eligibility
+are separate. ThreeFingerTapTests covers staggered chords, exclusion, timing,
+identity/motion cancellation, per-pad isolation and all four output edges without
+posting. Existing two-finger capture regressions still pass.
+
+Hardware test: tap three in a file list or document to check double-click behavior;
+then tap two to confirm a single click, and mouse with two/add a third/lift to
+confirm no click. Check the dedicated sequence after a single tap and repeated
+three-finger taps. This extension is not hardware-accepted yet. Current rules
+remain centralized in GESTURE_ENGINE.md.

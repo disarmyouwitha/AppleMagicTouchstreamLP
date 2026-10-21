@@ -277,3 +277,38 @@ acceleration behavior. No fixed delay or release-time click for a recognized
 mouse stroke is introduced. The local optional capture regression compares
 thresholds without posting output. See GESTURE_ENGINE.md and
 RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md; hardware acceptance pending.
+
+
+## Three-finger tap double-click (2026-10-20; explicit user request)
+
+Three stationary contacts completing the bounded tap produce a dedicated primary
+double-click on all-up: counts 1 then 2, four balanced events created before any
+post, same cursor/modifiers/tag, immediate under the output lock. Reset ordinary
+single-tap click history; no delayed mouse-up or held/drag state. A separate
+checkbox defaults on with takeover, with the same per-process override/lifecycle
+gates as existing features. It is independent of acceleration profiles.
+TwoFingerTapRecognizer is parameterized for two/three-contact chords with shared
+500 ms/80 ms/20 ms/1 mm limits. Seeing a third contact blocks the two-finger tap
+until all-up, not a single click on partial lift. Fourth contacts, replacements,
+rejoining, active mouse/scroll, braking and physical buttons reject candidates.
+Preserve accepted mouse/scroll/momentum behavior and both capture regressions.
+No right-click/drag/keyboard/pinch output. See GESTURE_ENGINE.md; hardware acceptance
+pending. Tests never post events or activate live input.
+
+
+## Shared gesture-session engine (user-authorized latching refactor)
+
+The user requested latching as a general gesture-engine concept. Live mouse/scroll
+ownership now delegates to Engine/GestureSessionEngine.swift, with generic gesture
+identities, activation rules and optional synchronous activation evidence filter,
+separate continuation policy, priority and begin/change/end/cancel results.
+Common fixed-storage contact motion/validation is GestureContactMotionTracker.
+TrackpadGestureRouter only registers current rules/adapts outputs; do not grow
+per-gesture latches there. TwoFingerPointerTracker is a legacy diagnostic adapter.
+Discrete taps observe pending candidates and cancel on continuous ownership;
+momentum remains output state after gesture completion. Posting, timers and
+eligibility stay outside the generic recognition engine; reset callers must clean
+up owned outputs before clearing recognition. Preserve current thresholds, accepted
+feel and both capture regressions. New gesture rules do not authorize new output
+families. See GESTURE_ENGINE.md and GestureSessionEngineTests. No automated live
+activation/launch or bridge changes are needed by this refactor.

@@ -5,9 +5,11 @@ import OpenMultitouchSupport
 /// A discrete tap completes on all-up, independently of continuous gesture latches.
 struct TwoFingerTapRecognizer {
     static let maximumDuration = 0.5
+    private let requiredCount: Int
+    init(requiredCount: Int = 2) { precondition(requiredCount == 2 || requiredCount == 3); self.requiredCount = requiredCount }
     private struct Finger { let id: Int32; let x: Double; let y: Double }
     private struct Session {
-        var first: Finger?, second: Finger?
+        var first: Finger?, second: Finger?, third: Finger?
         var started = 0.0, lastTime = 0.0
         var paired: Double?, lifting: Double?
         var blocked = false
@@ -18,14 +20,16 @@ struct TwoFingerTapRecognizer {
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
         gestureActive: Bool = false) -> Bool where C.Element == OMSRawTouch {
-        var a: OMSRawTouch?, b: OMSRawTouch?, count = 0
+        var ids = SIMD4<Int32>(repeating:0), count = 0
         var invalid = !time.isFinite
         for touch in contacts where touch.state == .making || touch.state == .touching {
+            if count < 4 {
+                for index in 0..<count where ids[index] == touch.id { invalid = true }
+                ids[count] = touch.id
+            }
             count += 1
             invalid = invalid || !touch.posX.isFinite || !touch.posY.isFinite || touch.telemetry?.fingerID == 6
-            if a == nil { a = touch } else if b == nil { b = touch }
         }
-        if let a, let b, a.id == b.id { invalid = true }
         if count == 0 {
             defer { sessions[device] = nil }
             guard !invalid, !gestureActive, let session = sessions[device], !session.blocked,
@@ -36,7 +40,7 @@ struct TwoFingerTapRecognizer {
             return true
         }
         if sessions[device]?.blocked == true { return false }
-        guard !invalid, count <= 2, !gestureActive else { cancel(device:device); return false }
+        guard !invalid, count <= requiredCount, !gestureActive else { cancel(device:device); return false }
         var session = sessions[device] ?? Session(started:time,lastTime:time)
         if sessions[device] != nil {
             guard time > session.lastTime, time-session.lastTime <= 0.15,
@@ -46,6 +50,7 @@ struct TwoFingerTapRecognizer {
             let original: Finger
             if let first = session.first, first.id == touch.id { original = first }
             else if let second = session.second, second.id == touch.id { original = second }
+            else if let third = session.third, third.id == touch.id { original = third }
             else {
                 guard session.paired == nil, time-session.started <= 0.08 else {
                     cancel(device:device); return false
@@ -53,6 +58,7 @@ struct TwoFingerTapRecognizer {
                 let finger = Finger(id:touch.id,x:Double(touch.posX),y:Double(touch.posY))
                 if session.first == nil { session.first = finger }
                 else if session.second == nil { session.second = finger }
+                else if requiredCount == 3 && session.third == nil { session.third = finger }
                 else { cancel(device:device); return false }
                 original = finger
             }
@@ -60,7 +66,7 @@ struct TwoFingerTapRecognizer {
                 cancel(device:device); return false
             }
         }
-        if count == 2 {
+        if count == requiredCount {
             guard session.lifting == nil else { cancel(device:device); return false }
             if session.paired == nil { session.paired = time }
         } else if session.paired != nil {
@@ -76,6 +82,18 @@ struct TwoFingerTapRecognizer {
 /// Creates both edges before either is posted. There is no held-button or drag state.
 struct PrimaryTapClickOutput {
     struct Events { let down: CGEvent; let up: CGEvent }
+    struct DoubleClickEvents {
+        let first: Events
+        let second: Events
+    }
+    static func doubleClickEvents(location: CGPoint, flags: CGEventFlags = []) -> DoubleClickEvents? {
+        // A dedicated gesture always starts at 1 and completes at 2, independent
+        // of previous single taps. Build every edge before posting any of them.
+        var sequence = PrimaryTapClickOutput()
+        guard let first = sequence.events(location:location,time:1,doubleClickInterval:0.5,flags:flags),
+              let second = sequence.events(location:location,time:1.01,doubleClickInterval:0.5,flags:flags) else { return nil }
+        return DoubleClickEvents(first:first,second:second)
+    }
     private var lastTime: Double?
     private var lastLocation = CGPoint.zero
     private var clickCount: Int64 = 0

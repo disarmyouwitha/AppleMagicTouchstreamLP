@@ -182,3 +182,13 @@ the current app in System Settings. Do not reset all apps, edit the TCC database
 or add private TCC entitlements. Keep installed builds signed consistently with
 the existing Developer ID identity to avoid repeating the development/release
 identity mismatch. Other historical bundle identifiers may have separate rows.
+
+## Shared session engine
+
+Continuous latching and contact motion are now shared engine services in
+`Engine/GestureSessionEngine.swift`. Mouse is registered through the existing
+router with a two-finger activation rule and `untilAllUp` continuation; pointer
+acceleration and output remain unchanged. See the central GESTURE_ENGINE.md
+implementation boundary. The legacy-named TwoFingerPointerTracker is a thin
+compatibility/diagnostic adapter over common contact motion, not a separate live
+mouse latch. Existing capture and hardware behavior remain the regression target.

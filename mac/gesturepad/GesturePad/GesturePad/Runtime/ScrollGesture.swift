@@ -72,40 +72,26 @@ struct FourFingerScrollEngine {
     }
 }
 
-enum LatchedGesture: Sendable { case mouse, scroll }
+enum LatchedGesture: Hashable, Sendable { case mouse, scroll }
 
-/// Decide from the initial moving chord, then retain ownership across count changes.
+/// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
-    struct Pending { var count = 0; var travel = CGPoint.zero; var gesture: LatchedGesture? }
-    // Capture-backed separation: tap landing drift must not claim mouse at 0.2 mm.
-    // Scroll retains its independent 0.2 mm initiation threshold.
-    private let mouseActivationMM: Double
-    init(mouseActivationMM: Double = 0.35) { self.mouseActivationMM = mouseActivationMM }
-    private var history = TwoFingerPointerTracker(activationCount:0)
-    private var sessions: [UInt64:Pending] = Dictionary(minimumCapacity:2)
-    mutating func reset() { history.reset(); sessions.removeAll(keepingCapacity:true) }
-    mutating func reset(device: UInt64) { history.reset(device:device); sessions[device] = nil }
+    private var engine: GestureSessionEngine<LatchedGesture>
+    init(mouseActivationMM: Double = 0.35) {
+        engine = GestureSessionEngine(rules:[
+            GestureActivationRule(gesture:.scroll,activationCount:4,minimumMovementMM:0.2),
+            GestureActivationRule(gesture:.mouse,activationCount:2,minimumMovementMM:mouseActivationMM)
+        ])
+    }
+    mutating func reset() { engine.reset() }
+    mutating func reset(device: UInt64) { engine.cancel(device:device) }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool) -> (gesture: LatchedGesture, millimetres: CGPoint)? where C.Element == OMSRawTouch {
-        var count = 0
-        for contact in contacts where contact.state == .making || contact.state == .touching { count += 1 }
-        let movement = history.millimetres(device:device,time:time,contacts:contacts)
-        if !history.frameContinued { sessions[device] = nil }
-        guard let movement else { return nil }
-        var session = sessions[device] ?? Pending()
-        if let gesture = session.gesture {
-            guard gesture == .mouse ? mouse : scroll else { reset(device:device); return nil }
-            return (gesture,movement)
-        }
-        // Ignore landing jitter and let a four-finger chord finish arriving.
-        if session.count != count { session.count = count; session.travel = .zero }
-        session.travel.x += movement.x; session.travel.y += movement.y
-        let distance = hypot(session.travel.x,session.travel.y)
-        if count == 4 && scroll && distance >= 0.2 { session.gesture = .scroll }
-        else if count == 2 && mouse && distance >= mouseActivationMM { session.gesture = .mouse }
-        sessions[device] = session
-        guard let gesture = session.gesture else { return nil }
-        return (gesture,session.travel)
+        let update = engine.process(device:device,time:time,touches:contacts,enabled: { gesture in
+            switch gesture { case .mouse: return mouse; case .scroll: return scroll }
+        })
+        guard let gesture = update.gesture, let motion = update.millimetres else { return nil }
+        return (gesture,motion)
     }
 }
 

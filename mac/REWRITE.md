@@ -7,13 +7,8 @@
 
 ===
 
-
-
-===
-
 `GesturePad`:
 0. right click (thumb,middle,ring)
-1. double click (3 finger tap)
 2. drag/select (3 finger drag)
 3. In Gesturepad I think I want to start by removing the left/right trackpad contacts where it shows a list of each with the raw measurements.
 > Check out sidebar.jpg can we implement a menu like this?

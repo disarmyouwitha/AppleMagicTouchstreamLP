@@ -17,14 +17,15 @@ one as approval to change the other.
 | Two-finger mouse | Exactly two active fingers and initial net movement of at least 0.35 mm | Any positive active finger count | All fingers up | Relative pointer movement |
 | Four-finger scroll | Exactly four active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up; eligible release can start momentum | Horizontal/vertical precise scrolling |
 | Two-finger tap | A short stationary pair satisfying the tap limits | Only the original two IDs, with bounded landing/lift skew | Both fingers up within the limits | One primary click |
+| Three-finger tap | A short stationary three-contact chord satisfying the tap limits | Only the original three IDs, bounded landing/lift skew | All three up within the limits | One primary double-click (two balanced click pairs) |
 | Scroll momentum | Fresh, sufficiently fast release of an active scroll | Decelerates without fingers | Stop speed or duration reached | Momentum scroll events |
 
-One finger cannot start mouse or scroll. Three fingers do not currently start
-a gesture. Extra fingers do not switch an established gesture. Tap recognition
+One finger cannot start mouse or scroll. Three fingers can start a double-click tap; they do not start continuous motion. Extra fingers do not switch an established gesture. Tap recognition
 is discrete; it does not hold a mouse button or inherit continuous count latching.
 
 **Acceptance:** the user confirmed mouse acceleration, count latching, scroll
-and momentum feel on hardware. Tap was tested, improved after capture-backed
+and momentum feel on hardware. Three-finger double-click is newly implemented with offline coverage and awaits
+hardware testing. Two-finger tap was tested, improved after capture-backed
 arbitration tuning, and the user reports it feels substantially better. Keep the
 current tuning; do not claim all click delivery, lifecycle or application-specific
 edge cases have passed. The acceptance/evidence table below records that boundary.
@@ -105,6 +106,52 @@ Release, feature/settings changes, device-selection transitions, capture teardow
 sleep, replay, refresh and invalid/stale input can cancel or reset recognition.
 A future valid chord can begin again after cancellation. A rejected tap has a
 stricter rule: it stays blocked until all-up.
+
+### Shared implementation boundary
+
+Latching is an engine responsibility, not a mouse/scroll implementation detail.
+`Engine/GestureSessionEngine.swift` now contains:
+
+- `GestureContactMotionTracker`: shared contact-ID continuity, input validation,
+  matched-contact motion, baseline/outlier handling and normal all-up detection.
+- `GestureActivationRule<Gesture>`: gesture identity, initial chord count, movement
+  threshold and a separate continuation policy (`untilAllUp` by default, or an
+  explicitly bounded count range). Rule order defines priority when candidates tie.
+- `GestureSessionEngine<Gesture>`: one owner per pad; pending displacement and
+  begin/change/end/cancel lifecycle. Existing owners take priority over candidates.
+- `GestureSessionUpdate`: recognized identity, lifecycle phase, optional movement
+  and explicit cancellation reason. Completion is distinct from invalid/stale
+  input, disable, continuation rejection and explicit reset.
+
+A synchronous `activationFilter` receives gesture identity and a context with
+time, count, current motion and accumulated pending motion. Future recognizers
+can supply additional evidence here without adding branches to the ownership
+engine. Once an owner commits, the activation filter is no longer consulted for
+continuation. Dwell scheduling, angle/pressure extraction or a new output family
+still requires its own reviewed recognizer implementation; the generic boundary
+does not claim those gestures already exist.
+
+`TrackpadGestureRouter` is now the registration/adapter for the current mouse
+and scroll rules. It delegates ownership to the shared engine and forwards motion
+to the existing acceleration/output code. It no longer stores its own gesture
+latch. `TwoFingerPointerTracker` remains a diagnostic/compatibility adapter over
+shared contact motion; it does not own the live mouse/scroll decision.
+
+Tap recognizers remain discrete candidates, cancelled when continuous ownership
+commits, rather than pretending to hold a continuous latch. Momentum remains an
+output coast after recognition completes. Output event posting, phase cleanup,
+timers, eligibility and acceleration are outside the generic engine. Broad reset
+callers must clean up owned outputs as well as clearing recognition state; the
+existing live adapter already does so before reset.
+
+All mutation stays under the current serial output lock. Rules/candidate storage
+are configured outside raw callbacks; common contact matching uses fixed inline
+storage. No event posting, I/O, registry reads or timers live in the shared engine.
+The refactor preserves current initiation thresholds, latch behavior, tap limits,
+acceleration, scroll phases and momentum. Both recorded tap regressions retain
+the same predictions. `GestureSessionEngineTests` exercises arbitrary test-only
+gesture identities, priority, activation filtering, continuation, independent
+pads and explicit lifecycle/cancellation paths, without adding live gestures.
 
 ## 4. Mouse rules
 
@@ -207,6 +254,34 @@ algorithm. Hardware-accepted feel does not establish exact native equivalence.
 
 Feature detail and acceptance steps: [TWO_FINGER_TAP.md](TWO_FINGER_TAP.md).
 
+### Three-finger tap to double-click
+
+A stationary three-finger tap completes on all-up and sends exactly two primary
+click pairs, with counts 1 then 2. All four events are created before posting;
+each is tagged, uses the same cursor/modifiers, and posts immediately under the
+output lock. No delayed mouse-up or held-button/drag state is introduced. The
+explicit sequence starts fresh, independent of previous single clicks, then
+resets the normal tap multi-click history so the next two-finger tap starts at 1.
+
+The three-finger recognizer uses the same timing/slop limits as two-finger tap:
+500 ms total, all three joining within 80 ms of the first contact, at least 20 ms
+full-chord overlap, and all-up within 80 ms of the first partial lift. Each finger
+must stay within 1 mm of its landing position. Fourth fingers, ID replacement,
+rejoining after partial lift, motion ownership, braking and explicit cancellation
+reject the cycle until all-up.
+
+Two-finger tap rejects the entire cycle as soon as a third active finger arrives;
+it cannot fire when that three-finger chord reduces to two or one. Three-finger
+tap cannot fire from a two-finger-only cycle. Moving two fingers before the third
+arrives still claims mouse under the existing rule and cancels all tap candidates.
+An established mouse/scroll latch never converts into a double-click by count.
+
+The **3-finger tap to double-click** checkbox defaults on with takeover, including
+startup restoration and fresh explicit enable. Its permission, selected-and-owned,
+transition/lifecycle and manual-override behavior matches the existing tap control.
+Tap-only double-click works independently of mouse/scroll profiles. It is a
+GesturePad-only addition and awaits hardware acceptance.
+
 ## 8. Current thresholds and units
 
 These values describe current code, not promises about original FingerWorks or
@@ -244,15 +319,16 @@ subsequent valid input must establish a new baseline.
 
 | Parameter | Current value/rule |
 | --- | --- |
-| Total tap duration | ≤ 500 ms, first contact to all-up |
-| Second finger joins | ≤ 80 ms after first contact |
-| Simultaneous pair overlap | ≥ 20 ms |
+| Total tap duration, either chord | ≤ 500 ms, first contact to all-up |
+| All required fingers join (two or three) | ≤ 80 ms after first contact |
+| Simultaneous full-chord overlap | ≥ 20 ms |
 | Final lift after first lift | ≤ 80 ms |
 | Individual displacement from initial position | ≤ 1 mm |
 | Tap timestamp interval | Strictly positive and ≤ 150 ms |
 | Multi-click interval | `NSEvent.doubleClickInterval` |
 | Multi-click cursor tolerance | ≤ 4 points, matching modifier flags |
-| Generated click count | 1–3, saturating at 3 |
+| Repeated two-finger tap click count | 1–3, saturating at 3 |
+| Dedicated three-finger tap double-click | Two down/up pairs, counts 1 then 2; reset ordinary click history |
 
 ### Momentum
 
@@ -274,7 +350,7 @@ subsequent valid input must establish a new baseline.
 | Setting/action | Rule |
 | --- | --- |
 | Trackpad Takeover | Persistent opt-in, default off for new users |
-| Mouse, scroll and tap checkboxes | Default on with restored takeover and fresh explicit takeover enable |
+| Mouse, scroll and both tap checkboxes | Default on with restored takeover and fresh explicit takeover enable |
 | Manual feature-off overrides | Remain for the current process through ordinary selection/sleep/replay restoration |
 | Sensitivity | Separate process-local values, default 1.00× each launch |
 | Config close/reopen or in-process Restart during takeover | Preserve process/ownership and current settings; do not release solely for the window |
@@ -287,7 +363,8 @@ subsequent valid input must establish a new baseline.
 
 Control changes can cancel all current gesture output state, even when changing
 only one feature. Disabling mouse does not disable independently eligible scroll
-or tap recognition. No output from unselected pads, stale bridge index slots or
+or tap recognition. Each tap checkbox is independent; disabling two-finger click
+does not disable three-finger double-click. No output from unselected pads, stale bridge index slots or
 extra ownership retained only for failed cleanup.
 
 ## 10. Source map and verification
@@ -295,15 +372,17 @@ extra ownership retained only for failed cleanup.
 | Responsibility | Current source/test |
 | --- | --- |
 | Live-only ingestion | `Runtime/InputRuntimeService.swift` |
-| Eligibility, lifecycle, contact motion and serialized posting | `Runtime/HIDBlackholeExperiment.swift` |
-| Initial chord arbitration, scroll curves/events, momentum | `Runtime/ScrollGesture.swift` |
+| Eligibility, output lifecycle and serialized posting | `Runtime/HIDBlackholeExperiment.swift` |
+| Shared contact continuity, generic ownership/lifecycle and activation/continuation rules | `Engine/GestureSessionEngine.swift` |
+| Mouse/scroll rule registration adapter, scroll curves/events, momentum | `Runtime/ScrollGesture.swift` |
 | Pointer curve evaluation and motion engine | `Runtime/PointerAcceleration.swift` |
-| Tap recognition and complete primary click pairs | `Runtime/TapClick.swift` |
-| General recognition extension point | `Engine/TouchProcessorEngine.swift` |
+| Two/three-finger tap recognition and complete primary click pairs | `Runtime/TapClick.swift` |
+| Additional recognition extension point | `Engine/TouchProcessorEngine.swift` |
+| Shared ownership, priority, lifecycle and recognizer activation-filter tests | `GestureSessionEngineTests` |
 | Mouse/latch/eligibility regression checks | `NativeTwoFingerMouseTests`, `HIDBlackholeIdentityTests`, `ApplePointerAccelerationTests` |
 | Scroll/arbitration/fine events | `FourFingerScrollTests` |
 | Momentum decay, phases, interruption and rate independence | `ScrollMomentumTests` |
-| Tap rejection/completion and click events | `TwoFingerTapTests` |
+| Tap rejection/completion and click events | `TwoFingerTapTests`, `ThreeFingerTapTests` |
 | Capture-backed tap/mouse arbitration | `TapCaptureAnalysisTests` |
 | Takeover preference and source identity | `NativeTakeoverPreferenceTests`, `SelectedDeviceSourceTests`, native lifecycle tests |
 

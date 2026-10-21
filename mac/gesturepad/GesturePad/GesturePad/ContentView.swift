@@ -123,6 +123,18 @@ struct ContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }
+            Toggle("3-finger tap to double-click", isOn: Binding(
+                get: { hidBlackhole.threeFingerTapEnabled },
+                set: { hidBlackhole.setThreeFingerTapEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .help("A short stationary three-finger tap makes a primary double-click when all fingers lift.")
+            if takeoverPreference.enabled && hidBlackhole.threeFingerTapEnabled
+                && hidBlackhole.threeFingerTapStatus != "Active" {
+                Text(hidBlackhole.threeFingerTapStatus)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
             HStack(spacing: 12) {
                 Toggle("4-finger scroll", isOn: Binding(
                     get: { hidBlackhole.fourFingerScrollEnabled },

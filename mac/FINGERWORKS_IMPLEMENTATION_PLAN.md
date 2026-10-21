@@ -210,7 +210,9 @@ native contacts -> contact features/lifetimes
                 -> actions and explicit output lifetimes
 ```
 
-The current GesturePad router handles mouse/scroll ownership and tap rejection;
+The current generic GestureSessionEngine handles per-pad continuous ownership,
+activation/continuation and lifecycle; the router registers mouse/scroll and
+feeds tap rejection. Discrete tap recognizers remain separate candidates;
 it is **not** the full proposed typing/cohort coordinator. Do not restore discarded
 GTK recognizers or create another parallel engine as an incidental shortcut.
 
