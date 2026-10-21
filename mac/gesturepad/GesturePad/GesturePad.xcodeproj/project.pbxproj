@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        ACCE30000000000000000002 /* TapClick.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE30000000000000000001; };
         ACCE20000000000000000002 /* ScrollGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE20000000000000000001; };
         ACCE10000000000000000002 /* PointerAcceleration.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE10000000000000000001; };
 		BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */ = {isa = PBXBuildFile; fileRef = BAA000000000000000000002 /* HIDBlackholeExperiment.swift */; };
@@ -31,6 +32,7 @@ FEED10000000000000000005 = {isa = PBXBuildFile; fileRef = FEED000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        ACCE30000000000000000001 /* TapClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapClick.swift; sourceTree = "<group>"; };
         ACCE20000000000000000001 /* ScrollGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollGesture.swift; sourceTree = "<group>"; };
         ACCE10000000000000000001 /* PointerAcceleration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PointerAcceleration.swift; sourceTree = "<group>"; };
 		BAA000000000000000000002 /* HIDBlackholeExperiment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HIDBlackholeExperiment.swift; sourceTree = "<group>"; };
@@ -119,6 +121,7 @@ FEED00000000000000000005,
 				C0A1B2C3D4E5F60718293B42 /* RuntimeContracts.swift */,
 				ACCE10000000000000000001 /* PointerAcceleration.swift */,
 				ACCE20000000000000000001 /* ScrollGesture.swift */,
+				ACCE30000000000000000001 /* TapClick.swift */,
                 BAA000000000000000000002 /* HIDBlackholeExperiment.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
@@ -232,6 +235,7 @@ FEED10000000000000000005,
 				C0A1B2C3D4E5F60718293A42 /* RuntimeContracts.swift in Sources */,
 				ACCE10000000000000000002 /* PointerAcceleration.swift in Sources */,
 				ACCE20000000000000000002 /* ScrollGesture.swift in Sources */,
+				ACCE30000000000000000002 /* TapClick.swift in Sources */,
                 BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,

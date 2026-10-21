@@ -286,6 +286,8 @@ final class HIDBlackholeExperiment: ObservableObject {
     private var nativeFilterTimer: Timer?
     @Published private(set) var twoFingerMouseEnabled = true
     @Published private(set) var twoFingerMouseStatus = "Off"
+    @Published private(set) var twoFingerTapEnabled = true
+    @Published private(set) var twoFingerTapStatus = "Off"
     @Published private(set) var fourFingerScrollEnabled = true
     @Published private(set) var fourFingerScrollStatus = "Off"
     @Published private(set) var scrollSensitivity = 1.0
@@ -305,6 +307,7 @@ final class HIDBlackholeExperiment: ObservableObject {
         if enabled && !takeoverPreference.enabled {
             setTwoFingerMouseEnabled(true)
             setFourFingerScrollEnabled(true)
+            setTwoFingerTapEnabled(true)
         }
         takeoverPreference.setEnabled(enabled)
     }
@@ -317,6 +320,16 @@ final class HIDBlackholeExperiment: ObservableObject {
             if !AXIsProcessTrusted() {
                 _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
             }
+        }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        updateNativeMouseOutput()
+    }
+
+    func setTwoFingerTapEnabled(_ enabled: Bool) {
+        twoFingerTapEnabled = enabled
+        nativeMouseArmed = true
+        if enabled && !AXIsProcessTrusted() {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
         }
         InterpretedTrackpadPointer.shared.resetBaseline()
         updateNativeMouseOutput()
@@ -378,7 +391,7 @@ final class HIDBlackholeExperiment: ObservableObject {
     }
 
     private func updateNativeMouseOutput() {
-        let trusted = !(twoFingerMouseEnabled || fourFingerScrollEnabled) || AXIsProcessTrusted()
+        let trusted = !(twoFingerMouseEnabled || fourFingerScrollEnabled || twoFingerTapEnabled) || AXIsProcessTrusted()
         var devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
             armed: nativeMouseArmed, takeoverEnabled: takeoverPreference.enabled,
             trusted: trusted, selected: nativeMouseSelectedIDs, owned: nativeMouseOwnedIDs)
@@ -389,16 +402,20 @@ final class HIDBlackholeExperiment: ObservableObject {
             trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
         let missingScroll = !scrollDevices.isSubset(of:Set(nativeScrollProfiles.keys))
         if missingScroll { scrollDevices = [] }
+        let tapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:twoFingerTapEnabled,
+            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
+            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
         InterpretedTrackpadPointer.shared.configureGestures(mouseDevices:devices,scrollDevices:scrollDevices,
+            tapDevices:tapDevices,doubleClickInterval:NSEvent.doubleClickInterval,
             profiles:nativeScrollProfiles,sensitivity:scrollSensitivity)
         InterpretedTrackpadPointer.shared.configure(response:.apple,
             sensitivity:pointerSensitivity,profiles:nativeMouseProfiles)
-        if devices.isEmpty && scrollDevices.isEmpty {
+        if devices.isEmpty && scrollDevices.isEmpty && tapDevices.isEmpty {
             InterpretedTrackpadPointer.shared.stop()
         } else {
             // Outside the input callback: refresh bounds/permissions while retaining
             // baselines for an unchanged selected native-ID set.
-            InterpretedTrackpadPointer.shared.enable(devices: devices.union(scrollDevices))
+            InterpretedTrackpadPointer.shared.enable(devices: devices.union(scrollDevices).union(tapDevices))
         }
         if !twoFingerMouseEnabled { twoFingerMouseStatus = "Off" }
         else if !trusted { twoFingerMouseStatus = "Paused: Accessibility permission required." }
@@ -406,6 +423,10 @@ final class HIDBlackholeExperiment: ObservableObject {
         else if !devices.isEmpty {
             twoFingerMouseStatus = "Active"
         } else { twoFingerMouseStatus = "Waiting for selected trackpads in Trackpad Takeover." }
+        if !twoFingerTapEnabled { twoFingerTapStatus = "Off" }
+        else if !trusted { twoFingerTapStatus = "Paused: Accessibility permission required." }
+        else if !tapDevices.isEmpty { twoFingerTapStatus = "Active" }
+        else { twoFingerTapStatus = "Waiting for selected trackpads in Trackpad Takeover." }
         if !fourFingerScrollEnabled { fourFingerScrollStatus = "Off" }
         else if !trusted { fourFingerScrollStatus = "Paused: Accessibility permission required." }
         else if missingScroll { fourFingerScrollStatus = nativeScrollProfileError ?? "Paused: scroll profile unavailable." }
@@ -1671,6 +1692,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var router = TrackpadGestureRouter()
         var mouseDevices: Set<UInt64> = []
         var scrollDevices: Set<UInt64> = []
+        var tapDevices: Set<UInt64> = []
+        var taps = TwoFingerTapRecognizer()
+        var clicks = PrimaryTapClickOutput()
+        var doubleClickInterval = 0.5
         var scrollProfiles: [UInt64:AppleScrollProfile] = [:]
         var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
         var scrollOutputs: [UInt64:PreciseScrollOutput] = [:]
@@ -1689,10 +1714,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         }
         mutating func reset(device: UInt64) {
             finishScroll(device:device,cancelled:true)
+            taps.invalidate(device:device)
             router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
+            taps.reset(); clicks.reset()
             router.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
@@ -1705,12 +1732,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles) }
     }
     func configureGestures(mouseDevices: Set<UInt64>, scrollDevices: Set<UInt64>,
-                           profiles: [UInt64:AppleScrollProfile], sensitivity: Double) {
+                           tapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double) {
         lock.withLock { state in
             guard state.mouseDevices != mouseDevices || state.scrollDevices != scrollDevices
+                || state.tapDevices != tapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity else { return }
             state.reset()
             state.mouseDevices = mouseDevices; state.scrollDevices = scrollDevices
+            state.tapDevices = tapDevices; state.doubleClickInterval = doubleClickInterval
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity
             state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
             state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
@@ -1772,14 +1801,28 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 || CGEventSource.buttonState(.combinedSessionState, button: .right)
                 || CGEventSource.buttonState(.combinedSessionState, button: .center) {
                 state.reset()
+                state.taps.cancel(device:device)
                 return
             }
             let hostTime = CACurrentMediaTime()
             state.lastReceipt[device] = hostTime
             let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
-            if !allUp && state.momentum[device]?.isCoasting == true { state.cancelMomentum(device:device) }
-            guard let motion = state.router.process(device:device,time:time,contacts:contacts,
-                mouse:state.mouseDevices.contains(device),scroll:state.scrollDevices.contains(device)) else {
+            if !allUp && state.momentum[device]?.isCoasting == true {
+                state.cancelMomentum(device:device)
+                state.taps.cancel(device:device) // braking a coast must not also click
+            }
+            let motion = state.router.process(device:device,time:time,contacts:contacts,
+                mouse:state.mouseDevices.contains(device),scroll:state.scrollDevices.contains(device))
+            if state.tapDevices.contains(device), state.taps.process(device:device,time:time,
+                contacts:contacts,gestureActive:motion != nil),
+                let location = CGEvent(source:nil)?.location,
+                let click = state.clicks.events(location:location,time:hostTime,
+                    doubleClickInterval:state.doubleClickInterval,
+                    flags:CGEventSource.flagsState(.combinedSessionState)) {
+                click.down.post(tap:.cghidEventTap)
+                click.up.post(tap:.cghidEventTap)
+            }
+            guard let motion else {
                 if allUp {
                     if state.scrollOutputs[device]?.active == true {
                         let coasting = state.momentum[device]?.start(contactTime:time,hostTime:hostTime) == true

@@ -1,5 +1,8 @@
 # Trackpad Takeover through the native FLTR client
 
+**Current gesture rules:** [GESTURE_ENGINE.md](GESTURE_ENGINE.md) is the central
+behavior specification. This file supplies feature-specific detail and history.
+
 Updated 2026-10-20. GesturePad offers a persistent, opt-in **Trackpad Takeover**
 checkbox for the selected trackpads. The custom DriverKit implementation remains
 removed. This preference/selection behavior is currently GesturePad-only.
@@ -41,10 +44,11 @@ removed. This preference/selection behavior is currently GesturePad-only.
   devices after a one-second settling delay, then restores enabled takeover.
   Replay and sleep suspension overlap safely: both must end before restoration.
 - Contact callbacks still feed the ordinary display/capture pipeline. Takeover
-  itself does not synthesize output. The separately opt-in **2-finger mouse**
-  checkbox can now post experimental movement while takeover is active; see
-  [TWO_FINGER_MOUSE.md](TWO_FINGER_MOUSE.md). No click/keyboard output, timeout,
-  DriverKit helper or restricted entitlement is added.
+  itself supplies ownership; enabled gesture controls provide mouse movement,
+  two-finger tap clicks and four-finger scrolling with momentum. These feature
+  checkboxes default on with takeover; their rules are centralized in
+  [GESTURE_ENGINE.md](GESTURE_ENGINE.md). No keyboard output, DriverKit helper or
+  restricted entitlement is added.
 
 USB and Bluetooth native FLTR were individually hardware-confirmed. Automatic
 startup, selection transitions/rollback, Refresh and sleep/replay restoration

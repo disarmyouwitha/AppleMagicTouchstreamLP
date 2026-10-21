@@ -1,5 +1,13 @@
 # GesturePad
 
+## Central gesture specification
+
+[GESTURE_ENGINE.md](GESTURE_ENGINE.md) is the current consolidated gesture behavior
+contract. Start there; historical experiment policies below must be read in that
+context. Update its inventory, thresholds, arbitration, lifecycle and acceptance
+status alongside any behavior change. Feature notes retain implementation and
+research detail. Documentation consolidation alone does not authorize a code change.
+
 ## Scope and purpose
 This folder is the independent FingerWorks/TouchStream gesture/chord playground. Keep raw-touch inspection, finger/pressure telemetry, traces, device selection and capture/replay. The opt-in control checkbox now filters selected-pad native movement and scrolling through event identity, without HID seizure, and enables experimental two-finger pointer output. Preserve clicks, drag events, unknown sources and other mice. No keyboard, click, scroll, voice, app-launch or haptic output is synthesized. Keep release safeguards and the temporary Test Pointer Sources observer. Historical raw-HID backend/capture schemas remain for diagnostics but have no UI buttons.
 
@@ -236,3 +244,24 @@ not cut one off. The timer is gated by live selected-and-owned eligibility and
 cancelled with capture; tests/replay never post events. Momentum does not extend
 gesture recognition ownership. Decay tuning is not Apple's recovered algorithm;
 keep hardware acceptance explicit. See FOUR_FINGER_SCROLL.md.
+
+
+## Two-finger tap click (2026-10-20; explicit button-output authorization)
+
+The user requested two-finger tap for click. A separate checkbox defaults on with
+takeover, following the existing feature lifecycle/default policy. TapClick.swift
+recognizes short stationary two-contact taps, tolerates bounded landing/lift skew,
+and completes once at all-up. Extra/replaced contacts, holds, individual motion,
+invalid/stale input and recognized mouse/scroll movement reject until all-up.
+Braking momentum or physical mouse-button activity blocks that cycle too.
+Preserve per-pad isolation and idle-watchdog invalidation without eating fresh taps.
+
+Only live selected-and-owned, armed, Accessibility-approved devices can click.
+Tap eligibility is independent of acceleration profiles and other feature toggles.
+Build both tagged primary down/up events before posting either, immediately under
+the output lock, with matching cursor/modifiers/click counts. No held-button or
+scheduled-up state, dragging, secondary click, keyboard or pinch output. Reset
+pending taps on disable/release/selection/lifecycle interruption; replay/tests
+never post. Keep accepted pointer/scroll/momentum behavior intact. See
+TWO_FINGER_TAP.md for thresholds and hardware acceptance. Do not automatically
+launch or hardware-activate verification.

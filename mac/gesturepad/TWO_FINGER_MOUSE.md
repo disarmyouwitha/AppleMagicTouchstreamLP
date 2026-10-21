@@ -1,5 +1,8 @@
 # Two-finger mouse with Trackpad Takeover
 
+**Current gesture rules:** [GESTURE_ENGINE.md](GESTURE_ENGINE.md) is the central
+behavior specification. This file supplies feature-specific detail and history.
+
 Added 2026-10-20, GesturePad only. The user confirmed the accelerated response
 on hardware and accepted it as the default alongside Trackpad Takeover. The
 contact-to-count conversion remains a measured experiment, not a claim that all

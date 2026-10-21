@@ -111,6 +111,18 @@ struct ContentView: View {
                 Text(String(format: "%.2f×", hidBlackhole.pointerSensitivity))
                     .font(.caption).monospacedDigit()
             }
+            Toggle("2-finger tap to click", isOn: Binding(
+                get: { hidBlackhole.twoFingerTapEnabled },
+                set: { hidBlackhole.setTwoFingerTapEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .help("A short stationary two-finger tap makes a primary click when both fingers lift.")
+            if takeoverPreference.enabled && hidBlackhole.twoFingerTapEnabled
+                && hidBlackhole.twoFingerTapStatus != "Active" {
+                Text(hidBlackhole.twoFingerTapStatus)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
             HStack(spacing: 12) {
                 Toggle("4-finger scroll", isOn: Binding(
                     get: { hidBlackhole.fourFingerScrollEnabled },

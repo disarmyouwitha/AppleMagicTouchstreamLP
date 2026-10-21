@@ -1,5 +1,8 @@
 # Four-finger scroll
 
+**Current gesture rules:** [GESTURE_ENGINE.md](GESTURE_ENGINE.md) is the central
+behavior specification. This file supplies feature-specific detail and history.
+
 Added to GesturePad on 2026-10-20 at the user's request, after hardware acceptance
 of accelerated, latched two-finger mouse movement. This is the first scroll
 hardware test, aimed at native Magic Trackpad acceleration and fine control.
