@@ -9,6 +9,24 @@ into that accelerator's input counts—and how later event/display processing
 changes the result. We have a working measurement harness and one usable native
 recording, not a proven reproduction of Apple's complete trackpad behavior.
 
+## Live experiment now available
+
+GesturePad now uses the hardware-accepted Apple-source acceleration by default
+with Trackpad Takeover and its 2-finger mouse control. The response selector has
+been removed; Fixed 6 pt/mm remains an offline diagnostic comparison. This uses a Swift numerical model of the
+published parametric branch, reading each selected pad's available settings.
+Sensitivity scales the explicit `resolution / 25.4` contact-mm-to-count
+hypothesis before acceleration. It does not claim to reproduce the unpublished
+contact processing or effective service-filter overrides.
+
+The new `left_normal_right_takeover.atpcap` recording exercises the shared pure
+motion engine offline. Its 328 frames contain only the right pad's contacts,
+without native cursor samples, so it cannot calibrate the model. At 1.00× this
+capture produces substantially more travel than Fixed. Numerical vectors and
+read-only registry checks pass; the user has confirmed the live accelerated feel. See
+[TWO_FINGER_MOUSE.md](TWO_FINGER_MOUSE.md) for controls, measured replay output
+and acceptance steps.
+
 ## 1. Sources and scope
 
 Source revision examined: IOHIDFamily commit

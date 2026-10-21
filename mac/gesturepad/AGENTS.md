@@ -137,3 +137,33 @@ baseline resets; replay never posts. Existing fixed 6 pt/mm centroid sensitivity
 is provisional, separate from Apple-source acceleration research. Do not add
 click/drag/scroll/pinch/keyboard output incidentally. See TWO_FINGER_MOUSE.md.
 Do not activate the test during automated verification or launch the live app.
+
+
+## Live acceleration comparison (2026-10-20; user-authorized continuation)
+
+The user approved moving on from the working fixed two-finger mouse to a live
+acceleration test. Keep Apple acceleration (test) and Fixed comparison modes,
+process-local sensitivity, and mouse default-off on launch. PointerAcceleration
+is a pure independent parametric model shared by live movement and offline
+capture tests. The resolution/25.4 counts-per-mm conversion is provisional.
+Registry settings are read on the control path only, never inside raw callbacks;
+missing/unsupported profiles pause Apple output rather than silently switching.
+Mode/sensitivity changes reset baselines. Preserve selected-and-owned/live-only
+movement gating and all existing release safeguards. No incidental button,
+scroll or keyboard synthesis. Do not launch the app or activate hardware tests
+automatically. See TWO_FINGER_MOUSE.md for replay evidence and limitations.
+
+
+## Accepted acceleration defaults (2026-10-20; supersedes test opt-in/UI above)
+
+The user hardware-tested and accepted acceleration, requesting default activation
+with Trackpad Takeover. Two-finger mouse now defaults true on process launch;
+it remains gated by takeover enabled, selected-and-owned IDs, transition arming
+and Accessibility. A fresh explicit takeover enable rechecks the mouse control;
+manual mouse-off survives selection/sleep/replay transitions until the next
+explicit takeover enable or process launch. Startup does not prompt for permission.
+Takeover retains its persistent default-off-until-opt-in preference. The response
+picker and ordinary status counters are removed; acceleration is the app response,
+sensitivity sits next to the mouse checkbox, and actionable failure/waiting
+messages remain. Preserve the numerical model and offline Fixed comparison.
+Do not automatically launch or activate hardware during verification.

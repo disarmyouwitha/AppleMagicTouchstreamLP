@@ -284,33 +284,58 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var nativeFilterActive = false
     @Published private(set) var nativeFilterStatus = "Off. Take over the currently selected trackpads."
     private var nativeFilterTimer: Timer?
-    @Published private(set) var twoFingerMouseEnabled = false
+    @Published private(set) var twoFingerMouseEnabled = true
     @Published private(set) var twoFingerMouseStatus = "Off"
+    @Published private(set) var pointerSensitivity = 1.0
+    private var nativeMouseDevices: [OMSDeviceInfo] = []
+    private var nativeMouseProfiles: [UInt64:ApplePointerAccelerationProfile] = [:]
+    private var nativeMouseProfileError: String?
     private var nativeMouseSelectedIDs: Set<UInt64> = []
     private var nativeMouseOwnedIDs: Set<UInt64> = []
     private var nativeMouseArmed = false
-    private var nativeMousePermissionDenied = false
+
+    func setTrackpadTakeoverEnabled(_ enabled: Bool) {
+        // A fresh explicit takeover opt-in includes the accepted pointer behavior.
+        // Selection/wake/replay transitions preserve any manual mouse override.
+        if enabled && !takeoverPreference.enabled { setTwoFingerMouseEnabled(true) }
+        takeoverPreference.setEnabled(enabled)
+    }
 
     func setTwoFingerMouseEnabled(_ enabled: Bool) {
-        if enabled && !AXIsProcessTrusted() {
-            nativeMousePermissionDenied = true
-            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-            twoFingerMouseStatus = "Enable Accessibility for GesturePad, then check again."
-            return
-        }
-        nativeMousePermissionDenied = false
         twoFingerMouseEnabled = enabled
         nativeMouseArmed = enabled
+        if enabled {
+            reloadNativeMouseProfiles()
+            if !AXIsProcessTrusted() {
+                _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
+            }
+        }
         InterpretedTrackpadPointer.shared.resetBaseline()
         updateNativeMouseOutput()
     }
 
-    func configureNativeMouseSelection(_ ids: [UInt64]) {
-        let next = Set(ids)
+    func setPointerSensitivity(_ value: Double) {
+        pointerSensitivity = value.isFinite ? min(2,max(0.25,value)) : 1
+        updateNativeMouseOutput()
+    }
+
+    private func reloadNativeMouseProfiles() {
+        nativeMouseProfiles = [:]; nativeMouseProfileError = nil
+        do {
+            for device in nativeMouseDevices {
+                nativeMouseProfiles[device.deviceIDNumeric] = try InstalledPointerCurveReader.read(device:device)
+            }
+        } catch { nativeMouseProfileError = error.localizedDescription }
+    }
+
+    func configureNativeMouseSelection(_ devices: [OMSDeviceInfo]) {
+        nativeMouseDevices = devices
+        let next = Set(devices.map(\.deviceIDNumeric))
         if next != nativeMouseSelectedIDs {
             InterpretedTrackpadPointer.shared.resetBaseline()
             nativeMouseSelectedIDs = next
         }
+        reloadNativeMouseProfiles()
         updateNativeMouseOutput()
     }
 
@@ -321,9 +346,13 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     private func updateNativeMouseOutput() {
         let trusted = !twoFingerMouseEnabled || AXIsProcessTrusted()
-        let devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
+        var devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
             armed: nativeMouseArmed, takeoverEnabled: takeoverPreference.enabled,
             trusted: trusted, selected: nativeMouseSelectedIDs, owned: nativeMouseOwnedIDs)
+        let missingCurve = !devices.isSubset(of:Set(nativeMouseProfiles.keys))
+        if missingCurve { devices = [] }
+        InterpretedTrackpadPointer.shared.configure(response:.apple,
+            sensitivity:pointerSensitivity,profiles:nativeMouseProfiles)
         if devices.isEmpty {
             InterpretedTrackpadPointer.shared.stop()
         } else {
@@ -331,11 +360,11 @@ final class HIDBlackholeExperiment: ObservableObject {
             // baselines for an unchanged selected native-ID set.
             InterpretedTrackpadPointer.shared.enable(devices: devices)
         }
-        if !twoFingerMouseEnabled { twoFingerMouseStatus = nativeMousePermissionDenied
-            ? "Enable Accessibility for GesturePad, then check again." : "Off" }
+        if !twoFingerMouseEnabled { twoFingerMouseStatus = "Off" }
         else if !trusted { twoFingerMouseStatus = "Paused: Accessibility permission required." }
+        else if missingCurve { twoFingerMouseStatus = nativeMouseProfileError ?? "Paused: tracking profile unavailable." }
         else if !devices.isEmpty {
-            twoFingerMouseStatus = "Active · 6 pt/mm · \(InterpretedTrackpadPointer.shared.postedEventCount) moves posted"
+            twoFingerMouseStatus = "Active"
         } else { twoFingerMouseStatus = "Waiting for selected trackpads in Trackpad Takeover." }
     }
 
@@ -1526,6 +1555,10 @@ struct TwoFingerPointerTracker {
         process(device: device, time: time, contacts: touches)
     }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
+        guard let mm = millimetres(device:device,time:time,contacts:contacts) else { return nil }
+        return CGPoint(x:mm.x*6,y:mm.y*6)
+    }
+    mutating func millimetres<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
         var first: OMSRawTouch?, second: OMSRawTouch?
         var count = 0
         for touch in contacts where touch.state == .making || touch.state == .touching {
@@ -1545,10 +1578,10 @@ struct TwoFingerPointerTracker {
         let old = baselines.updateValue(next, forKey: device)
         guard let old, old.first == next.first, old.second == next.second,
               time > old.time, time - old.time < 0.15 else { return nil }
-        // Provisional constant gain: 6 screen points per mm on a 160 x 114.9 mm pad.
-        let delta = CGPoint(x: (point.x - old.point.x) * 160 * 6,
-                            y: -(point.y - old.point.y) * 114.9 * 6)
-        guard abs(delta.x) < 150, abs(delta.y) < 150 else { return nil }
+        // Explicit surface-size assumption shared by Fixed and Apple test modes.
+        let delta = CGPoint(x: (point.x - old.point.x) * 160,
+                            y: -(point.y - old.point.y) * 114.9)
+        guard abs(delta.x) < 25, abs(delta.y) < 25 else { return nil }
         return delta
     }
 }
@@ -1557,11 +1590,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     static let shared = InterpretedTrackpadPointer()
     private struct State {
         var devices: Set<UInt64> = []
-        var tracker = TwoFingerPointerTracker()
+        var tracker = TwoFingerPointerMotionEngine()
         var displayBounds: [CGRect] = []
         var postedEvents: UInt64 = 0
     }
     private let lock = OSAllocatedUnfairLock(initialState: State())
+    func configure(response: TwoFingerPointerResponse, sensitivity: Double,
+                   profiles: [UInt64:ApplePointerAccelerationProfile]) {
+        lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles) }
+    }
     func enable(devices: Set<UInt64>) {
         var displays = [CGDirectDisplayID](repeating: 0, count: 16)
         var count: UInt32 = 0

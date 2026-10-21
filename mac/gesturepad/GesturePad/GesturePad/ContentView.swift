@@ -102,7 +102,17 @@ struct ContentView: View {
                 ))
                 .toggleStyle(.checkbox)
                 .fixedSize()
-                .help("Experimental two-finger pointer at fixed sensitivity. Requires Trackpad Takeover and Accessibility. No click, drag, pinch or scroll output.")
+                .help("Two-finger pointer with acceleration. Requires Trackpad Takeover and Accessibility. No click, drag, pinch or scroll output.")
+                Text("Sensitivity").font(.caption)
+                Slider(value: Binding(get: { hidBlackhole.pointerSensitivity },
+                    set: { hidBlackhole.setPointerSensitivity($0) }), in: 0.25...2, step: 0.01)
+                    .frame(width: 90)
+                    .help("Adjusts pointer sensitivity before acceleration.")
+                Text(String(format: "%.2f×", hidBlackhole.pointerSensitivity))
+                    .font(.caption).monospacedDigit()
+            }
+            if takeoverPreference.enabled && hidBlackhole.twoFingerMouseEnabled
+                && hidBlackhole.twoFingerMouseStatus != "Active" {
                 Text(hidBlackhole.twoFingerMouseStatus)
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -118,7 +128,7 @@ struct ContentView: View {
         HStack(spacing: 12) {
             Toggle("Trackpad Takeover", isOn: Binding(
                 get: { takeoverPreference.enabled },
-                set: { takeoverPreference.setEnabled($0) }
+                set: { hidBlackhole.setTrackpadTakeoverEnabled($0) }
             ))
             .toggleStyle(.checkbox)
             .fixedSize()

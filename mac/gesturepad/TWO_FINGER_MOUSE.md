@@ -1,27 +1,35 @@
-# Opt-in two-finger mouse test
+# Two-finger mouse with Trackpad Takeover
 
-Added 2026-10-20, GesturePad only. This is the small live movement test after the
-[acceleration investigation](POINTER_ACCELERATION.md), using fixed sensitivity
-rather than claiming a calibrated Apple transfer function.
+Added 2026-10-20, GesturePad only. The user confirmed the accelerated response
+on hardware and accepted it as the default alongside Trackpad Takeover. The
+contact-to-count conversion remains a measured experiment, not a claim that all
+native Apple processing has been reconstructed.
 
-## Use
+## Use (accepted defaults)
 
 1. Launch GesturePad and select the pads to use.
-2. Enable **Trackpad Takeover**.
-3. Check **2-finger mouse**. If requested, grant GesturePad Accessibility permission
-   in System Settings and check the box again.
-4. Move two fingers together on a selected pad. The status reports movement events
-   posted. A separate mouse/keyboard is useful for clicking during this test.
+2. Enable **Trackpad Takeover**. **2-finger mouse** defaults on and uses the
+   accepted Apple-source acceleration automatically, starting at **1.00×**.
+3. Move two fingers together on a selected pad. Adjust **Sensitivity** alongside
+   the mouse checkbox. No Response picker or normal status counter is displayed;
+   actionable permission/profile/waiting messages remain visible below the row.
 
 Uncheck **2-finger mouse** to stop synthetic movement while keeping takeover.
-Uncheck **Trackpad Takeover**, or press **Ctrl-Option-R**, to release native input.
-The mouse checkbox then waits for takeover rather than posting through ordinary
-native input. If it remains checked, enabling takeover again resumes the test.
+That override survives selection, Config rebuild, sleep and replay in the same
+process. A fresh explicit takeover enable checks it again. Restored takeover on
+a new process launch also uses the default enabled mouse behavior. There is no
+movement without current selected-and-owned FLTR devices, successful transition
+arming and Accessibility approval. Missing permission pauses output; checking
+the mouse/takeover control can request the existing Accessibility permission.
+Startup does not show an unsolicited permission prompt.
 
-The mouse checkbox is **off on a new process launch**; it is not saved in defaults.
-Closing/reopening Config preserves the current process state. The existing
-in-process Restart while takeover is enabled also preserves that test state.
-The takeover checkbox retains its own existing persistent preference.
+Uncheck **Trackpad Takeover**, or press **Ctrl-Option-R**, to release native input.
+The takeover checkbox retains its existing persistent opt-in preference (default
+off for a new user). Config close/reopen and the existing in-process Restart
+preserve the current state. Sensitivity remains process-local and starts at 1.00×.
+The previous Fixed response is retained in the pure offline diagnostic model,
+without a production response selector. The numerical model is unchanged from
+the hardware-accepted release.
 
 ## Behavior and boundaries
 
@@ -29,10 +37,12 @@ The takeover checkbox retains its own existing persistent preference.
   deltas. Hover/start-in-range alone is insufficient. Classified palm contacts are
   rejected. One, three or four active contacts reset the baseline and do not move
   the pointer.
-- Sensitivity is provisionally **6 Quartz points per mm**, using the app's existing
-  160 × 114.9 mm surface dimensions. X/Y come from successive two-contact centroids;
-  Y is inverted for Quartz coordinates. This is the earlier tracker's fixed-gain
-  behavior, not the Apple-source acceleration model.
+- Both modes use the existing 160 × 114.9 mm surface-size assumption and
+  successive two-contact centroids, with Y inverted for Quartz coordinates.
+  Fixed produces **6 Quartz points per mm × sensitivity**. Apple mode converts
+  mm to experimental counts using **resolution / 25.4 × sensitivity**, then
+  evaluates the independent parametric model documented below. That conversion
+  is an explicit hypothesis, not a recovered native multitouch algorithm.
 - First contact pair establishes a baseline. Contact-ID/count changes, selection
   changes, stale/non-increasing timestamps, release and oversized deltas prevent
   carry-over jumps. Baselines are independent per native numeric device ID.
@@ -77,9 +87,63 @@ These checks have not been automated on hardware. `./test.sh` covers tracker
 translation/direction/reset behavior, hover/count/ID rejection, pinch centroid,
 large jumps and pure ownership/permission/selection gating without posting events.
 
-Calibrated Apple-style acceleration should be a separately testable change after
-this gesture/input/output path works well. See POINTER_ACCELERATION.md for the
-remaining unit-conversion, timing and event-posting questions.
+## Apple acceleration experiment (2026-10-20)
+
+`Runtime/PointerAcceleration.swift` ports the numerical parametric equations
+studied in [POINTER_ACCELERATION.md](POINTER_ACCELERATION.md), independently of
+Apple's implementation files. It includes signed 16.16 decoding, indexed curve
+interpolation, polynomial/linear/root regions, floored radial magnitude, pointer
+report-rate normalization and the non-unit fixed-multiplier branch.
+
+Each selected pad's registry entry supplies resolution, curves, multiplier and
+report rate; trackpad tracking index falls back to IOHIDSystem HIDParameters when
+absent on the provider. User parametric curves take precedence over provider
+curves. Reads happen on selection and mouse enable, outside callbacks.
+Toggle the mouse checkbox off/on to reload changed system settings. Unsupported
+or missing parametric settings pause output with a status message; there is no
+silent fixed-gain fallback. Table curves,
+algorithm overrides and third-party service-filter effects are not reproduced.
+
+Timing/baseline history is independent per pad. Changing response or sensitivity
+re-anchors before producing movement; finger-count/identity changes and existing
+release/transition gates remain. Physical jumps of 25 mm per axis and output
+jumps of 150 points per axis are rejected and re-anchored, not accumulated.
+Sensitivity is a pre-acceleration input scale in Apple mode; it changes curve
+engagement as well as travel. It does not write macOS tracking settings.
+
+### New user capture
+
+`RewriteValidation/captures/left_normal_right_takeover.atpcap` is a version-5
+capture with 328 frames over 4.995 seconds, all from native device
+`288230377507875157` (right Bluetooth pad). 309 frames contain two contacts,
+13 contain one and 6 contain none. It contains neither a left-pad comparison
+stream nor native cursor ground truth, despite the filename.
+
+The production pure motion engine was replayed offline with the installed
+400-resolution/index-3/fixed-multiplier-0.740737915 profile at 1.00×:
+
+| Response | Accepted movement frames | Integrated path (points) | Peak vector (points) |
+| --- | ---: | ---: | ---: |
+| Fixed 6 pt/mm | 285 | 2020.00 | 15.36 |
+| Apple acceleration (test) | 282 | 13703.68 | 147.82 |
+
+Apple mode's additional three rejected frames hit the output jump guard. The
+large gain difference motivates the sensitivity slider and retained offline
+Fixed comparison; these figures do not establish native equivalence. Start
+with short slow strokes when testing, then compare faster travel. If it is too
+fast, reduce sensitivity and report the chosen value.
+
+`ApplePointerAccelerationTests` checks analytic region boundaries, independent
+Python reference vectors, timing/multiplier behavior, interpolation, reset
+behavior and this capture through the same pure engine used live. Optional
+`POINTER_PROFILE_REGISTRY_ID=<id> ./test.sh --filter ApplePointerAccelerationTests`
+adds a read-only registry-profile check. Set `POINTER_REPLAY_REPORT` to an output
+JSON path to save capture metrics. No test opens a FLTR session or posts events.
+The local capture test skips when that unbundled recording is unavailable.
+
+The user confirmed the live accelerated feel works well. Further cross-device
+calibration of the contact-to-count hypothesis remains separate work. See
+POINTER_ACCELERATION.md for remaining unit-conversion and event-posting questions.
 
 
 ## Accessibility appears enabled but the checkbox refuses
