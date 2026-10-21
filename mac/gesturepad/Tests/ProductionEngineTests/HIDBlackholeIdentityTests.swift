@@ -100,13 +100,13 @@ final class TwoFingerPointerTests: XCTestCase {
         XCTAssertEqual(delta!.x, 9.6, accuracy: 0.001)
         XCTAssertEqual(delta!.y, -6.894, accuracy: 0.001)
     }
-    func testSingleFingerExtraFingerAndReplacementResetBaseline() {
+    func testSingleFingerActivationAndContinuingContactsAcrossMembershipChanges() {
         var tracker = TwoFingerPointerTracker()
         XCTAssertNil(tracker.process(device: 1, time: 1, contacts: [touch(1, 0.2)]))
         XCTAssertNil(tracker.process(device: 1, time: 1.01, contacts: [touch(1, 0.21), touch(2, 0.4)]))
-        XCTAssertNil(tracker.process(device: 1, time: 1.02, contacts: [touch(1, 0.22), touch(2, 0.4), touch(3, 0.6)]))
-        XCTAssertNil(tracker.process(device: 1, time: 1.03, contacts: [touch(1, 0.23), touch(2, 0.4)]))
-        XCTAssertNil(tracker.process(device: 1, time: 1.04, contacts: [touch(1, 0.24), touch(4, 0.4)]))
+        XCTAssertEqual(tracker.process(device: 1, time: 1.02, contacts: [touch(1, 0.22), touch(2, 0.4), touch(3, 0.6)])!.x, 4.8, accuracy:0.001)
+        XCTAssertEqual(tracker.process(device: 1, time: 1.03, contacts: [touch(1, 0.23), touch(2, 0.4)])!.x, 4.8, accuracy:0.001)
+        XCTAssertEqual(tracker.process(device: 1, time: 1.04, contacts: [touch(1, 0.24), touch(4, 0.4)])!.x, 9.6, accuracy:0.001)
     }
     func testIndependentDevicesStaleFramesAndReleaseDoNotJump() {
         var tracker = TwoFingerPointerTracker()

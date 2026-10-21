@@ -74,6 +74,20 @@ final class ApplePointerAccelerationTests: XCTestCase {
         _ = engine.process(device:2,time:1.05,contacts:pair)
         XCTAssertNil(engine.process(device:2,time:1.06,contacts:moved))
     }
+    func testAcceleratedMouseContinuesWithOneFingerAndEndsOnAllUp() throws {
+        var engine = TwoFingerPointerMotionEngine()
+        engine.configure(response: .apple, sensitivity: 1, profiles: [1:try installedExample()])
+        _ = engine.process(device: 1, time: 1, contacts: [touch(1,0.2),touch(2,0.4)])
+        XCTAssertNotNil(engine.process(device: 1, time: 1.01, contacts: [touch(1,0.201),touch(2,0.401)]))
+        XCTAssertEqual(engine.process(device: 1, time: 1.02, contacts: [touch(2,0.401)]),.zero)
+        let continued = try XCTUnwrap(engine.process(device: 1, time: 1.03, contacts: [touch(2,0.402)]))
+        XCTAssertGreaterThan(continued.x,0)
+        XCTAssertLessThan(continued.x,150)
+        XCTAssertNil(engine.process(device: 1, time: 1.04, contacts: [OMSRawTouch]()))
+        XCTAssertNil(engine.process(device: 1, time: 1.05, contacts: [touch(2,0.403)]))
+        XCTAssertNil(engine.process(device: 1, time: 1.06, contacts: [touch(2,0.404)]))
+    }
+
     func testInstalledProfileReadOnlyWhenExplicitlyRequested() throws {
         guard let raw = ProcessInfo.processInfo.environment["POINTER_PROFILE_REGISTRY_ID"],let id = UInt64(raw) else {
             throw XCTSkip("Optional read-only registry smoke check; not part of ordinary offline tests.")

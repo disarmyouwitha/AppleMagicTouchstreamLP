@@ -167,3 +167,31 @@ picker and ordinary status counters are removed; acceleration is the app respons
 sensitivity sits next to the mouse checkbox, and actionable failure/waiting
 messages remain. Preserve the numerical model and offline Fixed comparison.
 Do not automatically launch or activate hardware during verification.
+
+
+## Gesture latching (2026-10-20; supersedes exact-count continuation)
+
+The user requested FingerWorks-style latching as a rule for future gesture work.
+Activation and continuation are separate: two active fingers initiate mouse mode;
+one remaining finger continues it until all contacts lift or explicit safety
+cancellation. Count/ID changes re-anchor motion, rather than producing centroid
+jumps or requiring the starting chord again. Three-plus contacts pause mouse
+motion but retain an existing latch; they do not initiate one. Sessions are
+per physical native device ID. Preserve stale/invalid/palm cancellation and all
+selection/release/lifecycle reset paths. Future recognizers must define activation,
+continuation, completion and cancellation explicitly and arbitrate an existing
+session before recognizing a new gesture. See GESTURE_ENGINE.md. This rule does
+not authorize new output types or a broad engine rewrite.
+
+
+## Any-count mouse continuation (2026-10-20; supersedes extra-finger pause)
+
+The user tested original FingerWorks hardware: the mouse latch also continues
+through added fingers (2→3→4). After exactly two activate, any positive active
+count continues. Do not pause/reclassify on count changes. Average displacement
+of contact IDs common to consecutive frames; newly added fingers establish their
+baseline, lifted fingers contribute nothing. This avoids both centroid jumps
+and a transition-frame motion pause. All-up, no shared IDs or existing explicit
+safety/lifecycle cancellation ends the old session. Fixed inline contact storage
+avoids hot-path arrays/sets; duplicate IDs/capacity overflow cancel safely. Keep
+future gesture activation separate from continuation. See GESTURE_ENGINE.md.

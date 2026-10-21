@@ -33,19 +33,27 @@ the hardware-accepted release.
 
 ## Behavior and boundaries
 
-- Exactly two active (`making`/`touching`) contacts on the same pad supply centroid
-  deltas. Hover/start-in-range alone is insufficient. Classified palm contacts are
-  rejected. One, three or four active contacts reset the baseline and do not move
-  the pointer.
+- Exactly two active (`making`/`touching`) contacts start a per-pad mouse latch.
+  After activation, either remaining finger continues mousing until all fingers
+  lift. One finger alone cannot start a new mouse session. Hover/start-in-range
+  alone is insufficient; classified palms cancel the session.
+- Once latched, any positive active finger count continues mousing, including
+  2→3→4→1. Match IDs across frames and average continuing fingers' displacement.
+  New fingers establish a baseline before participating; lifted fingers are
+  excluded immediately. Stable membership equals centroid motion, while changes
+  do not add landing-position jumps or pause output. Only all-up or explicit
+  cancellation ends the mouse session; additional fingers do not start a new
+  gesture.
 - Both modes use the existing 160 × 114.9 mm surface-size assumption and
   successive two-contact centroids, with Y inverted for Quartz coordinates.
   Fixed produces **6 Quartz points per mm × sensitivity**. Apple mode converts
   mm to experimental counts using **resolution / 25.4 × sensitivity**, then
   evaluates the independent parametric model documented below. That conversion
   is an explicit hypothesis, not a recovered native multitouch algorithm.
-- First contact pair establishes a baseline. Contact-ID/count changes, selection
-  changes, stale/non-increasing timestamps, release and oversized deltas prevent
-  carry-over jumps. Baselines are independent per native numeric device ID.
+- First contact pair establishes a baseline. Contact-ID/count changes use continuing contacts; oversized deltas re-anchor motion. All-up,
+  explicit resets, invalid/palm data and stale/non-increasing timestamps cancel
+  the latch. No shared contact IDs also cancels it, covering a missed
+  all-up frame. Sessions are independent per native numeric device ID.
 - Only the intersection of the current selected IDs and actually owned FLTR IDs
   can produce movement. A failed transition's extra retained ownership is not an
   output source. No reusable device-index slot is used to choose a source.
@@ -74,8 +82,11 @@ selected-device native FLTR validation, rollback and emergency release remain.
 
 With another input device available, check:
 
-- One finger does not move the pointer; two coherent fingers do.
-- Lifting/replacing fingers or switching to three/four fingers does not jump.
+- One finger alone cannot start mousing; two coherent fingers do.
+- Start with two, lift either one, and continue moving with the survivor.
+- Add fingers through two, three and four: continuous movement without landing jumps.
+- Lift all, then place one: it cannot resume until a two-finger chord starts again.
+- Remove fingers from four down to one: continue without count-change jumps.
 - The same pair works independently on each selected pad.
 - Changing BT/USB selection stops the old source and anchors the new one.
 - Unchecking the mouse checkbox stops movement immediately; unchecking takeover
@@ -104,9 +115,9 @@ or missing parametric settings pause output with a status message; there is no
 silent fixed-gain fallback. Table curves,
 algorithm overrides and third-party service-filter effects are not reproduced.
 
-Timing/baseline history is independent per pad. Changing response or sensitivity
-re-anchors before producing movement; finger-count/identity changes and existing
-release/transition gates remain. Physical jumps of 25 mm per axis and output
+Timing/baseline history is independent per pad. Changing sensitivity re-anchors
+before producing movement; existing release/transition gates remain. Membership
+changes use matched-contact displacement to preserve smooth continuation. Physical jumps of 25 mm per axis and output
 jumps of 150 points per axis are rejected and re-anchored, not accumulated.
 Sensitivity is a pre-acceleration input scale in Apple mode; it changes curve
 engagement as well as travel. It does not write macOS tracking settings.
@@ -119,7 +130,7 @@ capture with 328 frames over 4.995 seconds, all from native device
 13 contain one and 6 contain none. It contains neither a left-pad comparison
 stream nor native cursor ground truth, despite the filename.
 
-The production pure motion engine was replayed offline with the installed
+Before latching was added, the production pure motion engine was replayed offline with the installed
 400-resolution/index-3/fixed-multiplier-0.740737915 profile at 1.00×:
 
 | Response | Accepted movement frames | Integrated path (points) | Peak vector (points) |
@@ -141,7 +152,9 @@ adds a read-only registry-profile check. Set `POINTER_REPLAY_REPORT` to an outpu
 JSON path to save capture metrics. No test opens a FLTR session or posts events.
 The local capture test skips when that unbundled recording is unavailable.
 
-The user confirmed the live accelerated feel works well. Further cross-device
+The user confirmed the live accelerated feel works well. The later latching
+change has offline regression coverage and awaits hardware acceptance. See
+[GESTURE_ENGINE.md](GESTURE_ENGINE.md) for the shared session rule. Further cross-device
 calibration of the contact-to-count hypothesis remains separate work. See
 POINTER_ACCELERATION.md for remaining unit-conversion and event-posting questions.
 

@@ -61,6 +61,8 @@ final class ReplayTouchEngineScheduler: TouchEngineScheduler, @unchecked Sendabl
 
 /// Raw-contact playground. No GTK recognizers, chords, key layout, or output actions.
 /// Add FingerWorks recognition here; live input and replay share processContacts.
+/// Gesture sessions separate activation from continuation and latch until all-up
+/// or explicit cancellation. See GESTURE_ENGINE.md before adding recognizers.
 final class TouchProcessorEngine: @unchecked Sendable {
     typealias KeyBinding = ContentViewModel.KeyBinding
     typealias Layout = ContentViewModel.Layout

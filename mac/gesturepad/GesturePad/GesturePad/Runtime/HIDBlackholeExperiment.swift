@@ -1545,12 +1545,20 @@ final class InterfaceTouchEvidence: @unchecked Sendable {
 }
 
 // Shared tracker/output used by the opt-in native FLTR mouse test and legacy diagnostics.
-/// Experimental two-contact relative pointer; per-device baselines never cross pads.
+/// Two contacts activate a per-pad mouse latch; any positive count can continue.
 struct TwoFingerPointerTracker {
-    struct Baseline { let first: Int32; let second: Int32; let point: CGPoint; let time: Double }
-    private var baselines: [UInt64: Baseline] = Dictionary(minimumCapacity: 2)
-    mutating func reset() { baselines.removeAll(keepingCapacity: true) }
-    mutating func reset(device: UInt64) { baselines[device] = nil }
+    // Fixed storage avoids per-frame arrays/sets on the contact callback. This
+    // exceeds the supported pads' finger capacity; overflow cancels safely.
+    struct Baseline {
+        var ids = SIMD16<Int32>(repeating: 0)
+        var x = SIMD16<Double>(repeating: 0)
+        var y = SIMD16<Double>(repeating: 0)
+        var count = 0
+        var time: Double
+    }
+    private var sessions: [UInt64: Baseline] = Dictionary(minimumCapacity: 2)
+    mutating func reset() { sessions.removeAll(keepingCapacity: true) }
+    mutating func reset(device: UInt64) { sessions[device] = nil }
     mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
         process(device: device, time: time, contacts: touches)
     }
@@ -1559,28 +1567,47 @@ struct TwoFingerPointerTracker {
         return CGPoint(x:mm.x*6,y:mm.y*6)
     }
     mutating func millimetres<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
-        var first: OMSRawTouch?, second: OMSRawTouch?
-        var count = 0
+        guard time.isFinite else { sessions[device] = nil; return nil }
+        var next = Baseline(time: time)
         for touch in contacts where touch.state == .making || touch.state == .touching {
-            count += 1
-            if count > 2 || touch.telemetry?.fingerID == 6 {
-                baselines.removeValue(forKey: device); return nil
+            guard next.count < 16, touch.telemetry?.fingerID != 6,
+                  touch.posX.isFinite, touch.posY.isFinite else {
+                sessions[device] = nil; return nil
             }
-            if first == nil { first = touch } else { second = touch }
+            for index in 0..<next.count where next.ids[index] == touch.id {
+                sessions[device] = nil; return nil
+            }
+            let index = next.count
+            next.ids[index] = touch.id
+            next.x[index] = Double(touch.posX); next.y[index] = Double(touch.posY)
+            next.count += 1
         }
-        guard count == 2, let a = first, let b = second,
-              a.id != b.id, time.isFinite,
-              a.posX.isFinite, a.posY.isFinite, b.posX.isFinite, b.posY.isFinite else {
-            baselines.removeValue(forKey: device); return nil
+        guard next.count > 0 else { sessions[device] = nil; return nil }
+        guard let old = sessions[device], time > old.time, time - old.time < 0.15 else {
+            // Activation still requires exactly two; stale chronology cancels.
+            sessions[device] = next.count == 2 ? next : nil
+            return nil
         }
-        let point = CGPoint(x: Double(a.posX + b.posX) / 2, y: Double(a.posY + b.posY) / 2)
-        let next = Baseline(first: min(a.id, b.id), second: max(a.id, b.id), point: point, time: time)
-        let old = baselines.updateValue(next, forKey: device)
-        guard let old, old.first == next.first, old.second == next.second,
-              time > old.time, time - old.time < 0.15 else { return nil }
-        // Explicit surface-size assumption shared by Fixed and Apple test modes.
-        let delta = CGPoint(x: (point.x - old.point.x) * 160,
-                            y: -(point.y - old.point.y) * 114.9)
+        var dx = 0.0, dy = 0.0, shared = 0
+        for index in 0..<next.count {
+            for previous in 0..<old.count where next.ids[index] == old.ids[previous] {
+                dx += next.x[index] - old.x[previous]
+                dy += next.y[index] - old.y[previous]
+                shared += 1
+                break
+            }
+        }
+        guard shared > 0 else {
+            // All old IDs disappeared, even if an all-up frame was missed.
+            sessions[device] = next.count == 2 ? next : nil
+            return nil
+        }
+        sessions[device] = next
+        // Use only continuing contacts for this interval. New fingers establish
+        // their own baseline and cannot cause a centroid jump when joining.
+        // On stable membership this equals the centroid's displacement.
+        let delta = CGPoint(x: dx / Double(shared) * 160,
+                            y: -dy / Double(shared) * 114.9)
         guard abs(delta.x) < 25, abs(delta.y) < 25 else { return nil }
         return delta
     }
