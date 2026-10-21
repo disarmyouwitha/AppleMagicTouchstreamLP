@@ -1,232 +1,299 @@
 # FingerWorks implementation plan
 
-Current checkout review · 2026-10-18
+Current implementation and research review · **2026-10-20**.
 
-This is the cross-project status and work order. The detailed recognition and
-editable-layout design lives in the [GlassToKey rewrite guide](GlassToKey/GLASSTOKEY_REWRITE_GUIDE.md).
-A proposed state machine or recovered firmware routine is not an implemented
-TouchStream recognizer. Keep source evidence, implemented behavior and physical
-validation separate.
+This is the cross-project status and next-work plan. GesturePad's
+[gesture engine rules](gesturepad/GESTURE_ENGINE.md) are the central specification
+for implemented gestures, thresholds, arbitration and lifecycle. The
+[GlassToKey rewrite guide](GlassToKey/GLASSTOKEY_REWRITE_GUIDE.md) preserves useful
+firmware-backed design evidence and proposed typing/spatial architecture; its
+older project/status language is not the current implementation inventory.
 
-## Project roles and current implementation
+Keep source evidence, proposed policy, implemented behavior, offline replay and
+hardware observations distinct. A feature that feels like TouchStream is useful
+progress, not proof that its proprietary algorithm has been reconstructed.
 
-| Project | Implemented now | Still to build or validate |
+## 1. Project roles and current implementation
+
+| Project | Implemented now | Not yet established or ported |
 | --- | --- | --- |
-| [gesturepad](gesturepad/) | Raw-contact playground; USB/Bluetooth DriverKit takeover; Compact V7 decoder; contact/pressure/path display; capture/replay; optional synthetic two-finger pointer and physical click output. | Original FingerWorks chord selection/activation and typing arbitration are not implemented. Pointer feel and transport efficiency remain experiments. |
-| [AppleMagicTouchstream](AppleMagicTouchstream/) | Keyboard bootstrap with key/modifier/shortcut output, tap/hold, repeat, layers and optional haptics; raw telemetry/capture/replay. GesturePad's takeover/session/decoder boundary is now ported into its keyboard ingestion pipeline. | The port's own USB/Bluetooth, output and lifecycle acceptance checklist remains a hardware test. Original TouchStream chords, gesture logic, English spelling correction and variable-speed typematic remain future work. |
-| [GlassToKey](GlassToKey/) | Reference GTK keyboard/gesture engine, OMS ingestion, layout editing, haptics/autocorrect and production recognition replay with virtual deadlines. | DriverKit takeover is not ported here. New FingerWorks candidate/cohort/ownership boundaries and adaptive spatial decoding remain design work. |
+| [GesturePad](gesturepad/) | Selected-pad native FLTR takeover; persistent default-off-until-opt-in takeover checkbox; automatic restoration after opt-in; live contact/pressure/path display and capture/replay; accelerated two-finger mouse, four-finger precise scroll with momentum, and two-finger primary tap click. | Full FingerWorks chord selection, anatomical classification, typing arbitration, keyboard output and complete native-equivalent calibration. Latest tap tuning still needs broader acceptance. |
+| [AppleMagicTouchstream](AppleMagicTouchstream/) | Keyboard bootstrap: key/modifier/shortcut output, tap/hold, repeat, layers and optional haptics; native contact telemetry/capture/replay; selected-pad native FLTR takeover controls; TouchStream reference layout. | GesturePad's persistent automatic takeover and new mouse/scroll/momentum/tap engine are **not ported**. Original typing/chord arbitration, English spelling correction/BackSpace Auto-Correct and variable-speed typematic remain fidelity goals. |
+| [GlassToKey](GlassToKey/) | Reference GTK keyboard/gesture engine; native OMS ingestion; native FLTR takeover controls; layout editing/TouchStream reference layout; haptics/autocorrect; production recognition replay. | New GesturePad gesture engine and persistent automatic takeover are **not ported**. FingerWorks candidate/cohort ownership and adaptive spatial decoding remain design work. Existing GTK gestures are not evidence of TouchStream fidelity. |
 
-The old `mac_keyboard` and `mac_gesture_pad` names are retired. The temporary
-AppleMagicTouchstream rule (“key landing = typing; 3 mm travel = mouse”) is a
-bootstrap classifier, not recovered FingerWorks logic. Existing hold repeat is
-not proof of TouchStream variable-speed typematic fidelity. GesturePad has no
-keyboard output. Each project owns its sources, bridge and tests; port validated
-boundaries deliberately. Run one owning/output application at a time.
+Each project owns its source, bridge, tests and capture formats. Port deliberately
+when requested; user direction is to get GesturePad right first. Run one owning/
+output application at a time. The old `mac_keyboard` / `mac_gesture_pad` names are
+retired. The temporary AppleMagicTouchstream classifier (“key landing = typing;
+3 mm travel = mouse”) and existing repeat scaffolding are not original firmware
+reconstructions.
 
-## Pad dimensions and layout scaling
+## 2. Input ownership: current path, not the old DriverKit plan
 
-User-provided per-pad dimensions for the hardware comparison:
+The custom DriverKit implementation, helper, raw decoder integration and signing/
+provisioning flow were removed from these apps. **Do not restore them as a
+prerequisite for current gesture work.** DriverKit permission requests and old
+registry polling/notification experiments are historical research, not release
+requirements or the current data path.
+
+The working route is the native MultitouchSupport/OMS bridge, using Apple's
+undocumented FLTR client to suppress native processing on the **selected**
+supported pads while retaining contact delivery. USB and Bluetooth have both
+been confirmed on the supported model. Validation remains scoped to external
+model0324/type4 and its existing USB/Bluetooth vendor/service checks; do not
+claim arbitrary-generation support.
+
+GesturePad now:
+
+- Deduplicates left/right physical IDs, validates transitions and preserves retained
+  clients. It does not take every connected supported pad indiscriminately.
+- Allows selection and Refresh while takeover is enabled, with pause/reconciliation,
+  preflight, rollback and explicit failure status. Selecting None can release a pad.
+- Routes frames by native numeric device ID, not reusable bridge index slots.
+- Keeps the owner process and clients when Config closes or active Restart rebuilds
+  Config. There is no interprocess helper/owner-transfer lease.
+- Cancels output and releases for explicit release, quit, sleep and replay through
+  existing lifecycle rules. Restored opt-in can reacquire through reconciliation;
+  no new background reconnect scanner is implied.
+- Uses **Ctrl-Option-R** and the Release Trackpads menu for emergency release,
+  persisting takeover off. Quit preserves the preference for the next launch.
+
+AppleMagicTouchstream and GlassToKey have the earlier selected-pad native takeover
+port with explicit Takeover/Release controls, selection/refresh locking and no
+startup takeover. Do not transfer GesturePad's newer preference/selection policy
+or hardware acceptance to those apps without a deliberate port and verification.
+
+Details: [GesturePad takeover](gesturepad/TRACKPAD_TAKEOVER.md),
+[AppleMagicTouchstream takeover](AppleMagicTouchstream/TRACKPAD_TAKEOVER.md),
+[GlassToKey takeover](GlassToKey/TRACKPAD_TAKEOVER.md).
+The native route avoids the removed custom DriverKit entitlement dependency;
+it remains an undocumented API dependency and needs OS/lifecycle testing.
+
+## 3. Gesture behavior worth retaining
+
+The user directly compared FingerWorks hardware and established the interaction
+rule that **activation and continuation are separate**. Two fingers start mouse;
+additional fingers or partial lifts keep it in mouse mode until all-up. The same
+session principle is used for four-finger scroll. Counts do not reclassify an
+already owned gesture.
+
+| Feature | Current rule / evidence |
+| --- | --- |
+| Two-finger mouse | Moving two-finger chord, 0.35 mm initiation; any positive count continues. Matched contact-ID displacement prevents landing/lift centroid jumps. Accelerated feel and count latching hardware-confirmed. |
+| Four-finger scroll | Moving four-finger chord, 0.20 mm initiation; any positive count continues. Separate per-axis scroll curves/history, natural direction and precise fractional events. User reported good feel. |
+| Momentum | Included after scroll lift. Recent accelerated release velocity and analytically integrated exponential decay; new same-pad touch brakes. User reported good feel. Decay is app tuning, not recovered Apple momentum. |
+| Two-finger tap | Primary click at all-up, maximum 500 ms with bounded pair/lift skew and individual motion. Movement ownership and momentum braking suppress clicks. Latest 0.35 mm mouse threshold improved reported feel. |
+
+Mouse/scroll/tap controls default on with opted-in takeover and can be disabled
+independently. Sensitivities start at 1.00×. Every output remains live-only,
+selected-and-owned, successfully armed and Accessibility-gated. Tap requires no
+acceleration profile; mouse/scroll require their appropriate readable profiles.
+
+Do not implement a second set of threshold rules in this plan. Use
+[GESTURE_ENGINE.md](gesturepad/GESTURE_ENGINE.md), which includes the current
+threshold tables, cancellation, defaults and a template for the next recognizer.
+
+### Capture-backed tap tuning
+
+The first rapid move–tap recording reproduced six valid tap candidates losing
+to the old 0.20 mm mouse threshold. Raising only mouse initiation to 0.35 mm
+changed production replay from **19 to 25 predicted clicks**, with no clicks in
+29 clear movement cycles. The second recording predicts **22 clicks and no clicks
+in 23 movement cycles**, including ten initial stationary taps and eleven final
+no-click strokes. The old threshold would lose five of those taps. Larger tested
+thresholds add no benefit.
+
+Keep 0.35 mm. This changes initial distance arbitration, not acceleration, the
+latch or a fixed waiting time. The 500 ms tap setting is a maximum, not a delay
+before clicking. These recordings contain contact evidence, not actual delivered
+click events or per-cycle intent labels; replay predictions plus improved user
+feel support the tuning without proving all missed/false clicks are resolved.
+
+[Capture analysis and repeatable regression](gesturepad/RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md).
+
+## 4. Acceleration and measurement boundaries
+
+Retain the independent Apple-source parametric models and provenance. Pointer and
+scroll acceleration are different paths; scroll uses its own curves and history.
+Preserve fractional movement, timing units, phase sequences and independent pad/
+axis state. Do not replace accepted feel with firmware constants merely because
+they exist in a disassembly.
+
+Current contact-to-count conversion uses the explicit **resolution / 25.4 ×
+sensitivity** hypothesis and 160 × 114.9 mm surface dimensions. Good hardware feel
+is not proof of Apple's unpublished multitouch processing or effective filter
+configuration. Momentum constants are provisional app policy, not recovered code.
+
+Useful references:
+
+- [Pointer equations, installed settings and baseline limitations](gesturepad/POINTER_ACCELERATION.md).
+- [Mouse/latching implementation](gesturepad/TWO_FINGER_MOUSE.md).
+- [Scroll acceleration, fine events and momentum](gesturepad/FOUR_FINGER_SCROLL.md).
+- [Tap recognition and click output](gesturepad/TWO_FINGER_TAP.md).
+
+## 5. Pad dimensions and layout scaling
+
+Preserve these user-provided comparison dimensions:
 
 | Surface | Width × height |
 | --- | --- |
-| FingerWorks TouchStream, each pad | 16.5 × 12.1 cm (165 × 121 mm) |
-| Apple Magic Trackpad | 16.0 × 11.49 cm (160 × 114.9 mm) |
+| FingerWorks TouchStream, each pad | 165 × 121 mm |
+| Apple Magic Trackpad | 160 × 114.9 mm |
 
-TouchStream is only 5 mm wider and 6.1 mm taller per pad. The surfaces are close
-in size, making a slightly scaled TouchStream keymap a useful starting point for
-AppleMagicTouchstream experiments. Fitting the full layout by axis would use
-approximately 97.0% width and 95.0% height; preserving aspect ratio would use a
-uniform scale of approximately 95.0%, leaving some horizontal margin.
+The surfaces are close in size. Axis-fitting a TouchStream layout gives about
+97.0% width and 95.0% height; aspect-preserving fit is about 95.0%, with horizontal
+margin. The original “16.5 mm” comparison was interpreted as 16.5 cm. These are
+not verified active sensing bounds: confirm touch extents before calibration.
+Similar dimensions do not establish matching key placement or gesture thresholds.
 
-These are user-provided comparison dimensions, not verified active sensing bounds.
-The original “16.5 mm” width is interpreted as 16.5 cm to match the stated size
-comparison. Confirm usable touch extents before calibrating a physical keymap.
-Keep physical millimetres and normalized coordinates explicit; similar pad sizes
-do not establish identical key placement, contact calibration or gesture thresholds.
+The traced TouchStream preset/reference is implemented in both keyboard projects:
+[GlassToKey layout](GlassToKey/TOUCHSTREAM_LAYOUT.md) and
+[AppleMagicTouchstream layout](AppleMagicTouchstream/TOUCHSTREAM_LAYOUT.md).
+Keep stable key IDs, independent left/right geometry, editable overrides and inert
+unsupported legends. The background image is a reference, not a recognizer.
 
-## Input ownership: what we have established
+## 6. Telemetry findings retained from the earlier work
 
-GesturePad established raw contact delivery while suppressing Apple's native
-input through a DriverKit receiver. Matching covers connected supported Magic
-Trackpad2 model **0324** USB/Bluetooth interfaces with arbitrary serials, not every
-AMT generation. Takeover captures **all supported connected pads**, including
-unselected pads. Left/right selections and manual Sync route app input; zero,
-one or two selections are valid. Selected-only native ownership is not provided.
+Historical decoder research remains useful even though it is no longer the live
+input implementation. The [both-pad parity result](gesturepad/RewriteValidation/TELEMETRY_PARITY_BOTH_PADS_RESULT.json)
+compared 2,815 contacts with zero mismatches under that check's tolerances. It
+supports the documented reconstruction, not raw electrode access or the complete
+Apple gesture pipeline. Preserve the
+[Apple contact HID layout](gesturepad/APPLE_CONTACT_HID_LAYOUT.md), reference
+vectors and optional legacy `telemetry.driverKit` serialization for old captures.
 
-A healthy pad continues streaming when the other disconnects. Reconnect needs
-selector verification and manual Sync; do not restore automatic whole-driver
-teardown on a single-pad disconnect. Refresh is disabled during ownership and
-removal. Release/Exit remove the extension and may require macOS authorization;
-after release the user may need manual Refresh. Warm Restart and Config-close
-background restart use a signed helper owner-transfer lease. A watchdog and
-asynchronous driver cancellation drain preserve cleanup.
+Finger display labels (thumb=1, index=2, middle=3, ring=4, pinky=5, palm=6) are
+separate from contact tracking IDs. Labels can change without a lift and can
+misidentify intended anatomy; persistence is not confidence. Native hand labels
+are not physical left/right routing. Pressure is not calibrated force in newtons.
+Keep native/reconstructed velocity provenance, quantization and first-frame/gap
+resets distinguishable from measured zero. Terminal records belong in captures
+but not active-finger counts.
 
-AppleMagicTouchstream contains the port of those controls and consumes decoded
-contacts through its existing keyboard engine. It does **not** include GesturePad's
-synthetic pointer consumer or legacy blackhole experiments. Its [integration
-checklist](AppleMagicTouchstream/DriverKitProbe/README.md) remains the acceptance
-source; do not transfer GesturePad's hardware pass to this app without testing.
-GlassToKey still uses OMS and its existing native-mouse policy. Takeover remains
-an optional input/control route for the planned GlassToKey rewrite.
+The old 16 ms DriverKit registry ring/polling, failed notification wake-up probe,
+UserClient/Virtual HID delivery proposals and helper-transfer experiments remain
+historical evidence. Do not optimize or depend on that removed transport as the
+next step for the native callback-based implementation.
 
-Preserve these boundaries:
+## 7. Firmware/SDK research worth carrying forward
 
-- `TrackpadContactDecoder.swift`: packet/scalar/lifecycle reconstruction, independent
-  of UI, output posting and installation.
-- `TrackpadContactFrame.swift`: typed decoded-frame boundary; app uptime, report
-  arrival clock and sensor timing have distinct meanings.
-- `DriverKitTakeover.swift` / `DriverSession.swift`: activation, routing, stream
-  discontinuities, source gating and signed-owner lease.
-- GesturePad's `SyntheticTrackpadOutput.swift`: optional app-owned output. Each
-  destination app implements its own pointer/click behavior.
-- `DriverKitProbe/takeover-config.json`: per-project owner/deployment manifest;
-  shared helper/driver IDs are documented in [bundle identities](BUNDLE_IDENTITIES.md).
-
-No scoped UserClient Access or Allow Any UserClient permission is compiled into
-these current takeover builds. Seamless handback while leaving the extension
-enabled is not established by the current implementation. Do not reintroduce
-per-pad handoff/retake or cursor warping as an incidental prerequisite.
-
-## Telemetry and delivery evidence
-
-The [both-pad parity result](gesturepad/RewriteValidation/TELEMETRY_PARITY_BOTH_PADS_RESULT.json)
-compared **2,815 contacts with zero mismatches under the check's tolerances**.
-This supports Compact V7 reconstruction against the native contact contract;
-it does not establish raw electrode access or reproduce Apple's entire gesture
-pipeline. Preserve original report bytes, feature provenance, calibration and
-explicitly unavailable fields. Terminal `notTouching` records belong in captures
-but are excluded from visible active contacts.
-
-Finger labels use the display convention thumb=1, index=2, middle=3, ring=4,
-pinky=5, palm=6. Tracking IDs are separate from anatomy. Captures show anatomical
-labels can change without a lift and can disagree with the intended finger; label
-persistence is not confidence. The native hand field is not reliable left/right
-routing. `P:` is the contact pressure value, not a calibrated force in newtons.
-Velocity may be native-quantized/reconstructed; first-frame and gap resets must
-remain distinguishable from a measured zero.
-
-Current DriverKit delivery uses a bounded registry ring, published on a 16 ms
-driver timer and polled by the app at approximately 16 ms. It is not callback-driven
-OMS delivery; similar report counts do not prove equal latency or CPU cost.
-The [active notification probe](gesturepad/RewriteValidation/NOTIFICATION_TRANSPORT_RESULT.json)
-observed advancing reports without general-interest/property-change notifications.
-Registry publication alone is therefore not a wake-up channel.
-
-Efficient-delivery routes remain investigations:
-
-1. Measure and optimize existing-permission discovery, unchanged-data reads and
-   active/idle polling without changing manual Sync or independent-pad behavior.
-2. Scoped UserClient Access could support authenticated commands and asynchronous
-   delivery/shared-memory designs. Approval, implementation and physical handback
-   validation are separate gates.
-3. A vendor-defined Virtual HID relay could deliver callbacks without our custom
-   UserClient. It remains unimplemented; exact permissions, loss behavior, latency
-   and app permission requirements need validation. The user reports submitting
-   the Virtual HID request; submission is not approval.
-
-See [transport investigation](gesturepad/RewriteValidation/NOTIFICATION_TRANSPORT_ROUTES.md)
-for technical evidence; its portal/draft notes are historical. No end-to-end
-latency, CPU-efficiency or typing-accuracy improvement is established here.
-
-## Recognition work still ahead
-
-The [rewrite guide](GlassToKey/GLASSTOKEY_REWRITE_GUIDE.md) supersedes the earlier
-plan's claims that initial key lookup and pointer acceleration were wholly
-unrecovered. Evidence supports initial spatial alternatives plus `noKey`, separate
-contact/candidate lifetimes, identity/geometry-based chord selection, stationary
-hold activation, configured motion gain/fractional state and timed output.
-Complete scoring, language model, anatomical classification, partial-lift/rearm
-policy and Apple calibration are still incomplete. Firmware constants are not
-Apple tuning values.
-
-Preserve the firmware evidence anchors in the guide and [investigation findings](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/FINDINGS.md).
-Analyzed firmware: `touchstream.U.byt`, version `0x0160`, SHA-256
+The [rewrite guide](GlassToKey/GLASSTOKEY_REWRITE_GUIDE.md) and local
+[firmware investigation findings](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/FINDINGS.md)
+retain the detailed evidence. Analyzed image: `touchstream.U.byt`, version
+`0x0160`, SHA-256
 `87262a818209a1e019990f1e40f1b55d9d2dd030644d0f5aa0ed7e8cf09476e1`.
-DSP addresses are word addresses, not offsets to copy into Swift.
+DSP addresses are word addresses, not Swift layouts or byte offsets to transplant.
+Local SDK/reference material lives under `mac/sdk`, outside the Swift packages.
 
-Build toward this pipeline inside one serial recognition owner:
+Retain these architectural lessons without treating proposed extractions as done:
+
+- Contact lifetime, typing candidate, alternative sequence and emitted action are
+  separate. A cancelled key hypothesis need not destroy the contact.
+- Initial spatial lookup can have ranked alternatives plus `noKey`; ambiguity is
+  real. A language model and complete scoring are not already implemented here.
+- Sample age, elapsed time and anatomical identity are different quantities.
+- Chord selection/identity, stationary or motion activation, configured gain,
+  timed output and finish actions have separate boundaries.
+- Partial lifts and ownership need an explicit rearm policy. The user's current
+  FingerWorks comparison supplies concrete mouse-latching evidence; it does not
+  settle every proprietary chord or typing interaction.
+- Only commit output once its ownership decision is safe. Already emitted text
+  cannot be retroactively cancelled. Held outputs need balanced cleanup even when
+  no later input frame arrives.
+
+For future typing integration, use one serial recognition owner:
 
 ```text
-OMS or DriverKit contacts -> contact lifecycle/features
-                         -> tentative typing + chord candidates
-                         -> exclusive ownership/commit coordinator
-                         -> configured actions + scheduled output cleanup
+native contacts -> contact features/lifetimes
+                -> tentative typing and gesture candidates
+                -> ownership/commit arbitration
+                -> actions and explicit output lifetimes
 ```
 
-The middle boundaries are proposed extractions, not existing standalone recognizers.
-Keep contact identity keyed by device/session/path lifetime; distinguish sample
-count from elapsed time and anatomy. Commit ownership atomically with cancellation
-of tentative alternatives. Already emitted characters cannot be retroactively
-cancelled. Partial lifts must not accidentally rearm smaller chords or type on
-release. Use immutable geometry revisions and latched bindings for held contacts.
+The current GesturePad router handles mouse/scroll ownership and tap rejection;
+it is **not** the full proposed typing/cohort coordinator. Do not restore discarded
+GTK recognizers or create another parallel engine as an incidental shortcut.
 
-For movable keys/columns and spatial decoding, preserve stable key IDs separately
-from geometry/action labels; publish layout revisions rather than mutate live
-recognition geometry during dragging. Start calibration from prompted intended
-keys, test on held-out sessions, retain a `noKey` alternative and start in shadow
-mode. Do not learn automatically from emitted text or autocorrect substitutions.
-These are proposals, not current adaptive behavior or recovered coefficients.
+For spatial learning, preserve stable key identity separately from geometry and
+labels; publish immutable geometry revisions and latch bindings for held contacts.
+Use prompted intended keys and held-out sessions, retain `noKey`, start in shadow
+mode and do not learn automatically from emitted/autocorrected text. The previous
+Gboard/Microsoft references are background design pointers in the rewrite guide,
+not measurements or dependencies of the current implementation.
 
-Spatial-model research references:
-[Google's Gboard personalization paper](https://research.google/pubs/spatial-model-personalization-in-gboard/)
-and [Microsoft's soft-keyboard language-modeling paper](https://www.microsoft.com/en-us/research/publication/language-modeling-for-soft-keyboards/).
-They are design references, not measurements of this implementation.
+## 8. Unresolved engineering findings
 
-## Remaining architecture work
+Source rechecked 2026-10-20; none of these is fixed or experimentally proved by
+this documentation update:
 
-Current source contains these actionable findings, checked on 2026-10-18:
+- **GlassToKey autocorrect ring publication:** `AutocorrectEngine.enqueue` advances
+  `writeIndex` before writing `storage[slot]`. A consumer already draining can
+  observe publication before the value; overflow/consumption also deserves review.
+  Preserve as a code-level race concern, not a reproduced user failure. Investigate
+  a bounded synchronized queue and stress test separately from gesture tuning.
+- **Downstream backpressure:** `RuntimeCore.ingestLive` queues per-frame work while
+  ingestion telemetry reports `liveQueueDepth: 0`. The upstream stream limit does
+  not measure/bound that serial queue. Measure age/depth before overflow policy;
+  never arbitrarily drop release frames or leave app-owned outputs held.
+- **Core/UI coupling:** engine domain types still alias `ContentViewModel` types.
+  Extract incrementally when needed; a learned spatial decoder is not present.
+- **Delivery observability:** contact captures predict recognizer decisions but do
+  not establish posted-event timing, OS/application receipt, physical-button
+  suppression or human intent. Label intended actions and add measured evidence
+  before declaring native-equivalent latency or zero missed/false actions.
 
-- **Autocorrect ring publication race (GlassToKey):**
-  `AutocorrectEngine.enqueue` increments `writeIndex` before writing `storage[slot]`;
-  an already-draining consumer can observe the new index first. Overflow can also
-  race slot consumption. This remains a code-level concern, not a reproduced
-  failure. Prefer a bounded synchronized queue and process spelling outside its
-  lock; fix and stress-test separately from recognizer work.
-- **Downstream backpressure is not measured:** `RuntimeCore.ingestLive` schedules
-  one serial queue block per frame, while `InputRuntimeService` reports
-  `liveQueueDepth: 0`. The upstream buffer limit does not bound that queue. Measure
-  depth and age before introducing overflow behavior; never drop release frames
-  arbitrarily. Any recovery must release app-owned outputs/reset contact state.
-- **Core/UI coupling and spatial ambiguity remain:** the engine aliases
-  `ContentViewModel` domain types, and existing targeting is not a learned ranked
-  spatial decoder. Extract incrementally, without another parallel engine.
+Kara's immutable weak-reference capture fix has been applied to all three Mac
+`ContentViewModel` initializers, with passing tests/universal builds on installed
+Xcode 26.3. Xcode 27 is not installed here; do not call it directly verified.
 
-## Next implementation order and acceptance
+## 9. Next work and acceptance order
 
-1. Validate the AppleMagicTouchstream takeover port on USB/Bluetooth, including
-   zero/one/two routes, independent disconnect, Sync, keyboard/modifier cleanup,
-   warm restart, release shortcut, replay/sleep/Exit and native restoration.
-2. Keep the working registry transport as fallback. Measure delivery/processing
-   latency, gaps, batches, idle wakeups and CPU before choosing a new transport.
-3. Add contact/candidate diagnostics and generation/epoch tests without changing
-   reference output. Observe typing and chord hypotheses in shadow mode.
-4. Implement original chord/cohort selection and activation in GesturePad, then
-   deliberately port validated logic to AppleMagicTouchstream. Exact identity
-   patterns require reliable evidence; retain unknown/generic fallbacks.
-5. Trial explicit tentative/commit/cancel typing and ownership integration under
-   captured configuration. GlassToKey adopts only the useful, validated parts;
-   native-input use must remain available independently of takeover.
-6. Evaluate editable geometry/spatial decoding separately from intent rejection.
-   Measure wrong/missed/duplicate keys, gesture false positives, modifier balance
-   and latency percentiles with human intent labels, not emitted transcripts.
+1. Keep the improved tap threshold; use the follow-up capture as a regression.
+   Collect actual click/intent evidence if misses remain instead of repeatedly
+   loosening thresholds. Include deliberate short no-click mouse strokes.
+2. Define each next gesture in the central rules **before** implementation:
+   activation, continuation, ownership priority, completion/cancellation, output,
+   thresholds, defaults and verification. Preserve accepted mouse/scroll feel.
+3. Broaden lifecycle/physical testing: selection while active, None/duplicate pads,
+   USB/BT switching, independent pad changes, pause/brake/release, Config/Restart,
+   sleep/replay/quit and native input restoration. Confirm closed event phases
+   and no stuck outputs rather than relying solely on return codes.
+4. Continue evidence-backed chord/cohort and typing-vs-gesture investigation in
+   GesturePad, observing candidates before committing irreversible key output.
+   Use reliable identity evidence with unknown/generic fallbacks.
+5. Port only the reviewed GesturePad behavior to AppleMagicTouchstream and then
+   selected GlassToKey improvements when requested. Respect each app's existing
+   keyboard/reset and configuration boundaries; no automatic cross-project port.
+6. Evaluate spelling correction, variable-speed typematic and adaptive geometry
+   separately, using intended-key labels and held-out captures. They remain goals,
+   not completed TouchStream fidelity.
 
-Acceptance fixtures need staggered landings, thumb/unknown/palm evidence, partial
-lift, ID reuse, missing frames/telemetry, held modifiers across pads, layout/layer
-changes, timer expiry without a later frame, reset/disconnect during repeat/drag,
-and output down/up balance. Rendering paths are diagnostics, never recognition
-input. A recording sink tests intended commands, not actual OS delivery.
+Regression cases should include staggered landing/lift, partial lift, added
+fingers, thumb/unknown/palm telemetry, contact ID reuse/replacement, missing frames,
+button suppression, tap-vs-motion, independent pads, interrupted momentum, layout/
+layer changes and future held-output cleanup. Rendering is diagnostic, never the
+recognition source. Recorded commands alone do not prove OS delivery.
 
-From the repository root, use each project's `build.sh` and `test.sh`. For takeover
-changes also run that project's `DriverKitProbe/Tests` Python suite. For GlassToKey
-production replay, run from `mac/GlassToKey`:
+From the repository root:
 
 ```sh
-./test.sh
+./mac/gesturepad/test.sh
+./mac/AppleMagicTouchstream/test.sh
+./mac/GlassToKey/test.sh
+```
+
+Native takeover checks are included by the project wrappers. The removed
+`DriverKitProbe/Tests` suite is **not** a current prerequisite. Optional capture
+regressions skip if their local unbundled recording is absent; tests must not post
+input or activate takeover. For the existing GlassToKey production transcript:
+
+```sh
+cd mac/GlassToKey
 swift run ReplayHarness --fixture ReplayFixtures/production_typing.atpcap \
   --expected-transcript ReplayFixtures/production_typing.engine.transcript.jsonl
 ```
 
-Review intentional baseline changes; do not regenerate fixtures merely to pass.
-Bridge changes require the project-local framework workflow. Build/signing and
-physical ownership checks are separate from recognition accuracy. This document
-refresh changes no code, permissions, release artifacts or live hardware state.
+Review intentional baseline changes instead of regenerating to silence failures.
+Use project-local bridge rebuilds for native edits; build, signing, physical
+ownership and recognition acceptance are separate checks. This refresh changes
+documentation only, not code, permissions, installed apps or live hardware state.

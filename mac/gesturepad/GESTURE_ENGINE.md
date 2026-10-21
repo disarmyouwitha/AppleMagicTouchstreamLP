@@ -24,9 +24,10 @@ a gesture. Extra fingers do not switch an established gesture. Tap recognition
 is discrete; it does not hold a mouse button or inherit continuous count latching.
 
 **Acceptance:** the user confirmed mouse acceleration, count latching, scroll
-and momentum feel on hardware. Two-finger tap is implemented with offline
-coverage and is awaiting explicit hardware acceptance. This does not imply every
-selection, sleep, disconnect or application-specific edge case has been tested.
+and momentum feel on hardware. Tap was tested, improved after capture-backed
+arbitration tuning, and the user reports it feels substantially better. Keep the
+current tuning; do not claim all click delivery, lifecycle or application-specific
+edge cases have passed. The acceptance/evidence table below records that boundary.
 
 ## 2. Input and output eligibility
 
@@ -303,6 +304,7 @@ extra ownership retained only for failed cleanup.
 | Scroll/arbitration/fine events | `FourFingerScrollTests` |
 | Momentum decay, phases, interruption and rate independence | `ScrollMomentumTests` |
 | Tap rejection/completion and click events | `TwoFingerTapTests` |
+| Capture-backed tap/mouse arbitration | `TapCaptureAnalysisTests` |
 | Takeover preference and source identity | `NativeTakeoverPreferenceTests`, `SelectedDeviceSourceTests`, native lifecycle tests |
 
 Paths above are relative to `GesturePad/GesturePad/` for production Swift and
@@ -327,6 +329,35 @@ predicts 22 taps and no clicks in 23 movement cycles; all independent tap
 candidates survive arbitration. Retain 0.35 mm. Capture replay does not prove
 actual click delivery or user intent. See
 [the capture analysis](RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md).
+
+## Acceptance and evidence checkpoint (2026-10-20)
+
+| Behavior | Evidence retained | Remaining limit |
+| --- | --- | --- |
+| Pointer acceleration/fine movement | User reports accepted feel on hardware; independent equation vectors and pure motion replay pass. | Contact-to-count conversion is an explicit hypothesis, not recovered proprietary processing. |
+| Continuous gesture latch | User tested original FingerWorks and GesturePad: 2→3→4→1 transitions feel smooth and match the intended interaction. | Other chord families need their own activation/handoff policy. |
+| Four-finger scroll and momentum | User reports good feel; per-axis equations, fine pixel fields, phases, decay and cancellation have offline checks. | App-specific effects, OS/device differences and lifecycle edges need broader coverage; momentum is app tuning. |
+| 500 ms tap window | User reports the longer maximum feels good; boundary tests accept 500 ms and reject longer cycles. | The maximum is not a fixed wait; timing alone did not fix movement arbitration. |
+| 0.35 mm mouse/tap separation | First capture: 19→25 predicted clicks; follow-up: 17→22 versus old 0.20 mm. User reports substantially improved feel. | Contacts do not record actual click delivery, suppression state or explicit intent. |
+| Tap false-positive control | Follow-up: no predicted clicks in 23 mouse cycles, including eleven final no-click strokes. Every independent tap candidate survives current arbitration. | This sample is not a universal false-click guarantee; retain no-click movement tests. |
+
+Keep the **0.35 mm mouse / 0.20 mm scroll** initiation values. The first capture
+had six valid tap candidates stolen by mouse mode; the second would lose five
+under the old rule. Higher tested mouse thresholds (0.50, 0.75 and 1.00 mm) add
+no accepted taps in either file. The change leaves latched acceleration intact;
+in the first recording, median clear-stroke initiation moved from about 22.3 to
+33.8 ms. Revisit that tradeoff only with evidence, rather than loosening more
+limits on speculation.
+
+Capture interpretation and repeatable tests:
+[move–tap analysis](RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md),
+`TapCaptureAnalysisTests` (local recordings optional). Current capture names are
+`2finger_tap.atpcap` and `2finger_tap_test2.atpcap`.
+
+The cross-project status, preserved firmware/SDK lessons and future typing work
+live in [FINGERWORKS_IMPLEMENTATION_PLAN.md](../FINGERWORKS_IMPLEMENTATION_PLAN.md).
+This engine is currently implemented in GesturePad only. Existing native takeover
+in the keyboard apps does not imply these gesture rules have been ported there.
 
 ## 11. Template for the next gesture
 
