@@ -70,8 +70,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
     private var isListening = false
     private var diagnosticsEnabled = false
-    private var leftDeviceIndex: Int?
-    private var rightDeviceIndex: Int?
+    private var leftSource = RuntimeSelectedDeviceSource()
+    private var rightSource = RuntimeSelectedDeviceSource()
     private var counts = SidePair(left: 0, right: 0)
 
     init(
@@ -105,8 +105,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         leftDeviceID: String?,
         rightDeviceID: String?
     ) {
-        self.leftDeviceIndex = leftIndex
-        self.rightDeviceIndex = rightIndex
+        leftSource = RuntimeSelectedDeviceSource(id: leftDeviceID, index: leftIndex)
+        rightSource = RuntimeSelectedDeviceSource(id: rightDeviceID, index: rightIndex)
         counts = SidePair(left: 0, right: 0)
         onContactCountChanged(counts)
     }
@@ -203,12 +203,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func processRawFrame(_ frame: OMSRawTouchFrame) -> RuntimeFrameDiagnostic? {
-        processContacts(frame.touches, deviceIndex: frame.deviceIndex,
+        processContacts(frame.touches, deviceID: frame.deviceIDNumeric, deviceIndex: frame.deviceIndex,
             sequence: frame.sequence, timestamp: frame.timestamp)
     }
 
     func processRuntimeRawFrame(_ frame: RuntimeRawFrame) -> RuntimeFrameDiagnostic? {
-        processContacts(frame.rawTouches, deviceIndex: frame.deviceIndex,
+        processContacts(frame.rawTouches, deviceID: frame.deviceNumericID, deviceIndex: frame.deviceIndex,
             sequence: frame.sequence, timestamp: frame.timestamp)
     }
 
@@ -224,12 +224,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func processContacts<Touches: RandomAccessCollection>(
-        _ touches: Touches, deviceIndex: Int, sequence: UInt64, timestamp: TimeInterval
+        _ touches: Touches, deviceID: UInt64, deviceIndex: Int, sequence: UInt64, timestamp: TimeInterval
     ) -> RuntimeFrameDiagnostic? where Touches.Element == OMSRawTouch {
         guard isListening else { return nil }
         let side: TrackpadSide
-        if deviceIndex == leftDeviceIndex { side = .left }
-        else if deviceIndex == rightDeviceIndex { side = .right }
+        if leftSource.matches(numericID: deviceID, index: deviceIndex) { side = .left }
+        else if rightSource.matches(numericID: deviceID, index: deviceIndex) { side = .right }
         else { return nil }
         let count = touches.reduce(0) { count, touch in
             switch touch.state {

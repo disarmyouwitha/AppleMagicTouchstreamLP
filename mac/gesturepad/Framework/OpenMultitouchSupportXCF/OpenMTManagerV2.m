@@ -670,8 +670,16 @@ static int filterClients(MTDeviceRef device, BOOL requireOwn) {
             atomic_store(&context->contactFrames, 0);
         }
         [self.filterDeviceIDs removeObject:deviceID];
-        int remaining = [self nativeFilterClients:device own:YES];
         OSStatus recovery = [self startNativeDevice:device mode:0];
+        // IOServiceClose can return before the old user client disappears from
+        // IORegistry. Start ordinary mode first (MTDeviceStart waits for service
+        // quiet), then allow a bounded publication grace period. Never restart
+        // a retained filter just to wait for a removed client's registry entry.
+        int remaining = [self nativeFilterClients:device own:YES];
+        for (int attempt = 0; remaining > 0 && attempt < 20; attempt++) {
+            usleep(5000);
+            remaining = [self nativeFilterClients:device own:YES];
+        }
         if (recovery || remaining) success = NO;
         [results addObject:[NSString stringWithFormat:@"%@ recovery=%d, owned filters=%d", deviceID, (int)recovery, remaining]];
     }

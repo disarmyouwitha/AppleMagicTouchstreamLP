@@ -26,8 +26,10 @@ removed. This preference/selection behavior is currently GesturePad-only.
 - Every selection must be external USB/Bluetooth model0324/type4 with the existing
   vendor and own-client checks. Unsupported selections do not displace working
   filters. Failure does not cause a timed automatic retry loop.
-- **Release Trackpads**, the menu action and **Ctrl–Option–R** uncheck/save the
-  preference and release ownership. They do not immediately recapture the pads.
+- Unchecking **Trackpad Takeover**, the **Release Trackpads** menu action and
+  **Ctrl–Option–R** save the preference as off and release ownership. There is no
+  separate release button in Config. These actions do not immediately recapture
+  the pads.
 - Refresh temporarily releases all filters before rebuilding native references,
   then reapplies the current selected set if enabled. A failed stop aborts refresh.
   Auto-resync remains paused while filters are owned; this is not a new background
@@ -46,6 +48,24 @@ USB and Bluetooth native FLTR were individually hardware-confirmed. Automatic
 startup, selection transitions/rollback, Refresh and sleep/replay restoration
 require hardware acceptance with this version. No live input is activated by
 building or running the offline tests.
+
+## Contact source identity
+
+Live contact counts and rendered touches match the selected **native multitouch
+numeric device ID** carried by each frame. The bridge's two reusable device-index
+slots are telemetry hints, not physical identities: a third pad or a deselected
+pad's ordinary monitoring frames can reuse them. Routing by those slots alone
+could show the old Bluetooth pad after switching to USB even when FLTR ownership
+had switched correctly. Selection changes clear cached rendered contacts.
+
+The selected numeric IDs are parsed once during configuration, with integer
+comparisons in frame processing. No registry lookup, string conversion or new
+allocation is added per frame. Old recordings without numeric frame identities
+retain index routing for compatibility. MAC/USB serial identify inventory entries;
+they are transport-specific and are not substitutes for the ID carried by live
+contact callbacks. This change does not claim one persistent ID across transports
+or reconnects. Regression tests cover a BT-to-USB replacement, index collisions,
+old-pad rejection, stale-render clearing and legacy capture routing.
 
 ## What made it work
 
@@ -117,6 +137,10 @@ in the status. Other processes' native clients are never closed by GesturePad.
 Release iterates a snapshot of every owned pad and attempts each even if another
 fails. It stops our FLTR session, accumulates final counters, clears successfully
 stopped ownership, inspects remaining own filters, and starts ordinary mode zero.
+IORegistry may briefly retain a closing FLTR client after a successful stop.
+The bridge restarts ordinary mode before inspecting remaining own filters, then
+allows up to 100 ms for registry teardown. This avoids mistaking the closing
+client for failed release during selection changes; retained pads are untouched.
 Stop failures retain ownership for an explicit retry. Status reports native stop,
 recovery and own-filter results rather than equating a return code with observed
 hardware restoration. Releasing an already released session does nothing.

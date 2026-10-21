@@ -10,6 +10,9 @@
 @property uintptr_t wrongOwnerDevice;
 @property uintptr_t failFilteredStop;
 @property NSMutableSet<NSNumber *> *filtering;
+@property NSMutableSet<NSNumber *> *closingRegistryClients;
+@property BOOL deferRegistryRemoval;
+@property BOOL stuckRegistryClient;
 @end
 @implementation TestManager
 - (NSArray *)collectAvailableDevices { return @[]; }
@@ -21,17 +24,21 @@
     [self.operations addObject:[NSString stringWithFormat:@"start:%lu:%x", number, mode]];
     if (mode && number == self.failStart) return -99;
     if (mode) [self.filtering addObject:@(number)];
+    else if (!self.stuckRegistryClient) [self.closingRegistryClients removeObject:@(number)];
     return 0;
 }
 - (OSStatus)stopNativeDevice:(MTDeviceRef)device {
     uintptr_t number = (uintptr_t)device;
     [self.operations addObject:[NSString stringWithFormat:@"stop:%lu", number]];
     if (number == self.failStop || (number == self.failFilteredStop && [self.filtering containsObject:@(number)])) return -98;
+    if (self.deferRegistryRemoval && [self.filtering containsObject:@(number)]) {
+        [self.closingRegistryClients addObject:@(number)];
+    }
     [self.filtering removeObject:@(number)];
     return 0;
 }
 - (int)nativeFilterClients:(MTDeviceRef)device own:(BOOL)own {
-    return own && (self.wrongOwner || (uintptr_t)device == self.wrongOwnerDevice) ? 0 : [self.filtering containsObject:@((uintptr_t)device)];
+    return own && (self.wrongOwner || (uintptr_t)device == self.wrongOwnerDevice) ? 0 : ([self.filtering containsObject:@((uintptr_t)device)] || [self.closingRegistryClients containsObject:@((uintptr_t)device)]);
 }
 - (void)stopHandlingRawCallbacks {
     [self endNativeTakeover];
@@ -48,6 +55,7 @@ static TestManager *makeManager(void) {
     TestManager *m = TestManager.new;
     m.operations = NSMutableArray.new;
     m.filtering = NSMutableSet.new;
+    m.closingRegistryClients = NSMutableSet.new;
     for (uintptr_t number = 1; number <= 3; number++) {
         MTDeviceRef ref = (void *)number;
         MTDeviceV2CallbackContext *context = calloc(1, sizeof(*context));
@@ -184,5 +192,26 @@ int main(void) { @autoreleasepool {
     m.failFilteredStop = 0;
     [m endNativeTakeover];
     CHECK(m.filtering.count == 0);
+    // Real IOServiceClose teardown can stay published until ordinary restart.
+    // A removed pad's stale registry client must not make a valid change fail.
+    m = makeManager(); m.deferRegistryRemoval = YES;
+    CHECK([m beginNativeTakeoverForDeviceIDs:@[@1, @2]]);
+    [m.operations removeAllObjects];
+    CHECK([m updateNativeTakeoverForDeviceIDs:@[@2, @3]]);
+    CHECK([m.filtering isEqualToSet:[NSSet setWithArray:@[@2, @3]]]);
+    CHECK(![m.operations containsObject:@"stop:2"]);
+    CHECK([m updateNativeTakeoverForDeviceIDs:@[@2]]); // select None on one side
+    CHECK([m.filtering isEqualToSet:[NSSet setWithObject:@2]]);
+    CHECK([m updateNativeTakeoverForDeviceIDs:@[]]); // select None on both sides
+    CHECK(m.filtering.count == 0 && m.closingRegistryClients.count == 0);
+
+    // A genuinely persistent owned client is still reported as a failed release.
+    m = makeManager(); m.deferRegistryRemoval = YES; m.stuckRegistryClient = YES;
+    CHECK([m beginNativeTakeoverForDeviceIDs:@[@1]]);
+    CHECK(![m updateNativeTakeoverForDeviceIDs:@[]]);
+    CHECK([[m nativeTakeoverStatus][@"message"] containsString:@"Recovery incomplete"]);
+    m.stuckRegistryClient = NO;
+    [m.closingRegistryClients removeAllObjects];
+    [m endNativeTakeover];
     puts("Native takeover offline lifecycle checks passed.");
 } return 0; }

@@ -165,6 +165,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private var latestRender = RuntimeRenderSnapshot()
     private var leftDeviceIndex: Int?
     private var rightDeviceIndex: Int?
+    private var leftSource = RuntimeSelectedDeviceSource()
+    private var rightSource = RuntimeSelectedDeviceSource()
     private var leftDeviceID: String?
     private var rightDeviceID: String?
     private let processor: TouchProcessorEngine
@@ -300,6 +302,12 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
             self.rightDeviceIndex = rightIndex
             self.leftDeviceID = leftDeviceID
             self.rightDeviceID = rightDeviceID
+            self.leftSource = RuntimeSelectedDeviceSource(id: leftDeviceID, index: leftIndex)
+            self.rightSource = RuntimeSelectedDeviceSource(id: rightDeviceID, index: rightIndex)
+            self.latestRender.leftTouches = []
+            self.latestRender.rightTouches = []
+            self.latestRender.hasTransitionState = false
+            self.latestRender.revision &+= 1
             self.processor.updateActiveDevices(
                 leftIndex: leftIndex,
                 rightIndex: rightIndex,
@@ -582,9 +590,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     }
 
     private func updateRenderSnapshot(from frame: OMSRawTouchFrame) {
-        let deviceIndex = frame.deviceIndex
-        let matchedLeft = leftDeviceIndex.map { $0 == deviceIndex } ?? false
-        let matchedRight = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        let matchedLeft = leftSource.matches(numericID: frame.deviceIDNumeric, index: frame.deviceIndex)
+        let matchedRight = rightSource.matches(numericID: frame.deviceIDNumeric, index: frame.deviceIndex)
         guard matchedLeft || matchedRight else { return }
 
         let touches = Self.renderTouches(from: frame)
@@ -602,9 +609,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     }
 
     private func updateRenderSnapshot(from frame: RuntimeRawFrame) {
-        let deviceIndex = frame.deviceIndex
-        let matchedLeft = leftDeviceIndex.map { $0 == deviceIndex } ?? false
-        let matchedRight = rightDeviceIndex.map { $0 == deviceIndex } ?? false
+        let matchedLeft = leftSource.matches(numericID: frame.deviceNumericID, index: frame.deviceIndex)
+        let matchedRight = rightSource.matches(numericID: frame.deviceNumericID, index: frame.deviceIndex)
         guard matchedLeft || matchedRight else { return }
 
         let touches = Self.renderTouches(from: frame)

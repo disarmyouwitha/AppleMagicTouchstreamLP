@@ -289,3 +289,22 @@ extension RuntimeRawFrame {
         }
     }
 }
+
+
+/// Device indices are reusable telemetry slots, not physical device identities.
+/// Parse the selected ID once when configuring routing, never on each frame.
+struct RuntimeSelectedDeviceSource: Sendable {
+    private let numericID: UInt64?
+    private let index: Int?
+
+    init(id: String? = nil, index: Int? = nil) {
+        numericID = id.flatMap(UInt64.init).flatMap { $0 == 0 ? nil : $0 }
+        self.index = index
+    }
+
+    func matches(numericID incomingID: UInt64, index incomingIndex: Int) -> Bool {
+        if let numericID, incomingID != 0 { return numericID == incomingID }
+        // Older capture files can lack numeric identity. Keep their index routing.
+        return index == incomingIndex
+    }
+}

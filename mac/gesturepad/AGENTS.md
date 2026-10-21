@@ -102,3 +102,16 @@ ordinary auto-resync remains paused during ownership. Refresh releases before
 rebuilding refs and reapplies preference; selection changes use the serial native
 transition without cycling retained refs. See TRACKPAD_TAKEOVER.md. Rebuild the
 XCFramework for native edits, and do not activate hardware during automated tests.
+
+Config has only the takeover checkbox; keep Release Trackpads in the menu and
+Ctrl-Option-R as emergency controls. After stopping a removed FLTR client, restart
+ordinary mode before counting remaining filters, allowing bounded registry
+teardown (up to 100 ms). IOServiceClose can return while its registry entry is
+still published; do not fail transitions on that immediate stale count. Preserve
+retained sessions and the deferred-registry regression tests.
+
+Route live contacts/counts/rendering by selected native numeric device ID, not
+OMS deviceIndex: its two slots can be reused by a third/deselected pad. Parse IDs
+once on selection updates and compare integers in the callback/engine path. Clear
+cached render contacts when selection changes. Preserve index fallback for legacy
+recordings without numeric identity; see SelectedDeviceSourceTests.

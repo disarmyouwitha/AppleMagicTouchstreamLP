@@ -110,9 +110,6 @@ struct ContentView: View {
             ))
             .toggleStyle(.checkbox)
             .fixedSize()
-            Button("Release Trackpads") { takeoverPreference.setEnabled(false) }
-                .fixedSize()
-                .disabled(!takeoverPreference.enabled && !hidBlackhole.nativeFilterActive)
             Text(hidBlackhole.nativeFilterStatus + (hidBlackhole.nativeFilterActive ? " Press ⌃⌥R to release" : ""))
                 .font(.caption)
                 .textSelection(.enabled)
