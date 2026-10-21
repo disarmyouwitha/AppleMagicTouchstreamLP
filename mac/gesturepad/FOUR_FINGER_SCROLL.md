@@ -25,8 +25,8 @@ Toggle a feature off/on to reload changed macOS settings.
 
 ## Gesture arbitration and latching
 
-A shared per-pad router waits for 0.2 mm of initial coherent contact displacement
-before committing the current two-finger or four-finger chord. Membership changes
+A shared per-pad router waits for initial coherent contact displacement before
+committing the chord: 0.35 mm for two-finger mouse, 0.2 mm for four-finger scroll. Membership changes
 reset that pending displacement. This small initiation threshold lets four
 fingers finish landing rather than the first two immediately taking mouse mode.
 It applies only before recognition; tiny movements after activation are retained.
@@ -42,7 +42,8 @@ Once recognized, the mode stays latched through any positive finger count:
 
 No mode switch is inferred merely from changing counts mid-gesture. The mouse
 acceleration formula and sensitivity remain the hardware-accepted ones; the new
-initial 0.2 mm arbitration is a change to initiation timing that needs acceptance.
+mouse initiation threshold was subsequently tuned using a move–tap capture;
+scroll keeps its 0.2 mm threshold.
 See [GESTURE_ENGINE.md](GESTURE_ENGINE.md).
 
 ## Apple-source model

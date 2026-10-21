@@ -14,7 +14,7 @@ one as approval to change the other.
 
 | Gesture | Activation | Continuation | Normal completion | Output |
 | --- | --- | --- | --- | --- |
-| Two-finger mouse | Exactly two active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up | Relative pointer movement |
+| Two-finger mouse | Exactly two active fingers and initial net movement of at least 0.35 mm | Any positive active finger count | All fingers up | Relative pointer movement |
 | Four-finger scroll | Exactly four active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up; eligible release can start momentum | Horizontal/vertical precise scrolling |
 | Two-finger tap | A short stationary pair satisfying the tap limits | Only the original two IDs, with bounded landing/lift skew | Both fingers up within the limits | One primary click |
 | Scroll momentum | Fresh, sufficiently fast release of an active scroll | Decelerates without fingers | Stop speed or duration reached | Momentum scroll events |
@@ -64,9 +64,9 @@ fixed storage capacity, not a gesture chord requirement.
 Activation and continuation are separate decisions. Do not classify a recognized
 gesture again on every frame solely from its finger count.
 
-Before recognition, accumulate the vector of common-contact motion. At 0.2 mm
-of net displacement, exactly two fingers can claim mouse, or exactly four can
-claim scroll, provided that feature is enabled. Changing the pending finger count
+Before recognition, accumulate the vector of common-contact motion. At 0.35 mm
+of net displacement, exactly two fingers can claim mouse; at 0.2 mm, exactly
+four can claim scroll, provided that feature is enabled. Changing the pending finger count
 resets accumulated displacement while the chord finishes landing. This is a
 movement threshold, not a fixed waiting period. Unsupported/disabled chords do
 not gain ownership.
@@ -108,7 +108,7 @@ stricter rule: it stays blocked until all-up.
 ## 4. Mouse rules
 
 - Use matched-contact motion with the accepted Apple-source parametric pointer
-  response. After the initial 0.2 mm recognition threshold, retain fine motion
+  response. After the initial 0.35 mm recognition threshold, retain fine motion
   without requiring that threshold again each frame.
 - One survivor moves from its own displacement. Added fingers participate after
   their baseline is established; count changes never become scroll or tap.
@@ -189,7 +189,7 @@ algorithm. Hardware-accepted feel does not establish exact native equivalence.
   begins, a long hold, excessive individual displacement, invalid/palm data or
   stale/nonmonotonic input.
 - Check each finger's displacement even if opposing motion keeps the centroid
-  stationary. The movement router takes priority: its 0.2 mm recognition can
+  stationary. The movement router takes priority: its 0.35 mm mouse recognition can
   reject a tap before the 1 mm individual outer limit is reached.
 - Recognized mouse/scroll, physical button suppression, momentum braking or an
   explicit reset blocks the tap until all-up. Do not re-arm as fingers leave.
@@ -215,7 +215,8 @@ all macOS devices. Change them here and in source/tests together.
 
 | Parameter | Current value/rule |
 | --- | --- |
-| Initial mouse/scroll recognition | Net displacement ≥ 0.2 mm |
+| Initial mouse recognition | Net displacement ≥ 0.35 mm |
+| Initial scroll recognition | Net displacement ≥ 0.2 mm |
 | Continuous contact timestamp interval | Strictly positive and < 150 ms |
 | Active contact storage | Up to 16 unique IDs per pad/frame |
 | Assumed surface | 160 mm wide × 114.9 mm high |
@@ -313,6 +314,19 @@ The current output inventory is pointer movement, primary click pairs, precise
 scroll and scroll momentum. Right-click, synthesized dragging/held buttons,
 pinch/zoom, keyboard output and new gesture families are not implemented by
 these rules. They need explicit behavior definitions and authorization.
+
+## Capture-backed tap tuning (2026-10-20)
+
+The move–tap capture exposed tap drift crossing the original 0.2 mm mouse
+threshold. Production replay predicts 19 clicks at 0.2 mm and 25 at 0.35 mm,
+with zero clicks during 29 clear movement cycles. All six recovered cycles pass
+the independent tap rules; the 500 ms tap window was not the limiting rule.
+The mouse-only threshold is now 0.35 mm. No fixed recognition delay or change to
+latched acceleration is added. The user reported substantially improved feel on the follow-up. Its replay
+predicts 22 taps and no clicks in 23 movement cycles; all independent tap
+candidates survive arbitration. Retain 0.35 mm. Capture replay does not prove
+actual click delivery or user intent. See
+[the capture analysis](RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md).
 
 ## 11. Template for the next gesture
 

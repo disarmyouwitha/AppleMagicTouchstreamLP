@@ -77,6 +77,10 @@ enum LatchedGesture: Sendable { case mouse, scroll }
 /// Decide from the initial moving chord, then retain ownership across count changes.
 struct TrackpadGestureRouter {
     struct Pending { var count = 0; var travel = CGPoint.zero; var gesture: LatchedGesture? }
+    // Capture-backed separation: tap landing drift must not claim mouse at 0.2 mm.
+    // Scroll retains its independent 0.2 mm initiation threshold.
+    private let mouseActivationMM: Double
+    init(mouseActivationMM: Double = 0.35) { self.mouseActivationMM = mouseActivationMM }
     private var history = TwoFingerPointerTracker(activationCount:0)
     private var sessions: [UInt64:Pending] = Dictionary(minimumCapacity:2)
     mutating func reset() { history.reset(); sessions.removeAll(keepingCapacity:true) }
@@ -96,10 +100,9 @@ struct TrackpadGestureRouter {
         // Ignore landing jitter and let a four-finger chord finish arriving.
         if session.count != count { session.count = count; session.travel = .zero }
         session.travel.x += movement.x; session.travel.y += movement.y
-        if hypot(session.travel.x,session.travel.y) >= 0.2 {
-            if count == 4 && scroll { session.gesture = .scroll }
-            else if count == 2 && mouse { session.gesture = .mouse }
-        }
+        let distance = hypot(session.travel.x,session.travel.y)
+        if count == 4 && scroll && distance >= 0.2 { session.gesture = .scroll }
+        else if count == 2 && mouse && distance >= mouseActivationMM { session.gesture = .mouse }
         sessions[device] = session
         guard let gesture = session.gesture else { return nil }
         return (gesture,session.travel)

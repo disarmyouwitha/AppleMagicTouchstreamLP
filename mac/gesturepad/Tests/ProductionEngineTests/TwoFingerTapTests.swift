@@ -72,6 +72,19 @@ final class TwoFingerTapTests: XCTestCase {
             XCTAssertFalse(tap.process(device:1,time:time,contacts:contacts,gestureActive:motion != nil))
         }
     }
+    func testSmallLandingDriftStaysTapButClearMovementClaimsMouse() {
+        for (offset,expectedClick) in [(Float(0.0015),true),(Float(0.003),false)] {
+            var tap = TwoFingerTapRecognizer()
+            var router = TrackpadGestureRouter()
+            for (time,contacts) in [(1.0,pair),(1.04,[touch(1,0.3+offset),touch(2,0.6+offset)])] {
+                let motion = router.process(device:1,time:time,contacts:contacts,mouse:true,scroll:true)
+                XCTAssertFalse(tap.process(device:1,time:time,contacts:contacts,gestureActive:motion != nil))
+            }
+            let motion = router.process(device:1,time:1.08,contacts:empty,mouse:true,scroll:true)
+            XCTAssertEqual(tap.process(device:1,time:1.08,contacts:empty,gestureActive:motion != nil),expectedClick)
+        }
+    }
+
     func testStaleInvalidDuplicateAndUnorderedFramesCannotClick() {
         for kind in 0..<4 {
             var tap = TwoFingerTapRecognizer()

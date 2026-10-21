@@ -7,7 +7,7 @@
 
 ===
 
-I need to capture / test 2finger click a little more.. it's not as nice as on the touchstream
+
 
 ===
 

@@ -265,3 +265,15 @@ pending taps on disable/release/selection/lifecycle interruption; replay/tests
 never post. Keep accepted pointer/scroll/momentum behavior intact. See
 TWO_FINGER_TAP.md for thresholds and hardware acceptance. Do not automatically
 launch or hardware-activate verification.
+
+
+## Capture-backed mouse/tap arbitration (2026-10-20)
+
+The user reported missed clicks in rapid move–tap sequences. Production replay
+of 2finger_tap.atpcap reproduced six valid taps losing to the 0.2 mm mouse
+initiation threshold. Mouse initiation is now 0.35 mm; scroll stays 0.2 mm.
+Preserve no-click-after-recognized-movement, 500 ms tap maximum, latch and
+acceleration behavior. No fixed delay or release-time click for a recognized
+mouse stroke is introduced. The local optional capture regression compares
+thresholds without posting output. See GESTURE_ENGINE.md and
+RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md; hardware acceptance pending.

@@ -30,11 +30,12 @@ invalid/palm input, stale/nonmonotonic timestamps and long holds. One finger
 cannot click. A rejected gesture stays rejected until all-up; repeated empty
 frames cannot repeat a successful click.
 
-The existing 0.2 mm mouse/scroll initiation rule takes priority: once the shared
+The 0.35 mm mouse / 0.2 mm scroll initiation rules take priority: once the shared
 router recognizes movement, that entire touch cycle cannot tap-click. Thus the
 1 mm per-finger limit is an outer rejection limit, not a promise that moving
-the centroid by 1 mm remains a tap. This preserves accepted mouse latency and
-prevents a short mouse stroke from clicking on lift. Opposing finger movement
+the centroid by 1 mm remains a tap. This prevents a recognized mouse stroke from clicking on lift. The mouse-only
+threshold was raised from 0.2 mm using the move–tap capture, allowing more landing
+drift without a fixed delay. Opposing finger movement
 is checked individually even if its centroid is stationary. Hardware testing
 may justify tuning tap slop/arbitration together later.
 
@@ -82,3 +83,14 @@ Test in a harmless document or blank application area:
 6. Disable tap, release takeover or use Ctrl-Option-R: no synthetic clicks.
 
 No hardware activation or app launch is performed by automated verification.
+
+## Move–tap capture tuning
+
+The 2026-10-20 recording reproduces six tap rejections caused by mouse initiation,
+not the 500 ms tap limit. The new mouse-only initiation threshold is 0.35 mm;
+scroll remains 0.2 mm. See [capture analysis and next test](RewriteValidation/TWO_FINGER_TAP_CAPTURE_ANALYSIS.md).
+
+The follow-up `2finger_tap_test2.atpcap` supports retaining 0.35 mm: production
+replay accepts all 22 independent tap candidates, while 23 movement cycles have
+no predicted clicks. The user reports improved feel. Larger tested initiation
+thresholds add no accepted taps; no further behavior change was made.
