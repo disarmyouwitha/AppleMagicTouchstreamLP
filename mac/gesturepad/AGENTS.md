@@ -312,3 +312,27 @@ up owned outputs before clearing recognition. Preserve current thresholds, accep
 feel and both capture regressions. New gesture rules do not authorize new output
 families. See GESTURE_ENGINE.md and GestureSessionEngineTests. No automated live
 activation/launch or bridge changes are needed by this refactor.
+
+
+## Three-finger drag/select (2026-10-21; explicit held-output authorization)
+
+The user requested Apple-style three-finger drag/select and specified close,
+aligned fingers, reserving thumb–middle–ring for a future identified right-click.
+ThreeFingerDragChord supplies activation evidence through the shared engine:
+0.35 mm motion, bounded row geometry, reject classified thumb/palm. Unknown finger
+classification falls back to geometry; do not claim anatomical certainty.
+Keep this filter activation-only and shared any-positive-count continuation.
+Stationary three-finger taps remain double-click; prior continuous owners cannot
+switch by count. New drag checkbox defaults on with takeover, follows existing
+manual-override/eligibility policy and uses the accepted pointer profile/sensitivity.
+
+PrimaryDragOutput is explicitly allowed to hold the primary button. Reserve up
+before returning down, use tagged private-source drag events and release at all-up,
+reset, allocation failure, >200 ms missing input, physical-button interference,
+permission/eligibility loss and every existing lifecycle output cleanup. Clean up
+held output before resetting recognition. Only one pad can own the global button;
+suppress competing pad output while held. Private-source synthetic down must not
+cancel itself via the physical HID-state check. Preserve live-only posting and
+emergency release. No drag lock/reposition delay or right-click is implemented.
+Update GESTURE_ENGINE.md thresholds/acceptance with tuning; hardware acceptance is
+pending. No automatic app launch/hardware activation during verification.

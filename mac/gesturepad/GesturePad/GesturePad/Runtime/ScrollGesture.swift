@@ -72,25 +72,32 @@ struct FourFingerScrollEngine {
     }
 }
 
-enum LatchedGesture: Hashable, Sendable { case mouse, scroll }
+enum LatchedGesture: Hashable, Sendable { case mouse, scroll, drag }
 
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
     private var engine: GestureSessionEngine<LatchedGesture>
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
+            GestureActivationRule(gesture:.drag,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.scroll,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.mouse,activationCount:2,minimumMovementMM:mouseActivationMM)
         ])
     }
     mutating func reset() { engine.reset() }
     mutating func reset(device: UInt64) { engine.cancel(device:device) }
-    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
-        mouse: Bool, scroll: Bool) -> (gesture: LatchedGesture, millimetres: CGPoint)? where C.Element == OMSRawTouch {
-        let update = engine.process(device:device,time:time,touches:contacts,enabled: { gesture in
-            switch gesture { case .mouse: return mouse; case .scroll: return scroll }
+    mutating func update<C: Collection>(device: UInt64, time: Double, contacts: C,
+        mouse: Bool, scroll: Bool, drag: Bool = false) -> GestureSessionUpdate<LatchedGesture> where C.Element == OMSRawTouch {
+        engine.process(device:device,time:time,touches:contacts,enabled: { gesture in
+            switch gesture { case .mouse: return mouse; case .scroll: return scroll; case .drag: return drag }
+        }, activationFilter: { gesture,_ in
+            gesture != .drag || ThreeFingerDragChord.accepts(contacts)
         })
-        guard let gesture = update.gesture, let motion = update.millimetres else { return nil }
+    }
+    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
+        mouse: Bool, scroll: Bool, drag: Bool = false) -> (gesture: LatchedGesture, millimetres: CGPoint)? where C.Element == OMSRawTouch {
+        let result = update(device:device,time:time,contacts:contacts,mouse:mouse,scroll:scroll,drag:drag)
+        guard let gesture = result.gesture, let motion = result.millimetres else { return nil }
         return (gesture,motion)
     }
 }

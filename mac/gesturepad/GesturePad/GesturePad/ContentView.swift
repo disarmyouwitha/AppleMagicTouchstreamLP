@@ -135,6 +135,18 @@ struct ContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }
+            Toggle("3-finger drag/select", isOn: Binding(
+                get: { hidBlackhole.threeFingerDragEnabled },
+                set: { hidBlackhole.setThreeFingerDragEnabled($0) }
+            ))
+            .toggleStyle(.checkbox)
+            .help("Move three nearby, aligned fingers to drag or select. Lift all fingers to release. Uses mouse sensitivity.")
+            if takeoverPreference.enabled && hidBlackhole.threeFingerDragEnabled
+                && hidBlackhole.threeFingerDragStatus != "Active" {
+                Text(hidBlackhole.threeFingerDragStatus)
+                    .font(.caption).foregroundStyle(.secondary)
+                    .fixedSize(horizontal:false,vertical:true)
+            }
             HStack(spacing: 12) {
                 Toggle("4-finger scroll", isOn: Binding(
                     get: { hidBlackhole.fourFingerScrollEnabled },

@@ -34,7 +34,7 @@ final class TapCaptureAnalysisTests: XCTestCase {
                     maxTravel = max(maxTravel,hypot((c.x-first.x)*160,(c.y-first.y)*114.9))
                 }
                 let output = router.process(device:frame.deviceNumericID,time:frame.timestampSec,
-                    contacts:contacts,mouse:true,scroll:true)
+                    contacts:contacts,mouse:true,scroll:true,drag:true)
                 if output?.gesture == .mouse {
                     hadMouse = true
                     if mouseStart == nil { mouseStart = frame.timestampSec }

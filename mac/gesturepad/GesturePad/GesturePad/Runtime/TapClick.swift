@@ -120,3 +120,80 @@ struct PrimaryTapClickOutput {
         return Events(down:down,up:up)
     }
 }
+
+
+/// Activation evidence only: retain the shared latch once this chord has won.
+/// Millimetre limits are provisional ergonomics, not Apple's internal thresholds.
+enum ThreeFingerDragChord {
+    static func accepts<C: Collection>(_ contacts: C) -> Bool where C.Element == OMSRawTouch {
+        var points = SIMD8<Double>(repeating:0)
+        var count = 0
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard count < 3, touch.posX.isFinite, touch.posY.isFinite,
+                  touch.telemetry?.fingerID != 1, touch.telemetry?.fingerID != 6 else { return false }
+            points[count*2] = Double(touch.posX)*160
+            points[count*2+1] = Double(touch.posY)*114.9
+            count += 1
+        }
+        guard count == 3 else { return false }
+        var longest = 0.0, endpointA = 0, endpointB = 1
+        for a in 0..<3 {
+            for b in (a+1)..<3 {
+                let distance = hypot(points[a*2]-points[b*2],points[a*2+1]-points[b*2+1])
+                guard distance >= 2, distance <= 60 else { return false }
+                if distance > longest { longest = distance; endpointA = a; endpointB = b }
+            }
+        }
+        let middle = 3-endpointA-endpointB
+        let dx = points[endpointB*2]-points[endpointA*2]
+        let dy = points[endpointB*2+1]-points[endpointA*2+1]
+        let mx = points[middle*2]-points[endpointA*2]
+        let my = points[middle*2+1]-points[endpointA*2+1]
+        // Rotation-independent line fit. Reject a splayed/triangular thumb chord.
+        guard abs(dx*my-dy*mx)/longest <= 8 else { return false }
+        return hypot(mx,my) <= 35 && hypot(mx-dx,my-dy) <= 35
+    }
+}
+
+/// One global primary-button owner. All methods are confined to the live output
+/// lock (or an offline test). The reserved up event exists before down is returned.
+struct PrimaryDragOutput: @unchecked Sendable {
+    private(set) var owner: UInt64?
+    private var releaseEvent: CGEvent?
+    private var source: CGEventSource?
+    mutating func begin(device: UInt64, location: CGPoint, flags: CGEventFlags) -> CGEvent? {
+        guard owner == nil, location.x.isFinite, location.y.isFinite,
+              let source = CGEventSource(stateID:.privateState),
+              let down = CGEvent(mouseEventSource:source,mouseType:.leftMouseDown,mouseCursorPosition:location,mouseButton:.left),
+              let up = CGEvent(mouseEventSource:source,mouseType:.leftMouseUp,mouseCursorPosition:location,mouseButton:.left) else { return nil }
+        self.source = source; owner = device; releaseEvent = up
+        Self.configure(down,flags:flags,pressure:1)
+        Self.configure(up,flags:flags,pressure:0)
+        return down
+    }
+    mutating func move(device: UInt64, location: CGPoint, delta: CGPoint, flags: CGEventFlags) -> CGEvent? {
+        guard owner == device, location.x.isFinite, location.y.isFinite,
+              delta.x.isFinite, delta.y.isFinite,
+              let event = CGEvent(mouseEventSource:source,mouseType:.leftMouseDragged,mouseCursorPosition:location,mouseButton:.left) else { return nil }
+        Self.configure(event,flags:flags,pressure:1)
+        event.setDoubleValueField(.mouseEventDeltaX,value:delta.x)
+        event.setDoubleValueField(.mouseEventDeltaY,value:delta.y)
+        releaseEvent?.location = location; releaseEvent?.flags = flags
+        return event
+    }
+    mutating func end(device: UInt64? = nil, location: CGPoint? = nil) -> CGEvent? {
+        guard device == nil || owner == device else { return nil }
+        if let location, location.x.isFinite, location.y.isFinite { releaseEvent?.location = location }
+        releaseEvent?.timestamp = DispatchTime.now().uptimeNanoseconds
+        let up = releaseEvent
+        owner = nil; releaseEvent = nil; source = nil
+        return up
+    }
+    private static func configure(_ event: CGEvent, flags: CGEventFlags, pressure: Double) {
+        event.flags = flags
+        event.setIntegerValueField(.mouseEventClickState,value:1)
+        event.setIntegerValueField(.mouseEventButtonNumber,value:0)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        event.setDoubleValueField(.mouseEventPressure,value:pressure)
+    }
+}
