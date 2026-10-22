@@ -222,7 +222,7 @@ struct ThreeFingerTapRecognizer {
         var sawThumb = false
         var matched = false
         var rejected = false
-        // Slots are anatomical Thumb/Middle/Ring; values are tracking IDs.
+        // Thumb plus two interchangeable fingertip tracking IDs.
         var trackingIDs = SIMD4<Int32>(repeating:0)
         var handID: Int32 = 0
     }
@@ -239,16 +239,19 @@ struct ThreeFingerTapRecognizer {
         var exact = true
         var trackingIDs = SIMD4<Int32>(repeating:0)
         var handID: Int32 = 0
+        var points = SIMD8<Double>(repeating:0)
         for touch in contacts where touch.state == .making || touch.state == .touching {
             count += 1
             let finger = touch.telemetry?.fingerID ?? 0
             if finger == 1 { identity.sawThumb = true }
             let slot: Int
-            switch finger { case 1: slot = 0; case 3: slot = 1; case 4: slot = 2; default: slot = -1 }
+            switch finger { case 1: slot = 0; case 2...5: slot = mask & 2 == 0 ? 1 : 2; default: slot = -1 }
             if slot < 0 { exact = false }
             else {
                 if mask & (1 << slot) != 0 { exact = false }
                 mask |= 1 << slot; trackingIDs[slot] = touch.id
+                points[slot*2] = Double(touch.posX)*160
+                points[slot*2+1] = Double(touch.posY)*114.9
             }
             let hand = touch.telemetry?.handID ?? 0
             if hand != 0 {
@@ -257,10 +260,10 @@ struct ThreeFingerTapRecognizer {
             }
             if identity.matched {
                 // A temporary Unknown is tolerated after positive evidence;
-                // contradictory known labels/hand assignments reject the cycle.
+                // changes within the fingertip pair are allowed; role/hand changes reject.
                 var expected = -1
                 for index in 0..<3 where identity.trackingIDs[index] == touch.id { expected = index }
-                if expected < 0 || (finger != 0 && slot != expected)
+                if expected < 0 || (finger != 0 && (expected == 0 ? finger != 1 : !(2...5).contains(finger)))
                     || (hand != 0 && identity.handID != 0 && hand != identity.handID) { identity.rejected = true }
             }
         }
@@ -273,7 +276,12 @@ struct ThreeFingerTapRecognizer {
             return doubleClick ? .doubleClick : nil
         }
         if identity.matched && identity.handID == 0 { identity.handID = handID }
-        if count == 3 && exact && mask == 7 && !identity.matched {
+        // Provisional app geometry, not recovered DSP coefficients: a separated
+        // thumb and a closer fingertip pair, independent of hand orientation.
+        let pair = hypot(points[2]-points[4],points[3]-points[5])
+        let near = min(hypot(points[0]-points[2],points[1]-points[3]),hypot(points[0]-points[4],points[1]-points[5]))
+        let spread = pair >= 2 && pair <= 40 && near >= 15 && near >= pair*1.5
+        if count == 3 && exact && mask == 7 && spread && !identity.matched {
             identity.matched = true; identity.trackingIDs = trackingIDs; identity.handID = handID
         }
         identities[device] = identity

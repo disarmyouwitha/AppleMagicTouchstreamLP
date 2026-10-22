@@ -3,6 +3,21 @@ import OpenMultitouchSupport
 import SwiftUI
 import QuartzCore
 
+/// Anatomical labels, never tracking IDs: identical on both pads and in replay.
+enum AnatomicalFingerPalette {
+    static func color(fingerID: Int32?) -> NSColor {
+        switch fingerID {
+        case 1: return NSColor(srgbRed:0.95,green:0.45,blue:0.05,alpha:1)
+        case 2: return NSColor(srgbRed:0.10,green:0.45,blue:0.95,alpha:1)
+        case 3: return NSColor(srgbRed:0.10,green:0.70,blue:0.30,alpha:1)
+        case 4: return NSColor(srgbRed:0.65,green:0.25,blue:0.85,alpha:1)
+        case 5: return NSColor(srgbRed:0.95,green:0.20,blue:0.55,alpha:1)
+        case 6: return NSColor(srgbRed:0.50,green:0.50,blue:0.50,alpha:1)
+        default: return .black
+        }
+    }
+}
+
 struct TrackpadSurfaceLabel: Sendable, Equatable {
     var primary: String
     var hold: String?
@@ -100,6 +115,7 @@ struct ContactPathHistory {
         var points: [CGPoint]
         var lastSeen: TimeInterval
         var active: Bool
+        var fingerID: Int32 = 0
     }
     private(set) var trails: [Key: Trail] = [:]
     private var sourceTime: TimeInterval?
@@ -131,6 +147,7 @@ struct ContactPathHistory {
                 if trail.points.count > 96 { trail.points.removeFirst(trail.points.count - 96) }
             }
             trail.lastSeen = now
+            trail.fingerID = touch.telemetry?.fingerID ?? 0
             trail.active = true
             trails[key] = trail
         }
@@ -175,11 +192,11 @@ final class TrackpadSurfaceView: NSView {
         let now = CACurrentMediaTime()
         NSGraphicsContext.saveGraphicsState()
         NSBezierPath(rect: CGRect(origin: origin, size: snapshot.trackpadSize)).addClip()
-        for (key, trail) in history.trails {
+        for trail in history.trails.values {
             guard trail.points.count > 1 else { continue }
             let opacity = max(0, 1 - (now - trail.lastSeen) / ContactPathHistory.lifetime)
-            let color = NSColor(calibratedHue: CGFloat(UInt32(bitPattern: key.id) % 12) / 12,
-                                saturation: 0.8, brightness: 0.9, alpha: opacity * 0.85)
+            let color = AnatomicalFingerPalette.color(fingerID:trail.fingerID)
+                .withAlphaComponent(opacity * 0.85)
             color.setStroke()
             let path = NSBezierPath()
             path.lineWidth = 2
@@ -428,12 +445,13 @@ final class TrackpadSurfaceView: NSView {
             transform.rotate(byRadians: CGFloat(-touch.angle))
             transform.translate(x: -centerX, y: -centerY)
             path.transform(using: transform)
-            let color = snapshot.showTouchTelemetry
-                ? NSColor(calibratedHue: CGFloat(UInt32(bitPattern: touch.id) % 12) / 12.0,
-                          saturation: 0.7, brightness: 0.85, alpha: 1)
-                : NSColor.labelColor.withAlphaComponent(0.95)
+            let color = AnatomicalFingerPalette.color(fingerID:touch.telemetry?.fingerID)
             color.setFill()
             path.fill()
+            // Keep Unknown's black fill visible against dark backgrounds too.
+            NSColor.white.withAlphaComponent(0.7).setStroke()
+            path.lineWidth = 0.75
+            path.stroke()
             if snapshot.showTouchTelemetry {
                 drawTouchTelemetry(touch, center: CGPoint(x: centerX, y: centerY),
                                    origin: origin, trackpadSize: trackpadSize, color: color)
@@ -447,7 +465,7 @@ final class TrackpadSurfaceView: NSView {
     ) {
         let label: String
         if let raw = touch.telemetry {
-            label = "#\(touch.id)  \(raw.fingerName) (F:\(raw.fingerID))  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
+            label = "#\(touch.id)  \(raw.fingerName)  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
             // Show direction only: do not assume a calibrated velocity unit.
             let vx = CGFloat(raw.velocityX)
             let vy = CGFloat(raw.velocityY)

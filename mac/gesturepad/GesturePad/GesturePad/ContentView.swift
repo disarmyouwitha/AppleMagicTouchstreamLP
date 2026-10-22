@@ -135,12 +135,12 @@ struct ContentView: View {
                     .font(.caption).foregroundStyle(.secondary)
                     .fixedSize(horizontal:false,vertical:true)
             }
-            Toggle("Thumb + middle + ring: right-click", isOn: Binding(
+            Toggle("Spread thumb + 2 fingertips: right-click", isOn: Binding(
                 get: { hidBlackhole.rightClickEnabled },
                 set: { hidBlackhole.setRightClickEnabled($0) }
             ))
             .toggleStyle(.checkbox)
-            .help("Tap with identified thumb, middle and ring fingers for a right-click when all fingers lift. No finger identity guessing.")
+            .help("Tap with an identified thumb separated from two fingertips for a right-click on final lift. Fingertip labels may revise.")
             if takeoverPreference.enabled && hidBlackhole.rightClickEnabled
                 && hidBlackhole.rightClickStatus != "Active" {
                 Text(hidBlackhole.rightClickStatus)

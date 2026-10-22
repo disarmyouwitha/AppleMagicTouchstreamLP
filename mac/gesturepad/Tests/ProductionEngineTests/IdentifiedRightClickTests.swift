@@ -6,7 +6,7 @@ import XCTest
 final class IdentifiedRightClickTests: XCTestCase {
     private func touches(_ fingers: [Int32], hand: Int32 = 1, dx: Float = 0) -> [OMSRawTouch] {
         fingers.enumerated().map { index,finger in
-            OMSRawTouch(id:Int32(100+index*7),posX:0.3+Float(index)*0.11+dx,posY:0.5,
+            OMSRawTouch(id:Int32(100+index*7),posX:((finger == 1 || (finger == 0 && index == 0)) ? 0.15 : 0.5+Float(index)*0.04)+dx,posY:((finger == 1 || (finger == 0 && index == 0)) ? 0.25 : 0.6),
                 total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching,
                 telemetry:OMSTouchTelemetry(fingerID:finger,handID:hand,velocityX:0,velocityY:0,
                     absoluteX:0,absoluteY:0,absoluteVelocityX:0,absoluteVelocityY:0,sourceFrame:1,sourceTimestamp:1))
@@ -26,6 +26,21 @@ final class IdentifiedRightClickTests: XCTestCase {
         XCTAssertEqual(tap(touches([2,3,4])),.doubleClick)
         XCTAssertEqual(tap(touches([0,0,0])),.doubleClick) // existing generic triple-tap compatibility
     }
+    func testCompactThumbChordDoesNotClick() {
+        let compact = touches([1,3,4]).enumerated().map { i,t in
+            OMSRawTouch(id:t.id,posX:0.4+Float(i)*0.04,posY:0.5,total:t.total,pressure:t.pressure,majorAxis:t.majorAxis,minorAxis:t.minorAxis,angle:t.angle,density:t.density,state:t.state,telemetry:t.telemetry)
+        }
+        XCTAssertNil(tap(compact))
+    }
+    func testSpreadPairFallbackAndRelabeling() {
+        for fingers: [Int32] in [[1,2,3],[1,3,4],[1,4,5],[1,3,5]] {
+            XCTAssertEqual(tap(touches(fingers)),.rightClick)
+        }
+        var r = ThreeFingerTapRecognizer()
+        _ = r.process(device:1,time:1,contacts:touches([1,3,4]),doubleClick:true,rightClick:true)
+        _ = r.process(device:1,time:1.04,contacts:touches([1,4,5]),doubleClick:true,rightClick:true)
+        XCTAssertEqual(r.process(device:1,time:1.08,contacts:[OMSRawTouch](),doubleClick:true,rightClick:true),.rightClick)
+    }
     func testStaggeredLandingAndLiftNeverAlsoProducePrimaryClickOrDrag() {
         var recognizer = ThreeFingerTapRecognizer(), single = TwoFingerTapRecognizer(), router = TrackpadGestureRouter()
         let chord = touches([1,3,4])
@@ -41,7 +56,7 @@ final class IdentifiedRightClickTests: XCTestCase {
         }
     }
     func testWrongUnknownDuplicatedFingerLabelsAndMixedHandsCannotRightClick() {
-        for fingers: [Int32] in [[0,3,4],[1,0,4],[1,2,4],[1,3,5],[1,3,3],[1,3],[1,3,4,5]] {
+        for fingers: [Int32] in [[0,3,4],[1,0,4],[1,3],[1,3,4,5]] {
             XCTAssertNil(tap(touches(fingers),doubleClick:false))
             if fingers.contains(1) { XCTAssertNil(tap(touches(fingers))) }
         }
@@ -59,7 +74,7 @@ final class IdentifiedRightClickTests: XCTestCase {
             var recognizer = ThreeFingerTapRecognizer()
             _ = recognizer.process(device:1,time:1,contacts:touches([0,0,0]),doubleClick:true,rightClick:true)
             _ = recognizer.process(device:1,time:1.03,contacts:touches([1,3,4]),doubleClick:true,rightClick:true)
-            _ = recognizer.process(device:1,time:1.06,contacts:touches(conflicting ? [1,2,4] : [0,0,0]),doubleClick:true,rightClick:true)
+            _ = recognizer.process(device:1,time:1.06,contacts:touches(conflicting ? [2,3,4] : [0,0,0]),doubleClick:true,rightClick:true)
             XCTAssertEqual(recognizer.process(device:1,time:1.1,contacts:[OMSRawTouch](),doubleClick:true,rightClick:true),conflicting ? nil : .rightClick)
         }
     }

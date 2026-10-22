@@ -373,3 +373,26 @@ no held right button or right-drag. Reset ordinary primary click history. Preser
 accepted mouse/scroll/drag behavior and no replay/test posting. Central spec is
 GESTURE_ENGINE.md; hardware classification/context-menu acceptance is pending.
 Build/install without automatically launching or activating hardware.
+
+
+## Anatomical diagnostic colors (2026-10-21)
+
+User confirms corrected drag/select works great. Right-click misses may be native
+Thumb+Ring+Pinky classification instead of intended Thumb+Middle+Ring. User explicitly
+does not want gesture acceptance changed yet. Keep exact {1,3,4} and all thresholds.
+Use the shared UI anatomical palette for contact fills/arrows/trails, same on both
+pads and replay: Unknown black, Thumb orange, Index blue, Middle green, Ring purple,
+Pinky pink, Palm gray. Update from live classification without latching colors;
+tracking IDs still own path continuity. Preserve name labels and visible legend.
+No recognition or native bridge changes. Build/install without automatically launching.
+
+
+## UI cleanup and installed T2F verification (2026-10-21)
+
+User removes the color legend and F-number annotation; retain anatomical colors,
+names, tracking IDs and pressure. Current T2F source was not in the running
+Applications build. 3spread capture replay finds40 current T2F vs18 old exact-TMR
+predicted right-clicks, and all494 eligible frames pass geometry. No recognition
+changes authorized/performed in this cleanup. Rebuild/install current source and
+leave closed for hardware retest. Preserve concurrent changes and root FINDINGS.md;
+measurements and caveats are recorded there and in GESTURE_ENGINE.md.

@@ -1,5 +1,11 @@
 # FingerWorks implementation plan
 
+The consolidated reverse-engineering implementation reference is now
+[FINDINGS.md](FINDINGS.md), updated2026-10-21. Use it for recovered gesture,
+chording, typing arbitration, mouse and ownership behavior, including evidence
+limits. This plan tracks project scope and next work; GesturePad's engine document
+tracks implemented behavior.
+
 Current implementation and research review · **2026-10-20**.
 
 This is the cross-project status and next-work plan. GesturePad's

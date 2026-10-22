@@ -2,6 +2,12 @@
 
 **Central behavior specification for GesturePad. Updated 2026-10-21.**
 
+The reverse-engineering source of truth for implementing FingerWorks gestures is
+[mac/FINDINGS.md](../FINDINGS.md). It distinguishes original definitions, recovered
+firmware flow, bounded validation and unresolved fidelity questions. This document
+specifies current app behavior; a research difference must become an explicit
+implementation decision rather than an automatic threshold or policy change.
+
 Start here when designing, implementing or tuning gestures. This document
 records the current agreed behavior and implemented thresholds. Feature-specific
 notes hold equations, investigation history and detailed implementation context;
@@ -26,8 +32,8 @@ One finger cannot start continuous motion. Three fingers can start a stationary 
 is discrete; it does not hold a mouse button or inherit continuous count latching.
 
 **Acceptance:** the user confirmed mouse acceleration, count latching, scroll
-and momentum feel on hardware. Three-finger double-click and drag/select have offline coverage and await
-hardware testing. Two-finger tap was tested, improved after capture-backed
+and momentum feel on hardware, and now confirms corrected three-finger drag/select
+works great. Three-finger double-click still awaits explicit hardware acceptance. Two-finger tap was tested, improved after capture-backed
 arbitration tuning, and the user reports it feels substantially better. Keep the
 current tuning; do not claim all click delivery, lifecycle or application-specific
 edge cases have passed. The acceptance/evidence table below records that boundary.
@@ -285,7 +291,7 @@ transition/lifecycle and manual-override behavior matches the existing tap contr
 Tap-only double-click works independently of mouse/scroll profiles. It is a
 GesturePad-only addition and awaits hardware acceptance.
 
-### Thumb–middle–ring tap to right-click
+### Thumb–middle–ring tap to right-click (historical; superseded below)
 
 The user requested the FingerWorks TouchStream chord: **thumb + middle + ring**.
 `ThreeFingerTapRecognizer` arbitrates three-contact taps before any click output.
@@ -344,7 +350,7 @@ line through the farthest pair and within 35 mm of each endpoint. The geometry
 is rotation-independent, allowing natural hand angles. Classified thumb
 (`fingerID == 1`) or palm rejects drag, even when the points happen to align.
 Unknown/missing finger classification uses geometry only; it cannot prove which
-anatomical fingers are down. These ergonomic bounds await hardware tuning.
+anatomical fingers are down. The user reports the corrected drag/select works great with these ergonomic bounds.
 Thumb–middle–ring right-click uses the separate anatomical tap rule and
 arbitration described above. Contact tracking IDs and anatomical finger classifications are distinct.
 
@@ -380,7 +386,8 @@ up before clearing output state. A 120 Hz watchdog releases a drag after 200 ms
 without a live frame. Release uses a fresh timestamp; normal completion preserves the last queued
 drag destination, while lifecycle/interference cleanup reads the current cursor.
 Output allocation failures also cancel; cleanup is idempotent. Tests inspect
-unposted events. Hardware acceptance, app behavior and geometry feel remain pending.
+unposted events. The user confirms corrected drag/select works great; broader
+application and lifecycle coverage remains.
 
 ## 8. Current thresholds and units
 
@@ -518,8 +525,8 @@ actual click delivery or user intent. See
 
 | Behavior | Evidence retained | Remaining limit |
 | --- | --- | --- |
-| Identified thumb–middle–ring right-click | Offline exact/incorrect/unknown/mixed-hand identities, specificity, shared tap timing/cancellation and balanced secondary events. | New feature; native classification quality, context menus and hardware feel await acceptance. |
-| Three-finger drag/select | Offline aligned/rotated vs splayed/thumb chords, latching, stationary-tap separation, cancellation and balanced output tests. | User reported jitter/repeated selection in the first build. Own-button polling was removed in favor of tagged observation and queued destinations; corrected build awaits hardware retest. |
+| Identified thumb–middle–ring right-click | Offline exact/incorrect/unknown/mixed-hand identities, specificity, shared tap timing/cancellation and balanced secondary events. | User tested it and reports missed triggers; suspects Thumb+Middle+Ring is often labelled Thumb+Ring+Pinky. Identity colors added for diagnosis; exact chord remains unchanged. |
+| Three-finger drag/select | Offline aligned/rotated vs splayed/thumb chords, latching, stationary-tap separation, cancellation and balanced output tests. | User reported jitter/repeated selection in the first build. Own-button polling was removed in favor of tagged observation and queued destinations; User confirms the corrected drag/select works great on hardware; broader app/lifecycle coverage remains. |
 | Pointer acceleration/fine movement | User reports accepted feel on hardware; independent equation vectors and pure motion replay pass. | Contact-to-count conversion is an explicit hypothesis, not recovered proprietary processing. |
 | Continuous gesture latch | User tested original FingerWorks and GesturePad: 2→3→4→1 transitions feel smooth and match the intended interaction. | Other chord families need their own activation/handoff policy. |
 | Four-finger scroll and momentum | User reports good feel; per-axis equations, fine pixel fields, phases, decay and cancellation have offline checks. | App-specific effects, OS/device differences and lifecycle edges need broader coverage; momentum is app tuning. |
@@ -585,8 +592,105 @@ accumulate from the last queued drag position. Regression tests cover one down,
 continuous dragged events, one up through 60 frames/count changes while simulating
 a globally held button; tagged/outside interference; and matching Apple-accelerated
 deltas between two- and three-finger motion. Tests create events without posting
-or installing an observer. The fix still needs the user's hardware retest.
+or installing an observer. The user subsequently confirmed corrected drag/select works great on hardware.
 
 Apple documents global source-state tables as accumulated event state, not
 individual physical input provenance:
 [CGEventSourceStateID](https://developer.apple.com/documentation/coregraphics/cgeventsourcestateid).
+
+
+## Anatomical color diagnostics (2026-10-21)
+
+The user confirmed corrected three-finger drag/select works great. Right-click
+misses are being investigated: their hypothesis is that intended Thumb+Middle+Ring
+is sometimes classified Thumb+Ring+Pinky. Do not broaden the accepted chord yet.
+
+Contact fills, telemetry direction arrows and contact trails use a fixed sRGB
+palette keyed by anatomical `telemetry.fingerID`, not transient tracking ID:
+Unknown/missing/unrecognized = black, Thumb = orange, Index = blue, Middle = green,
+Ring = purple, Pinky = pink, Palm = gray. Both pads, new contact IDs and replay
+share the mapping. Contact colors update immediately with classification (no
+color latch); each trail uses its most recent classification. A labeled legend
+is visible even with detailed telemetry off, and black contacts have a light
+outline for dark backgrounds. Finger-name/F labels remain available through
+Inspect touch data. Rendering changes do not affect recognition, tap limits,
+right-click identity requirements, arbitration or output.
+
+## FingerWorks right-click research checkpoint (2026-10-21)
+
+**Documentation only; preserve the current exact chord and classifier.** The
+quick guide page1 explicitly recommends thumb+middle+ring. However, research of
+the shipped1.60 defaults shows that this is not sufficient evidence for an
+exact-only anatomical recognition rule.
+
+| Original evidence | Recovered meaning | Comparison with current implementation |
+| --- | --- | --- |
+| Right-hand `FW_stealth_chords.xml`: `finger_combo="T2F"`, `Search & Right Click/Drag`, `T2F Spread` | Thumb plus two fingertips, with arrangement selection | Current native-label set{1,3,4} is stricter than the recovered general selection path. |
+| `FW_parameter_macros.xml`: T2F Spread has `best_fingers="STRP"` | Spread + thumb + ring + pinky is its preferred anatomical pattern; utility maps S/T/R/P explicitly | The user's suspected TRP classification is not inherently wrong for the original spread arrangement. Do not change accepted identities automatically. |
+| Utility T2F parser retains any-permutation bit0x100000, even when preferred bits are added | Preferred fingers are not an exact-only acceptance requirement | Do not interpret `best_fingers` as either a hard whitelist or proof that every three-contact geometry qualifies. |
+| Firmware8021AA exact lookup then thumb/nonthumb-count fallback;8021E1/C0395D arrangement scoring | Anatomical configuration, eligibility and geometry cooperate; competing compact/spread/TIP definitions can differ | Adding TRP to a whitelist alone would not reproduce the original selection/arbitration. |
+| SyncTap→Secondary Click Event→Button2 click, configured duration30 | Quick tap is a discrete secondary-click action | Duration30 is action configuration, not a recovered contact timing threshold. Current app timing remains app policy. |
+| Same template also has Timedown secondary press, XY secondary drag and LiftSlide release | Original right-click belongs to a larger tap/hold/motion family | Current implementation remains discrete tap only; no right-drag or held secondary output is added. |
+
+The original compact T2F middle-click template is category-dependent
+(`three_buttons emacs_op`); spread T2F right-click and TIP Spread/XWinder are
+distinct candidates. The quick guide's later page also distinguishes spread
+right-click/drag in three-button/Linux contexts. This evidence does not prove
+the exact configuration on any particular physical TouchStream, nor execute the
+full FP arrangement scorer. Apple's finger estimates are not interchangeable
+with firmware anatomical slots.
+
+The firmware also revises anatomical assignment contextually. Our stricter rule
+that a known contradictory label rejects a matched tap is an explicit current
+policy, not a recovered universal FingerWorks invariant. Retain it pending a
+separately reviewed change.
+
+For a useful capture, record intended TMR and TRP separately. Report whether a
+full three-contact frame ever matched{1,3,4}, whether later known relabeling
+invalidated it, and whether motion/timing/another owner cancelled it. Keep these
+reasons distinct from actual event delivery. The current colors are appropriate
+for diagnosing classification; they should continue updating with telemetry.
+
+Detailed sources, original XML members, hashes, firmware addresses and limits:
+[right-click reverse-engineering findings](/Users/nap/Documents/AppleMagicTouchstreamLP/FINDINGS.md).
+No gesture code, anatomical assignment, thresholds, output or hardware state was
+changed by this research checkpoint.
+
+## Spread thumb+two-fingertip right-click implementation (2026-10-21)
+
+This supersedes the exact{1,3,4} activation and known fingertip-label rejection
+policy above. One full frame must contain a thumb(code1) and two known
+fingertips(codes2..5), with compatible hand telemetry and spread geometry.
+Fingertip separation must be2..40mm; the thumb's nearest fingertip must be at
+least15mm away and at least1.5 times the fingertip separation. Coordinates use
+the existing160×114.9 conversion. These are provisional app limits, not recovered
+DSP coefficients or calibrated native dimensions. Contact order/hand orientation
+do not determine the chord.
+
+Bind the thumb and interchangeable fingertip roles to tracking IDs on matching.
+Allow fingertip relabeling and temporary Unknown on those IDs; reject known
+thumb/fingertip role changes and incompatible hand labels. Existing tap timing,
+motion limits, all-up completion, per-pad cancellation and balanced secondary
+output remain. Classified-thumb cycles remain reserved from primary double-click.
+This does not implement competing compact/TIP arrangements or the complete
+firmware FP scorer. The UI label is now Spread thumb + 2 fingertips. Hardware
+acceptance remains pending. Canonical research: [FINDINGS.md](../../FINDINGS.md).
+
+Verification for the spread fallback: ./test.sh passed138 tests (2 skipped,0 failures). New tests cover TMR/TRP and other fingertip pairs, relabeling and compact rejection; existing tap/lifecycle/output checks remain. Live hardware acceptance is pending.
+
+
+## Diagnostic UI cleanup and 3spread replay (2026-10-21)
+
+At user request remove the color legend and `(F: number)` from contact labels.
+Retain live anatomical colors, contact tracking number, finger name, pressure,
+colored arrows and paths. There is no recognition change.
+
+`3spread.atpcap` offline replay predicts40 right-clicks under current T2F versus18
+under the older exact-TMR implementation, over53 completed contact cycles. All494
+anatomically eligible T2F frames pass the existing geometry. Five otherwise valid
+taps are taken by mouse ownership; two exceed1 mm individual travel; six cycles
+never reach three active contacts. See root [FINDINGS.md](../../FINDINGS.md) for
+measurements, assumptions, binary mismatch and reproduction artifacts. The running
+Applications app still held the older exact-TMR build; install the freshly built
+current T2F version before evaluating new thresholds. Do not loosen geometry on
+this capture's evidence alone. Actual delivery and intent remain hardware checks.

@@ -7,6 +7,10 @@
 
 ===
 
+ 
+
+===
+
 `GesturePad`:
 0. right click (thumb,middle,ring) using the finger identification
 1. In Gesturepad I think I want to start by removing the left/right trackpad contacts where it shows a list of each with the raw measurements.
