@@ -46,7 +46,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var takeoverQuitTask: Task<Void, Never>?
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
-    private var statusCancellable: AnyCancellable?
     private var replayStateCancellable: AnyCancellable?
     private static let configWindowDefaultHeight: CGFloat = 600
     private var captureMenuItem: NSMenuItem?
@@ -125,7 +124,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         controller.start()
         reconcileTakeoverSelection()
         configureStatusItem()
-        observeStatus()
+        observeReplayState()
         if shouldOpenConfigOnLaunch {
             openConfigWindow()
         }
@@ -273,11 +272,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         item.menu = menu
         statusItem = item
-        updateStatusIndicator(
-            isTypingEnabled: controller.viewModel.isTypingEnabled,
-            activeLayer: controller.viewModel.activeLayer,
-            hasDisconnectedTrackpads: controller.viewModel.hasDisconnectedTrackpads
-        )
+        item.button?.image = NSImage(named: "StatusHand")
+        item.button?.image?.size = NSSize(width: 18, height: 20)
+        item.button?.image?.isTemplate = true
+        item.button?.toolTip = "AppleMagicTouchstream"
         captureInProgress = controller.isATPCaptureActive
         replayInProgress = controller.isATPReplayActive
         refreshCaptureReplayMenuState()
@@ -286,19 +284,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
 
 
-    private func observeStatus() {
-        statusCancellable = Publishers.CombineLatest3(
-            controller.viewModel.$isTypingEnabled.removeDuplicates(),
-            controller.viewModel.$activeLayer.removeDuplicates(),
-            controller.viewModel.$hasDisconnectedTrackpads.removeDuplicates()
-        )
-        .sink { [weak self] isTypingEnabled, activeLayer, hasDisconnected in
-            self?.updateStatusIndicator(
-                isTypingEnabled: isTypingEnabled,
-                activeLayer: activeLayer,
-                hasDisconnectedTrackpads: hasDisconnected
-            )
-        }
+    private func observeReplayState() {
         replayStateCancellable = controller.viewModel.$replayTimelineState
             .map { $0 != nil }
             .removeDuplicates()
@@ -310,68 +296,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }
-    }
-
-    private func updateStatusIndicator(
-        isTypingEnabled: Bool,
-        activeLayer: Int,
-        hasDisconnectedTrackpads: Bool
-    ) {
-        guard let button = statusItem?.button else { return }
-        button.image = statusIndicatorImage(
-            isTypingEnabled: isTypingEnabled,
-            activeLayer: activeLayer,
-            hasWarning: hasDisconnectedTrackpads
-        )
-        let modeText: String
-        if isTypingEnabled {
-            modeText = "Typing enabled"
-        } else {
-            modeText = "Mouse mode"
-        }
-        button.toolTip = hasDisconnectedTrackpads
-            ? "\(modeText) – missing trackpad"
-            : modeText
-    }
-
-    private func statusIndicatorImage(
-        isTypingEnabled: Bool,
-        activeLayer: Int,
-        hasWarning: Bool
-    ) -> NSImage {
-        let size = NSSize(width: 10, height: 10)
-        let image = NSImage(size: size)
-        image.isTemplate = false
-        image.lockFocus()
-        let rect = NSRect(origin: .zero, size: size).insetBy(dx: 1, dy: 1)
-        let path = NSBezierPath(ovalIn: rect)
-        let color = activeLayer > KeyLayerConfig.baseLayer
-            ? NSColor.systemBlue
-            : (isTypingEnabled
-                ? NSColor.systemGreen
-                : NSColor.systemRed)
-        color.setFill()
-        path.fill()
-
-        if hasWarning {
-            let dotRadius: CGFloat = 3.5
-            let dotCenter = CGPoint(
-                x: rect.maxX - dotRadius - 0.5,
-                y: rect.maxY - dotRadius - 0.5
-            )
-            let warning = NSBezierPath()
-            warning.appendArc(
-                withCenter: dotCenter,
-                radius: dotRadius,
-                startAngle: 0,
-                endAngle: 360
-            )
-            NSColor.systemYellow.setFill()
-            warning.fill()
-        }
-
-        image.unlockFocus()
-        return image
     }
 
     @objc private func openConfigWindow() {

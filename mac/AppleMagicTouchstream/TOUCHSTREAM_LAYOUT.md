@@ -22,6 +22,16 @@ an initial approximation of the printed rounded/oval keys, not measured hardware
 geometry. Backspace/Space use rotated rectangular regions. Existing presets,
 saved selections and mappings are not replaced automatically.
 
+On 2026-10-22, all 88 rectangles were realigned against the bundled 520 × 196
+reference after reviewing `mac/misaligned.jpg`. Each dark printed key region was
+matched to its existing label, then fitted with a rotated rounded rectangle to
+recover its center, width, height and angle. Coordinates use a 260 × 196 canvas
+per half. The thumb regions use bounding rectangles around their oval artwork;
+their corners therefore extend beyond the printed oval. These remain visual
+estimates from a low-resolution image, not physical sensor calibration. Key
+order, actions and saved overrides are preserved; existing per-key size/rotation
+overrides still apply on top of the revised base trace. Column tuning stays off.
+
 Normal letters, numbers, modifiers, navigation and function keys use the existing
 Mac action catalog. Hand-logo, Caps Lock, Scroll Lock, Num Lock, Popup, Print Screen
 and Pause legends are editable inactive placeholders where that catalog has no

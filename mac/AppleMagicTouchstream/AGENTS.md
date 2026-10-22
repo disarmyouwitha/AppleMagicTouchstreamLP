@@ -92,3 +92,13 @@ Keep equal-width Import/Export directly under Mode Toggles in the scrolling
 Keyboard settings. User reverted the temporary TouchStream column experiment:
 keep fixed traced positions, column tuning disabled, and original per-key
 geometry behavior. No column offsets/scales/rotations apply to TouchStream.
+
+## Reference alignment and menu icon (2026-10-22)
+
+User authorized realigning all TouchStream key rectangles against the reference
+and replacing the menu-bar status circles with a monochrome hand inspired by
+mac/Hand.jpg. StatusHand is a vector template asset; let macOS choose its tint.
+Do not restore colored mode/layer/disconnect badges or their subscriptions.
+Preserve the underlying keyboard/layer state and device recovery behavior.
+The key trace changes base position, size and angle only; preserve mapping
+identities, saved per-key overrides and disabled column tuning.
