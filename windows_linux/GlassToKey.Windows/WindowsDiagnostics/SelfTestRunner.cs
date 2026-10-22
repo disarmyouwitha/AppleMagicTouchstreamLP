@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        if (!RunMouseTakeoverGateTests(out string takeoverFailure))
+            return new SelfTestResult(false, "Mouse takeover gate tests failed: " + takeoverFailure);
         if (!RunParserTests(out string parserFailure))
         {
             return new SelfTestResult(false, $"Parser tests failed: {parserFailure}");
@@ -187,6 +189,34 @@ internal static class SelfTestRunner
         }
 
         failure = string.Empty;
+        return true;
+    }
+
+    private static bool RunMouseTakeoverGateTests(out string failure)
+    {
+        failure = string.Empty;
+        MouseTakeoverGate gate = new();
+        long now = Stopwatch.Frequency;
+        if (gate.ShouldBlock(true, false, now, false)) { failure = "Unarmed gate blocked production input."; return false; }
+        long first = gate.Arm(now, TimeSpan.FromSeconds(30));
+        if (!gate.ShouldBlock(true, false, now, false)) { failure = "Physical event was not blocked."; return false; }
+        if (gate.ShouldBlock(true, true, now, false)) { failure = "Injected event was blocked."; return false; }
+        if (gate.ShouldBlock(false, false, now, false)) { failure = "Unrelated event was blocked."; return false; }
+        if (gate.ShouldBlock(true, false, first, false)) { failure = "Deadline failed open at exact expiry."; return false; }
+        long second = gate.Arm(now + 1, TimeSpan.FromSeconds(30));
+        gate.Release(first);
+        if (!gate.IsActive(now + 1)) { failure = "Stale watchdog released newer activation."; return false; }
+        gate.Release(second);
+        if (gate.IsActive(now + 1)) { failure = "Watchdog did not release its activation."; return false; }
+        gate.Arm(now, TimeSpan.FromSeconds(30));
+        if (gate.ShouldBlock(true, false, now, true) || gate.IsActive(now)) { failure = "Emergency key did not release before filtering."; return false; }
+        gate.Arm(now, TimeSpan.FromSeconds(30)); gate.Release();
+        if (gate.IsActive(now)) { failure = "Explicit release failed."; return false; }
+        foreach (TimeSpan duration in new[] { TimeSpan.Zero, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(31) })
+        {
+            try { gate.Arm(now, duration); failure = "Unsafe duration was accepted."; return false; }
+            catch (ArgumentOutOfRangeException) { }
+        }
         return true;
     }
 

@@ -1,0 +1,3 @@
+2026-10-22T21:18:03.6148030Z t=0.806 FAULT System.InvalidOperationException: Ctrl+Alt+F12 could not be registered (error 1409). Takeover is disabled.
+   at GlassToKey.MouseTakeoverTestWindow.Initialize() in C:\Users\jholloway\Documents\AppleMagicTouchstreamLP\windows_linux\GlassToKey.Windows\WindowsDiagnostics\MouseTakeoverTestWindow.cs:line 79
+2026-10-22T21:18:52.0632363Z t=49.254 END

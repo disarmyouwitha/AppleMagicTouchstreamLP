@@ -18,6 +18,7 @@ public partial class App : Application
     private MainWindow? _configWindow;
     private ReaderOptions? _startupOptions;
     private PtpTakeoverDiagnostic? _ptpDiagnostic;
+    private MouseTakeoverTestWindow? _mouseTakeoverTest;
     private bool _restartRequested;
     private bool _restartToTrayWhenConfigCloses = true;
 
@@ -59,6 +60,15 @@ public partial class App : Application
             }
 
             Shutdown(2);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.MouseTakeoverTestLog))
+        {
+            ShutdownMode = ShutdownMode.OnMainWindowClose;
+            _mouseTakeoverTest = new MouseTakeoverTestWindow(Path.GetFullPath(options.MouseTakeoverTestLog));
+            MainWindow = _mouseTakeoverTest;
+            _mouseTakeoverTest.Show();
             return;
         }
 
@@ -255,6 +265,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _ptpDiagnostic?.Dispose();
+        _mouseTakeoverTest?.Dispose();
         if (_runtimeService != null)
         {
             _runtimeService.ModeIndicatorChanged -= OnRuntimeModeIndicatorChanged;

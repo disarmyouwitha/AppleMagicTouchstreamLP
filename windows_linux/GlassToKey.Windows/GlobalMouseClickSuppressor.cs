@@ -45,6 +45,8 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private IntPtr _hookHandle;
     private int _enabled;
     private long _movementGateDeadline;
+    private readonly MouseTakeoverGate _takeover = new();
+    private int _takeoverReleaseKey = 0x79;
     private long _lastTrackedDeviceButtonEdgeTicks;
     private bool _disposed;
     public event Action? ClickObserved;
@@ -109,6 +111,12 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
 
     public void ReleaseMovementGate() => Interlocked.Exchange(ref _movementGateDeadline, 0);
 
+    public bool IsMouseTakeoverActive => _takeover.IsActive(Stopwatch.GetTimestamp());
+    public long GatePhysicalMouseFor(TimeSpan duration) => _takeover.Arm(Stopwatch.GetTimestamp(), duration);
+    public void ReleaseMouseTakeover() => _takeover.Release();
+    public void ReleaseMouseTakeover(long expectedDeadline) => _takeover.Release(expectedDeadline);
+    public void SetTakeoverReleaseKey(int virtualKey) => Volatile.Write(ref _takeoverReleaseKey, virtualKey);
+
     public void NotifyTrackedDeviceButtonEdge(long timestampTicks = 0)
     {
         long edgeTicks = timestampTicks > 0 ? timestampTicks : Stopwatch.GetTimestamp();
@@ -123,6 +131,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         }
 
         _disposed = true;
+        ReleaseMouseTakeover();
         ReleaseMovementGate();
         SetEnabled(false);
         if (_hookHandle != IntPtr.Zero)
@@ -143,7 +152,11 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
             int message = unchecked((int)(long)wParam);
             bool isClick = IsClickMessage(message);
             bool isInjected = IsInjected(lParam);
-            if (message == WmMouseMove || message == WmMouseWheel || message == WmMouseHWheel)
+            bool emergencyRelease = IsMouseTakeoverActive &&
+                ((GetAsyncKeyState(0x1B) & 0x8000) != 0 ||
+                 ((GetAsyncKeyState(0x11) & 0x8000) != 0 &&
+                  (GetAsyncKeyState(0x12) & 0x8000) != 0 && (GetAsyncKeyState(Volatile.Read(ref _takeoverReleaseKey)) & 0x8000) != 0));
+            if (isClick || message == WmMouseMove || message == WmMouseWheel || message == WmMouseHWheel)
             {
                 try
                 {
@@ -159,6 +172,9 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
                     // Diagnostics must never break the input chain.
                 }
             }
+            if (_takeover.ShouldBlock(isClick || message == WmMouseMove || message == WmMouseWheel || message == WmMouseHWheel,
+                isInjected, Stopwatch.GetTimestamp(), emergencyRelease))
+                return (IntPtr)1;
             if (message == WmMouseMove && !isInjected &&
                 Stopwatch.GetTimestamp() < Interlocked.Read(ref _movementGateDeadline))
             {
@@ -276,6 +292,9 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
 
     [DllImport("user32.dll")]
     private static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
+
+    [DllImport("user32.dll")]
+    private static extern short GetAsyncKeyState(int key);
 
     [DllImport("user32.dll")]
     private static extern IntPtr WindowFromPoint(POINT point);

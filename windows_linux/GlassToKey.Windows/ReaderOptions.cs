@@ -27,6 +27,7 @@ public sealed class ReaderOptions
     public bool PtpMovementGate { get; private set; }
     public bool PtpOsToggleProbe { get; private set; }
     public string? PtpRestoreWatchdogLog { get; private set; }
+    public string? MouseTakeoverTestLog { get; private set; }
 
     public bool StartInConfigUi { get; private set; }
     public bool StartInTrayOnly { get; private set; }
@@ -109,6 +110,9 @@ public sealed class ReaderOptions
                     break;
                 case "--ptp-diagnostic" when i + 1 < args.Length:
                     options.PtpDiagnosticLog = args[++i];
+                    break;
+                case "--mouse-takeover-test" when i + 1 < args.Length:
+                    options.MouseTakeoverTestLog = args[++i];
                     break;
                 case "--ptp-movement-gate":
                     options.PtpMovementGate = true;

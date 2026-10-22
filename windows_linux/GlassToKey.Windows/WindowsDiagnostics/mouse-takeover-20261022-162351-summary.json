@@ -1,0 +1,104 @@
+{
+  "source": "mouse-takeover-test-20261022-162351-171.log",
+  "activationSeconds": 5.602,
+  "releaseSeconds": 35.689,
+  "elapsedSeconds": 30.087,
+  "frames": 1206,
+  "nonzeroCountFrames": 1193,
+  "contactCountHistogram": {
+    "1": 567,
+    "0": 13,
+    "2": 401,
+    "3": 2,
+    "4": 20,
+    "5": 203
+  },
+  "firstFrameAfterActivation": 0.006,
+  "lastFrameAfterActivation": 29.975,
+  "fiveSecondBuckets": [
+    {
+      "secondsAfterActivation": "0-5",
+      "frames": 248,
+      "nonzeroCountFrames": 245
+    },
+    {
+      "secondsAfterActivation": "5-10",
+      "frames": 245,
+      "nonzeroCountFrames": 242
+    },
+    {
+      "secondsAfterActivation": "10-15",
+      "frames": 243,
+      "nonzeroCountFrames": 241
+    },
+    {
+      "secondsAfterActivation": "15-20",
+      "frames": 233,
+      "nonzeroCountFrames": 231
+    },
+    {
+      "secondsAfterActivation": "20-25",
+      "frames": 225,
+      "nonzeroCountFrames": 222
+    },
+    {
+      "secondsAfterActivation": "25-30",
+      "frames": 12,
+      "nonzeroCountFrames": 12
+    }
+  ],
+  "largestInterFrameGapsSecondsAndOffsets": [
+    [
+      4.880999999999997,
+      24.991,
+      29.871999999999996
+    ],
+    [
+      0.527000000000001,
+      15.350999999999999,
+      15.878
+    ],
+    [
+      0.4510000000000005,
+      14.428,
+      14.879000000000001
+    ],
+    [
+      0.3489999999999984,
+      5.573,
+      5.921999999999999
+    ],
+    [
+      0.33699999999999974,
+      23.416,
+      23.753
+    ],
+    [
+      0.2919999999999998,
+      6.1690000000000005,
+      6.461
+    ]
+  ],
+  "officialAppleActiveSlots": 2437,
+  "officialApplePayloadRanges": {
+    "rawX": [
+      3498,
+      14432
+    ],
+    "rawY": [
+      0,
+      8254
+    ],
+    "pressureByte": [
+      0,
+      92
+    ],
+    "phaseByte": [
+      0,
+      0
+    ]
+  },
+  "rawDeviceHandles": [
+    "159129123"
+  ]
+}

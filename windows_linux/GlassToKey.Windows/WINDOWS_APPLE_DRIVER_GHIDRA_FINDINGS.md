@@ -465,3 +465,15 @@ There are no FRAME records. Both handles were disposed after cancellation; no fe
 **Decision:** close this open-source USB testing branch at the user's request. The full source remains useful for static comparison of Apple wire-format parsing and PTP conversion, but no takeover advantage was demonstrated. WinUSB rebinding remains disfavored by the user and was never attempted. No additional USB test or driver installation is recommended now.
 
 For subsequent work, return to the existing Apple Bluetooth connection, re-identify its actual active collections/filters read-only, and keep researching existing interfaces without changing the preferred binding. Do not repeat the already failed Bluetooth global-toggle contact-retention test without a new data-path hypothesis. The original no-custom-driver, no-security-change, full-contact, ordinary-mouse-independence, and two-trackpad requirements remain unsolved. Production typing, haptics, dragging, and input behavior were not changed by these diagnostics.
+
+## Separate practical fallback note
+
+At the user's request, [WINDOWS_MOUSE_HOOK_FALLBACK.md](WINDOWS_MOUSE_HOOK_FALLBACK.md) describes the existing WM_INPUT + WH_MOUSE_LL movement gate, original measured results, and the proposed user-disabled Windows gesture fallback. The combined fallback is unverified; ordinary-mouse independence remains unsolved. This records a possible fallback without changing production behavior or Windows settings.
+
+## User-approved compromise: Mouse Takeover test
+
+The user now accepts blocking all physical mice if needed, with keyboard release. Implemented a separate bounded interactive test, documented in [the fallback note](WINDOWS_MOUSE_HOOK_FALLBACK.md#mouse-takeover-interactive-test-2026-10-22). This supersedes ordinary-mouse independence as a blocker for this explicitly chosen fallback experiment; it does not claim device-specific FLTR ownership. No normal-startup takeover or saved checkbox has been enabled. Gesture suppression and retained populated contacts still require hardware validation.
+
+## Mouse Takeover: first positive Bluetooth hardware result
+
+The user ran the corrected interactive test and observed the synthetic jump. The log confirms a roughly 30-second gate, 1,206 raw reports (1,193 populated), sampled cursor position stable except for the injected move, and release consistent with timeout. A late 4.881-second report gap is bracketed by release/new-contact lifecycle samples; populated reports resume just before expiry. See [the detailed measured result and outstanding checks](WINDOWS_MOUSE_HOOK_FALLBACK.md#hardware-result-apple-bluetooth-1623-local). This advances the explicitly accepted global-mouse compromise; it does not solve device-specific takeover or prove shell-gesture/click/scroll suppression. No normal production behavior has been enabled.
