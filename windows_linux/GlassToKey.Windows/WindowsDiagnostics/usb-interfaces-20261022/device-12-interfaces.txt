@@ -1,0 +1,19 @@
+Microsoft PnP Utility
+
+Instance ID:                HID\VID_05AC&PID_0324&MI_01&Col02\8&1dfdbed3&0&0001
+Device Description:         Microsoft Input Configuration Device
+Class Name:                 HIDClass
+Class GUID:                 {745a17a0-74d3-11d0-b6fe-00a0c90f57da}
+Manufacturer Name:          Microsoft
+Status:                     Started
+Driver Name:                mtconfig.inf
+Parent:                     USB\VID_05AC&PID_0324&MI_01\7&49b99ee&2&0001
+Service:                    MTConfig
+Stack:                      MTConfig
+                            mshidumdf
+Interfaces:
+    Interface Path:         \\?\HID#VID_05AC&PID_0324&MI_01&Col02#8&1dfdbed3&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+    Interface Description:  Unknown
+    Interface Class GUID:   {4d1e55b2-f16f-11cf-88cb-001111000030}
+    Interface Status:       Enabled
+

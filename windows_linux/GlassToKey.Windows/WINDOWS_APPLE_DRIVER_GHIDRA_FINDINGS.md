@@ -6,13 +6,47 @@ This report addresses a narrow question: can an existing Apple Windows driver su
 
 **Correction to earlier reports:** the captured `usage=0x00/0x00` values came from GlassToKey's failed device-info query and fallback. A correct query and independent HID capability query identify the Apple report stream as **Digitizer / Touch Pad (`0x0D/0x05`)**. The `0x05` report is not demonstrated to be a separate vendor raw stream. This correction does not change the measured 407 empty frames during suppression.
 
+
+## Current decision: close open-source USB testing
+
+The user requested returning to the preferred official Apple Bluetooth setup after the controlled USB tests. The direct-read test also returned zero vendor reports during instructed finger movement. No independently populated contact source or takeover mechanism was found on the tested USB stack. **Do not request more open-source USB tests or change its binding on this evidence.** The dated sections below retain the investigation history; earlier “next test” wording is superseded by the completed results and closure at the end. Returning to Bluetooth requires disconnecting the USB data cable and using the existing pairing, not installing/replacing a driver. The previously captured Bluetooth stack included an Apple parent and open-source child filter; “preferred Apple Bluetooth setup” must not be taken as a fresh verification of an Apple-only stack.
+
+## Research checkpoint for return to Bluetooth
+
+Updated after the 15:50 USB test on 2026-10-22. This is the current evidence summary; build-specific addresses, hashes, source pins, and detailed logs follow. **No driverless FLTR-equivalent takeover is verified.**
+
+| Interesting finding | Evidence level | Consequence for GlassToKey |
+|---|---|---|
+| Apparent Apple usage 00/00 was a 24-byte RID_DEVICE_INFO sizing failure; correct native structure size is 32 bytes | Live metadata + independent HID capabilities | Apple 0x05/50-byte stream is PTP 0D/05, not a proven independent vendor channel. Preserve packing selection when fixing metadata. |
+| Global Bluetooth PTP disable retained frame timing but removed contacts | Controlled hardware: 407 confirmed-disabled frames had empty slots | Suppression worked for observed native movement/wheel events, but this stream cannot drive GlassToKey during disable. Do not repeat without a new data source. |
+| Mouse-hook event flags/extra info do not identify a trackpad | Recorded physical events had zero flags/extra info; injected event was tagged | WH_MOUSE_LL remains useful instrumentation, but cannot establish selective device takeover from those fields. |
+| Apple surface-reporting control gates the same converted contacts the app needs | USB/BT binary and matching descriptor analysis | No found Apple private switch independently disables only Windows interpretation. Do not send guessed reports. |
+| Windows MIT interception skips PTP gesture starts and shell actions | Static Windows decompilation | Real suppression machinery exists, but inspected callback registration requires DWM identity and enable requires the session input thread. Not a normal-app route. |
+| Pointer redirection accepts touch/pen, rejects touchpad type 5 on this build | Static accepted-type/assembly check | UIAccess does not make the inspected direct PT_TOUCHPAD registration viable. |
+| Per-device engine properties can be read normally | All eight selectors read on both Bluetooth collections | Geometry/AAP/GestureOnly fields are real; the inspected setter requires injection-device state. Getter success is not physical-device write permission. |
+| Open-source USB stack exposes separate vendor HID functions | Live metadata/PnP: MI_03 input108/reportC0, MI_02 input16/report3F | They are accessible read-only but not demonstrated contact mirrors. |
+| Vendor channels returned no data through either observation route tested | Controlled Raw Input: 1,747 PTP frames, zero vendor; direct reads: zero on both channels during instructed touches | Close the open-source USB testing branch. Descriptor capacity/open success did not translate into usable original contacts. |
+| WinUSB project bypasses the PTP conversion boundary through USB interface rebinding | External source analysis; not run | Valuable wire-protocol reference, but persistent setup/admin burden is disfavored and Bluetooth is unsupported. No rebinding was attempted. |
+
+### Bluetooth continuation notes
+
+- User preference: return to the existing official Apple Bluetooth setup; keep open-source USB testing closed. No USB rebind, Zadig setup, custom driver, or security change is authorized by that preference.
+- First re-check the actual active Bluetooth topology using read-only enumeration after transport changes. Earlier evidence showed an Apple parent and an open-source child filter; do not describe that historical stack as Apple-only. Distinguish two collections from two physical trackpads.
+- Reuse OFFICIAL_PTP_SPEC.md for the empirically validated Apple packing, while retaining its corrected usage/metadata note. The open-source USB 50-byte packet and the official Apple 50-byte packet have different slot interpretations.
+- Remaining research question: an existing app-readable original-contact path or an existing app-accessible interpretation control. Neither has been found. Static inspection of actual Bluetooth descriptors/interfaces may narrow this; no additional finger test is presently requested.
+- Native shell gestures/clicks, retained full geometry/pressure, synthesized output, two physical devices, ordinary-mouse independence, and USB/BT acceptance remain separate final requirements. Do not turn the diagnostics into production takeover behavior.
+
+### Evidence preservation
+
+The three decisive USB logs have been copied into [WindowsDiagnostics/usb-research-captures-20261022](WindowsDiagnostics/usb-research-captures-20261022/manifest.json). The manifest records file size and SHA-256 for reproducibility. Original logs remain at the workspace root. The PnP/capability snapshots, phase-count JSON, and diagnostic scripts are also stored under WindowsDiagnostics. No driver binaries or Windows settings were modified.
+
 ## Scope and provenance
 
 | Item | Observation |
 |---|---|
 | USB filter | `ApplePrecisionTrackpadUSB.sys`, 37,784 bytes, file version `6.1.8000.6`, SHA-256 `944447638112D32AF6FC2CDB4E47BFB75871600B7CDE97DADE3606C22B6AD4A1` |
 | Bluetooth filter | `ApplePrecisionTrackpadBluetooth.sys`, 41,896 bytes, file version `6.1.8000.6`, SHA-256 `A589ABCB198326D84F1310FC8A5D9A9A5A2F4D219A55B15181FEEBA9E6893B92` |
-| Source | Local `windows_linux/ApplePrecisionTrackpad_amd64.USB-C/` package; hashes match the copies in the Windows DriverStore previously enumerated read-only. USB is staged but was not connected in these tests. |
+| Source | Local `windows_linux/ApplePrecisionTrackpad_amd64.USB-C/` package; hashes match the copies in the Windows DriverStore previously enumerated read-only. Apple USB was staged but not connected in the initial binary-analysis tests; the later live USB tests used the open-source UMDF binding, documented below. |
 | Installed stack | Connected Bluetooth `PID_0324` parent uses Apple `oem94.inf`; its `Col01` child uses open-source `oem149.inf` version `2025.3980.1.1000`. This is a mixed stack, so behavior cannot be assigned to the Apple filter alone. |
 | Tools | Ghidra `12.1.4`, portable Node `24.11.0`, REA `6.7.0`, existing Temurin JDK `21.0.5`. The Ghidra and Node downloads were verified against publisher SHA-256 values before extraction. REA `doctor --provider ghidra` passed all Ghidra checks, including its Windows native controls. |
 | Artifacts | Persistent Ghidra project: `%TEMP%\glasstokey-re-tools\projects\AppleTrackpadWindows.gpr`. Text decompilation inventories: `%TEMP%\glasstokey-re-tools\ApplePrecisionTrackpadUSB.sys.analysis.txt` and `ApplePrecisionTrackpadBluetooth.sys.analysis.txt`. REA overview JSON and snapshots are in the same Temp directory. |
@@ -292,6 +326,77 @@ The global PTP toggle fails contact preservation on the controlled Bluetooth str
 
 A useful next experiment requires either an identified independent complete-contact source or an existing app-accessible interpreter control. Only then prepare an opt-in diagnostic with Escape release, independent timeout/watchdog, and automatic restoration. Final acceptance still requires populated contact geometry/counts, cursor/click/scroll/shell suppression, GlassToKey injection, two physical trackpads, independent ordinary-mouse operation, USB and Bluetooth, and recovery on shutdown/failure. Production behavior remains unchanged.
 
+## Follow-up: user-supplied open-source and WinUSB projects
+
+Reviewed on 2026-10-22. The user prefers avoiding Zadig and its administrator/setup burden. **WinUSB rebinding is therefore a protocol-research reference, not the recommended product installation or next test.** No driver package was installed, replaced, removed, or rebound. The external applications were not run and their mode-switch commands were not sent.
+
+### Signed open-source PTP driver: valuable source, same interpretation boundary
+
+The current upstream [MagicTrackpad2ForWindows](https://github.com/vitoplantamura/MagicTrackpad2ForWindows) HEAD was verified with `git ls-remote` as `b004554d4402c7195e7ef93b522efec481ae0cc6` (2026-10-19), matching the newer local research checkout. Keep this distinct from the installed v2.0 package analyzed above. Its INF explicitly matches USB Lightning PID0265 and USB-C PID0324 MI_01, plus Bluetooth Col01 for both product IDs. USB uses a UMDF component; Bluetooth uses the KMDF filter. The project advertises Microsoft-signed Windows 11 packages. Source: [pinned INF](https://github.com/vitoplantamura/MagicTrackpad2ForWindows/blob/b004554d4402c7195e7ef93b522efec481ae0cc6/build/AmtPtpDevice_AMD64.inf).
+
+The important architectural point is that the shipped code converts Apple packets into PTP HID reports for Windows to interpret. Full source makes that boundary auditable; it does not supply user-mode interception rights over the packets below it. In the inspected current source:
+
+- [ControlDevice.c](https://github.com/vitoplantamura/MagicTrackpad2ForWindows/blob/b004554d4402c7195e7ef93b522efec481ae0cc6/AmtPtpHidFilter/ControlDevice.c), lines 30–80, still dispatches only settings reload and battery query. No takeover lease, contact mirror, or per-device native-output gate was found there.
+- [Input.c](https://github.com/vitoplantamura/MagicTrackpad2ForWindows/blob/b004554d4402c7195e7ef93b522efec481ae0cc6/AmtPtpHidFilter/Input.c), lines 56–69 and 438–518, couples transport reads to pending upstream HID reads, parses Apple report 0x31, and completes the PTP read path. A registered interface name alone does not establish a second independent raw-contact queue.
+- `PtpInputOn`, `PtpReportTouch`, and `PtpReportButton` are assigned in Hid.c; a source-wide search still finds no corresponding reads outside their declarations/assignments. Their presence does not demonstrate a working selective-interpretation switch.
+
+**Worth exploring: yes**, particularly the existing exposed interfaces, Bluetooth packet formats, descriptor creation, and recovery logic. **Already solves exclusive interpretation: not established.** Adding a new mirror/filter command would require changing and distributing a driver, which falls outside this task's no-custom-driver/signing constraints even if based on this source. Installing an existing signed package could be considered separately, but there is no verified reason that upgrading alone would produce takeover. This host already has the older open-source filter in its mixed Bluetooth stack.
+
+### RNCHEN WinUSB project: direct USB ownership explains its result
+
+Research checkout pinned to `3c1bad1cf3f1c9d445202c0bb0c1e6f11609eaef` (2026-08-01). [Project README](https://github.com/RNCHEN/magic-trackpad-winusb) describes replacing the MI_01 binding with Microsoft's in-box WinUSB and doing interpretation in user mode. That is a concrete alternative architecture; it does not show that the existing PTP stack exposes the same stream to an application.
+
+The reviewed [Program.cs](https://github.com/RNCHEN/magic-trackpad-winusb/blob/3c1bad1cf3f1c9d445202c0bb0c1e6f11609eaef/src/Program.cs) selects the first USB VID05AC/PID0324 device, claims interface 1, finds an IN endpoint with fallback 0x83, performs a Wellspring mode read/write, then reads packets and synthesizes input. The parser infers finger count from a 12-byte header and 9-byte records and unpacks coordinates. These observations identify a useful pre-PTP protocol source. They are static source findings, not a successful GlassToKey hardware test.
+
+| Requirement | Assessment from source / documentation |
+|---|---|
+| New custom .sys / security bypass | Uses existing Microsoft WinUSB; no new kernel implementation required. Driver binding/package setup is still involved. |
+| Unchanged device configuration during exploration | Rebinding persists beyond app exit; it is not a temporary ownership API. Do not perform it in this exploratory pass. |
+| USB | Source targets PID0324; other models and report layouts are not established by this application. |
+| Bluetooth | Unsupported by this project. USB endpoint access does not generalize to the Bluetooth HID stack. |
+| Two physical trackpads | Current code selects FirstOrDefault and manages one device. Multi-device support is not implemented there. |
+| Native movement/scroll/gestures | Replacing the PTP interface can remove that interpreter's data path. Residual mouse interfaces, native event absence, and haptic behavior still need hardware verification; no exclusive success is claimed here. |
+| Ordinary mice | Device/interface-specific binding is structurally preferable to a global mouse hook; actual independent operation remains untested. |
+| Failure recovery | App exit closes handles but does not restore the prior driver binding. It has no independent timeout/watchdog restoring native interpretation. |
+| Complete contacts | Endpoint packets expose richer original data; application parsing is narrow and does not demonstrate a robust complete-contact/pressure/identity model for GlassToKey. |
+
+The app's finally block closes the USB context/device; it does not restore the prior mode/binding or guarantee release of a held injected button on an exception. Read results are not checked before deriving contacts, and mode-transfer failures are logged only when debugging is enabled. These are concrete reasons to study the transport rather than run this app as our diagnostic. No speculative transfer was copied into an experiment.
+
+Microsoft's [WinUSB installation documentation](https://learn.microsoft.com/en-us/windows-hardware/drivers/usbcon/winusb-installation) distinguishes using the existing WinUSB binary from installing a device binding/interface GUID or driver package. An inbox binary does not make an already HID-bound device directly accessible through WinUSB without setup. The user's objection to that setup is retained as a product constraint/preference.
+
+### Useful physical assistance: read-only USB topology capture
+
+Connect one trackpad with a data-capable USB cable, retain its current driver, and identify whether it is USB-C or Lightning. There is no need to change pairing, disable Bluetooth globally, install Zadig, or replace a driver. If Windows sees both USB and Bluetooth paths, the capture must distinguish them rather than assuming transport changed.
+
+[Save-TrackpadInterfaceSnapshot.ps1](WindowsDiagnostics/Save-TrackpadInterfaceSnapshot.ps1) combines the existing Raw Input metadata and PnP snapshots with `pnputil /enum-devices` interface/stack enumeration for matching trackpad instances. It writes a unique local results directory and changes no device/input state. It does not open a raw endpoint or issue feature reports. Run from `windows_linux`:
+
+```powershell
+.\GlassToKey.Windows\WindowsDiagnostics\Save-TrackpadInterfaceSnapshot.ps1
+```
+
+The capture asks: which USB function owns MI_01, which HID collections and existing app interfaces are actually registered, and whether any candidate interface sits before PTP conversion. Enumeration cannot prove that a candidate supplies complete contacts. Contact-stream testing follows only after its supported read contract, access policy, and safety are understood. A snapshot that contains only Bluetooth records is not a USB result.
+
+## Live USB baseline: existing open-source binding confirmed
+
+A read-only capture at 15:17 local on 2026-10-22 now confirms a connected USB-C PID0324 device. No Bluetooth driver switch was needed. The first sandbox attempt saved Raw Input metadata but could not query PnP; an approved host-access rerun completed with 12 matching device records. The snapshot launcher now detects missing child-script output instead of treating that failure as an empty successful inventory.
+
+Saved evidence: [USB PnP topology](WindowsDiagnostics/usb-interfaces-20261022/pnp-topology.json), [Raw Input/HID capabilities](WindowsDiagnostics/usb-interfaces-20261022/raw-input-metadata.json), and the adjacent per-device interface/stack text files.
+
+USB MI_01 is bound to open-source `oem149.inf`, provider Bingxing Wang / Vito Plantamura, version `2025.3980.1.1000`, service `MsHidUmdf`, lower filter `WUDFRd`. Its Col01 is PTP usage 0D/05, input report 0x05/50 bytes, with open-source VID8910 and X/Y ranges 7612/5065. This validates the user's description of the existing USB driver; it is not a newer package installation.
+
+Two separate physical USB functions are especially relevant to the original-contact question:
+
+| Function | Live HID capability | Binding / significance |
+|---|---|---|
+| MI_02 | Usage FF00/000D, input 16 bytes, report 0x3F (15 payload bytes), output 64 bytes, no feature bytes | HidUsb / input.inf; an exposed vendor channel. Payload purpose unestablished; do not write to it. |
+| MI_03 | Usage FF00/0003, input 108 bytes, report 0xC0 (107 payload bytes), no output or feature bytes | HidUsb / input.inf; an exposed input-only vendor channel, structurally interesting for passive observation. |
+
+These interfaces are separate USB functions from the MI_01 UMDF PTP function. Their existence, input sizes, and registered HID paths are **proven by metadata**. They have not yet been shown to emit frames during touch, encode contacts, retain data when PTP is suppressed, or bypass an exclusive access policy. A large input report is not evidence that it contains finger geometry. Do not repeat the earlier mistake of treating a vendor-looking path as a proven independent contact stream.
+
+The next useful physical test is a bounded **passive** observation of these vendor reports while touching the already-connected USB trackpad, with native input left enabled. First prepare collection-specific capture and payload logging; no driver changes, Wellspring commands, feature/output reports, or global input toggles are needed for that baseline. If it produces useful contacts, then assess a separate safe suppression/retention experiment. Bluetooth equivalent collections remain a separate question.
+
+Keep the preferred Apple Bluetooth binding and the existing open-source USB binding for this comparison. No additional driver switch is justified yet. This single connected USB device does not establish simultaneous two-trackpad behavior.
+
 ## Reproducing this analysis
 
 - `Open-AppleTrackpadGhidra.ps1 -Mode Doctor` verifies the local REA/Ghidra provider. `-Mode InspectUsb` and `-Mode InspectBluetooth` invoke REA over the selected immutable `.sys`; `-Mode Open` opens the prepared local Ghidra project for interactive inspection. These commands affect analysis files only.
@@ -299,3 +404,64 @@ A useful next experiment requires either an identified independent complete-cont
 - The descriptor parser can be rerun with `python WindowsDiagnostics/Ghidra/SummarizeAppleHidDescriptor.py <driver.sys> --transport usb|bluetooth` from `GlassToKey.Windows`. It uses fixed RVAs for these verified hashes; do not apply those offsets to another driver version.
 
 Primary references: [Ghidra 12.1.4 release and archive hash](https://github.com/NationalSecurityAgency/ghidra/releases/tag/Ghidra_12.1.4_build), [REA Windows Ghidra guide](https://github.com/morluto/rea/blob/main/docs/windows-ghidra-p0.md), [Microsoft PTP configuration collection](https://learn.microsoft.com/en-us/windows-hardware/design/component-guidelines/touchpad-configuration-collection), and the locally installed Windows SDK `hidport.h`/`hidclass.h`.
+
+## Passive USB vendor-report diagnostic prepared
+
+[Capture-UsbVendorReports.ps1](WindowsDiagnostics/Capture-UsbVendorReports.ps1) is a standalone PowerShell/Add-Type diagnostic. It registers a private message-only window for Raw Input usages FF00/0003, FF00/000D, and the PTP baseline 0D/05. It filters logged frames to the USB Magic Trackpad paths, saves full report payloads with timestamps, handles batched HID reports, and records per-path frame counts. It performs no HID device opens, output/feature requests, native-input suppression, mouse injection, or configuration writes. App-local Raw Input registrations are removed at cleanup; process exit also releases them. Escape stops capture, duration is bounded to 2–30 seconds, and captured payload data is capped at 16 MiB.
+
+Compilation and a two-second startup/cleanup smoke run succeeded. The idle smoke log `usb-vendor-20261022-152631-430.log` contains START and END, with no frames; this is not evidence about contact delivery during touching. The instructed 30-second user capture is pending. The protocol is idle 0–5 s, one finger 5–12 s, two fingers 12–19 s, three fingers 19–26 s, idle 26–30 s. Native Windows gestures may still occur during this deliberately passive test.
+
+Run in a dedicated PowerShell process from `windows_linux`:
+
+```powershell
+.\GlassToKey.Windows\WindowsDiagnostics\Capture-UsbVendorReports.ps1
+```
+
+The script waits for Enter before starting and prints phase changes. No new driver or app production behavior is involved. Zero vendor frames with clearly positive PTP baseline contacts would narrow this observation route, but would not prove the underlying USB endpoint never carries data or that a mode-changing command is justified.
+
+### Windows PowerShell 5.1 compatibility correction
+
+The first user launch failed during Add-Type compilation because .NET Framework lacks Convert.ToHexString; no Raw Input registration/capture started. Replaced that call with BitConverter.ToString(...).Replace to preserve the same contiguous hexadecimal log format. Compilation and a two-second startup/cleanup run were then verified explicitly using Windows PowerShell 5.1 (`System32/WindowsPowerShell/v1.0/powershell.exe`), in addition to the earlier PowerShell 7 check. The 5.1 smoke log is `usb-vendor-20261022-153205-255.log`. The instructed finger-motion capture remains pending.
+
+## Controlled passive USB result: 2026-10-22 15:38 local
+
+The user completed [usb-vendor-20261022-153842-354.log](WindowsDiagnostics/usb-research-captures-20261022/usb-vendor-20261022-153842-354.log), a complete 30.013-second passive Raw Input capture. There are **1,747 frames, all report 0x05 / 50 bytes**, from the USB MI_01 Col01 open-source PTP path. No MI_02 report 0x3F or MI_03 report 0xC0 was observed. No FAULT or early release is recorded. [Machine-readable phase analysis](WindowsDiagnostics/usb-vendor-20261022-153842-summary.json).
+
+| Scheduled phase | PTP frames | Matching active-tip frames |
+|---|---:|---:|
+| Idle, 0–5 s | 0 | 0 |
+| One finger, 5–12 s | 530 | 528 with one active tip |
+| Two fingers, 12–19 s | 590 | 538 with two active tips |
+| Three fingers, 19–26 s | 542 | 489 with three active tips |
+| Ending idle, 26–30 s | 85 | 82 still have three active tips during the user's transition |
+
+The programmed phase label is a timing cue, not a measurement that fingers changed at that exact instant. Positive PTP data and changing coordinates establish that actual touches occurred during observation. Slot tips were decoded using the open-source flags/u32-ID/u16-X/u16-Y layout; reported contact count alone includes release samples. Native input stayed enabled.
+
+**Result:** neither vendor channel supplied a contact mirror through Raw Input during this run. This does not prove that ordinary HID ReadFile receives no packets, that an endpoint never emits anything, or that a mode-changing command would be justified. No native suppression or vendor command was used.
+
+### Ordinary read-only HID access: both channels open
+
+Added [Read-UsbVendorAccess.ps1](WindowsDiagnostics/Read-UsbVendorAccess.ps1), using documented CreateFile/ReadFile access via an asynchronous FileStream. Access is GENERIC_READ with shared read/write compatibility (no write access is requested). Read buffers use the live HID input-report length. The helper issues no HidD_GetInputReport, feature report, output report, or device IOCTL. Pending reads are cancelled with CancelIoEx at the deadline and completion is observed before normal disposal.
+
+An autonomous two-second-per-channel run in Windows PowerShell 5.1 succeeded at ordinary user access. [Access log](WindowsDiagnostics/usb-research-captures-20261022/usb-vendor-read-20261022-154803-408.log): MI_03 and MI_02 both return OPEN_OK; both yield zero frames during this uninstructed short interval; both pending reads cancel successfully with error 0 and TaskCanceledException completion. These are access/cleanup results, not a controlled moving-contact test. No sandbox retry/elevation was needed.
+
+The next concrete test is ten seconds of direct reading on each channel while the user repeatedly moves one, two, and three fingers. The helper prints the current channel and optionally waits for Enter via `-Prompt`. Native PTP remains enabled. A negative result with that protocol would further weaken these currently exposed vendor channels as an always-on original-contact source. It would not establish that a speculative activation command is safe or useful.
+
+Microsoft references: [opening HID collections](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/opening-hid-collections), [obtaining HID reports with ReadFile](https://learn.microsoft.com/en-us/windows-hardware/drivers/hid/obtaining-hid-reports). The latter distinguishes streaming reads from GetInputReport polling; the diagnostic uses the streaming read path.
+
+## Controlled direct HID result and USB branch closure: 15:50 local
+
+The user completed [usb-vendor-read-20261022-155019-252.log](WindowsDiagnostics/usb-research-captures-20261022/usb-vendor-read-20261022-155019-252.log) while repeatedly moving one, two, and three fingers.
+
+| Vendor collection | Read-only open | Reading interval | Reports | Cleanup |
+|---|---|---:|---:|---|
+| MI_03, 108-byte input / report 0xC0 | OPEN_OK | 10.002 s | 0 | CancelIoEx True, error 0; cancelled task completed |
+| MI_02, 16-byte input / report 0x3F | OPEN_OK | 10.012 s | 0 | CancelIoEx True, error 0; cancelled task completed |
+
+There are no FRAME records. Both handles were disposed after cancellation; no feature/output reports, configuration changes, injection, or input suppression occurred. Finger activity was instructed and reported by the user, rather than measured by a simultaneous PTP baseline in this direct-read run. The preceding Raw Input run independently established valid one/two/three-contact PTP data on the same USB setup.
+
+**What we learned:** the existing vendor channels are accessible without an installation or permission workaround, but neither supplied reports through Raw Input or ordinary streaming reads during the tested activity. An accessible handle and a 108-byte input descriptor do not establish an independent contact stream. This does not prove that the channels can never emit data or describe their protocol; it provides no basis for speculative activation commands.
+
+**Decision:** close this open-source USB testing branch at the user's request. The full source remains useful for static comparison of Apple wire-format parsing and PTP conversion, but no takeover advantage was demonstrated. WinUSB rebinding remains disfavored by the user and was never attempted. No additional USB test or driver installation is recommended now.
+
+For subsequent work, return to the existing Apple Bluetooth connection, re-identify its actual active collections/filters read-only, and keep researching existing interfaces without changing the preferred binding. Do not repeat the already failed Bluetooth global-toggle contact-retention test without a new data-path hypothesis. The original no-custom-driver, no-security-change, full-contact, ordinary-mouse-independence, and two-trackpad requirements remain unsolved. Production typing, haptics, dragging, and input behavior were not changed by these diagnostics.

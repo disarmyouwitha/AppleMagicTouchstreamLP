@@ -12,7 +12,7 @@ This document records only confirmed behavior for the official Apple USB-C strea
 Confirmed stream signature:
 - Vendor ID: `0x05AC`
 - Product IDs observed: `0x0265`, `0x0324`
-- Raw Input usage pair: `usagePage=0x00`, `usage=0x00`
+- Actual HID usage pair: `usagePage=0x0D`, `usage=0x05` (Touch Pad); historical logs showed fallback `0x00/0x00`, as corrected above.
 - Report ID: `0x05`
 - Report length: `50` bytes
 
@@ -33,7 +33,7 @@ Raw parser view (`PtpReport.TryParse`):
 - `slot+5..6`: `X` (`u16` little-endian)
 - `slot+7..8`: `Y` (`u16` little-endian)
 
-Official usage `0x00/0x00` decode view (`TrackpadReportDecoder.NormalizeOfficialTouchFields`):
+Official Apple packing decode view (`TrackpadReportDecoder.NormalizeOfficialTouchFields`, currently selected through the legacy usage fallback):
 - `slot+0`: per-contact ID candidate byte (also source byte for raw flags normalization path)
 - `slot+1`: tracked in analyzer lifecycle stats; semantic meaning not locked
 - `slot+2..3`: `rawX` (`u16` little-endian, then scaled)
@@ -42,9 +42,9 @@ Official usage `0x00/0x00` decode view (`TrackpadReportDecoder.NormalizeOfficial
 - `slot+7`: phase/state byte `ph` (observed `0..3`)
 - `slot+8`: lifecycle byte in analyzed datasets (`0x03` active/hold, `0x01` release; `0x02` not yet observed)
 
-## 3. Implemented Official Decode Rules (usage 0/0 path)
+## 3. Implemented Official Decode Rules (Legacy Usage-Fallback Branch)
 
-For non-native touchpad usage (`usagePage/usage != digitizer/touchpad`), the official profile applies:
+The current implementation selects the official profile when reported metadata is non-native touchpad usage (`usagePage/usage != digitizer/touchpad`). This describes the implementation's fallback branch, not the actual HID collection usage. Changing metadata alone would select a different packing decoder and must not be done without preserving format selection. The official profile applies:
 - slot stride: `9` bytes, `slotOffset = 1 + i*9`
 - assigned contact ID source: `payload[slotOffset + 0]`
 - duplicate-safe ID policy:
@@ -173,3 +173,9 @@ Pass/Fail thresholds:
 - Fail lock (needs update):
   - any reproducible `slot+8==0x02` rows
   - or `slot+8==0x01` frequently appearing during sustained active hold without release transitions
+
+## 12. Takeover Research: USB Vendor Reports Are a Different Format
+
+Read-only metadata on 2026-10-22 identified the connected open-source USB PTP collection as report 0x05, 50 bytes, usage 0D/05. Its HID field layout has 32-bit contact IDs and X/Y maxima 7612/5065. Matching report ID/size does not make its contact packing identical to the official Apple profile above.
+
+The same USB device separately exposes MI_03 usage FF00/0003 with input report 0xC0, 108 bytes, and MI_02 usage FF00/000D with input report 0x3F, 16 bytes. These are descriptor/capability observations only. No contact semantics or retained reporting during native suppression have been established. Do not apply this 50-byte decoder to those vendor reports. See [the USB baseline and saved evidence](WINDOWS_APPLE_DRIVER_GHIDRA_FINDINGS.md#live-usb-baseline-existing-open-source-binding-confirmed).

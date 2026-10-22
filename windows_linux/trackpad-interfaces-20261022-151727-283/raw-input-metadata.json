@@ -1,0 +1,333 @@
+[
+  {
+    "path": "\\\\?\\HID#VID_05AC&PID_0324&MI_01&Col02#8&1dfdbed3&0&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "rawType": 3,
+    "legacy24": {
+      "suppliedSize": 24,
+      "result": 4294967295,
+      "error": 122,
+      "returnedSize": 32
+    },
+    "native32": {
+      "suppliedSize": 32,
+      "result": 32,
+      "error": 0,
+      "returnedSize": 32,
+      "type": 0
+    },
+    "caps": {
+      "notRequested": "Not a RIM_TYPEHID input collection"
+    }
+  },
+  {
+    "path": "\\\\?\\HID#VID_05AC&PID_0324&MI_03#8&8c32d48&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "rawType": 2,
+    "legacy24": {
+      "suppliedSize": 24,
+      "result": 4294967295,
+      "error": 122,
+      "returnedSize": 32
+    },
+    "native32": {
+      "suppliedSize": 32,
+      "result": 32,
+      "error": 0,
+      "returnedSize": 32,
+      "type": 2,
+      "vid": "05AC",
+      "pid": "0324",
+      "usagePage": "FF00",
+      "usage": "0003"
+    },
+    "caps": {
+      "preparsedBytes": 268,
+      "status": "00110000",
+      "usage": "0003",
+      "usagePage": "FF00",
+      "inputReportBytes": 108,
+      "outputReportBytes": 0,
+      "featureReportBytes": 0,
+      "inputValueCaps": 1,
+      "valueCapsStatus": "00110000",
+      "inputValues": [
+        {
+          "usagePage": "FF00",
+          "reportId": 192,
+          "linkCollection": 0,
+          "isRange": false,
+          "bitSize": 8,
+          "reportCount": 107,
+          "logicalMin": 0,
+          "logicalMax": 255,
+          "usageOrMin": "0003"
+        }
+      ]
+    }
+  },
+  {
+    "path": "\\\\?\\HID#VID_05AC&PID_0324&MI_02#8&312ddb11&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "rawType": 2,
+    "legacy24": {
+      "suppliedSize": 24,
+      "result": 4294967295,
+      "error": 122,
+      "returnedSize": 32
+    },
+    "native32": {
+      "suppliedSize": 32,
+      "result": 32,
+      "error": 0,
+      "returnedSize": 32,
+      "type": 2,
+      "vid": "05AC",
+      "pid": "0324",
+      "usagePage": "FF00",
+      "usage": "000D"
+    },
+    "caps": {
+      "preparsedBytes": 372,
+      "status": "00110000",
+      "usage": "000D",
+      "usagePage": "FF00",
+      "inputReportBytes": 16,
+      "outputReportBytes": 64,
+      "featureReportBytes": 0,
+      "inputValueCaps": 1,
+      "valueCapsStatus": "00110000",
+      "inputValues": [
+        {
+          "usagePage": "FF00",
+          "reportId": 63,
+          "linkCollection": 0,
+          "isRange": false,
+          "bitSize": 8,
+          "reportCount": 15,
+          "logicalMin": 0,
+          "logicalMax": 255,
+          "usageOrMin": "000D"
+        }
+      ]
+    }
+  },
+  {
+    "path": "\\\\?\\HID#VID_05AC&PID_0324&MI_01&Col01#8&1dfdbed3&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}",
+    "rawType": 2,
+    "legacy24": {
+      "suppliedSize": 24,
+      "result": 4294967295,
+      "error": 122,
+      "returnedSize": 32
+    },
+    "native32": {
+      "suppliedSize": 32,
+      "result": 32,
+      "error": 0,
+      "returnedSize": 32,
+      "type": 2,
+      "vid": "8910",
+      "pid": "0324",
+      "usagePage": "000D",
+      "usage": "0005"
+    },
+    "caps": {
+      "preparsedBytes": 3468,
+      "status": "00110000",
+      "usage": "0005",
+      "usagePage": "000D",
+      "inputReportBytes": 50,
+      "outputReportBytes": 0,
+      "featureReportBytes": 257,
+      "inputValueCaps": 17,
+      "valueCapsStatus": "00110000",
+      "inputValues": [
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 1,
+          "isRange": false,
+          "bitSize": 32,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": -1,
+          "usageOrMin": "0051"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 1,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 7612,
+          "usageOrMin": "0030"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 1,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 5065,
+          "usageOrMin": "0031"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 2,
+          "isRange": false,
+          "bitSize": 32,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": -1,
+          "usageOrMin": "0051"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 2,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 7612,
+          "usageOrMin": "0030"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 2,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 5065,
+          "usageOrMin": "0031"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 3,
+          "isRange": false,
+          "bitSize": 32,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": -1,
+          "usageOrMin": "0051"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 3,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 7612,
+          "usageOrMin": "0030"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 3,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 5065,
+          "usageOrMin": "0031"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 4,
+          "isRange": false,
+          "bitSize": 32,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": -1,
+          "usageOrMin": "0051"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 4,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 7612,
+          "usageOrMin": "0030"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 4,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 5065,
+          "usageOrMin": "0031"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 5,
+          "isRange": false,
+          "bitSize": 32,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": -1,
+          "usageOrMin": "0051"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 5,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 7612,
+          "usageOrMin": "0030"
+        },
+        {
+          "usagePage": "0001",
+          "reportId": 5,
+          "linkCollection": 5,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 5065,
+          "usageOrMin": "0031"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 0,
+          "isRange": false,
+          "bitSize": 16,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 65535,
+          "usageOrMin": "0056"
+        },
+        {
+          "usagePage": "000D",
+          "reportId": 5,
+          "linkCollection": 0,
+          "isRange": false,
+          "bitSize": 8,
+          "reportCount": 1,
+          "logicalMin": 0,
+          "logicalMax": 127,
+          "usageOrMin": "0054"
+        }
+      ]
+    }
+  }
+]

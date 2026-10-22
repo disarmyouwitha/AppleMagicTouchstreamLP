@@ -1,0 +1,17 @@
+[
+  {
+    "file": "usb-vendor-20261022-153842-354.log",
+    "bytes": 319019,
+    "sha256": "136c993c2e01b6f5ec04da3b7b222f3e65c8f3d5b63342df7facf74e67fbe390"
+  },
+  {
+    "file": "usb-vendor-read-20261022-154803-408.log",
+    "bytes": 864,
+    "sha256": "3abe788e84c2a68a97c7175aa6a5b540af72e5bded7d431790eb15400e8b72f1"
+  },
+  {
+    "file": "usb-vendor-read-20261022-155019-252.log",
+    "bytes": 866,
+    "sha256": "07ff0fbcc1a80339eb553de725fca89a862421e32cf872b5a4a18486d215377c"
+  }
+]

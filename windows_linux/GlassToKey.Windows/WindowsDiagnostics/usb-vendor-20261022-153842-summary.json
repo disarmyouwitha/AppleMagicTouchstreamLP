@@ -1,0 +1,104 @@
+{
+  "source": "usb-vendor-20261022-153842-354.log",
+  "devices": {
+    "0x10631AD5": "\\\\?\\HID#VID_05AC&PID_0324&MI_01&Col01#8&1dfdbed3&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}"
+  },
+  "reportCounts": {
+    "0x10631AD5:report05:size50": 1747
+  },
+  "phases": {
+    "IDLE": {
+      "frames": 0,
+      "reportedContactCounts": {},
+      "activeTipCounts": {},
+      "coordinateRanges": {}
+    },
+    "ONE_FINGER": {
+      "frames": 530,
+      "reportedContactCounts": {
+        "1": 530
+      },
+      "activeTipCounts": {
+        "0": 2,
+        "1": 528
+      },
+      "coordinateRanges": {
+        "x": [
+          3473,
+          4123
+        ],
+        "y": [
+          2178,
+          2764
+        ]
+      }
+    },
+    "TWO_FINGERS": {
+      "frames": 590,
+      "reportedContactCounts": {
+        "1": 46,
+        "2": 544
+      },
+      "activeTipCounts": {
+        "1": 46,
+        "0": 6,
+        "2": 538
+      },
+      "coordinateRanges": {
+        "x": [
+          2823,
+          4358
+        ],
+        "y": [
+          2147,
+          3492
+        ]
+      }
+    },
+    "THREE_FINGERS": {
+      "frames": 542,
+      "reportedContactCounts": {
+        "1": 51,
+        "3": 491
+      },
+      "activeTipCounts": {
+        "0": 6,
+        "1": 47,
+        "3": 489
+      },
+      "coordinateRanges": {
+        "x": [
+          3389,
+          5293
+        ],
+        "y": [
+          2616,
+          3343
+        ]
+      }
+    },
+    "IDLE_END": {
+      "frames": 85,
+      "reportedContactCounts": {
+        "3": 85
+      },
+      "activeTipCounts": {
+        "3": 82,
+        "1": 1,
+        "0": 2
+      },
+      "coordinateRanges": {
+        "x": [
+          3431,
+          5325
+        ],
+        "y": [
+          2816,
+          3452
+        ]
+      }
+    }
+  },
+  "vendorFrames": 0,
+  "interpretation": "No FF00 vendor frames observed through Raw Input in this capture. PTP slots decoded using open-source flags/u32ID/u16X/u16Y layout. Phases are scheduled prompts, not exact finger-transition markers."
+}
