@@ -673,10 +673,10 @@ thumb/fingertip role changes and incompatible hand labels. Existing tap timing,
 motion limits, all-up completion, per-pad cancellation and balanced secondary
 output remain. Classified-thumb cycles remain reserved from primary double-click.
 This does not implement competing compact/TIP arrangements or the complete
-firmware FP scorer. The UI label is now Spread thumb + 2 fingertips. Hardware
-acceptance remains pending. Canonical research: [FINDINGS.md](../../FINDINGS.md).
+firmware FP scorer. The UI label is now Spread thumb + 2 fingertips. The user reports the fresh
+installed build is excellent; broader app/lifecycle coverage remains. Canonical research: [FINDINGS.md](../../FINDINGS.md).
 
-Verification for the spread fallback: ./test.sh passed138 tests (2 skipped,0 failures). New tests cover TMR/TRP and other fingertip pairs, relabeling and compact rejection; existing tap/lifecycle/output checks remain. Live hardware acceptance is pending.
+Verification for the spread fallback: ./test.sh passed138 tests (2 skipped,0 failures). New tests cover TMR/TRP and other fingertip pairs, relabeling and compact rejection; existing tap/lifecycle/output checks remain. The user subsequently accepted the fresh installed T2F build on hardware.
 
 
 ## Diagnostic UI cleanup and 3spread replay (2026-10-21)
@@ -694,3 +694,25 @@ measurements, assumptions, binary mismatch and reproduction artifacts. The runni
 Applications app still held the older exact-TMR build; install the freshly built
 current T2F version before evaluating new thresholds. Do not loosen geometry on
 this capture's evidence alone. Actual delivery and intent remain hardware checks.
+
+
+## Accepted T2F and centered pressure (2026-10-21)
+
+After installing the fresh T2F build, the user reports it is excellent. Preserve
+current anatomy, spread geometry, timing, relabeling and output behavior. This is
+positive hardware acceptance of the current feel, not exhaustive app/lifecycle
+coverage or proof of the complete FingerWorks firmware scorer.
+
+With Inspect touch data enabled, the adjacent label shows `#trackingID FingerName`
+(or Unknown). Pressure is drawn separately as a plain rounded nonnegative number
+at the geometric center of each contact, with no P prefix. White text with a black
+outline stays readable across all anatomical colors. Keep this UI-only; telemetry
+values, recording/replay schemas and recognition remain unchanged.
+
+
+## Always-on contact diagnostics (2026-10-21)
+
+At user request, remove Inspect touch data and Contact paths checkboxes and their
+control panel. The main live/replay surface always enables detailed touch telemetry
+and contact paths. Retain anatomical colors, adjacent #trackingID/finger name,
+centered plain pressure numbers and path aging/cleanup. No recognition change.

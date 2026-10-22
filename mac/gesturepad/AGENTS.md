@@ -396,3 +396,19 @@ predicted right-clicks, and all494 eligible frames pass geometry. No recognition
 changes authorized/performed in this cleanup. Rebuild/install current source and
 leave closed for hardware retest. Preserve concurrent changes and root FINDINGS.md;
 measurements and caveats are recorded there and in GESTURE_ENGINE.md.
+
+
+## Accepted T2F / centered pressure (2026-10-21)
+
+User confirms the fresh T2F build is excellent. Preserve recognition/thresholds.
+Inspect touch data shows #trackingID and finger name beside the contact; show
+pressure separately as a plain number at its center with contrasting outlined
+text, no P prefix. Keep anatomical colors, no legend/F-number. Rendering only;
+no schema/native/gesture changes. Build/install and leave closed as before.
+
+
+## Always-on touch inspection and paths (2026-10-21)
+
+User removes both diagnostic display checkboxes; main surface telemetry and contact
+paths are always enabled, including replay. Keep colors, ID/name labels and centered
+pressure; no empty controls panel, feature setting or recognition changes.

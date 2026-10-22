@@ -10,8 +10,6 @@ struct ContentView: View {
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
-    @State private var showTouchTelemetry = true
-    @State private var showContactPaths = true
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
     @State private var replayScrubValue: Double = 0
@@ -33,8 +31,8 @@ struct ContentView: View {
         snapshot.trackpadSize = size
         snapshot.spacing = 16
         snapshot.showDetailed = true
-        snapshot.showTouchTelemetry = showTouchTelemetry
-        snapshot.showContactPaths = showContactPaths
+        snapshot.showTouchTelemetry = true
+        snapshot.showContactPaths = true
         snapshot.replayModeEnabled = viewModel.replayTimelineState != nil
         return snapshot
     }
@@ -55,7 +53,7 @@ struct ContentView: View {
                     },
                     onRefresh: {
                         viewModel.refreshDevicesAndListeners()
-                    }, blackholeControls: { hidBlackholeControls }, touchControls: { touchDisplayControls })
+                    }, blackholeControls: { hidBlackholeControls })
                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                 InlineTouchTelemetry(viewModel: viewModel) {
                     VStack(alignment: .leading, spacing: 12) {
@@ -79,17 +77,6 @@ struct ContentView: View {
         .onReceive(viewModel.$replayTimelineState) { state in
             if let state, !replayScrubInProgress { replayScrubValue = max(state.currentTimeSeconds, 0) }
         }
-    }
-
-    private var touchDisplayControls: some View {
-        HStack(spacing: 16) {
-            Toggle("Inspect touch data", isOn: $showTouchTelemetry)
-            Toggle("Contact paths", isOn: $showContactPaths)
-        }
-        .toggleStyle(.checkbox)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 
     private var hidBlackholeControls: some View {
@@ -274,7 +261,7 @@ struct ContentView: View {
             millisecondsComponent
         )
     }
-    private struct DevicesSectionView<BlackholeControls: View, TouchControls: View>: View {
+    private struct DevicesSectionView<BlackholeControls: View>: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
@@ -282,7 +269,6 @@ struct ContentView: View {
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
         @ViewBuilder let blackholeControls: () -> BlackholeControls
-        @ViewBuilder let touchControls: () -> TouchControls
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -294,7 +280,6 @@ struct ContentView: View {
                         TrackpadRefreshButton(refresh: onRefresh)
                     }
                     blackholeControls()
-                    touchControls()
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -341,7 +326,6 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            touchControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 

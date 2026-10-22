@@ -114,3 +114,11 @@ retest should use this fresh build before tuning geometry.
 
 The JSON report and scratch offline replay source are retained under
 `mac/gesturepad/build/RightClickCaptureAnalysis/` (ignored build artifacts).
+
+
+## Hardware follow-up (2026-10-21)
+
+The user reports the fresh installed T2F build is excellent. Retain the present
+spread geometry, fingertip relabel tolerance and timing. Pressure display is moved
+to a plain number at each contact's center, while the nearby tracking-ID/finger-name
+label remains; this is a rendering change only.

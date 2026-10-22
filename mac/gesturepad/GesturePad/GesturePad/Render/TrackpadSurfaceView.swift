@@ -465,7 +465,7 @@ final class TrackpadSurfaceView: NSView {
     ) {
         let label: String
         if let raw = touch.telemetry {
-            label = "#\(touch.id)  \(raw.fingerName)  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
+            label = "#\(touch.id)  \(raw.fingerName)"
             // Show direction only: do not assume a calibrated velocity unit.
             let vx = CGFloat(raw.velocityX)
             let vy = CGFloat(raw.velocityY)
@@ -486,7 +486,7 @@ final class TrackpadSurfaceView: NSView {
                 arrow.stroke()
             }
         } else {
-            label = "#\(touch.id)  IDs unavailable  P:\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))"
+            label = "#\(touch.id)  Unknown"
         }
         let attributes: [NSAttributedString.Key: Any] = [
             .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .semibold),
@@ -500,6 +500,18 @@ final class TrackpadSurfaceView: NSView {
             y: max(origin.y + 3, min(center.y + 8, origin.y + trackpadSize.height - size.height - 3))
         )
         text.draw(at: point, withAttributes: attributes)
+
+        let pressure = "\(Int(max(0, touch.pressure.isFinite ? touch.pressure : 0).rounded()))" as NSString
+        let pressureAttributes: [NSAttributedString.Key: Any] = [
+            .font: NSFont.monospacedSystemFont(ofSize: 11, weight: .bold),
+            .foregroundColor: NSColor.white,
+            .strokeColor: NSColor.black,
+            .strokeWidth: -3
+        ]
+        let pressureSize = pressure.size(withAttributes: pressureAttributes)
+        pressure.draw(at: CGPoint(x: center.x - pressureSize.width / 2,
+                                  y: center.y - pressureSize.height / 2),
+                      withAttributes: pressureAttributes)
     }
 
 }

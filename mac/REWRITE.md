@@ -5,9 +5,11 @@
 
 > I really want to get the spellchecker logic out of the touchstream. 
 
+> Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD 
+
 ===
 
- 
+
 
 ===
 
