@@ -102,3 +102,7 @@ Do not restore colored mode/layer/disconnect badges or their subscriptions.
 Preserve the underlying keyboard/layer state and device recovery behavior.
 The key trace changes base position, size and angle only; preserve mapping
 identities, saved per-key overrides and disabled column tuning.
+
+Unassigned key holds must stay inert and match the inspector's None value.
+The engine must never fall back to KeyActionCatalog's legacy hold table.
+Explicit saved/imported holds still work and appear in the inspector/grid.

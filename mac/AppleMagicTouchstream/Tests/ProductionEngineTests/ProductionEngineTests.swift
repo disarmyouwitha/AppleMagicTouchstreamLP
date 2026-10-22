@@ -484,6 +484,30 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertFalse(run.output.events.contains { if case .leftClick = $0.kind { true } else { false } })
     }
 
+    func testUnassignedHoldNeverFallsBackToLegacyCatalog() async {
+        // F historically acquired Shift+0 despite the inspector showing None.
+        // Exercise absent mappings, explicit None, and clearing a prior hold.
+        for mode in 0..<3 {
+            let run = session(allowHold: true)
+            let key = GridKeyPosition(side: .left, row: 0, column: 0).storageKey
+            let primary = KeyActionCatalog.action(for: "F")!
+            if mode == 2 {
+                run.engine.updateKeyMappings([0: [key: KeyMapping(primary: primary,
+                    hold: KeyActionCatalog.holdAction(for: "F")!)]])
+            }
+            if mode > 0 {
+                run.engine.updateKeyMappings([0: [key: KeyMapping(primary: primary, hold: nil)]])
+            }
+            run.engine.updateHoldThreshold(0.2)
+            frame(run, 1, [contact(state: .making)])
+            frame(run, 1.04, [contact()])
+            frame(run, 1.3, [contact()])
+            frame(run, 1.32, [contact(state: .breaking)])
+            run.finish(at: 2)
+            XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"], "mapping mode \(mode)")
+        }
+    }
+
     func testOriginalHoldShortcutSurvivesClassifierReplacement() async {
         let run = session(allowHold: true)
         let key = GridKeyPosition(side: .left, row: 0, column: 0).storageKey

@@ -42,6 +42,11 @@ The editor, app startup and deterministic production replay all resolve the same
 geometry through `ContentView.makeTouchStreamKeyLayout`. The background is visual
 only and never affects hit testing, capture data or native takeover.
 
+Hold actions are opt-in per key. An unassigned Hold/None in the inspector produces
+no alternate action; the engine does not use the legacy label-based hold table.
+Explicit holds saved in a layout still execute and appear in its inspector and
+key labels. This keeps TouchStream independent of the holds in other layouts.
+
 Run `./test.sh`. Tests check independent labels/regions, per-key edit isolation,
 actual typed letters at traced key centers on both pads and inert placeholder
 bindings. For an offline rendered preview, without opening trackpads:

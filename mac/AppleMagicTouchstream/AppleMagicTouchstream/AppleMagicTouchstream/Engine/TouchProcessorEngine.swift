@@ -2141,7 +2141,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     ) -> KeyBinding? {
         guard let action = keyAction(for: position, label: label) else { return nil }
         let holdAction = layout.allowHoldBindings
-            ? holdAction(for: position, label: label)
+            ? holdAction(for: position)
             : nil
         let holdForceThreshold = layout.allowHoldBindings
             ? holdForceThreshold(for: position)
@@ -2166,12 +2166,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
         return KeyActionCatalog.action(for: label)
     }
 
-    private func holdAction(for position: GridKeyPosition?, label: String) -> KeyAction? {
+    private func holdAction(for position: GridKeyPosition?) -> KeyAction? {
         let layerMappings = customKeyMappingsByLayer[activeLayer] ?? [:]
         if let position, let mapping = layerMappings[position.storageKey] {
             return mapping.hold
         }
-        return KeyActionCatalog.holdAction(for: label)
+        // Unassigned holds must agree with the inspector's None value. The
+        // legacy catalog remains available for importing named actions only.
+        return nil
     }
 
     private func holdForceThreshold(for position: GridKeyPosition?) -> Float {
@@ -2810,26 +2812,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func holdBinding(for binding: KeyBinding, allowHold: Bool) -> KeyBinding? {
-        guard allowHold else { return nil }
-        if let holdAction = binding.holdAction {
-            return makeBinding(
-                for: holdAction,
-                rect: binding.rect,
-                normalizedRect: binding.normalizedRect,
-                canvasSize: trackpadSize,
-                position: binding.position,
-                side: binding.side,
-                holdAction: binding.holdAction
-            )
-        }
-        guard let action = holdAction(for: binding.position, label: binding.label) else { return nil }
+        guard allowHold, let action = binding.holdAction else { return nil }
         return makeBinding(
             for: action,
             rect: binding.rect,
             normalizedRect: binding.normalizedRect,
             canvasSize: trackpadSize,
             position: binding.position,
-            side: binding.side
+            side: binding.side,
+            holdAction: action
         )
     }
 
