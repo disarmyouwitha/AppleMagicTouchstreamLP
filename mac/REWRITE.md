@@ -15,10 +15,7 @@
 ===
 
 `AppleMagicTouchstream`:
-1. Can you check out misaligned.jpeg and see if you can line up the size / x,y / rotation of each of these keys?
-2. Make a cool icon (FingerWorks Hand-like?) in mac White ( Use @hand.jpeg ) and remove the red / green / yellow circles and logic behind them. 
-> Maybe we can turn the hand red if it's not Taking over trackpads? idk
-> [It should say, `TouchStream uses traced left/right key positions. Select a key to edit it's action`] (And we should lock rotation)
+1. Remove any logic preventing 1-finger from defaulting to typing (like we dont need any 3mm drag cancel or whatever!)
 2. Make Gestures Import/Export with keymap~
 2. Transfer Treasure to GTK~
 4. Copy touchstream Layout from AMT to GTK!
