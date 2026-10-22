@@ -748,15 +748,6 @@ struct ContentView: View {
                 if inspectorTab == "Gestures" {
                     GestureInspectorPanel(controller: viewModel.gestures, takeover: nativeTakeover)
                 } else {
-                    HStack(spacing: 8) {
-                        Button(action: importKeymap) {
-                            Text("Import keymap").frame(maxWidth: .infinity)
-                        }
-                        Button(action: exportKeymap) {
-                            Text("Export keymap").frame(maxWidth: .infinity)
-                        }
-                    }
-                    .buttonStyle(.bordered)
                     rightSidebarView
                 }
             }
@@ -906,6 +897,8 @@ struct ContentView: View {
 
     private var rightSidebarView: some View {
         RightSidebarView(
+            onImportKeymap: importKeymap,
+            onExportKeymap: exportKeymap,
             layoutSelection: layoutSelectionBinding,
             layoutOption: layoutOption,
             columnSettings: columnSettings,
@@ -1318,6 +1311,8 @@ struct ContentView: View {
     }
 
     private struct RightSidebarView: View {
+        let onImportKeymap: () -> Void
+        let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
         let layoutOption: TrackpadLayoutPreset
         let columnSettings: [ColumnLayoutSettings]
@@ -1539,6 +1534,15 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.05))
                     )
+                    HStack(spacing: 8) {
+                        Button(action: onImportKeymap) {
+                            Text("Import keymap").frame(maxWidth: .infinity)
+                        }
+                        Button(action: onExportKeymap) {
+                            Text("Export keymap").frame(maxWidth: .infinity)
+                        }
+                    }
+                    .buttonStyle(.bordered)
                 }
                 .overlay(alignment: .top) {
                     VerticalScrollViewConfigurator()

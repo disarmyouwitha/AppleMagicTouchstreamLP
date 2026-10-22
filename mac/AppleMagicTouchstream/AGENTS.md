@@ -84,3 +84,11 @@ frames, and preserve the other pad's typing. Replay never posts gesture output.
 Preserve keymap, haptics, capture schema and native ownership lifecycle.
 Do not modify siblings or concurrent mac/REWRITE.md/Hand.jpg work. Build/test,
 install with stable Developer ID, leave closed for explicit hardware testing.
+
+
+## Import/Export placement; trace tuning reverted (2026-10-22)
+
+Keep equal-width Import/Export directly under Mode Toggles in the scrolling
+Keyboard settings. User reverted the temporary TouchStream column experiment:
+keep fixed traced positions, column tuning disabled, and original per-key
+geometry behavior. No column offsets/scales/rotations apply to TouchStream.

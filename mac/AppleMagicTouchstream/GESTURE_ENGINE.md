@@ -31,7 +31,7 @@ reserved button-up, queued-position and stale-input cleanup are ported unchanged
 ## Configuration and eligibility
 
 The right inspector has Keyboard first (the default) and Gestures second. Import/Export
-Keymap appears below the selector only on Keyboard. Gestures contains the colored
+Keymap appears directly under Mode Toggles in the scrolling Keyboard column. Gestures contains the colored
 chord examples and Left/Right/Both Action menus. Keyboard retains the existing
 layout, column, keymap, haptics and tuning controls. Both shows Mixed assignments;
 choosing an action applies to both. Factory settings start mirrored.

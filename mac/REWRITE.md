@@ -10,19 +10,19 @@
 
 > Lets ask Kara if we can borrow her menu idea!
 
-> Make a cool icon (FingerWorks Hand-like?) in mac White, since we wont need green/red modes.
-
 > NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool)
 
 ===
 
 `AppleMagicTouchstream`:
-0. I want to add configurable Gestures like in Gesturepad - lets implement everything we have so far!
-===
-1. For AppleMagicTouchstreamLP to make it the default layout loaded.. do I just need to save it as `GLASSTOKEY_DEFAULT_KEYMAP.json?`
-2. Is "Trackpad Takeover" saved with the keymap settings? Should it be? 
-3. Please allow me to edit Column Tuning for the TouchStream layout temporarily, I need to fix some of the positions. [TouchStream uses traced left/right key positions. Select a key to edit it's action] (We should lock rotation)
+1. Can you check out misaligned.jpeg and see if you can line up the size / x,y / rotation of each of these keys?
+2. Make a cool icon (FingerWorks Hand-like?) in mac White ( Use @hand.jpeg ) and remove the red / green / yellow circles and logic behind them. 
+> Maybe we can turn the hand red if it's not Taking over trackpads? idk
+> [It should say, `TouchStream uses traced left/right key positions. Select a key to edit it's action`] (And we should lock rotation)
+2. Make Gestures Import/Export with keymap~
+2. Transfer Treasure to GTK~
 4. Copy touchstream Layout from AMT to GTK!
+
 ===
 
 `GlassToKey`:
