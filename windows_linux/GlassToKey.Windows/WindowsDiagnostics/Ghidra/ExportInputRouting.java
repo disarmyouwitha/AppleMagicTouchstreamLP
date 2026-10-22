@@ -29,6 +29,12 @@ public class ExportInputRouting extends GhidraScript {
             writer.println("PROGRAM " + currentProgram.getName());
             writer.println("IMAGE_BASE " + currentProgram.getImageBase());
             for (int i = 1; i < args.length; i++) for (String name : args[i].split(",")) {
+                if (name.startsWith("0x")) {
+                    Function f = getFunctionAt(toAddr(name));
+                    if (f == null) writer.println("MISSING " + name);
+                    else queue.add(new Item(f,0));
+                    continue;
+                }
                 if (getGlobalFunctions(name).isEmpty()) writer.println("MISSING " + name);
                 for (Function f : getGlobalFunctions(name)) queue.add(new Item(f,0));
             }

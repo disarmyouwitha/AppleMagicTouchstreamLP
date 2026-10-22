@@ -1,4 +1,4 @@
-param([string]$OutputPath)
+param([string]$OutputPath, [switch]$ReadEngineProperties)
 $ErrorActionPreference = 'Stop'
 # Metadata queries only. No registration, input capture, device open, or feature write.
 Add-Type -TypeDefinition @'
@@ -22,6 +22,29 @@ public static class TrackpadMetadataResearch
     private static extern int HidP_GetCaps(IntPtr preparsed, IntPtr caps);
     [DllImport("hid.dll")]
     private static extern int HidP_GetValueCaps(int type, IntPtr caps, ref ushort length, IntPtr preparsed);
+    [DllImport("user32.dll", ExactSpelling=true, SetLastError=true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    private static extern bool GetExtendedPointerDeviceProperty(IntPtr device, [In,Out] int[] property);
+
+    private static object ReadExtended(IntPtr device)
+    {
+        // The inspected getter copies exactly 20 bytes; these selectors are handled by its validator.
+        // No setter, registration, feature report, or IOCTL is issued here.
+        var rows = new List<object>();
+        try {
+            for(int selector=0;selector<8;selector++) {
+                int[] property = { selector,0,0,0,0 };
+                bool ok = GetExtendedPointerDeviceProperty(device,property);
+                rows.Add(new Dictionary<string,object> {
+                    {"selector",selector},{"ok",ok},{"error",ok ? 0 : Marshal.GetLastWin32Error()},
+                    {"values",new int[] {property[1],property[2],property[3],property[4]}}
+                });
+            }
+        } catch(EntryPointNotFoundException) {
+            return new Dictionary<string,object> {{"unavailable",true}};
+        }
+        return rows;
+    }
 
     private static Dictionary<string,object> QueryInfo(IntPtr handle, uint suppliedSize)
     {
@@ -97,7 +120,7 @@ public static class TrackpadMetadataResearch
         } finally { Marshal.FreeHGlobal(caps); Marshal.FreeHGlobal(data); }
     }
 
-    public static object[] Read()
+    public static object[] Read(bool readEngineProperties)
     {
         uint count=0, stride=(uint)Marshal.SizeOf(typeof(Device));
         if (GetRawInputDeviceList(null,ref count,stride)==uint.MaxValue) throw new Win32Exception();
@@ -115,18 +138,21 @@ public static class TrackpadMetadataResearch
                path.IndexOf("PID_0324",StringComparison.OrdinalIgnoreCase)<0 &&
                path.IndexOf("PID&0265",StringComparison.OrdinalIgnoreCase)<0 &&
                path.IndexOf("PID_0265",StringComparison.OrdinalIgnoreCase)<0) continue;
-            output.Add(new Dictionary<string,object> {
+            var row = new Dictionary<string,object> {
                 {"path",path},{"rawType",devices[i].Type},
                 {"legacy24",QueryInfo(devices[i].Handle,24)},
                 {"native32",QueryInfo(devices[i].Handle,32)},
                 {"caps",devices[i].Type == 2 ? QueryCaps(devices[i].Handle) :
                     new Dictionary<string,object> {{"notRequested","Not a RIM_TYPEHID input collection"}}}
-            });
+            };
+            if(readEngineProperties && devices[i].Type==2)
+                row["engineProperties"] = ReadExtended(devices[i].Handle);
+            output.Add(row);
         }
         return output.ToArray();
     }
 }
 '@
-$json = ConvertTo-Json -InputObject @([TrackpadMetadataResearch]::Read()) -Depth 6
+$json = ConvertTo-Json -InputObject @([TrackpadMetadataResearch]::Read($ReadEngineProperties.IsPresent)) -Depth 8
 if ($OutputPath) { [System.IO.File]::WriteAllText($ExecutionContext.SessionState.Path.GetUnresolvedProviderPathFromPSPath($OutputPath), $json) }
 $json
