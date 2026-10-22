@@ -48,3 +48,22 @@ in Xcode and SwiftPM; the visual-only background follows the selected TouchStrea
 layout with no separate checkbox. See
 TOUCHSTREAM_LAYOUT.md and the offline TouchStreamLayoutTests. Existing hidden
 Mobile/Planck presets remain hidden. Do not restore removed gesture features.
+
+
+## GesturePad takeover and contact display port (2026-10-21)
+
+User explicitly requests GesturePad's takeover behavior and placement, left pane,
+always-on contact paths/telemetry, centered pressure without P/F numbers and the
+fixed anatomical palette. This supersedes earlier button/locked-selection/no-
+startup policies and authorizes the local V2 bridge differential transition port.
+Persistent checkbox defaults off; startup/wake/replay exit reconcile selected native
+IDs after opt-in. Emergency release disables persistently; sleep/replay/quit preserve
+preference. All transitions await keyboard reset, serialize, and commit changed
+logical selection only on successful native preparation. Refresh temporarily
+suspends/reconciles; auto-resync remains paused during ownership/transition.
+Preserve retained filters, rollback/retry and exact ownership validation.
+Keep keyboard engine, keymap/reference, haptics and inspectors. No GesturePad
+mouse/scroll/action engine is ported. Colors: Unknown black, Thumb orange, Index
+blue, Middle green, Ring purple, Pinky pink, Palm gray. Keep #ID/name adjacent,
+plain centered pressure, arrows and paths. No legend/display toggles.
+Build native framework from source, test offline, build/install and leave closed.

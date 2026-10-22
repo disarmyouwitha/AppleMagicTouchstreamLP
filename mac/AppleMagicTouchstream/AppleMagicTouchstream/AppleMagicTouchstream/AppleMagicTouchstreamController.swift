@@ -394,11 +394,11 @@ final class GlassToKeyController: ObservableObject {
         applySavedInteractionSettings()
         let leftDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.leftDeviceID)
         let rightDeviceID = stringValue(forKey: GlassToKeyDefaultsKeys.rightDeviceID)
-        if let leftDevice = deviceForID(leftDeviceID) {
-            viewModel.selectLeftDevice(leftDevice)
+        if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.leftDeviceID) != nil {
+            viewModel.selectLeftDevice(deviceForID(leftDeviceID))
         }
-        if let rightDevice = deviceForID(rightDeviceID) {
-            viewModel.selectRightDevice(rightDevice)
+        if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.rightDeviceID) != nil {
+            viewModel.selectRightDevice(deviceForID(rightDeviceID))
         }
         let autoResyncEnabled = UserDefaults.standard.bool(
             forKey: GlassToKeyDefaultsKeys.autoResyncMissingTrackpads

@@ -715,6 +715,20 @@ final class RuntimeDeviceSessionService {
         publishState()
     }
 
+    func selectDevices(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
+        requestedLeftDeviceID = left?.deviceID
+        requestedLeftDeviceName = left?.deviceName
+        requestedLeftIsBuiltIn = left?.isBuiltIn
+        requestedRightDeviceID = right?.deviceID
+        requestedRightDeviceName = right?.deviceName
+        requestedRightIsBuiltIn = right?.isBuiltIn
+        state.leftDevice = left
+        state.rightDevice = right
+        updateDisconnectedTrackpadState()
+        updateActiveDevices()
+        publishState()
+    }
+
     func selectLeftDevice(_ device: OMSDeviceInfo?) {
         requestedLeftDeviceID = device?.deviceID
         requestedLeftDeviceName = device?.deviceName

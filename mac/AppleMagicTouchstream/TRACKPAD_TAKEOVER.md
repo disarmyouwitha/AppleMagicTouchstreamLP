@@ -5,28 +5,40 @@ user client; it does not restore the removed custom DriverKit implementation.
 
 ## Controls and behavior
 
-Select the intended USB/Bluetooth pads, then press **Trackpad Takeover** under
-Left Trackpad. The current nonempty selection is deduplicated and validated in
-full before any ownership changes. Only those selected native services are
-opened as filter clients. Unsupported selections or existing owners cause refusal.
+The **Trackpad Takeover** checkbox lives inside the Left/Right device-selector
+panel in the top-aligned left workspace, matching GesturePad. It defaults off.
+Its value persists under `AppleMagicTouchstream.nativeTrackpadTakeoverEnabled`.
+After opt-in, startup restores takeover on the restored selection. An explicitly
+saved None remains None; a missing saved native ID is not replaced with a default
+pad during startup restoration.
 
-**Release Trackpads**, the menu action, and **Ctrl–Option–R** release. As with any
-global hotkey, another running app can occupy this shortcut. Its hint is shown only after
-successful registration; use the button/menu
-and quit other trackpad apps when testing. There is no timeout or startup takeover.
-Refresh, selection and auto-resync are locked/paused through ownership and release.
+Both selectors remain editable while owned. Native transitions deduplicate numeric
+IDs, validate additions, retain unchanged filter sessions, acquire additions before
+releasing removals and roll back failed changes. The UI/keyboard selection commits
+only after success. Selecting None releases that side; selecting None on both
+releases all filters without clearing the saved opt-in. Failed transitions keep
+the old selection and report recovery failures. There is no retry timer loop.
 
-Closing/reopening Config preserves the same native clients and keyboard engine.
-Restart while owned rebuilds Config in the same process; a real process relaunch
-would close its clients. Sleep, replay and Quit release. There is no automatic
-reconnect takeover or interprocess handoff. Reconnect/reselect and start explicitly.
+Unchecking the checkbox, **Release Trackpads** in the menu, or **Ctrl–Option–R**
+releases and persistently disables takeover. Another app may occupy the global
+shortcut; its hint appears only after successful registration. Release failure
+retains tracked ownership for retry through the menu/shortcut.
+
+Refresh temporarily suspends ownership, refreshes ordinary device sessions and
+reconciles the current selection. Auto-resync pauses while filters are owned or a
+transition is running. Controls pause during the transition and during replay.
+Closing/reopening Config and active Restart retain the same owner process and
+native clients. Sleep, replay and Quit release without clearing the saved opt-in;
+wake and leaving replay reconcile the current selection. Lifecycle suspension
+reasons compose, so leaving replay during sleep cannot reacquire filters. Emergency
+release during suspension prevents later automatic reacquisition.
 
 Contacts flow through the existing native OMS ingestion and existing keyboard
 engine. Native pointer behavior is suppressed by the filter routing. Takeover adds
 no synthetic mouse/click consumer. Release awaits keyboard listening suspension
 and a reset (clearing held keys/repeat state), closes the filter clients, restores
 ordinary native callbacks and resumes listening only when live input is appropriate.
-Concurrent release callers await the same cleanup task. Quit waits for cleanup.
+All ownership transitions serialize across awaited keyboard cleanup. Concurrent release callers await the same cleanup task. Quit waits for cleanup.
 
 ## Mechanism and restrictions
 
@@ -55,7 +67,7 @@ See [the discovery and evidence](../gesturepad/TRACKPAD_TAKEOVER.md).
 - `AppleMagicTouchstream/AppleMagicTouchstream/Runtime/NativeTrackpadTakeover.swift`: observed coordinator,
   asynchronous output-reset/release sequence and controls. Native backend is
   injectable for offline lifecycle tests.
-- `AppleMagicTouchstream/AppleMagicTouchstream/ContentView.swift`: buttons and selector/Refresh locks.
+- `AppleMagicTouchstream/AppleMagicTouchstream/ContentView.swift`: inline checkbox, live selectors and independently scrolling left workspace.
 - `AppleMagicTouchstream/AppleMagicTouchstream/ContentViewModel.swift`: device recovery gate and keyboard
   lifecycle handoff through the existing runtime lifecycle coordinator.
 - `AppleMagicTouchstream/AppleMagicTouchstream/AppleMagicTouchstreamApp.swift`: shortcut/menu, sleep/replay/quit cleanup,
@@ -64,7 +76,7 @@ See [the discovery and evidence](../gesturepad/TRACKPAD_TAKEOVER.md).
 `./build_framework.sh` rebuilds the generated XCFramework from local source.
 `./test.sh` includes fake-device Objective-C start/rollback/release tests and Swift
 coordinator tests for selections, output-reset ordering, concurrent release,
-release retry and rejected starts. Tests do not activate hardware. `./release.sh --check` verifies app identity. App signing/entitlements require no new driver grant.
+release retry, saved opt-in and nested lifecycle suspension. Native tests also cover retained sessions, delayed registry teardown and selection rollback. Tests do not activate hardware. `./release.sh --check` verifies app identity. App signing/entitlements require no new driver grant.
 
 To hardware-test: release/quit GesturePad and other trackpad apps, open this app,
 select one pad first, take over and verify contacts plus intended keyboard output.

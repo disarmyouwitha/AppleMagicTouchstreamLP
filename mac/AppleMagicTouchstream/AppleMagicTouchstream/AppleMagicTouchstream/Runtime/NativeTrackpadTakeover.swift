@@ -5,21 +5,24 @@ import SwiftUI
 
 @MainActor
 protocol NativeTakeoverBackend: AnyObject {
-    func begin(deviceIDs: [UInt64]) -> Bool
+    func update(deviceIDs: [UInt64]) -> Bool
     func end()
     var status: [String: Any] { get }
 }
 
 @MainActor
 private final class OMSNativeTakeoverBackend: NativeTakeoverBackend {
-    func begin(deviceIDs: [UInt64]) -> Bool { OMSManager.shared.beginNativeTakeover(deviceIDs: deviceIDs) }
+    func update(deviceIDs: [UInt64]) -> Bool { OMSManager.shared.updateNativeTakeover(deviceIDs: deviceIDs) }
     func end() { OMSManager.shared.endNativeTakeover() }
     var status: [String: Any] { OMSManager.shared.nativeTakeoverStatus }
 }
 
-/// Owns only native input routing. The app retains its existing keyboard engine.
+/// Persistent opt-in, with native ownership independent of the configuration window.
+/// Keyboard output is drained before every routing transition, including selection edits.
 @MainActor
 final class NativeTrackpadTakeover: ObservableObject {
+    static let defaultsKey = "AppleMagicTouchstream.nativeTrackpadTakeoverEnabled"
+    @Published private(set) var enabled: Bool
     @Published private(set) var isActive = false
     @Published private(set) var isReleasing = false
     @Published var releaseShortcutRegistered = false
@@ -29,81 +32,126 @@ final class NativeTrackpadTakeover: ObservableObject {
     var beforeRelease: (() async -> Void)?
     var afterRelease: (() async -> Void)?
     private let backend: any NativeTakeoverBackend
+    private let defaults: UserDefaults
+    private var selection: Set<UInt64> = []
+    private var suspensions: Set<String> = []
     private var timer: Timer?
-    private var releaseTask: Task<Void, Never>?
+    private var operation: Task<Bool, Never>?
 
-    init(backend: (any NativeTakeoverBackend)? = nil) {
+    init(backend: (any NativeTakeoverBackend)? = nil, defaults: UserDefaults = .standard) {
         self.backend = backend ?? OMSNativeTakeoverBackend()
+        self.defaults = defaults
+        enabled = defaults.bool(forKey: Self.defaultsKey)
     }
 
-    func start(devices: [OMSDeviceInfo]) {
-        start(deviceIDs: devices.map(\.deviceIDNumeric))
+    func setEnabled(_ value: Bool) async {
+        enabled = value
+        defaults.set(value, forKey: Self.defaultsKey)
+        await waitForOperation()
+        _ = await transition(to: enabled && suspensions.isEmpty ? selection : [])
     }
 
-    func start(deviceIDs: [UInt64]) {
-        guard !hasOwnership else { return }
-        _ = backend.begin(deviceIDs: Array(Set(deviceIDs)).sorted())
-        updateStatus()
-        onOwnershipChanged?(hasOwnership)
-        if isActive {
-            timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
-                Task { @MainActor in self?.updateStatus() }
-            }
-            if let timer { RunLoop.main.add(timer, forMode: .common) }
+    /// Commit UI/engine selection only after native preparation succeeds. Failed
+    /// additions retain the previous selection and the bridge rolls ownership back.
+    @discardableResult
+    func updateSelection(deviceIDs: [UInt64], commit: @escaping @MainActor () -> Void = {}) async -> Bool {
+        let next = Set(deviceIDs)
+        await waitForOperation()
+        guard !Task.isCancelled else { return false }
+        return await transition(to: enabled && suspensions.isEmpty ? next : []) { [self] in
+            selection = next
+            commit()
         }
     }
 
-    func release() async {
-        if let releaseTask { await releaseTask.value; return }
-        guard isActive else { return }
+    /// Emergency release is a persistent opt-out; lifecycle suspension is not.
+    func release() async { await setEnabled(false) }
+
+    @discardableResult
+    func suspend(_ reason: String) async -> Bool {
+        suspensions.insert(reason)
+        await waitForOperation()
+        return await transition(to: [])
+    }
+
+    func resume(_ reason: String) async {
+        suspensions.remove(reason)
+        await waitForOperation()
+        _ = await transition(to: enabled && suspensions.isEmpty ? selection : [])
+    }
+
+    private var ownedIDs: Set<UInt64> {
+        Set((backend.status["deviceIDs"] as? [NSNumber] ?? []).map(\.uint64Value))
+    }
+
+    private func waitForOperation() async {
+        while let operation { _ = await operation.value }
+    }
+
+    private func transition(to target: Set<UInt64>, commit: @escaping @MainActor () -> Void = {}) async -> Bool {
+        // Main-actor methods can interleave while keyboard cleanup awaits. Share
+        // the current operation, then serialize the next request behind it.
+        while let operation { _ = await operation.value }
+        if ownedIDs == target && (target.isEmpty || isActive) { commit(); return true }
         isReleasing = true
+        onOwnershipChanged?(true) // Pause auto-resync during acquisition as well.
         let task = Task { @MainActor [self] in
-            // Flush held/repeating keyboard output before changing native routing.
             await beforeRelease?()
-            backend.end()
+            let succeeded: Bool
+            if target.isEmpty {
+                backend.end()
+                succeeded = ownedIDs.isEmpty
+            } else {
+                succeeded = backend.update(deviceIDs: target.sorted())
+            }
             updateStatus()
+            if succeeded && ownedIDs == target { commit() }
             await afterRelease?()
-            releaseTask = nil
             isReleasing = false
+            operation = nil
             onOwnershipChanged?(hasOwnership)
+            return succeeded && ownedIDs == target
         }
-        releaseTask = task
-        await task.value
+        operation = task
+        return await task.value
     }
 
     private func updateStatus() {
         let snapshot = backend.status
-        let previous = isActive
+        let wasActive = isActive
         isActive = snapshot["active"] as? Bool ?? false
         status = snapshot["message"] as? String ?? "Native takeover unavailable."
-        if previous && !isActive {
+        if isActive && timer == nil {
+            timer = Timer(timeInterval: 0.5, repeats: true) { [weak self] _ in
+                Task { @MainActor in self?.updateStatus() }
+            }
+            if let timer { RunLoop.main.add(timer, forMode: .common) }
+        } else if !isActive {
             timer?.invalidate()
             timer = nil
-            if !isReleasing { onOwnershipChanged?(false) }
         }
+        if wasActive && !isActive && !isReleasing { onOwnershipChanged?(false) }
     }
 }
 
 struct NativeTakeoverControls: View {
     @ObservedObject var control: NativeTrackpadTakeover
-    let selected: [OMSDeviceInfo]
     let unavailable: Bool
 
     var body: some View {
         HStack(spacing: 12) {
-            Button("Trackpad Takeover") { control.start(devices: selected) }
-                .fixedSize()
-                .disabled(unavailable || selected.isEmpty || control.hasOwnership)
-            Button("Release Trackpads") { Task { await control.release() } }
-                .fixedSize()
-                .disabled(!control.isActive || control.isReleasing)
+            Toggle("Trackpad Takeover", isOn: Binding(
+                get: { control.enabled },
+                set: { value in Task { await control.setEnabled(value) } }
+            ))
+            .toggleStyle(.checkbox)
+            .fixedSize()
+            .disabled(unavailable || control.isReleasing)
             Text(control.status + (control.hasOwnership && control.releaseShortcutRegistered ? " Press ⌃⌥R to release" : ""))
                 .font(.caption)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
     }
 }

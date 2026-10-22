@@ -16,17 +16,9 @@
 
 ===
 
-`AppleMagicTouchstream`: Lets take a bunch of changes from Gesturepad!
-1. We should implement "Trackpad Takeover" just how it is in Gesturepad, including placement
-2. I want to move the trackpads to a left pane, just like it is in Gesturepad
-3. I want to remove "Contact Paths" and "inspect touch data" and make them default on like in Gesturepad
-4. I want to remove (F:) and move P: to the fingertips, like in Gesturepad
-5. I want to make the contact colors a standard set of colors like in Gesturepad
-
-
-6. I want to add Gestures like in Gesturepad
-
-4. Fix touchstream Layout (space) and test!
+`AppleMagicTouchstream`:
+0. I want to add configurable Gestures like in Gesturepad - lets implement everything we have so far!
+1. Fix touchstream Layout (space) and test!
 
 ===
 

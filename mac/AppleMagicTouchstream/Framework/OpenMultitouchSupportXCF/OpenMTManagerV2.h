@@ -26,8 +26,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)removeRawListener:(OpenMTListener *)listener;
 - (BOOL)isListening;
 
-// Explicit selected-device private-API takeover; never persisted across sessions.
+// Selected-device private-API takeover; application owns opt-in persistence.
 - (BOOL)beginNativeTakeoverForDeviceIDs:(NSArray<NSNumber *> *)deviceIDs;
+- (BOOL)updateNativeTakeoverForDeviceIDs:(NSArray<NSNumber *> *)deviceIDs;
 - (void)endNativeTakeover;
 - (NSDictionary<NSString *, id> *)nativeTakeoverStatus;
 

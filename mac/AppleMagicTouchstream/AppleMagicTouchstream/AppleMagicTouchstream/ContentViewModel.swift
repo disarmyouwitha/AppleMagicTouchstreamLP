@@ -978,11 +978,14 @@ final class ContentViewModel: ObservableObject {
         loadDevices()
     }
 
+    var trackpadSelectionDidChange: (() -> Void)?
+
     private func applyDeviceSessionState(_ state: RuntimeDeviceSessionService.State) {
         availableDevices = state.availableDevices
         leftDevice = state.leftDevice
         rightDevice = state.rightDevice
         hasDisconnectedTrackpads = state.hasDisconnectedTrackpads
+        trackpadSelectionDidChange?()
     }
 
     var leftTouches: [OMSTouchData] {
@@ -1062,6 +1065,12 @@ final class ContentViewModel: ObservableObject {
 
     func loadDevices(preserveSelection: Bool = false) {
         deviceSessionService.loadDevices(preserveSelection: preserveSelection)
+        applyDeviceSessionState(deviceSessionService.snapshot)
+    }
+
+    /// Called only after the takeover coordinator has prepared the native set.
+    func commitTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
+        deviceSessionService.selectDevices(left: left, right: right)
         applyDeviceSessionState(deviceSessionService.snapshot)
     }
 

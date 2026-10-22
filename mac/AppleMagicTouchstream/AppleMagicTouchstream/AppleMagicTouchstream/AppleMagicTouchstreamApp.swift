@@ -41,6 +41,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var releaseHotKey: EventHotKeyRef?
     private var releaseHotKeyHandler: EventHandlerRef?
     private var takeoverSleepObserver: NSObjectProtocol?
+    private var takeoverWakeObserver: NSObjectProtocol?
+    private var takeoverSelectionTask: Task<Void, Never>?
     private var takeoverQuitTask: Task<Void, Never>?
     private var statusItem: NSStatusItem?
     private var configWindow: NSWindow?
@@ -105,10 +107,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         takeoverSleepObserver = NSWorkspace.shared.notificationCenter.addObserver(
             forName: NSWorkspace.willSleepNotification, object: nil, queue: .main
         ) { [weak self] _ in
-            Task { @MainActor [weak self] in await self?.nativeTakeover.release() }
+            Task { @MainActor [weak self] in _ = await self?.nativeTakeover.suspend("sleep") }
+        }
+        takeoverWakeObserver = NSWorkspace.shared.notificationCenter.addObserver(
+            forName: NSWorkspace.didWakeNotification, object: nil, queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor [weak self] in await self?.nativeTakeover.resume("sleep") }
+        }
+        controller.viewModel.trackpadSelectionDidChange = { [weak self] in
+            self?.reconcileTakeoverSelection()
         }
         registerReleaseTrackpadShortcut()
         controller.start()
+        reconcileTakeoverSelection()
         configureStatusItem()
         observeStatus()
         if shouldOpenConfigOnLaunch {
@@ -127,7 +138,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         guard nativeTakeover.hasOwnership else { return .terminateNow }
         if takeoverQuitTask == nil {
             takeoverQuitTask = Task { @MainActor [self] in
-                await nativeTakeover.release()
+                _ = await nativeTakeover.suspend("termination")
                 sender.reply(toApplicationShouldTerminate: true)
             }
         }
@@ -138,6 +149,19 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         if let releaseHotKey { UnregisterEventHotKey(releaseHotKey) }
         if let releaseHotKeyHandler { RemoveEventHandler(releaseHotKeyHandler) }
         if let takeoverSleepObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverSleepObserver) }
+        if let takeoverWakeObserver { NSWorkspace.shared.notificationCenter.removeObserver(takeoverWakeObserver) }
+        takeoverSelectionTask?.cancel()
+    }
+
+    private func reconcileTakeoverSelection() {
+        takeoverSelectionTask?.cancel()
+        takeoverSelectionTask = Task { @MainActor [weak self] in
+            // Coalesce saved Left/Right restoration and service publications.
+            await Task.yield()
+            guard let self, !Task.isCancelled else { return }
+            let devices = [controller.viewModel.leftDevice, controller.viewModel.rightDevice].compactMap { $0 }
+            await nativeTakeover.updateSelection(deviceIDs: devices.map(\.deviceIDNumeric))
+        }
     }
 
     @objc private func releaseTrackpads() {
@@ -275,7 +299,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             .map { $0 != nil }
             .removeDuplicates()
             .sink { [weak self] isReplayActive in
-                if isReplayActive { Task { await self?.nativeTakeover.release() } }
+                Task { @MainActor [weak self] in
+                    if isReplayActive { _ = await self?.nativeTakeover.suspend("replay") }
+                    else { await self?.nativeTakeover.resume("replay") }
+                }
                 self?.replayInProgress = isReplayActive
                 self?.refreshCaptureReplayMenuState()
             }
@@ -353,8 +380,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc private func syncDevices() {
-        guard !nativeTakeover.hasOwnership else { return }
-        controller.viewModel.refreshDevicesAndListeners()
+        Task { @MainActor in
+            guard await nativeTakeover.suspend("refresh") else {
+                await nativeTakeover.resume("refresh")
+                return
+            }
+            controller.viewModel.refreshDevicesAndListeners()
+            await nativeTakeover.updateSelection(deviceIDs: [controller.viewModel.leftDevice, controller.viewModel.rightDevice].compactMap { $0?.deviceIDNumeric })
+            await nativeTakeover.resume("refresh")
+        }
     }
 
     @objc private func toggleCapture() {
@@ -517,12 +551,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
         openConfigWindow()
         do {
-            await nativeTakeover.release()
-            guard !nativeTakeover.hasOwnership else { return }
+            guard await nativeTakeover.suspend("replay") else {
+                await nativeTakeover.resume("replay")
+                return
+            }
             try await controller.beginReplaySession(from: inputURL)
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
         } catch {
+            if !controller.isATPReplayActive { await nativeTakeover.resume("replay") }
             replayInProgress = controller.isATPReplayActive
             refreshCaptureReplayMenuState()
             presentError(

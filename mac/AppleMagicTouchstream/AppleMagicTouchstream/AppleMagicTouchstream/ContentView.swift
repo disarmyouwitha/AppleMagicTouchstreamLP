@@ -562,7 +562,6 @@ struct ContentView: View {
 
     private var styledMainLayout: some View {
         mainLayout
-            .padding()
             .background(backgroundGradient)
             .frame(minWidth: trackpadSize.width * 2 + 520, minHeight: trackpadSize.height + 340)
             .frame(maxHeight: .infinity, alignment: .top)
@@ -723,14 +722,22 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainLayout: some View {
-        VStack(spacing: 16) {
-            headerView
-            if let replayTimelineState = viewModel.replayTimelineState {
-                replayTimelineView(replayTimelineState)
+        HStack(alignment: .top, spacing: 0) {
+            GeometryReader { viewport in
+                ScrollView([.horizontal, .vertical]) {
+                    VStack(alignment: .leading, spacing: 16) {
+                        headerView
+                        if let state = viewModel.replayTimelineState { replayTimelineView(state) }
+                        devicesSectionView
+                        trackpadSectionView
+                    }
+                    .frame(width: trackpadSize.width * 2 + 40, alignment: .leading)
+                    .padding(20)
+                    .frame(minWidth: viewport.size.width, minHeight: viewport.size.height, alignment: .topLeading)
+                }
             }
-            devicesSectionView
-
-            contentRow
+            Divider()
+            rightSidebarView.padding(16)
         }
     }
 
@@ -817,16 +824,21 @@ struct ContentView: View {
             leftDevice: viewModel.leftDevice,
             rightDevice: viewModel.rightDevice,
             onSelectLeft: { device in
-                guard !nativeTakeover.hasOwnership else { return }
-                viewModel.selectLeftDevice(device)
+                changeTrackpadSelection(left: device, right: viewModel.rightDevice)
             },
             onSelectRight: { device in
-                guard !nativeTakeover.hasOwnership else { return }
-                viewModel.selectRightDevice(device)
+                changeTrackpadSelection(left: viewModel.leftDevice, right: device)
             },
             onRefresh: {
-                guard !nativeTakeover.hasOwnership else { return }
-                viewModel.refreshDevicesAndListeners()
+                Task { @MainActor in
+                    guard await nativeTakeover.suspend("refresh") else {
+                        await nativeTakeover.resume("refresh")
+                        return
+                    }
+                    viewModel.refreshDevicesAndListeners()
+                    await nativeTakeover.updateSelection(deviceIDs: [viewModel.leftDevice, viewModel.rightDevice].compactMap { $0?.deviceIDNumeric })
+                    await nativeTakeover.resume("refresh")
+                }
             },
             nativeTakeover: nativeTakeover,
             replayActive: viewModel.replayTimelineState != nil
@@ -834,10 +846,14 @@ struct ContentView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var contentRow: some View {
-        HStack(alignment: .top, spacing: 18) {
-            trackpadSectionView
-            rightSidebarView
+    private func changeTrackpadSelection(left: OMSDeviceInfo?, right: OMSDeviceInfo?) {
+        guard !nativeTakeover.isReleasing, viewModel.replayTimelineState == nil else { return }
+        Task { @MainActor in
+            await nativeTakeover.updateSelection(deviceIDs: [left, right].compactMap { $0?.deviceIDNumeric }) {
+                viewModel.commitTrackpadSelection(left: left, right: right)
+                storedLeftDeviceID = left?.deviceID ?? ""
+                storedRightDeviceID = right?.deviceID ?? ""
+            }
         }
     }
 
@@ -1628,8 +1644,6 @@ struct ContentView: View {
     }
 
     private struct DevicesSectionView: View {
-        @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
-        @AppStorage("AppleMagicTouchstream.showTouchTelemetry") private var showTouchTelemetry = false
 
 
         let availableDevices: [OMSDeviceInfo]
@@ -1642,8 +1656,7 @@ struct ContentView: View {
         let replayActive: Bool
 
         private var takeoverControls: some View {
-            NativeTakeoverControls(control: nativeTakeover,
-                selected: [leftDevice, rightDevice].compactMap { $0 }, unavailable: replayActive)
+            NativeTakeoverControls(control: nativeTakeover, unavailable: replayActive)
         }
 
         private var refreshButton: some View {
@@ -1651,7 +1664,7 @@ struct ContentView: View {
                 Image(systemName: "arrow.clockwise").imageScale(.medium)
             }
             .buttonStyle(.bordered)
-            .disabled(nativeTakeover.hasOwnership)
+            .disabled(nativeTakeover.isReleasing || replayActive)
             .help("Refresh the trackpad list")
         }
 
@@ -1686,8 +1699,7 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .disabled(nativeTakeover.hasOwnership)
-                            takeoverControls
+                            .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -1711,25 +1723,14 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            .disabled(nativeTakeover.hasOwnership)
-                            HStack(spacing: 16) {
-                                Toggle("Contact paths", isOn: $showContactPaths)
-                                    .toggleStyle(.checkbox)
-                                    .help("Show colored movement trails for each contact; trails fade after release.")
-
-                                Toggle("Inspect touch data", isOn: $showTouchTelemetry)
-                                    .toggleStyle(.checkbox)
-                                    .help("Show raw finger/hand IDs and velocity direction on each contact.")
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(10)
-                            .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+                            .disabled(nativeTakeover.isReleasing || replayActive)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
                         refreshButton
                         .padding(.top, 20)
                     }
+                    takeoverControls
                 }
 
             }
@@ -3108,8 +3109,6 @@ struct ContentView: View {
         let onSelectionInteraction: () -> Void
         @State private var leftPeakPressure = 0
         @State private var rightPeakPressure = 0
-        @AppStorage("GlassToKey.showContactPaths") private var showContactPaths = true
-        @AppStorage("AppleMagicTouchstream.showTouchTelemetry") private var showTouchTelemetry = false
 
 
         private let trackpadSpacing: CGFloat = 16
@@ -3137,9 +3136,9 @@ struct ContentView: View {
                             trackpadSize: trackpadSize,
                             spacing: trackpadSpacing,
                             showDetailed: showDetailedView,
-                            showTouchTelemetry: showTouchTelemetry,
+                            showTouchTelemetry: true,
                             showTouchStreamReference: showTouchStreamReference,
-                            showContactPaths: showContactPaths,
+                            showContactPaths: true,
                             replayModeEnabled: viewModel.replayTimelineState != nil,
                             leftLayout: leftLayout,
                             rightLayout: rightLayout,
@@ -3915,11 +3914,11 @@ struct ContentView: View {
         viewModel.updateCustomButtons(customButtons)
         updateGridLabelInfo()
         applyColumnSettings(columnSettings)
-        if let leftDevice = deviceForID(storedLeftDeviceID) {
-            viewModel.selectLeftDevice(leftDevice)
+        if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.leftDeviceID) != nil {
+            viewModel.selectLeftDevice(deviceForID(storedLeftDeviceID))
         }
-        if let rightDevice = deviceForID(storedRightDeviceID) {
-            viewModel.selectRightDevice(rightDevice)
+        if UserDefaults.standard.object(forKey: GlassToKeyDefaultsKeys.rightDeviceID) != nil {
+            viewModel.selectRightDevice(deviceForID(storedRightDeviceID))
         }
         normalizeGestureSettings()
         viewModel.updateHoldThreshold(tapHoldDurationMs / 1000.0)
