@@ -10,6 +10,8 @@ struct ContentView: View {
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
+    @State private var selectedGesture: GesturePane = .pointClick
+    @State private var editingHand: GestureHandScope = .both
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
     @State private var replayScrubValue: Double = 0
@@ -38,146 +40,133 @@ struct ContentView: View {
     }
 
     var body: some View {
-        ScrollView([.horizontal, .vertical]) {
-            VStack(alignment: .leading, spacing: 16) {
-                Text("FingerWorks Playground").font(.title2).bold()
-                DevicesSectionView(availableDevices: viewModel.availableDevices,
-                    leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
-                    onSelectLeft: { device in
-                        viewModel.selectLeftDevice(device)
-                        UserDefaults.standard.set(viewModel.leftDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
-                    },
-                    onSelectRight: { device in
-                        viewModel.selectRightDevice(device)
-                        UserDefaults.standard.set(viewModel.rightDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
-                    },
-                    onRefresh: {
-                        viewModel.refreshDevicesAndListeners()
-                    }, blackholeControls: { hidBlackholeControls })
-                if let state = viewModel.replayTimelineState { replayTimelineView(state) }
-                InlineTouchTelemetry(viewModel: viewModel) {
-                    VStack(alignment: .leading, spacing: 12) {
-                        HStack(spacing: 16) {
-                            Text("Left Trackpad · peak: \(leftPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
-                            Text("Right Trackpad · peak: \(rightPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
-                        }
-                        TrackpadSurfaceRepresentable(snapshot: surfaceSnapshot, viewModel: viewModel,
-                            selectionHandler: { _ in }, peakPressureHandler: { left, right in
-                                leftPeakPressure = left
-                                rightPeakPressure = right
-                            })
-                            .frame(width: size.width * 2 + 16, height: size.height)
-                    }
-                }
-
+        HStack(spacing: 0) {
+            GestureSidebar(selection:$selectedGesture,hand:$editingHand)
+                .frame(width:280)
+            Divider()
+            ScrollView([.horizontal, .vertical]) {
+                workspace
+                    .padding(20)
             }
-            .padding(16)
         }
-        .frame(minWidth: size.width * 2 + 48, minHeight: size.height + 400)
+        .frame(minWidth: size.width * 2 + 329, minHeight: size.height + 400)
         .onReceive(viewModel.$replayTimelineState) { state in
             if let state, !replayScrubInProgress { replayScrubValue = max(state.currentTimeSeconds, 0) }
         }
     }
 
-    private var hidBlackholeControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
+    private var workspace: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("FingerWorks Playground").font(.title2).bold()
+            DevicesSectionView(availableDevices: viewModel.availableDevices,
+                leftDevice: viewModel.leftDevice, rightDevice: viewModel.rightDevice,
+                onSelectLeft: { device in
+                    viewModel.selectLeftDevice(device)
+                    UserDefaults.standard.set(viewModel.leftDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.leftDeviceID)
+                },
+                onSelectRight: { device in
+                    viewModel.selectRightDevice(device)
+                    UserDefaults.standard.set(viewModel.rightDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
+                }, onRefresh: { viewModel.refreshDevicesAndListeners() })
             nativeFilterControls
-            HStack(spacing: 12) {
-                Toggle("2-finger mouse", isOn: Binding(
-                    get: { hidBlackhole.twoFingerMouseEnabled },
-                    set: { hidBlackhole.setTwoFingerMouseEnabled($0) }
-                ))
-                .toggleStyle(.checkbox)
-                .fixedSize()
-                .help("Two-finger pointer with acceleration. Requires Trackpad Takeover and Accessibility. Lift all fingers before starting a different gesture.")
-                Text("Sensitivity").font(.caption)
-                Slider(value: Binding(get: { hidBlackhole.pointerSensitivity },
-                    set: { hidBlackhole.setPointerSensitivity($0) }), in: 0.25...2, step: 0.01)
-                    .frame(width: 90)
-                    .help("Adjusts pointer sensitivity before acceleration.")
-                Text(String(format: "%.2f×", hidBlackhole.pointerSensitivity))
-                    .font(.caption).monospacedDigit()
-            }
-            Toggle("2-finger tap to click", isOn: Binding(
-                get: { hidBlackhole.twoFingerTapEnabled },
-                set: { hidBlackhole.setTwoFingerTapEnabled($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .help("A short stationary two-finger tap makes a primary click when both fingers lift.")
-            if takeoverPreference.enabled && hidBlackhole.twoFingerTapEnabled
-                && hidBlackhole.twoFingerTapStatus != "Active" {
-                Text(hidBlackhole.twoFingerTapStatus)
+                .padding(12)
+                .frame(maxWidth:.infinity,alignment:.leading)
+                .background(.quaternary,in:RoundedRectangle(cornerRadius:10))
+            if let left = viewModel.leftDevice, left.deviceIDNumeric == viewModel.rightDevice?.deviceIDNumeric {
+                Text("The same trackpad is selected on both sides. Enabled gestures combine; left sensitivity takes priority.")
                     .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
             }
-            Toggle("3-finger tap to double-click", isOn: Binding(
-                get: { hidBlackhole.threeFingerTapEnabled },
-                set: { hidBlackhole.setThreeFingerTapEnabled($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .help("A short stationary non-thumb three-finger tap makes a primary double-click when all fingers lift. Thumb chords are reserved for right-click.")
-            if takeoverPreference.enabled && hidBlackhole.threeFingerTapEnabled
-                && hidBlackhole.threeFingerTapStatus != "Active" {
-                Text(hidBlackhole.threeFingerTapStatus)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
-            }
-            Toggle("Spread thumb + 2 fingertips: right-click", isOn: Binding(
-                get: { hidBlackhole.rightClickEnabled },
-                set: { hidBlackhole.setRightClickEnabled($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .help("Tap with an identified thumb separated from two fingertips for a right-click on final lift. Fingertip labels may revise.")
-            if takeoverPreference.enabled && hidBlackhole.rightClickEnabled
-                && hidBlackhole.rightClickStatus != "Active" {
-                Text(hidBlackhole.rightClickStatus)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
-            }
-            Toggle("3-finger drag/select", isOn: Binding(
-                get: { hidBlackhole.threeFingerDragEnabled },
-                set: { hidBlackhole.setThreeFingerDragEnabled($0) }
-            ))
-            .toggleStyle(.checkbox)
-            .help("Move three nearby, aligned fingers to drag or select. Lift all fingers to release. Uses mouse sensitivity.")
-            if takeoverPreference.enabled && hidBlackhole.threeFingerDragEnabled
-                && hidBlackhole.threeFingerDragStatus != "Active" {
-                Text(hidBlackhole.threeFingerDragStatus)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
-            }
-            HStack(spacing: 12) {
-                Toggle("4-finger scroll", isOn: Binding(
-                    get: { hidBlackhole.fourFingerScrollEnabled },
-                    set: { hidBlackhole.setFourFingerScrollEnabled($0) }
-                ))
-                .toggleStyle(.checkbox)
-                .fixedSize()
-                .help("Start moving with four fingers to scroll. The gesture stays latched until all fingers lift.")
-                Text("Sensitivity").font(.caption)
-                Slider(value: Binding(get: { hidBlackhole.scrollSensitivity },
-                    set: { hidBlackhole.setScrollSensitivity($0) }), in: 0.25...2, step: 0.01)
-                    .frame(width: 90)
-                Text(String(format: "%.2f×", hidBlackhole.scrollSensitivity))
-                    .font(.caption).monospacedDigit()
-            }
-            if takeoverPreference.enabled && hidBlackhole.fourFingerScrollEnabled
-                && hidBlackhole.fourFingerScrollStatus != "Active" {
-                Text(hidBlackhole.fourFingerScrollStatus)
-                    .font(.caption).foregroundStyle(.secondary)
-                    .fixedSize(horizontal:false,vertical:true)
-            }
-            if takeoverPreference.enabled && hidBlackhole.twoFingerMouseEnabled
-                && hidBlackhole.twoFingerMouseStatus != "Active" {
-                Text(hidBlackhole.twoFingerMouseStatus)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+            gestureDetails
+            if let state = viewModel.replayTimelineState { replayTimelineView(state) }
+            VStack(alignment: .leading, spacing: 12) {
+                HStack(spacing: 16) {
+                    Text("Left Trackpad · peak: \(leftPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
+                    Text("Right Trackpad · peak: \(rightPeakPressure)").monospacedDigit().frame(width: size.width, alignment: .leading)
+                }
+                TrackpadSurfaceRepresentable(snapshot: surfaceSnapshot, viewModel: viewModel,
+                    selectionHandler: { _ in }, peakPressureHandler: { left, right in
+                        leftPeakPressure = left
+                        rightPeakPressure = right
+                    })
+                    .frame(width: size.width * 2 + 16, height: size.height)
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(.quaternary, in: RoundedRectangle(cornerRadius: 8))
+        .frame(width:size.width * 2 + 16,alignment:.leading)
+    }
+
+    private var gestureDetails: some View {
+        VStack(alignment:.leading,spacing:12) {
+            HStack(spacing:12) {
+                GestureChordIcon(gesture:selectedGesture,hand:editingHand,selected:false)
+                    .frame(width:72,height:42)
+                VStack(alignment:.leading,spacing:4) {
+                    Text(selectedGesture.title).font(.title2).bold()
+                    Text(selectedGesture.summary).foregroundStyle(.secondary)
+                }
+                Spacer()
+                if selectedGesture == .rightClick { Text("Spread").font(.caption).padding(.horizontal,8).padding(.vertical,3).background(.quaternary,in:Capsule()) }
+            }
+            Divider()
+            gestureSettings
+            Text(editingHand == .both ? "Changes apply to both trackpads." : "Editing the \(editingHand.rawValue.lowercased()) trackpad settings.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .padding(16)
+        .frame(maxWidth:.infinity,alignment:.leading)
+        .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
+    }
+
+    @ViewBuilder private var gestureSettings: some View {
+        switch selectedGesture {
+        case .pointClick:
+            gestureToggle("2-finger mouse",feature:.mouse)
+            sensitivityControl("Pointer sensitivity",kind:.pointer)
+            gestureToggle("2-finger tap to click",feature:.tap)
+        case .dragDoubleClick:
+            gestureToggle("3-finger drag/select",feature:.drag)
+            gestureToggle("3-finger tap to double-click",feature:.doubleTap)
+            sensitivityControl("Pointer sensitivity",kind:.pointer)
+        case .scroll:
+            gestureToggle("4-finger scroll",feature:.scroll)
+            sensitivityControl("Scroll sensitivity",kind:.scroll)
+        case .rightClick:
+            gestureToggle("Spread thumb + 2 fingertips: right-click",feature:.rightClick)
+        }
+    }
+
+    private func gestureToggle(_ title: String, feature: GestureFeature) -> some View {
+        let value = hidBlackhole.handSettings.enabled(feature,in:editingHand)
+        let status = hidBlackhole.gestureStatus(feature,scope:editingHand)
+        return VStack(alignment:.leading,spacing:4) {
+            ScopedGestureCheckbox(title:title,value:value) { enabled in
+                hidBlackhole.setGestureEnabled(feature,enabled,scope:editingHand)
+            }
+            .frame(height:20).fixedSize(horizontal:true,vertical:false)
+            if value == nil {
+                Text("Mixed — Left: \(hidBlackhole.handSettings.left[feature] ? "On" : "Off") · Right: \(hidBlackhole.handSettings.right[feature] ? "On" : "Off")")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            if takeoverPreference.enabled && value != false && status != "Active" {
+                Text(status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+        }
+    }
+
+    private func sensitivityControl(_ title: String, kind: GestureSensitivity) -> some View {
+        let settings = hidBlackhole.handSettings
+        let value = settings.sensitivity(kind,in:editingHand)
+        return HStack(spacing:12) {
+            Text(title).font(.caption)
+            Slider(value:Binding(get:{value ?? settings.left[kind]},set:{
+                hidBlackhole.setSensitivity(kind,$0,scope:editingHand)
+            }),in:0.25...2,step:0.01).frame(width:180)
+            if let value {
+                Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
+            } else {
+                Text(String(format:"Mixed · L %.2f× / R %.2f×",settings.left[kind],settings.right[kind]))
+                    .font(.caption).monospacedDigit()
+            }
+        }
     }
 
     private var nativeFilterControls: some View {
@@ -261,14 +250,13 @@ struct ContentView: View {
             millisecondsComponent
         )
     }
-    private struct DevicesSectionView<BlackholeControls: View>: View {
+    private struct DevicesSectionView: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
-        @ViewBuilder let blackholeControls: () -> BlackholeControls
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -279,7 +267,6 @@ struct ContentView: View {
                         Spacer()
                         TrackpadRefreshButton(refresh: onRefresh)
                     }
-                    blackholeControls()
                 } else {
                     HStack(alignment: .top, spacing: 10) {
                         VStack(alignment: .leading, spacing: 6) {
@@ -302,7 +289,6 @@ struct ContentView: View {
                             .labelsHidden()
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .pickerStyle(MenuPickerStyle())
-                            blackholeControls()
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
 
@@ -341,87 +327,6 @@ struct ContentView: View {
             )
         }
     }
-    private struct InlineTouchTelemetry<Visualizer: View>: View {
-        @ObservedObject var viewModel: ContentViewModel
-        @ViewBuilder let visualizer: () -> Visualizer
-        private let columnWidth: CGFloat = 300
-        var body: some View {
-            TimelineView(.periodic(from: .now, by: 0.1)) { _ in
-                let snapshot = viewModel.snapshotTouchData()
-                VStack(alignment: .leading, spacing: 10) {
-                    HStack(alignment: .top, spacing: 16) {
-                        ScrollView(.vertical) {
-                            contactColumn("Left trackpad", touches: snapshot.left)
-                        }
-                        .frame(width: columnWidth, height: 520)
-                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
-                        visualizer()
-                        ScrollView(.vertical) {
-                            contactColumn("Right trackpad", touches: snapshot.right)
-                        }
-                        .frame(width: columnWidth, height: 520)
-                        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 12))
-                    }
-
-                }
-                .padding(.vertical, 12)
-            }
-        }
-
-        private func contactColumn(_ title: String, touches: [OMSTouchData]) -> some View {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("\(title) · \(touches.count) contacts").font(.headline)
-                if touches.isEmpty {
-                    Text("No contacts").foregroundStyle(.secondary)
-                }
-                ForEach(Array(touches.enumerated()), id: \.offset) { _, touch in
-                    VStack(alignment: .leading, spacing: 3) {
-                        HStack {
-                            Text("#\(touch.id) · \(touch.telemetry?.fingerName ?? "Unknown")").fontWeight(.semibold)
-                            Spacer()
-                            Text(String(format: "P: %.3f", touch.pressure)).fontWeight(.semibold)
-                        }
-                        Text("\(touch.telemetry.map { "Finger \($0.fingerID)" } ?? "Identity unavailable") · \(touch.state.rawValue)")
-                            .foregroundStyle(.secondary)
-                        Text(String(format: "Position % .4f, % .4f", touch.position.x, touch.position.y))
-                        if let raw = touch.telemetry {
-                            if let driver = raw.driverKit {
-                                Text(driver.velocityAvailable ? String(format: "Velocity (reconstructed) % .4f, % .4f /s", raw.velocityX, raw.velocityY) : "Velocity (reconstructed): waiting for next frame")
-                            } else { Text(String(format: "Velocity % .4f, % .4f", raw.velocityX, raw.velocityY)) }
-                        }
-                        DisclosureGroup("Raw measurements") {
-                            VStack(alignment: .leading, spacing: 3) {
-                                if let raw = touch.telemetry {
-                                    Text(String(format: raw.driverKit != nil ? "Absolute position (native units) % .4f, % .4f" : "Absolute position % .4f, % .4f", raw.absoluteX, raw.absoluteY))
-                                    if raw.driverKit?.velocityAvailable != false {
-                                        Text(String(format: raw.driverKit != nil ? "Velocity (reconstructed native units/s) % .4f, % .4f" : "Absolute velocity % .4f, % .4f", raw.absoluteVelocityX, raw.absoluteVelocityY))
-                                    }
-                                    Text(String(format: "Frame %d · time %.6f", raw.sourceFrame, raw.sourceTimestamp))
-                                } else {
-                                    Text("Velocity / absolute data unavailable")
-                                        .foregroundStyle(.secondary)
-                                }
-                                Text(String(format: "Axes %.3f / %.3f · angle %.3f", touch.axis.major, touch.axis.minor, touch.angle))
-                                if let driver = touch.telemetry?.driverKit {
-                                    Text(String(format: "Total %.6f · density %.6f", touch.total, touch.density))
-                                    Text("Native Compact V7 reconstruction · Hand1 is the parser flag")
-                                    Text("Raw contact: " + driver.contactBytes.map { String(format: "%02X", $0) }.joined(separator: " "))
-                                    Text("Size byte: \(driver.contactBytes.count == 9 ? Int(driver.contactBytes[6]) : 0) · native nonlinear conversions")
-                                } else { Text(String(format: "Total %.3f · density %.3f", touch.total, touch.density)) }
-                            }
-                        }
-                    }
-                    .font(.system(size: 11, design: .monospaced))
-                    .textSelection(.enabled)
-                    .padding(8)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
-                }
-            }
-            .frame(width: columnWidth, alignment: .leading)
-        }
-
-    }
 }
 
 private struct TrackpadRefreshButton: View {
@@ -431,6 +336,178 @@ private struct TrackpadRefreshButton: View {
             Image(systemName: "arrow.clockwise").imageScale(.medium)
         }
         .buttonStyle(.bordered)
-        .help("Release the native filter test before refreshing the trackpad list")
+        .help("Refresh the trackpad list")
+    }
+}
+
+
+enum GesturePane: String, CaseIterable, Identifiable {
+    case pointClick, dragDoubleClick, scroll, rightClick
+    var id: String { rawValue }
+    var group: String {
+        switch self {
+        case .pointClick: return "2 fingers"
+        case .dragDoubleClick: return "3 fingers"
+        case .scroll: return "4 fingers"
+        case .rightClick: return "Thumb + 2 fingers"
+        }
+    }
+    var title: String {
+        switch self {
+        case .pointClick: return "Point & Click"
+        case .dragDoubleClick: return "Drag & Double-Click"
+        case .scroll: return "Scroll & Pan"
+        case .rightClick: return "Right-Click"
+        }
+    }
+    var summary: String {
+        switch self {
+        case .pointClick: return "Move with two fingertips, or tap and lift for a click."
+        case .dragDoubleClick: return "Move three fingers to drag or select; tap to double-click."
+        case .scroll: return "Move four fingers to scroll, with momentum after lift."
+        case .rightClick: return "Tap with a spread thumb and two fingertips, then lift to right-click."
+        }
+    }
+    var activeFingers: Set<Int> {
+        switch self {
+        case .pointClick: return [1,2]
+        case .dragDoubleClick: return [1,2,3]
+        case .scroll: return [1,2,3,4]
+        case .rightClick: return [0,2,3]
+        }
+    }
+}
+
+struct GestureSidebar: View {
+    @Binding var selection: GesturePane
+    @Binding var hand: GestureHandScope
+    @State private var expanded = Set(GesturePane.allCases)
+
+    var body: some View {
+        VStack(alignment:.leading,spacing:16) {
+            HStack(spacing:8) {
+                Text("Gestures").font(.title3).bold()
+                Spacer(minLength:0)
+                Picker("Gesture hand",selection:$hand) {
+                    ForEach(GestureHandScope.allCases) { side in Text(side.rawValue).tag(side) }
+                }
+                .labelsHidden()
+                .pickerStyle(.segmented)
+                .controlSize(.small)
+                .frame(width:154)
+                .help("Edit left, right, or both trackpad gesture settings.")
+            }
+            .padding(.horizontal,12).padding(.top,16)
+            ScrollView(.vertical) {
+                VStack(alignment:.leading,spacing:20) {
+                    ForEach(GesturePane.allCases) { gesture in
+                        DisclosureGroup(isExpanded:Binding(
+                            get:{expanded.contains(gesture)},
+                            set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
+                            gestureRow(gesture)
+                                .padding(.top,5)
+                        } label: {
+                            HStack(spacing:8) {
+                                GestureChordIcon(gesture:gesture,hand:hand,selected:false).frame(width:48,height:28)
+                                Text(gesture.group).font(.headline)
+                            }
+                        }
+                        .tint(.secondary)
+                    }
+                }
+                .padding(12)
+            }
+            Text(hand == .both ? "Editing both trackpads" : "Editing \(hand.rawValue.lowercased()) trackpad")
+                .font(.caption).foregroundStyle(.secondary)
+                .padding(.horizontal,16).padding(.bottom,16)
+        }
+        .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
+        .background(Color(nsColor:.windowBackgroundColor))
+    }
+
+    private func gestureRow(_ gesture: GesturePane) -> some View {
+        let selected = selection == gesture
+        return Button { selection = gesture } label: {
+            HStack(spacing:8) {
+                GestureChordIcon(gesture:gesture,hand:hand,selected:selected).frame(width:48,height:30)
+                Text(gesture.title).font(.system(size:14)).lineLimit(1)
+                Spacer(minLength:0)
+                if gesture == .rightClick {
+                    Text("Spread").font(.system(size:11,weight:.medium))
+                        .padding(.horizontal,5).padding(.vertical,2)
+                        .overlay(Capsule().stroke(selected ? Color.white.opacity(0.6) : Color.secondary.opacity(0.5)))
+                }
+            }
+            .padding(.horizontal,9).padding(.vertical,10)
+            .foregroundStyle(selected ? Color.white : Color.primary)
+            .background(selected ? Color.orange : Color.clear,in:RoundedRectangle(cornerRadius:8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .help(gesture.summary)
+        .accessibilityLabel(gesture.title)
+        .accessibilityValue(selected ? "Selected" : "")
+    }
+}
+
+/// Diagrammatic chord anatomy, independent of live finger classification.
+struct GestureChordIcon: View {
+    let gesture: GesturePane
+    let hand: GestureHandScope
+    let selected: Bool
+
+    var body: some View {
+        Canvas { context, size in
+            let sides: [Bool] = hand == .both ? [true,false] : [hand == .left]
+            let cellWidth = size.width / CGFloat(sides.count)
+            let active = gesture.activeFingers
+            for (handIndex,mirrored) in sides.enumerated() {
+                let points: [CGPoint] = gesture == .rightClick
+                    ? [CGPoint(x:0.1,y:0.85),CGPoint(x:0.34,y:0.33),CGPoint(x:0.55,y:0.2),CGPoint(x:0.76,y:0.28),CGPoint(x:0.94,y:0.5)]
+                    : [CGPoint(x:0.12,y:0.8),CGPoint(x:0.3,y:0.36),CGPoint(x:0.5,y:0.2),CGPoint(x:0.7,y:0.3),CGPoint(x:0.88,y:0.49)]
+                let radius = min(cellWidth/10,size.height/9)
+                for index in points.indices {
+                    let point = points[index]
+                    let x = CGFloat(handIndex)*cellWidth + (mirrored ? 1-point.x : point.x)*cellWidth
+                    let y = point.y*size.height
+                    let shape = Path(ellipseIn:CGRect(x:x-radius,y:y-radius,width:radius*2,height:radius*2))
+                    if active.contains(index) {
+                        context.fill(shape,with:.color(selected ? .white : .orange))
+                    } else {
+                        context.stroke(shape,with:.color(selected ? .white.opacity(0.55) : .secondary.opacity(0.55)),lineWidth:1)
+                    }
+                }
+            }
+        }
+        .accessibilityHidden(true)
+    }
+}
+
+
+/// Native mixed-state checkbox: clicking a mixed Both value enables both sides.
+struct ScopedGestureCheckbox: NSViewRepresentable {
+    let title: String
+    let value: Bool?
+    let action: @MainActor (Bool) -> Void
+    func makeCoordinator() -> Coordinator { Coordinator(value:value,action:action) }
+    func makeNSView(context: Context) -> NSButton {
+        let button = NSButton(checkboxWithTitle:title,target:context.coordinator,action:#selector(Coordinator.changed(_:)))
+        button.allowsMixedState = true
+        return button
+    }
+    func updateNSView(_ button: NSButton, context: Context) {
+        button.title = title
+        button.state = value.map { $0 ? .on : .off } ?? .mixed
+        context.coordinator.value = value; context.coordinator.action = action
+    }
+    @MainActor final class Coordinator: NSObject {
+        var value: Bool?
+        var action: @MainActor (Bool) -> Void
+        init(value: Bool?, action: @escaping @MainActor (Bool) -> Void) { self.value = value; self.action = action }
+        @objc func changed(_ button: NSButton) {
+            let enabled = !(value ?? false)
+            value = enabled; button.state = enabled ? .on : .off
+            action(enabled)
+        }
     }
 }

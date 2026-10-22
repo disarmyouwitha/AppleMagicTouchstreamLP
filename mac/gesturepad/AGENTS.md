@@ -412,3 +412,35 @@ no schema/native/gesture changes. Build/install and leave closed as before.
 User removes both diagnostic display checkboxes; main surface telemetry and contact
 paths are always enabled, including replay. Keep colors, ID/name labels and centered
 pressure; no empty controls panel, feature setting or recognition changes.
+
+
+## Gesture sidebar (2026-10-21; user-requested UI replacement)
+
+User removes both per-pad raw-measurement lists and requests a menu like sidebar.jpg.
+ContentView now has a grouped gesture sidebar and selected settings panel for the
+implemented point/click, drag/double-click, scroll/pan and spread T2F right-click.
+Preserve all existing feature setters, status failures, sensitivities, device/replay/
+takeover controls and live/replay contact rendering. No recognizer/native/schema
+changes. Sidebar Left/Right/Both is an explicitly labeled diagram preview only,
+not independent hand settings; shared settings remain for both selected pads.
+No placeholder gestures/actions. Selecting/collapsing/previewing does not activate
+input or alter capture/ownership. Keep no automatic live launch/hardware testing;
+offscreen sidebar rendering may be used without creating native controllers.
+
+
+## Independent hand configuration (2026-10-21; supersedes preview-only policy)
+
+User explicitly requests actual Left/Right/Both gesture editing. Seed mirrored
+current settings on both pads, not TouchStream's asymmetric defaults. Scope edits
+feature enables and pointer/scroll sensitivity; Both applies to both and shows
+mixed state without silently copying on selection. Native mixed checkbox click
+sets both on. Preserve existing process-local feature defaults/lifecycle policy.
+
+HandGestureSettings binds logical picker slots to explicit native IDs; None and
+swaps cannot route by compacted index. Apply selected/owned/armed/AX/profile guards
+per device and independent gains to existing models. One bad profile must not block
+the other read. Same physical pad on both sides deduplicates, ORs feature enables,
+uses Left gain and explains this in UI. Keep global held-button ownership and all
+output reset/release safeguards. No recognizer/threshold/momentum/native/schema
+change. Update central spec and meaningful routing/mixed/gain tests. Build/install
+without automatically launching or activating live input.

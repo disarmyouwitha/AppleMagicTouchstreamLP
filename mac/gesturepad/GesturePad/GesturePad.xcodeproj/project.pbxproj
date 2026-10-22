@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        ACCE50000000000000000002 /* HandGestureSettings.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE50000000000000000001; };
         ACCE40000000000000000002 /* GestureSessionEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE40000000000000000001; };
         ACCE30000000000000000002 /* TapClick.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE30000000000000000001; };
         ACCE20000000000000000002 /* ScrollGesture.swift in Sources */ = {isa = PBXBuildFile; fileRef = ACCE20000000000000000001; };
@@ -33,6 +34,7 @@ FEED10000000000000000005 = {isa = PBXBuildFile; fileRef = FEED000000000000000000
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+        ACCE50000000000000000001 /* HandGestureSettings.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HandGestureSettings.swift; sourceTree = "<group>"; };
         ACCE40000000000000000001 /* GestureSessionEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GestureSessionEngine.swift; sourceTree = "<group>"; };
         ACCE30000000000000000001 /* TapClick.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TapClick.swift; sourceTree = "<group>"; };
         ACCE20000000000000000001 /* ScrollGesture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScrollGesture.swift; sourceTree = "<group>"; };
@@ -124,6 +126,7 @@ FEED00000000000000000005,
 				ACCE10000000000000000001 /* PointerAcceleration.swift */,
 				ACCE20000000000000000001 /* ScrollGesture.swift */,
 				ACCE30000000000000000001 /* TapClick.swift */,
+                ACCE50000000000000000001 /* HandGestureSettings.swift */,
                 BAA000000000000000000002 /* HIDBlackholeExperiment.swift */,
 				C0A1B2C3D4E5F60718293B43 /* InputRuntimeService.swift */,
 				C0A1B2C3D4E5F60718293B47 /* ATPCaptureV3Coordinator.swift */,
@@ -239,6 +242,7 @@ FEED10000000000000000005,
 				ACCE10000000000000000002 /* PointerAcceleration.swift in Sources */,
 				ACCE20000000000000000002 /* ScrollGesture.swift in Sources */,
 				ACCE30000000000000000002 /* TapClick.swift in Sources */,
+                ACCE50000000000000000002 /* HandGestureSettings.swift in Sources */,
                 BAA000000000000000000001 /* HIDBlackholeExperiment.swift in Sources */,
 				C0A1B2C3D4E5F60718293A43 /* InputRuntimeService.swift in Sources */,
 				C0A1B2C3D4E5F60718293A47 /* ATPCaptureV3Coordinator.swift in Sources */,

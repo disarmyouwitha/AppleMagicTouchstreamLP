@@ -716,3 +716,70 @@ At user request, remove Inspect touch data and Contact paths checkboxes and thei
 control panel. The main live/replay surface always enables detailed touch telemetry
 and contact paths. Retain anatomical colors, adjacent #trackingID/finger name,
 centered plain pressure numbers and path aging/cleanup. No recognition change.
+
+
+## Gesture sidebar and workspace (2026-10-21)
+
+At user request replace the left/right per-contact raw-measurement lists with a
+sidebar inspired by sidebar.jpg. Remove the polling TimelineView/list UI only;
+retain live/replay surface updates, anatomical colors, ID/name annotations,
+centered pressure, paths, peak pressure and capture/telemetry schemas.
+
+The sidebar groups implemented gestures only: 2 fingers → Point & Click,
+3 fingers → Drag & Double-Click, 4 fingers → Scroll & Pan, and Thumb + 2 fingers
+→ Right-Click (Spread). Disclosure groups collapse/expand; rows select a settings
+panel with orange selection and illustrative chord icons. Existing feature toggles,
+permission/profile failure messages and sensitivity controls move into the selected
+panel; pointer sensitivity remains shared between mouse and drag. Takeover, release
+status/shortcut, selectors, refresh and replay controls stay in the workspace.
+Selecting a row or diagram hand does not call feature setters or reset recognition.
+
+Left/Right/Both chooses illustrative hand diagrams only (default Right), explicitly
+labeled as such in help/footer. It does not create per-hand gesture settings or
+change device selection/ownership. Feature settings still apply to both selected
+trackpads. Independent left/right behavior requires a separately authorized engine
+change. No unimplemented gestures from the reference are presented as functional.
+Default Config dimensions are adjusted for the sidebar and shorter workspace,
+with scrolling and existing lifecycle/ownership behavior preserved. The sidebar
+was rendered offscreen for visual review without live input or opening GesturePad.
+
+
+## Independent Left / Right / Both settings (2026-10-21)
+
+The user's clarification supersedes the diagram-only sidebar selector. Left and
+Right now edit independent logical-slot feature settings and pointer/scroll
+sensitivities. Both edits both explicitly; mixed toggles display a native dash
+with per-side values, and mixed gains display both values. Clicking a mixed toggle
+enables both. Selecting a scope alone does not copy values, reset recognition,
+change device selection or alter ownership. Diagrams mirror the editing scope.
+
+Both sides start as identical copies of the existing current configuration:
+all six features enabled and both sensitivities1.00×. No historical TouchStream
+left/right category defaults are imported. Preserve the existing process-local
+feature policy: edits survive Config close/restart and selection/wake/replay
+reconciliation; process launch/fresh explicit takeover enable re-enables features
+on both, while sensitivity remains process-local. No new persisted settings keys.
+
+HandGestureSettings maps logical roles to explicit selected native numeric IDs.
+A missing Left slot must never shift Right into Left configuration; swapping or
+replacing devices keeps settings with the picker slots and resets output baselines.
+Feature eligibility still intersects selection, actual ownership, successful
+arming and AX permission. Pointer/scroll profiles and failure status are per device;
+one unavailable profile no longer prevents reading/using the other pad's profile.
+Taps remain profile-independent. Gains travel by physical ID into the unchanged
+pointer model and existing scroll model; mouse/drag share pointer gain per hand.
+No extra gesture thresholds, chord rules or momentum changes are introduced.
+
+Selecting the same physical pad for both slots retains one output session. Enable
+features if either role enables them, use Left sensitivity for that shared ID,
+and show a visible explanation. Held primary-button ownership remains globally
+exclusive; independent hand settings do not permit competing drags. Settings
+changes retain existing broad output reset/release safety before reconfiguration.
+Replay never posts. No bridge or DriverKit changes.
+
+Source: Runtime/HandGestureSettings.swift; existing control/runtime/UI adapters.
+HandGestureSettingsTests covers mirrored seeds, every independent feature and Both
+edits, mixed/clamped gains, explicit/missing/swapped IDs, ownership filtering,
+duplicate selection, independent Apple-model gain equivalence and native mixed
+checkbox actions, all without posting or activating hardware. Hardware testing of
+per-hand routing remains pending; accepted recognition/feel constants are unchanged.

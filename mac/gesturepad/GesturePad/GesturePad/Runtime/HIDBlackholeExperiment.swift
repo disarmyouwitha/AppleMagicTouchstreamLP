@@ -284,22 +284,24 @@ final class HIDBlackholeExperiment: ObservableObject {
     @Published private(set) var nativeFilterActive = false
     @Published private(set) var nativeFilterStatus = "Off. Take over the currently selected trackpads."
     private var nativeFilterTimer: Timer?
-    @Published private(set) var twoFingerMouseEnabled = true
+    @Published private(set) var handSettings = HandGestureSettings()
+    private var selectedGesturePads = GestureSelectedPads()
+    var twoFingerMouseEnabled: Bool { handSettings.anyEnabled(.mouse) }
     @Published private(set) var twoFingerMouseStatus = "Off"
-    @Published private(set) var twoFingerTapEnabled = true
+    var twoFingerTapEnabled: Bool { handSettings.anyEnabled(.tap) }
     @Published private(set) var twoFingerTapStatus = "Off"
-    @Published private(set) var rightClickEnabled = true
+    var rightClickEnabled: Bool { handSettings.anyEnabled(.rightClick) }
     @Published private(set) var rightClickStatus = "Off"
-    @Published private(set) var threeFingerDragEnabled = true
+    var threeFingerDragEnabled: Bool { handSettings.anyEnabled(.drag) }
     @Published private(set) var threeFingerDragStatus = "Off"
-    @Published private(set) var threeFingerTapEnabled = true
+    var threeFingerTapEnabled: Bool { handSettings.anyEnabled(.doubleTap) }
     @Published private(set) var threeFingerTapStatus = "Off"
-    @Published private(set) var fourFingerScrollEnabled = true
+    var fourFingerScrollEnabled: Bool { handSettings.anyEnabled(.scroll) }
     @Published private(set) var fourFingerScrollStatus = "Off"
-    @Published private(set) var scrollSensitivity = 1.0
+    var scrollSensitivity: Double { handSettings.left.scrollSensitivity }
     private var nativeScrollProfiles: [UInt64:AppleScrollProfile] = [:]
     private var nativeScrollProfileError: String?
-    @Published private(set) var pointerSensitivity = 1.0
+    var pointerSensitivity: Double { handSettings.left.pointerSensitivity }
     private var nativeMouseDevices: [OMSDeviceInfo] = []
     private var nativeMouseProfiles: [UInt64:ApplePointerAccelerationProfile] = [:]
     private var nativeMouseProfileError: String?
@@ -321,44 +323,11 @@ final class HIDBlackholeExperiment: ObservableObject {
         takeoverPreference.setEnabled(enabled)
     }
 
-    func setTwoFingerMouseEnabled(_ enabled: Bool) {
-        twoFingerMouseEnabled = enabled
+    func setGestureEnabled(_ feature: GestureFeature, _ enabled: Bool, scope: GestureHandScope) {
+        handSettings.set(feature,enabled:enabled,in:scope)
         nativeMouseArmed = true
         if enabled {
-            reloadNativeMouseProfiles()
-            if !AXIsProcessTrusted() {
-                _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-            }
-        }
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setTwoFingerTapEnabled(_ enabled: Bool) {
-        twoFingerTapEnabled = enabled
-        nativeMouseArmed = true
-        if enabled && !AXIsProcessTrusted() {
-            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
-        }
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setRightClickEnabled(_ enabled: Bool) {
-        rightClickEnabled = enabled
-        nativeMouseArmed = true
-        if enabled && !AXIsProcessTrusted() {
-            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
-        }
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setThreeFingerDragEnabled(_ enabled: Bool) {
-        threeFingerDragEnabled = enabled
-        nativeMouseArmed = true
-        if enabled {
-            reloadNativeMouseProfiles()
+            if feature == .mouse || feature == .drag || feature == .scroll { reloadNativeMouseProfiles() }
             if !AXIsProcessTrusted() {
                 _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
             }
@@ -366,49 +335,43 @@ final class HIDBlackholeExperiment: ObservableObject {
         InterpretedTrackpadPointer.shared.resetBaseline()
         updateNativeMouseOutput()
     }
+    func setSensitivity(_ kind: GestureSensitivity, _ value: Double, scope: GestureHandScope) {
+        handSettings.set(kind,value:value,in:scope)
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        updateNativeMouseOutput()
+    }
+    // Existing global callers (including explicit takeover enable) edit both.
+    func setTwoFingerMouseEnabled(_ value: Bool) { setGestureEnabled(.mouse,value,scope:.both) }
+    func setTwoFingerTapEnabled(_ value: Bool) { setGestureEnabled(.tap,value,scope:.both) }
+    func setThreeFingerTapEnabled(_ value: Bool) { setGestureEnabled(.doubleTap,value,scope:.both) }
+    func setThreeFingerDragEnabled(_ value: Bool) { setGestureEnabled(.drag,value,scope:.both) }
+    func setFourFingerScrollEnabled(_ value: Bool) { setGestureEnabled(.scroll,value,scope:.both) }
+    func setRightClickEnabled(_ value: Bool) { setGestureEnabled(.rightClick,value,scope:.both) }
+    func setPointerSensitivity(_ value: Double) { setSensitivity(.pointer,value,scope:.both) }
+    func setScrollSensitivity(_ value: Double) { setSensitivity(.scroll,value,scope:.both) }
 
-    func setThreeFingerTapEnabled(_ enabled: Bool) {
-        threeFingerTapEnabled = enabled
-        nativeMouseArmed = true
-        if enabled && !AXIsProcessTrusted() {
-            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
+    func gestureStatus(_ feature: GestureFeature, scope: GestureHandScope) -> String {
+        func status(_ side: GestureHandScope) -> String {
+            guard handSettings.enabled(feature,in:side) == true else { return "Off" }
+            guard let id = side == .left ? selectedGesturePads.left : selectedGesturePads.right else { return "Select a trackpad." }
+            guard AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
+            guard nativeMouseArmed, takeoverPreference.enabled, nativeMouseOwnedIDs.contains(id) else { return "Waiting for Trackpad Takeover." }
+            if (feature == .mouse || feature == .drag) && nativeMouseProfiles[id] == nil { return "Paused: tracking profile unavailable." }
+            if feature == .scroll && nativeScrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
+            if feature == .drag && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
+            return "Active"
         }
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setFourFingerScrollEnabled(_ enabled: Bool) {
-        fourFingerScrollEnabled = enabled
-        nativeMouseArmed = true
-        if enabled {
-            reloadNativeMouseProfiles()
-            if !AXIsProcessTrusted() {
-                _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt": true] as CFDictionary)
-            }
-        }
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setScrollSensitivity(_ value: Double) {
-        scrollSensitivity = value.isFinite ? min(2,max(0.25,value)) : 1
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
-    }
-
-    func setPointerSensitivity(_ value: Double) {
-        pointerSensitivity = value.isFinite ? min(2,max(0.25,value)) : 1
-        InterpretedTrackpadPointer.shared.resetBaseline()
-        updateNativeMouseOutput()
+        if scope != .both { return status(scope) }
+        let left = status(.left), right = status(.right)
+        return left == right ? left : "Left: \(left) · Right: \(right)"
     }
 
     private func reloadNativeMouseProfiles() {
         nativeMouseProfiles = [:]; nativeMouseProfileError = nil
-        do {
-            for device in nativeMouseDevices {
-                nativeMouseProfiles[device.deviceIDNumeric] = try InstalledPointerCurveReader.read(device:device)
-            }
-        } catch { nativeMouseProfileError = error.localizedDescription }
+        for device in nativeMouseDevices {
+            do { nativeMouseProfiles[device.deviceIDNumeric] = try InstalledPointerCurveReader.read(device:device) }
+            catch { nativeMouseProfileError = error.localizedDescription }
+        }
         nativeScrollProfiles = [:]; nativeScrollProfileError = nil
         for device in nativeMouseDevices {
             do { nativeScrollProfiles[device.deviceIDNumeric] = try InstalledScrollCurveReader.read(device:device) }
@@ -416,12 +379,14 @@ final class HIDBlackholeExperiment: ObservableObject {
         }
     }
 
-    func configureNativeMouseSelection(_ devices: [OMSDeviceInfo]) {
+    func configureNativeMouseSelection(_ devices: [OMSDeviceInfo], leftDeviceID: UInt64?, rightDeviceID: UInt64?) {
         nativeMouseDevices = devices
         let next = Set(devices.map(\.deviceIDNumeric))
-        if next != nativeMouseSelectedIDs {
+        let slots = GestureSelectedPads(left:leftDeviceID,right:rightDeviceID)
+        if next != nativeMouseSelectedIDs || selectedGesturePads != slots {
             InterpretedTrackpadPointer.shared.resetBaseline()
             nativeMouseSelectedIDs = next
+            selectedGesturePads = slots
         }
         reloadNativeMouseProfiles()
         updateNativeMouseOutput()
@@ -434,37 +399,33 @@ final class HIDBlackholeExperiment: ObservableObject {
 
     private func updateNativeMouseOutput() {
         let trusted = !(twoFingerMouseEnabled || fourFingerScrollEnabled || twoFingerTapEnabled || threeFingerTapEnabled || threeFingerDragEnabled || rightClickEnabled) || AXIsProcessTrusted()
-        var devices = NativeTwoFingerMouseGate.outputDevices(enabled: twoFingerMouseEnabled,
-            armed: nativeMouseArmed, takeoverEnabled: takeoverPreference.enabled,
-            trusted: trusted, selected: nativeMouseSelectedIDs, owned: nativeMouseOwnedIDs)
+        let eligible = NativeTwoFingerMouseGate.outputDevices(enabled:true,
+            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
+            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
+        func devicesFor(_ feature: GestureFeature) -> Set<UInt64> {
+            handSettings.outputDevices(feature,pads:selectedGesturePads,eligible:eligible)
+        }
+        let routed = handSettings.routed(to:selectedGesturePads)
+        var devices = devicesFor(.mouse)
         let missingCurve = !devices.isSubset(of:Set(nativeMouseProfiles.keys))
-        if missingCurve { devices = [] }
-        var scrollDevices = NativeTwoFingerMouseGate.outputDevices(enabled:fourFingerScrollEnabled,
-            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
-            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
+        devices.formIntersection(nativeMouseProfiles.keys)
+        var scrollDevices = devicesFor(.scroll)
         let missingScroll = !scrollDevices.isSubset(of:Set(nativeScrollProfiles.keys))
-        if missingScroll { scrollDevices = [] }
-        let tapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:twoFingerTapEnabled,
-            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
-            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
-        let doubleTapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:threeFingerTapEnabled,
-            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
-            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
-        let rightTapDevices = NativeTwoFingerMouseGate.outputDevices(enabled:rightClickEnabled,
-            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
-            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
-        var dragDevices = NativeTwoFingerMouseGate.outputDevices(enabled:threeFingerDragEnabled,
-            armed:nativeMouseArmed,takeoverEnabled:takeoverPreference.enabled,
-            trusted:trusted,selected:nativeMouseSelectedIDs,owned:nativeMouseOwnedIDs)
+        scrollDevices.formIntersection(nativeScrollProfiles.keys)
+        let tapDevices = devicesFor(.tap), doubleTapDevices = devicesFor(.doubleTap)
+        let rightTapDevices = devicesFor(.rightClick)
+        var dragDevices = devicesFor(.drag)
         let missingDragCurve = !dragDevices.isSubset(of:Set(nativeMouseProfiles.keys))
-        if missingDragCurve { dragDevices = [] }
+        dragDevices.formIntersection(nativeMouseProfiles.keys)
         InterpretedTrackpadPointer.shared.configureGestures(mouseDevices:devices,scrollDevices:scrollDevices,
             dragDevices:dragDevices,
             rightTapDevices:rightTapDevices,doubleTapDevices:doubleTapDevices,
             tapDevices:tapDevices,doubleClickInterval:NSEvent.doubleClickInterval,
-            profiles:nativeScrollProfiles,sensitivity:scrollSensitivity)
+            profiles:nativeScrollProfiles,sensitivity:1,
+            sensitivities:routed.mapValues(\.scrollSensitivity))
         InterpretedTrackpadPointer.shared.configure(response:.apple,
-            sensitivity:pointerSensitivity,profiles:nativeMouseProfiles)
+            sensitivity:1,profiles:nativeMouseProfiles,
+            sensitivities:routed.mapValues(\.pointerSensitivity))
         if devices.isEmpty && scrollDevices.isEmpty && tapDevices.isEmpty && doubleTapDevices.isEmpty && dragDevices.isEmpty && rightTapDevices.isEmpty {
             InterpretedTrackpadPointer.shared.stop()
         } else {
@@ -1733,6 +1694,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
         var scrollOutputs: [UInt64:PreciseScrollOutput] = [:]
         var scrollSensitivity = 1.0
+        var scrollSensitivities: [UInt64:Double] = [:]
         var momentum: [UInt64:ScrollMomentum] = [:]
         var momentumTimer: (any DispatchSourceTimer)?
         var lastReceipt: [UInt64:Double] = Dictionary(minimumCapacity:2)
@@ -1763,23 +1725,23 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     private let lock = OSAllocatedUnfairLock(initialState: State())
     private let momentumQueue = DispatchQueue(label:"GesturePad.scrollMomentum",qos:.userInteractive)
     func configure(response: TwoFingerPointerResponse, sensitivity: Double,
-                   profiles: [UInt64:ApplePointerAccelerationProfile]) {
-        lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles) }
+                   profiles: [UInt64:ApplePointerAccelerationProfile], sensitivities: [UInt64:Double] = [:]) {
+        lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles,sensitivities:sensitivities) }
     }
     func configureGestures(mouseDevices: Set<UInt64>, scrollDevices: Set<UInt64>,
                            dragDevices: Set<UInt64>, rightTapDevices: Set<UInt64>, doubleTapDevices: Set<UInt64>,
-                           tapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double) {
+                           tapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:]) {
         lock.withLock { state in
             guard state.mouseDevices != mouseDevices || state.scrollDevices != scrollDevices || state.dragDevices != dragDevices
                 || state.rightTapDevices != rightTapDevices || state.tapDevices != tapDevices || state.doubleTapDevices != doubleTapDevices || state.doubleClickInterval != doubleClickInterval
-                || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity else { return }
+                || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.dragDevices = dragDevices
             state.mouseDevices = mouseDevices; state.scrollDevices = scrollDevices
             state.rightTapDevices = rightTapDevices
             state.doubleTapDevices = doubleTapDevices
             state.tapDevices = tapDevices; state.doubleClickInterval = doubleClickInterval
-            state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity
+            state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity; state.scrollSensitivities = sensitivities
             state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
             state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
             state.momentum = profiles.mapValues { _ in ScrollMomentum() }
@@ -1964,7 +1926,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if motion.gesture == .scroll {
                 if let delta = state.scrollEngines[device]?.process(time:time,millimetres:motion.millimetres,
-                    sensitivity:state.scrollSensitivity) {
+                    sensitivity:state.scrollSensitivities[device] ?? state.scrollSensitivity) {
                     state.momentum[device]?.observe(points:delta,contactTime:time)
                     state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
                 } else { state.reset(device:device) }

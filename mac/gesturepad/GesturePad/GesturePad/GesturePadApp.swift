@@ -44,7 +44,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var configWindow: NSWindow?
     private var statusCancellable: AnyCancellable?
     private var replayStateCancellable: AnyCancellable?
-    private static let configWindowDefaultHeight: CGFloat = 600
+    private static let configWindowDefaultHeight: CGFloat = 840
     private var captureMenuItem: NSMenuItem?
     private var replayMenuItem: NSMenuItem?
     private var captureInProgress = false
@@ -257,7 +257,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     private func synchronizeTakeoverSelection() {
         let selected = [controller.viewModel.leftDevice, controller.viewModel.rightDevice].compactMap { $0 }
-        hidBlackhole.configureNativeMouseSelection(selected)
+        hidBlackhole.configureNativeMouseSelection(selected,
+            leftDeviceID:controller.viewModel.leftDevice?.deviceIDNumeric,
+            rightDeviceID:controller.viewModel.rightDevice?.deviceIDNumeric)
         hidBlackhole.takeoverPreference.updateSelection(selected.map(\.deviceIDNumeric))
     }
 
@@ -554,8 +556,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             contentRect: NSRect(
                 x: 0,
                 y: 0,
-                width: min(1560, (NSScreen.main?.visibleFrame.width ?? 1560) - 40),
-                height: Self.configWindowDefaultHeight
+                width: min(1280, (NSScreen.main?.visibleFrame.width ?? 1280) - 40),
+                height: min(Self.configWindowDefaultHeight, (NSScreen.main?.visibleFrame.height ?? Self.configWindowDefaultHeight) - 60)
             ),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
             backing: .buffered,

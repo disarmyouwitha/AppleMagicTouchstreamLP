@@ -178,12 +178,14 @@ struct TwoFingerPointerMotionEngine {
     private var profiles: [UInt64:ApplePointerAccelerationProfile] = [:]
     private var response: TwoFingerPointerResponse = .fixed
     private var sensitivity = 1.0
+    private var sensitivities: [UInt64:Double] = [:]
 
     mutating func configure(response: TwoFingerPointerResponse, sensitivity: Double,
-                            profiles: [UInt64:ApplePointerAccelerationProfile]) {
+                            profiles: [UInt64:ApplePointerAccelerationProfile], sensitivities: [UInt64:Double] = [:]) {
         let scale = sensitivity.isFinite ? min(2,max(0.25,sensitivity)) : 1
-        guard self.response != response || self.sensitivity != scale || self.profiles != profiles else { return }
-        self.response = response; self.sensitivity = scale; self.profiles = profiles
+        let scales = sensitivities.mapValues { $0.isFinite ? min(2,max(0.25,$0)) : 1 }
+        guard self.response != response || self.sensitivity != scale || self.profiles != profiles || self.sensitivities != scales else { return }
+        self.response = response; self.sensitivity = scale; self.profiles = profiles; self.sensitivities = scales
         accelerators = profiles.mapValues { ApplePointerAccelerator(profile:$0) }
         reset()
     }
@@ -200,6 +202,7 @@ struct TwoFingerPointerMotionEngine {
         return processMotion(device:device,time:time,millimetres:mm)
     }
     mutating func processMotion(device: UInt64, time: Double, millimetres mm: CGPoint) -> CGPoint? {
+        let sensitivity = sensitivities[device] ?? self.sensitivity
         let delta: CGPoint
         switch response {
         case .fixed:
