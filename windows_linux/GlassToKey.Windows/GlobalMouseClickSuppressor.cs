@@ -47,6 +47,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private long _movementGateDeadline;
     private readonly MouseTakeoverGate _takeover = new();
     private int _takeoverReleaseKey = 0x79;
+    private int _takeoverEscapeReleaseEnabled = 1;
     private long _lastTrackedDeviceButtonEdgeTicks;
     private bool _disposed;
     public event Action? ClickObserved;
@@ -116,6 +117,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     public void ReleaseMouseTakeover() => _takeover.Release();
     public void ReleaseMouseTakeover(long expectedDeadline) => _takeover.Release(expectedDeadline);
     public void SetTakeoverReleaseKey(int virtualKey) => Volatile.Write(ref _takeoverReleaseKey, virtualKey);
+    public void SetTakeoverEscapeReleaseEnabled(bool enabled) => Volatile.Write(ref _takeoverEscapeReleaseEnabled, enabled ? 1 : 0);
 
     public void NotifyTrackedDeviceButtonEdge(long timestampTicks = 0)
     {
@@ -153,7 +155,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
             bool isClick = IsClickMessage(message);
             bool isInjected = IsInjected(lParam);
             bool emergencyRelease = IsMouseTakeoverActive &&
-                ((GetAsyncKeyState(0x1B) & 0x8000) != 0 ||
+                ((Volatile.Read(ref _takeoverEscapeReleaseEnabled) != 0 && (GetAsyncKeyState(0x1B) & 0x8000) != 0) ||
                  ((GetAsyncKeyState(0x11) & 0x8000) != 0 &&
                   (GetAsyncKeyState(0x12) & 0x8000) != 0 && (GetAsyncKeyState(Volatile.Read(ref _takeoverReleaseKey)) & 0x8000) != 0));
             if (isClick || message == WmMouseMove || message == WmMouseWheel || message == WmMouseHWheel)

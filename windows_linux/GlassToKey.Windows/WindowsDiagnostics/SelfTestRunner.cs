@@ -212,6 +212,11 @@ internal static class SelfTestRunner
         if (gate.ShouldBlock(true, false, now, true) || gate.IsActive(now)) { failure = "Emergency key did not release before filtering."; return false; }
         gate.Arm(now, TimeSpan.FromSeconds(30)); gate.Release();
         if (gate.IsActive(now)) { failure = "Explicit release failed."; return false; }
+        gate.Arm(now, TimeSpan.FromSeconds(2));
+        gate.Arm(now + Stopwatch.Frequency, TimeSpan.FromSeconds(2));
+        if (!gate.IsActive(now + 2 * Stopwatch.Frequency) || gate.IsActive(now + 3 * Stopwatch.Frequency))
+        { failure = "Renewed heartbeat lease failed to expire after UI progress stopped."; return false; }
+        gate.Release();
         foreach (TimeSpan duration in new[] { TimeSpan.Zero, TimeSpan.FromSeconds(-1), TimeSpan.FromSeconds(31) })
         {
             try { gate.Arm(now, duration); failure = "Unsafe duration was accepted."; return false; }

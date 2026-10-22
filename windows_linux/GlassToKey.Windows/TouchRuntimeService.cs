@@ -40,6 +40,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath;
     private bool _started;
     public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
+    public MouseTakeoverController? MouseTakeover { get; private set; }
 
     public TouchRuntimeService(ReaderOptions options)
     {
@@ -107,6 +108,8 @@ internal sealed class TouchRuntimeService : IDisposable
                 Console.WriteLine($"Global click suppression hook failed ({hookError}).");
             }
 
+            MouseTakeover = new MouseTakeoverController(_globalClickSuppressor, HasConnectedSelectedTrackpad);
+            MouseTakeover.Start();
             _snapshotTimer = new Timer(OnSnapshotTimerTick, null, dueTime: 50, period: 50);
             _started = true;
             return true;
@@ -204,6 +207,7 @@ internal sealed class TouchRuntimeService : IDisposable
 
     public void Dispose()
     {
+        MouseTakeover?.Dispose(); MouseTakeover = null;
         _snapshotTimer?.Dispose();
         _snapshotTimer = null;
         _frameObserver = null;
@@ -233,6 +237,13 @@ internal sealed class TouchRuntimeService : IDisposable
     private void OnGlobalClickObserved()
     {
         _sendInputDispatcher?.NotifyPointerActivity();
+    }
+
+    private bool HasConnectedSelectedTrackpad()
+    {
+        foreach (HidDeviceInfo device in RawInputInterop.EnumerateTrackpads())
+            if (device.Path != null && (_leftRoute.IsMatch(device.Path) || _rightRoute.IsMatch(device.Path))) return true;
+        return false;
     }
 
     private void OnSnapshotTimerTick(object? _)
@@ -475,6 +486,7 @@ internal sealed class TouchRuntimeService : IDisposable
         int offset,
         ReadOnlySpan<byte> reportSpan)
     {
+        if (MouseTakeover?.Enabled == true) MouseTakeover.Release("Off · contact input fault");
         string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
         RuntimeFaultLogger.LogException(source, ex, context);
 

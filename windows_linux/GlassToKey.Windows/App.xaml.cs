@@ -230,7 +230,10 @@ public partial class App : Application
                 StartCaptureFromTray,
                 StartReplayFromTray,
                 RestartApplicationFromTray,
-                ExitApplicationFromTray);
+                ExitApplicationFromTray,
+                () => _runtimeService?.MouseTakeover?.Release("Off · tray release"));
+            if (_runtimeService.MouseTakeover != null)
+                _runtimeService.MouseTakeover.StateChanged += OnMouseTakeoverStateChanged;
         }
         catch (Exception ex)
         {
@@ -264,6 +267,8 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        if (_runtimeService?.MouseTakeover != null)
+            _runtimeService.MouseTakeover.StateChanged -= OnMouseTakeoverStateChanged;
         _ptpDiagnostic?.Dispose();
         _mouseTakeoverTest?.Dispose();
         if (_runtimeService != null)
@@ -298,6 +303,12 @@ public partial class App : Application
         }
 
         base.OnExit(e);
+    }
+
+    private void OnMouseTakeoverStateChanged()
+    {
+        Dispatcher.BeginInvoke(new Action(() =>
+            _trayController?.SetMouseTakeoverIndicator(_runtimeService?.MouseTakeover?.Enabled == true)));
     }
 
     private bool TryAcquireSingleInstanceLock(string[] args, bool showErrorDialogs)
@@ -409,7 +420,7 @@ public partial class App : Application
         }
 
         bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
-            window.IsMemorySaverEnabled;
+            window.IsMemorySaverEnabled && _runtimeService?.MouseTakeover?.Enabled != true;
 
         if (shouldRestartToTrayOnClose)
         {

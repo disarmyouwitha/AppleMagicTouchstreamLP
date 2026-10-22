@@ -107,6 +107,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressReplayTimelineEvents;
     private HwndSource? _hwndSource;
     private readonly GlobalMouseClickSuppressor _globalClickSuppressor = new();
+    private MouseTakeoverController? _localMouseTakeover;
+    private bool _updatingMouseTakeover;
+    private MouseTakeoverController? MouseTakeover => _runtimeService?.MouseTakeover ?? _localMouseTakeover;
     private bool _suppressGlobalClicks;
     private string _leftStatus = "None";
     private string _rightStatus = "None";
@@ -352,7 +355,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LeftSurface.MouseLeftButtonDown += OnLeftSurfaceMouseLeftButtonDown;
         RightSurface.MouseLeftButtonDown += OnRightSurfaceMouseLeftButtonDown;
         SourceInitialized += OnSourceInitialized;
+        MouseTakeoverCheck.Checked += OnMouseTakeoverChanged;
+        MouseTakeoverCheck.Unchecked += OnMouseTakeoverChanged;
+        MouseTakeoverTestButton.Click += (_, _) =>
+        {
+            MouseTakeover?.SetEnabled(true, thirtySecondTest: true);
+            UpdateMouseTakeoverUi();
+        };
         HookTuningAutoApplyHandlers();
+        UpdateMouseTakeoverUi();
 
         InitializeLayerCombo();
         InitializeSettingsPanel();
@@ -397,6 +408,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         };
         Closed += (_, _) =>
         {
+            _localMouseTakeover?.Dispose();
             _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
@@ -444,7 +456,39 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (!RawInputInterop.RegisterForTouchpadRawInput(hwnd, out string? error))
         {
             StatusText.Text = $"Raw input registration failed ({error}).";
+            return;
         }
+        _localMouseTakeover = new MouseTakeoverController(_globalClickSuppressor, HasConnectedTakeoverSelection);
+        _localMouseTakeover.Start();
+        UpdateMouseTakeoverUi();
+    }
+
+    private bool HasConnectedTakeoverSelection()
+    {
+        string? left = GetSelectedDevicePathForSide(TrackpadSide.Left);
+        string? right = GetSelectedDevicePathForSide(TrackpadSide.Right);
+        foreach (HidDeviceInfo device in RawInputInterop.EnumerateTrackpads())
+            if (device.Path != null && (string.Equals(device.Path, left, StringComparison.OrdinalIgnoreCase) || string.Equals(device.Path, right, StringComparison.OrdinalIgnoreCase))) return true;
+        return false;
+    }
+
+    private void OnMouseTakeoverChanged(object sender, RoutedEventArgs e)
+    {
+        if (_updatingMouseTakeover) return;
+        MouseTakeover?.SetEnabled(MouseTakeoverCheck.IsChecked == true);
+        UpdateMouseTakeoverUi();
+    }
+
+    private void UpdateMouseTakeoverUi()
+    {
+        MouseTakeoverController? controller = IsReplayMode ? null : MouseTakeover;
+        _updatingMouseTakeover = true;
+        MouseTakeoverCheck.IsChecked = controller?.Enabled == true;
+        MouseTakeoverCheck.IsEnabled = controller?.Available == true;
+        MouseTakeoverTestButton.IsEnabled = controller?.Available == true && !controller.Enabled;
+        MouseTakeoverStatusText.Text = IsReplayMode ? "Unavailable during replay" : controller?.Status ?? "Off";
+        MouseTakeoverStatusText.Foreground = controller?.Enabled == true ? ModeKeyboardBrush : ModeUnknownBrush;
+        _updatingMouseTakeover = false;
     }
 
     private void EnsureGlobalClickSuppressorInstalled()
@@ -527,6 +571,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void OnStatusTimerTick(object? sender, EventArgs e)
     {
+        UpdateMouseTakeoverUi();
         if (_touchActor == null && _runtimeService == null)
         {
             UpdateAutocorrectStatusDetails();
@@ -5302,6 +5347,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         int offset,
         ReadOnlySpan<byte> reportSpan)
     {
+        if (_localMouseTakeover?.Enabled == true) _localMouseTakeover.Release("Off · contact input fault");
         string context = RuntimeFaultLogger.BuildRawInputContext(snapshot, packet, reportIndex, reportSize, offset, reportSpan);
         RuntimeFaultLogger.LogException(source, ex, context);
 

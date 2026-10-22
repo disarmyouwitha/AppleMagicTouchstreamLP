@@ -151,6 +151,10 @@
 
     <Border Grid.Row="1" Background="#0f1215" Padding="12" BorderBrush="#2b2f33" BorderThickness="0,0,0,1">
       <Grid>
+        <Grid.RowDefinitions>
+          <RowDefinition Height="Auto" />
+          <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
         <Grid.ColumnDefinitions>
           <ColumnDefinition Width="*" />
           <ColumnDefinition Width="*" />
@@ -172,6 +176,16 @@
           <TextBlock Text="Devices" Foreground="#8b949e" FontSize="12" />
           <Button x:Name="RefreshButton" Content="Refresh" Padding="10,4" Height="28" />
         </StackPanel>
+        <WrapPanel Grid.Row="1" Grid.ColumnSpan="3" Margin="0,10,0,0">
+          <CheckBox x:Name="MouseTakeoverCheck" Content="_Mouse Takeover" Foreground="#e7e9ea"
+                    VerticalAlignment="Center" Margin="0,0,12,0"
+                    ToolTip="Blocks physical movement, clicks, and scrolling from all mice. Injected GlassToKey output continues. Ctrl+Alt+R releases; Alt+M or Space toggles this checkbox in Config. Session-only; off at startup. Windows shell gestures may still run." />
+          <Button x:Name="MouseTakeoverTestButton" Content="30sec test" Padding="8,3" Margin="0,0,12,0"
+                  ToolTip="Enable Mouse Takeover for 30 seconds, then release and uncheck." />
+          <TextBlock Text="Release: Ctrl+Alt+R" Foreground="#8fb6cf" FontSize="12" VerticalAlignment="Center" Margin="0,0,12,0" />
+          <TextBlock x:Name="MouseTakeoverStatusText" Text="Off" Foreground="#8b949e" FontSize="12"
+                     VerticalAlignment="Center" TextWrapping="Wrap" MaxWidth="500" />
+        </WrapPanel>
       </Grid>
     </Border>
 

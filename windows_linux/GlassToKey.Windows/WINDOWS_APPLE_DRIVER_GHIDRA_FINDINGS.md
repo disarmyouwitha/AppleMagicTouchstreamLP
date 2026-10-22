@@ -477,3 +477,7 @@ The user now accepts blocking all physical mice if needed, with keyboard release
 ## Mouse Takeover: first positive Bluetooth hardware result
 
 The user ran the corrected interactive test and observed the synthetic jump. The log confirms a roughly 30-second gate, 1,206 raw reports (1,193 populated), sampled cursor position stable except for the injected move, and release consistent with timeout. A late 4.881-second report gap is bracketed by release/new-contact lifecycle samples; populated reports resume just before expiry. See [the detailed measured result and outstanding checks](WINDOWS_MOUSE_HOOK_FALLBACK.md#hardware-result-apple-bluetooth-1623-local). This advances the explicitly accepted global-mouse compromise; it does not solve device-specific takeover or prove shell-gesture/click/scroll suppression. No normal production behavior has been enabled.
+
+## Windows app integration
+
+At the user's request, Mouse Takeover is now integrated below the decoder selectors in Windows GlassToKey. It is session-only and defaults off, with a continuous checkbox, 30-second test, status, global Ctrl+Alt+R release (matching Mac Control+Option+R), and tray release/status. See [WINDOWS_MOUSE_TAKEOVER.md](WINDOWS_MOUSE_TAKEOVER.md) for current behavior and safety/lifecycle details. The original standalone test's F10/Escape shortcuts remain diagnostic-specific; the main app uses Ctrl+Alt+R and preserves ordinary Escape behavior. The Mac source was read for reference only and was not modified.

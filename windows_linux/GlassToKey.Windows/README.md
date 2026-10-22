@@ -7,9 +7,13 @@ A status bar indicator shows the active mode:
 - **Purple**: Keyboard mode (full keyboard, no mouse intent)
 - **Red**: Mouse-only mode (typing disabled)
 
-Right-clicking the indicator opens tray actions: `Config...`, separator, `Capture`, `Replay`, separator, `Restart`, and `Exit`.
+Right-clicking the indicator opens `Config...`, `Release Mouse Takeover (Ctrl+Alt+R)`, `Capture`, `Replay`, `Restart`, and `Exit`.
 
 By default, GlassToKey opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Mode Toggles`.
+
+### Mouse Takeover
+
+Below the decoder selectors, enable **Mouse Takeover** for this session or use **30sec test**. It blocks physical movement, clicks, and wheel events from all mice while injected GlassToKey output passes. **Ctrl+Alt+R** releases globally; the checkbox/status and tray indicator update together. It defaults off at startup. Windows shell gestures may need separate settings. See [Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).
 
 ### Pin Tray Icon
 - Windows 11:

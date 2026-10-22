@@ -14,6 +14,9 @@ internal sealed class StatusTrayController : IDisposable
     private readonly WinForms.ToolStripMenuItem _replayItem;
     private readonly WinForms.ToolStripMenuItem _restartItem;
     private readonly WinForms.ToolStripMenuItem _exitItem;
+    private readonly WinForms.ToolStripMenuItem _releaseMouseTakeoverItem;
+    private bool _mouseTakeoverEnabled;
+    private string _modeText = "GlassToKey Status App (Unknown)";
     private readonly WinForms.ContextMenuStrip _menu;
     private readonly Icon _iconUnknown;
     private readonly Icon _iconMouse;
@@ -27,7 +30,8 @@ internal sealed class StatusTrayController : IDisposable
         Action startCapture,
         Action startReplay,
         Action restartApplication,
-        Action exitApplication)
+        Action exitApplication,
+        Action releaseMouseTakeover)
     {
         _menu = new WinForms.ContextMenuStrip();
         _openItem = new WinForms.ToolStripMenuItem("Config...", null, (_, _) => openConfig());
@@ -35,7 +39,9 @@ internal sealed class StatusTrayController : IDisposable
         _replayItem = new WinForms.ToolStripMenuItem("Replay", null, (_, _) => startReplay());
         _restartItem = new WinForms.ToolStripMenuItem("Restart", null, (_, _) => restartApplication());
         _exitItem = new WinForms.ToolStripMenuItem("Exit", null, (_, _) => exitApplication());
+        _releaseMouseTakeoverItem = new WinForms.ToolStripMenuItem("Release Mouse Takeover (Ctrl+Alt+R)", null, (_, _) => releaseMouseTakeover()) { Enabled = false };
         _menu.Items.Add(_openItem);
+        _menu.Items.Add(_releaseMouseTakeoverItem);
         _menu.Items.Add(new WinForms.ToolStripSeparator());
         _menu.Items.Add(_captureItem);
         _menu.Items.Add(_replayItem);
@@ -88,7 +94,7 @@ internal sealed class StatusTrayController : IDisposable
             RuntimeModeIndicator.LayerActive => _iconLayerActive,
             _ => _iconUnknown
         };
-        _notifyIcon.Text = mode switch
+        _modeText = mode switch
         {
             RuntimeModeIndicator.Mouse => "GlassToKey Status App (Mouse)",
             RuntimeModeIndicator.Mixed => "GlassToKey Status App (Mixed)",
@@ -96,6 +102,19 @@ internal sealed class StatusTrayController : IDisposable
             RuntimeModeIndicator.LayerActive => "GlassToKey Status App (Layer Active)",
             _ => "GlassToKey Status App (Unknown)"
         };
+        UpdateTakeoverStatus();
+    }
+
+    public void SetMouseTakeoverIndicator(bool enabled)
+    {
+        _mouseTakeoverEnabled = enabled;
+        UpdateTakeoverStatus();
+    }
+
+    private void UpdateTakeoverStatus()
+    {
+        _releaseMouseTakeoverItem.Enabled = _mouseTakeoverEnabled;
+        _notifyIcon.Text = _modeText + (_mouseTakeoverEnabled ? " · Mouse Takeover ON" : string.Empty);
     }
 
     private static Icon CreateCircleIcon(Color color)
