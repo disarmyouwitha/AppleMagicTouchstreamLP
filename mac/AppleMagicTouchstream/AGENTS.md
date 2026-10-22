@@ -67,3 +67,20 @@ mouse/scroll/action engine is ported. Colors: Unknown black, Thumb orange, Index
 blue, Middle green, Ring purple, Pinky pink, Palm gray. Keep #ID/name adjacent,
 plain centered pressure, arrows and paths. No legend/display toggles.
 Build native framework from source, test offline, build/install and leave closed.
+
+
+## Configurable GesturePad gestures (2026-10-22; supersedes no-gesture-port policy)
+
+User explicitly requests all currently implemented GesturePad gestures and approves
+gestures taking priority over the keymap for the whole touch cycle. Local copies
+of session recognition, acceleration, tap/drag, precise scrolling/momentum and
+per-hand bindings are authorized. Keep legacy GTK action kinds inert.
+GESTURE_ENGINE.md is this app's integration spec; GesturePad spec governs ported
+thresholds. Right inspector has Gestures/Keyboard tabs. Persist app-local actions
+and gains; takeover opt-in and selected/owned/armed/AX/profile/live-only gates
+remain mandatory. Reserve enabled multi-finger candidates before keyboard output,
+cancel same-pad pending/held actions, latch until all-up including empty release
+frames, and preserve the other pad's typing. Replay never posts gesture output.
+Preserve keymap, haptics, capture schema and native ownership lifecycle.
+Do not modify siblings or concurrent mac/REWRITE.md/Hand.jpg work. Build/test,
+install with stable Developer ID, leave closed for explicit hardware testing.

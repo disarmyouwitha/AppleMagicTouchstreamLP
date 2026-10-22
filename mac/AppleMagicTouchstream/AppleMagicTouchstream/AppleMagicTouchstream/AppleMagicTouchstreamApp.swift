@@ -95,8 +95,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         GlassToKeyController.seedBundledDefaultsIfNeeded()
         let shouldOpenConfigOnLaunch = !ProcessInfo.processInfo.arguments.contains("--background") &&
             (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
-        nativeTakeover.onOwnershipChanged = { [weak controller] owned in
-            controller?.viewModel.setNativeTakeoverOwnership(owned)
+        nativeTakeover.onOwnershipChanged = { [weak self] owned in
+            guard let self else { return }
+            controller.viewModel.setNativeTakeoverOwnership(owned)
+            controller.viewModel.gestures.updateOwnership(enabled: nativeTakeover.enabled,
+                armed: nativeTakeover.outputArmed && !nativeTakeover.isReleasing,
+                owned: nativeTakeover.ownedDeviceIDs)
         }
         nativeTakeover.beforeRelease = { [weak controller] in
             await controller?.viewModel.prepareNativeTakeoverRelease()

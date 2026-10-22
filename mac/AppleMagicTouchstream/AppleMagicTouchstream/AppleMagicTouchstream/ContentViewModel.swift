@@ -985,6 +985,7 @@ final class ContentViewModel: ObservableObject {
         leftDevice = state.leftDevice
         rightDevice = state.rightDevice
         hasDisconnectedTrackpads = state.hasDisconnectedTrackpads
+        gestures.select(left: state.leftDevice, right: state.rightDevice)
         trackpadSelectionDidChange?()
     }
 
@@ -1036,6 +1037,8 @@ final class ContentViewModel: ObservableObject {
 
 
 
+    let gestures = TrackpadGestureController()
+
     private(set) var nativeTakeoverOwnsTrackpads = false
 
     func setNativeTakeoverOwnership(_ owned: Bool) {
@@ -1044,6 +1047,7 @@ final class ContentViewModel: ObservableObject {
     }
 
     func prepareNativeTakeoverRelease() async {
+        gestures.suspend()
         await runtimeLifecycleCoordinator.prepareNativeTakeoverRelease()
     }
 

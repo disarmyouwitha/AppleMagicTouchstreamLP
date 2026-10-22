@@ -1,0 +1,382 @@
+// Ported from GesturePad: live output only, no HID seizure/probe paths.
+import AppKit
+import ApplicationServices
+import CoreGraphics
+import Foundation
+import OpenMultitouchSupport
+import QuartzCore
+import os
+
+struct SelectedTrackpadEventPolicy {
+    static let interpreterTag: Int64 = 0x414D544745535455
+}
+
+struct TwoFingerPointerTracker {
+    private var contacts: GestureContactMotionTracker
+    var frameContinued: Bool { contacts.frameContinued }
+    init(activationCount: Int = 2) { contacts = GestureContactMotionTracker(activationCount:activationCount) }
+    mutating func reset() { contacts.reset() }
+    mutating func reset(device: UInt64) { contacts.reset(device:device) }
+    mutating func millimetres<C: Collection>(device: UInt64, time: Double, contacts touches: C) -> CGPoint? where C.Element == OMSRawTouch {
+        contacts.millimetres(device:device,time:time,contacts:touches)
+    }
+    mutating func process(device: UInt64, time: Double, touches: OMSRawTouchBufferView) -> CGPoint? {
+        process(device:device,time:time,contacts:touches)
+    }
+    mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C) -> CGPoint? where C.Element == OMSRawTouch {
+        guard let mm = millimetres(device:device,time:time,contacts:contacts) else { return nil }
+        return CGPoint(x:mm.x*6,y:mm.y*6)
+    }
+}
+
+final class InterpretedTrackpadPointer: @unchecked Sendable {
+    static let shared = InterpretedTrackpadPointer()
+    /// Installed only by live enable; no observer is created by init or tests.
+    private struct ButtonObserver: @unchecked Sendable {
+        let tap: CFMachPort
+        let source: CFRunLoopSource
+        func stop() {
+            CGEvent.tapEnable(tap:tap,enable:false)
+            CFRunLoopRemoveSource(CFRunLoopGetMain(),source,.commonModes)
+            CFMachPortInvalidate(tap)
+        }
+    }
+    private struct State {
+        var devices: Set<UInt64> = []
+        var keyboardArbitration = GestureKeyboardArbitration()
+        var keyboardDevices: Set<UInt64> = []
+        var tracker = TwoFingerPointerMotionEngine()
+        var router = TrackpadGestureRouter()
+        var bindings: [UInt64:GestureActionBindings] = [:]
+        func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
+            (bindings[device] ?? GestureActionBindings()).action(for:trigger)
+        }
+        var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
+        var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
+        func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
+            let enabled: Bool
+            switch trigger {
+            case .twoFingerMove: enabled = twoFingerMoveDevices.contains(device)
+            case .threeFingerMove: enabled = threeFingerMoveDevices.contains(device)
+            case .fourFingerMove: enabled = fourFingerMoveDevices.contains(device)
+            case .twoFingerTap: enabled = twoFingerTapDevices.contains(device)
+            case .threeFingerTap: enabled = threeFingerTapDevices.contains(device)
+            case .thumbTwoTap: enabled = thumbTwoTapDevices.contains(device)
+            }
+            return enabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
+        }
+        mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
+            guard let location = CGEvent(source:nil)?.location,
+                let events = GestureTapActionOutput.events(action:action(trigger,device:device),location:location,
+                    time:time,doubleClickInterval:doubleClickInterval,
+                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&clicks) else { return }
+            for event in events { event.post(tap:.cghidEventTap) }
+        }
+        var drag = PrimaryDragOutput()
+        var buttonObserver: ButtonObserver?
+        var buttonObserverHealthy = false
+        var threeFingerMoveDevices: Set<UInt64> = []
+        var twoFingerMoveDevices: Set<UInt64> = []
+        var fourFingerMoveDevices: Set<UInt64> = []
+        var twoFingerTapDevices: Set<UInt64> = []
+        var threeFingerTapDevices: Set<UInt64> = []
+        var thumbTwoTapDevices: Set<UInt64> = []
+        var taps = TwoFingerTapRecognizer()
+        var threeFingerTaps = ThreeFingerTapRecognizer()
+        var clicks = PrimaryTapClickOutput()
+        var doubleClickInterval = 0.5
+        var scrollProfiles: [UInt64:AppleScrollProfile] = [:]
+        var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
+        var scrollOutputs: [UInt64:PreciseScrollOutput] = [:]
+        var scrollSensitivity = 1.0
+        var scrollSensitivities: [UInt64:Double] = [:]
+        var momentum: [UInt64:ScrollMomentum] = [:]
+        var momentumTimer: (any DispatchSourceTimer)?
+        var lastReceipt: [UInt64:Double] = Dictionary(minimumCapacity:2)
+        mutating func cancelMomentum(device: UInt64) {
+            scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap)
+            momentum[device]?.cancel()
+        }
+        mutating func finishScroll(device: UInt64, cancelled: Bool) {
+            scrollOutputs[device]?.finish(cancelled:cancelled)?.post(tap:.cghidEventTap)
+            cancelMomentum(device:device)
+            scrollEngines[device]?.reset()
+        }
+        mutating func reset(device: UInt64) {
+            drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
+            finishScroll(device:device,cancelled:true)
+            taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
+            router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
+        }
+        mutating func reset() {
+            drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
+            for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
+            taps.reset(); threeFingerTaps.reset(); clicks.reset()
+            router.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
+        }
+        var displayBounds: [CGRect] = []
+        var postedEvents: UInt64 = 0
+    }
+    private let lock = OSAllocatedUnfairLock(initialState: State())
+    private let momentumQueue = DispatchQueue(label:"AppleMagicTouchstream.scrollMomentum",qos:.userInteractive)
+    func configure(response: TwoFingerPointerResponse, sensitivity: Double,
+                   profiles: [UInt64:ApplePointerAccelerationProfile], sensitivities: [UInt64:Double] = [:]) {
+        lock.withLock { state in state.tracker.configure(response:response,sensitivity:sensitivity,profiles:profiles,sensitivities:sensitivities) }
+    }
+    func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
+                           threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
+                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
+        lock.withLock { state in
+            guard state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+                || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
+                || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
+            state.reset()
+            state.keyboardArbitration.reset()
+            state.bindings = bindings
+            state.threeFingerMoveDevices = threeFingerMoveDevices
+            state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
+            state.thumbTwoTapDevices = thumbTwoTapDevices
+            state.threeFingerTapDevices = threeFingerTapDevices
+            state.twoFingerTapDevices = twoFingerTapDevices; state.doubleClickInterval = doubleClickInterval
+            state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity; state.scrollSensitivities = sensitivities
+            state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
+            state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
+            state.momentum = profiles.mapValues { _ in ScrollMomentum() }
+            if !state.needsDragObserver {
+                state.buttonObserver?.stop(); state.buttonObserver = nil; state.buttonObserverHealthy = false
+            }
+            if !state.needsScrollTimer && !state.needsDragObserver { state.momentumTimer?.cancel(); state.momentumTimer = nil }
+        }
+    }
+    func enable(devices: Set<UInt64>) {
+        var displays = [CGDirectDisplayID](repeating: 0, count: 16)
+        var count: UInt32 = 0
+        let bounds: [CGRect]
+        if CGGetActiveDisplayList(16, &displays, &count) == .success {
+            bounds = displays.prefix(Int(count)).map { CGDisplayBounds($0) }
+        } else { bounds = [] }
+        lock.withLock { state in
+            for device in state.devices.symmetricDifference(devices) { state.reset(device:device) }
+            let now = CACurrentMediaTime()
+            for (device,receipt) in state.lastReceipt where now-receipt > 0.2 && state.momentum[device]?.isCoasting != true {
+                state.reset(device:device)
+            }
+            state.devices = devices; state.displayBounds = bounds
+            if state.needsDragObserver && state.buttonObserver == nil {
+                let mask = [CGEventType.leftMouseDown,.rightMouseDown,.otherMouseDown]
+                    .reduce(CGEventMask(0)) { $0 | (CGEventMask(1) << $1.rawValue) }
+                let tap = CGEvent.tapCreate(tap:.cghidEventTap,place:.headInsertEventTap,options:.listenOnly,
+                    eventsOfInterest:mask,callback: { _,type,event,context in
+                        if let context {
+                            Unmanaged<InterpretedTrackpadPointer>.fromOpaque(context).takeUnretainedValue()
+                                .observeButton(type:type,event:event)
+                        }
+                        return Unmanaged.passUnretained(event)
+                    },userInfo:Unmanaged.passUnretained(self).toOpaque())
+                if let tap, let source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault,tap,0) {
+                    state.buttonObserver = ButtonObserver(tap:tap,source:source)
+                    state.buttonObserverHealthy = true
+                    CFRunLoopAddSource(CFRunLoopGetMain(),source,.commonModes)
+                    CGEvent.tapEnable(tap:tap,enable:true)
+                } else if let tap { CFMachPortInvalidate(tap) }
+            }
+            if (state.needsScrollTimer || state.needsDragObserver) && state.momentumTimer == nil {
+                let timer = DispatchSource.makeTimerSource(queue:momentumQueue)
+                timer.schedule(deadline:.now()+0.008333,repeating:.nanoseconds(8_333_333),leeway:.milliseconds(1))
+                timer.setEventHandler { [weak self] in self?.tickMomentum() }
+                state.momentumTimer = timer
+                timer.resume()
+            }
+        }
+    }
+    private func tickMomentum() {
+        lock.withLock { state in
+            guard !state.devices.isEmpty else { return }
+            let now = CACurrentMediaTime()
+            if Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
+                state.reset(); return
+            }
+            if let owner = state.drag.owner, now-(state.lastReceipt[owner] ?? 0) > 0.2 {
+                state.reset(device:owner)
+            }
+            for device in state.devices where state.bindings[device]?.uses(.scroll) == true {
+                guard let step = state.momentum[device]?.advance(hostTime:now) else { continue }
+                state.scrollOutputs[device]?.event(points:step.points,momentum:true)?.post(tap:.cghidEventTap)
+                if step.finished { state.scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap) }
+            }
+        }
+    }
+    private static func polledButtonInterference(ownsPrimary: Bool) -> Bool {
+        // Do not even query the global tables while holding our own down.
+        // The listen-only tagged observer covers outside presses in that state.
+        guard !ownsPrimary else { return false }
+        return DragButtonInterference.suppress(polledButtonsDown:
+            CGEventSource.buttonState(.combinedSessionState,button:.left)
+            || CGEventSource.buttonState(.combinedSessionState,button:.right)
+            || CGEventSource.buttonState(.combinedSessionState,button:.center),ownsPrimary:false)
+    }
+    private func observeButton(type: CGEventType, event: CGEvent) {
+        let tag = event.getIntegerValueField(.eventSourceUserData)
+        lock.withLock { state in
+            if type == .tapDisabledByTimeout || type == .tapDisabledByUserInput {
+                state.buttonObserverHealthy = false
+                state.reset() // fail closed, including the reserved up
+            } else if state.drag.owner != nil && DragButtonInterference.interrupts(type:type,
+                tag:tag) {
+                state.reset()
+            }
+        }
+    }
+    var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }
+    var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
+    func stop() { lock.withLock {
+        $0.devices.removeAll(keepingCapacity:true); $0.reset(); $0.keyboardArbitration.reset(); $0.keyboardDevices.removeAll(keepingCapacity:true)
+        $0.momentumTimer?.cancel(); $0.momentumTimer = nil
+        $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
+    } }
+    func resetBaseline() { lock.withLock { $0.reset() } }
+    func resetBaseline(device: UInt64) { lock.withLock { $0.reset(device: device) } }
+    func configureKeyboardReservations(devices: Set<UInt64>) {
+        lock.withLock { $0.keyboardDevices = devices }
+    }
+
+    /// Keyboard reservation uses configured inputs even if output permission or
+    /// profiles are unavailable; a paused gesture must not turn into typed keys.
+    func reserveKeyboard(_ frame: OMSRawTouchFrame) -> Bool {
+        lock.withLock { state in
+            let device = frame.deviceIDNumeric
+            guard state.keyboardDevices.contains(device) else { return false }
+            let count = frame.touches.reduce(0) { count, touch in
+                count + ((touch.state == .making || touch.state == .touching) ? 1 : 0)
+            }
+            let bindings = state.bindings[device] ?? GestureActionBindings()
+            return state.keyboardArbitration.process(device: device, activeCount: count) {
+                bindings.action(for: $0) != .disabled
+            }
+        }
+    }
+    func process(_ frame: OMSRawTouchFrame) {
+        process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
+    }
+    func process<C: Collection & Sendable>(device: UInt64, time: Double, contacts: C, suppress: Bool = false) where C.Element == OMSRawTouch {
+        lock.withLock { state in
+            guard state.devices.contains(device) else { return }
+            if suppress || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
+                state.reset()
+                state.taps.cancel(device:device)
+                state.threeFingerTaps.cancel(device:device)
+                return
+            }
+            // Another pad must never release/click/scroll through the held button.
+            if let owner = state.drag.owner, owner != device {
+                state.reset(device:device)
+                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                return
+            }
+            let hostTime = CACurrentMediaTime()
+            state.lastReceipt[device] = hostTime
+            let allUp = !contacts.contains { $0.state == .making || $0.state == .touching }
+            if !allUp && state.momentum[device]?.isCoasting == true {
+                state.cancelMomentum(device:device)
+                state.taps.cancel(device:device)
+                state.threeFingerTaps.cancel(device:device) // braking a coast must not also click
+            }
+            // Copy recognition eligibility before mutating the router in State.
+            let two = state.recognizes(.twoFingerMove,device:device)
+            let three = state.recognizes(.threeFingerMove,device:device)
+            let four = state.recognizes(.fourFingerMove,device:device)
+            let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
+                switch trigger {
+                case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four
+                default: return false
+                }
+            })
+            if update.phase == .ended || update.phase == .cancelled {
+                // Complete the queued drag sequence at its own last destination.
+                state.drag.end(device:device)?.post(tap:.cghidEventTap)
+            }
+            let motion = update.gesture.flatMap { gesture in update.millimetres.map { (gesture:gesture,millimetres:$0) } }
+            let motionAction = update.gesture.map { state.action($0,device:device) } ?? .disabled
+            if motionAction == .primaryDrag && update.phase == .began {
+                for pad in state.scrollOutputs.keys { state.finishScroll(device:pad,cancelled:true) }
+                guard let location = CGEvent(source:nil)?.location,
+                      let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
+                    state.reset(device:device)
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                    return
+                }
+                state.clicks.reset()
+                down.post(tap:.cghidEventTap)
+            }
+            if state.recognizes(.twoFingerTap,device:device), state.taps.process(device:device,time:time,
+                contacts:contacts,gestureActive:motion != nil) {
+                state.postTap(.twoFingerTap,device:device,time:hostTime)
+            }
+            if state.threeFingerTapDevices.contains(device) || state.thumbTwoTapDevices.contains(device),
+                let trigger = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
+                    gestureActive:motion != nil,ordinaryEnabled:state.recognizes(.threeFingerTap,device:device),
+                    thumbEnabled:state.recognizes(.thumbTwoTap,device:device)) {
+                state.postTap(trigger,device:device,time:hostTime)
+            }
+            guard let motion else {
+                if allUp {
+                    if state.scrollOutputs[device]?.active == true {
+                        let coasting = state.momentum[device]?.start(contactTime:time,hostTime:hostTime) == true
+                        state.scrollOutputs[device]?.finish(cancelled:false,preserveForMomentum:coasting)?.post(tap:.cghidEventTap)
+                        state.scrollEngines[device]?.reset()
+                    }
+                } else { state.finishScroll(device:device,cancelled:true) }
+                state.tracker.reset(device:device)
+                return
+            }
+            if motionAction == .scroll {
+                if let delta = state.scrollEngines[device]?.process(time:time,millimetres:motion.millimetres,
+                    sensitivity:state.scrollSensitivities[device] ?? state.scrollSensitivity) {
+                    state.momentum[device]?.observe(points:delta,contactTime:time)
+                    state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
+                } else { state.reset(device:device) }
+                return
+            }
+            guard motionAction.requiresPointerProfile else { state.reset(device:device); return }
+            // Drag destinations accumulate from our last queued destination. Reading
+            // WindowServer here can return an older cursor while posts are in flight.
+            let anchor = motionAction == .primaryDrag ? state.drag.location : CGEvent(source:nil)?.location
+            guard let delta = state.tracker.processMotion(device:device,time:time,millimetres:motion.millimetres),
+                  let current = anchor else { state.reset(device:device); return }
+            guard delta.x != 0 || delta.y != 0 else { return }
+            var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
+            // Clamp to the nearest actual display, including negative-origin displays.
+            var closest: CGPoint?; var distance = Double.infinity
+            for bounds in state.displayBounds {
+                let candidate = CGPoint(x: min(max(location.x, bounds.minX), bounds.maxX - 1),
+                                        y: min(max(location.y, bounds.minY), bounds.maxY - 1))
+                let dx = candidate.x - location.x, dy = candidate.y - location.y
+                let d = dx * dx + dy * dy
+                if d < distance { distance = d; closest = candidate }
+            }
+            if let closest { location = closest }
+            if motionAction == .primaryDrag {
+                guard let event = state.drag.move(device:device,location:location,delta:delta,
+                    flags:CGEventSource.flagsState(.combinedSessionState)) else { state.reset(device:device); return }
+                event.post(tap:.cghidEventTap); state.postedEvents &+= 1
+                return
+            }
+            guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
+                                       mouseCursorPosition: location, mouseButton: .left) else { return }
+            event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
+            event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
+            event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
+            event.post(tap: .cghidEventTap)
+            state.postedEvents &+= 1
+        }
+    }
+}
+
+
+enum NativeTwoFingerMouseGate {
+    static func outputDevices(enabled: Bool, armed: Bool, takeoverEnabled: Bool,
+                              trusted: Bool, selected: Set<UInt64>, owned: Set<UInt64>) -> Set<UInt64> {
+        guard enabled, armed, takeoverEnabled, trusted else { return [] }
+        return selected.intersection(owned)
+    }
+}

@@ -101,10 +101,13 @@ final class NativeTrackpadTakeoverTests: XCTestCase {
         XCTAssertFalse(success)
         XCTAssertFalse(committed)
         XCTAssertEqual(backend.owned, [7])
+        XCTAssertFalse(control.outputArmed)
         backend.refuseStart = false
         await control.updateSelection(deviceIDs: [8]) { committed = true }
         XCTAssertTrue(committed)
+        XCTAssertTrue(control.outputArmed)
         await control.release()
+        XCTAssertFalse(control.outputArmed)
     }
 
     func testConcurrentReleaseWaitsForOneSharedCleanup() async {

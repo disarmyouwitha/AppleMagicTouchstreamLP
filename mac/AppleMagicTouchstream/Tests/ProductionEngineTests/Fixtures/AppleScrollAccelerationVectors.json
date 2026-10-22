@@ -1,0 +1,171 @@
+{
+  "note": "Independent Python parametric scroll history equations, not hardware ground truth.",
+  "curves": [
+    {
+      "HIDAccelGainLinear": 1.0,
+      "HIDAccelTangentSpeedLinear": 6.0,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 0.0
+    },
+    {
+      "HIDAccelGainLinear": 0.9499969482421875,
+      "HIDAccelGainParabolic": 0.600006103515625,
+      "HIDAccelTangentSpeedLinear": 6.1999969482421875,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 0.125
+    },
+    {
+      "HIDAccelGainLinear": 0.899993896484375,
+      "HIDAccelGainParabolic": 0.899993896484375,
+      "HIDAccelTangentSpeedLinear": 6.399993896484375,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 0.5
+    },
+    {
+      "HIDAccelGainLinear": 0.850006103515625,
+      "HIDAccelGainParabolic": 1.1999969482421875,
+      "HIDAccelTangentSpeedLinear": 6.600006103515625,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 0.6875
+    },
+    {
+      "HIDAccelGainLinear": 0.8000030517578125,
+      "HIDAccelGainParabolic": 1.399993896484375,
+      "HIDAccelTangentSpeedLinear": 6.8000030517578125,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 0.875
+    },
+    {
+      "HIDAccelGainLinear": 0.75,
+      "HIDAccelGainParabolic": 1.600006103515625,
+      "HIDAccelTangentSpeedLinear": 7.0,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 1.0
+    },
+    {
+      "HIDAccelGainLinear": 0.6999969482421875,
+      "HIDAccelGainParabolic": 1.8000030517578125,
+      "HIDAccelTangentSpeedLinear": 7.1999969482421875,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 1.5
+    },
+    {
+      "HIDAccelGainLinear": 0.649993896484375,
+      "HIDAccelGainParabolic": 2.0,
+      "HIDAccelTangentSpeedLinear": 7.399993896484375,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 2.0
+    },
+    {
+      "HIDAccelGainLinear": 0.600006103515625,
+      "HIDAccelGainParabolic": 2.1999969482421875,
+      "HIDAccelTangentSpeedLinear": 7.600006103515625,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 2.5
+    },
+    {
+      "HIDAccelGainLinear": 0.5500030517578125,
+      "HIDAccelGainParabolic": 2.399993896484375,
+      "HIDAccelTangentSpeedLinear": 7.8000030517578125,
+      "HIDAccelTangentSpeedParabolicRoot": 12.0,
+      "index": 3.0
+    }
+  ],
+  "vectors": [
+    {
+      "t": 1.0,
+      "counts": 0.01,
+      "expected": 0.002160123099481212
+    },
+    {
+      "t": 1.011,
+      "counts": 0.1,
+      "expected": 0.021695323721988208
+    },
+    {
+      "t": 1.022,
+      "counts": 0.5,
+      "expected": 0.11054125985639533
+    },
+    {
+      "t": 1.033,
+      "counts": 1,
+      "expected": 0.22778415878315011
+    },
+    {
+      "t": 1.044,
+      "counts": 2,
+      "expected": 0.4781769421930996
+    },
+    {
+      "t": 1.055,
+      "counts": 4,
+      "expected": 1.0356518872743044
+    },
+    {
+      "t": 1.066,
+      "counts": 8,
+      "expected": 2.3557314637852604
+    },
+    {
+      "t": 1.077,
+      "counts": 16,
+      "expected": 5.745586572419611
+    },
+    {
+      "t": 1.088,
+      "counts": 32,
+      "expected": 18.049532178457326
+    },
+    {
+      "t": 1.099,
+      "counts": 8,
+      "expected": 4.858230299851811
+    },
+    {
+      "t": 1.1099999999999999,
+      "counts": 2,
+      "expected": 1.2309743750533393
+    },
+    {
+      "t": 1.121,
+      "counts": 0.1,
+      "expected": 0.06105621474995536
+    },
+    {
+      "t": 1.1320000000000001,
+      "counts": -0.1,
+      "expected": -0.02203895320180295
+    },
+    {
+      "t": 1.143,
+      "counts": -2,
+      "expected": -0.5239575178273516
+    },
+    {
+      "t": 1.154,
+      "counts": -8,
+      "expected": -2.907184813554297
+    },
+    {
+      "t": 1.165,
+      "counts": 0,
+      "expected": 0
+    },
+    {
+      "t": 1.176,
+      "counts": -0.001,
+      "expected": -0.0003234379738042736
+    },
+    {
+      "t": 2.5,
+      "counts": -0.02,
+      "expected": -0.0043202580247129856
+    },
+    {
+      "t": 2.511,
+      "counts": -0.02,
+      "expected": -0.004327081780915781
+    }
+  ]
+}

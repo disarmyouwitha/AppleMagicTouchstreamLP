@@ -14,6 +14,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @ObservedObject var nativeTakeover: NativeTrackpadTakeover
+    @State private var inspectorTab = "Keyboard"
     private struct SelectedGridKey: Equatable {
         let row: Int
         let column: Int
@@ -584,11 +585,15 @@ struct ContentView: View {
             .onAppear {
                 applySavedSettings()
                 refreshActionGroupCaches()
+                viewModel.gestures.refreshPermission()
                 viewModel.setAutoResyncEnabled(storedAutoResyncMissingTrackpads)
 
             }
             .onDisappear {
                 persistConfig()
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                viewModel.gestures.refreshPermission()
             }
             .onChange(of: columnSettings) { newValue in
                 normalizeEditColumnIndex(for: newValue.count)
@@ -737,16 +742,33 @@ struct ContentView: View {
                 }
             }
             Divider()
-            rightSidebarView.padding(16)
+            VStack(spacing: 12) {
+                Picker("Inspector", selection: $inspectorTab) {
+                    Text("Keyboard").tag("Keyboard")
+                    Text("Gestures").tag("Gestures")
+                }
+                .pickerStyle(.segmented)
+                if inspectorTab == "Gestures" {
+                    GestureInspectorPanel(controller: viewModel.gestures, takeover: nativeTakeover)
+                } else {
+                    HStack(spacing: 12) {
+                        Button("Import keymap", action: importKeymap)
+                        Button("Export keymap", action: exportKeymap)
+                        Spacer(minLength: 0)
+                    }
+                    .buttonStyle(.bordered)
+                    rightSidebarView
+                }
+            }
+            .frame(width: 420)
+            .padding(16)
         }
     }
 
     @ViewBuilder
     private var headerView: some View {
         HeaderControlsView(
-            statusViewModel: viewModel.statusViewModel,
-            onImportKeymap: importKeymap,
-            onExportKeymap: exportKeymap
+            statusViewModel: viewModel.statusViewModel
         )
     }
 
@@ -1140,8 +1162,6 @@ struct ContentView: View {
 
     private struct HeaderControlsView: View {
         @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
-        let onImportKeymap: () -> Void
-        let onExportKeymap: () -> Void
 
         var body: some View {
             HStack(spacing: 12) {
@@ -1155,14 +1175,6 @@ struct ContentView: View {
                     }
                 }
                 Spacer()
-                Button("Import keymap") {
-                    onImportKeymap()
-                }
-                .buttonStyle(.bordered)
-                Button("Export keymap") {
-                    onExportKeymap()
-                }
-                .buttonStyle(.bordered)
             }
         }
 

@@ -23,6 +23,7 @@ private final class OMSNativeTakeoverBackend: NativeTakeoverBackend {
 final class NativeTrackpadTakeover: ObservableObject {
     static let defaultsKey = "AppleMagicTouchstream.nativeTrackpadTakeoverEnabled"
     @Published private(set) var enabled: Bool
+    @Published private(set) var outputArmed = false
     @Published private(set) var isActive = false
     @Published private(set) var isReleasing = false
     @Published var releaseShortcutRegistered = false
@@ -80,7 +81,7 @@ final class NativeTrackpadTakeover: ObservableObject {
         _ = await transition(to: enabled && suspensions.isEmpty ? selection : [])
     }
 
-    private var ownedIDs: Set<UInt64> {
+    var ownedDeviceIDs: Set<UInt64> {
         Set((backend.status["deviceIDs"] as? [NSNumber] ?? []).map(\.uint64Value))
     }
 
@@ -92,25 +93,27 @@ final class NativeTrackpadTakeover: ObservableObject {
         // Main-actor methods can interleave while keyboard cleanup awaits. Share
         // the current operation, then serialize the next request behind it.
         while let operation { _ = await operation.value }
-        if ownedIDs == target && (target.isEmpty || isActive) { commit(); return true }
+        if ownedDeviceIDs == target && (target.isEmpty || isActive) { commit(); return true }
         isReleasing = true
+        outputArmed = false
         onOwnershipChanged?(true) // Pause auto-resync during acquisition as well.
         let task = Task { @MainActor [self] in
             await beforeRelease?()
             let succeeded: Bool
             if target.isEmpty {
                 backend.end()
-                succeeded = ownedIDs.isEmpty
+                succeeded = ownedDeviceIDs.isEmpty
             } else {
                 succeeded = backend.update(deviceIDs: target.sorted())
             }
             updateStatus()
-            if succeeded && ownedIDs == target { commit() }
+            outputArmed = succeeded && ownedDeviceIDs == target && !target.isEmpty
+            if succeeded && ownedDeviceIDs == target { commit() }
             await afterRelease?()
             isReleasing = false
             operation = nil
             onOwnershipChanged?(hasOwnership)
-            return succeeded && ownedIDs == target
+            return succeeded && ownedDeviceIDs == target
         }
         operation = task
         return await task.value
@@ -130,7 +133,10 @@ final class NativeTrackpadTakeover: ObservableObject {
             timer?.invalidate()
             timer = nil
         }
-        if wasActive && !isActive && !isReleasing { onOwnershipChanged?(false) }
+        if wasActive && !isActive && !isReleasing {
+            outputArmed = false
+            onOwnershipChanged?(false)
+        }
     }
 }
 

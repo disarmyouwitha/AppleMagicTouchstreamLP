@@ -235,7 +235,8 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
             let result = self.processIngest(
                 frame,
                 ingress: ingress,
-                captureRenderSnapshot: captureRenderSnapshot
+                captureRenderSnapshot: captureRenderSnapshot,
+                liveGestures: true
             )
             guard let renderSnapshot = result.renderSnapshot else { return }
             renderSnapshotSink?.submitRuntimeRenderSnapshot(renderSnapshot)
@@ -524,9 +525,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
     private func processIngest(
         _ frame: OMSRawTouchFrame,
         ingress: RuntimeCaptureIngressSnapshot?,
-        captureRenderSnapshot: Bool
+        captureRenderSnapshot: Bool,
+        liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
-        let diagnostic = processor.processRawFrame(frame)
+        let suppressKeyboard = liveGestures && InterpretedTrackpadPointer.shared.reserveKeyboard(frame)
+        let diagnostic = processor.processRawFrame(frame, suppressKeyboard: suppressKeyboard)
+        // Release pending keyboard modifiers/holds before preparing gesture output.
+        if liveGestures { InterpretedTrackpadPointer.shared.process(frame) }
         let renderedSnapshot = captureRenderSnapshot
             ? updatedRenderSnapshot(from: frame)
             : nil
@@ -781,9 +786,9 @@ final class ProductionReplaySession {
     }
 
     @discardableResult
-    func ingest(_ frame: RuntimeRawFrame) -> RuntimeFrameDiagnostic? {
+    func ingest(_ frame: RuntimeRawFrame, suppressKeyboard: Bool = false) -> RuntimeFrameDiagnostic? {
         scheduler.advance(to: frame.timestamp)
-        return engine.processRuntimeRawFrame(frame)
+        return engine.processRuntimeRawFrame(frame, suppressKeyboard: suppressKeyboard)
     }
 
     func finish(at time: TimeInterval) {

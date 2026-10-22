@@ -80,6 +80,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case pendingLeftRect
         case typingDisabled
         case intentMouse
+        case gestureReserved
         case offKeyNoSnap
         case momentaryLayerCancelled
     }
@@ -388,6 +389,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
         }
 
+        mutating func removeDevice(_ deviceIndex: Int) {
+            if deviceIndex == 0 { table0.removeAll() }
+            if deviceIndex == 1 { table1.removeAll() }
+        }
+
         func forEachLayer(_ body: (Int) -> Void) {
             table0.forEach { _, layer in
                 body(layer)
@@ -549,6 +555,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var customButtons: [CustomButton] = []
     private var customButtonsByLayerAndSide: [Int: [TrackpadSide: [CustomButton]]] = [:]
     private var customKeyMappingsByLayer: LayeredKeyMappings = [:]
+    private var gestureKeyboardDevices: Set<Int> = []
     private var touchStates = TouchTable<TouchState>()
     private var disqualifiedTouches = TouchTable<Bool>()
     private var releaseHandledTouches = TouchTable<Bool>()
@@ -1035,7 +1042,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    func processRawFrame(_ frame: OMSRawTouchFrame) -> RuntimeFrameDiagnostic? {
+    func processRawFrame(_ frame: OMSRawTouchFrame, suppressKeyboard: Bool = false) -> RuntimeFrameDiagnostic? {
         guard isListening,
               let leftLayout,
               let rightLayout else {
@@ -1057,6 +1064,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         guard isLeftDevice || isRightDevice else { return nil }
+        let keyboardReserved = reserveGestureKeyboard(deviceIndex: deviceIndex, touches: touches, requested: suppressKeyboard)
         let leftTouches = isLeftDevice ? touches : OMSRawTouchBufferView.empty
         let rightTouches = isRightDevice ? touches : OMSRawTouchBufferView.empty
         let leftBindings = bindings(
@@ -1071,7 +1079,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             labels: rightLabels,
             canvasSize: trackpadSize
         )
-        let allowTypingGlobal = updateIntent(
+        let allowTypingGlobal = keyboardReserved ? isTypingEnabled : updateIntent(
             leftTouches: leftTouches,
             rightTouches: rightTouches,
             leftDeviceIndex: leftDeviceIndex,
@@ -1092,6 +1100,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: trackpadSize,
                 isLeftSide: true,
                 now: now,
+                gestureReserved: keyboardReserved,
                 intentAllowsTyping: allowTypingLeft
             )
         }
@@ -1104,9 +1113,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: trackpadSize,
                 isLeftSide: false,
                 now: now,
+                gestureReserved: keyboardReserved,
                 intentAllowsTyping: allowTypingRight
             )
         }
+        if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
         notifyContactCounts()
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
@@ -1116,7 +1127,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
     }
 
-    func processRuntimeRawFrame(_ frame: RuntimeRawFrame) -> RuntimeFrameDiagnostic? {
+    func processRuntimeRawFrame(_ frame: RuntimeRawFrame, suppressKeyboard: Bool = false) -> RuntimeFrameDiagnostic? {
         guard isListening,
               let leftLayout,
               let rightLayout else {
@@ -1138,6 +1149,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let isLeftDevice = leftDeviceIndex.map { $0 == deviceIndex } ?? false
         let isRightDevice = rightDeviceIndex.map { $0 == deviceIndex } ?? false
         guard isLeftDevice || isRightDevice else { return nil }
+        let keyboardReserved = reserveGestureKeyboard(deviceIndex: deviceIndex, touches: touches, requested: suppressKeyboard)
         let leftTouches = isLeftDevice ? touches : []
         let rightTouches = isRightDevice ? touches : []
         let leftBindings = bindings(
@@ -1152,7 +1164,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             labels: rightLabels,
             canvasSize: trackpadSize
         )
-        let allowTypingGlobal = updateIntent(
+        let allowTypingGlobal = keyboardReserved ? isTypingEnabled : updateIntent(
             leftTouches: leftTouches,
             rightTouches: rightTouches,
             leftDeviceIndex: leftDeviceIndex,
@@ -1173,6 +1185,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: trackpadSize,
                 isLeftSide: true,
                 now: now,
+                gestureReserved: keyboardReserved,
                 intentAllowsTyping: allowTypingLeft
             )
         }
@@ -1185,9 +1198,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 canvasSize: trackpadSize,
                 isLeftSide: false,
                 now: now,
+                gestureReserved: keyboardReserved,
                 intentAllowsTyping: allowTypingRight
             )
         }
+        if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
         notifyContactCounts()
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
@@ -1223,6 +1238,59 @@ final class TouchProcessorEngine: @unchecked Sendable {
         customButtonsByLayerAndSide[layer]?[side] ?? []
     }
 
+    private func finishGestureKeyboardCycle<C: Collection>(deviceIndex: Int, touches: C) where C.Element == OMSRawTouch {
+        guard !touches.contains(where: { $0.state == .making || $0.state == .touching }) else { return }
+        // Native streams can end with an empty frame instead of terminal records.
+        // Release disqualification marks too; they no longer have touchStates.
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        disqualifiedTouches.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer {
+            disqualifiedTouches.remove(key)
+            releaseHandledTouches.set(key, true)
+            touchInitialContactPoint.remove(key)
+            clearPeakPressure(for: key)
+        }
+    }
+
+    private func reserveGestureKeyboard<C: Collection>(deviceIndex: Int, touches: C, requested: Bool) -> Bool where C.Element == OMSRawTouch {
+        let reserved = requested || gestureKeyboardDevices.contains(deviceIndex)
+        guard reserved else { return false }
+        gestureKeyboardDevices.insert(deviceIndex)
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        touchStates.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer { disqualifyTouch(key, reason: .gestureReserved) }
+        momentaryLayerTouches.removeDevice(deviceIndex)
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        layerToggleTouchStarts.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer { layerToggleTouchStarts.remove(key) }
+        updateActiveLayer()
+        // The keyboard's temporary intent classifier is global. Remove this
+        // gesture pad from it so moving here cannot cancel the other hand's keys.
+        touchRemovalBuffer.removeAll(keepingCapacity: true)
+        intentState.touches.forEach { key, _ in
+            if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
+        }
+        for key in touchRemovalBuffer { intentState.touches.remove(key) }
+        var otherHandMoved = false
+        intentState.touches.forEach { _, info in
+            otherHandMoved = otherHandMoved || info.maxDistanceSquared > pow(3 * unitsPerMillimeter, 2)
+        }
+        if intentState.touches.isEmpty { intentState.mode = .idle }
+        else if otherHandMoved { intentState.mode = .mouseActive }
+        else { intentState.mode = .typingCommitted(untilAllUp: true) }
+        updateIntentDisplayIfNeeded()
+        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+            gestureKeyboardDevices.remove(deviceIndex)
+        }
+        return true
+    }
+
     private func processTouches<Touches: RandomAccessCollection>(
         _ touches: Touches,
         deviceIndex: Int,
@@ -1231,6 +1299,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         canvasSize: CGSize,
         isLeftSide: Bool,
         now: TimeInterval,
+        gestureReserved: Bool = false,
         intentAllowsTyping: Bool
     ) where Touches.Element == OMSRawTouch {
         #if DEBUG
@@ -1282,6 +1351,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
             let peakPressure = updatePeakPressure(for: touchKey, pressure: touch.pressure)
 
+            if gestureReserved { disqualifyTouch(touchKey, reason: .gestureReserved) }
             if disqualifiedTouches.value(for: touchKey) != nil {
                 switch touch.state {
                 case .breaking, .leaving, .notTouching:
@@ -3426,6 +3496,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             stopRepeat(for: touchKey)
         }
         touchStates.removeAll()
+        gestureKeyboardDevices.removeAll(keepingCapacity: true)
         disqualifiedTouches.removeAll()
         releaseHandledTouches.removeAll()
 

@@ -18,36 +18,33 @@
 
 `AppleMagicTouchstream`:
 0. I want to add configurable Gestures like in Gesturepad - lets implement everything we have so far!
-1. Fix touchstream Layout (space) and test!
-
 ===
-
-
-
+1. For AppleMagicTouchstreamLP to make it the default layout loaded.. do I just need to save it as `GLASSTOKEY_DEFAULT_KEYMAP.json?`
+2. Is "Trackpad Takeover" saved with the keymap settings? Should it be? 
+3. Fix touchstream Layout (space) and test!
+4. Copy touchstream Layout from AMT to GTK!
 ===
-0. Copy GlassToKey to `GlassToKey_old` to preserve current release
-1. Remove all gestures/gesture logic
-2. Start by adding Touchstream Gestures / config and building up from there what I miss. 
-3. "Record Gesture" custom gestures in the future would be awesome!
-===
-
-`Gesturepad`:
-- 
 
 `GlassToKey`:
-0. Fit layout to image
-1. Update GTK Windows Driver instructions they should be dead simple now.
-2. DecalGirl left and right pads
-
-
-`AppleMagicTouchstream`: 
-0. Copy touchstream Layout from AMT to GTK!
-
+===
+1. Remove all gestures/gesture logic
+2. Start by adding Touchstream Gestures / Updates
+3. Remove `3-finger drag`, `keyboard/mouse` options and logic from the program.
+3. Start building up from there what I miss from GTK (Edges, Triangles, *circle keys)
+4. DecalGirl left and right pads
+7. After Gestures are in we can start ripping out `Typing Tuning` features 1 at a time.
 ===
 
-`GlassToKey`: 
-0. Can we use the Velocity data to tell when we are typing vs mousing? It seems like a stronger signal than 3mm intent classifier. I would like maybe 3 options to switch between to test feel: 1. Current setup. 2. 3mm intent classifier 3. Velocity/Pressure/Timing based. (Let me know if we need to do a typing test to get data on this)
-* We should still work on this independently of Trackpad Takeover (which should be an *Preferred* Option, but an option)
-1. remove extra Typing Tuning flags from logic
-2. Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
+
+`Gesturepad`:
+===
+- Build more Gestures!
+===
+
+
+
+=======
+- Update GTK `Windows` Driver instructions they should be dead simple now.
+- Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
 > I want to rebuild or at least relook at how the keys and keymap are done.. If I knew I wanted every key to be movable (yet could still be associated with a column) would I have build it the same way? Can we PLEASE implement click&drag columns and/or keys?
+- "Record Gesture" custom gestures in the future would be awesome!

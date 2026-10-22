@@ -34,8 +34,8 @@ reasons compose, so leaving replay during sleep cannot reacquire filters. Emerge
 release during suspension prevents later automatic reacquisition.
 
 Contacts flow through the existing native OMS ingestion and existing keyboard
-engine. Native pointer behavior is suppressed by the filter routing. Takeover adds
-no synthetic mouse/click consumer. Release awaits keyboard listening suspension
+engine. Native pointer behavior is suppressed by the filter routing. Configurable GesturePad gestures now provide synthetic pointer/click/drag/scroll
+output on eligible live input; see [GESTURE_ENGINE.md](GESTURE_ENGINE.md). Release awaits keyboard listening suspension
 and a reset (clearing held keys/repeat state), closes the filter clients, restores
 ordinary native callbacks and resumes listening only when live input is appropriate.
 All ownership transitions serialize across awaited keyboard cleanup. Concurrent release callers await the same cleanup task. Quit waits for cleanup.
