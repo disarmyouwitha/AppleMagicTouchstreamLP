@@ -6,18 +6,28 @@
 > I really want to get the spellchecker logic out of the touchstream. 
 
 > Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD 
+=== 
+
+> Lets ask Kara if we can borrow her menu idea!
+
+> Make a cool icon (FingerWorks Hand-like?) in mac White, since we wont need green/red modes.
+
+> NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool)
 
 ===
-`GesturePad`:
-0. Lets make the dots the same as our hardcoded finger colors in the example
-1. Instead of using checkboxes we need to make each Gesture able to select an Action (from a dropdown) 
-> The code should reflect this. Gestures should not have hardcoded actions and should be configurable via the menu.
+
+`AppleMagicTouchstream`: Lets take a bunch of changes from Gesturepad!
+1. We should implement "Trackpad Takeover" just how it is in Gesturepad, including placement
+2. I want to move the trackpads to a left pane, just like it is in Gesturepad
+3. I want to remove "Contact Paths" and "inspect touch data" and make them default on like in Gesturepad
+4. I want to remove (F:) and move P: to the fingertips, like in Gesturepad
+5. I want to make the contact colors a standard set of colors like in Gesturepad
 
 
-2. ?Lets make the "hand" examples use the FingerWorks TouchStream hand examples (with my colorse) ?
+6. I want to add Gestures like in Gesturepad
 
-3. I think maybe instead, when the gesture menu is open it should expand to take the full view?
-> Lets ask Kara if we can borrow her menu idea!
+4. Fix touchstream Layout (space) and test!
+
 ===
 
 
@@ -28,6 +38,9 @@
 2. Start by adding Touchstream Gestures / config and building up from there what I miss. 
 3. "Record Gesture" custom gestures in the future would be awesome!
 ===
+
+`Gesturepad`:
+- 
 
 `GlassToKey`:
 0. Fit layout to image
