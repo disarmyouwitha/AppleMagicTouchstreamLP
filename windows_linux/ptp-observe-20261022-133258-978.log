@@ -1,0 +1,6 @@
+PTP_STATUS initial present=True enabled=True active=True externalMouse=False
+START utc=2026-10-22T18:33:02.7773432Z gate=False osToggle=False devices=2
+DEVICE tag=0:23B5C8AF path=\\?\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col01#9&b192f03&0&0000#{4d1e55b2-f16f-11cf-88cb-001111000030}
+DEVICE tag=1:4390FD57 path=\\?\HID#{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col02#8&1efeaad8&2&0001#{4d1e55b2-f16f-11cf-88cb-001111000030}
+PTP_STATUS second=0.06 enabled=True active=True externalMouse=False
+END utc=2026-10-22T18:33:27.8157624Z

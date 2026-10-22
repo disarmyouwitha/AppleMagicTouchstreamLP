@@ -1,0 +1,428 @@
+[
+  {
+    "InstanceId": "HID\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324&COL03\\8&1EFEAAD8&2&0002",
+    "Class": "HIDClass",
+    "Name": "Microsoft Input Configuration Device",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "10.0.26100.1150"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": []
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "mtconfig.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Microsoft"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324\\7&8f143f&0&D0C050CCF590_C00000000"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col03",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d&Col03",
+          "HID\\VID_004C&UP:000D_U:000E",
+          "HID_DEVICE_UP:000D_U:000E",
+          "HID_DEVICE"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "String",
+        "Data": "MTConfig"
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "Empty",
+        "Data": null
+      }
+    }
+  },
+  {
+    "InstanceId": "BTHENUM\\{00001200-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324\\7&8F143F&0&D0C050CCF590_C00000000",
+    "Class": "Bluetooth",
+    "Name": "Device Identification Service",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "10.0.26100.9711"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": [
+          "BTHENUM\\{00001200-0000-1000-8000-00805f9b34fb}",
+          "BTHENUM\\{00001200-0000-1000-8000-00805f9b34fb}_GENERIC"
+        ]
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "bth.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Microsoft"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "BTH\\MS_BTHBRB\\6&1aac2cac&0&1"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "BTHENUM\\{00001200-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324",
+          "BTHENUM\\{00001200-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "Empty",
+        "Data": null
+      }
+    }
+  },
+  {
+    "InstanceId": "BTHENUM\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324\\7&8F143F&0&D0C050CCF590_C00000000",
+    "Class": "HIDClass",
+    "Name": "Apple Bluetooth Precision Trackpad",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "6.1.8000.6"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "StringList",
+        "Data": [
+          "ApplePrecisionTrackpadBluetooth"
+        ]
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": [
+          "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}",
+          "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_GENERIC"
+        ]
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "oem94.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Apple"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "BTH\\MS_BTHBRB\\6&1aac2cac&0&1"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324",
+          "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "String",
+        "Data": "HidBth"
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01\\8&1efeaad8&2&0000",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col02\\8&1efeaad8&2&0001",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col03\\8&1efeaad8&2&0002"
+        ]
+      }
+    }
+  },
+  {
+    "InstanceId": "HID\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324&COL01&COL02\\9&B192F03&0&0001",
+    "Class": "HIDClass",
+    "Name": "Microsoft Input Configuration Device",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "10.0.26100.1150"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": []
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "mtconfig.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Microsoft"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01\\8&1efeaad8&2&0000"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col02",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d&Col01&Col02",
+          "HID\\VID_004C&UP:0001_U:0002&Col02",
+          "HID\\HID_DEVICE_SYSTEM_MOUSE&Col02",
+          "HID\\HID_DEVICE_UP:0001_U:0002&Col02",
+          "HID\\HID_DEVICE&Col02",
+          "HID\\VID_8910&UP:000D_U:000E",
+          "HID_DEVICE_UP:000D_U:000E",
+          "HID_DEVICE"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "String",
+        "Data": "MTConfig"
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "Empty",
+        "Data": null
+      }
+    }
+  },
+  {
+    "InstanceId": "HID\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324&COL01\\8&1EFEAAD8&2&0000",
+    "Class": "HIDClass",
+    "Name": "Apple Multi-touch Trackpad HID Filter",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "2025.3980.1.1000"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "StringList",
+        "Data": [
+          "AmtPtpHidFilter"
+        ]
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": []
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "oem149.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Bingxing Wang, Vito Plantamura"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324\\7&8f143f&0&D0C050CCF590_C00000000"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d&Col01",
+          "HID\\VID_004C&UP:0001_U:0002",
+          "HID_DEVICE_SYSTEM_MOUSE",
+          "HID_DEVICE_UP:0001_U:0002",
+          "HID_DEVICE"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "String",
+        "Data": "mshidkmdf"
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col01\\9&b192f03&0&0000",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col02\\9&b192f03&0&0001"
+        ]
+      }
+    }
+  },
+  {
+    "InstanceId": "HID\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324&COL01&COL01\\9&B192F03&0&0000",
+    "Class": "HIDClass",
+    "Name": "HID-compliant touch pad",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "10.0.26100.9711"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": []
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "input.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Microsoft"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01\\8&1efeaad8&2&0000"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col01&Col01",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d&Col01&Col01",
+          "HID\\VID_004C&UP:0001_U:0002&Col01",
+          "HID\\HID_DEVICE_SYSTEM_MOUSE&Col01",
+          "HID\\HID_DEVICE_UP:0001_U:0002&Col01",
+          "HID\\HID_DEVICE&Col01",
+          "HID\\VID_8910&UP:000D_U:0005",
+          "HID_DEVICE_UP:000D_U:0005",
+          "HID_DEVICE"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "Empty",
+        "Data": null
+      }
+    }
+  },
+  {
+    "InstanceId": "HID\\{00001124-0000-1000-8000-00805F9B34FB}_VID&0001004C_PID&0324&COL02\\8&1EFEAAD8&2&0001",
+    "Class": "HIDClass",
+    "Name": "Apple Multi-touch Auxiliary Services",
+    "Status": "OK",
+    "Properties": {
+      "DEVPKEY_Device_DriverVersion": {
+        "Type": "String",
+        "Data": "2025.3980.1.1000"
+      },
+      "DEVPKEY_Device_LowerFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_CompatibleIds": {
+        "Type": "StringList",
+        "Data": []
+      },
+      "DEVPKEY_Device_DriverInfPath": {
+        "Type": "String",
+        "Data": "oem149.inf"
+      },
+      "DEVPKEY_Device_DriverProvider": {
+        "Type": "String",
+        "Data": "Bingxing Wang, Vito Plantamura"
+      },
+      "DEVPKEY_Device_Parent": {
+        "Type": "String",
+        "Data": "BTHENUM\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324\\7&8f143f&0&D0C050CCF590_C00000000"
+      },
+      "DEVPKEY_Device_ContainerId": {
+        "Type": "Guid",
+        "Data": "{C9BEBBDD-0B84-5A53-ACB3-454DC6A699EC}"
+      },
+      "DEVPKEY_Device_UpperFilters": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_HardwareIds": {
+        "Type": "StringList",
+        "Data": [
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_VID&0001004c_PID&0324&Col02",
+          "HID\\{00001124-0000-1000-8000-00805f9b34fb}_LOCALMFG&005d&Col02",
+          "HID\\VID_004C&UP:000D_U:0005",
+          "HID_DEVICE_UP:000D_U:0005",
+          "HID_DEVICE"
+        ]
+      },
+      "DEVPKEY_Device_Service": {
+        "Type": "Empty",
+        "Data": null
+      },
+      "DEVPKEY_Device_Children": {
+        "Type": "Empty",
+        "Data": null
+      }
+    }
+  }
+]

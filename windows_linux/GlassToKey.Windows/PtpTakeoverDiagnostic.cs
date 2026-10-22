@@ -82,8 +82,9 @@ internal sealed class PtpTakeoverDiagnostic : IDisposable
             _timer.Tick += Tick;
             _timer.Start();
         }
-        catch
+        catch (Exception ex)
         {
+            Queue($"STARTUP_FAULT {ex}");
             Dispose();
             throw;
         }
