@@ -481,3 +481,11 @@ The user ran the corrected interactive test and observed the synthetic jump. The
 ## Windows app integration
 
 At the user's request, Mouse Takeover is now integrated below the decoder selectors in Windows GlassToKey. It is session-only and defaults off, with a continuous checkbox, 30-second test, status, global Ctrl+Alt+R release (matching Mac Control+Option+R), and tray release/status. See [WINDOWS_MOUSE_TAKEOVER.md](WINDOWS_MOUSE_TAKEOVER.md) for current behavior and safety/lifecycle details. The original standalone test's F10/Escape shortcuts remain diagnostic-specific; the main app uses Ctrl+Alt+R and preserves ordinary Escape behavior. The Mac source was read for reference only and was not modified.
+
+## Positive production-build gesture observation
+
+The user reports that the normal Windows Release build also appears to prevent Windows gestures on their setup. The original movement-only gate passed wheel/buttons, whereas Mouse Takeover blocks those too. The integrated app uses the same broad filter as the later 30-second diagnostic; it additionally runs the real engine and continuous lease. No MIT/private setter, global PTP toggle, driver change, or gesture-setting write was added. Record this as a successful user observation without claiming every shell-action path is universally intercepted. [Detailed comparison](WINDOWS_MOUSE_TAKEOVER.md#release-build-feedback-native-gestures-appear-suppressed).
+
+## Confirmed three-finger shell-action exception
+
+The user confirmed a configured Windows three-finger action still fires during Mouse Takeover and accepts the limitation. A read-only actual-user registry query found ThreeFingerSlideEnabled=1, matching the observation. The four standard slide/tap preferences offer a best-effort warning signal, with missing values treated as Unknown rather than Disabled. [Warning design, exact observed values, and API limitations](WINDOWS_MOUSE_TAKEOVER.md#confirmed-remaining-conflict-and-warning-detection). This corrects the earlier tentative all-gestures-suppressed observation; no settings were changed.

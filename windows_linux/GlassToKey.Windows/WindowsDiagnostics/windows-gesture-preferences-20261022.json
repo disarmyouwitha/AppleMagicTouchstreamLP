@@ -1,0 +1,13 @@
+{
+  "date": "2026-10-22",
+  "scope": "Read-only actual interactive-user HKCU; approved host execution, not sandbox account",
+  "registryPath": "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\PrecisionTouchPad",
+  "values": {
+    "ThreeFingerSlideEnabled": 1,
+    "ThreeFingerTapEnabled": 0,
+    "FourFingerSlideEnabled": 0,
+    "FourFingerTapEnabled": 0,
+    "CustomThreeFingerTap": 0
+  },
+  "limitations": "Registry signal is not a documented complete per-device effective-binding API. No Windows settings were changed."
+}
