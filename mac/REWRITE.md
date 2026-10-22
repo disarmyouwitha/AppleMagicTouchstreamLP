@@ -21,7 +21,7 @@
 ===
 1. For AppleMagicTouchstreamLP to make it the default layout loaded.. do I just need to save it as `GLASSTOKEY_DEFAULT_KEYMAP.json?`
 2. Is "Trackpad Takeover" saved with the keymap settings? Should it be? 
-3. Fix touchstream Layout (space) and test!
+3. Please allow me to edit Column Tuning for the TouchStream layout temporarily, I need to fix some of the positions. [TouchStream uses traced left/right key positions. Select a key to edit it's action] (We should lock rotation)
 4. Copy touchstream Layout from AMT to GTK!
 ===
 

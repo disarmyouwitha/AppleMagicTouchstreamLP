@@ -743,18 +743,18 @@ struct ContentView: View {
             }
             Divider()
             VStack(spacing: 12) {
-                Picker("Inspector", selection: $inspectorTab) {
-                    Text("Keyboard").tag("Keyboard")
-                    Text("Gestures").tag("Gestures")
-                }
-                .pickerStyle(.segmented)
+                EqualWidthInspectorPicker(selection: $inspectorTab)
+                    .frame(maxWidth: .infinity)
                 if inspectorTab == "Gestures" {
                     GestureInspectorPanel(controller: viewModel.gestures, takeover: nativeTakeover)
                 } else {
-                    HStack(spacing: 12) {
-                        Button("Import keymap", action: importKeymap)
-                        Button("Export keymap", action: exportKeymap)
-                        Spacer(minLength: 0)
+                    HStack(spacing: 8) {
+                        Button(action: importKeymap) {
+                            Text("Import keymap").frame(maxWidth: .infinity)
+                        }
+                        Button(action: exportKeymap) {
+                            Text("Export keymap").frame(maxWidth: .infinity)
+                        }
                     }
                     .buttonStyle(.bordered)
                     rightSidebarView
@@ -4917,4 +4917,36 @@ struct ContentView: View {
 
 #Preview {
     ContentView()
+}
+
+/// Native segmented control with an explicit equal split across the inspector.
+private struct EqualWidthInspectorPicker: NSViewRepresentable {
+    @Binding var selection: String
+    private static let options = ["Keyboard", "Gestures"]
+
+    func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
+
+    func makeNSView(context: Context) -> NSSegmentedControl {
+        let control = NSSegmentedControl(labels: Self.options, trackingMode: .selectOne,
+            target: context.coordinator, action: #selector(Coordinator.select(_:)))
+        control.segmentDistribution = .fillEqually
+        control.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        control.setAccessibilityLabel("Keyboard or Gestures")
+        return control
+    }
+
+    func updateNSView(_ control: NSSegmentedControl, context: Context) {
+        context.coordinator.selection = $selection
+        control.selectedSegment = Self.options.firstIndex(of: selection) ?? 0
+    }
+
+    @MainActor
+    final class Coordinator: NSObject {
+        var selection: Binding<String>
+        init(selection: Binding<String>) { self.selection = selection }
+        @objc func select(_ control: NSSegmentedControl) {
+            guard EqualWidthInspectorPicker.options.indices.contains(control.selectedSegment) else { return }
+            selection.wrappedValue = EqualWidthInspectorPicker.options[control.selectedSegment]
+        }
+    }
 }
