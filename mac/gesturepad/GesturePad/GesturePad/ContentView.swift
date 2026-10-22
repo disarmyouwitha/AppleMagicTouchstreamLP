@@ -10,7 +10,7 @@ struct ContentView: View {
     static let trackpadWidthMM: CGFloat = 160
     static let trackpadHeightMM: CGFloat = 114.9
     static let displayScale: CGFloat = 2.7
-    @State private var selectedGesture: GesturePane = .pointClick
+    @State private var selectedGesture: GesturePane = .twoFingers
     @State private var editingHand: GestureHandScope = .both
     @State private var leftPeakPressure = 0
     @State private var rightPeakPressure = 0
@@ -40,10 +40,13 @@ struct ContentView: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
-            ScrollView([.horizontal, .vertical]) {
-                workspace
-                    .padding(20)
+        HStack(alignment:.top,spacing: 0) {
+            GeometryReader { viewport in
+                ScrollView([.horizontal, .vertical]) {
+                    workspace
+                        .padding(20)
+                        .frame(minWidth:viewport.size.width,minHeight:viewport.size.height,alignment:.topLeading)
+                }
             }
             Divider()
             GestureSidebar(selection:$selectedGesture,hand:$editingHand) {
@@ -72,7 +75,7 @@ struct ContentView: View {
                 }, onRefresh: { viewModel.refreshDevicesAndListeners() },
                 takeoverControls: { nativeFilterControls })
             if let left = viewModel.leftDevice, left.deviceIDNumeric == viewModel.rightDevice?.deviceIDNumeric {
-                Text("The same trackpad is selected on both sides. Enabled gestures combine; left sensitivity takes priority.")
+                Text("The same trackpad is selected on both sides. Left actions take priority; Right is used where Left is None. Left sensitivity applies.")
                     .font(.caption).foregroundStyle(.secondary)
             }
             if let state = viewModel.replayTimelineState { replayTimelineView(state) }
@@ -108,39 +111,37 @@ struct ContentView: View {
     }
 
     @ViewBuilder private var gestureSettings: some View {
-        switch selectedGesture {
-        case .pointClick:
-            gestureToggle("2-finger mouse",feature:.mouse)
+        ForEach(selectedGesture.triggers) { trigger in
+            gestureActionMenu(trigger)
+        }
+        if selectedActions.contains(where:{ $0.requiresPointerProfile }) {
             sensitivityControl("Pointer sensitivity",kind:.pointer)
-            gestureToggle("2-finger tap to click",feature:.tap)
-        case .dragDoubleClick:
-            gestureToggle("3-finger drag/select",feature:.drag)
-            gestureToggle("3-finger tap to double-click",feature:.doubleTap)
-            sensitivityControl("Pointer sensitivity",kind:.pointer)
-        case .scroll:
-            gestureToggle("4-finger scroll",feature:.scroll)
+        }
+        if selectedActions.contains(.scroll) {
             sensitivityControl("Scroll sensitivity",kind:.scroll)
-        case .rightClick:
-            gestureToggle("Spread thumb + 2 fingertips: right-click",feature:.rightClick)
         }
     }
 
-    private func gestureToggle(_ title: String, feature: GestureFeature) -> some View {
-        let value = hidBlackhole.handSettings.enabled(feature,in:editingHand)
-        let status = hidBlackhole.gestureStatus(feature,scope:editingHand)
-        return VStack(alignment:.leading,spacing:4) {
-            ScopedGestureCheckbox(title:title,value:value) { enabled in
-                hidBlackhole.setGestureEnabled(feature,enabled,scope:editingHand)
-            }
-            .frame(height:20).fixedSize(horizontal:true,vertical:false)
-            if value == nil {
-                Text("Mixed — Left: \(hidBlackhole.handSettings.left[feature] ? "On" : "Off") · Right: \(hidBlackhole.handSettings.right[feature] ? "On" : "Off")")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if takeoverPreference.enabled && value != false && status != "Active" {
-                Text(status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+    private var selectedActions: [GestureAction] {
+        let settings = hidBlackhole.handSettings
+        return selectedGesture.triggers.flatMap { trigger in
+            switch editingHand {
+            case .left: return [settings.left.bindings.action(for:trigger)]
+            case .right: return [settings.right.bindings.action(for:trigger)]
+            case .both: return [settings.left.bindings.action(for:trigger),settings.right.bindings.action(for:trigger)]
             }
         }
+    }
+
+    private func gestureActionMenu(_ trigger: GestureTrigger) -> some View {
+        let settings = hidBlackhole.handSettings
+        let value = settings.action(trigger,in:editingHand)
+        let status = hidBlackhole.gestureStatus(trigger,scope:editingHand)
+        return GestureActionPickerRow(trigger:trigger,value:value,
+            leftAction:settings.left.bindings.action(for:trigger),rightAction:settings.right.bindings.action(for:trigger),
+            status:status,showsStatus:takeoverPreference.enabled) { action in
+                hidBlackhole.setGestureAction(action,for:trigger,scope:editingHand)
+            }
     }
 
     private func sensitivityControl(_ title: String, kind: GestureSensitivity) -> some View {
@@ -339,38 +340,41 @@ private struct TrackpadRefreshButton: View {
 
 
 enum GesturePane: String, CaseIterable, Identifiable {
-    case pointClick, dragDoubleClick, scroll, rightClick
+    case twoFingers, threeFingers, fourFingers, thumbTwo
     var id: String { rawValue }
     var group: String {
         switch self {
-        case .pointClick: return "2 fingers"
-        case .dragDoubleClick: return "3 fingers"
-        case .scroll: return "4 fingers"
-        case .rightClick: return "Thumb + 2 fingers"
+        case .twoFingers: return "2 fingers"; case .threeFingers: return "3 fingers"
+        case .fourFingers: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
         }
     }
     var title: String {
         switch self {
-        case .pointClick: return "Point & Click"
-        case .dragDoubleClick: return "Drag & Double-Click"
-        case .scroll: return "Scroll & Pan"
-        case .rightClick: return "Right-Click"
+        case .twoFingers,.threeFingers: return "Move & Tap"
+        case .fourFingers: return "Move"
+        case .thumbTwo: return "Tap"
         }
     }
     var summary: String {
         switch self {
-        case .pointClick: return "Move with two fingertips, or tap and lift for a click."
-        case .dragDoubleClick: return "Move three fingers to drag or select; tap to double-click."
-        case .scroll: return "Move four fingers to scroll, with momentum after lift."
-        case .rightClick: return "Tap with a spread thumb and two fingertips, then lift to right-click."
+        case .twoFingers: return "Choose actions for two-finger movement and tapping."
+        case .threeFingers: return "Choose actions for three-finger movement and tapping."
+        case .fourFingers: return "Choose an action for four-finger movement."
+        case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
+        }
+    }
+    var triggers: [GestureTrigger] {
+        switch self {
+        case .twoFingers: return [.twoFingerMove,.twoFingerTap]
+        case .threeFingers: return [.threeFingerMove,.threeFingerTap]
+        case .fourFingers: return [.fourFingerMove]
+        case .thumbTwo: return [.thumbTwoTap]
         }
     }
     var activeFingers: Set<Int> {
         switch self {
-        case .pointClick: return [1,2]
-        case .dragDoubleClick: return [1,2,3]
-        case .scroll: return [1,2,3,4]
-        case .rightClick: return [0,2,3]
+        case .twoFingers: return [1,2]; case .threeFingers: return [1,2,3]
+        case .fourFingers: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
         }
     }
 }
@@ -431,7 +435,7 @@ struct GestureSidebar<Options: View>: View {
                 GestureChordIcon(gesture:gesture,hand:hand,selected:selected).frame(width:48,height:30)
                 Text(gesture.title).font(.system(size:14)).lineLimit(1)
                 Spacer(minLength:0)
-                if gesture == .rightClick {
+                if gesture == .thumbTwo {
                     Text("Spread").font(.system(size:11,weight:.medium))
                         .padding(.horizontal,5).padding(.vertical,2)
                         .overlay(Capsule().stroke(selected ? Color.white.opacity(0.6) : Color.secondary.opacity(0.5)))
@@ -461,7 +465,7 @@ struct GestureChordIcon: View {
             let cellWidth = size.width / CGFloat(sides.count)
             let active = gesture.activeFingers
             for (handIndex,mirrored) in sides.enumerated() {
-                let points: [CGPoint] = gesture == .rightClick
+                let points: [CGPoint] = gesture == .thumbTwo
                     ? [CGPoint(x:0.1,y:0.85),CGPoint(x:0.34,y:0.33),CGPoint(x:0.55,y:0.2),CGPoint(x:0.76,y:0.28),CGPoint(x:0.94,y:0.5)]
                     : [CGPoint(x:0.12,y:0.8),CGPoint(x:0.3,y:0.36),CGPoint(x:0.5,y:0.2),CGPoint(x:0.7,y:0.3),CGPoint(x:0.88,y:0.49)]
                 let radius = min(cellWidth/10,size.height/9)
@@ -471,9 +475,11 @@ struct GestureChordIcon: View {
                     let y = point.y*size.height
                     let shape = Path(ellipseIn:CGRect(x:x-radius,y:y-radius,width:radius*2,height:radius*2))
                     if active.contains(index) {
-                        context.fill(shape,with:.color(selected ? .white : .orange))
+                        let color = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))
+                        context.fill(shape,with:.color(color))
+                        context.stroke(shape,with:.color(selected ? .white.opacity(0.95) : .white.opacity(0.65)),lineWidth:1)
                     } else {
-                        context.stroke(shape,with:.color(selected ? .white.opacity(0.55) : .secondary.opacity(0.55)),lineWidth:1)
+                        context.stroke(shape,with:.color(Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1))).opacity(selected ? 0.9 : 0.5)),lineWidth:1)
                     }
                 }
             }
@@ -483,30 +489,32 @@ struct GestureChordIcon: View {
 }
 
 
-/// Native mixed-state checkbox: clicking a mixed Both value enables both sides.
-struct ScopedGestureCheckbox: NSViewRepresentable {
-    let title: String
-    let value: Bool?
-    let action: @MainActor (Bool) -> Void
-    func makeCoordinator() -> Coordinator { Coordinator(value:value,action:action) }
-    func makeNSView(context: Context) -> NSButton {
-        let button = NSButton(checkboxWithTitle:title,target:context.coordinator,action:#selector(Coordinator.changed(_:)))
-        button.allowsMixedState = true
-        return button
-    }
-    func updateNSView(_ button: NSButton, context: Context) {
-        button.title = title
-        button.state = value.map { $0 ? .on : .off } ?? .mixed
-        context.coordinator.value = value; context.coordinator.action = action
-    }
-    @MainActor final class Coordinator: NSObject {
-        var value: Bool?
-        var action: @MainActor (Bool) -> Void
-        init(value: Bool?, action: @escaping @MainActor (Bool) -> Void) { self.value = value; self.action = action }
-        @objc func changed(_ button: NSButton) {
-            let enabled = !(value ?? false)
-            value = enabled; button.state = enabled ? .on : .off
-            action(enabled)
+/// A value-only action editor; production wiring decides the hand(s) to update.
+struct GestureActionPickerRow: View {
+    let trigger: GestureTrigger
+    let value: GestureAction?
+    let leftAction: GestureAction
+    let rightAction: GestureAction
+    let status: String
+    let showsStatus: Bool
+    let apply: @MainActor (GestureAction) -> Void
+    var body: some View {
+        VStack(alignment:.leading,spacing:5) {
+            Text(trigger.title).font(.subheadline).fontWeight(.medium)
+            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
+                if let action { apply(action) }
+            })) {
+                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
+                ForEach(trigger.allowedActions) { action in Text(action.title).tag(Optional(action)) }
+            }
+            .pickerStyle(.menu)
+            if value == nil {
+                Text("Left: \(leftAction.title) · Right: \(rightAction.title)")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            if showsStatus && value != .disabled && status != "Active" {
+                Text(status).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
         }
     }
 }

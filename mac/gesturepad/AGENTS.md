@@ -454,3 +454,18 @@ Left/Right/Both settings and all setters/status/mixed-state behavior. Stack sens
 values/sliders to fit. Global Trackpad Takeover goes inside the physical Left/Right
 picker panel, with no separate envelope; ownership semantics and safeguards stay
 unchanged. Preserve live/replay visuals. UI only, no recognition/native changes.
+
+
+## Configurable gesture actions (2026-10-21; current user request)
+
+Replace gesture feature checkboxes with compatible Action menus per input:
+movement -> None/Pointer/Drag/Scroll; tap -> None/Primary/Double/Secondary.
+Recognizers return neutral GestureTrigger inputs; live dispatch resolves the
+per-hand GestureActionBindings. Factory defaults preserve accepted behavior.
+Persist bindings and gains under GesturePad.handGestureBindings.v1; takeover
+enabling preserves assignments, superseding earlier re-enable/process-local
+policies. Scope Mixed applies chosen action to both; duplicate pad uses Left
+non-None binding then Right fallback, Left gain. Preserve all release/ownership/
+AX/profile/live-only guards and accepted thresholds. Changes reset active output.
+Use anatomical colors for sidebar diagrams and align workspace to top.
+No auto-launch/hardware test; build/install and leave closed.

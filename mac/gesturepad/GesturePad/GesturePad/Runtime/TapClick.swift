@@ -124,7 +124,7 @@ struct PrimaryTapClickOutput {
 
 /// Activation evidence only: retain the shared latch once this chord has won.
 /// Millimetre limits are provisional ergonomics, not Apple's internal thresholds.
-enum ThreeFingerDragChord {
+enum ThreeFingerRowChord {
     static func accepts<C: Collection>(_ contacts: C) -> Bool where C.Element == OMSRawTouch {
         var points = SIMD8<Double>(repeating:0)
         var count = 0
@@ -217,7 +217,7 @@ enum DragButtonInterference {
 /// Anatomical classification chooses a discrete action; the shared count tap
 /// recognizer still owns timing, movement, contact identity and cancellation.
 struct ThreeFingerTapRecognizer {
-    enum Action: Equatable { case doubleClick, rightClick }
+    typealias Action = GestureTrigger
     private struct Identity {
         var sawThumb = false
         var matched = false
@@ -231,8 +231,14 @@ struct ThreeFingerTapRecognizer {
     mutating func cancel(device: UInt64) { timing.cancel(device:device); identities[device] = nil }
     mutating func invalidate(device: UInt64) { timing.invalidate(device:device); identities[device] = nil }
     mutating func reset() { timing.reset(); identities.removeAll(keepingCapacity:true) }
+    // Compatibility wrapper for count-based diagnostic callers.
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
-        gestureActive: Bool = false, doubleClick: Bool, rightClick: Bool) -> Action? where C.Element == OMSRawTouch {
+        gestureActive: Bool = false, doubleClick: Bool, rightClick: Bool) -> GestureTrigger? where C.Element == OMSRawTouch {
+        recognize(device:device,time:time,contacts:contacts,gestureActive:gestureActive,
+            ordinaryEnabled:doubleClick,thumbEnabled:rightClick)
+    }
+    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+        gestureActive: Bool = false, ordinaryEnabled: Bool, thumbEnabled: Bool) -> GestureTrigger? where C.Element == OMSRawTouch {
         let completed = timing.process(device:device,time:time,contacts:contacts,gestureActive:gestureActive)
         var identity = identities[device] ?? Identity()
         var count = 0, mask = 0
@@ -271,9 +277,9 @@ struct ThreeFingerTapRecognizer {
             identities[device] = nil
             guard completed else { return nil }
             if identity.sawThumb {
-                return rightClick && identity.matched && !identity.rejected ? .rightClick : nil
+                return thumbEnabled && identity.matched && !identity.rejected ? .thumbTwoTap : nil
             }
-            return doubleClick ? .doubleClick : nil
+            return ordinaryEnabled ? .threeFingerTap : nil
         }
         if identity.matched && identity.handID == 0 { identity.handID = handID }
         // Provisional app geometry, not recovered DSP coefficients: a separated
@@ -306,3 +312,29 @@ enum SecondaryTapClickOutput {
         return PrimaryTapClickOutput.Events(down:down,up:up)
     }
 }
+
+
+/// Action dispatch is separate from tap recognition. Build the complete sequence
+/// before live code posts any edge; tests can inspect it without posting.
+enum GestureTapActionOutput {
+    static func events(action: GestureAction, location: CGPoint, time: Double,
+        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput) -> [CGEvent]? {
+        switch action {
+        case .primaryClick:
+            guard let pair = clicks.events(location:location,time:time,doubleClickInterval:doubleClickInterval,flags:flags) else { return nil }
+            return [pair.down,pair.up]
+        case .primaryDoubleClick:
+            guard let sequence = PrimaryTapClickOutput.doubleClickEvents(location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [sequence.first.down,sequence.first.up,sequence.second.down,sequence.second.up]
+        case .secondaryClick:
+            guard let pair = SecondaryTapClickOutput.events(location:location,flags:flags) else { return nil }
+            clicks.reset()
+            return [pair.down,pair.up]
+        default: return nil
+        }
+    }
+}
+
+// Historical diagnostic name for the same compact-row input geometry.
+typealias ThreeFingerDragChord = ThreeFingerRowChord

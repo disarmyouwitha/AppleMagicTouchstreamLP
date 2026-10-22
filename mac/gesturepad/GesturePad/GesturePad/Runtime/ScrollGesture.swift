@@ -72,27 +72,33 @@ struct FourFingerScrollEngine {
     }
 }
 
-enum LatchedGesture: Hashable, Sendable { case mouse, scroll, drag }
+typealias LatchedGesture = GestureTrigger
 
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
     private var engine: GestureSessionEngine<LatchedGesture>
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
-            GestureActivationRule(gesture:.drag,activationCount:3,minimumMovementMM:0.35),
-            GestureActivationRule(gesture:.scroll,activationCount:4,minimumMovementMM:0.2),
-            GestureActivationRule(gesture:.mouse,activationCount:2,minimumMovementMM:mouseActivationMM)
+            GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
+            GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
+            GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
         ])
     }
     mutating func reset() { engine.reset() }
     mutating func reset(device: UInt64) { engine.cancel(device:device) }
     mutating func update<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool, drag: Bool = false) -> GestureSessionUpdate<LatchedGesture> where C.Element == OMSRawTouch {
-        engine.process(device:device,time:time,touches:contacts,enabled: { gesture in
-            switch gesture { case .mouse: return mouse; case .scroll: return scroll; case .drag: return drag }
-        }, activationFilter: { gesture,_ in
-            gesture != .drag || ThreeFingerDragChord.accepts(contacts)
+        recognize(device:device,time:time,contacts:contacts,enabled: { trigger in
+            switch trigger {
+            case .twoFingerMove: return mouse; case .threeFingerMove: return drag; case .fourFingerMove: return scroll
+            default: return false
+            }
         })
+    }
+    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+        enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
+        engine.process(device:device,time:time,touches:contacts,enabled:enabled,
+            activationFilter:{ trigger,_ in trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts) })
     }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool, drag: Bool = false) -> (gesture: LatchedGesture, millimetres: CGPoint)? where C.Element == OMSRawTouch {

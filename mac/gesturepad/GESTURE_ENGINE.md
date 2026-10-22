@@ -16,16 +16,47 @@ changes, update this document, the implementation and relevant regression tests
 together. Report a source/specification mismatch rather than silently treating
 one as approval to change the other.
 
+## Configurable actions (current policy, 2026-10-21)
+
+Recognition identifies input gestures independently of their assigned actions.
+The inventory below lists factory presets, not hardcoded dispatch rules. This
+section supersedes historical references to feature checkboxes, process-local
+settings and re-enabling every feature when takeover is enabled.
+
+Each movement input offers **None**, **Move Pointer**, **Drag / Select** or
+**Scroll / Pan**. Each tap input offers **None**, **Click**, **Double-Click** or
+**Right-Click**. Incompatible bindings fail closed; keyboard actions are not
+implemented. Input thresholds, chord geometry and latching remain unchanged when
+an action changes. The existing models implement pointer acceleration, held drag,
+precise scroll/momentum and balanced click sequences after recognition.
+
+Left/Right/Both edits actual per-hand bindings. Both displays Mixed where needed;
+choosing an action applies it to both. Bindings and pointer/scroll sensitivities
+are saved as JSON under `GesturePad.handGestureBindings.v1` in UserDefaults.
+Missing or corrupt data falls back to mirrored factory presets. Enabling takeover
+preserves saved None/custom bindings. It does not reset them to factory defaults.
+Takeover itself remains a separate persistent opt-in, initially off.
+
+Selected native device IDs route settings to physical pads. Duplicate selection
+uses Left's non-None action, then Right's fallback, with Left sensitivity. The
+assigned action determines profile requirements and drag observer/scroll timer
+needs. Changing bindings releases held output and clears active sessions/momentum
+before applying the new map. All existing ownership, Accessibility, live-only,
+external-button and stale-input guards remain mandatory.
+
+The menu examples use the shared anatomical finger palette. The trackpad workspace
+aligns to the top; action controls remain inside the right gesture inspector.
+
 ## 1. Gesture inventory
 
-| Gesture | Activation | Continuation | Normal completion | Output |
+| Gesture input | Activation | Continuation | Normal completion | Factory action |
 | --- | --- | --- | --- | --- |
-| Two-finger mouse | Exactly two active fingers and initial net movement of at least 0.35 mm | Any positive active finger count | All fingers up | Relative pointer movement |
-| Three-finger drag/select | Exactly three close, aligned non-thumb contacts and ≥ 0.35 mm motion | Any positive count after activation | All fingers up | Primary down, accelerated primary drag, primary up |
-| Four-finger scroll | Exactly four active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up; eligible release can start momentum | Horizontal/vertical precise scrolling |
+| Two-finger movement | Exactly two active fingers and initial net movement of at least 0.35 mm | Any positive active finger count | All fingers up | Relative pointer movement |
+| Three-finger row movement | Exactly three close, aligned non-thumb contacts and ≥ 0.35 mm motion | Any positive count after activation | All fingers up | Primary down, accelerated primary drag, primary up |
+| Four-finger movement | Exactly four active fingers and initial net movement of at least 0.2 mm | Any positive active finger count | All fingers up; eligible release can start momentum | Horizontal/vertical precise scrolling |
 | Two-finger tap | A short stationary pair satisfying the tap limits | Only the original two IDs, with bounded landing/lift skew | Both fingers up within the limits | One primary click |
 | Three-finger tap | A short stationary three-contact chord without an identified thumb, satisfying the tap limits | Only the original three IDs, bounded landing/lift skew | All three up within the limits | One primary double-click (two balanced click pairs) |
-| Thumb–middle–ring right-click | Short stationary tap with positively identified Thumb=1, Middle=3, Ring=4 | Original tracking IDs and bounded tap timing; no contradictory known identities | All fingers up within tap limits | One balanced secondary down/up pair |
+| Thumb + two fingertips tap | Short stationary spread chord with positively identified thumb and two known fingertips | Original tracking IDs and bounded tap timing; fingertip relabeling is allowed while thumb role and hand remain consistent | All fingers up within tap limits | One balanced secondary down/up pair |
 | Scroll momentum | Fresh, sufficiently fast release of an active scroll | Decelerates without fingers | Stop speed or duration reached | Momentum scroll events |
 
 One finger cannot start continuous motion. Three fingers can start a stationary double-click/right-click tap according to identity, or a moving drag chord. Extra fingers do not switch an established gesture. Tap recognition
@@ -43,7 +74,7 @@ edge cases have passed. The acceptance/evidence table below records that boundar
 Every output feature requires all of the following:
 
 1. Trackpad Takeover is enabled.
-2. The feature's checkbox is enabled.
+2. The gesture input has a compatible, non-None action assigned for this pad.
 3. The source pad is currently selected **and** actually owned through native FLTR.
 4. A successful transition has armed output; failed transitions leave it paused.
 5. Accessibility permission is granted.

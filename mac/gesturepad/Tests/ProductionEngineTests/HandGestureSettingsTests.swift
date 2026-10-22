@@ -1,4 +1,3 @@
-import AppKit
 import CoreGraphics
 import XCTest
 @testable import GesturePadRuntime
@@ -95,18 +94,5 @@ final class HandGestureSettingsTests: XCTestCase {
             XCTAssertEqual(combined.processMotion(device:22,time:time,millimetres:mm),right.processMotion(device:22,time:time,millimetres:mm))
         }
         XCTAssertNil(combined.processMotion(device:33,time:1,millimetres:CGPoint(x:1,y:0)))
-    }
-    @MainActor func testMixedCheckboxEnablesBothAndThenTogglesNormallyWithoutPosting() {
-        var settings = HandGestureSettings()
-        settings.set(.rightClick,enabled:false,in:.left)
-        let checkbox = NSButton(checkboxWithTitle:"Right-click",target:nil,action:nil)
-        let coordinator = ScopedGestureCheckbox.Coordinator(value:nil) { settings.set(.rightClick,enabled:$0,in:.both) }
-        checkbox.state = .mixed
-        coordinator.changed(checkbox)
-        XCTAssertEqual(checkbox.state,.on); XCTAssertEqual(settings.enabled(.rightClick,in:.both),true)
-        coordinator.changed(checkbox)
-        XCTAssertEqual(checkbox.state,.off); XCTAssertEqual(settings.enabled(.rightClick,in:.both),false)
-        coordinator.changed(checkbox)
-        XCTAssertEqual(checkbox.state,.on); XCTAssertEqual(settings.enabled(.rightClick,in:.both),true)
     }
 }
