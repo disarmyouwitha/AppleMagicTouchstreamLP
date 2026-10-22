@@ -783,3 +783,23 @@ edits, mixed/clamped gains, explicit/missing/swapped IDs, ownership filtering,
 duplicate selection, independent Apple-model gain equivalence and native mixed
 checkbox actions, all without posting or activating hardware. Hardware testing of
 per-hand routing remains pending; accepted recognition/feel constants are unchanged.
+
+
+## Right-side gesture inspector (2026-10-21)
+
+User moves the gesture menu to the right and widens it to420 points, matching
+GlassToKey's inspector width. The selected gesture's description, toggles,
+permission/profile status, independent hand controls and sensitivity options now
+expand beneath its sidebar row; remove the corresponding workspace options panel.
+Slider labels/values stack over the slider to fit mixed hand values without overflow.
+Left/Right/Both remains actual independent settings editing, not a preview mode.
+
+The global Trackpad Takeover checkbox and release/status text move inside the
+existing Left/Right physical-device selector panel, below the picker row. Remove
+the separate takeover envelope. This is placement only: it still takes over the
+selected device set and does not become a per-hand takeover toggle. Preserve
+persistent opt-in, selection transitions, shortcut and output/lifecycle safeguards.
+The workspace retains device pickers, replay controls and both live pad surfaces;
+recognition, per-hand settings, capture and schemas are unchanged. Default window
+width accommodates the wider inspector; horizontal workspace scrolling remains
+available on smaller screens.

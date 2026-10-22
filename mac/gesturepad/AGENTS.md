@@ -444,3 +444,13 @@ uses Left gain and explains this in UI. Keep global held-button ownership and al
 output reset/release safeguards. No recognizer/threshold/momentum/native/schema
 change. Update central spec and meaningful routing/mixed/gain tests. Build/install
 without automatically launching or activating live input.
+
+
+## Right gesture inspector / inline takeover (2026-10-21)
+
+User moves the gesture sidebar right and widens to420 points like GlassToKey.
+Options expand in the selected sidebar row, not the trackpad workspace. Keep actual
+Left/Right/Both settings and all setters/status/mixed-state behavior. Stack sensitivity
+values/sliders to fit. Global Trackpad Takeover goes inside the physical Left/Right
+picker panel, with no separate envelope; ownership semantics and safeguards stay
+unchanged. Preserve live/replay visuals. UI only, no recognition/native changes.

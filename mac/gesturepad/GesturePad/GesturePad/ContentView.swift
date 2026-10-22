@@ -41,13 +41,15 @@ struct ContentView: View {
 
     var body: some View {
         HStack(spacing: 0) {
-            GestureSidebar(selection:$selectedGesture,hand:$editingHand)
-                .frame(width:280)
-            Divider()
             ScrollView([.horizontal, .vertical]) {
                 workspace
                     .padding(20)
             }
+            Divider()
+            GestureSidebar(selection:$selectedGesture,hand:$editingHand) {
+                gestureDetails
+            }
+            .frame(width:420)
         }
         .frame(minWidth: size.width * 2 + 329, minHeight: size.height + 400)
         .onReceive(viewModel.$replayTimelineState) { state in
@@ -67,16 +69,12 @@ struct ContentView: View {
                 onSelectRight: { device in
                     viewModel.selectRightDevice(device)
                     UserDefaults.standard.set(viewModel.rightDevice?.deviceID ?? "", forKey: GesturePadDefaultsKeys.rightDeviceID)
-                }, onRefresh: { viewModel.refreshDevicesAndListeners() })
-            nativeFilterControls
-                .padding(12)
-                .frame(maxWidth:.infinity,alignment:.leading)
-                .background(.quaternary,in:RoundedRectangle(cornerRadius:10))
+                }, onRefresh: { viewModel.refreshDevicesAndListeners() },
+                takeoverControls: { nativeFilterControls })
             if let left = viewModel.leftDevice, left.deviceIDNumeric == viewModel.rightDevice?.deviceIDNumeric {
                 Text("The same trackpad is selected on both sides. Enabled gestures combine; left sensitivity takes priority.")
                     .font(.caption).foregroundStyle(.secondary)
             }
-            gestureDetails
             if let state = viewModel.replayTimelineState { replayTimelineView(state) }
             VStack(alignment: .leading, spacing: 12) {
                 HStack(spacing: 16) {
@@ -96,22 +94,15 @@ struct ContentView: View {
 
     private var gestureDetails: some View {
         VStack(alignment:.leading,spacing:12) {
-            HStack(spacing:12) {
-                GestureChordIcon(gesture:selectedGesture,hand:editingHand,selected:false)
-                    .frame(width:72,height:42)
-                VStack(alignment:.leading,spacing:4) {
-                    Text(selectedGesture.title).font(.title2).bold()
-                    Text(selectedGesture.summary).foregroundStyle(.secondary)
-                }
-                Spacer()
-                if selectedGesture == .rightClick { Text("Spread").font(.caption).padding(.horizontal,8).padding(.vertical,3).background(.quaternary,in:Capsule()) }
-            }
+            Text(selectedGesture.summary)
+                .font(.callout).foregroundStyle(.secondary)
+                .fixedSize(horizontal:false,vertical:true)
             Divider()
             gestureSettings
             Text(editingHand == .both ? "Changes apply to both trackpads." : "Editing the \(editingHand.rawValue.lowercased()) trackpad settings.")
                 .font(.caption).foregroundStyle(.secondary)
         }
-        .padding(16)
+        .padding(12)
         .frame(maxWidth:.infinity,alignment:.leading)
         .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
     }
@@ -155,17 +146,20 @@ struct ContentView: View {
     private func sensitivityControl(_ title: String, kind: GestureSensitivity) -> some View {
         let settings = hidBlackhole.handSettings
         let value = settings.sensitivity(kind,in:editingHand)
-        return HStack(spacing:12) {
-            Text(title).font(.caption)
+        return VStack(alignment:.leading,spacing:6) {
+            HStack {
+                Text(title).font(.caption)
+                Spacer(minLength:4)
+                if let value {
+                    Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
+                } else {
+                    Text(String(format:"Mixed · L %.2f× / R %.2f×",settings.left[kind],settings.right[kind]))
+                        .font(.caption).monospacedDigit()
+                }
+            }
             Slider(value:Binding(get:{value ?? settings.left[kind]},set:{
                 hidBlackhole.setSensitivity(kind,$0,scope:editingHand)
-            }),in:0.25...2,step:0.01).frame(width:180)
-            if let value {
-                Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
-            } else {
-                Text(String(format:"Mixed · L %.2f× / R %.2f×",settings.left[kind],settings.right[kind]))
-                    .font(.caption).monospacedDigit()
-            }
+            }),in:0.25...2,step:0.01)
         }
     }
 
@@ -250,13 +244,14 @@ struct ContentView: View {
             millisecondsComponent
         )
     }
-    private struct DevicesSectionView: View {
+    private struct DevicesSectionView<TakeoverControls: View>: View {
         let availableDevices: [OMSDeviceInfo]
         let leftDevice: OMSDeviceInfo?
         let rightDevice: OMSDeviceInfo?
         let onSelectLeft: (OMSDeviceInfo?) -> Void
         let onSelectRight: (OMSDeviceInfo?) -> Void
         let onRefresh: () -> Void
+        @ViewBuilder let takeoverControls: () -> TakeoverControls
 
         var body: some View {
             VStack(alignment: .leading, spacing: 10) {
@@ -319,6 +314,8 @@ struct ContentView: View {
                         .padding(.top, 20)
                     }
                 }
+                Divider()
+                takeoverControls()
             }
             .padding(12)
             .background(
@@ -378,9 +375,10 @@ enum GesturePane: String, CaseIterable, Identifiable {
     }
 }
 
-struct GestureSidebar: View {
+struct GestureSidebar<Options: View>: View {
     @Binding var selection: GesturePane
     @Binding var hand: GestureHandScope
+    @ViewBuilder let options: () -> Options
     @State private var expanded = Set(GesturePane.allCases)
 
     var body: some View {
@@ -394,7 +392,7 @@ struct GestureSidebar: View {
                 .labelsHidden()
                 .pickerStyle(.segmented)
                 .controlSize(.small)
-                .frame(width:154)
+                .frame(width:190)
                 .help("Edit left, right, or both trackpad gesture settings.")
             }
             .padding(.horizontal,12).padding(.top,16)
@@ -406,6 +404,7 @@ struct GestureSidebar: View {
                             set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
                             gestureRow(gesture)
                                 .padding(.top,5)
+                            if selection == gesture { options().padding(.top,8) }
                         } label: {
                             HStack(spacing:8) {
                                 GestureChordIcon(gesture:gesture,hand:hand,selected:false).frame(width:48,height:28)

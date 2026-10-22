@@ -8,15 +8,19 @@
 > Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD 
 
 ===
+`GesturePad`:
+0. Lets make the dots the same as our hardcoded finger colors in the example
+1. Instead of using checkboxes we need to make each Gesture able to select an Action (from a dropdown) 
+> The code should reflect this. Gestures should not have hardcoded actions and should be configurable via the menu.
 
 
+2. ?Lets make the "hand" examples use the FingerWorks TouchStream hand examples (with my colorse) ?
 
+3. I think maybe instead, when the gesture menu is open it should expand to take the full view?
+> Lets ask Kara if we can borrow her menu idea!
 ===
 
-`GesturePad`:
-0. right click (thumb,middle,ring) using the finger identification
-1. In Gesturepad I think I want to start by removing the left/right trackpad contacts where it shows a list of each with the raw measurements.
-> Check out sidebar.jpg can we implement a menu like this?
+
 
 ===
 0. Copy GlassToKey to `GlassToKey_old` to preserve current release

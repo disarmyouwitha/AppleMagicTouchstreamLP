@@ -556,7 +556,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             contentRect: NSRect(
                 x: 0,
                 y: 0,
-                width: min(1280, (NSScreen.main?.visibleFrame.width ?? 1280) - 40),
+                width: min(1440, (NSScreen.main?.visibleFrame.width ?? 1440) - 40),
                 height: min(Self.configWindowDefaultHeight, (NSScreen.main?.visibleFrame.height ?? Self.configWindowDefaultHeight) - 60)
             ),
             styleMask: [.titled, .closable, .miniaturizable, .resizable],
