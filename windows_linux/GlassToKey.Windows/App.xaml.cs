@@ -17,6 +17,7 @@ public partial class App : Application
     private StatusTrayController? _trayController;
     private MainWindow? _configWindow;
     private ReaderOptions? _startupOptions;
+    private PtpTakeoverDiagnostic? _ptpDiagnostic;
     private bool _restartRequested;
     private bool _restartToTrayWhenConfigCloses = true;
 
@@ -58,6 +59,31 @@ public partial class App : Application
             }
 
             Shutdown(2);
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.PtpRestoreWatchdogLog))
+        {
+            ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            PtpRestoreWatchdog.Start(options.PtpRestoreWatchdogLog, () => Shutdown(0));
+            return;
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.PtpDiagnosticLog))
+        {
+            try
+            {
+                ShutdownMode = ShutdownMode.OnExplicitShutdown;
+                _ptpDiagnostic = new PtpTakeoverDiagnostic(options.PtpDiagnosticLog, options.PtpMovementGate,
+                    options.PtpOsToggleProbe,
+                    () => Shutdown(0));
+                _ptpDiagnostic.Start();
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine(ex);
+                Shutdown(8);
+            }
             return;
         }
 
@@ -228,6 +254,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        _ptpDiagnostic?.Dispose();
         if (_runtimeService != null)
         {
             _runtimeService.ModeIndicatorChanged -= OnRuntimeModeIndicatorChanged;

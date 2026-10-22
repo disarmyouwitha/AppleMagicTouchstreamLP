@@ -23,6 +23,10 @@ public sealed class ReaderOptions
     public string? RawAnalyzeOutputPath { get; private set; }
     public string? RawAnalyzeContactsOutputPath { get; private set; }
     public bool DecoderDebug { get; private set; }
+    public string? PtpDiagnosticLog { get; private set; }
+    public bool PtpMovementGate { get; private set; }
+    public bool PtpOsToggleProbe { get; private set; }
+    public string? PtpRestoreWatchdogLog { get; private set; }
 
     public bool StartInConfigUi { get; private set; }
     public bool StartInTrayOnly { get; private set; }
@@ -103,6 +107,18 @@ public sealed class ReaderOptions
                 case "--decoder-debug":
                     options.DecoderDebug = true;
                     break;
+                case "--ptp-diagnostic" when i + 1 < args.Length:
+                    options.PtpDiagnosticLog = args[++i];
+                    break;
+                case "--ptp-movement-gate":
+                    options.PtpMovementGate = true;
+                    break;
+                case "--ptp-os-toggle-probe":
+                    options.PtpOsToggleProbe = true;
+                    break;
+                case "--ptp-restore-watchdog" when i + 1 < args.Length:
+                    options.PtpRestoreWatchdogLog = args[++i];
+                    break;
                 case "--help":
                 case "-h":
                 case "/?":
@@ -110,6 +126,15 @@ public sealed class ReaderOptions
                 default:
                     break;
             }
+        }
+
+        if (options.PtpMovementGate && string.IsNullOrWhiteSpace(options.PtpDiagnosticLog))
+        {
+            throw new ArgumentException("--ptp-movement-gate requires --ptp-diagnostic <log-path>.");
+        }
+        if (options.PtpOsToggleProbe && (string.IsNullOrWhiteSpace(options.PtpDiagnosticLog) || options.PtpMovementGate))
+        {
+            throw new ArgumentException("--ptp-os-toggle-probe requires --ptp-diagnostic <log-path> and cannot be combined with --ptp-movement-gate.");
         }
 
         return options;

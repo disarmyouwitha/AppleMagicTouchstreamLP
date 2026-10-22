@@ -10,6 +10,9 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private const int WhMouseLl = 14;
     private const int HcAction = 0;
     private const int LlmhfInjected = 0x00000001;
+    private const int WmMouseMove = 0x0200;
+    private const int WmMouseWheel = 0x020A;
+    private const int WmMouseHWheel = 0x020E;
 
     private const int WmLButtonDown = 0x0201;
     private const int WmLButtonUp = 0x0202;
@@ -41,9 +44,11 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private HookProc? _hookProc;
     private IntPtr _hookHandle;
     private int _enabled;
+    private long _movementGateDeadline;
     private long _lastTrackedDeviceButtonEdgeTicks;
     private bool _disposed;
     public event Action? ClickObserved;
+    public event Action<MouseHookDiagnosticEvent>? DiagnosticEvent;
 
     public GlobalMouseClickSuppressor()
     {
@@ -91,6 +96,19 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         Volatile.Write(ref _enabled, enabled ? 1 : 0);
     }
 
+    // Enforced inside the hook: a stalled UI timer fails open.
+    public void GatePhysicalMovementFor(TimeSpan duration)
+    {
+        if (duration <= TimeSpan.Zero || duration > TimeSpan.FromSeconds(10))
+        {
+            throw new ArgumentOutOfRangeException(nameof(duration));
+        }
+        Interlocked.Exchange(ref _movementGateDeadline,
+            Stopwatch.GetTimestamp() + (long)(duration.TotalSeconds * Stopwatch.Frequency));
+    }
+
+    public void ReleaseMovementGate() => Interlocked.Exchange(ref _movementGateDeadline, 0);
+
     public void NotifyTrackedDeviceButtonEdge(long timestampTicks = 0)
     {
         long edgeTicks = timestampTicks > 0 ? timestampTicks : Stopwatch.GetTimestamp();
@@ -105,6 +123,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         }
 
         _disposed = true;
+        ReleaseMovementGate();
         SetEnabled(false);
         if (_hookHandle != IntPtr.Zero)
         {
@@ -114,6 +133,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
 
         _hookProc = null;
         ClickObserved = null;
+        DiagnosticEvent = null;
     }
 
     private IntPtr HookCallback(int nCode, IntPtr wParam, IntPtr lParam)
@@ -123,6 +143,27 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
             int message = unchecked((int)(long)wParam);
             bool isClick = IsClickMessage(message);
             bool isInjected = IsInjected(lParam);
+            if (message == WmMouseMove || message == WmMouseWheel || message == WmMouseHWheel)
+            {
+                try
+                {
+                    DiagnosticEvent?.Invoke(new MouseHookDiagnosticEvent(
+                        Stopwatch.GetTimestamp(), message,
+                        Marshal.ReadInt32(lParam, 0), Marshal.ReadInt32(lParam, 4),
+                        Marshal.ReadInt32(lParam, 8), Marshal.ReadInt32(lParam, 12),
+                        unchecked((uint)Marshal.ReadInt32(lParam, 16)),
+                        unchecked((ulong)Marshal.ReadIntPtr(lParam, IntPtr.Size == 8 ? 24 : 20).ToInt64())));
+                }
+                catch
+                {
+                    // Diagnostics must never break the input chain.
+                }
+            }
+            if (message == WmMouseMove && !isInjected &&
+                Stopwatch.GetTimestamp() < Interlocked.Read(ref _movementGateDeadline))
+            {
+                return (IntPtr)1;
+            }
             if (isClick && !isInjected)
             {
                 try
@@ -242,3 +283,7 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     [DllImport("user32.dll", SetLastError = true)]
     private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
+
+internal readonly record struct MouseHookDiagnosticEvent(
+    long StopwatchTicks, int Message, int X, int Y, int MouseData,
+    int Flags, uint WindowsTime, ulong ExtraInfo);
