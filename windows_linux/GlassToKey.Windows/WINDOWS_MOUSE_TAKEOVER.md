@@ -24,7 +24,7 @@ Continuous mode uses a short hook deadline renewed by the UI heartbeat. If UI pr
 
 ## Implementation and verification
 
-`MouseTakeoverController.cs` owns the session state, global shortcut, heartbeat, watchdog, and lifecycle release. Both the shared tray runtime and standalone live/capture Config route use the existing GlobalMouseClickSuppressor hook. The main Config UI and tray observe that state. Nothing auto-enables on startup.
+`MouseTakeoverController.cs` owns the session state, global shortcut, heartbeat, watchdog, and lifecycle release. Both the shared tray runtime and standalone live/capture Config route use the existing GlobalMouseInputHook. The main Config UI and tray observe that state. Nothing auto-enables on startup.
 
 The earlier Bluetooth hardware test established retained populated contacts and stable sampled cursor position except for injected movement: [measured result](WINDOWS_MOUSE_HOOK_FALLBACK.md#hardware-result-apple-bluetooth-1623-local). The integrated production UI still needs a short user check of checkbox/uncheck, Ctrl+Alt+R, test expiry, and the existing engine's outputs. Native scrolling/clicks/shell gestures and long-running/two-device behavior are separate checks. No takeover was activated during implementation.
 
@@ -63,3 +63,6 @@ Suggested copy: **Windows multi-finger gestures are enabled and may still run du
 An action can open `ms-settings:devices-touchpad` for user review; release Mouse Takeover before opening it so physical mouse input works in Settings. This is the touchpad page, not the touchscreen `devices-touch` page. The documented [TOUCHPAD_PARAMETERS_V1](https://learn.microsoft.com/en-us/windows/win32/api/winuser/ns-winuser-touchpad_parameters_v1) exposes pan/zoom/tap settings but no three/four-finger action bindings. Microsoft documents the [Touchpad Settings URI](https://learn.microsoft.com/en-us/windows/apps/develop/launch/launch-settings#devices) and [gesture customization UI](https://support.microsoft.com/en-us/windows/hardware/input-devices/touch-gestures-for-windows).
 
 This section records the feasible warning design; no detector, warning UI, or settings change was added in this research step.
+
+
+The Windows Keyboard/Mouse mode and its separate selective click filter have been removed. The global hook now observes mouse activity and implements only explicitly enabled takeover/diagnostic gates. It does not suppress clicks based on typing, layers, or an imported mode preference. The hand tray icon is static; takeover remains visible in the tooltip, release menu and Config status. See [input policy](WINDOWS_INPUT_POLICY.md).

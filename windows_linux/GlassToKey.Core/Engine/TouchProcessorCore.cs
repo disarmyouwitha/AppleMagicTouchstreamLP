@@ -61,6 +61,7 @@ internal sealed class TouchProcessorCore
 
     private TouchProcessorConfig _config;
     private bool _legacyGesturesEnabled = true;
+    private bool _unifiedInputPolicy;
     private bool _handReservedLeft, _handReservedRight;
     public void UseHandGestureRecognition() { _legacyGesturesEnabled = false; SetThreeFingerDragEnabled(false); }
 
@@ -251,6 +252,14 @@ internal sealed class TouchProcessorCore
         RefreshGestureActionsFromConfig();
     }
 
+    public void UseUnifiedInputPolicy()
+    {
+        _unifiedInputPolicy = true;
+        _keyboardModeEnabled = false;
+        _typingToggleActionsEnabled = false;
+        SetTypingEnabledState(true, Stopwatch.GetTimestamp(), TypingToggleSource.Api);
+    }
+
     public TouchProcessorConfig CurrentConfig => _config;
 
     public void ConfigureLayouts(KeyLayout leftLayout, KeyLayout rightLayout)
@@ -353,7 +362,7 @@ internal sealed class TouchProcessorCore
 
     public void SetKeyboardModeEnabled(bool enabled)
     {
-        _keyboardModeEnabled = enabled;
+        _keyboardModeEnabled = !_unifiedInputPolicy && enabled;
     }
 
     public void SetPointerIntentEnabled(bool enabled)
@@ -411,7 +420,7 @@ internal sealed class TouchProcessorCore
 
     public void SetTypingToggleActionsEnabled(bool enabled)
     {
-        _typingToggleActionsEnabled = enabled;
+        _typingToggleActionsEnabled = !_unifiedInputPolicy && enabled;
     }
 
     public void SetHapticsOnKeyDispatchEnabled(bool enabled)
@@ -2125,6 +2134,7 @@ internal sealed class TouchProcessorCore
 
     private void SetTypingEnabledState(bool enabled, long timestampTicks, TypingToggleSource source)
     {
+        enabled |= _unifiedInputPolicy;
         CaptureClockAnchor(timestampTicks);
         if (_typingEnabled == enabled)
         {

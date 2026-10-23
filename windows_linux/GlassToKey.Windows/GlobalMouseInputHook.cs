@@ -5,7 +5,7 @@ using System.Threading;
 
 namespace GlassToKey;
 
-internal sealed class GlobalMouseClickSuppressor : IDisposable
+internal sealed class GlobalMouseInputHook : IDisposable
 {
     private const int WhMouseLl = 14;
     private const int HcAction = 0;
@@ -39,24 +39,15 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     private const int WmNcXButtonUp = 0x00AC;
     private const int WmNcXButtonDblClk = 0x00AD;
 
-    private readonly uint _processId;
-    private static readonly long TrackedDeviceClickWindowTicks = Stopwatch.Frequency / 5; // 200 ms
     private HookProc? _hookProc;
     private IntPtr _hookHandle;
-    private int _enabled;
     private long _movementGateDeadline;
     private readonly MouseTakeoverGate _takeover = new();
     private int _takeoverReleaseKey = 0x79;
     private int _takeoverEscapeReleaseEnabled = 1;
-    private long _lastTrackedDeviceButtonEdgeTicks;
     private bool _disposed;
     public event Action? ClickObserved;
     public event Action<MouseHookDiagnosticEvent>? DiagnosticEvent;
-
-    public GlobalMouseClickSuppressor()
-    {
-        _processId = (uint)Environment.ProcessId;
-    }
 
     public bool IsInstalled => _hookHandle != IntPtr.Zero;
 
@@ -94,11 +85,6 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         return true;
     }
 
-    public void SetEnabled(bool enabled)
-    {
-        Volatile.Write(ref _enabled, enabled ? 1 : 0);
-    }
-
     // Enforced inside the hook: a stalled UI timer fails open.
     public void GatePhysicalMovementFor(TimeSpan duration)
     {
@@ -119,12 +105,6 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     public void SetTakeoverReleaseKey(int virtualKey) => Volatile.Write(ref _takeoverReleaseKey, virtualKey);
     public void SetTakeoverEscapeReleaseEnabled(bool enabled) => Volatile.Write(ref _takeoverEscapeReleaseEnabled, enabled ? 1 : 0);
 
-    public void NotifyTrackedDeviceButtonEdge(long timestampTicks = 0)
-    {
-        long edgeTicks = timestampTicks > 0 ? timestampTicks : Stopwatch.GetTimestamp();
-        Interlocked.Exchange(ref _lastTrackedDeviceButtonEdgeTicks, edgeTicks);
-    }
-
     public void Dispose()
     {
         if (_disposed)
@@ -135,7 +115,6 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
         _disposed = true;
         ReleaseMouseTakeover();
         ReleaseMovementGate();
-        SetEnabled(false);
         if (_hookHandle != IntPtr.Zero)
         {
             _ = UnhookWindowsHookEx(_hookHandle);
@@ -194,44 +173,9 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
                 }
             }
 
-            if (Volatile.Read(ref _enabled) != 0 &&
-                isClick &&
-                !isInjected &&
-                HasRecentTrackedDeviceButtonEdge() &&
-                !IsCurrentProcessWindowAtCursor(lParam))
-            {
-                return (IntPtr)1;
-            }
         }
 
         return CallNextHookEx(IntPtr.Zero, nCode, wParam, lParam);
-    }
-
-    private bool IsCurrentProcessWindowAtCursor(IntPtr lParam)
-    {
-        int x = Marshal.ReadInt32(lParam, 0);
-        int y = Marshal.ReadInt32(lParam, 4);
-        IntPtr hwnd = WindowFromPoint(new POINT(x, y));
-        if (hwnd == IntPtr.Zero)
-        {
-            return false;
-        }
-
-        _ = GetWindowThreadProcessId(hwnd, out uint processId);
-        return processId == _processId;
-    }
-
-    private bool HasRecentTrackedDeviceButtonEdge()
-    {
-        long lastEdgeTicks = Interlocked.Read(ref _lastTrackedDeviceButtonEdgeTicks);
-        if (lastEdgeTicks <= 0)
-        {
-            return false;
-        }
-
-        long nowTicks = Stopwatch.GetTimestamp();
-        long elapsed = nowTicks - lastEdgeTicks;
-        return elapsed >= 0 && elapsed <= TrackedDeviceClickWindowTicks;
     }
 
     private static bool IsInjected(IntPtr lParam)
@@ -270,19 +214,6 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
 
     private delegate IntPtr HookProc(int nCode, IntPtr wParam, IntPtr lParam);
 
-    [StructLayout(LayoutKind.Sequential)]
-    private readonly struct POINT
-    {
-        public readonly int X;
-        public readonly int Y;
-
-        public POINT(int x, int y)
-        {
-            X = x;
-            Y = y;
-        }
-    }
-
     [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern IntPtr GetModuleHandle(string? moduleName);
 
@@ -298,11 +229,6 @@ internal sealed class GlobalMouseClickSuppressor : IDisposable
     [DllImport("user32.dll")]
     private static extern short GetAsyncKeyState(int key);
 
-    [DllImport("user32.dll")]
-    private static extern IntPtr WindowFromPoint(POINT point);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern uint GetWindowThreadProcessId(IntPtr hWnd, out uint processId);
 }
 
 internal readonly record struct MouseHookDiagnosticEvent(

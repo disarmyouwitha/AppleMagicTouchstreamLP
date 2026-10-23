@@ -11,7 +11,7 @@ namespace GlassToKey;
 internal sealed class MouseTakeoverController : IDisposable
 {
     private const int HotkeyId = 0x474b;
-    private readonly GlobalMouseClickSuppressor _hook;
+    private readonly GlobalMouseInputHook _hook;
     private readonly Func<bool> _hasSelectedDevice;
     private readonly object _sync = new();
     private readonly DispatcherTimer _heartbeat = new(DispatcherPriority.Normal) { Interval = TimeSpan.FromMilliseconds(200) };
@@ -23,7 +23,7 @@ internal sealed class MouseTakeoverController : IDisposable
     private string? _pendingRelease;
     public event Action? StateChanged;
 
-    public MouseTakeoverController(GlobalMouseClickSuppressor hook, Func<bool> hasSelectedDevice)
+    public MouseTakeoverController(GlobalMouseInputHook hook, Func<bool> hasSelectedDevice)
     {
         _hook = hook; _hasSelectedDevice = hasSelectedDevice;
         _heartbeat.Tick += OnHeartbeat;

@@ -17,7 +17,7 @@ namespace GlassToKey;
 internal sealed class MouseTakeoverTestWindow : Window, IDisposable
 {
     private const int ReleaseHotkey = 0x4754;
-    private readonly GlobalMouseClickSuppressor _hook = new();
+    private readonly GlobalMouseInputHook _hook = new();
     private readonly RawInputContext _raw = new();
     private readonly ConcurrentQueue<string> _pending = new();
     private readonly HashSet<IntPtr> _devices = new();

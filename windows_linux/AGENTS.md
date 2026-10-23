@@ -66,7 +66,8 @@
 - Windows output injection: `GlassToKey.Windows/WindowsDispatch/SendInputDispatcher.cs`
 - Windows haptics helper: `GlassToKey.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`
 - Windows diagnostics/self-test surface: `GlassToKey.Windows/WindowsDiagnostics/`
-- In mixed mode, OS mouse/gesture behavior should remain intact. In keyboard mode, global mouse clicks are swallowed outside the visualizer process.
+- Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
+- `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover retains its session-only control and Ctrl+Alt+R release. The tray/app icon uses the Mac hand silhouette filled black.
 
 ## Linux Notes
 - The Linux CLI currently supports:

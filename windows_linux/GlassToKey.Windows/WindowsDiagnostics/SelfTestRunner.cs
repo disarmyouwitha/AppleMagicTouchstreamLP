@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        if (!UnifiedInputTests.Run(out string unifiedFailure))
+            return new SelfTestResult(false, "Unified input/icon tests failed: " + unifiedFailure);
         if (!HandGestureTests.Run(out string handGestureFailure))
             return new SelfTestResult(false, "Hand gesture tests failed: " + handGestureFailure);
         if (!RunMouseTakeoverGateTests(out string takeoverFailure))

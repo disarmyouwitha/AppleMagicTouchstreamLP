@@ -20,7 +20,7 @@ internal sealed class PtpTakeoverDiagnostic : IDisposable
     private readonly Dictionary<string, long> _rawCounts = new();
     private readonly Dictionary<string, long> _activeContactCounts = new();
     private readonly RawInputContext _rawContext = new();
-    private readonly GlobalMouseClickSuppressor _hook = new();
+    private readonly GlobalMouseInputHook _hook = new();
     private readonly Stopwatch _elapsed = new();
     private Sink? _sink;
     private DispatcherTimer? _timer;

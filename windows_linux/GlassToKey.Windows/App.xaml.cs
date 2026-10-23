@@ -252,9 +252,6 @@ public partial class App : Application
             return;
         }
 
-        _trayController.SetModeIndicator(_runtimeService.GetCurrentModeIndicator());
-        _runtimeService.ModeIndicatorChanged += OnRuntimeModeIndicatorChanged;
-
         UserSettings startupSettings = UserSettings.Load();
         bool shouldOpenConfigOnLaunch =
             !options.StartInTrayOnly &&
@@ -271,10 +268,6 @@ public partial class App : Application
             _runtimeService.MouseTakeover.StateChanged -= OnMouseTakeoverStateChanged;
         _ptpDiagnostic?.Dispose();
         _mouseTakeoverTest?.Dispose();
-        if (_runtimeService != null)
-        {
-            _runtimeService.ModeIndicatorChanged -= OnRuntimeModeIndicatorChanged;
-        }
         _trayController?.Dispose();
         _trayController = null;
         _runtimeService?.Dispose();
@@ -422,11 +415,6 @@ public partial class App : Application
         bool shouldRestartToTrayOnClose = _restartToTrayWhenConfigCloses &&
             window.IsMemorySaverEnabled && _runtimeService?.MouseTakeover?.Enabled != true;
 
-        if (shouldRestartToTrayOnClose)
-        {
-            PersistLiveRuntimeModeForRestart();
-        }
-
         if (shouldRestartToTrayOnClose &&
             !_restartRequested &&
             TryLaunchReplacementInstance(showErrors: true, "--tray-only"))
@@ -536,33 +524,6 @@ public partial class App : Application
         }
     }
 
-    private void PersistLiveRuntimeModeForRestart()
-    {
-        if (_runtimeService == null || !_runtimeService.TryGetSnapshot(out TouchProcessorSnapshot snapshot))
-        {
-            return;
-        }
-
-        UserSettings settings = UserSettings.Load();
-        bool changed = false;
-        if (settings.TypingEnabled != snapshot.TypingEnabled)
-        {
-            settings.TypingEnabled = snapshot.TypingEnabled;
-            changed = true;
-        }
-
-        if (settings.KeyboardModeEnabled != snapshot.KeyboardModeEnabled)
-        {
-            settings.KeyboardModeEnabled = snapshot.KeyboardModeEnabled;
-            changed = true;
-        }
-
-        if (changed)
-        {
-            settings.Save();
-        }
-    }
-
     private static bool TryBuildRestartStartInfo(out ProcessStartInfo startInfo)
     {
         string? processPath = Environment.ProcessPath;
@@ -611,14 +572,6 @@ public partial class App : Application
         }
 
         return localAppData;
-    }
-
-    private void OnRuntimeModeIndicatorChanged(RuntimeModeIndicator mode)
-    {
-        _ = Dispatcher.BeginInvoke(() =>
-        {
-            _trayController?.SetModeIndicator(mode);
-        });
     }
 
     private static bool ShouldShowErrorDialogs(string[] args)

@@ -7,7 +7,7 @@ namespace GlassToKey;
 internal sealed class WindowsHandGestures : IHandGestureRuntime
 {
     private readonly object _sync = new();
-    private readonly GlobalMouseClickSuppressor _hook;
+    private readonly GlobalMouseInputHook _hook;
     private int _buttonInterference;
     private readonly Func<bool> _eligible;
     private readonly Action _pointerActivity;
@@ -16,7 +16,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
     private readonly HandGestureEngine _engine;
     private bool _disposed;
     private long _frames, _reserved;
-    public WindowsHandGestures(GlobalMouseClickSuppressor hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover)
+    public WindowsHandGestures(GlobalMouseInputHook hook, Func<bool> eligible, Action pointerActivity, Action<string> releaseTakeover)
     {
         _hook = hook; _hook.DiagnosticEvent += ObserveButton;
         _eligible = eligible; _pointerActivity = pointerActivity; _releaseTakeover = releaseTakeover;

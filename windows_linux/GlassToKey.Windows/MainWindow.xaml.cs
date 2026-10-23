@@ -36,16 +36,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const string ShortcutActionSectionTitle = "Shortcuts";
     private const string ScreenshotActionLabel = "Screenshot";
     private const string ScreenshotActionValue = "Shift+Win+S";
-    private static readonly Brush IntentIdleBrush = CreateFrozenBrush("#8b949e");
-    private static readonly Brush IntentCandidateBrush = CreateFrozenBrush("#f39c12");
-    private static readonly Brush IntentTypingBrush = CreateFrozenBrush("#2ecc71");
-    private static readonly Brush IntentMouseBrush = CreateFrozenBrush("#3498db");
-    private static readonly Brush IntentGestureBrush = CreateFrozenBrush("#9b59b6");
-    private static readonly Brush IntentUnknownBrush = CreateFrozenBrush("#6b7279");
-    private static readonly Brush ModeKeyboardBrush = CreateFrozenBrush("#9b59b6");
-    private static readonly Brush ModeMixedBrush = CreateFrozenBrush("#2ecc71");
-    private static readonly Brush ModeMouseBrush = CreateFrozenBrush("#e74c3c");
-    private static readonly Brush ModeUnknownBrush = CreateFrozenBrush("#6b7279");
+    private static readonly Brush TakeoverActiveBrush = CreateFrozenBrush("#9b59b6");
+    private static readonly Brush NeutralStatusBrush = CreateFrozenBrush("#6b7279");
     private static readonly DecoderProfileOption[] DecoderProfileOptions =
     {
         new(null, "Auto"),
@@ -98,11 +90,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _suppressReplaySpeedEvents;
     private bool _suppressReplayTimelineEvents;
     private HwndSource? _hwndSource;
-    private readonly GlobalMouseClickSuppressor _globalClickSuppressor = new();
+    private readonly GlobalMouseInputHook _globalMouseInputHook = new();
     private MouseTakeoverController? _localMouseTakeover;
     private bool _updatingMouseTakeover;
     private MouseTakeoverController? MouseTakeover => _runtimeService?.MouseTakeover ?? _localMouseTakeover;
-    private bool _suppressGlobalClicks;
     private string _leftStatus = "None";
     private string _rightStatus = "None";
     private string _lastLeftHit = "--";
@@ -115,7 +106,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private long _replayDurationTicks;
     private double _replayAccumulatedTicks;
     private double _replaySpeed = 1.0;
-    private string _engineStateText = "State: n/a";
     private bool _visualizerEnabled = true;
     private bool _suppressSettingsEvents;
     private bool _suppressKeymapActionEvents;
@@ -128,10 +118,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private bool _controlsPaneVisible = true;
     private int _lastLeftPillCount = -1;
     private int _lastRightPillCount = -1;
-    private string _lastIntentPillLabel = string.Empty;
-    private Brush _lastIntentPillBrush = IntentUnknownBrush;
-    private string _lastModePillLabel = string.Empty;
-    private Brush _lastModePillBrush = ModeUnknownBrush;
     private string _lastAutocorrectUiLastCorrected = string.Empty;
     private string _lastAutocorrectUiCurrentBuffer = string.Empty;
     private string _lastAutocorrectUiSkipReason = string.Empty;
@@ -162,15 +148,18 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     internal MainWindow(ReaderOptions options, TouchRuntimeService? runtimeService = null)
     {
         InitializeComponent();
+        Icon = ApplicationHandIcon.CreateImage();
+        AppHandImage.Source = Icon;
         _shortcutModifierHoldTimer = new DispatcherTimer(DispatcherPriority.Input)
         {
             Interval = TimeSpan.FromMilliseconds(450)
         };
         _shortcutModifierHoldTimer.Tick += OnShortcutModifierHoldTimerTick;
-        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
+        _globalMouseInputHook.ClickObserved += OnGlobalClickObserved;
         _options = options;
         _runtimeService = runtimeService;
         _settings = UserSettings.Load();
+        WindowsInputPolicy.NormalizeLegacyModes(_settings);
         _decoderProfilesByPath = TrackpadDecoderProfileMap.BuildFromSettings(_settings);
         if (!_settings.VisualizerEnabled)
         {
@@ -243,8 +232,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ToggleControlsButton.Click += OnToggleControlsPaneClicked;
         KeymapExportButton.Click += OnKeymapExportClicked;
         KeymapImportButton.Click += OnKeymapImportClicked;
-        KeyboardModeCheck.Checked += OnModeSettingChanged;
-        KeyboardModeCheck.Unchecked += OnModeSettingChanged;
         AutocorrectModeCheck.Checked += OnModeSettingChanged;
         AutocorrectModeCheck.Unchecked += OnModeSettingChanged;
         SnapRadiusModeCheck.Checked += OnModeSettingChanged;
@@ -317,9 +304,10 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         {
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, BuildConfigFromSettings());
             _touchCore.UseHandGestureRecognition();
+            _touchCore.UseUnifiedInputPolicy();
             if (!IsReplayMode)
             {
-                _handGestures = new WindowsHandGestures(_globalClickSuppressor, () => MouseTakeover?.Enabled == true,
+                _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
                     () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
                 _handGestures.Configure(_settings);
             }
@@ -334,8 +322,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
             _touchActor.SetPersistentLayer(_activeLayer);
             _touchActor.SetTypingEnabled(_settings.TypingEnabled);
-            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
         }
 
         ApplyCoreSettings();
@@ -361,13 +347,12 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         Closed += (_, _) =>
         {
             _localMouseTakeover?.Dispose();
-            _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
+            _globalMouseInputHook.ClickObserved -= OnGlobalClickObserved;
             _runtimeService?.SetFrameObserver(null);
             ApplySettingsFromUi();
             PersistSelections();
             _keymap.Save();
-            _globalClickSuppressor.SetEnabled(false);
-            _globalClickSuppressor.Dispose();
+            _globalMouseInputHook.Dispose();
             _hwndSource?.RemoveHook(WndProc);
             _replayTimer?.Stop();
             _statusTimer?.Stop();
@@ -403,14 +388,15 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         IntPtr hwnd = new WindowInteropHelper(this).Handle;
         _hwndSource = HwndSource.FromHwnd(hwnd);
         _hwndSource?.AddHook(WndProc);
-        EnsureGlobalClickSuppressorInstalled();
+        EnsureGlobalMouseInputHookInstalled();
 
         if (!RawInputInterop.RegisterForTouchpadRawInput(hwnd, out string? error))
         {
-            StatusText.Text = $"Raw input registration failed ({error}).";
+            RawInputErrorText.Text = $"Raw input registration failed ({error}).";
+            RawInputErrorText.Visibility = Visibility.Visible;
             return;
         }
-        _localMouseTakeover = new MouseTakeoverController(_globalClickSuppressor, HasConnectedTakeoverSelection);
+        _localMouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedTakeoverSelection);
         _localMouseTakeover.Start();
         UpdateMouseTakeoverUi();
     }
@@ -440,40 +426,23 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         MouseTakeoverCheck.IsEnabled = controller?.Available == true;
         MouseTakeoverTestButton.IsEnabled = controller?.Available == true && !controller.Enabled;
         MouseTakeoverStatusText.Text = IsReplayMode ? "Unavailable during replay" : controller?.Status ?? "Off";
-        MouseTakeoverStatusText.Foreground = controller?.Enabled == true ? ModeKeyboardBrush : ModeUnknownBrush;
+        MouseTakeoverStatusText.Foreground = controller?.Enabled == true ? TakeoverActiveBrush : NeutralStatusBrush;
         _updatingMouseTakeover = false;
     }
 
-    private void EnsureGlobalClickSuppressorInstalled()
+    private void EnsureGlobalMouseInputHookInstalled()
     {
-        if (_globalClickSuppressor.IsInstalled)
-        {
-            _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
-            return;
-        }
-
-        if (!_globalClickSuppressor.Install(out string? error))
-        {
-            Console.WriteLine($"Global click suppression hook failed ({error}).");
-            return;
-        }
-
-        _globalClickSuppressor.SetEnabled(_suppressGlobalClicks);
-    }
-
-    private void UpdateGlobalClickSuppressionState(bool enabled)
-    {
-        bool next = !IsReplayMode && enabled;
-        if (_suppressGlobalClicks == next)
+        if (_globalMouseInputHook.IsInstalled)
         {
             return;
         }
 
-        _suppressGlobalClicks = next;
-        if (_globalClickSuppressor.IsInstalled)
+        if (!_globalMouseInputHook.Install(out string? error))
         {
-            _globalClickSuppressor.SetEnabled(next);
+            Console.WriteLine($"Global mouse input hook failed ({error}).");
+            return;
         }
+
     }
 
     private void EmitCaptureReplayTraceIfRequested()
@@ -574,7 +543,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         LayoutPresetCombo.SelectedItem = TrackpadLayoutPreset.Selectable.Contains(_preset)
             ? _preset
             : TrackpadLayoutPreset.SixByThree;
-        KeyboardModeCheck.IsChecked = _settings.KeyboardModeEnabled;
         AutocorrectModeCheck.IsChecked = _settings.AutocorrectEnabled;
         _settings.AutocorrectDryRunEnabled = false;
         _settings.AutocorrectMaxEditDistance = 2;
@@ -1546,7 +1514,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return;
         }
 
-        _settings.KeyboardModeEnabled = KeyboardModeCheck.IsChecked == true;
         _settings.AutocorrectEnabled = AutocorrectModeCheck.IsChecked == true;
         _settings.AutocorrectDryRunEnabled = false;
         _settings.AutocorrectMaxEditDistance = 2;
@@ -1781,6 +1748,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             return false;
         }
 
+        WindowsInputPolicy.NormalizeLegacyModes(importedSettings);
         _settings.CopyFrom(importedSettings);
         _settings.NormalizeRanges();
         _keymap.TryImportFromJson(importedKeymap.SerializeToJson(writeIndented: false), out _);
@@ -1870,7 +1838,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         if (_touchActor != null)
         {
             _touchActor.Configure(BuildConfigFromSettings());
-            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
             _touchActor.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
             _touchActor.ConfigureLayouts(_leftLayout, _rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
@@ -2467,11 +2434,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             AddKeyActionOption(options, modifiers[i], "Modifiers");
         }
 
-        string[] modes =
-        {
-            "Typing Toggle"
-        };
-
         string[] symbols =
         {
             "!",
@@ -2529,11 +2491,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
             "BRI_SCRIPT_UP",
             "BRI_SCRIPT_DOWN"
         };
-
-        for (int i = 0; i < modes.Length; i++)
-        {
-            AddKeyActionOption(options, modes[i], "Modes");
-        }
 
         for (int i = 0; i < systemAndMedia.Length; i++)
         {
@@ -2601,6 +2558,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void EnsureActionOption(string? action, string group = "Custom", bool forceGroup = false)
     {
+        if (string.Equals(action?.Trim(), "Typing Toggle", StringComparison.OrdinalIgnoreCase)) return;
         if (string.IsNullOrWhiteSpace(action))
         {
             return;
@@ -4444,7 +4402,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         _dispatchQueue?.Clear();
         _touchActor.SetPersistentLayer(_activeLayer);
         _touchActor.SetTypingEnabled(true);
-        _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
         UpdateEngineStateDetails();
     }
 
@@ -4911,10 +4868,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void ApplyReport(ReaderSession session, RawInputDeviceSnapshot snapshot, in InputFrame report, TrackpadSide side)
     {
         session.UpdateButtonState(in report);
-        if (session.LastButtonState.Changed)
-        {
-            _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(report.ArrivalQpcTicks);
-        }
         ApplyReport(session, snapshot.Tag, in report, side);
     }
 
@@ -4984,92 +4937,20 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void UpdateEngineStateDetails()
     {
-        string next;
-        int leftContacts;
-        int rightContacts;
-        string intentLabel;
-        Brush intentBrush;
-        string modeLabel;
-        Brush modeBrush;
-        bool suppressGlobalClicks;
-        if (!TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
+        int left = SnapshotContactCount(_left.State), right = SnapshotContactCount(_right.State);
+        if (TryGetEngineSnapshot(out TouchProcessorSnapshot snapshot))
         {
-            next = "State: n/a";
-            leftContacts = SnapshotContactCount(_left.State);
-            rightContacts = SnapshotContactCount(_right.State);
-            intentLabel = "n/a";
-            intentBrush = IntentUnknownBrush;
-            modeLabel = "n/a";
-            modeBrush = ModeUnknownBrush;
-            suppressGlobalClicks = _settings.KeyboardModeEnabled && _settings.TypingEnabled;
-        }
-        else
-        {
-            next = $"State: {snapshot.IntentMode} | layer {snapshot.ActiveLayer} | contacts {snapshot.ContactCount}";
-            leftContacts = snapshot.LeftContacts;
-            rightContacts = snapshot.RightContacts;
-            (intentLabel, intentBrush) = ToIntentPill(snapshot.IntentMode);
-            (modeLabel, modeBrush) = ToModePill(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled);
-            suppressGlobalClicks = snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive;
+            left = snapshot.LeftContacts; right = snapshot.RightContacts;
             if (_lastEngineVisualLayer != snapshot.ActiveLayer)
             {
                 _lastEngineVisualLayer = snapshot.ActiveLayer;
                 SyncEditorLayerToRuntime(snapshot.ActiveLayer);
-                UpdateLabelMatrices();
-                RefreshKeymapEditor();
+                UpdateLabelMatrices(); RefreshKeymapEditor();
             }
         }
-
-        UpdateGlobalClickSuppressionState(suppressGlobalClicks);
-        UpdateStatusPills(leftContacts, rightContacts, intentLabel, intentBrush, modeLabel, modeBrush);
+        if (left != _lastLeftPillCount) { _lastLeftPillCount = left; LeftContactsPillText.Text = $"L {Math.Max(0,left)}"; }
+        if (right != _lastRightPillCount) { _lastRightPillCount = right; RightContactsPillText.Text = $"R {Math.Max(0,right)}"; }
         UpdateAutocorrectStatusDetails();
-
-        if (!string.Equals(next, _engineStateText, StringComparison.Ordinal))
-        {
-            _engineStateText = next;
-            StatusText.Text = next;
-        }
-    }
-
-    private void UpdateStatusPills(int leftContacts, int rightContacts, string intentLabel, Brush intentBrush, string modeLabel, Brush modeBrush)
-    {
-        leftContacts = Math.Max(0, leftContacts);
-        rightContacts = Math.Max(0, rightContacts);
-        if (leftContacts != _lastLeftPillCount)
-        {
-            _lastLeftPillCount = leftContacts;
-            LeftContactsPillText.Text = $"L {leftContacts}";
-        }
-
-        if (rightContacts != _lastRightPillCount)
-        {
-            _lastRightPillCount = rightContacts;
-            RightContactsPillText.Text = $"R {rightContacts}";
-        }
-
-        if (!string.Equals(intentLabel, _lastIntentPillLabel, StringComparison.Ordinal))
-        {
-            _lastIntentPillLabel = intentLabel;
-            IntentPillText.Text = intentLabel;
-        }
-
-        if (!ReferenceEquals(intentBrush, _lastIntentPillBrush))
-        {
-            _lastIntentPillBrush = intentBrush;
-            IntentPillDot.Fill = intentBrush;
-        }
-
-        if (!string.Equals(modeLabel, _lastModePillLabel, StringComparison.Ordinal))
-        {
-            _lastModePillLabel = modeLabel;
-            ModePillText.Text = modeLabel;
-        }
-
-        if (!ReferenceEquals(modeBrush, _lastModePillBrush))
-        {
-            _lastModePillBrush = modeBrush;
-            ModePillDot.Fill = modeBrush;
-        }
     }
 
     private void UpdateAutocorrectStatusDetails()
@@ -5191,32 +5072,6 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         snapshot = default;
         return false;
-    }
-
-    private static (string Label, Brush Brush) ToIntentPill(IntentMode mode)
-    {
-        return mode switch
-        {
-            IntentMode.Idle => ("idle", IntentIdleBrush),
-            IntentMode.KeyCandidate => ("cand", IntentCandidateBrush),
-            IntentMode.TypingCommitted => ("typing", IntentTypingBrush),
-            IntentMode.MouseCandidate => ("mouse", IntentMouseBrush),
-            IntentMode.MouseActive => ("mouse", IntentMouseBrush),
-            IntentMode.GestureCandidate => ("gest", IntentGestureBrush),
-            _ => ("n/a", IntentUnknownBrush)
-        };
-    }
-
-    private static (string Label, Brush Brush) ToModePill(bool typingEnabled, bool keyboardModeEnabled)
-    {
-        if (!typingEnabled)
-        {
-            return ("Mouse", ModeMouseBrush);
-        }
-
-        return keyboardModeEnabled
-            ? ("Keyboard", ModeKeyboardBrush)
-            : ("Mixed", ModeMixedBrush);
     }
 
     private sealed class KeyActionOption

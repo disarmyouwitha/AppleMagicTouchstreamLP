@@ -10,7 +10,7 @@ internal sealed class TouchRuntimeService : IDisposable
 {
     private readonly ReaderOptions _options;
     private readonly RawInputContext _rawInputContext = new();
-    private readonly GlobalMouseClickSuppressor _globalClickSuppressor = new();
+    private readonly GlobalMouseInputHook _globalMouseInputHook = new();
 
     private RuntimeRoute _leftRoute = RuntimeRoute.Empty;
     private RuntimeRoute _rightRoute = RuntimeRoute.Empty;
@@ -20,9 +20,7 @@ internal sealed class TouchRuntimeService : IDisposable
     private DispatchEventPump? _dispatchPump;
     private SendInputDispatcher? _sendInputDispatcher;
     private InputSinkWindow? _inputSink;
-    private Timer? _snapshotTimer;
     private IRuntimeFrameObserver? _frameObserver;
-    private RuntimeModeIndicator _lastModeIndicator = RuntimeModeIndicator.Unknown;
     private long _rawInputPauseUntilTicks;
     private long _lastRawInputFaultTicks;
     private int _consecutiveRawInputFaults;
@@ -41,14 +39,14 @@ internal sealed class TouchRuntimeService : IDisposable
     private ColumnLayoutSettings[] _columnSettings;
     private Dictionary<string, TrackpadDecoderProfile> _decoderProfilesByPath;
     private bool _started;
-    public event Action<RuntimeModeIndicator>? ModeIndicatorChanged;
     public MouseTakeoverController? MouseTakeover { get; private set; }
 
     public TouchRuntimeService(ReaderOptions options)
     {
         _options = options;
-        _globalClickSuppressor.ClickObserved += OnGlobalClickObserved;
+        _globalMouseInputHook.ClickObserved += OnGlobalClickObserved;
         _settings = UserSettings.Load();
+        WindowsInputPolicy.NormalizeLegacyModes(_settings);
         _keymap = KeymapStore.Load();
         _preset = TrackpadLayoutPreset.ResolveByNameOrDefault(_settings.LayoutPresetName);
         _columnSettings = RuntimeConfigurationFactory.BuildColumnSettingsForPreset(_settings, _preset);
@@ -70,7 +68,8 @@ internal sealed class TouchRuntimeService : IDisposable
 
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, RuntimeConfigurationFactory.BuildTouchConfig(_settings));
             _touchCore.UseHandGestureRecognition();
-            _handGestures = new WindowsHandGestures(_globalClickSuppressor, () => MouseTakeover?.Enabled == true,
+            _touchCore.UseUnifiedInputPolicy();
+            _handGestures = new WindowsHandGestures(_globalMouseInputHook, () => MouseTakeover?.Enabled == true,
                 () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
             _handGestures.Configure(_settings);
             _dispatchQueue = new DispatchEventQueue();
@@ -89,12 +88,6 @@ internal sealed class TouchRuntimeService : IDisposable
             _touchActor.ConfigureLayouts(leftLayout, rightLayout);
             _touchActor.ConfigureKeymap(_keymap);
             _touchActor.SetPersistentLayer(layer);
-            _touchActor.SetTypingEnabled(_settings.TypingEnabled);
-            _touchActor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
-            _lastModeIndicator = ToModeIndicator(
-                _settings.TypingEnabled,
-                _settings.KeyboardModeEnabled,
-                layer);
 
             RefreshDeviceRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
             MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
@@ -109,14 +102,13 @@ internal sealed class TouchRuntimeService : IDisposable
                 return false;
             }
 
-            if (!_globalClickSuppressor.Install(out string? hookError))
+            if (!_globalMouseInputHook.Install(out string? hookError))
             {
-                Console.WriteLine($"Global click suppression hook failed ({hookError}).");
+                Console.WriteLine($"Global mouse input hook failed ({hookError}).");
             }
 
-            MouseTakeover = new MouseTakeoverController(_globalClickSuppressor, HasConnectedSelectedTrackpad);
+            MouseTakeover = new MouseTakeoverController(_globalMouseInputHook, HasConnectedSelectedTrackpad);
             MouseTakeover.Start();
-            _snapshotTimer = new Timer(OnSnapshotTimerTick, null, dueTime: 50, period: 50);
             _started = true;
             return true;
         }
@@ -135,6 +127,7 @@ internal sealed class TouchRuntimeService : IDisposable
         ColumnLayoutSettings[] columnSettings,
         int activeLayer)
     {
+        WindowsInputPolicy.NormalizeLegacyModes(settings);
         _settings = settings;
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
@@ -157,7 +150,6 @@ internal sealed class TouchRuntimeService : IDisposable
         }
 
         actor.Configure(RuntimeConfigurationFactory.BuildTouchConfig(_settings));
-        actor.SetKeyboardModeEnabled(_settings.KeyboardModeEnabled);
         actor.ConfigureLayouts(leftLayout, rightLayout);
         actor.ConfigureKeymap(_keymap);
         actor.SetPersistentLayer(Math.Clamp(activeLayer, 0, 7));
@@ -173,16 +165,6 @@ internal sealed class TouchRuntimeService : IDisposable
     public void SetFrameObserver(IRuntimeFrameObserver? observer)
     {
         _frameObserver = observer;
-    }
-
-    public RuntimeModeIndicator GetCurrentModeIndicator()
-    {
-        if (TryGetSnapshot(out TouchProcessorSnapshot snapshot))
-        {
-            return ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled, snapshot.ActiveLayer);
-        }
-
-        return _lastModeIndicator;
     }
 
     public bool TryGetSnapshot(out TouchProcessorSnapshot snapshot)
@@ -214,13 +196,10 @@ internal sealed class TouchRuntimeService : IDisposable
     public void Dispose()
     {
         MouseTakeover?.Dispose(); MouseTakeover = null;
-        _snapshotTimer?.Dispose();
-        _snapshotTimer = null;
         _frameObserver = null;
 
-        _globalClickSuppressor.SetEnabled(false);
-        _globalClickSuppressor.ClickObserved -= OnGlobalClickObserved;
-        _globalClickSuppressor.Dispose();
+        _globalMouseInputHook.ClickObserved -= OnGlobalClickObserved;
+        _globalMouseInputHook.Dispose();
 
         _inputSink?.Dispose();
         _inputSink = null;
@@ -237,7 +216,6 @@ internal sealed class TouchRuntimeService : IDisposable
 
         _touchCore = null;
         _started = false;
-        ModeIndicatorChanged = null;
     }
 
     private void OnGlobalClickObserved()
@@ -250,33 +228,6 @@ internal sealed class TouchRuntimeService : IDisposable
         foreach (HidDeviceInfo device in RawInputInterop.EnumerateTrackpads())
             if (device.Path != null && (_leftRoute.IsMatch(device.Path) || _rightRoute.IsMatch(device.Path))) return true;
         return false;
-    }
-
-    private void OnSnapshotTimerTick(object? _)
-    {
-        TouchProcessorActor? actor = _touchActor;
-        if (actor == null)
-        {
-            return;
-        }
-
-        TouchProcessorSnapshot snapshot = actor.Snapshot();
-        _globalClickSuppressor.SetEnabled(snapshot.KeyboardModeEnabled && snapshot.TypingEnabled && !snapshot.MomentaryLayerActive);
-        RuntimeModeIndicator nextMode = ToModeIndicator(snapshot.TypingEnabled, snapshot.KeyboardModeEnabled, snapshot.ActiveLayer);
-        if (nextMode == _lastModeIndicator)
-        {
-            return;
-        }
-
-        _lastModeIndicator = nextMode;
-        try
-        {
-            ModeIndicatorChanged?.Invoke(nextMode);
-        }
-        catch
-        {
-            // Observer failures should never impact hot-path processing.
-        }
     }
 
     private void RefreshDeviceRoutes(string? leftPath, string? rightPath)
@@ -370,10 +321,6 @@ internal sealed class TouchRuntimeService : IDisposable
                 if (routeLeft)
                 {
                     ButtonEdgeState buttonState = _leftButtonTracker.Update(in frame);
-                    if (buttonState.Changed)
-                    {
-                        _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
-                    }
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Left, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Left, in frame, in buttonState, snapshot.Tag);
                     _ = actor.Post(TrackpadSide.Left, in frame, maxX, maxY, timestampTicks);
@@ -382,10 +329,6 @@ internal sealed class TouchRuntimeService : IDisposable
                 if (routeRight)
                 {
                     ButtonEdgeState buttonState = _rightButtonTracker.Update(in frame);
-                    if (buttonState.Changed)
-                    {
-                        _globalClickSuppressor.NotifyTrackedDeviceButtonEdge(timestampTicks);
-                    }
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Right, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
                     if (!routeLeft) _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
@@ -510,23 +453,6 @@ internal sealed class TouchRuntimeService : IDisposable
             _rawInputPauseUntilTicks = nowTicks + (Stopwatch.Frequency * 2);
             _consecutiveRawInputFaults = 0;
         }
-    }
-
-    private static RuntimeModeIndicator ToModeIndicator(bool typingEnabled, bool keyboardModeEnabled, int activeLayer)
-    {
-        if (activeLayer != 0)
-        {
-            return RuntimeModeIndicator.LayerActive;
-        }
-
-        if (!typingEnabled)
-        {
-            return RuntimeModeIndicator.Mouse;
-        }
-
-        return keyboardModeEnabled
-            ? RuntimeModeIndicator.Keyboard
-            : RuntimeModeIndicator.Mixed;
     }
 
     private static AutocorrectOptions BuildAutocorrectOptions(UserSettings settings)
