@@ -48,6 +48,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
         var bindings: [UInt64:GestureActionBindings] = [:]
+        var appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
@@ -137,14 +138,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
+            state.appleShortcuts = appleShortcuts
             state.pinchDevices = pinchDevices
             state.zoomSensitivities = zoomSensitivities
             state.zoomOutputs = bindings.mapValues { _ in MagnifyGestureOutput() }
@@ -311,7 +313,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                let location = CGEvent(source:nil)?.location,
                let events = GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                     time:hostTime,doubleClickInterval:state.doubleClickInterval,
-                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks) {
+                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks,
+                    shortcut:state.appleShortcuts[forceBindings.action(for:trigger)]) {
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
@@ -343,6 +346,23 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.zoomOutputs[device]?.finish(cancelled:update.phase == .cancelled)?.post(tap:.cghidEventTap)
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
+            }
+            if let gesture = update.gesture, state.action(gesture,device:device).isAppleShortcut {
+                if allUp {
+                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                } else {
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                }
+                state.finishScroll(device:device,cancelled:true)
+                if update.phase == .began {
+                    state.clicks.reset()
+                    let action = state.action(gesture,device:device)
+                    for event in state.appleShortcuts[action]?.events() ?? [] {
+                        event.post(tap:.cghidEventTap); state.postedEvents &+= 1
+                    }
+                }
+                return nil
             }
             if let gesture = update.gesture, state.action(gesture,device:device) == .zoom {
                 if allUp {

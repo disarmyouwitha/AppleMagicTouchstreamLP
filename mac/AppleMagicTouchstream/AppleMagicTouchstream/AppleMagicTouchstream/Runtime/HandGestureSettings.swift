@@ -40,7 +40,9 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
     }
     var allowedActions: [GestureAction] {
-        isPinch ? [.disabled,.zoom] : isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick]
+        if isPinch { return [.disabled,.zoom] + GestureAction.appleShortcuts }
+        if forceCount != nil { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.appleShortcuts }
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick]
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -63,9 +65,17 @@ typealias GestureFeature = GestureTrigger
 
 enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
+    case notificationCenter, missionControl, appExpose, launchpad, showDesktop
+    static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
+    var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) }
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .notificationCenter: return "Notification Center"
+        case .missionControl: return "Mission Control"
+        case .appExpose: return "App Exposé"
+        case .launchpad: return "Launch Pad"
+        case .showDesktop: return "Show Desktop"
         case .disabled: return "None"; case .pointer: return "Move Pointer"
         case .primaryDrag: return "Drag / Select"; case .scroll: return "Scroll / Pan"
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"

@@ -368,7 +368,11 @@ enum SecondaryTapClickOutput {
 /// before live code posts any edge; tests can inspect it without posting.
 enum GestureTapActionOutput {
     static func events(action: GestureAction, location: CGPoint, time: Double,
-        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput) -> [CGEvent]? {
+        doubleClickInterval: Double, flags: CGEventFlags = [], clicks: inout PrimaryTapClickOutput, shortcut: AppleShortcutPlan? = nil) -> [CGEvent]? {
+        if action.isAppleShortcut {
+            clicks.reset()
+            return shortcut?.events()
+        }
         switch action {
         case .primaryClick:
             guard let pair = clicks.events(location:location,time:time,doubleClickInterval:doubleClickInterval,flags:flags) else { return nil }
@@ -388,3 +392,56 @@ enum GestureTapActionOutput {
 
 // Historical diagnostic name for the same compact-row input geometry.
 typealias ThreeFingerDragChord = ThreeFingerRowChord
+
+/// Read symbolic-shortcut preferences only during configuration, never in input callbacks.
+/// No preferences are changed. Missing entries use Apple's documented keyboard shortcuts.
+struct AppleShortcutPlan: Equatable, Sendable {
+    let keyCode: CGKeyCode
+    let flags: CGEventFlags
+    static func symbolicID(_ action: GestureAction) -> String? {
+        switch action {
+        case .missionControl: return "32"; case .appExpose: return "33"
+        case .showDesktop: return "36"; case .launchpad: return "160"
+        case .notificationCenter: return "163"; default: return nil
+        }
+    }
+    static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
+        guard let id = symbolicID(action) else { return nil }
+        if let entry = preferences[id] as? [String:Any], (entry["enabled"] as? NSNumber)?.boolValue == true {
+            guard let value = entry["value"] as? [String:Any], value["type"] as? String == "standard",
+                  let parameters = value["parameters"] as? [NSNumber], parameters.count == 3 else { return nil }
+            let code = parameters[1].intValue, modifiers = parameters[2].int64Value
+            let allowed: CGEventFlags = [.maskShift,.maskControl,.maskAlternate,.maskCommand,.maskSecondaryFn]
+            guard (0...127).contains(code), modifiers >= 0, UInt64(modifiers) & ~allowed.rawValue == 0 else { return nil }
+            return Self(keyCode:CGKeyCode(code),flags:CGEventFlags(rawValue:UInt64(modifiers)))
+        }
+        // Globe shortcuts remain available independently of configurable symbolic shortcuts.
+        switch action {
+        case .notificationCenter: return Self(keyCode:45,flags:.maskSecondaryFn) // Fn-N
+        case .launchpad: return Self(keyCode:0,flags:[.maskSecondaryFn,.maskShift]) // Fn-Shift-A; Apps on Tahoe+
+        case .showDesktop: return Self(keyCode:4,flags:.maskSecondaryFn) // Fn-H
+        case .missionControl,.appExpose:
+            // Respect an explicitly disabled configurable shortcut.
+            guard preferences[id] == nil else { return nil }
+            return Self(keyCode:action == .missionControl ? 126 : 125,flags:.maskControl)
+        default: return nil
+        }
+    }
+    static func load() -> [GestureAction:Self] {
+        let preferences = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString,
+            "com.apple.symbolichotkeys" as CFString) as? [String:Any] ?? [:]
+        return Dictionary(uniqueKeysWithValues:GestureAction.appleShortcuts.compactMap { action in
+            resolve(action,preferences:preferences).map { (action,$0) }
+        })
+    }
+    func events(phase: GestureSessionPhase = .began) -> [CGEvent]? {
+        guard phase == .began else { return nil }
+        guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
+              let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
+        for event in [down,up] {
+            event.flags = flags
+            event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        }
+        return [down,up]
+    }
+}

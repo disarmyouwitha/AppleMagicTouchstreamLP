@@ -206,3 +206,49 @@ final class PinchZoomTests: XCTestCase {
         XCTAssertEqual(migrated.sensitivity(.zoom,in:.both),1)
     }
 }
+
+extension PinchZoomTests {
+    func testAppleShortcutMenusPersistenceAndBalancedOneShotEvents() throws {
+        var settings = HandGestureSettings()
+        for trigger in GestureTrigger.pinchTriggers + GestureTrigger.forceTriggers {
+            for action in GestureAction.appleShortcuts {
+                XCTAssertTrue(trigger.allowedActions.contains(action))
+                XCTAssertTrue(settings.setAction(action,for:trigger,in:.both))
+                XCTAssertEqual(settings.action(trigger,in:.both),action)
+            }
+        }
+        XCTAssertFalse(GestureTrigger.twoFingerTap.allowedActions.contains(.missionControl))
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let roundtrip = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(roundtrip.handGestureSettings,settings)
+        for action in GestureAction.appleShortcuts {
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.count,2)
+            XCTAssertEqual(events[0].type,.keyDown); XCTAssertEqual(events[1].type,.keyUp)
+            for event in events {
+                XCTAssertEqual(event.getIntegerValueField(.keyboardEventKeycode),Int64(plan.keyCode))
+                XCTAssertEqual(event.flags,plan.flags)
+                XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            }
+            for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] {
+                XCTAssertNil(plan.events(phase:phase))
+            }
+            var clicks = PrimaryTapClickOutput()
+            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,2)
+            XCTAssertNil(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks))
+        }
+    }
+    func testAppleShortcutPreferencesOverrideAndRejectUnsafeOrDisabledBindings() throws {
+        let flags: CGEventFlags = [.maskCommand,.maskAlternate]
+        let modifiers = flags.rawValue
+        let custom:[String:Any] = ["32":["enabled":true,"value":["type":"standard","parameters":[65535,20,modifiers]]]]
+        let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.missionControl,preferences:custom))
+        XCTAssertEqual(plan.keyCode,20); XCTAssertEqual(plan.flags.rawValue,modifiers)
+        XCTAssertNil(AppleShortcutPlan.resolve(.missionControl,preferences:["32":["enabled":false]]))
+        XCTAssertNil(AppleShortcutPlan.resolve(.appExpose,preferences:["33":["enabled":true,"value":["type":"standard","parameters":[65535,65535,0]]]]))
+        XCTAssertNil(AppleShortcutPlan.resolve(.appExpose,preferences:["33":["enabled":true,"value":["type":"standard","parameters":[65535,12,-1]]]]))
+        XCTAssertNil(AppleShortcutPlan.resolve(.primaryClick,preferences:[:]))
+        XCTAssertEqual(AppleShortcutPlan.resolve(.notificationCenter,preferences:[:])?.flags,.maskSecondaryFn)
+    }
+}

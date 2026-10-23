@@ -76,6 +76,7 @@ final class TrackpadGestureController: ObservableObject {
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
             guard AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
             guard takeoverEnabled, armed, owned.contains(id) else { return "Waiting for Trackpad Takeover." }
+            if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Enable a keyboard shortcut for \(action.title) in System Settings → Keyboard → Keyboard Shortcuts." }
             if action.requiresPointerProfile && pointerProfiles[id] == nil { return "Paused: tracking profile unavailable." }
             if action == .scroll && scrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
             if action == .primaryDrag && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }
@@ -95,6 +96,7 @@ final class TrackpadGestureController: ObservableObject {
     }
 
     private func configure() {
+        let shortcuts = AppleShortcutPlan.load()
         let routed = settings.routed(to: pads)
         let eligible = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: AXIsProcessTrusted(), selected: Set(routed.keys), owned: owned)
@@ -115,7 +117,7 @@ final class TrackpadGestureController: ObservableObject {
             twoFingerTapDevices: tap, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings))
+            bindings: routed.mapValues(\.bindings), appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)

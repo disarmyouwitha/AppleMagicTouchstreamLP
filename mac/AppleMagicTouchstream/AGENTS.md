@@ -155,3 +155,10 @@ membership changes without jumps, retain original ownership/action until all-up,
 and continue a lone survivor against a virtual anchor. Keep recognition scale
 deltas independent of Zoom output. Preserve existing two-finger saved bindings,
 per-hand defaults, gains and keymap round-trips. This supersedes pair-only pinch.
+
+User authorized Apple shortcut actions (Notification Center, Mission Control,
+App Exposé, Launch Pad, Show Desktop) for Pinch/Spread and Force Click menus.
+Use cached, validated keyboard-shortcut plans; emit once per latched cycle with
+balanced key edges. Preserve all eligibility, replay and haptic safeguards. Do
+not mutate system shortcut preferences; report disabled/unusable shortcuts. See
+GESTURE_ENGINE.md for defaults, symbolic IDs and Tahoe Apps behavior.

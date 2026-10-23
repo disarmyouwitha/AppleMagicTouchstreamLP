@@ -220,3 +220,40 @@ preserves old saved/keymap decoding; the first directional edit freezes the
 migrated assignments so subsequent edits are independent. Both bindings persist
 per hand and round-trip with keymaps. Zoom sensitivity is shared per hand and
 appears once beneath the two menus. No new output action types were introduced.
+
+## Apple shortcut actions (2026-10-23)
+
+Notification Center, Mission Control, App Exposé, Launch Pad and Show Desktop are
+available in all 2–5-finger Pinch/Spread and 1–5-finger Force Click Action menus.
+Defaults stay unchanged; settings persist per hand and round-trip with keymaps.
+Movement and ordinary Tap menus retain their existing choices.
+
+Pinch/spread emits a shortcut once on activation, then reserves the cycle until
+all-up, including reversal and count changes. It never produces zoom, mouse or
+tap output for that cycle. Force actions emit once at the existing P>=130 crossing,
+with the fixed waveform-6/0.25 force feedback and normal force arbitration.
+Selected/owned/armed/Accessibility/live gates remain; replay does not post.
+
+AppleShortcutPlan reads com.apple.symbolichotkeys / AppleSymbolicHotKeys only at
+configuration (not inside input callbacks). Valid enabled custom shortcuts take
+precedence; key codes, modifiers and standard shortcut type are validated. Known
+symbolic IDs are 32 Mission Control, 33 App Exposé, 36 Show Desktop, 160 Launchpad
+and 163 Notification Center. With no configurable binding, documented fallbacks
+are Control-Up, Control-Down, Fn-H, Fn-Shift-A and Fn-N respectively. Explicitly
+disabled Mission Control/App Exposé bindings need enabling in Keyboard Shortcuts;
+the gesture status reports this. The Globe shortcuts remain fallbacks for the
+other three. No preference mutations, Apple Events automation, extra entitlements,
+external drivers or private Dock API are used.
+
+Each invocation builds both keyboard edges before posting, uses exactly the
+shortcut modifiers (not accidental held modifiers), and tags the events as this
+interpreter. There is no autorepeat or delayed key-up. The selected shortcut plan
+is cached until the next configure/permission refresh/selection change.
+
+On Tahoe 26+, Apple's Launchpad shortcut opens its replacement Apps view. The UI
+keeps the requested Launch Pad action label. Native delivery still needs hardware
+acceptance; offline tests inspect complete events without posting them.
+
+References: [Apple keyboard shortcuts](https://support.apple.com/en-us/102650)
+and [symbolic identifier research](https://github.com/noah-nuebling/mac-mouse-fix/blob/master/Various%20Notes/SymbolicHotKeys%20Reference.txt).
+Implementation is independent Swift; no third-party source or library is bundled.
