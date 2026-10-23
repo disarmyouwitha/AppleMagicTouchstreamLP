@@ -76,6 +76,12 @@ Keymap appears directly under Mode Toggles in the scrolling Keyboard column. Ges
 chord examples and Left/Right/Both Action menus. Keyboard retains the existing
 layout, column, keymap, haptics and tuning controls. Both shows Mixed assignments;
 choosing an action applies to both. Factory settings start mirrored.
+In Both scope, each finger-count heading places the left-hand diagram before the
+label and the right-hand diagram after it. Gesture subsections start collapsed
+except two-finger Tap and Move. Two-finger Pinch and Spread is separate; Tap and
+Move contains tap, force click and movement in that order. Force click appears
+directly below tap in sections containing both. Sensitivity controls
+appear directly below the action they tune, including pointer and zoom gains.
 
 Bindings and gains persist in app-local UserDefaults under
 `AppleMagicTouchstream.handGestureBindings.v1`. Keymap Export now also writes the

@@ -2,13 +2,13 @@ import AppKit
 import SwiftUI
 
 enum GesturePane: String, CaseIterable, Identifiable {
-    case oneFinger, twoFingers, threeFingers, fourFingers, fiveFingers, thumbTwo
+    case oneFinger, twoFingers, twoFingerPinch, threeFingers, fourFingers, fiveFingers, thumbTwo
     var id: String { rawValue }
     var group: String {
         switch self {
         case .oneFinger: return "1 finger"
         case .fiveFingers: return "5 fingers"
-        case .twoFingers: return "2 fingers"; case .threeFingers: return "3 fingers"
+        case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers: return "3 fingers"
         case .fourFingers: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
         }
     }
@@ -16,7 +16,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return "Force Click"
         case .fiveFingers: return "Pinch / Spread & Force Click"
-        case .twoFingers: return "Move, Tap, Pinch & Force Click"
+        case .twoFingers: return "Tap and Move"
+        case .twoFingerPinch: return "Pinch and Spread"
         case .threeFingers: return "Move, Tap, Pinch & Force Click"
         case .fourFingers: return "Move, Pinch & Force Click"
         case .thumbTwo: return "Tap"
@@ -26,7 +27,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return "Choose an action for a one-finger force click."
         case .fiveFingers: return "Choose actions for five-finger pinch/spread and force clicking."
-        case .twoFingers: return "Choose actions for two-finger movement, tapping, pinch/zoom and force clicking."
+        case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
+        case .twoFingerPinch: return "Choose an action for two-finger pinching and spreading."
         case .threeFingers: return "Choose actions for three-finger movement, tapping, pinch/spread and force clicking."
         case .fourFingers: return "Choose actions for four-finger movement, pinch/spread and force clicking."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
@@ -36,8 +38,9 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return [.oneFingerForce]
         case .fiveFingers: return [.fiveFingerPinch,.fiveFingerForce]
-        case .twoFingers: return [.twoFingerMove,.twoFingerTap,.twoFingerPinch,.twoFingerForce]
-        case .threeFingers: return [.threeFingerMove,.threeFingerTap,.threeFingerPinch,.threeFingerForce]
+        case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
+        case .twoFingerPinch: return [.twoFingerPinch]
+        case .threeFingers: return [.threeFingerMove,.threeFingerTap,.threeFingerForce,.threeFingerPinch]
         case .fourFingers: return [.fourFingerMove,.fourFingerPinch,.fourFingerForce]
         case .thumbTwo: return [.thumbTwoTap]
         }
@@ -45,17 +48,16 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var activeFingers: Set<Int> {
         switch self {
         case .oneFinger: return [1]; case .fiveFingers: return [0,1,2,3,4]
-        case .twoFingers: return [1,2]; case .threeFingers: return [1,2,3]
+        case .twoFingers, .twoFingerPinch: return [1,2]; case .threeFingers: return [1,2,3]
         case .fourFingers: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
         }
     }
 }
 
 struct GestureSidebar<Options: View>: View {
-    @Binding var selection: GesturePane
     @Binding var hand: GestureHandScope
-    @ViewBuilder let options: () -> Options
-    @State private var expanded = Set(GesturePane.allCases)
+    @ViewBuilder let options: (GesturePane) -> Options
+    @State private var expanded: Set<GesturePane> = [.twoFingers]
 
     var body: some View {
         VStack(alignment:.leading,spacing:16) {
@@ -75,19 +77,17 @@ struct GestureSidebar<Options: View>: View {
             ScrollView(.vertical) {
                 VStack(alignment:.leading,spacing:20) {
                     ForEach(GesturePane.allCases) { gesture in
-                        DisclosureGroup(isExpanded:Binding(
-                            get:{expanded.contains(gesture)},
-                            set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
-                            gestureRow(gesture)
-                                .padding(.top,5)
-                            if selection == gesture { options().padding(.top,8) }
-                        } label: {
-                            HStack(spacing:8) {
-                                GestureChordIcon(gesture:gesture,hand:hand,selected:false).frame(width:48,height:28)
-                                Text(gesture.group).font(.headline)
+                        VStack(alignment:.leading,spacing:10) {
+                            if gesture != .twoFingerPinch { gestureHeader(gesture) }
+                            DisclosureGroup(isExpanded:Binding(
+                                get:{expanded.contains(gesture)},
+                                set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
+                                options(gesture).padding(.top,8)
+                            } label: {
+                                Text(gesture.title).font(.system(size:14,weight:.medium))
                             }
+                            .tint(.secondary)
                         }
-                        .tint(.secondary)
                     }
                 }
                 .padding(12)
@@ -100,28 +100,16 @@ struct GestureSidebar<Options: View>: View {
         .background(Color(nsColor:.windowBackgroundColor))
     }
 
-    private func gestureRow(_ gesture: GesturePane) -> some View {
-        let selected = selection == gesture
-        return Button { selection = gesture } label: {
-            HStack(spacing:8) {
-                GestureChordIcon(gesture:gesture,hand:hand,selected:selected).frame(width:48,height:30)
-                Text(gesture.title).font(.system(size:14)).lineLimit(1)
-                Spacer(minLength:0)
-                if gesture == .thumbTwo {
-                    Text("Spread").font(.system(size:11,weight:.medium))
-                        .padding(.horizontal,5).padding(.vertical,2)
-                        .overlay(Capsule().stroke(selected ? Color.white.opacity(0.6) : Color.secondary.opacity(0.5)))
-                }
+    private func gestureHeader(_ gesture: GesturePane) -> some View {
+        HStack(spacing:8) {
+            GestureChordIcon(gesture:gesture,hand:hand == .both ? .left : hand,selected:false)
+                .frame(width:48,height:28)
+            Text(gesture.group).font(.headline)
+            if hand == .both {
+                GestureChordIcon(gesture:gesture,hand:.right,selected:false)
+                    .frame(width:48,height:28)
             }
-            .padding(.horizontal,9).padding(.vertical,10)
-            .foregroundStyle(selected ? Color.white : Color.primary)
-            .background(selected ? Color.orange : Color.clear,in:RoundedRectangle(cornerRadius:8))
-            .contentShape(Rectangle())
         }
-        .buttonStyle(.plain)
-        .help(gesture.summary)
-        .accessibilityLabel(gesture.title)
-        .accessibilityValue(selected ? "Selected" : "")
     }
 }
 
@@ -194,18 +182,17 @@ struct GestureActionPickerRow: View {
 struct GestureInspectorPanel: View {
     @ObservedObject var controller: TrackpadGestureController
     @ObservedObject var takeover: NativeTrackpadTakeover
-    @State private var selectedGesture: GesturePane = .twoFingers
     @State private var editingHand: GestureHandScope = .both
     var body: some View {
-        GestureSidebar(selection: $selectedGesture, hand: $editingHand) { gestureDetails }
+        GestureSidebar(hand: $editingHand) { gesture in gestureDetails(gesture) }
     }
-    private var gestureDetails: some View {
+    private func gestureDetails(_ gesture: GesturePane) -> some View {
         VStack(alignment:.leading,spacing:12) {
-            Text(selectedGesture.summary)
+            Text(gesture.summary)
                 .font(.callout).foregroundStyle(.secondary)
                 .fixedSize(horizontal:false,vertical:true)
             Divider()
-            gestureSettings
+            gestureSettings(gesture)
             Text(editingHand == .both ? "Changes apply to both trackpads." : "Editing the \(editingHand.rawValue.lowercased()) trackpad settings.")
                 .font(.caption).foregroundStyle(.secondary)
         }
@@ -214,29 +201,28 @@ struct GestureInspectorPanel: View {
         .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
     }
 
-    @ViewBuilder private var gestureSettings: some View {
-        ForEach(selectedGesture.triggers) { trigger in
+    @ViewBuilder private func gestureSettings(_ gesture: GesturePane) -> some View {
+        ForEach(gesture.triggers) { trigger in
             gestureActionMenu(trigger)
-        }
-        if selectedActions.contains(where:{ $0.requiresPointerProfile }) {
-            sensitivityControl("Pointer sensitivity",kind:.pointer)
-        }
-        if selectedActions.contains(.scroll) {
-            sensitivityControl("Scroll sensitivity",kind:.scroll)
-        }
-        if selectedActions.contains(.zoom) {
-            sensitivityControl("Zoom sensitivity",kind:.zoom)
+            let actions = actions(for:trigger)
+            if actions.contains(where:{ $0.requiresPointerProfile }) {
+                sensitivityControl("Pointer sensitivity",kind:.pointer)
+            }
+            if actions.contains(.scroll) {
+                sensitivityControl("Scroll sensitivity",kind:.scroll)
+            }
+            if actions.contains(.zoom) {
+                sensitivityControl("Zoom sensitivity",kind:.zoom)
+            }
         }
     }
 
-    private var selectedActions: [GestureAction] {
+    private func actions(for trigger: GestureTrigger) -> [GestureAction] {
         let settings = controller.settings
-        return selectedGesture.triggers.flatMap { trigger in
-            switch editingHand {
-            case .left: return [settings.left.bindings.action(for:trigger)]
-            case .right: return [settings.right.bindings.action(for:trigger)]
-            case .both: return [settings.left.bindings.action(for:trigger),settings.right.bindings.action(for:trigger)]
-            }
+        switch editingHand {
+        case .left: return [settings.left.bindings.action(for:trigger)]
+        case .right: return [settings.right.bindings.action(for:trigger)]
+        case .both: return [settings.left.bindings.action(for:trigger),settings.right.bindings.action(for:trigger)]
         }
     }
 

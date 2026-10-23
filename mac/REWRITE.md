@@ -11,12 +11,6 @@
 
 
 `AppleMagicTouchstream`:
-1. For the Gesture headers, on "Both" can we have the left hand to the left and the right hand to the right of "# fingers"?
-2. Can we start with all of the gesture subheaders "minimized"
-3. Can we move the "Pointer sensitivy" slider below "2-finger movement" and zoom sensitivity under Pinch / zoom? Please move 2-finger tap above 2-finger movement.
-===
-0. 2-Finger Pinch/zoom gesture?
-0. Can you check the template files in the SKD, and the research we have left in FINDINGS.md and GESTURE_ENGINE.md from reverse engineering the fingerworks drivers and see if this is how it was implemented there? 
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
 2. Transfer Treasure to GTK~
