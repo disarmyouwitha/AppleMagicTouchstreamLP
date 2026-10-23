@@ -216,49 +216,11 @@ struct GestureInspectorPanel: View {
         ForEach(selectedGesture.triggers) { trigger in
             gestureActionMenu(trigger)
         }
-        if selectedGesture.triggers.contains(where:{$0.forceCount != nil}) {
-            forceHapticControls
-        }
         if selectedActions.contains(where:{ $0.requiresPointerProfile }) {
             sensitivityControl("Pointer sensitivity",kind:.pointer)
         }
         if selectedActions.contains(.scroll) {
             sensitivityControl("Scroll sensitivity",kind:.scroll)
-        }
-    }
-
-    private var forceHapticControls: some View {
-        let left = controller.settings.left.resolvedForceHaptic
-        let right = controller.settings.right.resolvedForceHaptic
-        let value = editingHand == .right ? right : left
-        let mixed = editingHand == .both && left != right
-        return VStack(alignment:.leading,spacing:8) {
-            Divider()
-            Text("Force-click feedback").font(.subheadline).fontWeight(.medium)
-            Picker("Waveform",selection:Binding<Int?>(get:{mixed && left.waveform != right.waveform ? nil : value.waveform},set:{ waveform in
-                if let waveform {
-                    controller.setForceHapticWaveform(waveform,scope:editingHand)
-                }
-            })) {
-                if mixed && left.waveform != right.waveform { Text("Mixed").tag(nil as Int?) }
-                ForEach(1...6,id:\.self) { Text("Waveform \($0)").tag(Optional($0)) }
-            }
-            HStack {
-                Text("Level").font(.caption)
-                Spacer()
-                Text(mixed && left.level != right.level ? String(format:"Mixed · L %.2f / R %.2f",left.level,right.level) : String(format:"%.2f",value.level))
-                    .font(.caption).monospacedDigit()
-            }
-            Slider(value:Binding(get:{value.level},set:{ level in
-                controller.setForceHapticLevel(level,scope:editingHand)
-            }),in:0...2,step:0.01)
-            Text("Experimental scale: 0 is off; 2 is the framework ceiling. Applies to all force clicks on the selected hand(s), independently of typing.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-            Button("Test haptic") { controller.testForceHaptic(scope:editingHand) }
-                .disabled(!takeover.outputArmed)
-            if !controller.hapticTestStatus.isEmpty {
-                Text(controller.hapticTestStatus).font(.caption).foregroundStyle(.secondary)
-            }
         }
     }
 

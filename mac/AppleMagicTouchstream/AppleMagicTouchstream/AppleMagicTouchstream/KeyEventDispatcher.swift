@@ -5,6 +5,20 @@ import Foundation
 import OpenMultitouchSupport
 import os
 
+/// Saved profiles retain their existing level × 100 representation. Live
+/// typing always uses waveform 6 and the actual bounded waveform scale.
+enum TypingHapticFeedback {
+    static let waveform: Int32 = 6
+    static func level(_ value: Double) -> Double {
+        value.isFinite ? min(2,max(0,value)) : 0
+    }
+    static func parameters(for value: Double) -> (waveform:Int32,level:Float)? {
+        let value = level(value)
+        guard value > 0 else { return nil }
+        return (waveform,Float(value))
+    }
+}
+
 enum InputMonitoringPermission {
     static func hasListenAccess() -> Bool {
         CGPreflightListenEventAccess()
@@ -859,7 +873,10 @@ final class DispatchService: @unchecked Sendable {
         case let .systemKey(key):
             keyDispatcher?.postSystemKeyImmediate(key)
         case let .haptic(strength, deviceID):
-            _ = OMSManager.shared.playHapticFeedback(strength: strength, deviceID: deviceID)
+            if let haptic = TypingHapticFeedback.parameters(for:strength) {
+                _ = OMSManager.shared.triggerRawHaptic(actuationID:haptic.waveform,unknown1:0,
+                    unknown2:haptic.level,unknown3:0,deviceID:deviceID)
+            }
         }
         emitRecordedEvent(for: command, status: .posted)
     }

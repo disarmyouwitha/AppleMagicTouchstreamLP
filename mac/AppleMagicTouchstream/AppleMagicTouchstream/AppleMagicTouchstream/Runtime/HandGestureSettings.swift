@@ -98,10 +98,11 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
 /// Experimental waveform scale: Apple's framework clamps this argument at 2.0.
 /// It is not a calibrated acoustic-volume or physical-amplitude percentage.
 struct ForceClickHapticSettings: Equatable, Codable, Sendable {
-    var waveform: Int = 2
-    var level: Double = 0.5
+    var waveform: Int = 6
+    var level: Double = 0.25
+    static let fixed = Self(waveform:6,level:0.25)
     var normalized: Self {
-        Self(waveform:min(6,max(1,waveform)),level:level.isFinite ? min(2,max(0,level)) : 0.5)
+        Self(waveform:min(6,max(1,waveform)),level:level.isFinite ? min(2,max(0,level)) : 0.25)
     }
     func play(device: UInt64) -> Bool {
         let value = normalized
@@ -114,8 +115,8 @@ struct ForceClickHapticSettings: Equatable, Codable, Sendable {
 struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var bindings = GestureActionBindings()
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
+    // Decode/round-trip prior experimental settings only. Live feedback uses .fixed.
     var forceHaptic: ForceClickHapticSettings?
-    var resolvedForceHaptic: ForceClickHapticSettings { (forceHaptic ?? ForceClickHapticSettings()).normalized }
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
     subscript(trigger: GestureTrigger) -> Bool {
         get { bindings.action(for:trigger) != .disabled }

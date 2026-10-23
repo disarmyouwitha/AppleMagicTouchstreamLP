@@ -231,7 +231,6 @@ struct ContentView: View {
     fileprivate static let tapHoldDurationRange: ClosedRange<Double> = 0.0...500.0
     fileprivate static let forceClickRange: ClosedRange<Double> = 0.0...255.0
     fileprivate static let forceClickThresholdRange: ClosedRange<Double> = 130.0...500.0
-    fileprivate static let hapticStrengthRange: ClosedRange<Double> = 0.0...100.0
     fileprivate static let typingGraceRange: ClosedRange<Double> = 0.0...4000.0
     fileprivate static let twoFingerClickCadenceRange: ClosedRange<Double> = 100.0...600.0
     fileprivate static let intentMoveThresholdRange: ClosedRange<Double> = 0.5...10.0
@@ -318,15 +317,6 @@ struct ContentView: View {
         formatter.maximumFractionDigits = 0
         formatter.minimum = NSNumber(value: ContentView.forceClickRange.lowerBound)
         formatter.maximum = NSNumber(value: ContentView.forceClickRange.upperBound)
-        return formatter
-    }()
-    fileprivate static let hapticStrengthFormatter: NumberFormatter = {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .decimal
-        formatter.minimumFractionDigits = 0
-        formatter.maximumFractionDigits = 0
-        formatter.minimum = NSNumber(value: 0)
-        formatter.maximum = NSNumber(value: 100)
         return formatter
     }()
     fileprivate static let typingGraceFormatter: NumberFormatter = {
@@ -2977,48 +2967,10 @@ struct ContentView: View {
         private let labelWidth: CGFloat = 140
         private let valueFieldWidth: CGFloat = 50
 
-        private enum HapticStrengthStep: Int, CaseIterable {
-            case off = 0
-            case weak
-            case medium
-            case strong
-
-            var percent: Double {
-                switch self {
-                case .off: return 0.0
-                case .weak: return 40.0
-                case .medium: return 60.0
-                case .strong: return 100.0
-                }
-            }
-
-            var label: String {
-                switch self {
-                case .off: return "Off"
-                case .weak: return "Weak"
-                case .medium: return "Medium"
-                case .strong: return "Strong"
-                }
-            }
-
-            static func nearest(to percent: Double) -> Self {
-                allCases.min(by: { abs($0.percent - percent) < abs($1.percent - percent) })
-                    ?? .off
-            }
-        }
-
-        private var currentHapticStrengthStep: HapticStrengthStep {
-            HapticStrengthStep.nearest(to: hapticStrengthSetting)
-        }
-
-        private var hapticStrengthIndexBinding: Binding<Double> {
+        private var hapticLevelBinding: Binding<Double> {
             Binding(
-                get: { Double(currentHapticStrengthStep.rawValue) },
-                set: { newValue in
-                    let index = Int(newValue.rounded())
-                    let step = HapticStrengthStep(rawValue: index) ?? .off
-                    hapticStrengthSetting = step.percent
-                }
+                get: { TypingHapticFeedback.level(hapticStrengthSetting / 100) },
+                set: { hapticStrengthSetting = TypingHapticFeedback.level($0) * 100 }
             )
         }
 
@@ -3080,14 +3032,14 @@ struct ContentView: View {
                         .gridCellColumns(2)
                     }
                     GridRow {
-                        Text("Haptic Strength Slider")
+                        Text("Haptic Strength")
                             .frame(width: labelWidth, alignment: .leading)
-                        Text(currentHapticStrengthStep.label)
+                        Text(String(format:"%.2f",hapticLevelBinding.wrappedValue))
                             .frame(width: valueFieldWidth, alignment: .leading)
                         Slider(
-                            value: hapticStrengthIndexBinding,
-                            in: 0...Double(HapticStrengthStep.allCases.count - 1),
-                            step: 1
+                            value: hapticLevelBinding,
+                            in: 0...2,
+                            step: 0.01
                         )
                         .frame(minWidth: 120)
                         .gridCellColumns(2)

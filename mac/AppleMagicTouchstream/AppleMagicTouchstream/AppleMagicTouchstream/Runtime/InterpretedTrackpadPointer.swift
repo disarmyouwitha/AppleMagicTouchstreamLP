@@ -48,7 +48,6 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
         var bindings: [UInt64:GestureActionBindings] = [:]
-        var forceHaptics: [UInt64:ForceClickHapticSettings] = [:]
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
@@ -130,15 +129,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], forceHaptics: [UInt64:ForceClickHapticSettings] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
         lock.withLock { state in
-            guard state.forceHaptics != forceHaptics || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
-            state.forceHaptics = forceHaptics
             state.threeFingerMoveDevices = threeFingerMoveDevices
             state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
             state.thumbTwoTapDevices = thumbTwoTapDevices
@@ -305,7 +303,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 for event in events { event.post(tap:.cghidEventTap) }
                 if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
                     state.lastForceHaptic[device] = hostTime
-                    feedback = state.forceHaptics[device] ?? ForceClickHapticSettings()
+                    feedback = .fixed
                 }
             }
             if state.forceClicks.claimed(device:device) {

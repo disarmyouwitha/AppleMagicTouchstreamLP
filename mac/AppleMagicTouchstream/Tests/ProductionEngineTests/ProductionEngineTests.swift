@@ -410,7 +410,7 @@ final class ProductionEngineTests: XCTestCase {
 
     func testHapticStrengthClampsAndZeroDisablesFeedback() async {
         let run = session()
-        run.engine.updateHapticStrength(2)
+        run.engine.updateHapticStrength(99)
         frame(run, 1, [contact(state: .making)])
         frame(run, 1.08, [contact(state: .breaking)])
         run.engine.updateHapticStrength(0)
@@ -423,8 +423,37 @@ final class ProductionEngineTests: XCTestCase {
             if case let .haptic(strength, _) = event.kind { return strength }
             return nil
         }
-        XCTAssertEqual(strengths, [1])
+        XCTAssertEqual(strengths, [2])
         XCTAssertEqual(keys(run).count, 3)
+    }
+
+    func testTypingHapticFineLevelsReachOutputWithoutChangingWaveform() async throws {
+        let run = session()
+        for (index,level) in [0.15,0.73,1.37,2.0].enumerated() {
+            run.engine.updateHapticStrength(level)
+            let time = 1 + Double(index)
+            frame(run,time,[contact(state:.making)])
+            frame(run,time+0.08,[contact(state:.breaking)])
+        }
+        let levels = run.output.events.compactMap { event -> Double? in
+            if case let .haptic(strength,deviceID) = event.kind {
+                XCTAssertEqual(deviceID,"42")
+                return strength
+            }
+            return nil
+        }
+        XCTAssertEqual(levels,[0.15,0.73,1.37,2.0])
+        for level in levels {
+            let parameters = try XCTUnwrap(TypingHapticFeedback.parameters(for:level))
+            XCTAssertEqual(parameters.waveform,6)
+            XCTAssertEqual(parameters.level,Float(level),accuracy:0.00001)
+        }
+        for level in [0.0,-1.0,Double.nan,Double.infinity] {
+            XCTAssertNil(TypingHapticFeedback.parameters(for:level))
+        }
+        XCTAssertEqual(TypingHapticFeedback.parameters(for:99)?.level,2)
+        XCTAssertEqual(ForceClickHapticSettings.fixed.waveform,6)
+        XCTAssertEqual(ForceClickHapticSettings.fixed.level,0.25)
     }
 
     func testReplayProfileHapticPercentIsNormalized() async throws {

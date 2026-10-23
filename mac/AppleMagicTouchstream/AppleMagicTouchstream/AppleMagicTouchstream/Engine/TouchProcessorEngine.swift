@@ -774,7 +774,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func updateHapticStrength(_ normalized: Double) {
-        hapticStrength = normalized.isFinite ? min(max(normalized, 0), 1) : 0
+        hapticStrength = TypingHapticFeedback.level(normalized)
     }
 
     func updateSnapRadiusPercent(_ percent: Double) {

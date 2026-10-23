@@ -123,7 +123,7 @@ extension HandGestureSettingsTests {
         XCTAssertEqual(roundtrip.action(.fiveFingerForce,in:.left),.disabled)
         XCTAssertEqual(roundtrip.action(.twoFingerTap,in:.left),.secondaryClick)
         XCTAssertEqual(roundtrip.right.pointerSensitivity,0.7)
-        XCTAssertEqual(ForceClickHapticSettings(waveform:999,level:.infinity).normalized,ForceClickHapticSettings(waveform:6,level:0.5))
+        XCTAssertEqual(ForceClickHapticSettings(waveform:999,level:.infinity).normalized,ForceClickHapticSettings(waveform:6,level:0.25))
         XCTAssertEqual(ForceClickHapticSettings(waveform:-1,level:100).normalized,ForceClickHapticSettings(waveform:1,level:2))
     }
 }

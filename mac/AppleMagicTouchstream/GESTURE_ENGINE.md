@@ -40,13 +40,19 @@ blocks output. No pointer/scroll profile is required for a force click; AX and
 live-only gates still apply. An already-sent key cannot be undone retroactively.
 Disabling a force action removes that input's reservation and feedback.
 
-Force-click haptics have separate per-hand waveform (1–6) and level (0–2, step
-0.01) controls. Default waveform 2 / level 0.50 is experimental. Level zero is off.
-The Test haptic button is manual and requires takeover; it is throttled to one
-pulse per pad per 250 ms. Live gesture pulses remain once per cycle with a 50 ms
-per-pad minimum interval, outside the pointer lock. Typing feedback is unchanged.
-See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for native-framework evidence
-explaining the old scale saturation and the hardware comparison procedure.
+Force-click feedback is fixed at **waveform 6, level 0.25** for every count and
+mouse action. The experimental per-hand haptic controls and Test button were
+removed after the user's hardware test. Previously saved experimental values are
+decode-only and cannot override live force feedback. Live pulses remain once per
+cycle and throttled per pad to a minimum 50 ms interval.
+
+Typing uses fixed **waveform 6**, independently of force feedback. Keyboard →
+Typing Tuning → Haptic Strength is a fine 0–2 slider with 0.01 steps; zero disables
+feedback. Profiles/UserDefaults retain the existing `hapticStrength` value ×100
+encoding (60 becomes level 0.60, 150 becomes level 1.50). The engine, live dispatcher
+and replay conversion preserve levels above 1 through 2; invalid values disable
+feedback and higher values clamp at 2. Device targeting and throttling remain.
+See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for the clamp investigation.
 
 Each movement input offers None, Move Pointer, Drag / Select and Scroll / Pan.
 Each tap input offers None, Primary Click, Double-Click and Secondary Click.

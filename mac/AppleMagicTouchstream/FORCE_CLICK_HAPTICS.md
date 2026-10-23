@@ -42,7 +42,21 @@ little difference. It does **not** establish a linear relationship between this
 argument and acoustic volume, vibration strength or perceived click intensity.
 Earlier code called the argument “sharpness”; that name was not verified.
 
-## New bounded controls
+## Final settings after hardware testing
+
+The user confirmed the bounded controls worked and selected these settings:
+
+- Force clicks: **waveform 6, level 0.25**, hardcoded for every finger count/action.
+  Waveform/level controls and the test button are removed. Old saved experimental
+  values remain decodable but cannot change live force-click feedback.
+- Typing: fixed **waveform 6**, with **Haptic Strength** adjustable from 0 to 2 in
+  0.01 steps. Zero is off. This replaces the Off/Weak/Medium/Strong slider.
+- Existing profile/defaults field naming and level ×100 encoding are retained;
+  old strength 60 resolves to 0.60 and a new level 1.50 saves as 150. This is a
+  waveform parameter scale, not calibrated loudness percent. The engine and
+  dispatcher both allow the full 0–2 scale. Replay remains recording-only.
+
+## Initial bounded-control experiment (historical; controls now removed)
 
 Gestures → each finger-count section contains Force-click feedback controls:
 
@@ -61,7 +75,7 @@ feedback outside the gesture-state lock. Typing feedback is unchanged. Replay
 never calls this live output path. This is an existing private framework API,
 not a newly supported/public amplitude interface.
 
-## Hardware comparison
+## Comparison procedure used for the experiment (historical)
 
 1. Keep one waveform selected (start with 2). Compare levels 0.25, 0.50, 1.00 and
    2.00 using Test haptic. Then refine nearby levels with the slider. Compare on

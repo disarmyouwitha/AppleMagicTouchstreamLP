@@ -15,7 +15,7 @@ The original TouchStream **did** provide chords, English spelling correction/Bac
 
 ## Optional haptic feedback
 
-Haptics are the deliberate GTK exception for Apple trackpads. The original Typing Tuning panel retains its Off/Weak/Medium/Strong haptic slider (0/40/60/100%). Accepted keys, modifiers and hold activation pulse the originating trackpad, throttled independently per pad. Repeat ticks do not generate repeated haptics. Existing strength preferences are reused. Profiles store percent; offline replay normalizes this to the engine's 0–1 scale and only records feedback events, without vibrating hardware. Haptics are an Apple-trackpad extension, not a claim about original TouchStream behavior.
+Haptics are the deliberate GTK exception for Apple trackpads. Typing Tuning has a fine **Haptic Strength** slider (0–2, step 0.01) using fixed waveform 6; zero is off. Accepted keys, modifiers and hold activation pulse the originating trackpad, throttled independently per pad; repeats do not pulse repeatedly. Existing profiles retain level ×100 storage. Replay records feedback without vibrating hardware. Force clicks independently use fixed waveform 6 at level 0.25. See FORCE_CLICK_HAPTICS.md for the native-framework clamp investigation. Haptics are an Apple-trackpad extension, not a claim about original TouchStream behavior.
 
 ## Compatibility boundary
 
