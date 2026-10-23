@@ -147,3 +147,11 @@ owners mid-cycle. Preserve per-hand Action/gain persistence and keymap round-tri
 AX/owned/armed/live gates, tap/keyboard arbitration, balanced native magnification
 phases and stale-input/lifecycle cancellation. See GESTURE_ENGINE.md. Hardware
 acceptance is still needed. Do not port to sibling apps or auto-exercise input.
+
+User generalized pinch/spread to independent 2–5-contact inputs, each defaulting
+and assignable to Zoom (or None). Measure whole-shape scale using all contacts;
+accept thumb-plus-fingertip chords without mandatory anatomical labels. Rebase
+membership changes without jumps, retain original ownership/action until all-up,
+and continue a lone survivor against a virtual anchor. Keep recognition scale
+deltas independent of Zoom output. Preserve existing two-finger saved bindings,
+per-hand defaults, gains and keymap round-trips. This supersedes pair-only pinch.

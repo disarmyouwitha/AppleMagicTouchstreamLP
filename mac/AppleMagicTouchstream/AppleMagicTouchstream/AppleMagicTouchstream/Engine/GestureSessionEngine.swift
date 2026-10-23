@@ -17,7 +17,7 @@ struct GestureSessionUpdate<Gesture: Hashable & Sendable>: Sendable {
     let phase: GestureSessionPhase
     let millimetres: CGPoint?
     let cancellation: GestureCancellationReason?
-    var magnification: Double? = nil
+    var scaleDelta: Double? = nil
 }
 
 /// Rules are configured outside callbacks. Array order is activation priority;

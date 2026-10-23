@@ -11,7 +11,6 @@
 
 
 `AppleMagicTouchstream`:
-0. If you can, can we make the gesture more general? I want it to be applicable to any number of fingers + thumb, so... Thumb + Index all the way to all 5 fingers.. as long as the fingers are pinching or spreading. (That way i could be an action and be mapped to any "pinch/spread" gestures.)
 1. For the Gesture headers, on "Both" can we have the left hand to the left and the right hand to the right of "# fingers"?
 2. Can we start with all of the gesture subheaders "minimized"
 3. Can we move the "Pointer sensitivy" slider below "2-finger movement" and zoom sensitivity under Pinch / zoom? Please move 2-finger tap above 2-finger movement.
@@ -22,6 +21,8 @@
 2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
 2. Transfer Treasure to GTK~
 4. Copy touchstream Layout from AMT to GTK!
+===
+- Need to consolidate / Unify Gesture Actions drop-downs after build-out!
 ===
 666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)

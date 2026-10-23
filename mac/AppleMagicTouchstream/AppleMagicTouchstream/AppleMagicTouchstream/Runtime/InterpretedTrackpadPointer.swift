@@ -57,7 +57,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
             let enabled: Bool
             switch trigger {
-            case .twoFingerPinch: enabled = twoFingerPinchDevices.contains(device)
+            case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: enabled = pinchDevices.contains(device)
             case .twoFingerMove: enabled = twoFingerMoveDevices.contains(device)
             case .threeFingerMove: enabled = threeFingerMoveDevices.contains(device)
             case .fourFingerMove: enabled = fourFingerMoveDevices.contains(device)
@@ -66,7 +66,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             case .thumbTwoTap: enabled = thumbTwoTapDevices.contains(device)
             default: enabled = trigger.forceCount != nil && devices.contains(device)
             }
-            return enabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
+            return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
             guard let location = CGEvent(source:nil)?.location,
@@ -80,7 +80,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var buttonObserverHealthy = false
         var threeFingerMoveDevices: Set<UInt64> = []
         var twoFingerMoveDevices: Set<UInt64> = []
-        var twoFingerPinchDevices: Set<UInt64> = []
+        var pinchDevices: Set<UInt64> = []
         var zoomOutputs: [UInt64:MagnifyGestureOutput] = [:]
         var zoomSensitivities: [UInt64:Double] = [:]
         var fourFingerMoveDevices: Set<UInt64> = []
@@ -136,15 +136,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, twoFingerPinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
         lock.withLock { state in
-            guard state.twoFingerPinchDevices != twoFingerPinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
-            state.twoFingerPinchDevices = twoFingerPinchDevices
+            state.pinchDevices = pinchDevices
             state.zoomSensitivities = zoomSensitivities
             state.zoomOutputs = bindings.mapValues { _ in MagnifyGestureOutput() }
             state.threeFingerMoveDevices = threeFingerMoveDevices
@@ -326,13 +326,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
-            let pinch = state.recognizes(.twoFingerPinch,device:device)
+            let pinchEligible = state.pinchDevices.contains(device)
+            let pinchBindings = state.bindings[device] ?? GestureActionBindings()
             let two = state.recognizes(.twoFingerMove,device:device)
             let three = state.recognizes(.threeFingerMove,device:device)
             let four = state.recognizes(.fourFingerMove,device:device)
             let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
+                if trigger.isPinch { return pinchEligible && pinchBindings.action(for:trigger) != .disabled }
                 switch trigger {
-                case .twoFingerPinch: return pinch
                 case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four
                 default: return false
                 }
@@ -342,7 +343,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
-            if update.gesture == .twoFingerPinch {
+            if let gesture = update.gesture, state.action(gesture,device:device) == .zoom {
                 if allUp {
                     _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
                     _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
@@ -351,7 +352,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 }
                 state.finishScroll(device:device,cancelled:true)
                 if update.phase == .began || update.phase == .changed {
-                    if let rawDelta = update.magnification, let location = CGEvent(source:nil)?.location {
+                    if let rawDelta = update.scaleDelta, let location = CGEvent(source:nil)?.location {
                         let gain = state.zoomSensitivities[device] ?? 1
                         let delta = min(0.25,max(-0.25,rawDelta * gain))
                         if let event = state.zoomOutputs[device]?.update(delta:delta,began:update.phase == .began,

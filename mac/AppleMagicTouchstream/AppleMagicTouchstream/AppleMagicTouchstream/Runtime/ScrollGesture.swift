@@ -72,74 +72,78 @@ struct FourFingerScrollEngine {
     }
 }
 
-/// Physical pair spacing, separate from translation and gesture ownership.
-struct PinchDistanceTracker {
-    struct Sample { let changeMM: Double; let initialRatio: Double; let frameRatio: Double }
-    private struct Pair {
-        var first:Int32; var second:Int32
-        var a:CGPoint; var b:CGPoint
-        let initial:Double
-        var last:Double; var time:Double
-        var present:UInt8 = 3
+/// Shape scale is independent of translation, rotation, anatomy and output.
+/// RMS pairwise spacing makes every participating contact contribute equally.
+struct PinchSpreadTracker {
+    struct Sample { let changeMM:Double; let initialRatio:Double; let frameRatio:Double }
+    private struct Frame {
+        var ids = SIMD8<Int32>(repeating:0), x = SIMD8<Double>(repeating:0), y = SIMD8<Double>(repeating:0)
+        var count = 0
+        var time:Double
+        var initial:Double = 0
+        var anchor:CGPoint?
+        func index(_ id:Int32) -> Int? { (0..<count).first { ids[$0] == id } }
+        func point(_ index:Int) -> CGPoint { CGPoint(x:x[index],y:y[index]) }
+        func center(excluding id:Int32) -> CGPoint? {
+            var px=0.0, py=0.0, n=0
+            for i in 0..<count where ids[i] != id { px += x[i]; py += y[i]; n += 1 }
+            return n > 0 ? CGPoint(x:px/Double(n),y:py/Double(n)) : nil
+        }
+        func span() -> Double {
+            if count == 1, let anchor { return hypot(x[0]-anchor.x,y[0]-anchor.y) }
+            var sum=0.0, pairs=0
+            for i in 0..<count { for j in 0..<i {
+                let dx=x[i]-x[j], dy=y[i]-y[j]
+                sum += dx*dx+dy*dy; pairs += 1
+            } }
+            return pairs > 0 ? sqrt(sum/Double(pairs)) : 0
+        }
+        func sameMembers(as other:Self) -> Bool {
+            count == other.count && (0..<count).allSatisfy { other.index(ids[$0]) != nil }
+        }
     }
-    private var pairs: [UInt64:Pair] = [:]
-    mutating func reset() { pairs.removeAll(keepingCapacity:true) }
-    mutating func reset(device:UInt64) { pairs[device] = nil }
+    private var frames:[UInt64:Frame] = [:]
+    mutating func reset() { frames.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { frames[device] = nil }
     mutating func process<C:Collection>(device:UInt64,time:Double,contacts:C,latched:Bool = false) -> Sample? where C.Element == OMSRawTouch {
-        var ids = SIMD16<Int32>(repeating:0), xs = SIMD16<Double>(repeating:0), ys = SIMD16<Double>(repeating:0), count = 0
-        guard time.isFinite else { pairs[device] = nil; return nil }
+        var next=Frame(time:time)
+        guard time.isFinite else { frames[device] = nil; return nil }
         for touch in contacts where touch.state == .making || touch.state == .touching {
-            guard count < 16, touch.telemetry?.fingerID != 6, touch.posX.isFinite, touch.posY.isFinite else {
-                pairs[device] = nil; return nil
+            guard next.count < 5, touch.telemetry?.fingerID != 6, touch.posX.isFinite, touch.posY.isFinite,
+                  next.index(touch.id) == nil else { frames[device] = nil; return nil }
+            let i=next.count
+            next.ids[i]=touch.id; next.x[i]=Double(touch.posX)*160; next.y[i]=Double(touch.posY)*114.9
+            next.count += 1
+        }
+        guard next.count > 0, latched || next.count >= 2 else { frames[device] = nil; return nil }
+        let old=frames[device]
+        let continuous=old.map {time > $0.time && time-$0.time < 0.15} ?? false
+        if latched, next.count == 1, continuous, let old {
+            next.anchor = old.count == 1 ? old.anchor : old.center(excluding:next.ids[0])
+        }
+        let span=next.span()
+        guard span >= 5, span < 200 else { frames[device] = nil; return nil }
+        guard continuous, let old else {
+            next.initial=span; frames[device]=next; return nil
+        }
+        let same=next.sameMembers(as:old)
+        if !same {
+            next.initial=span; frames[device]=next
+            // A survivor moves against the prior non-survivor centroid. The
+            // removal itself changes no geometry and introduces no jump.
+            if latched, next.count == 1, let prior=old.index(next.ids[0]), let anchor=next.anchor {
+                let oldSpan=hypot(old.x[prior]-anchor.x,old.y[prior]-anchor.y)
+                if oldSpan >= 5, abs(span-oldSpan) < 15 {
+                    return Sample(changeMM:0,initialRatio:0,frameRatio:span/oldSpan-1)
+                }
             }
-            for index in 0..<count where ids[index] == touch.id { pairs[device] = nil; return nil }
-            ids[count] = touch.id; xs[count] = Double(touch.posX)*160; ys[count] = Double(touch.posY)*114.9
-            count += 1
+            // Added/replaced/returning contacts establish a fresh constellation;
+            // their new geometry is a baseline, never a magnification delta.
+            return latched ? Sample(changeMM:0,initialRatio:0,frameRatio:0) : nil
         }
-        guard count > 0, latched || count == 2 else { pairs[device] = nil; return nil }
-        func point(_ index:Int) -> CGPoint { CGPoint(x:xs[index],y:ys[index]) }
-        func spacing(_ a:CGPoint,_ b:CGPoint) -> Double { hypot(a.x-b.x,a.y-b.y) }
-        guard var old = pairs[device], time > old.time, time-old.time < 0.15 else {
-            guard count == 2 else { pairs[device] = nil; return nil }
-            let distance = spacing(point(0),point(1))
-            guard distance >= 5, distance < 200 else { pairs[device] = nil; return nil }
-            pairs[device] = Pair(first:ids[0],second:ids[1],a:point(0),b:point(1),initial:distance,last:distance,time:time)
-            return nil
-        }
-        let first = (0..<count).first { ids[$0] == old.first }
-        let second = (0..<count).first { ids[$0] == old.second }
-        if !latched && (first == nil || second == nil) {
-            pairs[device] = nil
-            return nil
-        }
-        var rebase = false
-        var present:UInt8 = 0
-        if let first {
-            old.a = point(first); present |= 1
-            if old.present & 1 == 0 { rebase = true }
-        }
-        if let second {
-            old.b = point(second); present |= 2
-            if old.present & 2 == 0 { rebase = true }
-        }
-        // Extra fingers are ignored while the original pair is available. A
-        // replacement adopts a missing slot and rebases, never adding a jump.
-        if latched, first == nil, let replacement = (0..<count).first(where:{$0 != second}) {
-            old.first = ids[replacement]; old.a = point(replacement); present |= 1; rebase = true
-        }
-        if latched, second == nil, let replacement = (0..<count).first(where:{ids[$0] != old.first}) {
-            old.second = ids[replacement]; old.b = point(replacement); present |= 2; rebase = true
-        }
-        // With one surviving finger, the missing partner's last point is the
-        // virtual anchor. Its continuing motion still changes the pair spacing.
-        let distance = spacing(old.a,old.b)
-        guard distance >= 5, distance < 200, rebase || abs(distance-old.last) < 15 else {
-            pairs[device] = nil; return nil
-        }
-        let sample = Sample(changeMM:distance-old.initial,initialRatio:distance/old.initial-1,
-            frameRatio:rebase ? 0 : distance/old.last-1)
-        old.last = distance; old.time = time; old.present = present; pairs[device] = old
-        return sample
+        guard abs(span-old.span()) < 15 else { frames[device]=nil; return nil }
+        next.initial=old.initial; frames[device]=next
+        return Sample(changeMM:span-old.initial,initialRatio:span/old.initial-1,frameRatio:span/old.span()-1)
     }
 }
 
@@ -179,10 +183,13 @@ typealias LatchedGesture = GestureTrigger
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
     private var engine: GestureSessionEngine<LatchedGesture>
-    private var pinch = PinchDistanceTracker()
+    private var pinch = PinchSpreadTracker()
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
             GestureActivationRule(gesture:.twoFingerPinch,activationCount:2,minimumMovementMM:0),
+            GestureActivationRule(gesture:.threeFingerPinch,activationCount:3,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fourFingerPinch,activationCount:4,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fiveFingerPinch,activationCount:5,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
@@ -201,18 +208,22 @@ struct TrackpadGestureRouter {
     }
     mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
         enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
-        let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device) == .twoFingerPinch)
-        let pinchEnabled = enabled(.twoFingerPinch)
+        let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device)?.isPinch == true)
+        let activeCount=contacts.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1 : 0) }
+        let pinchEnabled=GestureTrigger.pinch(count:activeCount).map(enabled) ?? false
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
                 let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
-                if trigger == .twoFingerPinch { return pair != nil && separation >= 0.6 && separation > translation*1.5 }
-                if trigger == .twoFingerMove && pinchEnabled && separation > translation*1.5 { return false }
+                // A stationary thumb and 2–4 moving fingertips translate their
+                // centroid more than a two-finger chord; normalize dominance.
+                let dominance = 3.0 / Double(max(2,context.activeCount))
+                if trigger.isPinch { return pair != nil && separation >= 0.6 && separation > translation*dominance }
+                if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
                 return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
             })
-        if update.gesture == .twoFingerPinch, let pair {
-            update.magnification = update.phase == .began ? pair.initialRatio : pair.frameRatio
+        if update.gesture?.isPinch == true, let pair {
+            update.scaleDelta = update.phase == .began ? pair.initialRatio : pair.frameRatio
         }
         return update
     }

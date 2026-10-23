@@ -13,7 +13,7 @@ of complete TouchStream firmware fidelity.
 | --- | --- |
 | Two-finger movement | Move Pointer, Apple acceleration |
 | Two-finger tap | Primary Click |
-| Two-finger pinch | Pinch / Zoom |
+| Two-, three-, four- or five-finger pinch / spread | Zoom |
 | Close, aligned three-finger movement | Drag / Select |
 | Non-thumb three-finger tap | Double-Click |
 | Four-finger movement | Scroll / Pan, precise scroll and momentum |
@@ -56,9 +56,10 @@ feedback and higher values clamp at 2. Device targeting and throttling remain.
 See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for the clamp investigation.
 
 Movement inputs offer None, Move Pointer, Drag / Select and Scroll / Pan.
-Pinch offers None or Pinch / Zoom, with an independent per-hand Zoom sensitivity
-(0.25–2×). Pinch defaults on when takeover is opted in; old bindings migrate
-without changing existing actions. Its binding/gain are included in keymap export.
+Each finger-count pinch / spread input offers None or Zoom, with an independent
+per-hand Zoom sensitivity (0.25–2×). All four inputs default to Zoom when takeover
+is opted in; old bindings migrate without changing existing actions. These
+bindings and gains are included in keymap export.
 Each tap input offers None, Primary Click, Double-Click and Secondary Click.
 No keyboard action assignment or legacy GTK gesture reactivation is introduced.
 Movement activation remains 0.35 mm for two/three fingers and 0.2 mm for four;
@@ -147,27 +148,34 @@ Per-key **Force instead of hold** remains: an assigned positive hold-force thres
 uses pressure instead of elapsed dwell, including when reported pressure is zero.
 There is no fallback to timed hold for a pressure-controlled binding.
 
-## Two-finger pinch / zoom (2026-10-22)
+## General pinch / spread and Zoom (2026-10-22)
 
-Pinch competes with two-finger movement in the shared gesture ownership engine.
-The initial pair must have valid, distinct, continuing contact IDs, separation
-at least 5 mm and monotonic sample gaps below 150 ms. Activation requires at least
-0.6 mm separation change and separation change greater than 1.5× centroid travel.
-Spacing-dominant pending motion defers mouse activation; coherent translation
-retains the existing 0.35 mm activation. These are provisional hardware-test values.
+Two-, three-, four- and five-contact pinch / spread inputs compete with movement
+in the shared gesture ownership engine. Thumb plus one through four fingertips
+is supported without requiring accurate anatomical labels. Every contact
+contributes: shape scale is the RMS of all pairwise distances, independent of
+rigid translation and rotation. Recognition produces a scale delta; the assigned
+Zoom action converts that delta into magnification output.
+
+Pending geometry requires valid, distinct contact IDs, RMS spacing at least 5 mm,
+and monotonic sample gaps below 150 ms. Activation requires at least 0.6 mm
+spacing change and spacing change greater than (3 / active count) × centroid
+travel. This accounts for a stationary thumb with multiple moving fingertips.
+Spacing-dominant pending motion defers competing movement activation. Existing
+movement thresholds remain unchanged. These are provisional hardware-test values.
 Once either wins it cannot turn into the other during that cycle.
 
-**Pinch latches until all-up**, just like other continuous gestures. While its
-original pair remains, extra fingers do not affect zoom. If one partner lifts,
-the survivor continues changing spacing against the missing partner's last point
-(a virtual anchor). Replacement/returning contacts adopt a slot with zero delta
-on the membership transition; subsequent motion continues. This avoids centroid
-jumps and preserves the owner across 2→1/3/4/5 transitions. Invalid samples,
-unshared-ID discontinuity, stale input, disabling or lifecycle reset may cancel
-for the same integrity/output safeguards as other gestures. Tiny/degenerate pair
-geometry cannot generate magnification spikes.
+**Pinch latches until all-up**, just like other continuous gestures. Added fingers
+join the shape measurement. Membership changes establish a fresh constellation
+with zero delta on that frame; subsequent motion continues using all contacts.
+If only one survivor remains, it continues against the prior non-survivor
+centroid as a virtual anchor. Its movement can still zoom. The original trigger
+and action own the entire cycle, including 2→5→1 transitions. Invalid samples,
+stale input, disabling or lifecycle reset may cancel for the same integrity/output
+safeguards as other gestures. Tiny/degenerate geometry and implausible jumps
+cannot generate magnification spikes.
 
-Zoom uses incremental pair-distance ratios, including pre-activation travel at
+Zoom uses incremental shape-spacing ratios, including pre-activation travel at
 begin, multiplied by the hand's gain and bounded to ±0.25 per packet. Recognized
 pinches cancel taps, scroll/momentum and pointer translation; keyboard reservation
 includes the release frame. A force-click action can explicitly interrupt zoom.

@@ -14,8 +14,9 @@ struct GestureKeyboardArbitration {
         switch activeCount {
         case 1: candidate = false
         case 2: candidate = enabled(.twoFingerMove) || enabled(.twoFingerTap) || enabled(.twoFingerPinch)
-        case 3: candidate = enabled(.threeFingerMove) || enabled(.threeFingerTap) || enabled(.thumbTwoTap)
-        case 4: candidate = enabled(.fourFingerMove)
+        case 3: candidate = enabled(.threeFingerMove) || enabled(.threeFingerTap) || enabled(.thumbTwoTap) || enabled(.threeFingerPinch)
+        case 4: candidate = enabled(.fourFingerMove) || enabled(.fourFingerPinch)
+        case 5: candidate = enabled(.fiveFingerPinch)
         default: candidate = false
         }
         if candidate { reserved.insert(device) }

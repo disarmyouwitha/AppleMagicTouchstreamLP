@@ -107,12 +107,12 @@ final class TrackpadGestureController: ObservableObject {
             }.map(\.key))
         }
         let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
-        let pinch = devicesFor(.twoFingerPinch)
+        let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
         let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
-            twoFingerTapDevices: tap, twoFingerPinchDevices:pinch,
+            twoFingerTapDevices: tap, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
             bindings: routed.mapValues(\.bindings))

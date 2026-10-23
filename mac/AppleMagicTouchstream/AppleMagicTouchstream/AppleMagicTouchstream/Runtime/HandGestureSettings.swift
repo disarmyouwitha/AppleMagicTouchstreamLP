@@ -9,17 +9,21 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 /// Inputs are recognized independently of the action assigned to them.
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, thumbTwoTap
-    case twoFingerPinch
+    case twoFingerPinch, threeFingerPinch, fourFingerPinch, fiveFingerPinch
     case oneFingerForce, twoFingerForce, threeFingerForce, fourFingerForce, fiveFingerForce
+    static let pinchTriggers: [Self] = [.twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch]
+    var pinchCount: Int? { Self.pinchTriggers.firstIndex(of:self).map { $0 + 2 } }
+    var isPinch: Bool { pinchCount != nil }
+    static func pinch(count:Int) -> Self? { (2...5).contains(count) ? pinchTriggers[count-2] : nil }
     static let forceTriggers: [Self] = [.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce]
     var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
     static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
-    var isContinuous: Bool { self == .twoFingerPinch || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
+    var isContinuous: Bool { isPinch || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
     var title: String {
+        if let count = pinchCount { return "\(count)-finger pinch / spread" }
         if let count = forceCount { return "\(count)-finger force click" }
         switch self {
-        case .twoFingerPinch: return "2-finger pinch / zoom"
         case .twoFingerMove: return "2-finger movement"
         case .twoFingerTap: return "2-finger tap"
         case .threeFingerMove: return "3-finger movement"
@@ -30,7 +34,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
     }
     var allowedActions: [GestureAction] {
-        self == .twoFingerPinch ? [.disabled,.zoom] : isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick]
+        isPinch ? [.disabled,.zoom] : isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick]
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -38,7 +42,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .twoFingerMove: return .pointer; case .twoFingerTap: return .primaryClick
         case .threeFingerMove: return .primaryDrag; case .threeFingerTap: return .primaryDoubleClick
         case .fourFingerMove: return .scroll; case .thumbTwoTap: return .secondaryClick
-        case .twoFingerPinch: return .zoom
+        case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: return .zoom
         case .oneFingerForce: return .primaryClick
         default: return .disabled
         }
@@ -58,7 +62,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .disabled: return "None"; case .pointer: return "Move Pointer"
         case .primaryDrag: return "Drag / Select"; case .scroll: return "Scroll / Pan"
         case .primaryClick: return "Primary Click"; case .primaryDoubleClick: return "Double-Click"
-        case .zoom: return "Pinch / Zoom"
+        case .zoom: return "Zoom"
         case .secondaryClick: return "Secondary Click"
         }
     }
@@ -73,10 +77,12 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     // Optional so old saved bindings decode without discarding customized actions.
     var forceActions: [String: GestureAction]?
     var twoFingerPinch: GestureAction?
+    var pinchActions: [String:GestureAction]?
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             switch trigger {
             case .twoFingerPinch: return twoFingerPinch ?? .zoom
+            case .threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: return pinchActions?[trigger.rawValue] ?? trigger.defaultAction
             case .twoFingerMove: return twoFingerMove; case .twoFingerTap: return twoFingerTap
             case .threeFingerMove: return threeFingerMove; case .threeFingerTap: return threeFingerTap
             case .fourFingerMove: return fourFingerMove; case .thumbTwoTap: return thumbTwoTap
@@ -86,6 +92,9 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
         set {
             switch trigger {
             case .twoFingerPinch: twoFingerPinch = newValue
+            case .threeFingerPinch,.fourFingerPinch,.fiveFingerPinch:
+                if pinchActions == nil { pinchActions = [:] }
+                pinchActions?[trigger.rawValue] = newValue
             case .twoFingerMove: twoFingerMove = newValue; case .twoFingerTap: twoFingerTap = newValue
             case .threeFingerMove: threeFingerMove = newValue; case .threeFingerTap: threeFingerTap = newValue
             case .fourFingerMove: fourFingerMove = newValue; case .thumbTwoTap: thumbTwoTap = newValue
