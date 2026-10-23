@@ -275,6 +275,24 @@ internal static class HandGestureTests
         Check(combo.IsEnabled && combo.Items.Count == 4,"thumb menu does not expose all four tap assignments");
         combo.SelectedIndex = 0;
         Check(settings.HandGesturesV1.Left.ThumbTwoTap == HandGestureAction.None && settings.HandGesturesV1.Right.ThumbTwoTap == HandGestureAction.None,"thumb None selection did not persist");
+        var sliders = rows().Children.OfType<System.Windows.Controls.Slider>().ToArray();
+        Check(sliders.Length == 2,"gesture sensitivities are not both sliders");
+        sliders[0].Value = 1.35; sliders[0].Value = 1.4; sliders[1].Value = .65;
+        Check(ReferenceEquals(sliders[0],rows().Children.OfType<System.Windows.Controls.Slider>().First()),"settings refresh replaced the active slider");
+        Check(settings.HandGesturesV1.Left.PointerSensitivity == 1.4 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4
+            && settings.HandGesturesV1.Left.ScrollSensitivity == .65 && settings.HandGesturesV1.Right.ScrollSensitivity == .65,"sensitivity sliders did not apply to both hands");
+        var scope = (System.Windows.Controls.ComboBox)panel.Children[0];
+        scope.SelectedItem = HandGestureScope.Left;
+        rows().Children.OfType<System.Windows.Controls.Slider>().First().Value = .8;
+        Check(settings.HandGesturesV1.Left.PointerSensitivity == .8 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4,"Left sensitivity changed the other hand");
+        scope.SelectedItem = HandGestureScope.Both;
+        Check(rows().Children.OfType<System.Windows.Controls.TextBlock>().Any(t=>t.Text.Contains("Mixed")),"mixed sensitivity was hidden");
+        settings.HandGesturesV1.Left.PointerResponse = HandPointerResponse.Fixed;
+        settings.HandGesturesV1.Right.PointerResponse = HandPointerResponse.ImportedApple;
+        settings.HandGesturesV1.Right.ImportedPointerProfile = ApplePointerProfile.Reference;
+        WindowsInputPolicy.NormalizeLegacyModes(settings);
+        Check(settings.HandGesturesV1.Left.PointerResponse == HandPointerResponse.AppleReference
+            && settings.HandGesturesV1.Right.PointerResponse == HandPointerResponse.AppleReference,"old settings bypassed the Windows Apple response policy");
     }
     private static void RunAccelerationAndScrollDirection()
     {

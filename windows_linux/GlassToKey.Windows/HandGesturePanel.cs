@@ -18,7 +18,7 @@ internal sealed class HandGesturePanel : StackPanel
         _settings = settings; _changed = changed;
         Children.Add(_scope); Children.Add(_rows);
         Children.Add(new TextBlock { Text = "Use Mouse Takeover for gesture output. Lift all fingers once after enabling or changing bindings. Ctrl+Alt+R releases it. Disable Windows 3/4-finger gestures to prevent native actions.", TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new(0,10,0,0) });
-        Children.Add(new TextBlock { Text = "Apple acceleration uses a Mac reference profile unless you import your own. Scroll uses high-resolution wheel/pan with momentum.", TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new(0,6,0,0) });
+        Children.Add(new TextBlock { Text = "Pointer movement and dragging use the Apple acceleration profile. Scroll uses high-resolution wheel/pan with momentum.", TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new(0,6,0,0) });
         Children.Add(_status);
         _scope.SelectionChanged += (_,_) => Rebuild();
         Rebuild();
@@ -57,7 +57,6 @@ internal sealed class HandGesturePanel : StackPanel
                 if (trigger == HandGestureTrigger.ThumbTwoTap) row.Children.Add(new TextBlock { Text = "Unavailable with current Windows reports: no thumb identity. You can save an assignment or choose None; unknown three-contact taps use 3-finger tap.", TextWrapping = TextWrapping.Wrap, FontSize = 11, Margin = new(0,4,0,0) });
                 _rows.Children.Add(row);
             }
-            AddPointerResponse();
             AddGain("Pointer sensitivity",false); AddGain("Scroll sensitivity",true);
             AddNaturalScrolling();
         }
@@ -75,6 +74,7 @@ internal sealed class HandGesturePanel : StackPanel
         bool left = _settings.HandGesturesV1.Left.NaturalScrolling, right = _settings.HandGesturesV1.Right.NaturalScrolling;
         bool? value = scope == HandGestureScope.Left ? left : scope == HandGestureScope.Right ? right : left == right ? left : null;
         var check = new CheckBox { Content = "Natural scrolling", IsThreeState = true, IsChecked = value, Margin = new(0,10,0,0),
+            Foreground = new SolidColorBrush(Color.FromRgb(207,215,220)),
             ToolTip = "Checked: content follows your fingers. Uncheck to reverse vertical and horizontal scrolling, including momentum. Mixed means Left/Right differ." };
         check.Click += (_,_) =>
         {
@@ -85,78 +85,36 @@ internal sealed class HandGesturePanel : StackPanel
         };
         _rows.Children.Add(check);
     }
-    private void AddPointerResponse()
-    {
-        var scope = (HandGestureScope)_scope.SelectedItem;
-        var left = _settings.HandGesturesV1.Left; var right = _settings.HandGesturesV1.Right;
-        HandPointerResponse? selected = scope == HandGestureScope.Left ? left.PointerResponse : scope == HandGestureScope.Right ? right.PointerResponse
-            : left.PointerResponse == right.PointerResponse ? left.PointerResponse : null;
-        bool imported = (scope == HandGestureScope.Right || left.ImportedPointerProfile != null) && (scope == HandGestureScope.Left || right.ImportedPointerProfile != null);
-        var options = new List<ResponseOption> { new(HandPointerResponse.AppleReference,"Apple acceleration (Mac reference)"), new(HandPointerResponse.Fixed,"Fixed 6 px/mm") };
-        if (imported) options.Insert(1,new(HandPointerResponse.ImportedApple,"Apple acceleration (imported Mac profile)"));
-        if (selected == null) options.Insert(0,new(null,"Mixed"));
-        _rows.Children.Add(new TextBlock { Text = "Pointer response (movement and drag)", Margin = new(0,10,0,4), FontSize = 12 });
-        var combo = new ComboBox { ItemsSource = options, DisplayMemberPath = nameof(ResponseOption.Title), SelectedItem = options.First(o => o.Value == selected), Height = 26 };
-        combo.SelectionChanged += (_,_) =>
-        {
-            if (_refreshing || combo.SelectedItem is not ResponseOption { Value: {} response }) return;
-            ApplyToScope(hand => hand.PointerResponse = response); _changed();
-        };
-        _rows.Children.Add(combo);
-        var import = new Button { Content = "Import Mac tracking profile…", Margin = new(0,5,0,0), Height = 26 };
-        import.Click += (_,_) => ImportPointerProfile();
-        _rows.Children.Add(import);
-    }
-    private void ImportPointerProfile()
-    {
-        var dialog = new Microsoft.Win32.OpenFileDialog { Title = "Import Mac pointer-settings.json", Filter = "Pointer settings (*.json)|*.json", CheckFileExists = true };
-        var owner = Window.GetWindow(this);
-        if (dialog.ShowDialog(owner) != true) return;
-        try
-        {
-            if (new System.IO.FileInfo(dialog.FileName).Length > 1024*1024) throw new ArgumentException("Pointer settings exceed 1 MB.");
-            var profiles = ApplePointerProfile.ReadSnapshot(System.IO.File.ReadAllText(dialog.FileName));
-            int index = 0;
-            if (profiles.Length > 1)
-            {
-                var choose = new Window { Title = "Choose Mac trackpad profile", Width = 460, Height = 260, Owner = owner, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-                var content = new StackPanel { Margin = new(12) };
-                var list = new ListBox { ItemsSource = profiles.Select(p => $"{p.DeviceId} · resolution {p.Resolution:0.##} · acceleration {p.Acceleration:0.##}"), SelectedIndex = 0, Height = 140 };
-                var use = new Button { Content = "Use selected profile", Margin = new(0,10,0,0), Height = 28 };
-                use.Click += (_,_) => { if (list.SelectedIndex >= 0) choose.DialogResult = true; };
-                content.Children.Add(list); content.Children.Add(use); choose.Content = content;
-                if (choose.ShowDialog() != true) return;
-                index = list.SelectedIndex;
-            }
-            ApplyToScope(hand => { hand.ImportedPointerProfile = profiles[index].Copy(); hand.PointerResponse = HandPointerResponse.ImportedApple; });
-            _changed();
-        }
-        catch (Exception ex) { MessageBox.Show(owner,ex.Message,"Cannot import tracking profile",MessageBoxButton.OK,MessageBoxImage.Warning); }
-    }
     private void AddGain(string title, bool scroll)
     {
         var scope = (HandGestureScope)_scope.SelectedItem;
         double left = scroll ? _settings.HandGesturesV1.Left.ScrollSensitivity : _settings.HandGesturesV1.Left.PointerSensitivity;
         double right = scroll ? _settings.HandGesturesV1.Right.ScrollSensitivity : _settings.HandGesturesV1.Right.PointerSensitivity;
         double? value = scope == HandGestureScope.Left ? left : scope == HandGestureScope.Right ? right : left == right ? left : null;
-        var options = new List<GainOption>();
-        if (value == null) options.Add(new(null,"Mixed"));
-        foreach (double gain in new[] {.25,.5,.75,1,1.25,1.5,1.75,2}.Append(value ?? 1).Distinct().Order()) options.Add(new(gain,$"{gain:0.##}×"));
-        _rows.Children.Add(new TextBlock { Text = title, Margin = new(0,10,0,4), FontSize = 12 });
-        var combo = new ComboBox { ItemsSource = options, DisplayMemberPath = nameof(GainOption.Title), SelectedItem = options.First(o => o.Value == value), Height = 26 };
-        combo.SelectionChanged += (_,_) =>
+        var label = new TextBlock { Text = GainLabel(title,value), Margin = new(0,10,0,4), FontSize = 12 };
+        _rows.Children.Add(label);
+        var slider = new Slider { Minimum = .25, Maximum = 2, Value = value ?? 1,
+            SmallChange = .05, LargeChange = .25, TickFrequency = .25,
+            IsMoveToPointEnabled = true, Height = 24,
+            ToolTip = "0.25× to 2×. Mixed means Left/Right differ; adjusting applies to both." };
+        System.Windows.Automation.AutomationProperties.SetName(slider,title);
+        slider.ValueChanged += (_,_) =>
         {
-            if (_refreshing || combo.SelectedItem is not GainOption { Value: { } gain }) return;
-            if (scope != HandGestureScope.Right) SetGain(_settings.HandGesturesV1.Left,scroll,gain);
-            if (scope != HandGestureScope.Left) SetGain(_settings.HandGesturesV1.Right,scroll,gain);
-            _changed();
+            if (_refreshing) return;
+            double gain = Math.Round(slider.Value,2);
+            label.Text = GainLabel(title,gain);
+            ApplyToScope(hand => SetGain(hand,scroll,gain));
+            // Applying settings refreshes this panel synchronously. Keep the
+            // active slider alive so dragging and keyboard focus are preserved.
+            _refreshing = true;
+            try { _changed(); }
+            finally { _refreshing = false; }
         };
-        _rows.Children.Add(combo);
+        _rows.Children.Add(slider);
     }
+    private static string GainLabel(string title, double? gain) => gain.HasValue ? $"{title} · {gain:0.##}×" : $"{title} · Mixed";
     private static void SetGain(PerHandGestureSettings hand, bool scroll, double gain) { if (scroll) hand.ScrollSensitivity = gain; else hand.PointerSensitivity = gain; }
     private sealed record ActionOption(HandGestureAction? Action, string Title);
-    private sealed record GainOption(double? Value, string Title);
-    private sealed record ResponseOption(HandPointerResponse? Value, string Title);
     private static string Title(HandGestureTrigger trigger) => trigger switch
     {
         HandGestureTrigger.TwoFingerMove => "● ●  2-finger movement", HandGestureTrigger.TwoFingerTap => "● ●  2-finger tap",

@@ -8,5 +8,8 @@ internal static class WindowsInputPolicy
     {
         settings.KeyboardModeEnabled = false;
         settings.TypingEnabled = true;
+        settings.HandGesturesV1 ??= new();
+        settings.HandGesturesV1.Normalize();
+        settings.HandGesturesV1.Left.PointerResponse = settings.HandGesturesV1.Right.PointerResponse = HandPointerResponse.AppleReference;
     }
 }

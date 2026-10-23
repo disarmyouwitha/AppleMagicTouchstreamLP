@@ -45,6 +45,8 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             bool same = !string.IsNullOrWhiteSpace(settings.LeftDevicePath) && string.Equals(settings.LeftDevicePath, settings.RightDevicePath, StringComparison.OrdinalIgnoreCase);
             _output.Release();
             var effective = (settings.HandGesturesV1 ?? new()).Clone();
+            // Windows uses the accepted Apple reference curve for movement and drag.
+            effective.Left.PointerResponse = effective.Right.PointerResponse = HandPointerResponse.AppleReference;
             // Current PTP contacts cannot positively classify a thumb. An unavailable
             // input must not reserve a family whose usable bindings are all None.
             effective.Left.ThumbTwoTap = effective.Right.ThumbTwoTap = HandGestureAction.None;

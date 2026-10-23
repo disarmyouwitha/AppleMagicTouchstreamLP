@@ -1,5 +1,9 @@
 # Windows gesture engine
 
+Current Windows pointer controls: movement and drag always use the accepted Apple reference acceleration profile. Pointer response selection and Mac-profile import have been removed from the inspector; older saved response choices are overridden by Windows policy. Shared profile fields and numerical models remain for compatibility and offline verification. The import instructions below describe the earlier research UI and are no longer an available Windows workflow.
+
+Pointer and scroll sensitivity use sliders from 0.25× to 2×, with the current multiplier shown beside each label. Left/Right/Both scoping is preserved; differing values show Mixed until adjusted. Slider updates preserve the active control through synchronous settings refreshes. Natural scrolling uses the inspector's light foreground color.
+
 Implemented 2026-10-23 from `mac/AppleMagicTouchstream`'s current gesture implementation. Hardware validation of this new output path is still required. Earlier Mouse Takeover hardware results establish retained contacts and hook suppression; they do not validate this new recognizer/output integration.
 
 ## Inputs and factory actions
