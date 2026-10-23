@@ -215,7 +215,11 @@ struct TrackpadGestureRouter {
         let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device)?.isPinch == true)
         let activeCount=contacts.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1 : 0) }
         let direction = (pair?.changeMM ?? 0) > 0 ? GestureTrigger.spread(count:activeCount) : GestureTrigger.pinch(count:activeCount)
-        let pinchEnabled=direction.map(enabled) ?? false
+        let hasThumb = contacts.contains {
+            ($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID == 1
+        }
+        let directionEligible = direction.map { $0.isSpread || hasThumb } ?? false
+        let pinchEnabled = directionEligible && (direction.map(enabled) ?? false)
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
@@ -223,7 +227,7 @@ struct TrackpadGestureRouter {
                 // A stationary thumb and 2–4 moving fingertips translate their
                 // centroid more than a two-finger chord; normalize dominance.
                 let dominance = 3.0 / Double(max(2,context.activeCount))
-                if trigger.isPinch { return trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
+                if trigger.isPinch { return directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
                 return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
             })

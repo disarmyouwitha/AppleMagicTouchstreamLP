@@ -169,3 +169,8 @@ activation/force crossing, with no synthetic keyboard edges. Resolve/check symbo
 at configuration; report unavailable if absent. Keep Notification Center,
 Launch Pad and Show Desktop on their tested keyboard dispatch paths. Preserve
 all-up latching, haptics, no replay output and no preference mutations.
+
+User now requires a recognized active Thumb (fingerID 1) to activate every inward
+Pinch input, counts 2–5. Unknown/missing labels do not qualify. Spread remains
+unchanged. This supersedes anatomy-independent inward-pinch activation; preserve
+the all-up latch after activation, including thumb lift and relabeling.

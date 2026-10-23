@@ -27,7 +27,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var id: String { rawValue }
     var isContinuous: Bool { isPinch || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
     var title: String {
-        if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch")" }
+        if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch (thumb required)")" }
         if let count = forceCount { return "\(count)-finger force click" }
         switch self {
         case .twoFingerMove: return "2-finger movement"

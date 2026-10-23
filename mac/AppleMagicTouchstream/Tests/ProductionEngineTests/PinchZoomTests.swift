@@ -82,7 +82,7 @@ final class PinchZoomTests: XCTestCase {
         router.reset(device:1)
         XCTAssertNil(router.recognize(device:1,time:1.02,contacts:touches(32),enabled:{_ in true}).gesture)
     }
-    private func chord(_ count:Int, spread:Double = 0, translation:Double = 0, rotation:Double = 0) -> [OMSRawTouch] {
+    private func chord(_ count:Int, spread:Double = 0, translation:Double = 0, rotation:Double = 0, thumb:Int32? = 1) -> [OMSRawTouch] {
         (0..<count).map { i in
             let x = i == 0 ? 50.0 : 90 + spread
             let y = i == 0 ? 60.0 : 35 + Double(i)*10
@@ -90,7 +90,10 @@ final class PinchZoomTests: XCTestCase {
             let px=70+dx*cos(rotation)-dy*sin(rotation)+translation
             let py=60+dx*sin(rotation)+dy*cos(rotation)
             return OMSRawTouch(id:Int32(i+1),posX:Float(px/160),posY:Float(py/114.9),total:1,pressure:40,
-                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching,
+                telemetry:thumb.map { finger in OMSTouchTelemetry(fingerID:i == 0 ? finger : Int32(i+1),handID:1,
+                    velocityX:0,velocityY:0,absoluteX:0,absoluteY:0,absoluteVelocityX:0,absoluteVelocityY:0,
+                    sourceFrame:1,sourceTimestamp:1) })
         }
     }
     func testEveryThumbPlusFingertipCountRecognizesSpreadAndPinchWithoutStealingTranslation() throws {
@@ -160,6 +163,34 @@ final class PinchZoomTests: XCTestCase {
         let migrated = try JSONDecoder().decode(GestureActionBindings.self,from:JSONEncoder().encode(old))
         XCTAssertEqual(migrated[.twoFingerPinch],.disabled)
         XCTAssertEqual(migrated[.twoFingerSpread],.disabled)
+    }
+
+    func testEveryInwardPinchRequiresRecognizedThumbOnlyAtActivation() throws {
+        for count in 2...5 {
+            let inward = try XCTUnwrap(GestureTrigger.pinch(count:count))
+            let outward = try XCTUnwrap(GestureTrigger.spread(count:count))
+            for label:Int32? in [nil,0,2,3,4,5] {
+                var blocked = TrackpadGestureRouter()
+                _ = blocked.recognize(device:1,time:1,contacts:chord(count,thumb:label),enabled:{$0 == inward})
+                XCTAssertNil(blocked.recognize(device:1,time:1.01,contacts:chord(count,spread:-2,thumb:label),enabled:{$0 == inward}).gesture)
+                var spread = TrackpadGestureRouter()
+                _ = spread.recognize(device:1,time:1,contacts:chord(count,thumb:label),enabled:{$0 == outward})
+                XCTAssertEqual(spread.recognize(device:1,time:1.01,contacts:chord(count,spread:2,thumb:label),enabled:{$0 == outward}).gesture,outward)
+            }
+            var latched = TrackpadGestureRouter()
+            _ = latched.recognize(device:1,time:1,contacts:chord(count),enabled:{$0 == inward})
+            XCTAssertEqual(latched.recognize(device:1,time:1.01,contacts:chord(count,spread:-2),enabled:{$0 == inward}).gesture,inward)
+            // Classification can fluctuate after activation without breaking the latch.
+            let unknown = latched.recognize(device:1,time:1.02,contacts:chord(count,spread:-3,thumb:nil),enabled:{$0 == inward})
+            XCTAssertEqual(unknown.gesture,inward); XCTAssertEqual(unknown.phase,.changed)
+            let lifted = latched.recognize(device:1,time:1.03,contacts:Array(chord(count,spread:-4,thumb:nil).dropFirst()),enabled:{$0 == inward})
+            XCTAssertEqual(lifted.gesture,inward); XCTAssertEqual(lifted.phase,.changed)
+            XCTAssertEqual(latched.recognize(device:1,time:1.04,contacts:[],enabled:{$0 == inward}).phase,.ended)
+        }
+        // An ineligible pinch must not postpone ordinary pointer movement.
+        var pointer = TrackpadGestureRouter()
+        _ = pointer.recognize(device:1,time:1,contacts:chord(2,thumb:nil),enabled:{$0 == .twoFingerMove || $0 == .twoFingerPinch})
+        XCTAssertEqual(pointer.recognize(device:1,time:1.01,contacts:chord(2,spread:-2,thumb:nil),enabled:{$0 == .twoFingerMove || $0 == .twoFingerPinch}).gesture,.twoFingerMove)
     }
 
     func testNativeMagnificationPhasesDeltaFlagsAnchorAndCleanupWithoutPosting() throws {

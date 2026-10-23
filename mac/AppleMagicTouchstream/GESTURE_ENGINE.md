@@ -159,7 +159,8 @@ There is no fallback to timed hold for a pressure-controlled binding.
 
 Two-, three-, four- and five-contact pinch / spread inputs compete with movement
 in the shared gesture ownership engine. Thumb plus one through four fingertips
-is supported without requiring accurate anatomical labels. Every contact
+is supported. Inward Pinch activation requires a recognized thumb; outward
+Spread remains independent of anatomical labels. Every contact
 contributes: shape scale is the RMS of all pairwise distances, independent of
 rigid translation and rotation. Recognition produces a scale delta; the assigned
 Zoom action converts that delta into magnification output.
@@ -280,3 +281,19 @@ which would re-engage the layer at its former position. Explicit terminal releas
 gesture reservation and normal momentary-layer held-key cancellation are retained.
 Production replay covers both left/right layer sources, cross-pad number typing,
 missing and explicit terminal release, and returning immediately to base typing.
+
+### Thumb-required inward Pinch (2026-10-23)
+
+All 2–5-finger inward Pinch inputs require at least one active making/touching
+contact classified as Thumb (telemetry fingerID 1) on the activation frame.
+Unknown/nil labels and non-thumb fingertips do not qualify; geometry alone is
+not a thumb substitute. The requirement applies to every assigned action,
+including Zoom and the Apple shortcuts. Ineligible inward pinching does not defer
+ordinary movement activation. Spread activation is unchanged and does not require
+a thumb. Keyboard candidate reservation remains conservative until all-up.
+
+The thumb is an activation requirement, not a continuation condition. Once a
+Pinch owns the cycle, label fluctuations, lifting the thumb, count changes and
+motion reversal retain the original action/latch until all-up under the existing
+integrity/lifecycle safeguards. Tests cover every count, unknown/non-thumb labels,
+thumb lift/relabel, spread without a thumb, and pointer fallback.
