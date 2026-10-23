@@ -123,3 +123,8 @@ The 150-pixel rejection is removed from pointer movement and drag. Large finite 
 Regression coverage includes two-finger pointer and three-finger drag sequences with successive 5 mm accelerated intervals exceeding 150 pixels, then a slow interval without lifting. All motion intervals must be delivered; drag must remain held until all-up, with exactly one final release and no tap. Bounds are also checked for large/extreme finite values. Apple numerical golden vectors remain unchanged.
 
 Fast-motion fix verification: Release build and all self-tests passed (zero warnings/errors). The running app locked the normal Release output, so the complete corrected application was built to `bin/FastMotionFix/GlassToKey.Windows.exe`. Exit the existing tray instance before opening this build. The next hardware check is slow/fast/slow two-finger movement and three-finger dragging without lifting in between.
+
+
+## Two-finger tap landing fix
+
+The user capture exposed two short taps whose first finger shifted as the second landed. The pending router incorrectly counted that interval toward two-finger activation. With a tap assigned, a newly formed pair now establishes its own movement baseline. Already-latched motion and tap=None behavior remain unchanged; no timer or threshold increase was added. Full capture replay repairs both taps and preserves all 14 longer movement activation frames. See [capture analysis and verification](WindowsDiagnostics/TapCaptureAnalysis/FINDINGS.md).

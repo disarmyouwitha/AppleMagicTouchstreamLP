@@ -134,9 +134,50 @@ internal static class HandGestureTests
             RunAccelerationAndScrollDirection();
             RunPanelPreferences();
             RunFastPointerContinuity();
+            RunCapturedTapLanding();
             failure = ""; return true;
         }
         catch (Exception ex) { failure = ex.Message; return false; }
+    }
+    private static void RunCapturedTapLanding()
+    {
+        var assembly = typeof(HandGestureTests).Assembly;
+        string name = assembly.GetManifestResourceNames().Single(n=>n.EndsWith(".TwoFingerTapLanding.json",StringComparison.Ordinal));
+        using var input = assembly.GetManifestResourceStream(name)!;
+        using var fixture = JsonDocument.Parse(input);
+        var expectedMotion = new Dictionary<int,int> { [293]=297,[485]=498,[591]=597,[613]=617,[641]=646,[673]=676,[711]=712,
+            [747]=755,[783]=791,[827]=833,[863]=872,[902]=909,[931]=938,[973]=974 };
+        foreach (var action in new[] { HandGestureAction.Pointer,HandGestureAction.PrimaryDrag })
+        {
+            var settings = new HandGestureSettings(); settings.Right.TwoFingerMove = action;
+            var output = new Output(); var engine = new HandGestureEngine(output); engine.Configure(settings,false);
+            engine.Process(TrackpadSide.Right,[],-.01,-.01,true);
+            bool active = false; int start = 0, moves = 0, taps = 0, buttons = 0, firstMove = -1, motionCycles = 0;
+            foreach (var frame in fixture.RootElement.GetProperty("frames").EnumerateArray())
+            {
+                int index = frame.GetProperty("index").GetInt32(); double time = frame.GetProperty("time").GetDouble();
+                var contacts = frame.GetProperty("points").EnumerateArray().Select(p=>new HandGestureContact(p[0].GetUInt32(),p[1].GetDouble(),p[2].GetDouble())).ToArray();
+                if (contacts.Length > 0 && !active) { active = true; start = index; moves = output.Moves.Count; taps = output.Taps.Count; buttons = output.Buttons.Count; firstMove = -1; }
+                int before = output.Moves.Count;
+                engine.Process(TrackpadSide.Right,contacts,time,time,true); engine.Tick(time,true);
+                if (output.Moves.Count > before && firstMove < 0) firstMove = index;
+                if (contacts.Length != 0 || !active) continue;
+                if (start is 476 or 533)
+                    Check(output.Moves.Count == moves && output.Taps.Count == taps+1 && output.Buttons.Count == buttons,
+                        $"captured tap {start} still became movement/drag instead of one click");
+                if (expectedMotion.TryGetValue(start,out int expected))
+                {
+                    Check(firstMove == expected,$"captured movement {start} activation changed from frame {expected} to {firstMove}"); motionCycles++;
+                }
+                active = false;
+            }
+            Check(motionCycles == 14 && output.Taps.Count == 11 && output.Moves.Count == 574,"full capture replay classification changed unexpectedly");
+            if (action == HandGestureAction.PrimaryDrag) Check(output.Buttons.Count(b=>b) == 14 && output.Buttons.Count(b=>!b) == 14,"captured drag releases are unbalanced");
+        }
+        // None removes tap-specific arbitration; an assigned movement still works.
+        var noTapSettings = new HandGestureSettings(); noTapSettings.Left.TwoFingerTap = HandGestureAction.None;
+        var (noneEngine,noneOutput) = Engine(noTapSettings); Frame(noneEngine,1,1); Frame(noneEngine,2,1.01,.8);
+        Check(noneOutput.Moves.Count == 1,"None tap binding delayed or suppressed two-finger movement");
     }
     private static void RunFastPointerContinuity()
     {

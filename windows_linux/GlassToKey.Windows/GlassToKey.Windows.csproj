@@ -10,6 +10,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
   </ItemGroup>
   <ItemGroup>
     <Using Remove="System.Drawing" />

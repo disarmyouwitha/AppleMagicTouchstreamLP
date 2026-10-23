@@ -141,7 +141,16 @@ public sealed class HandGestureEngine
         if (continued && !p.Owner.HasValue)
         {
             if (p.PendingCount != count) { p.PendingCount = count; p.TravelX = p.TravelY = 0; }
-            p.TravelX += dx; p.TravelY += dy;
+            // A first finger can shift while the second lands. That interval did
+            // not have a stable two-finger chord at both ends, so it is a fresh
+            // baseline when a two-finger tap is also assigned. Counting its
+            // single shared finger's shift as pair motion turns taps into moves.
+            // Already-owned gestures bypass this branch and keep shared-ID motion.
+            // With tap=None, movement retains its original activation behavior.
+            bool formingTapChord = count == 2 && enabled(HandGestureTrigger.TwoFingerTap)
+                && (p.PreviousCount != 2 || shared != 2);
+            if (formingTapChord) p.TravelX = p.TravelY = 0;
+            else { p.TravelX += dx; p.TravelY += dy; }
             HandGestureTrigger? trigger = count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, _ => null };
             double threshold = count == 4 ? .2 : .35;
             if (trigger.HasValue && enabled(trigger.Value) && Math.Sqrt(p.TravelX*p.TravelX+p.TravelY*p.TravelY) >= threshold
