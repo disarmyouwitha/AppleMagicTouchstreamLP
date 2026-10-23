@@ -14,7 +14,7 @@ The shortcut must register successfully before activation is allowed. If another
 
 ## Scope and lifecycle
 
-This is the accepted **all-physical-mouse** compromise. It blocks hook-visible physical cursor movement, buttons, and vertical/horizontal wheel events from every mouse. Raw trackpad contacts continue to reach the existing GlassToKey engine; injected output passes through. It adds no new pointer/gesture engine and changes no decoder packing, typing/haptics settings, driver binding, or Windows gesture settings.
+This is the accepted **all-physical-mouse** compromise. It blocks hook-visible physical cursor movement, buttons, and vertical/horizontal wheel events from every mouse. Raw trackpad contacts continue to reach the existing GlassToKey engine; injected output passes through. Mouse Takeover itself changes no decoder packing, driver binding, or Windows gesture settings. The new [gesture engine](WINDOWS_GESTURE_ENGINE.md) uses takeover as its output gate and replaces the former Windows gesture assignments.
 
 Windows shell gestures or touchpad interactions outside the mouse-hook delivery path can still run. Configure conflicting Windows gestures separately if needed; keep the Windows Touchpad switch ON. This is not the selected-device FLTR ownership used on Mac.
 

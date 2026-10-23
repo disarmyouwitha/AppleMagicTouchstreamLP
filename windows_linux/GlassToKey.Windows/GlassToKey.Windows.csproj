@@ -9,6 +9,9 @@
     <LangVersion>latest</LangVersion>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
+  </ItemGroup>
+  <ItemGroup>
     <Using Remove="System.Drawing" />
     <Using Remove="System.Windows.Forms" />
   </ItemGroup>

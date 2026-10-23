@@ -60,6 +60,10 @@ internal sealed class TouchProcessorCore
     private const ushort ShiftVirtualKey = 0x10;
 
     private TouchProcessorConfig _config;
+    private bool _legacyGesturesEnabled = true;
+    private bool _handReservedLeft, _handReservedRight;
+    public void UseHandGestureRecognition() { _legacyGesturesEnabled = false; SetThreeFingerDragEnabled(false); }
+
     private readonly IntentTransition[] _transitionRing = new IntentTransition[256];
     private int _transitionRingHead;
     private int _transitionRingCount;
@@ -380,6 +384,7 @@ internal sealed class TouchProcessorCore
 
     public void SetThreeFingerDragEnabled(bool enabled)
     {
+        enabled &= _legacyGesturesEnabled;
         if (_threeFingerDragEnabled == enabled)
         {
             return;
@@ -476,6 +481,7 @@ internal sealed class TouchProcessorCore
 
     public void ResetState()
     {
+        _handReservedLeft = _handReservedRight = false;
         EndAllGestureDispatches(Stopwatch.GetTimestamp());
         _intentTouches.RemoveAll();
         _touchStates.RemoveAll();
@@ -571,7 +577,8 @@ internal sealed class TouchProcessorCore
         in InputFrame frame,
         ushort maxX,
         ushort maxY,
-        long timestampTicks)
+        long timestampTicks,
+        bool handGestureReserved = false)
     {
         CaptureClockAnchor(timestampTicks);
         _framesProcessed++;
@@ -628,34 +635,49 @@ internal sealed class TouchProcessorCore
             }
         }
 
-        if (tipContactsInFrame > 0 &&
-            (_threeFingerTapGestureAction.Kind != EngineActionKind.None ||
-             _threeFingerTapGestureLeft.Active ||
-             _threeFingerTapGestureRight.Active))
+        if (!_legacyGesturesEnabled)
         {
-            InvalidateOppositeThreeFingerTapGesture(side);
+            if (side == TrackpadSide.Left) _handReservedLeft = handGestureReserved;
+            else _handReservedRight = handGestureReserved;
+            if (handGestureReserved)
+            {
+                CancelKeyboardForHandGesture(side, timestampTicks);
+                UpdateIntentState(BuildIntentAggregate(), timestampTicks);
+                return;
+            }
         }
 
-        UpdateSideForceVelocity(side, frameTipMaxForceNorm, timestampTicks);
-        if (ProcessThreeFingerDragFrame(side, in frame, maxX, maxY, timestampTicks))
+        if (_legacyGesturesEnabled)
         {
-            return;
-        }
+            if (tipContactsInFrame > 0 &&
+                (_threeFingerTapGestureAction.Kind != EngineActionKind.None ||
+                 _threeFingerTapGestureLeft.Active ||
+                 _threeFingerTapGestureRight.Active))
+            {
+                InvalidateOppositeThreeFingerTapGesture(side);
+            }
 
-        UpdateMultiFingerClickGestures(
-            side,
-            tipContactsInFrame,
-            frame.IsButtonPressed,
-            timestampTicks);
-        if (tipContactsInFrame >= 3)
-        {
-            SetThreePlusGestureSuppress(side, enabled: true);
+            UpdateSideForceVelocity(side, frameTipMaxForceNorm, timestampTicks);
+            if (ProcessThreeFingerDragFrame(side, in frame, maxX, maxY, timestampTicks))
+            {
+                return;
+            }
+
+            UpdateMultiFingerClickGestures(
+                side,
+                tipContactsInFrame,
+                frame.IsButtonPressed,
+                timestampTicks);
+            if (tipContactsInFrame >= 3)
+            {
+                SetThreePlusGestureSuppress(side, enabled: true);
+            }
+            else if (!HasActiveTouchStateForSide(side))
+            {
+                SetThreePlusGestureSuppress(side, enabled: false);
+            }
+            UpdateChordShift(_lastRawLeftContacts, _lastRawRightContacts, timestampTicks);
         }
-        else if (!HasActiveTouchStateForSide(side))
-        {
-            SetThreePlusGestureSuppress(side, enabled: false);
-        }
-        UpdateChordShift(_lastRawLeftContacts, _lastRawRightContacts, timestampTicks);
         double tipSumXNorm = 0;
         double tipSumYNorm = 0;
         Span<ulong> frameKeys = stackalloc ulong[InputFrame.MaxContacts];
@@ -797,57 +819,60 @@ internal sealed class TouchProcessorCore
         IntentAggregate aggregate = BuildIntentAggregate();
         double centroidX = 0.0;
         double centroidY = 0.0;
-        if (tipContactsInFrame > 0)
+        if (_legacyGesturesEnabled)
         {
-            centroidX = tipSumXNorm / tipContactsInFrame;
-            centroidY = tipSumYNorm / tipContactsInFrame;
-            UpdateFiveFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
-            UpdateThreeFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
-            UpdateFourFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
-        }
-        else
-        {
-            UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
-            UpdateThreeFingerSwipe(side, 0, 0, 0, timestampTicks);
-            UpdateFourFingerSwipe(side, 0, 0, 0, timestampTicks);
-        }
-        if (_threeFingerTapGestureAction.Kind != EngineActionKind.None ||
-            _threeFingerTapGestureLeft.Active ||
-            _threeFingerTapGestureRight.Active)
-        {
-            UpdateThreeFingerTapGesture(
+            if (tipContactsInFrame > 0)
+            {
+                centroidX = tipSumXNorm / tipContactsInFrame;
+                centroidY = tipSumYNorm / tipContactsInFrame;
+                UpdateFiveFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+                UpdateThreeFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+                UpdateFourFingerSwipe(side, tipContactsInFrame, centroidX, centroidY, timestampTicks);
+            }
+            else
+            {
+                UpdateFiveFingerSwipe(side, 0, 0, 0, timestampTicks);
+                UpdateThreeFingerSwipe(side, 0, 0, 0, timestampTicks);
+                UpdateFourFingerSwipe(side, 0, 0, 0, timestampTicks);
+            }
+            if (_threeFingerTapGestureAction.Kind != EngineActionKind.None ||
+                _threeFingerTapGestureLeft.Active ||
+                _threeFingerTapGestureRight.Active)
+            {
+                UpdateThreeFingerTapGesture(
+                    side,
+                    tipContactsInFrame,
+                    centroidX,
+                    centroidY,
+                    frame.IsButtonPressed,
+                    timestampTicks);
+            }
+            UpdateTwoFingerHoldGesture(aggregate, timestampTicks);
+            UpdateThreeFingerHoldGesture(aggregate, timestampTicks);
+            UpdateFourFingerHoldGesture(aggregate, timestampTicks);
+            UpdateCornerHoldGesture(side, timestampTicks);
+            UpdateEdgeSlideGesture(side, tipContactsInFrame, timestampTicks);
+            UpdateCornerSwipeGesture(side, tipContactsInFrame, timestampTicks);
+            UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
+            UpdateForceClickGesture(
                 side,
                 tipContactsInFrame,
-                centroidX,
-                centroidY,
-                frame.IsButtonPressed,
+                hasSingleTipSnapshot,
+                singleTipXNorm,
+                singleTipYNorm,
+                singleTipForceNorm,
+                singleTipKeyboardAnchor,
+                timestampTicks);
+            UpdateCornerClickTapGesture(
+                side,
+                tipContactsInFrame,
+                hasSingleTipSnapshot,
+                singleTipXNorm,
+                singleTipYNorm,
+                singleTipForceNorm,
+                singleTipKeyboardAnchor,
                 timestampTicks);
         }
-        UpdateTwoFingerHoldGesture(aggregate, timestampTicks);
-        UpdateThreeFingerHoldGesture(aggregate, timestampTicks);
-        UpdateFourFingerHoldGesture(aggregate, timestampTicks);
-        UpdateCornerHoldGesture(side, timestampTicks);
-        UpdateEdgeSlideGesture(side, tipContactsInFrame, timestampTicks);
-        UpdateCornerSwipeGesture(side, tipContactsInFrame, timestampTicks);
-        UpdateTriangleGesture(side, tipContactsInFrame, timestampTicks);
-        UpdateForceClickGesture(
-            side,
-            tipContactsInFrame,
-            hasSingleTipSnapshot,
-            singleTipXNorm,
-            singleTipYNorm,
-            singleTipForceNorm,
-            singleTipKeyboardAnchor,
-            timestampTicks);
-        UpdateCornerClickTapGesture(
-            side,
-            tipContactsInFrame,
-            hasSingleTipSnapshot,
-            singleTipXNorm,
-            singleTipYNorm,
-            singleTipForceNorm,
-            singleTipKeyboardAnchor,
-            timestampTicks);
         UpdateIntentState(aggregate, timestampTicks);
     }
 
@@ -1445,12 +1470,14 @@ internal sealed class TouchProcessorCore
 
     private bool AreCornerGesturesEnabled()
     {
+        if (!_legacyGesturesEnabled) return false;
         return _outerCornersGestureAction.Kind != EngineActionKind.None ||
                _innerCornersGestureAction.Kind != EngineActionKind.None;
     }
 
     private bool IsGestureDispatchPriorityActive(TrackpadSide side)
     {
+        if (!_legacyGesturesEnabled) return side == TrackpadSide.Left ? _handReservedLeft : _handReservedRight;
         return IsThreePlusGesturePriorityActive(side) ||
                IsCornerGesturePriorityActive(side) ||
                IsEdgeSlideGesturePriorityActive(side) ||
@@ -5755,6 +5782,7 @@ internal sealed class TouchProcessorCore
 
     private bool IsChordSourceSide(TrackpadSide side)
     {
+        if (!_legacyGesturesEnabled) return false;
         // Reserve 5-finger contact sets for swipe gestures (typing toggle),
         // instead of suppressing them as chord-source anchors.
         if (side == TrackpadSide.Left &&
@@ -5802,6 +5830,17 @@ internal sealed class TouchProcessorCore
             _intentTouches.Remove(key, out _);
             CancelTouchWithoutReleaseAction(key, timestampTicks);
         }
+    }
+
+    // A claimed pad never emits terminal fallback taps, layers, holds or repeats.
+    private void CancelKeyboardForHandGesture(TrackpadSide side, long timestampTicks)
+    {
+        int count = 0;
+        for (int i = 0; i < _touchStates.Capacity; i++)
+            if (_touchStates.IsOccupiedAt(i) && TouchSideFromKey(_touchStates.KeyAt(i)) == side)
+                _removalBuffer[count++] = _touchStates.KeyAt(i);
+        for (int i = 0; i < count; i++) CancelTouchWithoutReleaseAction(_removalBuffer[i], timestampTicks);
+        ClearTouchesForChordSourceSide(side, timestampTicks);
     }
 
     private void CancelTouchWithoutReleaseAction(ulong touchKey, long timestampTicks)
@@ -5871,6 +5910,7 @@ internal sealed class TouchProcessorCore
 
     private void RefreshGestureActionsFromConfig()
     {
+        if (!_legacyGesturesEnabled) return;
         _fiveFingerSwipeLeftGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeLeftAction);
         _fiveFingerSwipeRightGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeRightAction);
         _fiveFingerSwipeUpGestureAction = EngineActionResolver.ResolveActionLabel(_config.FiveFingerSwipeUpAction);
@@ -5943,6 +5983,7 @@ internal sealed class TouchProcessorCore
 
     private bool HasChordShiftHoldGesture()
     {
+        if (!_legacyGesturesEnabled) return false;
         return _twoFingerHoldUsesChordShift ||
                _threeFingerHoldUsesChordShift ||
                _fourFingerHoldUsesChordShift;
@@ -6871,6 +6912,7 @@ internal sealed class TouchProcessorCore
 internal sealed class TouchProcessorActor : IDisposable
 {
     private readonly TouchProcessorCore _core;
+    private readonly IHandGestureRuntime? _handGestures;
     private readonly object _coreGate = new();
     private readonly DispatchEventQueue? _dispatchQueue;
     private readonly IThreeFingerDragSink? _threeFingerDragSink;
@@ -6889,9 +6931,11 @@ internal sealed class TouchProcessorActor : IDisposable
         TouchProcessorCore core,
         int queueCapacity = 2048,
         DispatchEventQueue? dispatchQueue = null,
-        IThreeFingerDragSink? threeFingerDragSink = null)
+        IThreeFingerDragSink? threeFingerDragSink = null,
+        IHandGestureRuntime? handGestures = null)
     {
         _core = core;
+        _handGestures = handGestures;
         _dispatchQueue = dispatchQueue;
         _threeFingerDragSink = threeFingerDragSink;
         _queue = new FrameEnvelope[Math.Max(16, queueCapacity)];
@@ -7129,6 +7173,7 @@ internal sealed class TouchProcessorActor : IDisposable
         }
 
         _thread.Join();
+        _handGestures?.Dispose();
         _signal.Dispose();
     }
 
@@ -7161,6 +7206,7 @@ internal sealed class TouchProcessorActor : IDisposable
 
             if (!hasFrame)
             {
+                lock (_coreGate) _handGestures?.Tick();
                 _signal.WaitOne(4);
                 continue;
             }
@@ -7168,7 +7214,9 @@ internal sealed class TouchProcessorActor : IDisposable
             InputFrame payload = frame.Frame;
             lock (_coreGate)
             {
-                _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks);
+                bool reserved = _handGestures?.Process(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks) == true;
+                _core.ProcessFrame(frame.Side, in payload, frame.MaxX, frame.MaxY, frame.TimestampTicks, reserved);
+                _handGestures?.Tick();
                 while (true)
                 {
                     int drainedDragEffects = _core.DrainPointerDragEffects(dragScratchBuffer);

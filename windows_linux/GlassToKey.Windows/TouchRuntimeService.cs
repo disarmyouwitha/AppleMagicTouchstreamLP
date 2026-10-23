@@ -33,6 +33,8 @@ internal sealed class TouchRuntimeService : IDisposable
     private ButtonEdgeTracker _leftButtonTracker;
     private ButtonEdgeTracker _rightButtonTracker;
 
+    private WindowsHandGestures? _handGestures;
+    public string HandGestureStatus => _handGestures?.Status ?? "Unavailable";
     private UserSettings _settings;
     private KeymapStore _keymap;
     private TrackpadLayoutPreset _preset;
@@ -67,13 +69,17 @@ internal sealed class TouchRuntimeService : IDisposable
             RuntimeConfigurationFactory.BuildLayouts(_settings, _keymap, _preset, _columnSettings, out KeyLayout leftLayout, out KeyLayout rightLayout);
 
             _touchCore = TouchProcessorFactory.CreateDefault(_keymap, _preset, RuntimeConfigurationFactory.BuildTouchConfig(_settings));
+            _touchCore.UseHandGestureRecognition();
+            _handGestures = new WindowsHandGestures(_globalClickSuppressor, () => MouseTakeover?.Enabled == true,
+                () => _sendInputDispatcher?.NotifyPointerActivity(), reason => MouseTakeover?.Release(reason));
+            _handGestures.Configure(_settings);
             _dispatchQueue = new DispatchEventQueue();
             _sendInputDispatcher = new SendInputDispatcher();
             _touchActor = new TouchProcessorActor(
                 _touchCore,
                 dispatchQueue: _dispatchQueue,
-                threeFingerDragSink: _sendInputDispatcher);
-            _touchActor.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
+                threeFingerDragSink: _sendInputDispatcher, handGestures: _handGestures);
+
             _sendInputDispatcher.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
             _sendInputDispatcher.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
             _dispatchPump = new DispatchEventPump(_dispatchQueue, _sendInputDispatcher);
@@ -133,7 +139,7 @@ internal sealed class TouchRuntimeService : IDisposable
         MagicTrackpadActuatorHaptics.SetRoutes(_settings.LeftDevicePath, _settings.RightDevicePath);
         MagicTrackpadActuatorHaptics.Configure(_settings.HapticsEnabled, _settings.HapticsStrength, _settings.HapticsMinIntervalMs);
         _touchActor?.SetHapticsOnKeyDispatchEnabled(_settings.HapticsEnabled);
-        _touchActor?.SetThreeFingerDragEnabled(_settings.ThreeFingerDragEnabled);
+        _handGestures?.Configure(_settings);
         _sendInputDispatcher?.SetAutocorrectEnabled(_settings.AutocorrectEnabled);
         _sendInputDispatcher?.ConfigureAutocorrectOptions(BuildAutocorrectOptions(_settings));
         _keymap = keymap;
@@ -286,6 +292,7 @@ internal sealed class TouchRuntimeService : IDisposable
         _rawInputContext.SeedTags(seed);
         _leftRoute = RuntimeRoute.FromPath(leftPath);
         _rightRoute = RuntimeRoute.FromPath(rightPath);
+        _handGestures?.Configure(_settings);
         _leftButtonTracker.Reset();
         _rightButtonTracker.Reset();
 
@@ -381,7 +388,7 @@ internal sealed class TouchRuntimeService : IDisposable
                     }
                     _frameObserver?.OnDecoderProfileDetected(TrackpadSide.Right, decoded.Profile);
                     _frameObserver?.OnRuntimeFrame(TrackpadSide.Right, in frame, in buttonState, snapshot.Tag);
-                    _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
+                    if (!routeLeft) _ = actor.Post(TrackpadSide.Right, in frame, maxX, maxY, timestampTicks);
                 }
             }
             catch (Exception ex)

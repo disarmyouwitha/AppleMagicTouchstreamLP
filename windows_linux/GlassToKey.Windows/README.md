@@ -35,8 +35,7 @@ Below the decoder selectors, enable **Mouse Takeover** for this session or use *
 - Force Max (0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Max]` (inclusive).
   - Setting `Force Max` to `0` blocks all key dispatches.
-- Gesture Tuning: 5-finger swipe L/R/U/D, 3-finger swipe L/R/U/D, 4-finger swipe L/R/U/D, 2-finger hold, 3-finger hold, 4-finger hold, and outer/inner corner holds can each be mapped to any action.
-  - Corner holds trigger when both top and bottom corners of the selected zone (inner or outer) are held together for the hold duration.
+- Gestures: per-hand two-finger pointer/tap, three-finger row drag/tap, and four-finger scroll/pan with momentum. Movement/tap actions are configurable; pointer/drag default to Apple reference acceleration, and Natural scrolling switches direction. A Mac tracking snapshot can be imported per hand. Output requires Mouse Takeover. See [Windows gesture engine](WINDOWS_GESTURE_ENGINE.md) for defaults, platform differences, and the hardware check.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 - Keyboard Mode: When enabled, typing-toggle actions switch between **full keyboard** and **mouse-only**. In keyboard mode, click suppression is scoped to selected Apple Magic Trackpad click edges (except inside the GlassToKey config window) so non-trackpad mice are not blocked. Blocking clicks requires Input Monitoring/Accessibility permission.
 

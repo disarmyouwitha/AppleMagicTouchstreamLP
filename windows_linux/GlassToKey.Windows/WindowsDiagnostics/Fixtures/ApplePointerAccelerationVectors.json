@@ -1,0 +1,79 @@
+{
+  "description": "Cross-language numerical vectors from the Python Apple-source model; not native cursor ground truth.",
+  "resolution": 400.0,
+  "reportRate": 0,
+  "fixedMultiplier": 0.7407379150390625,
+  "acceleration": 3.0,
+  "vectors": [
+    {
+      "t": 1.0,
+      "dx": 0,
+      "dy": 0,
+      "expectedX": 0.0,
+      "expectedY": 0.0
+    },
+    {
+      "t": 1.011,
+      "dx": 0.1,
+      "dy": -0.1,
+      "expectedX": 0.024000216802403017,
+      "expectedY": -0.024000216802403017
+    },
+    {
+      "t": 1.022,
+      "dx": 1,
+      "dy": 0,
+      "expectedX": 0.345419100155577,
+      "expectedY": 0.0
+    },
+    {
+      "t": 1.033,
+      "dx": 3,
+      "dy": 4,
+      "expectedX": 2.3116291320307596,
+      "expectedY": 3.082172176041013
+    },
+    {
+      "t": 1.044,
+      "dx": 12,
+      "dy": -9,
+      "expectedX": 22.28982847528223,
+      "expectedY": -16.717371356461673
+    },
+    {
+      "t": 1.055,
+      "dx": 50,
+      "dy": 20,
+      "expectedX": 315.1141882832947,
+      "expectedY": 126.04567531331789
+    },
+    {
+      "t": 1.066,
+      "dx": 80,
+      "dy": -20,
+      "expectedX": 713.7034573940008,
+      "expectedY": -178.4258643485002
+    },
+    {
+      "t": 1.077,
+      "dx": 200,
+      "dy": 0,
+      "expectedX": 1878.2400375605007,
+      "expectedY": 0.0
+    },
+    {
+      "t": 1.088,
+      "dx": -100,
+      "dy": -100,
+      "expectedX": -1005.7337497426245,
+      "expectedY": -1005.7337497426245
+    },
+    {
+      "t": 1.099,
+      "dx": 1,
+      "dy": 1,
+      "expectedX": 0.345419100155577,
+      "expectedY": 0.345419100155577
+    }
+  ]
+}

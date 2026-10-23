@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        if (!HandGestureTests.Run(out string handGestureFailure))
+            return new SelfTestResult(false, "Hand gesture tests failed: " + handGestureFailure);
         if (!RunMouseTakeoverGateTests(out string takeoverFailure))
             return new SelfTestResult(false, "Mouse takeover gate tests failed: " + takeoverFailure);
         if (!RunParserTests(out string parserFailure))
