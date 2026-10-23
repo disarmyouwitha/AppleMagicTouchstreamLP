@@ -1,4 +1,5 @@
 import Foundation
+import OpenMultitouchSupport
 
 enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
     case left = "Left", right = "Right", both = "Both"
@@ -8,9 +9,14 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 /// Inputs are recognized independently of the action assigned to them.
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, thumbTwoTap
+    case oneFingerForce, twoFingerForce, threeFingerForce, fourFingerForce, fiveFingerForce
+    static let forceTriggers: [Self] = [.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce]
+    var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
+    static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
     var isContinuous: Bool { self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
     var title: String {
+        if let count = forceCount { return "\(count)-finger force click" }
         switch self {
         case .twoFingerMove: return "2-finger movement"
         case .twoFingerTap: return "2-finger tap"
@@ -18,6 +24,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .threeFingerTap: return "3-finger tap"
         case .fourFingerMove: return "4-finger movement"
         case .thumbTwoTap: return "Spread thumb + 2 fingertips tap"
+        default: return "Force click"
         }
     }
     var allowedActions: [GestureAction] {
@@ -29,6 +36,8 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .twoFingerMove: return .pointer; case .twoFingerTap: return .primaryClick
         case .threeFingerMove: return .primaryDrag; case .threeFingerTap: return .primaryDoubleClick
         case .fourFingerMove: return .scroll; case .thumbTwoTap: return .secondaryClick
+        case .oneFingerForce: return .primaryClick
+        default: return .disabled
         }
     }
     // Compatibility for existing diagnostic/test callers of the enable-only API.
@@ -57,12 +66,15 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var twoFingerMove: GestureAction = .pointer, twoFingerTap: GestureAction = .primaryClick
     var threeFingerMove: GestureAction = .primaryDrag, threeFingerTap: GestureAction = .primaryDoubleClick
     var fourFingerMove: GestureAction = .scroll, thumbTwoTap: GestureAction = .secondaryClick
+    // Optional so old saved bindings decode without discarding customized actions.
+    var forceActions: [String: GestureAction]?
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             switch trigger {
             case .twoFingerMove: return twoFingerMove; case .twoFingerTap: return twoFingerTap
             case .threeFingerMove: return threeFingerMove; case .threeFingerTap: return threeFingerTap
             case .fourFingerMove: return fourFingerMove; case .thumbTwoTap: return thumbTwoTap
+            default: return forceActions?[trigger.rawValue] ?? trigger.defaultAction
             }
         }
         set {
@@ -70,6 +82,9 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
             case .twoFingerMove: twoFingerMove = newValue; case .twoFingerTap: twoFingerTap = newValue
             case .threeFingerMove: threeFingerMove = newValue; case .threeFingerTap: threeFingerTap = newValue
             case .fourFingerMove: fourFingerMove = newValue; case .thumbTwoTap: thumbTwoTap = newValue
+            default:
+                if forceActions == nil { forceActions = [:] }
+                forceActions?[trigger.rawValue] = newValue
             }
         }
     }
@@ -80,13 +95,31 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     }
 }
 
+/// Experimental waveform scale: Apple's framework clamps this argument at 2.0.
+/// It is not a calibrated acoustic-volume or physical-amplitude percentage.
+struct ForceClickHapticSettings: Equatable, Codable, Sendable {
+    var waveform: Int = 2
+    var level: Double = 0.5
+    var normalized: Self {
+        Self(waveform:min(6,max(1,waveform)),level:level.isFinite ? min(2,max(0,level)) : 0.5)
+    }
+    func play(device: UInt64) -> Bool {
+        let value = normalized
+        guard value.level > 0 else { return false }
+        return OMSManager.shared.triggerRawHaptic(actuationID:Int32(value.waveform),unknown1:0,
+            unknown2:Float(value.level),unknown3:0,deviceID:String(device))
+    }
+}
+
 struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var bindings = GestureActionBindings()
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
+    var forceHaptic: ForceClickHapticSettings?
+    var resolvedForceHaptic: ForceClickHapticSettings { (forceHaptic ?? ForceClickHapticSettings()).normalized }
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
     subscript(trigger: GestureTrigger) -> Bool {
         get { bindings.action(for:trigger) != .disabled }
-        set { bindings[trigger] = newValue ? (self[trigger] ? bindings[trigger] : trigger.defaultAction) : .disabled }
+        set { bindings[trigger] = newValue ? (self[trigger] ? bindings[trigger] : (trigger.defaultAction == .disabled ? .primaryClick : trigger.defaultAction)) : .disabled }
     }
     var mouse: Bool { get { self[.twoFingerMove] } set { self[.twoFingerMove] = newValue } }
     var tap: Bool { get { self[.twoFingerTap] } set { self[.twoFingerTap] = newValue } }
@@ -102,7 +135,10 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         }
     }
     mutating func normalize() {
-        for trigger in GestureTrigger.allCases { bindings[trigger] = bindings.action(for:trigger) }
+        for trigger in GestureTrigger.allCases where bindings[trigger] != bindings.action(for:trigger) {
+            bindings[trigger] = bindings.action(for:trigger)
+        }
+        if let forceHaptic { self.forceHaptic = forceHaptic.normalized }
         self[GestureSensitivity.pointer] = pointerSensitivity; self[GestureSensitivity.scroll] = scrollSensitivity
     }
 }

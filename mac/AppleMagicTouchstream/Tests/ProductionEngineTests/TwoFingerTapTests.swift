@@ -143,3 +143,106 @@ final class TwoFingerTapTests: XCTestCase {
         XCTAssertEqual(output.events(location:point,time:1.5,doubleClickInterval:0.5)?.down.getIntegerValueField(.mouseEventClickState),1)
     }
 }
+
+@MainActor
+final class OneFingerForceClickTests: XCTestCase {
+    private func touch(_ pressure: Float, id: Int32 = 1) -> OMSRawTouch {
+        OMSRawTouch(id:id,posX:0.5,posY:0.5,total:1,pressure:pressure,
+            majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+    }
+    func testThresholdClicksOnceUntilAllUpAndPadsAreIndependent() {
+        var recognizer = ForceClickRecognizer()
+        XCTAssertFalse(recognizer.process(device:1,time:1,contacts:[touch(129)]))
+        XCTAssertTrue(recognizer.process(device:1,time:1.01,contacts:[touch(130)]))
+        XCTAssertFalse(recognizer.process(device:1,time:1.02,contacts:[touch(180)]))
+        XCTAssertFalse(recognizer.process(device:1,time:1.03,contacts:[touch(50)]))
+        XCTAssertFalse(recognizer.process(device:1,time:1.04,contacts:[touch(130)]))
+        XCTAssertTrue(recognizer.process(device:2,time:1.04,contacts:[touch(130)]))
+        XCTAssertFalse(recognizer.process(device:1,time:1.05,contacts:[OMSRawTouch]()))
+        XCTAssertTrue(recognizer.process(device:1,time:1.06,contacts:[touch(130)]))
+    }
+    func testMultiFingerSurvivorsReplacementStaleAndInvalidFramesCannotClick() {
+        for mode in 0..<5 {
+            var recognizer = ForceClickRecognizer()
+            XCTAssertFalse(recognizer.process(device:1,time:1,contacts:[touch(20)]))
+            switch mode {
+            case 0: XCTAssertFalse(recognizer.process(device:1,time:1.01,contacts:[touch(20),touch(20,id:2)]))
+            case 1: XCTAssertFalse(recognizer.process(device:1,time:1.01,contacts:[touch(20,id:2)]))
+            case 2: XCTAssertFalse(recognizer.process(device:1,time:0.99,contacts:[touch(130)]))
+            case 3: XCTAssertFalse(recognizer.process(device:1,time:1.3,contacts:[touch(130)]))
+            default: XCTAssertFalse(recognizer.process(device:1,time:1.01,contacts:[touch(.nan)]))
+            }
+            XCTAssertFalse(recognizer.process(device:1,time:1.31,contacts:[touch(130)]))
+            XCTAssertFalse(recognizer.process(device:1,time:1.32,contacts:[OMSRawTouch]()))
+            XCTAssertTrue(recognizer.process(device:1,time:1.33,contacts:[touch(130)]))
+            recognizer.reset()
+            XCTAssertFalse(recognizer.process(device:1,time:1.34,contacts:[touch(130)]))
+        }
+    }
+    func testPressureClaimsKeyboardThroughReleaseWithoutReservingOrdinaryTyping() {
+        var arbitration = GestureKeyboardArbitration()
+        XCTAssertFalse(arbitration.process(device:1,activeCount:1) { _ in false })
+        XCTAssertTrue(arbitration.process(device:1,activeCount:1,forceClick:true) { _ in false })
+        XCTAssertFalse(arbitration.process(device:2,activeCount:1) { _ in false })
+        XCTAssertTrue(arbitration.process(device:1,activeCount:1) { _ in false })
+        XCTAssertTrue(arbitration.process(device:1,activeCount:0) { _ in false })
+        XCTAssertFalse(arbitration.process(device:1,activeCount:1) { _ in false })
+    }
+}
+
+private extension ForceClickRecognizer {
+    mutating func process<C: Collection>(device:UInt64,time:Double,contacts:C) -> Bool where C.Element == OMSRawTouch {
+        recognize(device:device,time:time,contacts:contacts,enabled:{$0 == .oneFingerForce}) != nil
+    }
+}
+
+@MainActor
+final class ConfigurableForceClickTests: XCTestCase {
+    private func contacts(_ count:Int, pressure:Float = 20) -> [OMSRawTouch] {
+        (0..<count).map { id in
+            OMSRawTouch(id:Int32(id+1),posX:0.2+Float(id)*0.1,posY:0.5,total:1,pressure:pressure,
+                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        }
+    }
+    func testEveryCountDispatchesItsAssignedTapActionAndCannotRepeatOrBecomeATap() throws {
+        for count in 1...5 {
+            for action in [GestureAction.primaryClick,.primaryDoubleClick,.secondaryClick] {
+                var recognizer = ForceClickRecognizer(), settings = HandGestureSettings(), clicks = PrimaryTapClickOutput()
+                let trigger = try XCTUnwrap(GestureTrigger.force(count:count))
+                settings.setAction(action,for:trigger,in:.left)
+                let bindings = settings.left.bindings
+                XCTAssertNil(recognizer.recognize(device:1,time:1,contacts:contacts(count),enabled:{bindings.action(for:$0) != .disabled}))
+                let recognized = try XCTUnwrap(recognizer.recognize(device:1,time:1.01,contacts:contacts(count,pressure:130),enabled:{bindings.action(for:$0) != .disabled}))
+                XCTAssertEqual(recognized,trigger)
+                let events = try XCTUnwrap(GestureTapActionOutput.events(action:bindings.action(for:recognized),location:CGPoint(x:100,y:100),time:1.01,doubleClickInterval:0.5,clicks:&clicks))
+                XCTAssertEqual(events.map(\.type),action == .secondaryClick ? [.rightMouseDown,.rightMouseUp] : action == .primaryDoubleClick ? [.leftMouseDown,.leftMouseUp,.leftMouseDown,.leftMouseUp] : [.leftMouseDown,.leftMouseUp])
+                XCTAssertNil(recognizer.recognize(device:1,time:1.02,contacts:contacts(1,pressure:180),enabled:{_ in true}))
+                XCTAssertTrue(recognizer.claimed(device:1))
+                XCTAssertNil(recognizer.recognize(device:1,time:1.03,contacts:[OMSRawTouch](),enabled:{_ in true}))
+                XCTAssertFalse(recognizer.claimed(device:1))
+                XCTAssertEqual(recognizer.recognize(device:1,time:1.04,contacts:contacts(count,pressure:130),enabled:{_ in true}),trigger)
+            }
+        }
+    }
+    func testAddingBeforePressIsAllowedButLiftingDuplicateIDsAndSixFingersBlock() {
+        var recognizer = ForceClickRecognizer()
+        XCTAssertNil(recognizer.recognize(device:1,time:1,contacts:contacts(1),enabled:{_ in true}))
+        XCTAssertNil(recognizer.recognize(device:1,time:1.01,contacts:contacts(3),enabled:{_ in true}))
+        XCTAssertEqual(recognizer.recognize(device:1,time:1.02,contacts:contacts(3,pressure:130),enabled:{_ in true}),.threeFingerForce)
+        for malformed in [contacts(3),contacts(6),[contacts(1)[0],contacts(1)[0]]] {
+            var invalid = ForceClickRecognizer()
+            XCTAssertNil(invalid.recognize(device:1,time:1,contacts:malformed,enabled:{_ in true}))
+            XCTAssertNil(invalid.recognize(device:1,time:1.01,contacts:contacts(2,pressure:130),enabled:{_ in true}))
+        }
+    }
+    func testDisabledForceDoesNotClaimAndOneHighContactIsEnoughWithoutSummingPressure() {
+        var recognizer = ForceClickRecognizer()
+        XCTAssertNil(recognizer.recognize(device:1,time:1,contacts:contacts(5,pressure:130),enabled:{_ in false}))
+        XCTAssertFalse(recognizer.claimed(device:1))
+        var next = ForceClickRecognizer()
+        XCTAssertNil(next.recognize(device:1,time:1,contacts:contacts(5,pressure:30),enabled:{_ in true}))
+        var press = contacts(5)
+        press[4] = OMSRawTouch(id:5,posX:0.6,posY:0.5,total:5,pressure:130,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        XCTAssertEqual(next.recognize(device:1,time:1.01,contacts:press,enabled:{_ in true}),.fiveFingerForce)
+    }
+}

@@ -6,7 +6,7 @@ final class HandGestureSettingsTests: XCTestCase {
     func testDefaultsAreMirroredAndSeedCopiesExistingConfiguration() {
         var defaults = HandGestureSettings()
         XCTAssertEqual(defaults.left,defaults.right)
-        for feature in GestureFeature.allCases { XCTAssertEqual(defaults.enabled(feature,in:.both),true) }
+        for feature in GestureFeature.allCases { XCTAssertEqual(defaults.enabled(feature,in:.both),feature.defaultAction != .disabled) }
         XCTAssertEqual(defaults.left.pointerSensitivity,1); XCTAssertEqual(defaults.right.scrollSensitivity,1)
         var seed = PerHandGestureSettings()
         seed[.mouse] = false; seed[GestureSensitivity.pointer] = 0.75
@@ -19,6 +19,7 @@ final class HandGestureSettingsTests: XCTestCase {
     func testEveryFeatureCanDivergeAndBothExplicitlyAppliesWithoutTouchingOtherFeatures() {
         for feature in GestureFeature.allCases {
             var settings = HandGestureSettings()
+            for trigger in GestureTrigger.allCases { settings.set(trigger,enabled:true,in:.both) }
             settings.set(feature,enabled:false,in:.left)
             XCTAssertEqual(settings.enabled(feature,in:.left),false)
             XCTAssertEqual(settings.enabled(feature,in:.right),true)
@@ -65,7 +66,7 @@ final class HandGestureSettingsTests: XCTestCase {
     func testEligibilityCannotLeakToUnselectedOrUnownedDevices() {
         let settings = HandGestureSettings(), pads = GestureSelectedPads(left:11,right:22)
         for feature in GestureFeature.allCases {
-            XCTAssertEqual(settings.outputDevices(feature,pads:pads,eligible:[22,33]),[22])
+            XCTAssertEqual(settings.outputDevices(feature,pads:pads,eligible:[22,33]),feature.defaultAction != .disabled ? [22] : [])
             XCTAssertTrue(settings.outputDevices(feature,pads:pads,eligible:[]).isEmpty)
             XCTAssertTrue(settings.outputDevices(feature,pads:pads,eligible:[33]).isEmpty)
         }
@@ -94,5 +95,35 @@ final class HandGestureSettingsTests: XCTestCase {
             XCTAssertEqual(combined.processMotion(device:22,time:time,millimetres:mm),right.processMotion(device:22,time:time,millimetres:mm))
         }
         XCTAssertNil(combined.processMotion(device:33,time:1,millimetres:CGPoint(x:1,y:0)))
+    }
+}
+
+extension HandGestureSettingsTests {
+    func testOldSettingsMigrateWithoutLosingActionsOrGainsAndForceEditsRoundTrip() throws {
+        var old = HandGestureSettings()
+        old.setAction(.secondaryClick,for:.twoFingerTap,in:.left)
+        old.set(.pointer,value:0.7,in:.right)
+        let data = try JSONEncoder().encode(old)
+        var json = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
+        for hand in ["left","right"] {
+            var side = try XCTUnwrap(json[hand] as? [String:Any])
+            side.removeValue(forKey:"forceHaptic")
+            var bindings = try XCTUnwrap(side["bindings"] as? [String:Any])
+            bindings.removeValue(forKey:"forceActions"); side["bindings"] = bindings; json[hand] = side
+        }
+        var migrated = try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:json))
+        XCTAssertEqual(migrated,old)
+        XCTAssertEqual(migrated.action(.oneFingerForce,in:.both),.primaryClick)
+        for trigger in GestureTrigger.forceTriggers.dropFirst() { XCTAssertEqual(migrated.action(trigger,in:.both),.disabled) }
+        migrated.setAction(.primaryDoubleClick,for:.fiveFingerForce,in:.right)
+        migrated.left.forceHaptic = ForceClickHapticSettings(waveform:1,level:0.1)
+        migrated.right.forceHaptic = ForceClickHapticSettings(waveform:4,level:0)
+        let roundtrip = try JSONDecoder().decode(HandGestureSettings.self,from:JSONEncoder().encode(migrated))
+        XCTAssertEqual(roundtrip,migrated)
+        XCTAssertEqual(roundtrip.action(.fiveFingerForce,in:.left),.disabled)
+        XCTAssertEqual(roundtrip.action(.twoFingerTap,in:.left),.secondaryClick)
+        XCTAssertEqual(roundtrip.right.pointerSensitivity,0.7)
+        XCTAssertEqual(ForceClickHapticSettings(waveform:999,level:.infinity).normalized,ForceClickHapticSettings(waveform:6,level:0.5))
+        XCTAssertEqual(ForceClickHapticSettings(waveform:-1,level:100).normalized,ForceClickHapticSettings(waveform:1,level:2))
     }
 }

@@ -48,6 +48,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
         var bindings: [UInt64:GestureActionBindings] = [:]
+        var forceHaptics: [UInt64:ForceClickHapticSettings] = [:]
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
@@ -62,6 +63,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             case .twoFingerTap: enabled = twoFingerTapDevices.contains(device)
             case .threeFingerTap: enabled = threeFingerTapDevices.contains(device)
             case .thumbTwoTap: enabled = thumbTwoTapDevices.contains(device)
+            default: enabled = trigger.forceCount != nil && devices.contains(device)
             }
             return enabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
@@ -81,6 +83,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var twoFingerTapDevices: Set<UInt64> = []
         var threeFingerTapDevices: Set<UInt64> = []
         var thumbTwoTapDevices: Set<UInt64> = []
+        var forceClicks = ForceClickRecognizer()
         var taps = TwoFingerTapRecognizer()
         var threeFingerTaps = ThreeFingerTapRecognizer()
         var clicks = PrimaryTapClickOutput()
@@ -92,6 +95,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var scrollSensitivities: [UInt64:Double] = [:]
         var momentum: [UInt64:ScrollMomentum] = [:]
         var momentumTimer: (any DispatchSourceTimer)?
+        var lastForceHaptic: [UInt64:Double] = [:]
         var lastReceipt: [UInt64:Double] = Dictionary(minimumCapacity:2)
         mutating func cancelMomentum(device: UInt64) {
             scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap)
@@ -105,13 +109,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         mutating func reset(device: UInt64) {
             drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             finishScroll(device:device,cancelled:true)
+            forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
             router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
-            taps.reset(); threeFingerTaps.reset(); clicks.reset()
+            forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); clicks.reset()
             router.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
@@ -125,14 +130,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], forceHaptics: [UInt64:ForceClickHapticSettings] = [:]) {
         lock.withLock { state in
-            guard state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.forceHaptics != forceHaptics || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
+            state.forceHaptics = forceHaptics
             state.threeFingerMoveDevices = threeFingerMoveDevices
             state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
             state.thumbTwoTapDevices = thumbTwoTapDevices
@@ -250,7 +256,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 count + ((touch.state == .making || touch.state == .touching) ? 1 : 0)
             }
             let bindings = state.bindings[device] ?? GestureActionBindings()
-            return state.keyboardArbitration.process(device: device, activeCount: count) {
+            let forceEnabled = GestureTrigger.force(count:count).map { bindings.action(for:$0) != .disabled } ?? false
+            let forceClick = forceEnabled && frame.touches.contains {
+                ($0.state == .making || $0.state == .touching) && $0.pressure.isFinite
+                    && $0.pressure >= ForceClickRecognizer.threshold
+            }
+            return state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick) {
                 bindings.action(for: $0) != .disabled
             }
         }
@@ -259,19 +270,20 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         process(device: frame.deviceIDNumeric, time: frame.timestamp, contacts: frame.touches)
     }
     func process<C: Collection & Sendable>(device: UInt64, time: Double, contacts: C, suppress: Bool = false) where C.Element == OMSRawTouch {
-        lock.withLock { state in
-            guard state.devices.contains(device) else { return }
+        let forceHaptic = lock.withLock { state -> ForceClickHapticSettings? in
+            var feedback: ForceClickHapticSettings?
+            guard state.devices.contains(device) else { return nil }
             if suppress || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
                 state.reset()
                 state.taps.cancel(device:device)
                 state.threeFingerTaps.cancel(device:device)
-                return
+                return nil
             }
             // Another pad must never release/click/scroll through the held button.
             if let owner = state.drag.owner, owner != device {
                 state.reset(device:device)
                 state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                return
+                return nil
             }
             let hostTime = CACurrentMediaTime()
             state.lastReceipt[device] = hostTime
@@ -280,6 +292,26 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.cancelMomentum(device:device)
                 state.taps.cancel(device:device)
                 state.threeFingerTaps.cancel(device:device) // braking a coast must not also click
+            }
+            let forceBindings = state.bindings[device] ?? GestureActionBindings()
+            if let trigger = state.forceClicks.recognize(device:device,time:time,contacts:contacts,
+                    enabled:{forceBindings.action(for:$0) != .disabled}),
+               let location = CGEvent(source:nil)?.location,
+               let events = GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
+                    time:hostTime,doubleClickInterval:state.doubleClickInterval,
+                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks) {
+                state.drag.end(device:device)?.post(tap:.cghidEventTap)
+                state.finishScroll(device:device,cancelled:true)
+                for event in events { event.post(tap:.cghidEventTap) }
+                if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
+                    state.lastForceHaptic[device] = hostTime
+                    feedback = state.forceHaptics[device] ?? ForceClickHapticSettings()
+                }
+            }
+            if state.forceClicks.claimed(device:device) {
+                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                state.router.reset(device:device); state.tracker.reset(device:device)
+                return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
             let two = state.recognizes(.twoFingerMove,device:device)
@@ -303,7 +335,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                       let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
                     state.reset(device:device)
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                    return
+                    return nil
                 }
                 state.clicks.reset()
                 down.post(tap:.cghidEventTap)
@@ -327,7 +359,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     }
                 } else { state.finishScroll(device:device,cancelled:true) }
                 state.tracker.reset(device:device)
-                return
+                return nil
             }
             if motionAction == .scroll {
                 if let delta = state.scrollEngines[device]?.process(time:time,millimetres:motion.millimetres,
@@ -335,15 +367,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.momentum[device]?.observe(points:delta,contactTime:time)
                     state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
                 } else { state.reset(device:device) }
-                return
+                return nil
             }
-            guard motionAction.requiresPointerProfile else { state.reset(device:device); return }
+            guard motionAction.requiresPointerProfile else { state.reset(device:device); return nil }
             // Drag destinations accumulate from our last queued destination. Reading
             // WindowServer here can return an older cursor while posts are in flight.
             let anchor = motionAction == .primaryDrag ? state.drag.location : CGEvent(source:nil)?.location
             guard let delta = state.tracker.processMotion(device:device,time:time,millimetres:motion.millimetres),
-                  let current = anchor else { state.reset(device:device); return }
-            guard delta.x != 0 || delta.y != 0 else { return }
+                  let current = anchor else { state.reset(device:device); return nil }
+            guard delta.x != 0 || delta.y != 0 else { return nil }
             var location = CGPoint(x: current.x + delta.x, y: current.y + delta.y)
             // Clamp to the nearest actual display, including negative-origin displays.
             var closest: CGPoint?; var distance = Double.infinity
@@ -357,18 +389,20 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if let closest { location = closest }
             if motionAction == .primaryDrag {
                 guard let event = state.drag.move(device:device,location:location,delta:delta,
-                    flags:CGEventSource.flagsState(.combinedSessionState)) else { state.reset(device:device); return }
+                    flags:CGEventSource.flagsState(.combinedSessionState)) else { state.reset(device:device); return nil }
                 event.post(tap:.cghidEventTap); state.postedEvents &+= 1
-                return
+                return nil
             }
             guard let event = CGEvent(mouseEventSource: nil, mouseType: .mouseMoved,
-                                       mouseCursorPosition: location, mouseButton: .left) else { return }
+                                       mouseCursorPosition: location, mouseButton: .left) else { return nil }
             event.setIntegerValueField(.eventSourceUserData, value: SelectedTrackpadEventPolicy.interpreterTag)
             event.setDoubleValueField(.mouseEventDeltaX, value: delta.x)
             event.setDoubleValueField(.mouseEventDeltaY, value: delta.y)
             event.post(tap: .cghidEventTap)
             state.postedEvents &+= 1
+            return nil
         }
+        if let forceHaptic { _ = forceHaptic.play(device:device) }
     }
 }
 

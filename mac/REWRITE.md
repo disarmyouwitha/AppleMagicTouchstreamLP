@@ -1,20 +1,17 @@
 ===
 ## TELL CODEX:
 > `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
-> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far, the gesture engine, latching, or any timings!
+> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far.
+> I also have all of the templates for all of the gestures in the SDK.. do you think you could start implementing them in Gesturepad? Or should we start using AppleMagicTouchstream for implementation? I have the entire keyboard implemented there already. 
 
 > I really want to get the spellchecker logic out of the touchstream. 
 
 > Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD 
 === 
 
-> Lets ask Kara if we can borrow her menu idea!
-
-> NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool)
-
-===
 
 `AppleMagicTouchstream`:
+0. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool)
 1. Remove any logic preventing 1-finger from defaulting to typing (like we dont need any 3mm drag cancel or whatever!)
 2. Make Gestures Import/Export with keymap~
 2. Transfer Treasure to GTK~

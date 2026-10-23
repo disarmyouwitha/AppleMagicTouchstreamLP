@@ -1,6 +1,6 @@
 # FingerWorks recognition findings for GesturePad
 
-Reverse-engineering implementation reference · **2026-10-21**.
+Reverse-engineering implementation reference · **2026-10-22**.
 
 This document is the source of truth for what our reverse engineering establishes about TouchStream recognition, chording, typing arbitration, mouse behavior and output ownership. Use it when deciding how to implement a FingerWorks gesture in GesturePad. [GESTURE_ENGINE.md](gesturepad/GESTURE_ENGINE.md) remains the contract for what the application currently does, including its deliberately provisional thresholds. A difference between the two is an implementation/fidelity question to resolve explicitly, not permission to silently change accepted behavior.
 
@@ -18,7 +18,7 @@ For a new gesture, follow the chain in order:
 6. Declare which Apple inputs can supply equivalent evidence and which measurements need calibration or a new proxy.
 7. Record exact deviations and unknowns in the gesture specification, then test positive, competing, cancellation and ownership cases offline before hardware acceptance.
 
-Do not translate a firmware constant into Apple milliseconds/mm solely because the number looks plausible. Do not copy a compact helper's predicate while omitting its caller's eligibility gates or cleanup effects.
+Nominal firmware milliseconds and centimeter positions now have original SDK/report bindings (section22). Preserve that protocol evidence separately from physical accuracy and Apple calibration; a plausible number alone is insufficient. Do not copy a compact helper's predicate while omitting its caller's eligibility gates or cleanup effects.
 
 ### Evidence levels
 
@@ -492,3 +492,36 @@ python3 firmware-analysis/rea-investigation/lunch-2026-10-17/scripts/verify_lunc
 ```
 
 This validates preserved results/source bindings and saved-project audits. Do not run synthetic CPU setup against a real firmware project: its memory-replacing checks belong only to the separate Checks project. New probe runs should use new output directories, preserve the exact language/profile and retain prior failures. Changes to saved labels/comments are separate analyst operations with backups, signatures and reopen audits; they never require patching firmware bytes.
+
+
+## 22. 2026-10-22 research update: implementation rules now supported
+
+This update supersedes earlier blanket uncertainty about firmware clock/position units and expands the selection/motion/typing descriptions above. It changes research guidance; GesturePad behavior is unchanged.
+
+### Ordered geometry and competing chords
+
+Original unmodified utility classes pass766 geometry assertions;48 independent payload checks corroborate all14shipped templates. Default uploads use signed shorts/400, with Java float-to-short truncation (e.g1.3 becomes519/400). Firmware centers the uploaded points. Keep the [actual quantized templates](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/geometry-host/decoded-templates.json) when reproducing geometry.
+
+C0395D compares selected contacts in ascending anatomical order with template points in selected ordinal order. Ideal score is the sum of squared centered residuals, with horizontal hand sign and configured hand size. There is no free rotation/scale fit or division by count in that helper. Changing middle/ring to ring/pinky changes anatomical evidence but does not hardwire a template point to its preferred letter. This strengthens the distinction between preferred `STRP` and an exact-only whitelist.
+
+Absent/bypassed geometry scores1000 rather than rejecting automatically.8021E1 starts best at1,000,000 and retains the first equal-score entry. An eligible exact-pattern list prevents generic fallback even if its entries later fail geometry/action gates. Region-relative coordinates are mean nonthumb displacement from home references; absolute coordinates are the selected-group centroid. These rules should be explicit in a faithful scorer, rather than replaced with one pair-distance threshold. [Geometry details and execution limits](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/geometry-trace/FINDINGS.md).
+
+### Motion evidence, adaptive filtering and activation
+
+Translation is a weighted mean of corresponding contacts' speed/angle-derived velocity, separate from centroid position. Pair history supplies scale/rotation. The motion workspace compares leaky activity envelopes across classes and applies adaptive soft deadzones before gain and output conversion. Start/continuation sensitivity differs; zeroCommitSensitivity requires prior activation, and requiresThumb checks the current hand mask. Existing824original-integer admission fixtures pass; full FP motion is static.
+
+C03E74 further compares smoothed per-slot movement activity, applies context/count/spacing thresholds and tests coherent angles for translation. The contact position filter has an eight-entry raw ring and a separate mean ring; X/Y windows adapt separately, then position averages current and previous means while velocity uses their difference over elapsed source time.1764selected X-window integer cases pass with the FP proposal supplied. This is not a recovered fixed four-frame filter. Do not apply another filter blindly on top of already processed Apple positions.
+
+Contact additions/lifts affect current contributions; a first-missing contact may briefly retain predicted motion before retirement. Anatomical template offsets and recognition-activity decay are separate from pointer/scroll inertia. A metadata experiment remains blocked atC01C57, and complete momentum remains unknown. [Source-backed motion account](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/motion-trace/FINDINGS.md).
+
+### Typing order, hypothesis disposal and correction boundaries
+
+A gated one-position rotation of an ordered candidate window supplies alternative character order. Nodes retain separate nominal position owner23, actual interpreted candidate22, predecessor21 and captured endpoint tags. Low12reference counts are bookkeeping, not confidence. Local disposal severs successor predecessor links before releasing owned nodes; allocation, pending cancellation, held-output release and reuse remain distinct.
+
+C02086 classifies ASCII letters, digits and apostrophe as word bytes; other printable characters restart dictionary progress. Node1 receives that progress and candidate30 snapshots it for correction. Ordinary backward correction rejects zero/rollback progress and agreed spaces. Explicit context mismatch conditions bypass selected gates, so this is not proof that whole correction can never cross a word.1581classification/position cases and2880backtrack gate cases pass, excluding full dictionary/undo/posting. Named spelling/Markov storage bases are missing from the bounded29-image inventory; complete model payload/mapping is still needed. [Context](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/context-trace/FINDINGS.md), [word boundaries](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/context-trace/WORD_BOUNDARY.md).
+
+### Clock, position and validation boundaries
+
+The matched firmware contact report and SDK bind frame62B4 to **nominal milliseconds**. Live62B0, acquisition snapshot62B4, finer eight-times tick62B1 and effective interval62B3 have different roles. Timer programming corroborates millisecond intent; oscillator accuracy is unmeasured. Position wire scaling/SDK documentation bind nominal **centimeters**. Legacy velocity serialization versus SDK conversion/documentation remains inconsistent, so velocity units are still qualified. Apple geometry/strength requires separate calibration. [Clock and protocol evidence](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/geometry-host/clock-units.md).
+
+The final continuation passes22,179 selected firmware cases plus all65,536signed-reader inputs. Independent new CPU checks9920 plus4unsupported-mode guards and prior regressions pass. These counts are separate boundaries, not whole-recognizer fidelity or Swift gesture tests. Both real Ghidra projects retain36new signature-bound annotations after backup/save/reopen/unchanged-memory verification. [Complete results](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/RESULTS.md), [validation](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/validation.json), [project audit](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/saved-project-verification.json).

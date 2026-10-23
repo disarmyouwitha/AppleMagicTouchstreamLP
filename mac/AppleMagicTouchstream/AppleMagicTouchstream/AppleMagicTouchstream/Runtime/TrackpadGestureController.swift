@@ -8,6 +8,8 @@ import OpenMultitouchSupport
 final class TrackpadGestureController: ObservableObject {
     @Published private(set) var settings = HandGestureSettings.load(from: .standard)
     @Published private(set) var statusRevision: UInt64 = 0
+    @Published private(set) var hapticTestStatus = ""
+    private var lastHapticTest = -Double.infinity
     private var pads = GestureSelectedPads()
     private var devices: [OMSDeviceInfo] = []
     private var owned: Set<UInt64> = []
@@ -58,6 +60,43 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
 
+    func setForceHapticLevel(_ value: Double, scope: GestureHandScope) {
+        updateForceHaptic(scope:scope) { $0.level = value }
+    }
+    func setForceHapticWaveform(_ value: Int, scope: GestureHandScope) {
+        updateForceHaptic(scope:scope) { $0.waveform = value }
+    }
+    private func updateForceHaptic(scope: GestureHandScope, edit:(inout ForceClickHapticSettings) -> Void) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        if scope != .right {
+            var next = settings.left.resolvedForceHaptic; edit(&next)
+            settings.left.forceHaptic = next.normalized
+        }
+        if scope != .left {
+            var next = settings.right.resolvedForceHaptic; edit(&next)
+            settings.right.forceHaptic = next.normalized
+        }
+        settings.save(to:.standard)
+        hapticTestStatus = ""
+        configure()
+    }
+
+    func testForceHaptic(scope: GestureHandScope) {
+        guard takeoverEnabled, armed else { hapticTestStatus = "Enable Trackpad Takeover to test."; return }
+        let now = ProcessInfo.processInfo.systemUptime
+        guard now - lastHapticTest >= 0.25 else { return }
+        lastHapticTest = now
+        let targets = Set([scope != .right ? pads.left : nil, scope != .left ? pads.right : nil].compactMap {$0}).intersection(owned)
+        guard !targets.isEmpty else { hapticTestStatus = "Select an owned trackpad."; return }
+        let routed = settings.routed(to:pads)
+        if targets.allSatisfy({routed[$0]?.resolvedForceHaptic.level == 0}) {
+            hapticTestStatus = "Feedback is off (level 0)."; return
+        }
+        var successes = 0
+        for id in targets where routed[id]?.resolvedForceHaptic.play(device:id) == true { successes += 1 }
+        hapticTestStatus = successes == targets.count ? "Pulse requested. Compare by feel." : "No pulse, or the actuator rejected this setting."
+    }
+
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
@@ -104,11 +143,11 @@ final class TrackpadGestureController: ObservableObject {
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
             twoFingerTapDevices: tap, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings))
+            bindings: routed.mapValues(\.bindings), forceHaptics:routed.mapValues(\.resolvedForceHaptic))
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = two.union(three).union(four).union(tap).union(triple).union(thumb)
-        if all.isEmpty { output.stop() } else { output.enable(devices: all) }
+        output.enable(devices: all.union(eligible)) // Force click needs no acceleration profile.
         let keyboardPads = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: true, selected: Set(routed.keys), owned: owned)
         output.configureKeyboardReservations(devices: keyboardPads)

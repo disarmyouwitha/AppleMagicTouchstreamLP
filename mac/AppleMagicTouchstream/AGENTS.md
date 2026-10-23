@@ -106,3 +106,16 @@ identities, saved per-key overrides and disabled column tuning.
 Unassigned key holds must stay inert and match the inspector's None value.
 The engine must never fall back to KeyActionCatalog's legacy hold table.
 Explicit saved/imported holds still work and appear in the inspector/grid.
+
+User authorized one-finger P>=130 primary click during native takeover, with a
+gentle targeted haptic. Keep once-per-all-up behavior, multi-finger/stale/invalid
+cycle rejection, keyboard reservation, selected/owned/armed/AX/live-only gates,
+and per-pad haptic rate limiting. See GESTURE_ENGINE.md. No sibling port yet.
+
+User authorized configurable 1–5 finger force-click Action menus (Tap mouse actions),
+per-hand persistence and bounded experimental force-haptic waveform/level controls.
+Preserve old bindings on decoding; only 1-finger force defaults to Primary Click,
+2–5 default None. Use max contact P>=130, not summed pressure. Keep all-up latch,
+keyboard/drag/tap arbitration and live eligibility. Test feedback only on explicit
+button press; never on slider changes or replay. See FORCE_CLICK_HAPTICS.md for
+verified framework clamp evidence. Build/install app only for this pass; no DMG.

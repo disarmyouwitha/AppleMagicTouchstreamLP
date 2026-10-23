@@ -2,39 +2,47 @@ import AppKit
 import SwiftUI
 
 enum GesturePane: String, CaseIterable, Identifiable {
-    case twoFingers, threeFingers, fourFingers, thumbTwo
+    case oneFinger, twoFingers, threeFingers, fourFingers, fiveFingers, thumbTwo
     var id: String { rawValue }
     var group: String {
         switch self {
+        case .oneFinger: return "1 finger"
+        case .fiveFingers: return "5 fingers"
         case .twoFingers: return "2 fingers"; case .threeFingers: return "3 fingers"
         case .fourFingers: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
         }
     }
     var title: String {
         switch self {
-        case .twoFingers,.threeFingers: return "Move & Tap"
-        case .fourFingers: return "Move"
+        case .oneFinger,.fiveFingers: return "Force Click"
+        case .twoFingers,.threeFingers: return "Move, Tap & Force Click"
+        case .fourFingers: return "Move & Force Click"
         case .thumbTwo: return "Tap"
         }
     }
     var summary: String {
         switch self {
-        case .twoFingers: return "Choose actions for two-finger movement and tapping."
-        case .threeFingers: return "Choose actions for three-finger movement and tapping."
-        case .fourFingers: return "Choose an action for four-finger movement."
+        case .oneFinger: return "Choose an action for a one-finger force click."
+        case .fiveFingers: return "Choose an action for a five-finger force click."
+        case .twoFingers: return "Choose actions for two-finger movement, tapping and force clicking."
+        case .threeFingers: return "Choose actions for three-finger movement, tapping and force clicking."
+        case .fourFingers: return "Choose actions for four-finger movement and force clicking."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
         switch self {
-        case .twoFingers: return [.twoFingerMove,.twoFingerTap]
-        case .threeFingers: return [.threeFingerMove,.threeFingerTap]
-        case .fourFingers: return [.fourFingerMove]
+        case .oneFinger: return [.oneFingerForce]
+        case .fiveFingers: return [.fiveFingerForce]
+        case .twoFingers: return [.twoFingerMove,.twoFingerTap,.twoFingerForce]
+        case .threeFingers: return [.threeFingerMove,.threeFingerTap,.threeFingerForce]
+        case .fourFingers: return [.fourFingerMove,.fourFingerForce]
         case .thumbTwo: return [.thumbTwoTap]
         }
     }
     var activeFingers: Set<Int> {
         switch self {
+        case .oneFinger: return [1]; case .fiveFingers: return [0,1,2,3,4]
         case .twoFingers: return [1,2]; case .threeFingers: return [1,2,3]
         case .fourFingers: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
         }
@@ -208,11 +216,49 @@ struct GestureInspectorPanel: View {
         ForEach(selectedGesture.triggers) { trigger in
             gestureActionMenu(trigger)
         }
+        if selectedGesture.triggers.contains(where:{$0.forceCount != nil}) {
+            forceHapticControls
+        }
         if selectedActions.contains(where:{ $0.requiresPointerProfile }) {
             sensitivityControl("Pointer sensitivity",kind:.pointer)
         }
         if selectedActions.contains(.scroll) {
             sensitivityControl("Scroll sensitivity",kind:.scroll)
+        }
+    }
+
+    private var forceHapticControls: some View {
+        let left = controller.settings.left.resolvedForceHaptic
+        let right = controller.settings.right.resolvedForceHaptic
+        let value = editingHand == .right ? right : left
+        let mixed = editingHand == .both && left != right
+        return VStack(alignment:.leading,spacing:8) {
+            Divider()
+            Text("Force-click feedback").font(.subheadline).fontWeight(.medium)
+            Picker("Waveform",selection:Binding<Int?>(get:{mixed && left.waveform != right.waveform ? nil : value.waveform},set:{ waveform in
+                if let waveform {
+                    controller.setForceHapticWaveform(waveform,scope:editingHand)
+                }
+            })) {
+                if mixed && left.waveform != right.waveform { Text("Mixed").tag(nil as Int?) }
+                ForEach(1...6,id:\.self) { Text("Waveform \($0)").tag(Optional($0)) }
+            }
+            HStack {
+                Text("Level").font(.caption)
+                Spacer()
+                Text(mixed && left.level != right.level ? String(format:"Mixed · L %.2f / R %.2f",left.level,right.level) : String(format:"%.2f",value.level))
+                    .font(.caption).monospacedDigit()
+            }
+            Slider(value:Binding(get:{value.level},set:{ level in
+                controller.setForceHapticLevel(level,scope:editingHand)
+            }),in:0...2,step:0.01)
+            Text("Experimental scale: 0 is off; 2 is the framework ceiling. Applies to all force clicks on the selected hand(s), independently of typing.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            Button("Test haptic") { controller.testForceHaptic(scope:editingHand) }
+                .disabled(!takeover.outputArmed)
+            if !controller.hapticTestStatus.isEmpty {
+                Text(controller.hapticTestStatus).font(.caption).foregroundStyle(.secondary)
+            }
         }
     }
 

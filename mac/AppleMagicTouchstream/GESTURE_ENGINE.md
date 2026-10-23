@@ -18,6 +18,36 @@ of complete TouchStream firmware fidelity.
 | Four-finger movement | Scroll / Pan, precise scroll and momentum |
 | Spread thumb + two known fingertips tap | Secondary Click |
 
+### Configurable one- through five-finger force clicks (2026-10-22)
+
+Each count has an independent Action menu with the same choices as Tap: None,
+Primary Click, Double-Click, Secondary Click. Settings persist per hand. Existing
+saved settings migrate without losing bindings or gains. One finger defaults to
+Primary Click (preserving the tested feature); counts 2–5 default to None.
+
+During selected/owned/armed takeover, a contact reaching P ≥ 130 immediately
+selects the force action for the current active count. The maximum per-contact
+pressure is used, never the sum. Fingers may be added before pressing; after
+fingers lift or IDs are replaced, the remaining chord cannot become another
+force click until all-up. Invalid/duplicate/palm/over-five-finger contacts or
+nonmonotonic/stale (>200 ms) samples block recognition until all-up. After a force
+fires, added/lifted fingers and pressure jitter cannot produce another output.
+
+An enabled pressure chord reserves the keyboard before posting, cancels taps and
+movement for the remaining cycle, stops scroll/momentum, and balances any
+same-pad drag before dispatching the chosen click events. Other-pad drag ownership
+blocks output. No pointer/scroll profile is required for a force click; AX and
+live-only gates still apply. An already-sent key cannot be undone retroactively.
+Disabling a force action removes that input's reservation and feedback.
+
+Force-click haptics have separate per-hand waveform (1–6) and level (0–2, step
+0.01) controls. Default waveform 2 / level 0.50 is experimental. Level zero is off.
+The Test haptic button is manual and requires takeover; it is throttled to one
+pulse per pad per 250 ms. Live gesture pulses remain once per cycle with a 50 ms
+per-pad minimum interval, outside the pointer lock. Typing feedback is unchanged.
+See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for native-framework evidence
+explaining the old scale saturation and the hardware comparison procedure.
+
 Each movement input offers None, Move Pointer, Drag / Select and Scroll / Pan.
 Each tap input offers None, Primary Click, Double-Click and Secondary Click.
 No keyboard action assignment or legacy GTK gesture reactivation is introduced.

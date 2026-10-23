@@ -2,6 +2,56 @@ import CoreGraphics
 import Foundation
 import OpenMultitouchSupport
 
+/// Current finger count chooses the configured force action when any contact
+/// crosses the pressure threshold. The action owns the cycle until all-up.
+struct ForceClickRecognizer {
+    static let threshold: Float = 130
+    private struct Session {
+        var ids = SIMD8<Int32>(repeating:0)
+        var count = 0
+        var lastTime: Double?
+        var blocked = false
+        var fired = false
+    }
+    private var sessions: [UInt64: Session] = [:]
+    func claimed(device: UInt64) -> Bool { sessions[device]?.fired == true }
+    mutating func cancel(device: UInt64) { sessions[device] = Session(blocked:true) }
+    mutating func reset() { for device in sessions.keys { cancel(device:device) } }
+    mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+        enabled: (GestureTrigger) -> Bool) -> GestureTrigger? where C.Element == OMSRawTouch {
+        var ids = SIMD8<Int32>(repeating:0), count = 0
+        var maximumPressure: Float = 0
+        var invalid = !time.isFinite
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            if count < 8 {
+                for index in 0..<count where ids[index] == touch.id { invalid = true }
+                ids[count] = touch.id
+            }
+            count += 1
+            invalid = invalid || !touch.pressure.isFinite || touch.pressure < 0
+                || !touch.posX.isFinite || !touch.posY.isFinite || touch.telemetry?.fingerID == 6
+            maximumPressure = max(maximumPressure,touch.pressure)
+        }
+        if count == 0 { sessions[device] = nil; return nil }
+        var session = sessions[device] ?? Session()
+        defer { sessions[device] = session }
+        guard !invalid, let trigger = GestureTrigger.force(count:count),
+              session.lastTime.map({time > $0 && time - $0 <= 0.2}) ?? true,
+              count >= session.count else { session.blocked = true; return nil }
+        // Added fingers are allowed before pressing; substitutions or lifting
+        // cannot turn an existing chord into another force-click gesture.
+        for index in 0..<session.count {
+            guard (0..<count).contains(where:{ ids[$0] == session.ids[index] }) else {
+                session.blocked = true; return nil
+            }
+        }
+        session.ids = ids; session.count = count; session.lastTime = time
+        guard !session.blocked, !session.fired, enabled(trigger), maximumPressure >= Self.threshold else { return nil }
+        session.fired = true
+        return trigger
+    }
+}
+
 /// A discrete tap completes on all-up, independently of continuous gesture latches.
 struct TwoFingerTapRecognizer {
     static let maximumDuration = 0.5
