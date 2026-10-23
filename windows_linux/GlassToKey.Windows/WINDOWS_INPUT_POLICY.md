@@ -32,3 +32,6 @@ The same hand is used for the executable, config window/taskbar icon, header and
 `UnifiedInputTests` checks old mode values/setters, ordinary keyboard taps, ignored imported typing-toggle actions, preservation of the shared legacy policy, icon loading, black fill and transparency. The existing gesture, tap-capture, fast-motion, modifier, and Mouse Takeover gate tests run as part of the same self-test suite.
 
 The complete Release build in `bin/UnifiedInput` passed with zero warnings/errors, and all self-tests passed. The regular Release output was locked by the active app, which remains available for the user's tap testing; exit that instance before opening the updated build. No driver or Windows input settings were changed, and the user's separate TODO edits were preserved.
+
+
+Tray size adjustment: the tray has a separate `GlassToKeyTrayHand.ico`, fitted to the actual vector bounds with a small antialiasing margin. Its visible height is about 9% larger than the padded app icon (248 vs 227 pixels in a 256-pixel source). The original application/window icon and source outline remain unchanged. `Build-HandIcon.ps1 -TrayOnly` regenerates just the tray asset.

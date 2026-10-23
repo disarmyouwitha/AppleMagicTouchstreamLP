@@ -11,6 +11,7 @@
   </PropertyGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\GlassToKeyHand.ico" />
+    <EmbeddedResource Include="Assets\GlassToKeyTrayHand.ico" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\ApplePointerAccelerationVectors.json" />
     <EmbeddedResource Include="WindowsDiagnostics\Fixtures\TwoFingerTapLanding.json" />
   </ItemGroup>

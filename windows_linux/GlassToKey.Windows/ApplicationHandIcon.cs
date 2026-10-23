@@ -6,11 +6,11 @@ namespace GlassToKey;
 
 internal static class ApplicationHandIcon
 {
-    private static Stream Open() => typeof(ApplicationHandIcon).Assembly.GetManifestResourceStream("GlassToKey.Windows.Assets.GlassToKeyHand.ico")
+    private static Stream Open(string file = "GlassToKeyHand.ico") => typeof(ApplicationHandIcon).Assembly.GetManifestResourceStream("GlassToKey.Windows.Assets." + file)
         ?? throw new InvalidOperationException("Application hand icon is missing.");
     public static Icon CreateTrayIcon()
     {
-        using var stream = Open();
+        using var stream = Open("GlassToKeyTrayHand.ico");
         using var icon = new Icon(stream, new Size(32,32));
         return (Icon)icon.Clone();
     }
