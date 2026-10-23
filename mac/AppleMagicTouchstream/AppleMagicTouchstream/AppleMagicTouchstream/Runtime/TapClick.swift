@@ -1,4 +1,5 @@
 import CoreGraphics
+import Darwin
 import Foundation
 import OpenMultitouchSupport
 
@@ -398,6 +399,15 @@ typealias ThreeFingerDragChord = ThreeFingerRowChord
 struct AppleShortcutPlan: Equatable, Sendable {
     let keyCode: CGKeyCode
     let flags: CGEventFlags
+    var dockMessage: String? = nil
+    private typealias DockSender = @convention(c) (CFString, Int32) -> Void
+    // Loaded by configuration, never first loaded in a contact callback. Keep handle resident.
+    private static let dockSender: DockSender? = {
+        let path = "/System/Library/Frameworks/ApplicationServices.framework/Versions/A/Frameworks/HIServices.framework/Versions/A/HIServices"
+        guard let handle = dlopen(path,RTLD_LAZY | RTLD_LOCAL),
+              let symbol = dlsym(handle,"CoreDockSendNotification") else { return nil }
+        return unsafeBitCast(symbol,to:DockSender.self)
+    }()
     static func symbolicID(_ action: GestureAction) -> String? {
         switch action {
         case .missionControl: return "32"; case .appExpose: return "33"
@@ -406,6 +416,11 @@ struct AppleShortcutPlan: Equatable, Sendable {
         }
     }
     static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
+        // Dock actions must not depend on configurable (or disabled) Control-arrow shortcuts.
+        if action == .missionControl || action == .appExpose {
+            return Self(keyCode:0,flags:[],dockMessage:action == .missionControl
+                ? "com.apple.expose.awake" : "com.apple.expose.front.awake")
+        }
         guard let id = symbolicID(action) else { return nil }
         if let entry = preferences[id] as? [String:Any], (entry["enabled"] as? NSNumber)?.boolValue == true {
             guard let value = entry["value"] as? [String:Any], value["type"] as? String == "standard",
@@ -420,22 +435,26 @@ struct AppleShortcutPlan: Equatable, Sendable {
         case .notificationCenter: return Self(keyCode:45,flags:.maskSecondaryFn) // Fn-N
         case .launchpad: return Self(keyCode:0,flags:[.maskSecondaryFn,.maskShift]) // Fn-Shift-A; Apps on Tahoe+
         case .showDesktop: return Self(keyCode:4,flags:.maskSecondaryFn) // Fn-H
-        case .missionControl,.appExpose:
-            // Respect an explicitly disabled configurable shortcut.
-            guard preferences[id] == nil else { return nil }
-            return Self(keyCode:action == .missionControl ? 126 : 125,flags:.maskControl)
         default: return nil
         }
     }
     static func load() -> [GestureAction:Self] {
         let preferences = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString,
             "com.apple.symbolichotkeys" as CFString) as? [String:Any] ?? [:]
+        let dockAvailable = dockSender != nil
         return Dictionary(uniqueKeysWithValues:GestureAction.appleShortcuts.compactMap { action in
-            resolve(action,preferences:preferences).map { (action,$0) }
+            guard let plan = resolve(action,preferences:preferences), plan.dockMessage == nil || dockAvailable else { return nil }
+            return (action,plan)
         })
     }
+    /// Native Dock requests have no keyboard edges and never change shortcut preferences.
+    @discardableResult func postDock(phase: GestureSessionPhase = .began) -> Bool {
+        guard phase == .began, let dockMessage, let sender = Self.dockSender else { return false }
+        sender(dockMessage as CFString,0)
+        return true
+    }
     func events(phase: GestureSessionPhase = .began) -> [CGEvent]? {
-        guard phase == .began else { return nil }
+        guard phase == .began, dockMessage == nil else { return nil }
         guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
               let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
         for event in [down,up] {

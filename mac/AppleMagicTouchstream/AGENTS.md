@@ -162,3 +162,10 @@ Use cached, validated keyboard-shortcut plans; emit once per latched cycle with
 balanced key edges. Preserve all eligibility, replay and haptic safeguards. Do
 not mutate system shortcut preferences; report disabled/unusable shortcuts. See
 GESTURE_ENGINE.md for defaults, symbolic IDs and Tahoe Apps behavior.
+
+Mission Control/App Exposé keyboard dispatch failed hardware testing. These two
+now use dynamically resolved CoreDockSendNotification requests, one per gesture
+activation/force crossing, with no synthetic keyboard edges. Resolve/check symbols
+at configuration; report unavailable if absent. Keep Notification Center,
+Launch Pad and Show Desktop on their tested keyboard dispatch paths. Preserve
+all-up latching, haptics, no replay output and no preference mutations.

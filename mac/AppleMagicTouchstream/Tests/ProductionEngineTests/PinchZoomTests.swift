@@ -223,6 +223,11 @@ extension PinchZoomTests {
         XCTAssertEqual(roundtrip.handGestureSettings,settings)
         for action in GestureAction.appleShortcuts {
             let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            if action == .missionControl || action == .appExpose {
+                XCTAssertEqual(plan.dockMessage,action == .missionControl ? "com.apple.expose.awake" : "com.apple.expose.front.awake")
+                XCTAssertNil(plan.events()) // Native actions must never emit Control-arrow keys.
+                continue
+            }
             let events = try XCTUnwrap(plan.events())
             XCTAssertEqual(events.count,2)
             XCTAssertEqual(events[0].type,.keyDown); XCTAssertEqual(events[1].type,.keyUp)
@@ -239,15 +244,22 @@ extension PinchZoomTests {
             XCTAssertNil(GestureTapActionOutput.events(action:action,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks))
         }
     }
-    func testAppleShortcutPreferencesOverrideAndRejectUnsafeOrDisabledBindings() throws {
+    func testAppleShortcutPreferencesOverrideAndDockActionsIgnoreDisabledBindings() throws {
         let flags: CGEventFlags = [.maskCommand,.maskAlternate]
         let modifiers = flags.rawValue
-        let custom:[String:Any] = ["32":["enabled":true,"value":["type":"standard","parameters":[65535,20,modifiers]]]]
-        let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.missionControl,preferences:custom))
+        let custom:[String:Any] = ["163":["enabled":true,"value":["type":"standard","parameters":[65535,20,modifiers]]]]
+        let plan = try XCTUnwrap(AppleShortcutPlan.resolve(.notificationCenter,preferences:custom))
         XCTAssertEqual(plan.keyCode,20); XCTAssertEqual(plan.flags.rawValue,modifiers)
-        XCTAssertNil(AppleShortcutPlan.resolve(.missionControl,preferences:["32":["enabled":false]]))
-        XCTAssertNil(AppleShortcutPlan.resolve(.appExpose,preferences:["33":["enabled":true,"value":["type":"standard","parameters":[65535,65535,0]]]]))
-        XCTAssertNil(AppleShortcutPlan.resolve(.appExpose,preferences:["33":["enabled":true,"value":["type":"standard","parameters":[65535,12,-1]]]]))
+        for action in [GestureAction.missionControl,.appExpose] {
+            let id = try XCTUnwrap(AppleShortcutPlan.symbolicID(action))
+            let native = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[id:["enabled":false]]))
+            XCTAssertNotNil(native.dockMessage)
+            XCTAssertNil(native.events())
+            XCTAssertFalse(native.postDock(phase:.changed)) // Never invokes a native action in tests.
+            XCTAssertFalse(native.postDock(phase:.ended))
+        }
+        XCTAssertNil(AppleShortcutPlan.resolve(.notificationCenter,preferences:["163":["enabled":true,"value":["type":"standard","parameters":[65535,65535,0]]]]))
+        XCTAssertNil(AppleShortcutPlan.resolve(.notificationCenter,preferences:["163":["enabled":true,"value":["type":"standard","parameters":[65535,12,-1]]]]))
         XCTAssertNil(AppleShortcutPlan.resolve(.primaryClick,preferences:[:]))
         XCTAssertEqual(AppleShortcutPlan.resolve(.notificationCenter,preferences:[:])?.flags,.maskSecondaryFn)
     }

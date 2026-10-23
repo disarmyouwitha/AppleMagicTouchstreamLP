@@ -76,7 +76,7 @@ final class TrackpadGestureController: ObservableObject {
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
             guard AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
             guard takeoverEnabled, armed, owned.contains(id) else { return "Waiting for Trackpad Takeover." }
-            if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Enable a keyboard shortcut for \(action.title) in System Settings → Keyboard → Keyboard Shortcuts." }
+            if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Paused: \(action.title) is unavailable on this macOS version." }
             if action.requiresPointerProfile && pointerProfiles[id] == nil { return "Paused: tracking profile unavailable." }
             if action == .scroll && scrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
             if action == .primaryDrag && !InterpretedTrackpadPointer.shared.dragObserverAvailable { return "Paused: mouse-button observer unavailable. Toggle Trackpad Takeover to retry." }

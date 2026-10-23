@@ -311,14 +311,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if let trigger = state.forceClicks.recognize(device:device,time:time,contacts:contacts,
                     enabled:{forceBindings.action(for:$0) != .disabled}),
                let location = CGEvent(source:nil)?.location,
-               let events = GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
-                    time:hostTime,doubleClickInterval:state.doubleClickInterval,
-                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks,
-                    shortcut:state.appleShortcuts[forceBindings.action(for:trigger)]) {
+               let events = state.appleShortcuts[forceBindings.action(for:trigger)]?.dockMessage != nil
+                    ? [] : GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
+                        time:hostTime,doubleClickInterval:state.doubleClickInterval,
+                        flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks,
+                        shortcut:state.appleShortcuts[forceBindings.action(for:trigger)]) {
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
                 for event in events { event.post(tap:.cghidEventTap) }
+                if state.appleShortcuts[forceBindings.action(for:trigger)]?.postDock() == true { state.clicks.reset() }
                 if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
                     state.lastForceHaptic[device] = hostTime
                     feedback = .fixed
@@ -358,6 +360,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if update.phase == .began {
                     state.clicks.reset()
                     let action = state.action(gesture,device:device)
+                    _ = state.appleShortcuts[action]?.postDock(phase:update.phase)
                     for event in state.appleShortcuts[action]?.events() ?? [] {
                         event.post(tap:.cghidEventTap); state.postedEvents &+= 1
                     }

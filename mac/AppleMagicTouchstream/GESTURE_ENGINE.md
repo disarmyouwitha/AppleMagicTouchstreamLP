@@ -234,20 +234,25 @@ tap output for that cycle. Force actions emit once at the existing P>=130 crossi
 with the fixed waveform-6/0.25 force feedback and normal force arbitration.
 Selected/owned/armed/Accessibility/live gates remain; replay does not post.
 
-AppleShortcutPlan reads com.apple.symbolichotkeys / AppleSymbolicHotKeys only at
-configuration (not inside input callbacks). Valid enabled custom shortcuts take
-precedence; key codes, modifiers and standard shortcut type are validated. Known
-symbolic IDs are 32 Mission Control, 33 App Exposé, 36 Show Desktop, 160 Launchpad
-and 163 Notification Center. With no configurable binding, documented fallbacks
-are Control-Up, Control-Down, Fn-H, Fn-Shift-A and Fn-N respectively. Explicitly
-disabled Mission Control/App Exposé bindings need enabling in Keyboard Shortcuts;
-the gesture status reports this. The Globe shortcuts remain fallbacks for the
-other three. No preference mutations, Apple Events automation, extra entitlements,
-external drivers or private Dock API are used.
+Mission Control and App Exposé use native Dock requests, independent of keyboard
+shortcut configuration. AppleShortcutPlan resolves CoreDockSendNotification from
+HIServices at configuration time and keeps the library resident. Messages are
+com.apple.expose.awake and com.apple.expose.front.awake respectively. This is an
+undocumented API: absent symbols disable the plan with an unavailable status,
+not a crash or shortcut-preference mutation. The symbol was confirmed available
+on the test Mac without invoking it. Real invocation still needs hardware testing.
 
-Each invocation builds both keyboard edges before posting, uses exactly the
-shortcut modifiers (not accidental held modifiers), and tags the events as this
-interpreter. There is no autorepeat or delayed key-up. The selected shortcut plan
+Notification Center, Launch Pad and Show Desktop retain their hardware-tested
+keyboard dispatch. AppleShortcutPlan reads com.apple.symbolichotkeys /
+AppleSymbolicHotKeys only at configuration (not inside input callbacks). Valid
+enabled custom shortcuts take precedence; key codes, modifiers and standard type
+are validated. Their symbolic IDs are 163, 160 and 36; documented fallbacks are
+Fn-N, Fn-Shift-A and Fn-H. No preferences are changed and no Apple Events
+automation, extra entitlement or external driver is introduced.
+
+Keyboard invocations build both edges before posting, use exactly the shortcut
+modifiers (not accidental held modifiers), and tag events as this interpreter.
+Native Dock invocations send one message and no keyboard or mouse events. There is no autorepeat or delayed key-up. The selected shortcut plan
 is cached until the next configure/permission refresh/selection change.
 
 On Tahoe 26+, Apple's Launchpad shortcut opens its replacement Apps view. The UI
@@ -257,3 +262,9 @@ acceptance; offline tests inspect complete events without posting them.
 References: [Apple keyboard shortcuts](https://support.apple.com/en-us/102650)
 and [symbolic identifier research](https://github.com/noah-nuebling/mac-mouse-fix/blob/master/Various%20Notes/SymbolicHotKeys%20Reference.txt).
 Implementation is independent Swift; no third-party source or library is bundled.
+
+Mission Control/App Exposé dispatch correction: the original Control-arrow
+fallbacks did not work in the user's hardware test. The other three actions did.
+Native Dock messages replace only those two paths, for both Force Click and
+Pinch/Spread. One-shot activation, force haptics and all-up latching remain.
+Protocol reference: [Dock action messages](https://gist.github.com/unixzii/7091dda6aea958c6da669e436365df65).
