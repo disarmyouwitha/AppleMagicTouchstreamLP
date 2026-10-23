@@ -127,3 +127,65 @@ extension HandGestureSettingsTests {
         XCTAssertEqual(ForceClickHapticSettings(waveform:-1,level:100).normalized,ForceClickHapticSettings(waveform:1,level:2))
     }
 }
+
+extension HandGestureSettingsTests {
+    func testGestureActionsAndGainsExportWithKeymapAndOldFilesPreserveCurrentGestures() throws {
+        var profile = AppKeymapProfile.defaultProfile(), gestures = HandGestureSettings()
+        for trigger in GestureTrigger.allCases {
+            gestures.setAction(trigger.isContinuous ? .scroll : .secondaryClick,for:trigger,in:.left)
+            gestures.setAction(.disabled,for:trigger,in:.right)
+        }
+        gestures.set(.pointer,value:0.65,in:.left); gestures.set(.scroll,value:1.75,in:.right)
+        profile.handGestureSettings = gestures
+        let exported = try PortableKeymapInterop.exportBundle(from:profile)
+        let restored = try PortableKeymapInterop.importProfile(from:exported,currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings,gestures)
+        let direct = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONEncoder().encode(profile))
+        XCTAssertEqual(direct.handGestureSettings,gestures)
+        var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:exported) as? [String:Any])
+        var hosts = try XCTUnwrap(legacy["HostExtensions"] as? [String:Any])
+        var mac = try XCTUnwrap(hosts["mac"] as? [String:Any])
+        XCTAssertNotNil(mac.removeValue(forKey:"GestureBindings"))
+        hosts["mac"] = mac; legacy["HostExtensions"] = hosts
+        let old = try JSONSerialization.data(withJSONObject:legacy)
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:old,currentProfile:profile).handGestureSettings,gestures)
+        XCTAssertNil(try PortableKeymapInterop.importProfile(from:old,currentProfile:.defaultProfile()).handGestureSettings)
+        let bare = try XCTUnwrap(legacy["KeymapJson"] as? String).data(using:.utf8)!
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:bare,currentProfile:profile).handGestureSettings,gestures)
+    }
+}
+
+extension HandGestureSettingsTests {
+    func testRetiredActionLabelsRoundTripWithGesturesWhileUnknownLabelsStillFail() throws {
+        var profile = AppKeymapProfile.defaultProfile()
+        var gestures = HandGestureSettings()
+        gestures.setAction(.secondaryClick,for:.threeFingerForce,in:.right)
+        profile.handGestureSettings = gestures
+        let retired: [(String,KeyActionKind)] = [("BRIGHT_DOWN",.brightnessDown),("BRIGHT_UP",.brightnessUp),("Voice",.voice)]
+        var mappings: [String:KeyMapping] = [:]
+        for (column,item) in retired.enumerated() {
+            let action = KeyAction(label:item.0,keyCode:0,flags:0,kind:item.1)
+            mappings[GridKeyPosition(side:.left,row:0,column:column).storageKey] = KeyMapping(primary:action,hold:action)
+            XCTAssertNil(KeyActionCatalog.action(for:item.0)) // Still absent from live catalog.
+        }
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(profile)) as? [String:Any])
+        object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:mappings]]))
+        profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+        let data = try PortableKeymapInterop.exportBundle(from:profile)
+        let restored = try PortableKeymapInterop.importProfile(from:data,currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.handGestureSettings,gestures)
+        XCTAssertEqual(restored.keyMappingsByLayout?["TouchStream"]?[0],mappings)
+        let second = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:restored),currentProfile:.defaultProfile())
+        XCTAssertEqual(second.keyMappingsByLayout?["TouchStream"]?[0],mappings)
+        let bad = String(decoding:data,as:UTF8.self).replacingOccurrences(of:"BRIGHT_DOWN",with:"UNKNOWN_ACTION_TEST")
+        XCTAssertThrowsError(try PortableKeymapInterop.importProfile(from:Data(bad.utf8),currentProfile:.defaultProfile()))
+    }
+    func testActualBundledDefaultKeymapCanBeReexportedAndImported() throws {
+        let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let data = try Data(contentsOf:root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/GLASSTOKEY_DEFAULT_KEYMAP.json"))
+        let original = try PortableKeymapInterop.importProfile(from:data,currentProfile:.defaultProfile())
+        let restored = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:original),currentProfile:.defaultProfile())
+        XCTAssertEqual(restored.keyMappingsByLayout,original.keyMappingsByLayout)
+        XCTAssertEqual(restored.handGestureSettings,original.handGestureSettings)
+    }
+}

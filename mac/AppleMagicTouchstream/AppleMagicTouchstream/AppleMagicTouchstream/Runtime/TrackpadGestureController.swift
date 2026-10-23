@@ -58,6 +58,15 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
 
+    func applyImportedSettings(_ imported: HandGestureSettings) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        var normalized = imported
+        normalized.left.normalize(); normalized.right.normalize()
+        settings = normalized
+        settings.save(to:.standard)
+        configure()
+    }
+
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {

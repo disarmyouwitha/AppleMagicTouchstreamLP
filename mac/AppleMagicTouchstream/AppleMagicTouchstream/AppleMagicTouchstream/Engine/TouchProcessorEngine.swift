@@ -536,7 +536,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let onDebugBindingDetected: @Sendable (KeyBinding) -> Void
     private let onContactCountChanged: @Sendable (SidePair<Int>) -> Void
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
-    private let isDragDetectionEnabled = false
     private var currentFrameDeviceIndex = -1
     private var currentFrameAllowsTyping = true
     private var isListening = false
@@ -577,10 +576,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var tapMaxDuration: TimeInterval = 0.2
     private var holdMinDuration: TimeInterval = 0.2
     private let minimumTapMaxDuration: TimeInterval = 0.2
-    private var dragCancelDistance: CGFloat = 2.5
     private let clickActuationForce: Float = 125
-    private var forceClickMin: Float = 0
-    private var forceClickCap: Float = 255
     private var forceClickThreshold: Float = Float(GlassToKeySettings.forceClickThreshold)
     private var snapRadiusFraction: Float = 0.35
     private let snapAmbiguityRatio: Float = 1.15
@@ -757,16 +753,11 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     func updateForceClickMin(_ grams: Double) {
-        let clamped = Float(min(max(grams, 0), 255))
-        forceClickMin = clamped
-        if forceClickCap < clamped {
-            forceClickCap = clamped
-        }
+        // Retained for old profiles; typing has no global pressure gate.
     }
 
     func updateForceClickCap(_ grams: Double) {
-        let clamped = Float(min(max(grams, 0), 255))
-        forceClickCap = max(clamped, forceClickMin)
+        // Retained for old profiles; typing has no global pressure gate.
     }
 
     func updateForceClickThreshold(_ grams: Double) {
@@ -1277,13 +1268,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if Self.touchKeyDeviceIndex(key) == deviceIndex { touchRemovalBuffer.append(key) }
         }
         for key in touchRemovalBuffer { intentState.touches.remove(key) }
-        var otherHandMoved = false
-        intentState.touches.forEach { _, info in
-            otherHandMoved = otherHandMoved || info.maxDistanceSquared > pow(3 * unitsPerMillimeter, 2)
-        }
-        if intentState.touches.isEmpty { intentState.mode = .idle }
-        else if otherHandMoved { intentState.mode = .mouseActive }
-        else { intentState.mode = .typingCommitted(untilAllUp: true) }
+        intentState.mode = intentState.touches.isEmpty ? .idle : .typingCommitted(untilAllUp:true)
         updateIntentDisplayIfNeeded()
         if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
             gestureKeyboardDevices.remove(deviceIndex)
@@ -1310,7 +1295,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         )
         defer { signposter.endInterval("ProcessTouches", state) }
         #endif
-        let dragCancelDistanceSquared = dragCancelDistance * dragCancelDistance
         let side: TrackpadSide = isLeftSide ? .left : .right
         var contactCount = 0
         var frameTouchKeys = TouchTable<Bool>(minimumCapacity: max(16, touches.count * 2))
@@ -1443,13 +1427,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     let distanceSquared = distanceSquared(from: active.startPoint, to: point)
                     active.maxDistanceSquared = max(active.maxDistanceSquared, distanceSquared)
                     setActiveTouch(touchKey, active)
-                    if isDragDetectionEnabled,
-                       active.modifierKey == nil,
-                       !active.didHold,
-                       active.maxDistanceSquared > dragCancelDistanceSquared {
-                        disqualifyTouch(touchKey, reason: .dragCancelled)
-                        continue
-                    }
 
                     if active.isContinuousKey,
                        !active.binding.hitGeometry.contains(point) {
@@ -1465,8 +1442,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                             pressure: peakPressure,
                             startTime: active.startTime,
                             now: now
-                       ),
-                       (!isDragDetectionEnabled || active.maxDistanceSquared <= dragCancelDistanceSquared) {
+                       ) {
                         let dispatchInfo = makeDispatchInfo(
                             kind: .hold,
                             startTime: active.startTime,
@@ -1502,11 +1478,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     pending.maxDistanceSquared = max(pending.maxDistanceSquared, distanceSquared)
                     setPendingTouch(touchKey, pending)
 
-                    if isDragDetectionEnabled,
-                       pending.maxDistanceSquared > dragCancelDistanceSquared {
-                        disqualifyTouch(touchKey, reason: .pendingDragCancelled)
-                        continue
-                    }
 
                     let allowPriority = allowsPriorityTyping(for: pending.binding)
                     if pending.binding.hitGeometry.contains(point),
@@ -1554,8 +1525,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                             updated.modifierEngaged = true
                             setActiveTouch(touchKey, updated)
                         }
-                    } else if isDragDetectionEnabled {
-                        _ = removePendingTouch(for: touchKey)
                     } else {
                         _ = removePendingTouch(for: touchKey)
                     }
@@ -1585,38 +1554,27 @@ final class TouchProcessorEngine: @unchecked Sendable {
                         disqualifiedTouches.set(touchKey, true)
                         continue
                     }
-                    if isDragDetectionEnabled, (modifierKey != nil || isContinuousKey) {
-                        setPendingTouch(
-                            touchKey,
-                            PendingTouch(
-                                binding: binding,
-                                layer: activeLayer,
-                                startTime: now,
-                                startPoint: point,
-                                maxDistanceSquared: 0
-                            )
+
+                    let active = ActiveTouch(
+                            binding: binding,
+                            layer: activeLayer,
+                            startTime: now,
+                            startPoint: point,
+                            modifierKey: modifierKey,
+                            isContinuousKey: isContinuousKey,
+                            holdBinding: holdBinding,
+                            didHold: false,
+                            maxDistanceSquared: 0,
+                            modifierEngaged: false
                         )
-                    } else {
-                        let active = ActiveTouch(
-                                binding: binding,
-                                layer: activeLayer,
-                                startTime: now,
-                                startPoint: point,
-                                modifierKey: modifierKey,
-                                isContinuousKey: isContinuousKey,
-                                holdBinding: holdBinding,
-                                didHold: false,
-                                maxDistanceSquared: 0,
-                                modifierEngaged: false
-                            )
-                        setActiveTouch(touchKey, active)
-                        if allowNow, let modifierKey {
-                            handleModifierDown(modifierKey, binding: binding)
-                            var updated = active
-                            updated.modifierEngaged = true
-                            setActiveTouch(touchKey, updated)
-                        }
+                    setActiveTouch(touchKey, active)
+                    if allowNow, let modifierKey {
+                        handleModifierDown(modifierKey, binding: binding)
+                        var updated = active
+                        updated.modifierEngaged = true
+                        setActiveTouch(touchKey, updated)
                     }
+
                 }
             case .breaking, .leaving:
                 let releaseStartPoint = touchInitialContactPoint.remove(touchKey)
@@ -1951,19 +1909,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
         clearPeakPressure(for: touchKey)
         framePointCache.remove(touchKey)
-    }
-
-    @inline(__always)
-    private func forceRange() -> (min: Float, max: Float) {
-        let minForce = min(forceClickMin, forceClickCap)
-        let maxForce = max(forceClickMin, forceClickCap)
-        return (min: minForce, max: maxForce)
-    }
-
-    @inline(__always)
-    private func isPressureWithinForceRange(_ pressure: Float) -> Bool {
-        let range = forceRange()
-        return pressure >= range.min && pressure <= range.max
     }
 
     @inline(__always)
@@ -2403,7 +2348,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         touchKey: TouchKey,
         pressure: Float
     ) {
-        guard isPressureWithinForceRange(pressure) else { return }
         guard case let .key(code, flags) = binding.action else { return }
         recordFrameDecision(
             touchKey,
@@ -2588,13 +2532,10 @@ final class TouchProcessorEngine: @unchecked Sendable {
         unitsPerMm: CGFloat,
         bindingCacheBySide: inout SidePair<TouchTable<KeyBinding>>
     ) -> Bool where Touches.Element == OMSRawTouch {
-        // Deliberately small baseline: key landing = typing; 3 mm travel = mouse.
-        // Keyboard dispatch stays in the original mac pipeline; only intent is replaced.
+        // Keyboard is the default for every unreserved contact cycle. Movement
+        // and off-key landings do not select a mouse mode.
         var state = intentState
-        let wasMouse: Bool = if case .mouseActive = state.mode { true } else { false }
         var present = Set<TouchKey>()
-        var mouse = false
-        var onKey = false
         bindingCacheBySide[.left].removeAll(keepingCapacity: true)
         bindingCacheBySide[.right].removeAll(keepingCapacity: true)
         func inspect(_ touch: OMSRawTouch, device: Int, side: TrackpadSide, index: BindingIndex) {
@@ -2606,7 +2547,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                                 y: CGFloat(1 - touch.posY) * trackpadSize.height)
             framePointCache.set(key, point)
             if let binding = binding(at: point, index: index) {
-                onKey = true
                 bindingCacheBySide[side].set(key, binding)
             }
             if var info = state.touches.value(for: key) {
@@ -2614,7 +2554,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 info.lastPoint = point
                 info.lastTime = now
                 state.touches.set(key, info)
-                mouse = mouse || info.maxDistanceSquared > pow(3 * unitsPerMillimeter, 2)
             } else {
                 state.touches.set(key, IntentTouchInfo(startPoint: point, startTime: now,
                     lastPoint: point, lastTime: now, maxDistanceSquared: 0))
@@ -2630,14 +2569,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         for key in removed { state.touches.remove(key) }
         if state.touches.isEmpty { state.mode = .idle }
-        else if mouse { state.mode = .mouseActive }
-        else if case .mouseActive = state.mode { /* latch until all up */ }
-        else if onKey { state.mode = .typingCommitted(untilAllUp: true) }
-        else { state.mode = .mouseActive }
+        else { state.mode = .typingCommitted(untilAllUp: true) }
         intentState = state
         updateIntentDisplayIfNeeded()
-        if mouse || wasMouse { return false }
-        if case .mouseActive = state.mode { return false }
         return isTypingEnabled
     }
 
@@ -2663,7 +2597,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     @inline(__always)
-
 
     private func updatePhysicalScale() {
         guard trackpadWidthMm > 0 else {
@@ -2775,14 +2708,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
         startTime: TimeInterval,
         now: TimeInterval
     ) -> Bool {
-        if binding.holdForceThreshold > 0, pressure > 0 {
+        if binding.holdForceThreshold > 0 {
             return pressure >= binding.holdForceThreshold
         }
         return now - startTime >= holdMinDuration
     }
 
     private func holdDispatchPressure(for binding: KeyBinding, pressure: Float) -> Float? {
-        if binding.holdForceThreshold > 0, pressure > 0 {
+        if binding.holdForceThreshold > 0 {
             return nil
         }
         return pressure
@@ -2832,12 +2765,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
         now: TimeInterval,
         pressure: Float
     ) -> Bool {
-        let releaseDistanceSquared = distanceSquared(from: pending.startPoint, to: point)
         guard isContinuousKey(pending.binding),
               now - pending.startTime <= tapMaxDuration,
-              pending.binding.hitGeometry.contains(point),
-              (!isDragDetectionEnabled
-               || releaseDistanceSquared <= dragCancelDistance * dragCancelDistance) else {
+              pending.binding.hitGeometry.contains(point) else {
             return false
         }
         let dispatchInfo = makeDispatchInfo(
@@ -2887,15 +2817,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 touchKey,
                 outcome: .rejected,
                 reason: "tapTimedOut",
-                binding: originalBinding
-            )
-            return false
-        }
-        if isDragDetectionEnabled, releaseDistanceSquared > dragCancelDistance * dragCancelDistance {
-            recordFrameDecision(
-                touchKey,
-                outcome: .rejected,
-                reason: "movedTooFar",
                 binding: originalBinding
             )
             return false
@@ -3094,17 +3015,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         pressure: Float? = nil
     ) {
         guard case let .key(code, flags) = binding.action else { return }
-        if let pressure, !isPressureWithinForceRange(pressure) {
-            if let touchKey {
-                recordFrameDecision(
-                    touchKey,
-                    outcome: .rejected,
-                    reason: "forceThresholdNotMet",
-                    binding: binding
-                )
-            }
-            return
-        }
+
         #if DEBUG
         onDebugBindingDetected(binding)
 #endif
@@ -3138,15 +3049,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         pressure: Float? = nil
     ) -> Bool {
         guard canHoldRepeat(binding: binding) else { return false }
-        if let pressure, !isPressureWithinForceRange(pressure) {
-            recordFrameDecision(
-                touchKey,
-                outcome: .rejected,
-                reason: "forceThresholdNotMet",
-                binding: binding
-            )
-            return false
-        }
+
         #if DEBUG
         onDebugBindingDetected(binding)
         #endif
@@ -3518,14 +3421,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
             }
             endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
         }
-        if reason == .dragCancelled || reason == .pendingDragCancelled {
-            enterMouseIntentFromDragCancel()
-        }
-    }
-
-    private func enterMouseIntentFromDragCancel() {
-        intentState.mode = .mouseActive
-        updateIntentDisplayIfNeeded()
     }
 
     private func distanceSquared(from start: CGPoint, to end: CGPoint) -> CGFloat {
@@ -3543,8 +3438,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         updateActiveLayer()
     }
-
-
 
 
 

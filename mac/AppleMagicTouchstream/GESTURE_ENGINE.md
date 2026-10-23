@@ -73,7 +73,16 @@ layout, column, keymap, haptics and tuning controls. Both shows Mixed assignment
 choosing an action applies to both. Factory settings start mirrored.
 
 Bindings and gains persist in app-local UserDefaults under
-`AppleMagicTouchstream.handGestureBindings.v1`. Takeover remains a separate,
+`AppleMagicTouchstream.handGestureBindings.v1`. Keymap Export now also writes the
+complete Left/Right bindings (including all force inputs) and pointer/scroll gains
+to `HostExtensions.mac.GestureBindings`. Import normalizes and persists included
+gesture settings, resets current recognition, and reconfigures live eligibility.
+Old bundles or bare keymaps without GestureBindings preserve current gestures.
+Known retired brightness/voice and related GTK labels are accepted as inert
+legacy actions on import, retaining their labels and primary/hold positions for
+round-tripping. They remain outside the live action catalog. Unknown labels
+still fail import rather than silently losing mappings.
+Takeover remains a separate,
 default-off persistent opt-in; toggling it never overwrites customized actions.
 Duplicate physical-pad selections use Left's non-None action, then Right fallback,
 and Left sensitivity. Routing uses native numeric device IDs, not compacted slots.
@@ -118,3 +127,18 @@ cleanup, other-hand typing and empty-frame recovery tests. Native takeover tests
 cover output arming and failed-transition disarming. Universal Release and signing
 must pass before installation. Hardware acceptance of this combined keyboard and
 gesture app remains separate from GesturePad's accepted behavior.
+
+## Default keyboard input (2026-10-22)
+
+Every unreserved contact cycle defaults to keyboard interpretation. Moving more
+than 3 mm, landing outside a key, or legacy drag/intent settings cannot select a
+mouse mode or disqualify a typing contact. Key hit regions, explicit keyboard
+mode/output state, release timing, per-key actions and lifecycle cleanup remain.
+Configured gestures still reserve the originating pad's cycle before keyboard
+output and latch through all-up; the other pad remains usable for typing.
+
+Typing Tuning no longer has Force Min or Force Max. Legacy profile fields/setters
+remain compatible but never gate ordinary taps, snapped taps or hold-repeat output.
+Per-key **Force instead of hold** remains: an assigned positive hold-force threshold
+uses pressure instead of elapsed dwell, including when reported pressure is zero.
+There is no fallback to timed hold for a pressure-controlled binding.

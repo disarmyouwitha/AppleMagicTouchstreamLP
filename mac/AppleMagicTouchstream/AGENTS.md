@@ -125,3 +125,16 @@ After hardware testing, user fixed force-click feedback at waveform 6 / level
 feedback values for live output. Typing uses fixed waveform 6 with Haptic Strength
 0–2 / 0.01 steps. Preserve profile level ×100 encoding, device targeting, throttling
 and recording-only replay. This supersedes earlier variable force-feedback policy.
+
+User removed the temporary 3 mm/off-key mouse-intent classifier, movement-based
+keyboard cancellation and global Force Min/Max typing gates. Do not restore them
+from saved profiles. Unreserved contacts default to typing; preserve hit regions,
+per-key Force instead of hold, hold/repeat semantics, gesture reservation and
+lifecycle cleanup. Keep legacy force/drag fields decodable with inert setters.
+Keymap bundles include HandGestureSettings under HostExtensions.mac.GestureBindings;
+import normalizes, persists and reconfigures included bindings/gains. Missing gesture
+settings preserve current preferences. Takeover opt-in remains app-local.
+
+Portable import must accept known retired brightness/Voice and related GTK labels
+as decode-only actions so existing exports round-trip. Preserve labels and mapping
+positions without re-enabling their live output; unknown labels must still fail.

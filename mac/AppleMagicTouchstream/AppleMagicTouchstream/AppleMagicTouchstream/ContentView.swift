@@ -2998,40 +2998,6 @@ struct ContentView: View {
 
 
                     GridRow {
-                        Text("Force Min")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "0",
-                            value: $forceClickMinSetting,
-                            formatter: ContentView.forceClickFormatter
-                        )
-                        .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $forceClickMinSetting,
-                            in: ContentView.forceClickRange,
-                            step: 1
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
-                    GridRow {
-                        Text("Force Max")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "0",
-                            value: $forceClickCapSetting,
-                            formatter: ContentView.forceClickFormatter
-                        )
-                        .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $forceClickCapSetting,
-                            in: ContentView.forceClickRange,
-                            step: 1
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
-                    GridRow {
                         Text("Haptic Strength")
                             .frame(width: labelWidth, alignment: .leading)
                         Text(String(format:"%.2f",hapticLevelBinding.wrappedValue))
@@ -4165,11 +4131,13 @@ struct ContentView: View {
             customButtonsByLayout: customButtonsByLayout,
             keyMappingsByLayout: mappings,
             keyGeometryByLayout: keyGeometryByLayout,
-            gestureRecognitionEnabled: gestureRecognitionEnabled
+            gestureRecognitionEnabled: gestureRecognitionEnabled,
+            handGestureSettings: viewModel.gestures.settings
         )
     }
 
     private func applyKeymapProfile(_ profile: AppKeymapProfile) {
+        if let gestures = profile.handGestureSettings { viewModel.gestures.applyImportedSettings(gestures) }
         gestureRecognitionEnabled = profile.gestureRecognitionEnabled ?? false
         storedLeftDeviceID = profile.leftDeviceID
         storedRightDeviceID = profile.rightDeviceID

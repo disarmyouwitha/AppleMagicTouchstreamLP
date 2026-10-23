@@ -11,11 +11,14 @@
 
 
 `AppleMagicTouchstream`:
-0. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool)
+0. Can you make an Icon for my .app based on our FingerWorks Hand icon.
 1. Remove any logic preventing 1-finger from defaulting to typing (like we dont need any 3mm drag cancel or whatever!)
 2. Make Gestures Import/Export with keymap~
 2. Transfer Treasure to GTK~
 4. Copy touchstream Layout from AMT to GTK!
+===
+666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
+777. We need to have "Click & Drag" to move Columns. (individual keys?)
 
 ===
 

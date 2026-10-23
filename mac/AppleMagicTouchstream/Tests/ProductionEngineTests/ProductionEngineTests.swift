@@ -39,10 +39,10 @@ final class ProductionEngineTests: XCTestCase {
 
     @discardableResult
     private func frame(_ session: ProductionReplaySession, _ time: Double, _ contacts: [OMSRawTouch],
-                       side: Int = 0) -> RuntimeFrameDiagnostic? {
+                       side: Int = 0, reserved: Bool = false) -> RuntimeFrameDiagnostic? {
         session.ingest(RuntimeRawFrame(sequence: UInt64((time * 1000).rounded()), timestamp: time,
                                        deviceNumericID: side == 0 ? 42 : 43, deviceIndex: side,
-                                       contacts: [], rawTouches: contacts))
+                                       contacts: [], rawTouches: contacts), suppressKeyboard:reserved)
     }
 
     private func keys(_ session: ProductionReplaySession) -> [String] {
@@ -109,7 +109,7 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertEqual(keys(run).count, 2)
     }
 
-    func testFixedMouseIntentSuppressesTap() async {
+    func testReleaseOutsideAllKeysHasNoTarget() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])
         frame(run, 1.04, [contact()])
@@ -168,7 +168,7 @@ final class ProductionEngineTests: XCTestCase {
 
     func testTwoFingerMotionSuppressesTyping() async {
         let run = session(keyboardOnly: false)
-        frame(run, 1.00, [contact(1, state: .making), contact(2, key: 2, state: .making)])
+        frame(run, 1.00, [contact(1, state: .making), contact(2, key: 2, state: .making)],reserved:true)
         frame(run, 1.04, [contact(1), contact(2, key: 2)])
         frame(run, 1.08, [contact(1, x: 0.28), contact(2, key: 2, x: 0.84)])
         frame(run, 1.12, [contact(1, state: .breaking, x: 0.28),
@@ -345,25 +345,25 @@ final class ProductionEngineTests: XCTestCase {
             bottomRightForceClick: KeyAction(label: "None", keyCode: 0, flags: 0, kind: .none)
         )
     }
-    func testMouseMotionLatchesUntilAllUpAndNextTapTypes() async {
+    func testSingleFingerMovementKeepsTypingAndNextTapTypes() async {
         let run = session(keyboardOnly: false)
         frame(run, 1.00, [contact(state: .making)])
         frame(run, 1.02, [contact(x: 0.25)])
-        XCTAssertEqual(run.output.intents.left, .mouse)
+        XCTAssertEqual(run.output.intents.left, .typing)
         frame(run, 1.04, [contact()])
         frame(run, 1.06, [contact(state: .breaking)])
         frame(run, 1.08, [])
-        XCTAssertTrue(keys(run).isEmpty)
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
         frame(run, 1.10, [contact(state: .making)])
         frame(run, 1.12, [contact(state: .breaking)])
-        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0", "tap:\(kVK_ANSI_F):0"])
     }
 
-    func testMovementReportedOnlyOnReleaseStillSelectsMouse() async {
+    func testMovementReportedOnlyOnReleaseStillTypes() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])
         frame(run, 1.04, [contact(state: .breaking, x: 0.25)])
-        XCTAssertTrue(keys(run).isEmpty)
+        XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
     }
 
     func testEmptyFrameReleasesHeldModifier() async {
@@ -490,13 +490,14 @@ final class ProductionEngineTests: XCTestCase {
             frame(run, start + 0.12, [])
         }
         swipe(1)
-        XCTAssertTrue(keys(run).isEmpty)
+        let ordinaryTyping = keys(run)
+        XCTAssertFalse(ordinaryTyping.contains("tap:\(kVK_ANSI_G):0"))
         run.engine.updateGestureRecognitionEnabled(true)
         swipe(2)
-        XCTAssertTrue(keys(run).isEmpty)
+        XCTAssertEqual(keys(run),ordinaryTyping + ordinaryTyping)
         run.engine.updateGestureRecognitionEnabled(false)
         swipe(3)
-        XCTAssertTrue(keys(run).isEmpty)
+        XCTAssertEqual(keys(run),ordinaryTyping + ordinaryTyping + ordinaryTyping)
     }
 
     func testLegacyGestureToggleCannotRestoreGTKTapClick() async {
@@ -551,16 +552,51 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_C):\(CGEventFlags.maskCommand.rawValue)"])
     }
 
-    func testRemovedSettingsCannotOverrideFixedMovementThreshold() async {
+    func testLegacyMovementSettingsCannotBlockTyping() async {
         let run = session(keyboardOnly: false)
         run.engine.updateDragCancelDistance(0)
         run.engine.updateIntentMoveThreshold(0)
         run.engine.updateIntentVelocityThreshold(0)
         run.engine.updateTapClickCadence(1)
         frame(run, 1, [contact(state: .making)])
-        frame(run, 1.04, [contact(x: 0.175)])
-        frame(run, 1.08, [contact(state: .breaking, x: 0.175)])
+        frame(run, 1.04, [contact(x: 0.25)])
+        frame(run, 1.08, [contact(state: .breaking, x: 0.25)])
         XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
+    }
+
+    func testGlobalForceBoundsCannotBlockTypingAndPerKeyForceHoldStillWorks() async {
+        for pressure: Float in [0,10,255,500] {
+            let run = session()
+            run.engine.updateForceClickMin(200)
+            run.engine.updateForceClickCap(201)
+            func sample(_ state: OMSState) -> OMSRawTouch {
+                OMSRawTouch(id:1,posX:27.5/160,posY:1-55.0/115,total:1,pressure:pressure,
+                    majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+            }
+            frame(run,1,[sample(.making)]); frame(run,1.08,[sample(.breaking)])
+            XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"],"pressure \(pressure)")
+        }
+        let run = session(allowHold:true)
+        run.engine.updateForceClickMin(250); run.engine.updateForceClickCap(251)
+        let key = GridKeyPosition(side:.left,row:0,column:0).storageKey
+        run.engine.updateKeyMappings([0:[key:KeyMapping(primary:KeyActionCatalog.action(for:"F")!,
+            hold:KeyAction(label:"Copy",keyCode:UInt16(kVK_ANSI_C),flags:CGEventFlags.maskCommand.rawValue),holdForceThreshold:130)]])
+        run.engine.updateHoldThreshold(0.05)
+        frame(run,1,[contact(state:.making)])
+        frame(run,1.1,[contact()]) // 100 stays below per-key threshold even after time expires.
+        XCTAssertTrue(keys(run).isEmpty)
+        let press = OMSRawTouch(id:1,posX:0.25,posY:1-55.0/115,total:1,pressure:140,
+            majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        frame(run,1.12,[press]); frame(run,1.14,[])
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_C):\(CGEventFlags.maskCommand.rawValue)"])
+    }
+
+    func testLandingOutsideKeyThenMovingOntoKeyDoesNotLatchMouse() async {
+        let run = session(keyboardOnly:false)
+        frame(run,1,[contact(state:.making,x:0.95)])
+        frame(run,1.04,[contact()])
+        frame(run,1.08,[contact(state:.breaking)])
+        XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_F):0"])
     }
 
     func testGestureToggleRoundTripsAndOldProfilesDefaultOff() throws {
@@ -588,15 +624,18 @@ final class ProductionEngineTests: XCTestCase {
             let key = GridKeyPosition(side: .left, row: 0, column: 0).storageKey
             run.engine.updateKeyMappings([0: [key: KeyMapping(primary: action, hold: action)]])
             run.engine.updateCustomButtons([CustomButton(id: UUID(), side: .left,
-                rect: NormalizedRect(x: 0.65, y: 0.3, width: 0.3, height: 0.4), action: action, hold: action)])
+                rect: NormalizedRect(x: 0.65, y: 0.7, width: 0.3, height: 0.2), action: action, hold: action)])
             frame(run, 1, [contact(state: .making)])
             frame(run, 1.5, [contact()])
             frame(run, 1.6, [])
-            frame(run, 2, [contact(state: .making, x: 0.8)])
-            frame(run, 2.5, [contact(x: 0.8)])
+            func customTouch(_ state:OMSState) -> OMSRawTouch {
+                OMSRawTouch(id:1,posX:0.8,posY:0.2,total:1,pressure:100,majorAxis:5,minorAxis:3,angle:0,density:1,state:state)
+            }
+            frame(run, 2, [customTouch(.making)])
+            frame(run, 2.5, [customTouch(.touching)])
             frame(run, 2.6, [])
             run.finish(at: 3)
-            XCTAssertTrue(run.output.events.isEmpty, "Unsupported imported kind \(kind) produced output")
+            XCTAssertTrue(run.output.events.isEmpty, "Unsupported imported kind \(kind) produced output: \(run.output.events)")
         }
     }
 

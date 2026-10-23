@@ -274,6 +274,7 @@ struct AppKeymapProfile: Codable {
     let keyGeometryByLayout: LayoutKeyGeometryOverrides?
 
     var gestureRecognitionEnabled: Bool? = nil
+    var handGestureSettings: HandGestureSettings? = nil
 
     static func defaultProfile() -> AppKeymapProfile {
         AppKeymapProfile(
@@ -623,6 +624,7 @@ enum PortableKeymapInterop {
             )
         }
 
+        profile.handGestureSettings = bundle.hostExtensions?["mac"]?.handGestureSettings ?? currentProfile.handGestureSettings
         return try applyPortableKeymap(keymap, to: profile)
     }
 
@@ -723,7 +725,7 @@ enum PortableKeymapInterop {
             throw PortableKeymapImportError.unsupportedActions(Array(unsupportedLabels))
         }
 
-        return AppKeymapProfile(
+        var result = AppKeymapProfile(
             leftDeviceID: profile.leftDeviceID,
             rightDeviceID: profile.rightDeviceID,
             layoutPreset: profile.layoutPreset,
@@ -797,6 +799,8 @@ enum PortableKeymapInterop {
             keyMappingsByLayout: mappingsByLayout,
             keyGeometryByLayout: geometryByLayout
         )
+        result.handGestureSettings = profile.handGestureSettings
+        return result
     }
 
     private static func encodePortableKeymap(from profile: AppKeymapProfile) throws -> String {
@@ -872,6 +876,22 @@ enum PortableKeymapInterop {
         if let action = KeyActionCatalog.action(for: trimmed) {
             return action
         }
+        // Existing saved mappings can contain retired GTK actions. Preserve their
+        // identity for round-tripping without restoring them to the live catalog.
+        let retired: [String:KeyActionKind] = [
+            "Voice":.voice, "VOICE":.voice,
+            "BRIGHT_UP":.brightnessUp, "BRIGHT⬆️":.brightnessUp,
+            "BRIGHT_DOWN":.brightnessDown, "BRIGHT⬇️":.brightnessDown,
+            "BRIGHT_UP_SMALL":.brightnessUpSmall, "bright_up_small":.brightnessUpSmall,
+            "BRIGHT_DOWN_SMALL":.brightnessDownSmall, "bright_down_small":.brightnessDownSmall,
+            "BRI_SCRIPT_UP":.brightnessUp, "BRI_SCRIPT_DOWN":.brightnessDown,
+            "VOL_UP_SMALL":.volumeUpSmall, "vol_up_small":.volumeUpSmall,
+            "VOL_DOWN_SMALL":.volumeDownSmall, "vol_down_small":.volumeDownSmall,
+            KeyActionCatalog.typingToggleLabel:.typingToggle, "TT":.typingToggle
+        ]
+        if let kind = retired[trimmed] {
+            return KeyAction(label:trimmed,keyCode:0,flags:0,kind:kind)
+        }
         unsupportedLabels.insert(trimmed)
         return allowNil ? nil : KeyActionCatalog.noneAction
     }
@@ -912,6 +932,7 @@ enum PortableKeymapInterop {
         var tapClickCadenceMs: Double?
         var forceClickThreshold: Double?
         var hapticStrength: Double?
+        var handGestureSettings: HandGestureSettings?
 
         init(profile: AppKeymapProfile) {
             leftDeviceID = profile.leftDeviceID
@@ -923,6 +944,7 @@ enum PortableKeymapInterop {
             tapClickCadenceMs = profile.tapClickCadenceMs
             forceClickThreshold = profile.forceClickThreshold
             hapticStrength = profile.hapticStrength
+            handGestureSettings = profile.handGestureSettings
         }
 
         private enum CodingKeys: String, CodingKey {
@@ -935,6 +957,7 @@ enum PortableKeymapInterop {
             case tapClickCadenceMs = "TapClickCadenceMs"
             case forceClickThreshold = "ForceClickThreshold"
             case hapticStrength = "HapticStrength"
+            case handGestureSettings = "GestureBindings"
         }
     }
 

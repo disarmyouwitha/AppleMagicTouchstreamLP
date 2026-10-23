@@ -5,7 +5,7 @@ A workbench for a faithful recreation of FingerWorks TouchStream on Apple Magic 
 ## Current scope
 
 - Local MultitouchSupport bridge, device selection and raw touch telemetry, pressure, contact paths, capture and deterministic replay.
-- Temporary keyboard landing/movement classifier: landing on a key permits typing, movement over 3 mm selects mouse intent until all contacts lift.
+- Unreserved contacts default to typing; no movement-to-mouse latch, drag cancellation, or global Force Min/Max gate. Per-key Force instead of hold remains available.
 - Basic key output, held modifiers, tap/hold shortcuts, layers, key repeat and mouse/media action scaffolding. Select a key in the visualizer to edit its tap and hold action. Existing saved layouts and key mappings remain readable.
 - Menu-bar config, pause/resume, capture/replay, restart and quit remain development utilities.
 
@@ -46,4 +46,8 @@ The original interface is retained: trackpad selectors show device names **and I
 - **Auto-resync retained:** Apple-device recovery outside the recognition engine; useful during disconnect/sleep testing.
 - **Run at Startup removed:** no control, registration manager, startup synchronization or imported-profile side effect. Existing OS login-item registration is not changed automatically; remove any previously enabled entry in macOS Login Items.
 - **Hold Repeat retained:** testable output scaffolding for future original typematic. Current fixed repeat is not faithful pressure-dependent typematic.
-- **Typing Grace removed:** no UI slider, post-key deadline or scheduled expiry. Legacy profile/replay setter is inert; the temporary classifier owns intent directly.
+- **Typing Grace removed:** no UI slider, post-key deadline or scheduled expiry. Legacy profile/replay setter is inert; unreserved contacts default to keyboard interpretation.
+
+Keymap Import/Export includes both hands' configurable gesture actions and pointer/
+scroll sensitivities in the Mac host extension. Older files without these settings
+preserve current gestures. Trackpad Takeover opt-in remains local to this Mac.
