@@ -74,6 +74,29 @@ final class ProductionEngineTests: XCTestCase {
         XCTAssertTrue(paths.trails.isEmpty)
     }
 
+    func testMomentaryLayerReleasesOnMissingContactAfterOtherPadNumberTap() throws {
+        for layerSide in [0,1] {
+            for explicitRelease in [false,true] {
+                let run = session(labels:["MO(1)","F"])
+                let numberSide: TrackpadSide = layerSide == 0 ? .right : .left
+                let number = GridKeyPosition(side:numberSide,row:0,column:1).storageKey
+                run.engine.updateKeyMappings([1:[number:KeyMapping(primary:try XCTUnwrap(KeyActionCatalog.action(for:"1")),hold:nil)]])
+                XCTAssertEqual(frame(run,1,[contact(state:.making)],side:layerSide)?.activeLayer,1)
+                XCTAssertEqual(frame(run,1.02,[contact(key:1,state:.making)],side:1-layerSide)?.activeLayer,1)
+                XCTAssertEqual(frame(run,1.04,[contact(key:1,state:.breaking)],side:1-layerSide)?.activeLayer,1)
+                // Empty frames from the other pad cannot release the held layer.
+                XCTAssertEqual(frame(run,1.06,[],side:1-layerSide)?.activeLayer,1)
+                XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_1):0"])
+                let release = explicitRelease ? [contact(state:.breaking)] : []
+                XCTAssertEqual(frame(run,1.08,release,side:layerSide)?.activeLayer,0)
+                XCTAssertEqual(frame(run,1.10,[],side:layerSide)?.activeLayer,0)
+                frame(run,1.12,[contact(2,key:1,state:.making)],side:1-layerSide)
+                frame(run,1.14,[contact(2,key:1,state:.breaking)],side:1-layerSide)
+                XCTAssertEqual(keys(run),["tap:\(kVK_ANSI_1):0","tap:\(kVK_ANSI_F):0"])
+            }
+        }
+    }
+
     func testTapSelectsFExactlyOnceAndDoesNotTriggerSwipe() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])

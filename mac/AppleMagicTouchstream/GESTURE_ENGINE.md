@@ -268,3 +268,15 @@ fallbacks did not work in the user's hardware test. The other three actions did.
 Native Dock messages replace only those two paths, for both Force Click and
 Pinch/Spread. One-shot activation, force haptics and all-up latching remain.
 Protocol reference: [Dock action messages](https://gist.github.com/unixzii/7091dda6aea958c6da669e436365df65).
+
+## Momentary layer release across pads (2026-10-23)
+
+Primary MO contacts live in a separate momentary-layer table, not ordinary pending
+or active key state. Missing-contact cleanup now reconciles that table against
+each frame from its originating pad, including empty native frames with no
+terminal touch record. Frames from the opposite pad never imply release.
+A released layer-only contact cannot fall through to release-tap hit testing,
+which would re-engage the layer at its former position. Explicit terminal release,
+gesture reservation and normal momentary-layer held-key cancellation are retained.
+Production replay covers both left/right layer sources, cross-pad number typing,
+missing and explicit terminal release, and returning immediately to base typing.

@@ -394,6 +394,15 @@ final class TouchProcessorEngine: @unchecked Sendable {
             if deviceIndex == 1 { table1.removeAll() }
         }
 
+        func forEachTouch(in deviceIndex: Int, _ body: (TouchKey) -> Void) {
+            func visit(_ id: TouchKey) {
+                body(TouchProcessorEngine.makeTouchKey(deviceIndex:deviceIndex,
+                    id:TouchProcessorEngine.touchKeyID(id)))
+            }
+            if deviceIndex == 0 { table0.forEach { id, _ in visit(id) } }
+            if deviceIndex == 1 { table1.forEach { id, _ in visit(id) } }
+        }
+
         func forEachLayer(_ body: (Int) -> Void) {
             table0.forEach { _, layer in
                 body(layer)
@@ -1771,6 +1780,14 @@ final class TouchProcessorEngine: @unchecked Sendable {
             touchRemovalBuffer.append(touchKey)
         }
 
+        // Primary MO contacts live outside touchStates. Native frames may omit
+        // their terminal record, so reconcile them against this pad's frame too.
+        momentaryLayerTouches.forEachTouch(in:deviceIndex) { touchKey in
+            if frameTouchKeys.value(for:touchKey) == nil && !touchRemovalBuffer.contains(touchKey) {
+                touchRemovalBuffer.append(touchKey)
+            }
+        }
+
         for touchKey in touchRemovalBuffer {
             releaseMissingTouch(
                 touchKey: touchKey,
@@ -1792,6 +1809,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             ?? .zero
         let peakPressure = peakPressureByTouch.value(for: touchKey) ?? 0
 
+        let hadLayerControl = momentaryLayerTouches.value(for:touchKey) != nil
+            || layerToggleTouchStarts.value(for:touchKey) != nil
         if momentaryLayerTouches.value(for: touchKey) != nil {
             handleMomentaryLayerTouch(
                 touchKey: touchKey,
@@ -1870,7 +1889,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
             endMomentaryHoldIfNeeded(active.holdBinding, touchKey: touchKey)
         }
 
-        if !hadPending, !hadActive {
+        // Releasing a layer-only contact must not resolve its old position as
+        // a fresh release-tap: that would immediately engage MO again.
+        if !hadPending, !hadActive, !hadLayerControl {
             _ = maybeDispatchReleaseTap(
                 touchKey: touchKey,
                 originalBinding: nil,
