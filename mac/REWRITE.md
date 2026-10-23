@@ -11,12 +11,12 @@
 
 
 `AppleMagicTouchstream`:
-0. Order DecalGirl TouchStream skins!
-> Implement actions: Notification Center, Mission Control, App Expose, Launch Pad, Show Desktop - add to pinch/spread
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 - Need to consolidate / Unify Gesture Actions drop-downs after build-out!
+===
+* Maybe we can clean up gestures by "adding" ones that you use? idk..
 ===
 0. We are going to need a much more extensive menu like Kara's to handle mapping all of these gestures. =x 
 1. Transfer Treasure to GTK~
@@ -29,7 +29,7 @@
 
 ===
 
-`GlassToKey`:
+`GlassToKey`: ditch GTK?
 ===
 1. Remove all gestures/gesture logic
 2. Start by adding Touchstream Gestures / Updates
