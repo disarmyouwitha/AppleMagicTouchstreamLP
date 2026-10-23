@@ -11,9 +11,9 @@
 
 
 `AppleMagicTouchstream`:
-0. Can you make an Icon for my .app based on our FingerWorks Hand icon.
-1. Remove any logic preventing 1-finger from defaulting to typing (like we dont need any 3mm drag cancel or whatever!)
-2. Make Gestures Import/Export with keymap~
+0. 2-Finger Pinch/zoom gesture?
+1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
+2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
 2. Transfer Treasure to GTK~
 4. Copy touchstream Layout from AMT to GTK!
 ===
