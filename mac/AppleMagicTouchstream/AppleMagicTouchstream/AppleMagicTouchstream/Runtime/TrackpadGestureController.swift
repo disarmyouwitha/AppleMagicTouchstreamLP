@@ -107,16 +107,18 @@ final class TrackpadGestureController: ObservableObject {
             }.map(\.key))
         }
         let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
+        let pinch = devicesFor(.twoFingerPinch)
         let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
-            twoFingerTapDevices: tap, doubleClickInterval: NSEvent.doubleClickInterval,
+            twoFingerTapDevices: tap, twoFingerPinchDevices:pinch,
+            zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
             bindings: routed.mapValues(\.bindings))
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
-        let all = two.union(three).union(four).union(tap).union(triple).union(thumb)
+        let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)
         output.enable(devices: all.union(eligible)) // Force click needs no acceleration profile.
         let keyboardPads = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: true, selected: Set(routed.keys), owned: owned)

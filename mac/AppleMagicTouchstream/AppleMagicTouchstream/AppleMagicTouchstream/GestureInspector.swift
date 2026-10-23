@@ -15,7 +15,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .oneFinger,.fiveFingers: return "Force Click"
-        case .twoFingers,.threeFingers: return "Move, Tap & Force Click"
+        case .twoFingers: return "Move, Tap, Pinch & Force Click"
+        case .threeFingers: return "Move, Tap & Force Click"
         case .fourFingers: return "Move & Force Click"
         case .thumbTwo: return "Tap"
         }
@@ -24,7 +25,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return "Choose an action for a one-finger force click."
         case .fiveFingers: return "Choose an action for a five-finger force click."
-        case .twoFingers: return "Choose actions for two-finger movement, tapping and force clicking."
+        case .twoFingers: return "Choose actions for two-finger movement, tapping, pinch/zoom and force clicking."
         case .threeFingers: return "Choose actions for three-finger movement, tapping and force clicking."
         case .fourFingers: return "Choose actions for four-finger movement and force clicking."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
@@ -34,7 +35,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return [.oneFingerForce]
         case .fiveFingers: return [.fiveFingerForce]
-        case .twoFingers: return [.twoFingerMove,.twoFingerTap,.twoFingerForce]
+        case .twoFingers: return [.twoFingerMove,.twoFingerTap,.twoFingerPinch,.twoFingerForce]
         case .threeFingers: return [.threeFingerMove,.threeFingerTap,.threeFingerForce]
         case .fourFingers: return [.fourFingerMove,.fourFingerForce]
         case .thumbTwo: return [.thumbTwoTap]
@@ -221,6 +222,9 @@ struct GestureInspectorPanel: View {
         }
         if selectedActions.contains(.scroll) {
             sensitivityControl("Scroll sensitivity",kind:.scroll)
+        }
+        if selectedActions.contains(.zoom) {
+            sensitivityControl("Zoom sensitivity",kind:.zoom)
         }
     }
 

@@ -138,3 +138,12 @@ settings preserve current preferences. Takeover opt-in remains app-local.
 Portable import must accept known retired brightness/Voice and related GTK labels
 as decode-only actions so existing exports round-trip. Preserve labels and mapping
 positions without re-enabling their live output; unknown labels must still fail.
+
+User authorized two-finger pinch/zoom in this app only. Use shared gesture ownership
+and latch through added/lifted fingers until all-up (including survivor motion
+against a cached partner/virtual anchor); rebase identity/membership changes without
+zoom jumps. Pinch and mouse translation compete before activation, never switch
+owners mid-cycle. Preserve per-hand Action/gain persistence and keymap round-trips,
+AX/owned/armed/live gates, tap/keyboard arbitration, balanced native magnification
+phases and stale-input/lifecycle cancellation. See GESTURE_ENGINE.md. Hardware
+acceptance is still needed. Do not port to sibling apps or auto-exercise input.

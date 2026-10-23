@@ -52,10 +52,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             (bindings[device] ?? GestureActionBindings()).action(for:trigger)
         }
         var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
+        var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
             let enabled: Bool
             switch trigger {
+            case .twoFingerPinch: enabled = twoFingerPinchDevices.contains(device)
             case .twoFingerMove: enabled = twoFingerMoveDevices.contains(device)
             case .threeFingerMove: enabled = threeFingerMoveDevices.contains(device)
             case .fourFingerMove: enabled = fourFingerMoveDevices.contains(device)
@@ -78,6 +80,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var buttonObserverHealthy = false
         var threeFingerMoveDevices: Set<UInt64> = []
         var twoFingerMoveDevices: Set<UInt64> = []
+        var twoFingerPinchDevices: Set<UInt64> = []
+        var zoomOutputs: [UInt64:MagnifyGestureOutput] = [:]
+        var zoomSensitivities: [UInt64:Double] = [:]
         var fourFingerMoveDevices: Set<UInt64> = []
         var twoFingerTapDevices: Set<UInt64> = []
         var threeFingerTapDevices: Set<UInt64> = []
@@ -106,6 +111,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64) {
+            zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
             drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
@@ -113,6 +119,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
+            for device in zoomOutputs.keys { zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
             forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); clicks.reset()
@@ -129,14 +136,17 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, twoFingerPinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:]) {
         lock.withLock { state in
-            guard state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.twoFingerPinchDevices != twoFingerPinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
+            state.twoFingerPinchDevices = twoFingerPinchDevices
+            state.zoomSensitivities = zoomSensitivities
+            state.zoomOutputs = bindings.mapValues { _ in MagnifyGestureOutput() }
             state.threeFingerMoveDevices = threeFingerMoveDevices
             state.twoFingerMoveDevices = twoFingerMoveDevices; state.fourFingerMoveDevices = fourFingerMoveDevices
             state.thumbTwoTapDevices = thumbTwoTapDevices
@@ -149,7 +159,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !state.needsDragObserver {
                 state.buttonObserver?.stop(); state.buttonObserver = nil; state.buttonObserverHealthy = false
             }
-            if !state.needsScrollTimer && !state.needsDragObserver { state.momentumTimer?.cancel(); state.momentumTimer = nil }
+            if !state.needsScrollTimer && !state.needsDragObserver && !state.needsZoomTimer { state.momentumTimer?.cancel(); state.momentumTimer = nil }
         }
     }
     func enable(devices: Set<UInt64>) {
@@ -184,7 +194,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     CGEvent.tapEnable(tap:tap,enable:true)
                 } else if let tap { CFMachPortInvalidate(tap) }
             }
-            if (state.needsScrollTimer || state.needsDragObserver) && state.momentumTimer == nil {
+            if (state.needsScrollTimer || state.needsDragObserver || state.needsZoomTimer) && state.momentumTimer == nil {
                 let timer = DispatchSource.makeTimerSource(queue:momentumQueue)
                 timer.schedule(deadline:.now()+0.008333,repeating:.nanoseconds(8_333_333),leeway:.milliseconds(1))
                 timer.setEventHandler { [weak self] in self?.tickMomentum() }
@@ -202,6 +212,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if let owner = state.drag.owner, now-(state.lastReceipt[owner] ?? 0) > 0.2 {
                 state.reset(device:owner)
+            }
+            for device in state.devices where state.zoomOutputs[device]?.active == true {
+                if now - (state.lastReceipt[device] ?? 0) > 0.2 { state.reset(device:device) }
             }
             for device in state.devices where state.bindings[device]?.uses(.scroll) == true {
                 guard let step = state.momentum[device]?.advance(hostTime:now) else { continue }
@@ -298,6 +311,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                let events = GestureTapActionOutput.events(action:forceBindings.action(for:trigger),location:location,
                     time:hostTime,doubleClickInterval:state.doubleClickInterval,
                     flags:CGEventSource.flagsState(.combinedSessionState),clicks:&state.clicks) {
+                state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
                 for event in events { event.post(tap:.cghidEventTap) }
@@ -312,18 +326,43 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
+            let pinch = state.recognizes(.twoFingerPinch,device:device)
             let two = state.recognizes(.twoFingerMove,device:device)
             let three = state.recognizes(.threeFingerMove,device:device)
             let four = state.recognizes(.fourFingerMove,device:device)
             let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
                 switch trigger {
+                case .twoFingerPinch: return pinch
                 case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four
                 default: return false
                 }
             })
             if update.phase == .ended || update.phase == .cancelled {
+                state.zoomOutputs[device]?.finish(cancelled:update.phase == .cancelled)?.post(tap:.cghidEventTap)
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
+            }
+            if update.gesture == .twoFingerPinch {
+                if allUp {
+                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                } else {
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                }
+                state.finishScroll(device:device,cancelled:true)
+                if update.phase == .began || update.phase == .changed {
+                    if let rawDelta = update.magnification, let location = CGEvent(source:nil)?.location {
+                        let gain = state.zoomSensitivities[device] ?? 1
+                        let delta = min(0.25,max(-0.25,rawDelta * gain))
+                        if let event = state.zoomOutputs[device]?.update(delta:delta,began:update.phase == .began,
+                            location:location,flags:CGEventSource.flagsState(.combinedSessionState)) {
+                            event.post(tap:.cghidEventTap); state.postedEvents &+= 1
+                        }
+                    } else {
+                        state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
+                    }
+                }
+                return nil
             }
             let motion = update.gesture.flatMap { gesture in update.millimetres.map { (gesture:gesture,millimetres:$0) } }
             let motionAction = update.gesture.map { state.action($0,device:device) } ?? .disabled

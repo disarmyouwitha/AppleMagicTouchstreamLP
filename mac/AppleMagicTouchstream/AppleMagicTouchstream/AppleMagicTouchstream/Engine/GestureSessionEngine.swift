@@ -17,6 +17,7 @@ struct GestureSessionUpdate<Gesture: Hashable & Sendable>: Sendable {
     let phase: GestureSessionPhase
     let millimetres: CGPoint?
     let cancellation: GestureCancellationReason?
+    var magnification: Double? = nil
 }
 
 /// Rules are configured outside callbacks. Array order is activation priority;
@@ -54,6 +55,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
         precondition(rules.allSatisfy { $0.activationCount > 0 && $0.minimumMovementMM.isFinite && $0.minimumMovementMM >= 0 })
         self.rules = rules
     }
+    func owner(device: UInt64) -> Gesture? { sessions[device]?.ownerRule.map { rules[$0].gesture } }
     mutating func reset() { contacts.reset(); sessions.removeAll(keepingCapacity:true) }
     @discardableResult
     mutating func cancel(device: UInt64, reason: GestureCancellationReason = .explicitReset) -> GestureSessionUpdate<Gesture> {

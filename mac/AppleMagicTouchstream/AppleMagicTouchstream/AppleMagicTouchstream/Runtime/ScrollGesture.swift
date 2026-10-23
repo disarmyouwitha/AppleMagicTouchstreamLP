@@ -72,20 +72,124 @@ struct FourFingerScrollEngine {
     }
 }
 
+/// Physical pair spacing, separate from translation and gesture ownership.
+struct PinchDistanceTracker {
+    struct Sample { let changeMM: Double; let initialRatio: Double; let frameRatio: Double }
+    private struct Pair {
+        var first:Int32; var second:Int32
+        var a:CGPoint; var b:CGPoint
+        let initial:Double
+        var last:Double; var time:Double
+        var present:UInt8 = 3
+    }
+    private var pairs: [UInt64:Pair] = [:]
+    mutating func reset() { pairs.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { pairs[device] = nil }
+    mutating func process<C:Collection>(device:UInt64,time:Double,contacts:C,latched:Bool = false) -> Sample? where C.Element == OMSRawTouch {
+        var ids = SIMD16<Int32>(repeating:0), xs = SIMD16<Double>(repeating:0), ys = SIMD16<Double>(repeating:0), count = 0
+        guard time.isFinite else { pairs[device] = nil; return nil }
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard count < 16, touch.telemetry?.fingerID != 6, touch.posX.isFinite, touch.posY.isFinite else {
+                pairs[device] = nil; return nil
+            }
+            for index in 0..<count where ids[index] == touch.id { pairs[device] = nil; return nil }
+            ids[count] = touch.id; xs[count] = Double(touch.posX)*160; ys[count] = Double(touch.posY)*114.9
+            count += 1
+        }
+        guard count > 0, latched || count == 2 else { pairs[device] = nil; return nil }
+        func point(_ index:Int) -> CGPoint { CGPoint(x:xs[index],y:ys[index]) }
+        func spacing(_ a:CGPoint,_ b:CGPoint) -> Double { hypot(a.x-b.x,a.y-b.y) }
+        guard var old = pairs[device], time > old.time, time-old.time < 0.15 else {
+            guard count == 2 else { pairs[device] = nil; return nil }
+            let distance = spacing(point(0),point(1))
+            guard distance >= 5, distance < 200 else { pairs[device] = nil; return nil }
+            pairs[device] = Pair(first:ids[0],second:ids[1],a:point(0),b:point(1),initial:distance,last:distance,time:time)
+            return nil
+        }
+        let first = (0..<count).first { ids[$0] == old.first }
+        let second = (0..<count).first { ids[$0] == old.second }
+        if !latched && (first == nil || second == nil) {
+            pairs[device] = nil
+            return nil
+        }
+        var rebase = false
+        var present:UInt8 = 0
+        if let first {
+            old.a = point(first); present |= 1
+            if old.present & 1 == 0 { rebase = true }
+        }
+        if let second {
+            old.b = point(second); present |= 2
+            if old.present & 2 == 0 { rebase = true }
+        }
+        // Extra fingers are ignored while the original pair is available. A
+        // replacement adopts a missing slot and rebases, never adding a jump.
+        if latched, first == nil, let replacement = (0..<count).first(where:{$0 != second}) {
+            old.first = ids[replacement]; old.a = point(replacement); present |= 1; rebase = true
+        }
+        if latched, second == nil, let replacement = (0..<count).first(where:{ids[$0] != old.first}) {
+            old.second = ids[replacement]; old.b = point(replacement); present |= 2; rebase = true
+        }
+        // With one surviving finger, the missing partner's last point is the
+        // virtual anchor. Its continuing motion still changes the pair spacing.
+        let distance = spacing(old.a,old.b)
+        guard distance >= 5, distance < 200, rebase || abs(distance-old.last) < 15 else {
+            pairs[device] = nil; return nil
+        }
+        let sample = Sample(changeMM:distance-old.initial,initialRatio:distance/old.initial-1,
+            frameRatio:rebase ? 0 : distance/old.last-1)
+        old.last = distance; old.time = time; old.present = present; pairs[device] = old
+        return sample
+    }
+}
+
+/// Native magnification packet layout, validated offline through NSEvent.
+/// Undocumented CGEvent fields are isolated here; no event is posted by this type.
+struct MagnifyGestureOutput {
+    private(set) var active = false
+    private var anchor = CGPoint.zero
+    private var flags = CGEventFlags()
+    static let hidType = CGEventField(rawValue:110)!
+    static let amount = CGEventField(rawValue:113)!
+    static let phase = CGEventField(rawValue:132)!
+    static func event(delta:Double,phase:Int64,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        guard delta.isFinite, abs(delta) <= 0.25, [1,2,4,8].contains(phase), let event=CGEvent(source:nil) else { return nil }
+        event.type = CGEventType(rawValue:29)!
+        event.location = location; event.flags = flags
+        event.setIntegerValueField(hidType,value:8)
+        event.setIntegerValueField(Self.phase,value:phase)
+        event.setDoubleValueField(amount,value:delta)
+        event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+        return event
+    }
+    mutating func update(delta:Double,began:Bool,location:CGPoint,flags:CGEventFlags = []) -> CGEvent? {
+        if began { anchor = location; self.flags = flags }
+        guard began || active, let event=Self.event(delta:delta,phase:began ? 1 : 2,location:anchor,flags:self.flags) else { return nil }
+        active = true
+        return event
+    }
+    mutating func finish(cancelled:Bool) -> CGEvent? {
+        guard active else { return nil }; active = false
+        return Self.event(delta:0,phase:cancelled ? 8 : 4,location:anchor,flags:flags)
+    }
+}
+
 typealias LatchedGesture = GestureTrigger
 
 /// Current recognizer registration/output adapter; ownership lives in the engine.
 struct TrackpadGestureRouter {
     private var engine: GestureSessionEngine<LatchedGesture>
+    private var pinch = PinchDistanceTracker()
     init(mouseActivationMM: Double = 0.35) {
         engine = GestureSessionEngine(rules:[
+            GestureActivationRule(gesture:.twoFingerPinch,activationCount:2,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
         ])
     }
-    mutating func reset() { engine.reset() }
-    mutating func reset(device: UInt64) { engine.cancel(device:device) }
+    mutating func reset() { engine.reset(); pinch.reset() }
+    mutating func reset(device: UInt64) { engine.cancel(device:device); pinch.reset(device:device) }
     mutating func update<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool, drag: Bool = false) -> GestureSessionUpdate<LatchedGesture> where C.Element == OMSRawTouch {
         recognize(device:device,time:time,contacts:contacts,enabled: { trigger in
@@ -97,8 +201,20 @@ struct TrackpadGestureRouter {
     }
     mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
         enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
-        engine.process(device:device,time:time,touches:contacts,enabled:enabled,
-            activationFilter:{ trigger,_ in trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts) })
+        let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device) == .twoFingerPinch)
+        let pinchEnabled = enabled(.twoFingerPinch)
+        var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
+            activationFilter:{ trigger,context in
+                let separation = abs(pair?.changeMM ?? 0)
+                let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
+                if trigger == .twoFingerPinch { return pair != nil && separation >= 0.6 && separation > translation*1.5 }
+                if trigger == .twoFingerMove && pinchEnabled && separation > translation*1.5 { return false }
+                return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
+            })
+        if update.gesture == .twoFingerPinch, let pair {
+            update.magnification = update.phase == .began ? pair.initialRatio : pair.frameRatio
+        }
+        return update
     }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
         mouse: Bool, scroll: Bool, drag: Bool = false) -> (gesture: LatchedGesture, millimetres: CGPoint)? where C.Element == OMSRawTouch {

@@ -55,7 +55,7 @@ final class GestureKeyboardArbitrationTests: XCTestCase {
     }
     func testEachConfiguredInputReservesItsChordRegardlessOfChosenAction() {
         for trigger in GestureTrigger.allCases {
-            let count = trigger.forceCount ?? (trigger == .fourFingerMove ? 4 : (trigger == .twoFingerMove || trigger == .twoFingerTap ? 2 : 3))
+            let count = trigger.forceCount ?? (trigger == .fourFingerMove ? 4 : (trigger == .twoFingerMove || trigger == .twoFingerTap || trigger == .twoFingerPinch ? 2 : 3))
             var gate = GestureKeyboardArbitration()
             XCTAssertTrue(gate.process(device: 42, activeCount: count, forceClick:trigger.forceCount != nil) { $0 == trigger })
         }

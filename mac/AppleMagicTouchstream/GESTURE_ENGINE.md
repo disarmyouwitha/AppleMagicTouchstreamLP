@@ -13,6 +13,7 @@ of complete TouchStream firmware fidelity.
 | --- | --- |
 | Two-finger movement | Move Pointer, Apple acceleration |
 | Two-finger tap | Primary Click |
+| Two-finger pinch | Pinch / Zoom |
 | Close, aligned three-finger movement | Drag / Select |
 | Non-thumb three-finger tap | Double-Click |
 | Four-finger movement | Scroll / Pan, precise scroll and momentum |
@@ -54,7 +55,10 @@ and replay conversion preserve levels above 1 through 2; invalid values disable
 feedback and higher values clamp at 2. Device targeting and throttling remain.
 See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for the clamp investigation.
 
-Each movement input offers None, Move Pointer, Drag / Select and Scroll / Pan.
+Movement inputs offer None, Move Pointer, Drag / Select and Scroll / Pan.
+Pinch offers None or Pinch / Zoom, with an independent per-hand Zoom sensitivity
+(0.25–2×). Pinch defaults on when takeover is opted in; old bindings migrate
+without changing existing actions. Its binding/gain are included in keymap export.
 Each tap input offers None, Primary Click, Double-Click and Secondary Click.
 No keyboard action assignment or legacy GTK gesture reactivation is introduced.
 Movement activation remains 0.35 mm for two/three fingers and 0.2 mm for four;
@@ -142,3 +146,45 @@ remain compatible but never gate ordinary taps, snapped taps or hold-repeat outp
 Per-key **Force instead of hold** remains: an assigned positive hold-force threshold
 uses pressure instead of elapsed dwell, including when reported pressure is zero.
 There is no fallback to timed hold for a pressure-controlled binding.
+
+## Two-finger pinch / zoom (2026-10-22)
+
+Pinch competes with two-finger movement in the shared gesture ownership engine.
+The initial pair must have valid, distinct, continuing contact IDs, separation
+at least 5 mm and monotonic sample gaps below 150 ms. Activation requires at least
+0.6 mm separation change and separation change greater than 1.5× centroid travel.
+Spacing-dominant pending motion defers mouse activation; coherent translation
+retains the existing 0.35 mm activation. These are provisional hardware-test values.
+Once either wins it cannot turn into the other during that cycle.
+
+**Pinch latches until all-up**, just like other continuous gestures. While its
+original pair remains, extra fingers do not affect zoom. If one partner lifts,
+the survivor continues changing spacing against the missing partner's last point
+(a virtual anchor). Replacement/returning contacts adopt a slot with zero delta
+on the membership transition; subsequent motion continues. This avoids centroid
+jumps and preserves the owner across 2→1/3/4/5 transitions. Invalid samples,
+unshared-ID discontinuity, stale input, disabling or lifecycle reset may cancel
+for the same integrity/output safeguards as other gestures. Tiny/degenerate pair
+geometry cannot generate magnification spikes.
+
+Zoom uses incremental pair-distance ratios, including pre-activation travel at
+begin, multiplied by the hand's gain and bounded to ±0.25 per packet. Recognized
+pinches cancel taps, scroll/momentum and pointer translation; keyboard reservation
+includes the release frame. A force-click action can explicitly interrupt zoom.
+Zoom has no momentum or click haptic. No pointer/scroll profile is required.
+
+The app emits native-style CGEvent magnification packets (undocumented event type
+29, HID type field 110 = 8, magnification field 113, phase field 132 = 1/2/4/8 for
+begin/change/end/cancel). These constants were cross-checked with the independent
+[Mac Mouse Fix event adapter](https://github.com/noah-nuebling/mac-mouse-fix/blob/master/Helper/Core/Touch/TouchSimulator.m)
+and the local Calf Trail Touch archive. The implementation is independent Swift;
+no external driver or library is bundled. Offline tests validate conversion via
+NSEvent to `.magnify`, magnification amount, phase, flags, fixed cursor anchor and
+interpreter tag. AppKit's receive-side semantics are documented by
+[Apple](https://developer.apple.com/documentation/appkit/nsevent/magnification).
+Actual target-app delivery and feel still require hardware testing.
+
+Output is limited to selected/owned/armed/AX-trusted live pads. A watchdog cancels
+an open magnification sequence after 200 ms without input. Reset/selection edits,
+sleep/replay/quit, mouse-button interference and force-click interruption balance
+open zoom phases; replay posts nothing. The cursor stays where pinch began.

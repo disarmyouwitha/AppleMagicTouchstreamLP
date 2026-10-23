@@ -6,12 +6,18 @@
 
 > I really want to get the spellchecker logic out of the touchstream. 
 
-> Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD 
+> Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
 === 
 
 
 `AppleMagicTouchstream`:
+0. If you can, can we make the gesture more general? I want it to be applicable to any number of fingers + thumb, so... Thumb + Index all the way to all 5 fingers.. as long as the fingers are pinching or spreading. (That way i could be an action and be mapped to any "pinch/spread" gestures.)
+1. For the Gesture headers, on "Both" can we have the left hand to the left and the right hand to the right of "# fingers"?
+2. Can we start with all of the gesture subheaders "minimized"
+3. Can we move the "Pointer sensitivy" slider below "2-finger movement" and zoom sensitivity under Pinch / zoom? Please move 2-finger tap above 2-finger movement.
+===
 0. 2-Finger Pinch/zoom gesture?
+0. Can you check the template files in the SKD, and the research we have left in FINDINGS.md and GESTURE_ENGINE.md from reverse engineering the fingerworks drivers and see if this is how it was implemented there? 
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
 2. Transfer Treasure to GTK~
