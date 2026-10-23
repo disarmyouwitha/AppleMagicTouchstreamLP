@@ -10,10 +10,14 @@ internal static class HandGestureTests
         public readonly List<(double X,double Y)> Moves = new(), Scrolls = new();
         public readonly List<bool> Buttons = new();
         public readonly List<HandGestureAction> Taps = new();
+        public readonly List<double> Zooms = new();
+        public readonly List<TrackpadSide> Feedback = new();
         public void Move(double x, double y) => Moves.Add((x,y));
         public void Scroll(double x, double y) => Scrolls.Add((x,y));
         public void PrimaryButton(bool down) => Buttons.Add(down);
         public void Tap(HandGestureAction action) => Taps.Add(action);
+        public void Zoom(double scaleDelta) => Zooms.Add(scaleDelta);
+        public void ForceFeedback(TrackpadSide side) => Feedback.Add(side);
     }
     private static HandGestureContact[] Contacts(int n, double offset = 0, uint firstId = 1) => Enumerable.Range(0,n)
         .Select(i => new HandGestureContact(firstId+(uint)i,20+i*16+offset,50)).ToArray();
@@ -101,6 +105,7 @@ internal static class HandGestureTests
 
             // Per-hand actions, same-device merge and unknown anatomy.
             var settings = new HandGestureSettings(); settings.Left.TwoFingerMove = HandGestureAction.None; settings.Left.TwoFingerTap = HandGestureAction.None;
+            settings.Left.Set(HandGestureTrigger.TwoFingerPinch,HandGestureAction.None); settings.Left.Set(HandGestureTrigger.TwoFingerSpread,HandGestureAction.None);
             (e,o) = Engine(settings); Check(!Frame(e,2,1),"None bindings reserved keyboard input");
             Check(Frame(e,2,1,side:TrackpadSide.Right),"other pad did not keep independent bindings");
             settings.Right.TwoFingerMove = HandGestureAction.Scroll;
@@ -142,6 +147,7 @@ internal static class HandGestureTests
             RunFastPointerContinuity();
             RunCapturedTapLanding();
             RunDragScrollArbitration();
+            MacGesturePortTests.Run();
             failure = ""; return true;
         }
         catch (Exception ex) { failure = ex.Message; return false; }
@@ -227,7 +233,7 @@ internal static class HandGestureTests
                 }
                 active = false;
             }
-            Check(motionCycles == 14 && output.Taps.Count == 11 && output.Moves.Count == 574,"full capture replay classification changed unexpectedly");
+            Check(motionCycles == 14 && output.Taps.Count == 11 && output.Moves.Count == 574,$"full capture replay classification changed unexpectedly: motion cycles {motionCycles}, taps {output.Taps.Count}, moves {output.Moves.Count}, zooms {output.Zooms.Count}");
             if (action == HandGestureAction.PrimaryDrag) Check(output.Buttons.Count(b=>b) == 14 && output.Buttons.Count(b=>!b) == 14,"captured drag releases are unbalanced");
         }
         // None removes tap-specific arbitration; an assigned movement still works.
@@ -263,36 +269,49 @@ internal static class HandGestureTests
         var settings = new UserSettings();
         HandGesturePanel? panel = null;
         panel = new HandGesturePanel(settings,()=>panel?.Refresh(settings));
-        System.Windows.Controls.StackPanel rows() => (System.Windows.Controls.StackPanel)panel.Children[1];
-        var natural = rows().Children.OfType<System.Windows.Controls.CheckBox>().Single();
+        var natural = Controls<System.Windows.Controls.CheckBox>(panel).First(c=>Equals(c.Content,"Natural scrolling"));
         natural.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
         Check(!settings.HandGesturesV1.Left.NaturalScrolling && !settings.HandGesturesV1.Right.NaturalScrolling,"Natural checkbox could not switch off");
-        natural = rows().Children.OfType<System.Windows.Controls.CheckBox>().Single();
+        natural = Controls<System.Windows.Controls.CheckBox>(panel).First(c=>Equals(c.Content,"Natural scrolling"));
         natural.RaiseEvent(new System.Windows.RoutedEventArgs(System.Windows.Controls.Primitives.ButtonBase.ClickEvent));
         Check(settings.HandGesturesV1.Left.NaturalScrolling && settings.HandGesturesV1.Right.NaturalScrolling,"Natural checkbox could not switch back on");
-        var thumb = (System.Windows.Controls.StackPanel)rows().Children[5];
-        var combo = thumb.Children.OfType<System.Windows.Controls.ComboBox>().Single();
+        var combo = Controls<System.Windows.Controls.ComboBox>(panel).Single(c=>Equals(c.Tag,HandGestureTrigger.ThumbTwoTap));
         Check(combo.IsEnabled && combo.Items.Count == 4,"thumb menu does not expose all four tap assignments");
         combo.SelectedIndex = 0;
         Check(settings.HandGesturesV1.Left.ThumbTwoTap == HandGestureAction.None && settings.HandGesturesV1.Right.ThumbTwoTap == HandGestureAction.None,"thumb None selection did not persist");
-        var sliders = rows().Children.OfType<System.Windows.Controls.Slider>().ToArray();
-        Check(sliders.Length == 2,"gesture sensitivities are not both sliders");
-        sliders[0].Value = 1.35; sliders[0].Value = 1.4; sliders[1].Value = .65;
-        Check(ReferenceEquals(sliders[0],rows().Children.OfType<System.Windows.Controls.Slider>().First()),"settings refresh replaced the active slider");
+        System.Windows.Controls.Slider slider(int kind) => Controls<System.Windows.Controls.Slider>(panel).First(s=>Equals(s.Tag,kind));
+        var pointer=slider(0); pointer.Value=1.35; pointer.Value=1.4; slider(1).Value=.65;
+        Check(ReferenceEquals(pointer,slider(0)),"settings refresh replaced the active slider");
         Check(settings.HandGesturesV1.Left.PointerSensitivity == 1.4 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4
             && settings.HandGesturesV1.Left.ScrollSensitivity == .65 && settings.HandGesturesV1.Right.ScrollSensitivity == .65,"sensitivity sliders did not apply to both hands");
-        var scope = (System.Windows.Controls.ComboBox)panel.Children[0];
-        scope.SelectedItem = HandGestureScope.Left;
-        rows().Children.OfType<System.Windows.Controls.Slider>().First().Value = .8;
+        panel.EditingScope=HandGestureScope.Left; slider(0).Value=.8;
         Check(settings.HandGesturesV1.Left.PointerSensitivity == .8 && settings.HandGesturesV1.Right.PointerSensitivity == 1.4,"Left sensitivity changed the other hand");
-        scope.SelectedItem = HandGestureScope.Both;
-        Check(rows().Children.OfType<System.Windows.Controls.TextBlock>().Any(t=>t.Text.Contains("Mixed")),"mixed sensitivity was hidden");
+        panel.EditingScope=HandGestureScope.Both;
+        Check(Controls<System.Windows.Controls.TextBlock>(panel).Any(t=>t.Text.Contains("Mixed")),"mixed sensitivity was hidden");
+        slider(2).Value=1.2;
+        Check(settings.HandGesturesV1.Left.ZoomSensitivity==1.2 && settings.HandGesturesV1.Right.ZoomSensitivity==1.2,"zoom slider did not persist");
+        Check(Controls<System.Windows.Controls.ComboBox>(panel).Count()==19,"not all Mac gesture inputs have menus");
+        var expand=Controls<System.Windows.Controls.Expander>(panel).First(x=>Equals(x.Header,"Pinch and Spread"));
+        expand.IsExpanded=true; panel.Refresh(settings);
+        Check(Controls<System.Windows.Controls.Expander>(panel).First(x=>Equals(x.Header,"Pinch and Spread")).IsExpanded,"settings refresh collapsed the user's gesture section");
         settings.HandGesturesV1.Left.PointerResponse = HandPointerResponse.Fixed;
         settings.HandGesturesV1.Right.PointerResponse = HandPointerResponse.ImportedApple;
         settings.HandGesturesV1.Right.ImportedPointerProfile = ApplePointerProfile.Reference;
         WindowsInputPolicy.NormalizeLegacyModes(settings);
         Check(settings.HandGesturesV1.Left.PointerResponse == HandPointerResponse.AppleReference
             && settings.HandGesturesV1.Right.PointerResponse == HandPointerResponse.AppleReference,"old settings bypassed the Windows Apple response policy");
+    }
+    private static IEnumerable<T> Controls<T>(object root) where T : System.Windows.FrameworkElement
+    {
+        if (root is T element) yield return element;
+        IEnumerable<object> children = root switch
+        {
+            System.Windows.Controls.Panel p => p.Children.Cast<object>(),
+            System.Windows.Controls.ContentControl c when c.Content!=null => new[] { c.Content },
+            System.Windows.Controls.Decorator d when d.Child!=null => new object[] { d.Child },
+            _ => []
+        };
+        foreach (var child in children) foreach (var found in Controls<T>(child)) yield return found;
     }
     private static void RunAccelerationAndScrollDirection()
     {

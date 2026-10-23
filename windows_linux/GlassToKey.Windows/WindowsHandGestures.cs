@@ -65,7 +65,7 @@ internal sealed class WindowsHandGestures : IHandGestureRuntime
             {
                 var c = frame.GetContact(i); if (!c.TipSwitch) continue;
                 contacts[count++] = new(c.Id, maxX == 0 ? double.NaN : c.X * 160.0 / maxX,
-                    maxY == 0 ? double.NaN : c.Y * 114.9 / maxY);
+                    maxY == 0 ? double.NaN : c.Y * 114.9 / maxY, Pressure:c.Pressure8, HasPressure:c.HasForceData);
             }
             try
             {
@@ -112,11 +112,17 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     private readonly NativeInput[] _inputs = new NativeInput[4];
     private volatile bool _held;
     private double _xRemainder, _yRemainder, _wheelX, _wheelY;
+    private double _zoomRemainder;
+    private readonly ushort[] _keyUps = new ushort[4];
+    private int _keyUpCount;
+    private readonly long[] _lastForceHaptic = new long[2];
+    public bool NeedsKeyRelease => _keyUpCount > 0;
+    internal static int InputSize => Marshal.SizeOf<NativeInput>();
     private int _queuedX, _queuedY;
     public bool OwnsPrimary => _held;
     public bool ForeignButtonDown => (!_held && Down(1)) || Down(2) || Down(4) || Down(5) || Down(6);
     private static bool Down(int vk) => (GetAsyncKeyState(vk) & 0x8000) != 0;
-    public void ResetRemainders() { _xRemainder = _yRemainder = _wheelX = _wheelY = 0; }
+    public void ResetRemainders() { _xRemainder = _yRemainder = _wheelX = _wheelY = _zoomRemainder = 0; }
     public void Move(double xPixels, double yPixels)
     {
         var bounded = PointerMotionLimits.Constrain(xPixels,yPixels);
@@ -162,6 +168,7 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
     public void Tap(HandGestureAction action)
     {
         if (_held || ForeignButtonDown) return;
+        if (PerHandGestureSettings.IsSystemAction(action)) { Shortcut(action); return; }
         bool secondary = action == HandGestureAction.SecondaryClick;
         if (action is not (HandGestureAction.PrimaryClick or HandGestureAction.DoubleClick or HandGestureAction.SecondaryClick)) return;
         int n = action == HandGestureAction.DoubleClick ? 4 : 2;
@@ -169,8 +176,50 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
         try { Send(n); }
         catch { _inputs[0] = Input(secondary ? 16u : 4u); SendInput(1, _inputs, Marshal.SizeOf<NativeInput>()); throw; }
     }
+    public void ForceFeedback(TrackpadSide side)
+    {
+        long now=Stopwatch.GetTimestamp(); int index=(int)side;
+        if (now-_lastForceHaptic[index]<Stopwatch.Frequency*.05) return;
+        _lastForceHaptic[index]=now;
+        MagicTrackpadActuatorHaptics.TryVibrate(side);
+    }
+    private static bool ModifierBusy => Down(0x10) || Down(0x11) || Down(0x12) || Down(0x5B) || Down(0x5C);
+    private void Shortcut(HandGestureAction action)
+    {
+        if (ModifierBusy) return; // Never release a physical/typing modifier owned elsewhere.
+        var edges = WindowsGestureShortcutPlan.For(action);
+        for (int i=0; i<edges.Length; i++) _inputs[i] = Key(edges[i].Key,edges[i].Up);
+        _keyUpCount=0;
+        foreach (var edge in edges) if (edge.Up) _keyUps[_keyUpCount++]=edge.Key;
+        try { Send(edges.Length); _keyUpCount=0; }
+        catch
+        {
+            ReleaseKeys();
+            throw;
+        }
+    }
+    public void Zoom(double scaleDelta)
+    {
+        // User-mode compatibility path. Target apps decide Ctrl+wheel behavior;
+        // this is not a synthetic native Precision Touchpad magnification stream.
+        if (_held || ForeignButtonDown || ModifierBusy || !double.IsFinite(scaleDelta)) return;
+        _zoomRemainder += Math.Clamp(scaleDelta,-.25,.25)*1200;
+        int wheel=(int)_zoomRemainder; _zoomRemainder -= wheel;
+        if (wheel == 0) return;
+        _inputs[0]=Key(0x11,false); _inputs[1]=Input(0x0800,data:unchecked((uint)wheel)); _inputs[2]=Key(0x11,true);
+        _keyUps[0]=0x11; _keyUpCount=1;
+        try { Send(3); _keyUpCount=0; }
+        catch { ReleaseKeys(); throw; }
+    }
+    private void ReleaseKeys()
+    {
+        if (_keyUpCount==0) return;
+        for (int i=0; i<_keyUpCount; i++) _inputs[i]=Key(_keyUps[i],true);
+        if (SendInput((uint)_keyUpCount,_inputs,Marshal.SizeOf<NativeInput>())==(uint)_keyUpCount) _keyUpCount=0;
+    }
     public void Release()
     {
+        ReleaseKeys();
         if (_held) { _inputs[0] = Input(4); if (SendInput(1, _inputs, Marshal.SizeOf<NativeInput>()) == 1) _held = false; }
         ResetRemainders();
     }
@@ -180,8 +229,16 @@ internal sealed class NativeGestureOutput : IHandGestureOutput
             throw new InvalidOperationException("SendInput failed (" + Marshal.GetLastWin32Error() + ")");
     }
     private static NativeInput Input(uint flags, int x = 0, int y = 0, uint data = 0) => new()
-    { Mouse = new MouseInput { X = x, Y = y, Flags = flags, Data = data, Extra = unchecked((nuint)EventTag) } };
-    [StructLayout(LayoutKind.Sequential)] private struct NativeInput { public uint Type; public MouseInput Mouse; }
+    { Payload = new InputPayload { Mouse = new MouseInput { X = x, Y = y, Flags = flags, Data = data, Extra = unchecked((nuint)EventTag) } } };
+    private static NativeInput Key(ushort key, bool up) => new() { Type=1,
+        Payload=new InputPayload { Keyboard=new KeyboardInput { Key=key, Flags=(up ? 2u : 0u) | (key==0x5B ? 1u : 0u), Extra=unchecked((nuint)EventTag) } } };
+    [StructLayout(LayoutKind.Sequential)] private struct NativeInput { public uint Type; public InputPayload Payload; }
+    [StructLayout(LayoutKind.Explicit)] private struct InputPayload
+    {
+        [FieldOffset(0)] public MouseInput Mouse;
+        [FieldOffset(0)] public KeyboardInput Keyboard;
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct KeyboardInput { public ushort Key, Scan; public uint Flags, Time; public nuint Extra; }
     [StructLayout(LayoutKind.Sequential)] private struct MouseInput { public int X, Y; public uint Data, Flags, Time; public nuint Extra; }
     [StructLayout(LayoutKind.Sequential)] private struct Point { public int X, Y; }
     [StructLayout(LayoutKind.Sequential)] private struct Rect { public int Left, Top, Right, Bottom; }

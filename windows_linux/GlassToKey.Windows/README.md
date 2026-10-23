@@ -36,7 +36,7 @@ Below the decoder selectors, enable **Mouse Takeover** for this session or use *
 - Force Max (0-255): If `f` is above this value, key dispatch is blocked.
   - Key dispatch is allowed only when `f` is within `[Force Min, Force Max]` (inclusive).
   - Setting `Force Max` to `0` blocks all key dispatches.
-- Gestures: per-hand two-finger pointer/tap, three-finger row drag/tap, and four-finger scroll/pan with momentum. Movement/tap actions are configurable; pointer/drag use Apple reference acceleration, sensitivity uses sliders, and Natural scrolling switches direction. Output requires Mouse Takeover. See [Windows gesture engine](WINDOWS_GESTURE_ENGINE.md) for defaults, platform differences, and the hardware check.
+- Gestures: grouped per-hand tap/movement, 1–5-finger force click and independent 2–5-finger pinch/spread with Zoom or Windows system actions. See [the latest Mac gesture port](WINDOWS_MAC_GESTURE_PORT.md) for input requirements and live checks. Existing two-finger pointer/tap, three-finger row drag/tap and four-finger scroll/pan with momentum remain available. Movement/tap actions are configurable; pointer/drag use Apple reference acceleration, sensitivity uses sliders, and Natural scrolling switches direction. Output requires Mouse Takeover. See [Windows gesture engine](WINDOWS_GESTURE_ENGINE.md) for defaults, platform differences, and the hardware check.
 - Snap Radius: On release during typing intent, off-key taps will snap to the nearest key center if the release point is within this percent of the key’s smaller dimension.
 
 ## Intent State Machine

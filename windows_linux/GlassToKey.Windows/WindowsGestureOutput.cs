@@ -29,6 +29,8 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
     public void Scroll(double xPoints, double yPoints) => Enqueue(1,xPoints,yPoints);
     public void PrimaryButton(bool down) => Enqueue(down ? 2 : 3);
     public void Tap(HandGestureAction action) => Enqueue(4,action:action);
+    public void Zoom(double scaleDelta) => Enqueue(6,scaleDelta);
+    public void ForceFeedback(TrackpadSide side) => Enqueue(7,(int)side);
     public void ResetRemainders() => Enqueue(5);
     public void ThrowIfFaulted()
     {
@@ -73,7 +75,7 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
                 }
                 if (!hasCommand)
                 {
-                    if (!_eligible() || (_native.OwnsPrimary && Stopwatch.GetTimestamp()-_lastActivity > Stopwatch.Frequency*.15)) _native.Release();
+                    if (_native.NeedsKeyRelease || !_eligible() || (_native.OwnsPrimary && Stopwatch.GetTimestamp()-_lastActivity > Stopwatch.Frequency*.15)) _native.Release();
                     _wake.WaitOne(4); continue;
                 }
                 if (command.Kind != 3 && (command.Generation != Interlocked.Read(ref _generation) || !_eligible()
@@ -81,6 +83,11 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
                 { _native.Release(); continue; }
                 try
                 {
+                    if (_native.NeedsKeyRelease)
+                    {
+                        _native.Release();
+                        if (_native.NeedsKeyRelease) throw new InvalidOperationException("Gesture key release is still pending");
+                    }
                     _lastActivity = Stopwatch.GetTimestamp();
                     switch (command.Kind)
                     {
@@ -90,6 +97,8 @@ internal sealed class WindowsGestureOutput : IHandGestureOutput, IDisposable
                         case 3: _native.PrimaryButton(false); break;
                         case 4: _native.Tap(command.Action); break;
                         case 5: _native.ResetRemainders(); break;
+                        case 6: _native.Zoom(command.X); break;
+                        case 7: _native.ForceFeedback((TrackpadSide)(int)command.X); break;
                     }
                 }
                 catch (Exception ex)

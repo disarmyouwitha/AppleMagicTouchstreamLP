@@ -70,6 +70,8 @@
 - Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
 - `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover retains its session-only control and Ctrl+Alt+R release. The tray/app icon uses the Mac hand silhouette filled black.
 
+- Windows hand gestures now include grouped anatomical inspector sections, 1–5-finger force clicks (reported pressure only) and independent 2–5-finger pinch/spread. Keep the Apple pointer profile fixed, tap-capture priority and 120 ms drag/scroll settling. Windows Zoom is balanced Ctrl+wheel; system actions use Windows shortcut plans. See `GlassToKey.Windows/WINDOWS_MAC_GESTURE_PORT.md` for platform limits and offline/live verification.
+
 ## Linux Notes
 - The Linux CLI currently supports:
   - `list-devices`, `probe-axes`, `probe-uinput`, `doctor`, `init-config`

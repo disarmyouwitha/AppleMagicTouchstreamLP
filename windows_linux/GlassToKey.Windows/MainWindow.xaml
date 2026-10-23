@@ -5,6 +5,53 @@
         Title="GlassToKey" Height="780" Width="1240" MinWidth="900" MinHeight="520"
         Background="#101214">
   <Window.Resources>
+    <Style x:Key="GestureScopeButtonStyle" TargetType="RadioButton">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="ScopeBorder" Background="#151d24" BorderBrush="Transparent" BorderThickness="1" CornerRadius="5" Padding="5,6">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" RecognizesAccessKey="True" />
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True"><Setter TargetName="ScopeBorder" Property="Background" Value="#263e4e" /></Trigger>
+              <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="ScopeBorder" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="ScopeBorder" Property="BorderBrush" Value="#496172" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="GestureSectionStyle" TargetType="Expander">
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Expander">
+            <StackPanel>
+              <ToggleButton Content="{TemplateBinding Header}" Foreground="{TemplateBinding Foreground}"
+                            IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border x:Name="SectionHeader" Background="Transparent" BorderBrush="Transparent" BorderThickness="1" CornerRadius="4" Padding="0,5">
+                      <Grid><Grid.ColumnDefinitions><ColumnDefinition Width="20" /><ColumnDefinition Width="*" /></Grid.ColumnDefinitions>
+                        <TextBlock x:Name="Chevron" Text="›" FontSize="17" Foreground="#8fb6cf" VerticalAlignment="Center" />
+                        <ContentPresenter Grid.Column="1" VerticalAlignment="Center" RecognizesAccessKey="True" />
+                      </Grid>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsChecked" Value="True"><Setter TargetName="Chevron" Property="Text" Value="⌄" /></Trigger>
+                      <Trigger Property="IsKeyboardFocused" Value="True"><Setter TargetName="SectionHeader" Property="BorderBrush" Value="#6eb4df" /></Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter x:Name="SectionContent" Content="{TemplateBinding Content}" Visibility="Collapsed" />
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsExpanded" Value="True"><Setter TargetName="SectionContent" Property="Visibility" Value="Visible" /></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
     <GroupStyle x:Key="KeymapActionGroupStyle">
       <GroupStyle.HeaderTemplate>
         <DataTemplate>
@@ -160,8 +207,6 @@
           </StackPanel>
         </StackPanel>
         <StackPanel Orientation="Horizontal" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="0,0,8,0">
-          <Button x:Name="KeymapImportButton" Content="Import Settings" Padding="10,4" Margin="0,0,8,0" />
-          <Button x:Name="KeymapExportButton" Content="Export Settings" Padding="10,4" Margin="0,0,12,0" />
           <Button x:Name="ToggleControlsButton" Content="Hide Settings" Padding="10,4" Margin="0,0,12,0" />
 
         </StackPanel>
@@ -734,6 +779,10 @@
                         <CheckBox x:Name="AutocorrectModeCheck" Content="Autocorrect" Foreground="#8b949e" Margin="0,4,0,0" ToolTip="enables word correction via SymSpell" />
                       </StackPanel>
                     </Grid>
+                    <UniformGrid Rows="1" Margin="0,12,0,0">
+                      <Button x:Name="KeymapImportButton" Content="Import Settings" Padding="10,4" Margin="0,0,4,0" />
+                      <Button x:Name="KeymapExportButton" Content="Export Settings" Padding="10,4" Margin="4,0,0,0" />
+                    </UniformGrid>
                     <Border x:Name="AutocorrectStatusBorder" Margin="0,8,0,0" Padding="8,6" Background="#111418" BorderBrush="#2b2f33" BorderThickness="1" CornerRadius="6">
                       <StackPanel>
                         <TextBlock Text="Autocorrect Status" Foreground="#8b949e" FontSize="11" Margin="0,0,0,4" />
@@ -772,7 +821,6 @@
           <TabItem Header="_Gestures" x:Name="GestureSettingsTab">
             <ScrollViewer x:Name="GestureSettingsScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="12">
               <StackPanel>
-                <TextBlock Text="Gestures" Foreground="#e7e9ea" FontSize="14" FontWeight="SemiBold" />
                 <StackPanel x:Name="HandGesturePanelHost" Margin="0,8,0,0" />
               </StackPanel>
             </ScrollViewer>

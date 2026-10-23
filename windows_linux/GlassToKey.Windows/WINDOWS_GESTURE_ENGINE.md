@@ -1,5 +1,7 @@
 # Windows gesture engine
 
+Latest port: [grouped Mac inspector, 1–5-finger force and 2–5-finger pinch/spread](WINDOWS_MAC_GESTURE_PORT.md). This is the current feature/verification reference; earlier sections below record the initial port.
+
 Current Windows pointer controls: movement and drag always use the accepted Apple reference acceleration profile. Pointer response selection and Mac-profile import have been removed from the inspector; older saved response choices are overridden by Windows policy. Shared profile fields and numerical models remain for compatibility and offline verification. The import instructions below describe the earlier research UI and are no longer an available Windows workflow.
 
 Pointer and scroll sensitivity use sliders from 0.25× to 2×, with the current multiplier shown beside each label. Left/Right/Both scoping is preserved; differing values show Mixed until adjusted. Slider updates preserve the active control through synchronous settings refreshes. Natural scrolling uses the inspector's light foreground color.
