@@ -190,6 +190,10 @@ struct TrackpadGestureRouter {
             GestureActivationRule(gesture:.threeFingerPinch,activationCount:3,minimumMovementMM:0),
             GestureActivationRule(gesture:.fourFingerPinch,activationCount:4,minimumMovementMM:0),
             GestureActivationRule(gesture:.fiveFingerPinch,activationCount:5,minimumMovementMM:0),
+            GestureActivationRule(gesture:.twoFingerSpread,activationCount:2,minimumMovementMM:0),
+            GestureActivationRule(gesture:.threeFingerSpread,activationCount:3,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fourFingerSpread,activationCount:4,minimumMovementMM:0),
+            GestureActivationRule(gesture:.fiveFingerSpread,activationCount:5,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
@@ -210,7 +214,8 @@ struct TrackpadGestureRouter {
         enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
         let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device)?.isPinch == true)
         let activeCount=contacts.reduce(0) { $0 + (($1.state == .making || $1.state == .touching) ? 1 : 0) }
-        let pinchEnabled=GestureTrigger.pinch(count:activeCount).map(enabled) ?? false
+        let direction = (pair?.changeMM ?? 0) > 0 ? GestureTrigger.spread(count:activeCount) : GestureTrigger.pinch(count:activeCount)
+        let pinchEnabled=direction.map(enabled) ?? false
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
@@ -218,7 +223,7 @@ struct TrackpadGestureRouter {
                 // A stationary thumb and 2–4 moving fingertips translate their
                 // centroid more than a two-finger chord; normalize dominance.
                 let dominance = 3.0 / Double(max(2,context.activeCount))
-                if trigger.isPinch { return pair != nil && separation >= 0.6 && separation > translation*dominance }
+                if trigger.isPinch { return trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
                 return trigger != .threeFingerMove || ThreeFingerRowChord.accepts(contacts)
             })

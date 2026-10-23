@@ -10,18 +10,24 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, thumbTwoTap
     case twoFingerPinch, threeFingerPinch, fourFingerPinch, fiveFingerPinch
+    case twoFingerSpread, threeFingerSpread, fourFingerSpread, fiveFingerSpread
     case oneFingerForce, twoFingerForce, threeFingerForce, fourFingerForce, fiveFingerForce
-    static let pinchTriggers: [Self] = [.twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch]
-    var pinchCount: Int? { Self.pinchTriggers.firstIndex(of:self).map { $0 + 2 } }
+    private static let inwardTriggers: [Self] = [.twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch]
+    static let spreadTriggers: [Self] = [.twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread]
+    static let pinchTriggers = inwardTriggers + spreadTriggers
+    var isSpread: Bool { Self.spreadTriggers.contains(self) }
+    var pinchCount: Int? { (Self.inwardTriggers.firstIndex(of:self) ?? Self.spreadTriggers.firstIndex(of:self)).map { $0 + 2 } }
+    // Shared shape-recognition family, including both directions.
     var isPinch: Bool { pinchCount != nil }
-    static func pinch(count:Int) -> Self? { (2...5).contains(count) ? pinchTriggers[count-2] : nil }
+    static func pinch(count:Int) -> Self? { (2...5).contains(count) ? inwardTriggers[count-2] : nil }
+    static func spread(count:Int) -> Self? { (2...5).contains(count) ? spreadTriggers[count-2] : nil }
     static let forceTriggers: [Self] = [.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce]
     var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
     static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
     var isContinuous: Bool { isPinch || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
     var title: String {
-        if let count = pinchCount { return "\(count)-finger pinch / spread" }
+        if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch")" }
         if let count = forceCount { return "\(count)-finger force click" }
         switch self {
         case .twoFingerMove: return "2-finger movement"
@@ -42,7 +48,8 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .twoFingerMove: return .pointer; case .twoFingerTap: return .primaryClick
         case .threeFingerMove: return .primaryDrag; case .threeFingerTap: return .primaryDoubleClick
         case .fourFingerMove: return .scroll; case .thumbTwoTap: return .secondaryClick
-        case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: return .zoom
+        case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch,
+             .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread: return .zoom
         case .oneFingerForce: return .primaryClick
         default: return .disabled
         }
@@ -78,9 +85,12 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var forceActions: [String: GestureAction]?
     var twoFingerPinch: GestureAction?
     var pinchActions: [String:GestureAction]?
+    var spreadActions: [String:GestureAction]?
     subscript(trigger: GestureTrigger) -> GestureAction {
         get {
             switch trigger {
+            case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
+                return spreadActions?[trigger.rawValue] ?? self[GestureTrigger.pinch(count:trigger.pinchCount!)!]
             case .twoFingerPinch: return twoFingerPinch ?? .zoom
             case .threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: return pinchActions?[trigger.rawValue] ?? trigger.defaultAction
             case .twoFingerMove: return twoFingerMove; case .twoFingerTap: return twoFingerTap
@@ -90,7 +100,12 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
             }
         }
         set {
+            if trigger.isPinch && spreadActions == nil {
+                spreadActions = Dictionary(uniqueKeysWithValues:GestureTrigger.spreadTriggers.map { ($0.rawValue,self[$0]) })
+            }
             switch trigger {
+            case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
+                spreadActions?[trigger.rawValue] = newValue
             case .twoFingerPinch: twoFingerPinch = newValue
             case .threeFingerPinch,.fourFingerPinch,.fiveFingerPinch:
                 if pinchActions == nil { pinchActions = [:] }

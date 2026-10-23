@@ -57,7 +57,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
             let enabled: Bool
             switch trigger {
-            case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch: enabled = pinchDevices.contains(device)
+            case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch,
+                 .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread: enabled = pinchDevices.contains(device)
             case .twoFingerMove: enabled = twoFingerMoveDevices.contains(device)
             case .threeFingerMove: enabled = threeFingerMoveDevices.contains(device)
             case .fourFingerMove: enabled = fourFingerMoveDevices.contains(device)

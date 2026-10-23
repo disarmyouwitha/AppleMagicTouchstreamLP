@@ -56,8 +56,8 @@ feedback and higher values clamp at 2. Device targeting and throttling remain.
 See [FORCE_CLICK_HAPTICS.md](FORCE_CLICK_HAPTICS.md) for the clamp investigation.
 
 Movement inputs offer None, Move Pointer, Drag / Select and Scroll / Pan.
-Each finger-count pinch / spread input offers None or Zoom, with an independent
-per-hand Zoom sensitivity (0.25–2×). All four inputs default to Zoom when takeover
+Each finger-count Pinch and Spread input has its own None or Zoom menu, with an independent
+per-hand Zoom sensitivity (0.25–2×). All eight directional inputs default to Zoom when takeover
 is opted in; old bindings migrate without changing existing actions. These
 bindings and gains are included in keymap export.
 Each tap input offers None, Primary Click, Double-Click and Secondary Click.
@@ -203,3 +203,20 @@ Output is limited to selected/owned/armed/AX-trusted live pads. A watchdog cance
 an open magnification sequence after 200 ms without input. Reset/selection edits,
 sleep/replay/quit, mouse-button interference and force-click interruption balance
 open zoom phases; replay posts nothing. The cursor stays where pinch began.
+
+### Separate Pinch and Spread bindings (2026-10-23)
+
+Every 2–5-finger Pinch and Spread subsection now has two independent Action
+menus: inward Pinch and outward Spread. Both default to Zoom. The signed initial
+shape-spacing change selects the input when activation passes the existing
+thresholds. That original input/action remains latched until all-up, including
+reversal and finger-count changes; Zoom continues using signed deltas in both
+directions without ending or restarting its native magnification phase.
+Disabling one direction prevents it from initiating a gesture but does not cancel
+an already-latched opposite direction merely because motion reverses.
+
+Existing combined assignments migrate to both directions. Optional spreadActions
+preserves old saved/keymap decoding; the first directional edit freezes the
+migrated assignments so subsequent edits are independent. Both bindings persist
+per hand and round-trip with keymaps. Zoom sensitivity is shared per hand and
+appears once beneath the two menus. No new output action types were introduced.

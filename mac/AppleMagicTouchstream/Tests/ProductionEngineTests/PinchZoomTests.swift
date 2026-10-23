@@ -16,10 +16,10 @@ final class PinchZoomTests: XCTestCase {
             var router = TrackpadGestureRouter()
             _ = router.recognize(device:1,time:1,contacts:touches(),enabled:{_ in true})
             let began = router.recognize(device:1,time:1.01,contacts:touches(31,center:center),enabled:{_ in true})
-            XCTAssertEqual(began.gesture,.twoFingerPinch); XCTAssertEqual(began.phase,.began)
+            XCTAssertEqual(began.gesture,.twoFingerSpread); XCTAssertEqual(began.phase,.began)
             XCTAssertEqual(try XCTUnwrap(began.scaleDelta),1/30.0,accuracy:0.00001)
             let close = router.recognize(device:1,time:1.02,contacts:touches(30,center:center+1),enabled:{_ in true})
-            XCTAssertEqual(close.gesture,.twoFingerPinch)
+            XCTAssertEqual(close.gesture,.twoFingerSpread)
             XCTAssertLessThan(try XCTUnwrap(close.scaleDelta),0)
             let end = router.recognize(device:1,time:1.03,contacts:[OMSRawTouch](),enabled:{_ in true})
             XCTAssertEqual(end.phase,.ended)
@@ -33,16 +33,16 @@ final class PinchZoomTests: XCTestCase {
     }
     func testPinchOnlyReservationJitterIdentityChangesAndCountsAreSafe() {
         var gate = GestureKeyboardArbitration(), router = TrackpadGestureRouter()
-        XCTAssertTrue(gate.process(device:1,activeCount:2) {$0 == .twoFingerPinch})
+        XCTAssertTrue(gate.process(device:1,activeCount:2) {$0 == .twoFingerSpread})
         XCTAssertTrue(gate.process(device:1,activeCount:1) {_ in false})
         XCTAssertTrue(gate.process(device:1,activeCount:0) {_ in false})
         _ = router.recognize(device:1,time:1,contacts:touches(),enabled:{_ in true})
         XCTAssertNil(router.recognize(device:1,time:1.01,contacts:touches(30.2),enabled:{_ in true}).gesture)
-        XCTAssertEqual(router.recognize(device:1,time:1.02,contacts:touches(31),enabled:{_ in true}).gesture,.twoFingerPinch)
+        XCTAssertEqual(router.recognize(device:1,time:1.02,contacts:touches(31),enabled:{_ in true}).gesture,.twoFingerSpread)
         let lift = router.recognize(device:1,time:1.03,contacts:Array(touches().prefix(1)),enabled:{_ in true})
-        XCTAssertEqual(lift.gesture,.twoFingerPinch); XCTAssertNotNil(lift.scaleDelta)
+        XCTAssertEqual(lift.gesture,.twoFingerSpread); XCTAssertNotNil(lift.scaleDelta)
         let replacement = router.recognize(device:1,time:1.04,contacts:touches(40,secondID:99),enabled:{_ in true})
-        XCTAssertEqual(replacement.gesture,.twoFingerPinch); XCTAssertEqual(replacement.scaleDelta,0)
+        XCTAssertEqual(replacement.gesture,.twoFingerSpread); XCTAssertEqual(replacement.scaleDelta,0)
         XCTAssertEqual(router.recognize(device:1,time:1.5,contacts:touches(41,secondID:99),enabled:{_ in true}).phase,.cancelled)
         var tracker = PinchSpreadTracker()
         XCTAssertNil(tracker.process(device:1,time:1,contacts:touches()))
@@ -56,18 +56,18 @@ final class PinchZoomTests: XCTestCase {
             router.recognize(device:1,time:time,contacts:contacts,enabled:{_ in true})
         }
         _ = recognize(1,touches())
-        XCTAssertEqual(recognize(1.01,touches(31)).gesture,.twoFingerPinch)
+        XCTAssertEqual(recognize(1.01,touches(31)).gesture,.twoFingerSpread)
         let extra = OMSRawTouch(id:3,posX:0.9,posY:0.8,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
         let four = OMSRawTouch(id:4,posX:0.2,posY:0.8,total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
         let added = recognize(1.02,touches(32)+[extra,four])
-        XCTAssertEqual(added.gesture,.twoFingerPinch)
+        XCTAssertEqual(added.gesture,.twoFingerSpread)
         XCTAssertEqual(try XCTUnwrap(added.scaleDelta),0,accuracy:0.00001)
         let survivor = recognize(1.03,Array(touches(34).prefix(1)))
-        XCTAssertEqual(survivor.gesture,.twoFingerPinch)
+        XCTAssertEqual(survivor.gesture,.twoFingerSpread)
         XCTAssertGreaterThan(try XCTUnwrap(survivor.scaleDelta),0)
         XCTAssertGreaterThan(try XCTUnwrap(recognize(1.04,Array(touches(36).prefix(1))).scaleDelta),0)
         let returned = recognize(1.05,touches(36))
-        XCTAssertEqual(returned.gesture,.twoFingerPinch); XCTAssertEqual(returned.scaleDelta,0)
+        XCTAssertEqual(returned.gesture,.twoFingerSpread); XCTAssertEqual(returned.scaleDelta,0)
         XCTAssertGreaterThan(try XCTUnwrap(recognize(1.06,touches(37)).scaleDelta),0)
         XCTAssertEqual(recognize(1.07,[]).phase,.ended)
         _ = recognize(1.08,touches())
@@ -96,7 +96,7 @@ final class PinchZoomTests: XCTestCase {
     func testEveryThumbPlusFingertipCountRecognizesSpreadAndPinchWithoutStealingTranslation() throws {
         for count in 2...5 {
             var router = TrackpadGestureRouter()
-            let trigger = try XCTUnwrap(GestureTrigger.pinch(count:count))
+            let trigger = try XCTUnwrap(GestureTrigger.spread(count:count))
             _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
             let initial = router.recognize(device:1,time:1.01,contacts:chord(count,spread:0.8),enabled:{_ in true})
             XCTAssertTrue(initial.gesture == nil || initial.gesture == trigger)
@@ -117,17 +117,49 @@ final class PinchZoomTests: XCTestCase {
         var router = TrackpadGestureRouter()
         _ = router.recognize(device:1,time:1,contacts:chord(5),enabled:{_ in true})
         let begin = router.recognize(device:1,time:1.01,contacts:chord(5,spread:2),enabled:{_ in true})
-        XCTAssertEqual(begin.gesture,.fiveFingerPinch)
+        XCTAssertEqual(begin.gesture,.fiveFingerSpread)
         var fifthOnly = chord(5,spread:2)
         fifthOnly[4] = chord(5,spread:4)[4]
         let fifth = router.recognize(device:1,time:1.02,contacts:fifthOnly,enabled:{_ in true})
         XCTAssertNotEqual(try XCTUnwrap(fifth.scaleDelta),0)
         for (index,count) in [4,3,2,1,3,5].enumerated() {
             let changed = router.recognize(device:1,time:1.03+Double(index)*0.01,contacts:Array(chord(5,spread:4).prefix(count)),enabled:{_ in true})
-            XCTAssertEqual(changed.gesture,.fiveFingerPinch)
+            XCTAssertEqual(changed.gesture,.fiveFingerSpread)
             if count >= 2 { XCTAssertEqual(changed.scaleDelta,0) }
         }
         XCTAssertEqual(router.recognize(device:1,time:1.1,contacts:[],enabled:{_ in true}).phase,.ended)
+    }
+
+    func testDirectionsChooseIndependentBindingsAndKeepOwnerOnReversal() throws {
+        for count in 2...5 {
+            let inward = try XCTUnwrap(GestureTrigger.pinch(count:count))
+            let outward = try XCTUnwrap(GestureTrigger.spread(count:count))
+            for (direction,amount) in [(inward,-2.0),(outward,2.0)] {
+                var router = TrackpadGestureRouter()
+                _ = router.recognize(device:1,time:1,contacts:chord(count),enabled:{_ in true})
+                let begin = router.recognize(device:1,time:1.01,contacts:chord(count,spread:amount),enabled:{_ in true})
+                XCTAssertEqual(begin.gesture,direction)
+                let reverse = router.recognize(device:1,time:1.02,contacts:chord(count),enabled:{_ in true})
+                XCTAssertEqual(reverse.gesture,direction)
+                XCTAssertEqual(reverse.phase,.changed)
+                XCTAssertTrue((try XCTUnwrap(reverse.scaleDelta)) * amount < 0)
+                var disabled = TrackpadGestureRouter()
+                _ = disabled.recognize(device:1,time:1,contacts:chord(count),enabled:{$0 == (direction == inward ? outward : inward)})
+                XCTAssertNil(disabled.recognize(device:1,time:1.01,contacts:chord(count,spread:amount),enabled:{$0 == (direction == inward ? outward : inward)}).gesture)
+            }
+            var bindings = GestureActionBindings()
+            bindings[inward] = .disabled
+            XCTAssertEqual(bindings[outward],.zoom)
+            bindings[outward] = .disabled
+            bindings[inward] = .zoom
+            XCTAssertEqual(bindings[outward],.disabled)
+        }
+        // Old combined settings migrate to the same action for both directions.
+        var old = GestureActionBindings()
+        old.twoFingerPinch = .disabled
+        let migrated = try JSONDecoder().decode(GestureActionBindings.self,from:JSONEncoder().encode(old))
+        XCTAssertEqual(migrated[.twoFingerPinch],.disabled)
+        XCTAssertEqual(migrated[.twoFingerSpread],.disabled)
     }
 
     func testNativeMagnificationPhasesDeltaFlagsAnchorAndCleanupWithoutPosting() throws {
@@ -166,7 +198,7 @@ final class PinchZoomTests: XCTestCase {
         var old = try XCTUnwrap(JSONSerialization.jsonObject(with:data) as? [String:Any])
         for hand in ["left","right"] {
             var side = try XCTUnwrap(old[hand] as? [String:Any]); side.removeValue(forKey:"zoomSensitivity")
-            var bindings = try XCTUnwrap(side["bindings"] as? [String:Any]); bindings.removeValue(forKey:"twoFingerPinch"); bindings.removeValue(forKey:"pinchActions")
+            var bindings = try XCTUnwrap(side["bindings"] as? [String:Any]); bindings.removeValue(forKey:"twoFingerPinch"); bindings.removeValue(forKey:"pinchActions"); bindings.removeValue(forKey:"spreadActions")
             side["bindings"] = bindings; old[hand] = side
         }
         let migrated = try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:old))

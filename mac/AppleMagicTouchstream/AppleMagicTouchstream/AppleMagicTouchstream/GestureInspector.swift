@@ -39,13 +39,13 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return [.oneFingerForce]
         case .fiveFingers: return [.fiveFingerForce]
-        case .fiveFingerPinch: return [.fiveFingerPinch]
+        case .fiveFingerPinch: return [.fiveFingerPinch,.fiveFingerSpread]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
-        case .twoFingerPinch: return [.twoFingerPinch]
+        case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
         case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
-        case .threeFingerPinch: return [.threeFingerPinch]
+        case .threeFingerPinch: return [.threeFingerPinch,.threeFingerSpread]
         case .fourFingers: return [.fourFingerMove,.fourFingerForce]
-        case .fourFingerPinch: return [.fourFingerPinch]
+        case .fourFingerPinch: return [.fourFingerPinch,.fourFingerSpread]
         case .thumbTwo: return [.thumbTwoTap]
         }
     }
@@ -229,9 +229,9 @@ struct GestureInspectorPanel: View {
             if actions.contains(.scroll) {
                 sensitivityControl("Scroll sensitivity",kind:.scroll)
             }
-            if actions.contains(.zoom) {
-                sensitivityControl("Zoom sensitivity",kind:.zoom)
-            }
+        }
+        if gesture.triggers.contains(where:{actions(for:$0).contains(.zoom)}) {
+            sensitivityControl("Zoom sensitivity",kind:.zoom)
         }
     }
 
