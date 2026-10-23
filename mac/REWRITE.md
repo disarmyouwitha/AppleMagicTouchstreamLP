@@ -11,6 +11,8 @@
 
 
 `AppleMagicTouchstream`:
+0. i am getting stuck in mo(1) when I use my layer button on LHS and tap a number on my RHS I will get stuck in mo(1) until I do/release a gesture on my LHS
+1. spread/pinch might be interfering with taps?
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
