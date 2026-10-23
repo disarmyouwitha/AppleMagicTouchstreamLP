@@ -28,7 +28,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private const double KeyHeightMm = RuntimeConfigurationFactory.KeyHeightMm;
     private const double MxKeyWidthMm = 19.05;
     private const double MxKeyHeightMm = 19.05;
-    private const double ControlsPaneExpandedWidth = 360.0;
+    private const double ControlsPaneExpandedWidth = 420.0;
     private const double ControlsPaneCollapsedWidth = 0.0;
     private const double MinCustomButtonPercent = 5.0;
     private const ushort DefaultMaxX = 7612;
@@ -2349,7 +2349,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private void SetControlsPaneVisible(bool visible, bool animated)
     {
         _controlsPaneVisible = visible;
-        ToggleControlsButton.Content = visible ? "Hide Controls" : "Show Controls";
+        ToggleControlsButton.Content = visible ? "Hide Settings" : "Show Settings";
         double targetWidth = visible ? ControlsPaneExpandedWidth : ControlsPaneCollapsedWidth;
         ControlsPaneBorder.IsHitTestVisible = visible;
 
@@ -3845,6 +3845,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandKeymapEditorAndFocusPrimaryAction()
     {
+        SetControlsPaneVisible(true, animated: false);
+        SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = false;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>
@@ -3857,6 +3859,8 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private void ExpandCustomButtonEditorAndFocusGeometry()
     {
+        SetControlsPaneVisible(true, animated: false);
+        SettingsTabs.SelectedItem = KeyboardSettingsTab;
         KeymapEditorExpander.IsExpanded = true;
         CustomButtonsExpander.IsExpanded = true;
         Dispatcher.BeginInvoke(DispatcherPriority.Input, new Action(() =>

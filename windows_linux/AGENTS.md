@@ -66,6 +66,7 @@
 - Windows output injection: `GlassToKey.Windows/WindowsDispatch/SendInputDispatcher.cs`
 - Windows haptics helper: `GlassToKey.Windows/WindowsHaptics/MagicTrackpadActuatorHaptics.cs`
 - Windows diagnostics/self-test surface: `GlassToKey.Windows/WindowsDiagnostics/`
+- Windows Config uses a left trackpad workspace (selectors, takeover, both pads, typing test) and a 420-pixel right inspector with Keyboard/Gestures tabs. Selecting a key/custom button opens the Keyboard tab. Preserve the existing named controls and runtime bindings when editing layout.
 - Windows uses unified keyboard/gesture policy: typing remains enabled; the former Keyboard/Mouse mode, typing toggle and selective click filter are removed. Shared legacy mode fields remain for Linux compatibility but cannot reactivate Windows modes.
 - `GlobalMouseInputHook.cs` observes mouse activity and supports explicit Mouse Takeover/diagnostic gates only. Mouse Takeover retains its session-only control and Ctrl+Alt+R release. The tray/app icon uses the Mac hand silhouette filled black.
 

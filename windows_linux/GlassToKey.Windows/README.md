@@ -8,6 +8,10 @@ Right-clicking the indicator opens `Config...`, `Release Mouse Takeover (Ctrl+Al
 
 By default, GlassToKey opens the config window on launch. To start tray-only (taskbar icon only), enable `Start in taskbar (tray only)` in `Options`.
 
+### Configuration layout
+
+The left column contains device/decoder selectors, Mouse Takeover, the two trackpad views, and the typing test. The right column has **Keyboard** and **Gestures** tabs, matching the Mac inspector arrangement. Selecting a key or custom button opens its keyboard editor. **Hide Settings** expands the trackpad area; narrow windows can scroll the trackpad workspace. See [layout notes and previews](WINDOWS_UI_LAYOUT.md).
+
 ### Mouse Takeover
 
 Below the decoder selectors, enable **Mouse Takeover** for this session or use **30sec test**. It blocks physical movement, clicks, and wheel events from all mice while injected GlassToKey output passes. **Ctrl+Alt+R** releases globally; the checkbox/status and tray indicator update together. It defaults off at startup. Windows shell gestures may need separate settings. See [Mouse Takeover](WINDOWS_MOUSE_TAKEOVER.md).
