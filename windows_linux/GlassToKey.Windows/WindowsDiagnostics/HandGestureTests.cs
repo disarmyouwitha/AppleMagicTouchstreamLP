@@ -27,6 +27,12 @@ internal static class HandGestureTests
         engine.Process(TrackpadSide.Left,[],.9,.9,true); engine.Process(TrackpadSide.Right,[],.9,.9,true);
         return (engine,output);
     }
+    private static HandGestureSettings NoScrollSettings()
+    {
+        var settings = new HandGestureSettings();
+        settings.Left.FourFingerMove = settings.Right.FourFingerMove = HandGestureAction.None;
+        return settings;
+    }
     private static bool Frame(HandGestureEngine engine, int count, double time, double offset = 0, TrackpadSide side = TrackpadSide.Left, bool enabled = true)
         => engine.Process(side,Contacts(count,offset),time,time,enabled);
     public static bool Run(out string failure)
@@ -45,7 +51,7 @@ internal static class HandGestureTests
             Check(!Frame(e,1,1.06),"reservation survived into next touch cycle");
             Check(o.Taps.Count == 0,"continuous pointer movement also clicked");
 
-            (e,o) = Engine(); Frame(e,3,1); Frame(e,3,1.01,.36);
+            (e,o) = Engine(NoScrollSettings()); Frame(e,3,1); Frame(e,3,1.01,.36);
             Check(o.Buttons.SequenceEqual(new[]{true}),"compact three-finger row did not begin drag");
             Frame(e,4,1.02,.5); Frame(e,1,1.03,.6); Frame(e,0,1.04);
             Check(o.Buttons.SequenceEqual(new[]{true,false}),"drag did not latch and release exactly once");
@@ -76,7 +82,7 @@ internal static class HandGestureTests
             // Discontinuities, stale input, disabled output and settings changes balance drag.
             foreach (int kind in Enumerable.Range(0,6))
             {
-                (e,o) = Engine(); Frame(e,3,1); Frame(e,3,1.01,.4);
+                (e,o) = Engine(NoScrollSettings()); Frame(e,3,1); Frame(e,3,1.01,.4);
                 if (kind == 0) e.Tick(1.2,true);
                 if (kind == 1) e.Tick(1.02,false);
                 if (kind == 2) e.Process(TrackpadSide.Left,Contacts(3,.5,10),1.02,1.02,true);
@@ -135,9 +141,59 @@ internal static class HandGestureTests
             RunPanelPreferences();
             RunFastPointerContinuity();
             RunCapturedTapLanding();
+            RunDragScrollArbitration();
             failure = ""; return true;
         }
         catch (Exception ex) { failure = ex.Message; return false; }
+    }
+    private static void RunDragScrollArbitration()
+    {
+        // A moving three-finger landing must not press the button before finger four.
+        foreach (var side in new[] { TrackpadSide.Left, TrackpadSide.Right })
+        {
+            var (e,o) = Engine();
+            Frame(e,3,1,side:side); Frame(e,3,1.02,.6,side); Frame(e,3,1.08,1.2,side);
+            Check(o.Buttons.Count == 0 && o.Moves.Count == 0,"forming scroll began a drag during settling");
+            Frame(e,4,1.09,1.8,side);
+            Check(o.Scrolls.Count == 0,"fourth-finger landing was counted as scroll travel");
+            Frame(e,4,1.10,2.1,side); Frame(e,3,1.12,2.3,side); Frame(e,0,1.14,side:side);
+            Check(o.Scrolls.Count > 0 && o.Buttons.Count == 0 && o.Taps.Count == 0,"scroll landing/lifting produced drag or tap");
+
+            // Four fingers that never acquired scroll must not become a drag on lift.
+            (e,o) = Engine(); Frame(e,4,1,side:side); Frame(e,3,1.01,side:side);
+            for (int i=1; i<=20; i++) Frame(e,3,1.01+i*.01,i*.1,side);
+            Frame(e,0,1.23,side:side);
+            Check(o.Buttons.Count == 0 && o.Taps.Count == 0,"unlatched scroll fell back to drag/tap");
+
+            // Deliberate drag waits, discards early travel, then latches until all-up.
+            (e,o) = Engine(); Frame(e,3,1,side:side); Frame(e,3,1.05,2,side);
+            Frame(e,3,1.10,4,side); Frame(e,3,1.119,4,side); Frame(e,3,1.13,4,side);
+            Check(o.Buttons.Count == 0,"settling travel was replayed as a stationary drag");
+            Frame(e,3,1.14,4.4,side);
+            Check(o.Buttons.SequenceEqual(new[]{true}) && Math.Abs(o.Moves.Single().X-2.4)<1e-8,"settled drag lost fresh movement or jumped");
+            Frame(e,4,1.15,4.5,side); Frame(e,0,1.17,side:side);
+            Check(o.Buttons.SequenceEqual(new[]{true,false}) && o.Scrolls.Count == 0,"settled drag changed owner or failed release");
+
+            // Three-finger tap is unchanged, including sub-threshold-for-tap motion.
+            (e,o) = Engine(); Frame(e,3,1,side:side); Frame(e,3,1.03,.4,side); Frame(e,0,1.06,side:side);
+            Check(o.Taps.SequenceEqual(new[]{HandGestureAction.DoubleClick}) && o.Buttons.Count == 0,"three-finger tap was delayed or became drag");
+
+            // A replacement finger restarts settling even with three contacts present.
+            (e,o) = Engine(); Frame(e,3,1,side:side); Frame(e,3,1.08,.4,side);
+            HandGestureContact[] replacement(double x) => [new(1,20+x,50),new(2,36+x,50),new(4,52+x,50)];
+            e.Process(side,replacement(.5),1.09,1.09,true);
+            e.Process(side,replacement(1),1.18,1.18,true);
+            Check(o.Buttons.Count == 0,"replacement finger inherited the old settling deadline");
+            e.Process(side,replacement(1.4),1.22,1.22,true);
+            Check(o.Buttons.SequenceEqual(new[]{true}),"replacement chord never completed settling");
+            Frame(e,0,1.24,side:side);
+            Check(o.Buttons.SequenceEqual(new[]{true,false}),"replacement chord left button held");
+
+            // Tick cannot turn an abandoned pending chord into a delayed button-down.
+            (e,o) = Engine(); Frame(e,3,1,side:side); Frame(e,3,1.05,.8,side);
+            e.Tick(1.3,true); Frame(e,3,1.31,1.2,side); Frame(e,0,1.33,side:side);
+            Check(o.Buttons.Count == 0 && o.Taps.Count == 0,"stale pending drag activated or fell back to a tap");
+        }
     }
     private static void RunCapturedTapLanding()
     {
@@ -184,7 +240,7 @@ internal static class HandGestureTests
         foreach (int count in new[] { 2,3 })
         {
             var output = new Output(); var engine = new HandGestureEngine(output);
-            engine.Configure(new(),false); Frame(engine,0,.9);
+            engine.Configure(NoScrollSettings(),false); Frame(engine,0,.9);
             Frame(engine,count,1); Frame(engine,count,1.01,.4);
             Check(output.Moves.Count == 1,"slow motion did not acquire owner");
             Frame(engine,count,1.02,5.4);
@@ -249,6 +305,7 @@ internal static class HandGestureTests
         engine.Configure(settings,false); Frame(engine,0,.9); Frame(engine,2,1); Frame(engine,2,1.01,.4);
         var expected = new ApplePointerAccelerator(ApplePointerProfile.Reference).Millimetres(1.01,.4,0,1);
         Check(output.Moves.Count == 1 && expected.HasValue && Math.Abs(output.Moves[0].X-expected.Value.X)<1e-8,"default pointer path did not apply Apple acceleration");
+        settings.Left.FourFingerMove = HandGestureAction.None; engine.Configure(settings,false);
         Frame(engine,0,1.02); Frame(engine,3,1.03); Frame(engine,3,1.04,.4);
         Check(output.Buttons.SequenceEqual(new[]{true}) && Math.Abs(output.Moves[^1].X-expected!.Value.X)<1e-8,"drag did not use the same Apple response");
         var reverseSettings = new HandGestureSettings(); reverseSettings.Left.NaturalScrolling = false;

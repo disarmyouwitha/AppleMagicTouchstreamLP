@@ -128,3 +128,15 @@ Fast-motion fix verification: Release build and all self-tests passed (zero warn
 ## Two-finger tap landing fix
 
 The user capture exposed two short taps whose first finger shifted as the second landed. The pending router incorrectly counted that interval toward two-finger activation. With a tap assigned, a newly formed pair now establishes its own movement baseline. Already-latched motion and tap=None behavior remain unchanged; no timer or threshold increase was added. Full capture replay repairs both taps and preserves all 14 longer movement activation frames. See [capture analysis and verification](WindowsDiagnostics/TapCaptureAnalysis/FINDINGS.md).
+
+## Three-finger drag versus four-finger scroll settling
+
+The user reported unintended folder dragging while landing four fingers to scroll. Previously, three contacts moving 0.35 mm could latch PrimaryDrag before the fourth contact arrived. Once latched, ownership correctly stayed with drag until all-up, making that early classification hazardous.
+
+When a hand assigns three-finger movement to PrimaryDrag and four-finger movement to Scroll, an unowned three-finger chord now waits 120 ms with stable contact identities before drag can activate. Early travel is discarded rather than replayed as a cursor jump. Movement must still cross the existing 0.35 mm threshold after settling; elapsed time alone never presses the button. Contact count or identity changes restart settling. Seeing four or more contacts before ownership prevents three-finger drag for the remainder of that touch cycle, including when fingers lift before scroll has activated.
+
+A newly formed four-finger chord establishes a fresh motion baseline, like the two-finger tap landing fix. Its existing 0.2 mm activation threshold, direction, sensitivity and momentum remain unchanged. The three-finger tap recognizer receives every frame with its original timing and slop. No delay applies when the drag/scroll assignment conflict is absent. An already-owned drag still latches until all-up; a fourth finger arriving after activation does not change its action.
+
+Offline regressions cover both hands, staggered moving landings, four-to-three lifting without scroll ownership, fresh movement after settling, balanced drag release, three-finger taps, contact replacement, stale pending input, and the existing recorded two-finger tap capture. Release build and the full self-test suite pass. The 120 ms duration is an initial tuning choice, not a hardware-proven guarantee; a fourth finger arriving after the deadline and drag activation can still arrive too late.
+
+Live check: use a blank test surface to alternate four-finger scrolling and deliberate three-finger dragging, then verify three-finger taps. If unintended dragging remains or the delay feels wrong, capture those alternating actions for timing analysis. No new capture is required before trying this build. The separate Release executable is `bin/ScrollSettle/GlassToKey.Windows.exe` because the running application locked the previous output folder.

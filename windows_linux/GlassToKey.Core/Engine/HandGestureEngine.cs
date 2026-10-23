@@ -19,12 +19,13 @@ internal interface IHandGestureRuntime : IDisposable
 
 public sealed class HandGestureEngine
 {
+    private const double DragScrollSettleSeconds = .12;
     private sealed class Pad
     {
         public readonly HandGestureContact[] Previous = new HandGestureContact[InputFrame.MaxContacts];
         public int PreviousCount, PendingCount;
-        public double PreviousTime, TravelX, TravelY, LastReceipt;
-        public bool Reserved, Blocked;
+        public double PreviousTime, TravelX, TravelY, LastReceipt, ThreeChordSince;
+        public bool Reserved, Blocked, SawFour;
         public HandGestureTrigger? Owner;
         public ApplePointerAccelerator? Accelerator;
         public readonly CountTap Two = new(2), Three = new(3);
@@ -57,7 +58,7 @@ public sealed class HandGestureEngine
     private static void Cancel(Pad p)
     {
         p.Owner = null; p.PreviousCount = 0; p.TravelX = p.TravelY = 0;
-        p.PendingCount = 0; p.Blocked = true;
+        p.PendingCount = 0; p.Blocked = true; p.ThreeChordSince = double.NaN; p.SawFour = false;
         p.Two.Cancel(); p.Three.Cancel(); p.Thumb.Reset(); p.Momentum.Cancel(); p.Accelerator?.Reset();
         // Keep reservation through all-up, including setting/permission transitions.
     }
@@ -136,7 +137,20 @@ public sealed class HandGestureEngine
             if (two && enabled(HandGestureTrigger.TwoFingerTap) && _dragOwner == null) _output.Tap(settings.Get(HandGestureTrigger.TwoFingerTap));
             if (three && threeTrigger.HasValue && enabled(threeTrigger.Value) && _dragOwner == null) _output.Tap(settings.Get(threeTrigger.Value));
             p.Blocked = false; p.PreviousCount = p.PendingCount = 0; p.TravelX = p.TravelY = 0;
+            p.ThreeChordSince = double.NaN; p.SawFour = false;
             return reserved;
+        }
+        bool dragScrollConflict = settings.ThreeFingerMove == HandGestureAction.PrimaryDrag
+            && settings.FourFingerMove == HandGestureAction.Scroll;
+        if (!p.Owner.HasValue)
+        {
+            p.SawFour |= count >= 4;
+            // Require an uninterrupted three-finger chord before any button-down.
+            // Count/identity changes restart the window; tap recognizers keep their
+            // own timing and continue to observe every report below.
+            if (count != 3) p.ThreeChordSince = double.NaN;
+            else if (!continued || p.PreviousCount != 3 || shared != 3 || double.IsNaN(p.ThreeChordSince))
+                p.ThreeChordSince = time;
         }
         if (continued && !p.Owner.HasValue)
         {
@@ -149,12 +163,16 @@ public sealed class HandGestureEngine
             // With tap=None, movement retains its original activation behavior.
             bool formingTapChord = count == 2 && enabled(HandGestureTrigger.TwoFingerTap)
                 && (p.PreviousCount != 2 || shared != 2);
-            if (formingTapChord) p.TravelX = p.TravelY = 0;
+            bool formingScrollChord = count == 4 && enabled(HandGestureTrigger.FourFingerMove)
+                && (p.PreviousCount != 4 || shared != 4);
+            bool waitingForScroll = count == 3 && dragScrollConflict
+                && (p.SawFour || time - p.ThreeChordSince < DragScrollSettleSeconds);
+            if (formingTapChord || formingScrollChord || waitingForScroll) p.TravelX = p.TravelY = 0;
             else { p.TravelX += dx; p.TravelY += dy; }
             HandGestureTrigger? trigger = count switch { 2 => HandGestureTrigger.TwoFingerMove, 3 => HandGestureTrigger.ThreeFingerMove, 4 => HandGestureTrigger.FourFingerMove, _ => null };
             double threshold = count == 4 ? .2 : .35;
             if (trigger.HasValue && enabled(trigger.Value) && Math.Sqrt(p.TravelX*p.TravelX+p.TravelY*p.TravelY) >= threshold
-                && (count != 3 || AcceptsRow(contacts)))
+                && !waitingForScroll && (count != 3 || AcceptsRow(contacts)))
             {
                 p.Owner = trigger;
                 dx = p.TravelX; dy = p.TravelY;
