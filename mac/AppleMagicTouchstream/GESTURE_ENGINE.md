@@ -77,8 +77,9 @@ chord examples and Left/Right/Both Action menus. Keyboard retains the existing
 layout, column, keymap, haptics and tuning controls. Both shows Mixed assignments;
 choosing an action applies to both. Factory settings start mirrored.
 In Both scope, each finger-count heading places the left-hand diagram before the
-label and the right-hand diagram after it. Gesture subsections start collapsed
-except two-finger Tap and Move. Two-finger Pinch and Spread is separate; Tap and
+label and the right-hand diagram after it. Clicking a subsection label or its disclosure arrow toggles expansion.
+Gesture subsections start collapsed
+except two-finger Tap and Move. Each 2–5-finger group has a separate Pinch and Spread subsection; two-finger Tap and
 Move contains tap, force click and movement in that order. Force click appears
 directly below tap in sections containing both. Sensitivity controls
 appear directly below the action they tune, including pointer and zoom gains.

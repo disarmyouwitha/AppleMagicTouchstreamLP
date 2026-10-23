@@ -2,54 +2,64 @@ import AppKit
 import SwiftUI
 
 enum GesturePane: String, CaseIterable, Identifiable {
-    case oneFinger, twoFingers, twoFingerPinch, threeFingers, fourFingers, fiveFingers, thumbTwo
+    case oneFinger, twoFingers, twoFingerPinch, threeFingers, threeFingerPinch, fourFingers, fourFingerPinch, fiveFingers, fiveFingerPinch, thumbTwo
     var id: String { rawValue }
     var group: String {
         switch self {
         case .oneFinger: return "1 finger"
-        case .fiveFingers: return "5 fingers"
-        case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers: return "3 fingers"
-        case .fourFingers: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
+        case .fiveFingers, .fiveFingerPinch: return "5 fingers"
+        case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers, .threeFingerPinch: return "3 fingers"
+        case .fourFingers, .fourFingerPinch: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
         }
     }
     var title: String {
         switch self {
         case .oneFinger: return "Force Click"
-        case .fiveFingers: return "Pinch / Spread & Force Click"
+        case .fiveFingers: return "Force Click"
         case .twoFingers: return "Tap and Move"
-        case .twoFingerPinch: return "Pinch and Spread"
-        case .threeFingers: return "Move, Tap, Pinch & Force Click"
-        case .fourFingers: return "Move, Pinch & Force Click"
+        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch: return "Pinch and Spread"
+        case .threeFingers: return "Tap and Move"
+        case .fourFingers: return "Move and Force Click"
         case .thumbTwo: return "Tap"
         }
     }
     var summary: String {
         switch self {
         case .oneFinger: return "Choose an action for a one-finger force click."
-        case .fiveFingers: return "Choose actions for five-finger pinch/spread and force clicking."
+        case .fiveFingers: return "Choose an action for five-finger force clicking."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
-        case .twoFingerPinch: return "Choose an action for two-finger pinching and spreading."
-        case .threeFingers: return "Choose actions for three-finger movement, tapping, pinch/spread and force clicking."
-        case .fourFingers: return "Choose actions for four-finger movement, pinch/spread and force clicking."
+        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch:
+            return "Choose an action for pinching and spreading."
+        case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
+        case .fourFingers: return "Choose actions for four-finger movement and force clicking."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."
         }
     }
     var triggers: [GestureTrigger] {
         switch self {
         case .oneFinger: return [.oneFingerForce]
-        case .fiveFingers: return [.fiveFingerPinch,.fiveFingerForce]
+        case .fiveFingers: return [.fiveFingerForce]
+        case .fiveFingerPinch: return [.fiveFingerPinch]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
         case .twoFingerPinch: return [.twoFingerPinch]
-        case .threeFingers: return [.threeFingerMove,.threeFingerTap,.threeFingerForce,.threeFingerPinch]
-        case .fourFingers: return [.fourFingerMove,.fourFingerPinch,.fourFingerForce]
+        case .threeFingers: return [.threeFingerTap,.threeFingerForce,.threeFingerMove]
+        case .threeFingerPinch: return [.threeFingerPinch]
+        case .fourFingers: return [.fourFingerMove,.fourFingerForce]
+        case .fourFingerPinch: return [.fourFingerPinch]
         case .thumbTwo: return [.thumbTwoTap]
+        }
+    }
+    var isPinchSection: Bool {
+        switch self {
+        case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch: return true
+        default: return false
         }
     }
     var activeFingers: Set<Int> {
         switch self {
-        case .oneFinger: return [1]; case .fiveFingers: return [0,1,2,3,4]
-        case .twoFingers, .twoFingerPinch: return [1,2]; case .threeFingers: return [1,2,3]
-        case .fourFingers: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
+        case .oneFinger: return [1]; case .fiveFingers, .fiveFingerPinch: return [0,1,2,3,4]
+        case .twoFingers, .twoFingerPinch: return [1,2]; case .threeFingers, .threeFingerPinch: return [1,2,3]
+        case .fourFingers, .fourFingerPinch: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
         }
     }
 }
@@ -78,13 +88,21 @@ struct GestureSidebar<Options: View>: View {
                 VStack(alignment:.leading,spacing:20) {
                     ForEach(GesturePane.allCases) { gesture in
                         VStack(alignment:.leading,spacing:10) {
-                            if gesture != .twoFingerPinch { gestureHeader(gesture) }
+                            if !gesture.isPinchSection { gestureHeader(gesture) }
                             DisclosureGroup(isExpanded:Binding(
                                 get:{expanded.contains(gesture)},
                                 set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
                                 options(gesture).padding(.top,8)
                             } label: {
                                 Text(gesture.title).font(.system(size:14,weight:.medium))
+                                    .frame(maxWidth:.infinity,alignment:.leading)
+                                    .contentShape(Rectangle())
+                                    .onTapGesture {
+                                        if expanded.contains(gesture) { expanded.remove(gesture) }
+                                        else { expanded.insert(gesture) }
+                                    }
+                                    .accessibilityAddTraits(.isButton)
+                                    .accessibilityValue(expanded.contains(gesture) ? "Expanded" : "Collapsed")
                             }
                             .tint(.secondary)
                         }

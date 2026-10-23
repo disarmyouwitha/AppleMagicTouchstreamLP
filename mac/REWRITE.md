@@ -11,6 +11,9 @@
 
 
 `AppleMagicTouchstream`:
+0. Order DecalGirl TouchStream skins!
+===
+0. Is it possible to separate Pinch / Spread into 2 different actions? (For me just leave them both to Zoom)
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
 2. Transfer Treasure to GTK~

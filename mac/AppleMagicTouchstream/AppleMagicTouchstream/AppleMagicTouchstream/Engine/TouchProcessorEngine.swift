@@ -534,7 +534,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private let dispatchService: DispatchService
     private let onActiveLayerChanged: @Sendable (Int) -> Void
     private let onDebugBindingDetected: @Sendable (KeyBinding) -> Void
-    private let onContactCountChanged: @Sendable (SidePair<Int>) -> Void
     private let onIntentStateChanged: @Sendable (SidePair<IntentDisplay>) -> Void
     private var currentFrameDeviceIndex = -1
     private var currentFrameAllowsTyping = true
@@ -586,16 +585,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     nonisolated(unsafe) private static var snapRejectedCount: Int64 = 0
     nonisolated(unsafe) private static var snapOffKeyCount: Int64 = 0
 #endif
-    private var contactFingerCountsBySide = SidePair(left: 0, right: 0)
-    private struct ContactCountCache {
-        var actual: Int
-        var displayed: Int
-        var timestamp: TimeInterval
-    }
-    private var contactCountCache = SidePair<ContactCountCache?>(left: nil, right: nil)
-    private let contactCountHoldDuration: TimeInterval = 0.06
     private var touchRemovalBuffer: [TouchKey] = []
-    private var lastReportedContactCounts = SidePair(left: -1, right: -1)
 
     private let repeatInitialDelay: UInt64 = 350_000_000
     private let repeatInterval: UInt64 = 50_000_000
@@ -647,7 +637,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void,
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void,
         onDebugBindingDetected: @Sendable @escaping (KeyBinding) -> Void,
-        onContactCountChanged: @Sendable @escaping (SidePair<Int>) -> Void,
         onIntentStateChanged: @Sendable @escaping (SidePair<IntentDisplay>) -> Void,
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void
     ) {
@@ -655,7 +644,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         self.dispatchService = dispatchService
         self.onActiveLayerChanged = onActiveLayerChanged
         self.onDebugBindingDetected = onDebugBindingDetected
-        self.onContactCountChanged = onContactCountChanged
         self.onIntentStateChanged = onIntentStateChanged
     }
 
@@ -1109,7 +1097,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
-        notifyContactCounts()
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
@@ -1194,7 +1181,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
-        notifyContactCounts()
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
@@ -1208,9 +1194,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
         dispatchService.clearQueue()
         releaseHeldKeys(stopVoiceDictation: stopVoiceDictation)
         peakPressureByTouch.removeAll()
-        contactFingerCountsBySide[.left] = 0
-        contactFingerCountsBySide[.right] = 0
-        notifyContactCounts()
     }
 
     private func rebuildCustomButtonsIndex() {
@@ -1296,12 +1279,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         defer { signposter.endInterval("ProcessTouches", state) }
         #endif
         let side: TrackpadSide = isLeftSide ? .left : .right
-        var contactCount = 0
         var frameTouchKeys = TouchTable<Bool>(minimumCapacity: max(16, touches.count * 2))
         for touch in touches {
-            if Self.isContactState(touch.state) {
-                contactCount += 1
-            }
             let touchKey = Self.makeTouchKey(deviceIndex: deviceIndex, id: touch.id)
             frameTouchKeys.set(touchKey, true)
             let point: CGPoint
@@ -1774,11 +1753,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             bindings: bindings,
             now: now
         )
-        contactFingerCountsBySide[side] = cachedContactCount(
-            for: side,
-            actualCount: contactCount,
-            now: now
-        )
+
     }
 
     private func releaseStaleTouches(
@@ -3506,32 +3481,6 @@ final class TouchProcessorEngine: @unchecked Sendable {
 
     private func currentTime() -> TimeInterval {
         currentProcessingTimestamp ?? scheduler.now
-    }
-
-    private func notifyContactCounts() {
-        guard contactFingerCountsBySide != lastReportedContactCounts else { return }
-        lastReportedContactCounts = contactFingerCountsBySide
-        onContactCountChanged(contactFingerCountsBySide)
-    }
-
-    private func cachedContactCount(
-        for side: TrackpadSide,
-        actualCount: Int,
-        now: TimeInterval
-    ) -> Int {
-        let previous = contactCountCache[side]
-        let elapsed = previous != nil ? now - previous!.timestamp : contactCountHoldDuration
-        let shouldHoldPrevious = actualCount == 0
-            && (previous?.actual ?? 0) > 0
-            && elapsed < contactCountHoldDuration
-        let displayed = shouldHoldPrevious ? (previous?.displayed ?? actualCount) : actualCount
-        let updatedCache = ContactCountCache(
-            actual: actualCount,
-            displayed: displayed,
-            timestamp: now
-        )
-        contactCountCache[side] = updatedCache
-        return displayed
     }
 
     private func makeDispatchInfo(

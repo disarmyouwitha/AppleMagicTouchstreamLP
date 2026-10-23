@@ -869,14 +869,7 @@ final class ContentViewModel: ObservableObject {
         var isPlaying: Bool
     }
 
-    @MainActor
-    final class StatusViewModel: ObservableObject {
-        @Published var contactFingerCountsBySide = SidePair(left: 0, right: 0)
-        @Published var intentDisplayBySide = SidePair(left: IntentDisplay.idle, right: .idle)
-    }
-
     nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
-    let statusViewModel = StatusViewModel()
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
@@ -903,10 +896,6 @@ final class ContentViewModel: ObservableObject {
     private let debugHitMinimumPublishInterval: TimeInterval = 1.0 / 20.0
     private var lastDebugHitPublishTimeBySide = SidePair(left: 0.0, right: 0.0)
 
-    private var uiStatusVisualsEnabled = true
-    private var latestContactCounts = SidePair(left: 0, right: 0)
-    private var latestIntentDisplay = SidePair(left: IntentDisplay.idle, right: .idle)
-
     private let manager = OMSManager.shared
     private let renderSnapshotService: RuntimeRenderSnapshotService
     private let runtimeCommandService: RuntimeCommandService
@@ -928,16 +917,6 @@ final class ContentViewModel: ObservableObject {
                 weakRef.value?.recordDebugHit(binding)
             }
         }
-        let contactCountHandler: @Sendable (SidePair<Int>) -> Void = { counts in
-            Task { @MainActor in
-                weakRef.value?.handleContactCountsChanged(counts)
-            }
-        }
-        let intentStateHandler: @Sendable (SidePair<IntentDisplay>) -> Void = { display in
-            Task { @MainActor in
-                weakRef.value?.handleIntentDisplayChanged(display)
-            }
-        }
         let runtimeEngine = RuntimeCore(
             dispatchService: DispatchService.shared,
             onTypingEnabledChanged: { isEnabled in
@@ -950,9 +929,7 @@ final class ContentViewModel: ObservableObject {
                     weakRef.value?.activeLayer = layer
                 }
             },
-            onDebugBindingDetected: debugBindingHandler,
-            onContactCountChanged: contactCountHandler,
-            onIntentStateChanged: intentStateHandler
+            onDebugBindingDetected: debugBindingHandler
         )
         runtimeCommandService = RuntimeCommandService(runtimeEngine: runtimeEngine)
         runtimeLifecycleCoordinator = RuntimeLifecycleCoordinatorService(
@@ -1533,34 +1510,6 @@ final class ContentViewModel: ObservableObject {
         renderSnapshotService.setRecordingEnabled(enabled)
     }
 
-    func setStatusVisualsEnabled(_ enabled: Bool) {
-        uiStatusVisualsEnabled = enabled
-        guard enabled else { return }
-        publishContactCountsIfNeeded(latestContactCounts)
-        publishIntentDisplayIfNeeded(latestIntentDisplay)
-    }
-
-    private func publishContactCountsIfNeeded(_ counts: SidePair<Int>) {
-        guard uiStatusVisualsEnabled else { return }
-        guard counts != statusViewModel.contactFingerCountsBySide else { return }
-        statusViewModel.contactFingerCountsBySide = counts
-    }
-
-    private func publishIntentDisplayIfNeeded(_ display: SidePair<IntentDisplay>) {
-        guard uiStatusVisualsEnabled else { return }
-        guard display != statusViewModel.intentDisplayBySide else { return }
-        statusViewModel.intentDisplayBySide = display
-    }
-
-    private func handleContactCountsChanged(_ counts: SidePair<Int>) {
-        latestContactCounts = counts
-        publishContactCountsIfNeeded(counts)
-    }
-
-    private func handleIntentDisplayChanged(_ display: SidePair<IntentDisplay>) {
-        latestIntentDisplay = display
-        publishIntentDisplayIfNeeded(display)
-    }
 
 }
 

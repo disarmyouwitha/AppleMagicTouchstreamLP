@@ -721,7 +721,6 @@ struct ContentView: View {
             GeometryReader { viewport in
                 ScrollView([.horizontal, .vertical]) {
                     VStack(alignment: .leading, spacing: 16) {
-                        headerView
                         if let state = viewModel.replayTimelineState { replayTimelineView(state) }
                         devicesSectionView
                         trackpadSectionView
@@ -744,13 +743,6 @@ struct ContentView: View {
             .frame(width: 420)
             .padding(16)
         }
-    }
-
-    @ViewBuilder
-    private var headerView: some View {
-        HeaderControlsView(
-            statusViewModel: viewModel.statusViewModel
-        )
     }
 
     private func replayTimelineView(
@@ -1141,92 +1133,6 @@ struct ContentView: View {
         ShortcutActionLibraryStorage.decode(from: storedShortcutActionsData)?
             .compactMap(KeyActionCatalog.action(for:))
             ?? []
-    }
-
-    private struct HeaderControlsView: View {
-        @ObservedObject var statusViewModel: ContentViewModel.StatusViewModel
-
-        var body: some View {
-            HStack(spacing: 12) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("AppleMagicTouchstream")
-                        .font(.title2)
-                        .bold()
-                    HStack(spacing: 10) {
-                        contactCountPills
-                        intentBadge(intent: statusViewModel.intentDisplayBySide.left)
-                    }
-                }
-                Spacer()
-            }
-        }
-
-        private var contactCountPills: some View {
-            HStack(spacing: 8) {
-                labelPill(prefix: "L", value: statusViewModel.contactFingerCountsBySide.left)
-                labelPill(prefix: "R", value: statusViewModel.contactFingerCountsBySide.right)
-            }
-        }
-
-        private func labelPill(prefix: String, value: Int) -> some View {
-            Text("\(prefix) \(value)")
-                .font(.caption2)
-                .foregroundStyle(.primary)
-                .padding(.horizontal, 6)
-                .padding(.vertical, 2)
-                .background(
-                    Capsule()
-                        .fill(Color.primary.opacity(0.06))
-                )
-        }
-
-        private func intentBadge(intent: ContentViewModel.IntentDisplay) -> some View {
-            HStack(spacing: 4) {
-                Circle()
-                    .fill(intentColor(intent))
-                    .frame(width: 6, height: 6)
-                Text(intentLabel(intent))
-                .font(.caption2)
-                .foregroundStyle(.primary)
-            }
-            .padding(.horizontal, 6)
-            .padding(.vertical, 2)
-            .background(
-                Capsule()
-                    .fill(Color.primary.opacity(0.06))
-            )
-        }
-
-        private func intentLabel(_ intent: ContentViewModel.IntentDisplay) -> String {
-            switch intent {
-            case .idle:
-                return "idle"
-            case .keyCandidate:
-                return "cand"
-            case .typing:
-                return "typing"
-            case .mouse:
-                return "mouse"
-            case .gesture:
-                return "gest"
-            }
-        }
-
-        private func intentColor(_ intent: ContentViewModel.IntentDisplay) -> Color {
-            switch intent {
-            case .idle:
-                return .gray
-            case .keyCandidate:
-                return .orange
-            case .typing:
-                return .green
-            case .mouse:
-                return .blue
-            case .gesture:
-                return .purple
-            }
-        }
-
     }
 
     private struct TrackpadSectionView: View {
@@ -3831,7 +3737,6 @@ struct ContentView: View {
     }
 
     private func applySavedSettings() {
-        viewModel.setStatusVisualsEnabled(true)
         normalizeStoredShortcutActions()
         let storedLayout = TrackpadLayoutPreset.resolveByNameOrDefault(storedLayoutPreset)
         let resolvedLayout: TrackpadLayoutPreset = (storedLayout == .mobile || storedLayout == .mobileOrtho12x4) ? .sixByThree : storedLayout

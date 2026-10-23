@@ -174,7 +174,6 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         onTypingEnabledChanged: @Sendable @escaping (Bool) -> Void = { _ in },
         onActiveLayerChanged: @Sendable @escaping (Int) -> Void = { _ in },
         onDebugBindingDetected: @Sendable @escaping (ContentViewModel.KeyBinding) -> Void = { _ in },
-        onContactCountChanged: @Sendable @escaping (SidePair<Int>) -> Void = { _ in },
         onIntentStateChanged: @Sendable @escaping (SidePair<ContentViewModel.IntentDisplay>) -> Void = { _ in },
         onVoiceGestureChanged: @Sendable @escaping (Bool) -> Void = { _ in }
     ) {
@@ -194,7 +193,6 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
             onTypingEnabledChanged: onTypingEnabledChanged,
             onActiveLayerChanged: onActiveLayerChanged,
             onDebugBindingDetected: onDebugBindingDetected,
-            onContactCountChanged: onContactCountChanged,
             onIntentStateChanged: onIntentStateChanged,
             onVoiceGestureChanged: onVoiceGestureChanged
         )
@@ -726,7 +724,7 @@ final class ProductionReplaySession {
             dispatchService: sink, scheduler: scheduler,
             voiceSessionChanged: { output.voiceTransitions.append($0) },
             onTypingEnabledChanged: { _ in }, onActiveLayerChanged: { _ in },
-            onDebugBindingDetected: { _ in }, onContactCountChanged: { _ in },
+            onDebugBindingDetected: { _ in },
             onIntentStateChanged: { output.intents = $0 }, onVoiceGestureChanged: { _ in }
         )
         engine.setCaptureFrameDiagnosticsEnabled(true)

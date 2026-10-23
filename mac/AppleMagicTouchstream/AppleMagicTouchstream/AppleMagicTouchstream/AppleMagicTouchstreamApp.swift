@@ -198,7 +198,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             return
         }
         controller.viewModel.setTouchSnapshotRecordingEnabled(false)
-        controller.viewModel.setStatusVisualsEnabled(false)
         controller.viewModel.clearVisualCaches()
         window.delegate = nil
         window.contentView = nil
@@ -302,7 +301,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let window = configWindow ?? makeConfigWindow()
         configWindow = window
         controller.viewModel.setTouchSnapshotRecordingEnabled(true)
-        controller.viewModel.setStatusVisualsEnabled(true)
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }
