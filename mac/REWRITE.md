@@ -12,13 +12,17 @@
 
 `AppleMagicTouchstream`:
 0. Order DecalGirl TouchStream skins!
-===
-1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
-2. Apple-like movement actions 2-finger left / right do "back" and "forward" in browser. (please verify)
-2. Transfer Treasure to GTK~
-4. Copy touchstream Layout from AMT to GTK!
-===
+1. Implement actions: Notification Center, Mission Control, App Expose, Launch Pad, Show Desktop - add to pinch/spread
+2. Implement actions: Smart-zoom, Rotate, "Natural Scrolling".
+3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 - Need to consolidate / Unify Gesture Actions drop-downs after build-out!
+===
+0. We are going to need a much more extensive menu like Kara's to handle mapping all of these gestures. =x 
+1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
+2. Transfer Treasure to GTK~
+3. Copy touchstream Layout from AMT to GTK! (Maybe get rid of GTK?)
+===
+
 ===
 666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
