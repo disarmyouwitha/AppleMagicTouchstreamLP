@@ -193,3 +193,12 @@ SMAppService.mainApp, default off, reconcile saved preferences at app launch,
 and reflect actual registration state in the toggle. Match GlassToKey's keymap
 import/export behavior. This supersedes the earlier removed-control policy;
 never register login items as part of a build or an offline test.
+
+User authorized an expanded GUI for the existing gestures on 2026-10-24, using
+the Design/GestureAssignments mockup structure. Gestures replaces the visualizer
+area with navigation, assignment cards and a shared inspector. Keep Keyboard's
+existing editor, visible device/takeover controls, and only working triggers.
+User explicitly chose Left/Right only; do not offer Both or coordinated two-hand
+gestures in this UI. Hold/Lift describe lifecycle, not new assignable gestures.
+No recognition/default changes. Build/sign/install Release in Applications;
+DMGs only on explicit request. Keep app closed for user hardware testing.

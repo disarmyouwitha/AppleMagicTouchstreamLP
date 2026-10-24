@@ -66,69 +66,6 @@ enum GesturePane: String, CaseIterable, Identifiable {
     }
 }
 
-struct GestureSidebar<Options: View>: View {
-    @Binding var hand: GestureHandScope
-    @ViewBuilder let options: (GesturePane) -> Options
-    @State private var expanded: Set<GesturePane> = [.twoFingers]
-
-    var body: some View {
-        VStack(alignment:.leading,spacing:16) {
-            HStack(spacing:8) {
-                Text("Gestures").font(.title3).bold()
-                Spacer(minLength:0)
-                Picker("Gesture hand",selection:$hand) {
-                    ForEach(GestureHandScope.allCases) { side in Text(side.rawValue).tag(side) }
-                }
-                .labelsHidden()
-                .pickerStyle(.segmented)
-                .controlSize(.small)
-                .frame(width:190)
-                .help("Edit left, right, or both trackpad gesture settings.")
-            }
-            .padding(.horizontal,12).padding(.top,16)
-            ScrollView(.vertical) {
-                VStack(alignment:.leading,spacing:20) {
-                    ForEach(GesturePane.allCases) { gesture in
-                        VStack(alignment:.leading,spacing:10) {
-                            if !gesture.isPinchSection { Text(gesture.group).font(.headline) }
-                            DisclosureGroup(isExpanded:Binding(
-                                get:{expanded.contains(gesture)},
-                                set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
-                                options(gesture).padding(.top,8)
-                            } label: {
-                                gestureSubheader(gesture)
-                                    .frame(maxWidth:.infinity,alignment:.leading)
-                                    .contentShape(Rectangle())
-                                    .onTapGesture {
-                                        if expanded.contains(gesture) { expanded.remove(gesture) }
-                                        else { expanded.insert(gesture) }
-                                    }
-                                    .accessibilityAddTraits(.isButton)
-                                    .accessibilityValue(expanded.contains(gesture) ? "Expanded" : "Collapsed")
-                            }
-                            .tint(.secondary)
-                        }
-                    }
-                }
-                .padding(12)
-            }
-            Text(hand == .both ? "Editing both trackpads" : "Editing \(hand.rawValue.lowercased()) trackpad")
-                .font(.caption).foregroundStyle(.secondary)
-                .padding(.horizontal,16).padding(.bottom,16)
-        }
-        .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
-        .background(Color(nsColor:.windowBackgroundColor))
-    }
-
-    private func gestureSubheader(_ gesture: GesturePane) -> some View {
-        HStack(spacing:8) {
-            Text(gesture.title).font(.system(size:14,weight:.medium))
-            Spacer(minLength:8)
-            GestureChordIcon(gesture:gesture).fixedSize()
-        }
-    }
-}
-
 /// Contact-only diagrams using the live anatomical palette, tap rings and directional arrows.
 /// Examples are illustrative, not exact-only anatomy rules.
 struct GestureChordIcon: View {
@@ -261,82 +198,323 @@ struct GestureActionPickerRow: View {
     }
 }
 
+/// Presentation catalog for existing recognizers only; no new recognition or saved IDs.
+extension GesturePane {
+    var contactLabel: String {
+        if isPinchSection { return "\(triggers[0].pinchCount!) contacts · thumb required" }
+        if self == .thumbTwo { return "3 contacts · thumb + 2 fingertips" }
+        if let count = triggers.first?.forceCount { return "\(count) contact\(count == 1 ? "" : "s") · pressure" }
+        return group
+    }
+    var arrangementLabel: String {
+        if isPinchSection { return "Thumb + fingertips" }
+        switch self {
+        case .threeFingers: return "Aligned fingertips for movement"
+        case .thumbTwo: return "Spread thumb + fingertips"
+        default: return "Current recognition"
+        }
+    }
+    func includes(_ trigger: GestureTrigger) -> Bool { triggers.contains(trigger) }
+}
+
+extension GestureTrigger {
+    var assignmentTitle: String {
+        if isPinch { return isSpread ? "Spread" : "Pinch" }
+        if forceCount != nil { return "Force click" }
+        switch self {
+        case .twoFingerMove,.threeFingerMove,.fourFingerMove: return "Move in any direction"
+        default: return "Tap"
+        }
+    }
+    var assignmentSymbol: String {
+        if isPinch { return isSpread ? "arrow.up.left.and.arrow.down.right" : "arrow.down.right.and.arrow.up.left" }
+        if forceCount != nil { return "hand.point.up.left.fill" }
+        return isContinuous ? "arrow.up.and.down.and.arrow.left.and.right" : "hand.tap"
+    }
+    func behavior(for action: GestureAction?) -> String {
+        guard let action else { return "Mixed assignments" }
+        if action == .disabled { return "No output" }
+        if action.isAppleShortcut { return isPinch ? "Once on activation" : "One step per recognition" }
+        switch action {
+        case .pointer,.primaryDrag,.scroll,.zoom: return "Follow motion"
+        default: return "Once per recognition"
+        }
+    }
+    var recognitionNote: String {
+        if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
+        if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
+        switch self {
+        case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 0.5 seconds."
+        case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
+        case .twoFingerTap,.threeFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
+        default: return "Movement owns its touch cycle until all-up, including added or lifted fingers. Motion and taps compete before activation."
+        }
+    }
+}
+
 struct GestureInspectorPanel: View {
     @ObservedObject var controller: TrackpadGestureController
     @ObservedObject var takeover: NativeTrackpadTakeover
-    @State private var editingHand: GestureHandScope = .both
     var body: some View {
-        GestureSidebar(hand: $editingHand) { gesture in gestureDetails(gesture) }
+        GestureAssignmentWorkspace(settings:controller.settings,
+            status:{controller.status($0,scope:$1)},
+            apply:{controller.setAction($0,for:$1,scope:$2)},
+            setSensitivity:{controller.setSensitivity($0,kind:$1,scope:$2)})
     }
-    private func gestureDetails(_ gesture: GesturePane) -> some View {
-        VStack(alignment:.leading,spacing:12) {
-            Text(gesture.summary)
-                .font(.callout).foregroundStyle(.secondary)
-                .fixedSize(horizontal:false,vertical:true)
+}
+
+/// Value-only workspace so layout previews/tests never create input clients or post events.
+struct GestureAssignmentWorkspace: View {
+    let settings: HandGestureSettings
+    let status: (GestureTrigger,GestureHandScope) -> String
+    let apply: (GestureAction,GestureTrigger,GestureHandScope) -> Void
+    let setSensitivity: (Double,GestureSensitivity,GestureHandScope) -> Void
+    @State private var editingHand: GestureHandScope = .left
+    @State private var pane: GesturePane
+    @State private var selected: GestureTrigger
+    @State private var search = ""
+
+    init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
+         status:@escaping (GestureTrigger,GestureHandScope)->String,
+         apply:@escaping (GestureAction,GestureTrigger,GestureHandScope)->Void,
+         setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void) {
+        self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
+        _pane = State(initialValue:initialPane)
+        _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
+    }
+
+    private var action: GestureAction? { settings.action(selected,in:editingHand) }
+    private var scopeText: String { "\(editingHand.rawValue) trackpad" }
+    private var groups: [String] { Array(NSOrderedSet(array:GesturePane.allCases.map(\.group))) as? [String] ?? [] }
+    private func matching(_ item:GesturePane) -> Bool {
+        search.isEmpty || "\(item.group) \(item.title) \(item.summary) \(item.triggers.map { settings.action($0,in:editingHand)?.title ?? "" }.joined(separator:" "))"
+            .localizedCaseInsensitiveContains(search)
+    }
+    var body: some View {
+        HStack(spacing:0) {
+            navigation.frame(width:224)
             Divider()
-            gestureSettings(gesture)
-            Text(editingHand == .both ? "Changes apply to both trackpads." : "Editing the \(editingHand.rawValue.lowercased()) trackpad settings.")
-                .font(.caption).foregroundStyle(.secondary)
-        }
-        .padding(12)
-        .frame(maxWidth:.infinity,alignment:.leading)
-        .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:12))
-    }
-
-    @ViewBuilder private func gestureSettings(_ gesture: GesturePane) -> some View {
-        ForEach(gesture.triggers) { trigger in
-            gestureActionMenu(trigger)
-            let actions = actions(for:trigger)
-            if actions.contains(where:{ $0.requiresPointerProfile }) {
-                sensitivityControl("Pointer sensitivity",kind:.pointer)
+            ScrollView(.vertical) {
+                VStack(alignment:.leading,spacing:20) {
+                    header
+                    Divider()
+                    assignments
+                    lifecycle
+                    Text("Choose a card to edit its action. Settings apply only to the \(editingHand.rawValue.lowercased()) trackpad.")
+                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                }
+                .padding(24)
+                .frame(maxWidth:.infinity,alignment:.topLeading)
             }
-            if actions.contains(.scroll) {
-                sensitivityControl("Scroll sensitivity",kind:.scroll)
+            .frame(maxWidth:.infinity,maxHeight:.infinity)
+            Divider()
+            inspector.frame(width:286)
+        }
+        .background(Color(nsColor:.windowBackgroundColor))
+        .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
+    }
+
+    private var navigation: some View {
+        VStack(alignment:.leading,spacing:16) {
+            Text("Gestures").font(.title3).bold()
+            Picker("Edit trackpad",selection:$editingHand) {
+                Text("Left").tag(GestureHandScope.left)
+                Text("Right").tag(GestureHandScope.right)
             }
-        }
-        if gesture.triggers.contains(where:{actions(for:$0).contains(.zoom)}) {
-            sensitivityControl("Zoom sensitivity",kind:.zoom)
-        }
-    }
-
-    private func actions(for trigger: GestureTrigger) -> [GestureAction] {
-        let settings = controller.settings
-        switch editingHand {
-        case .left: return [settings.left.bindings.action(for:trigger)]
-        case .right: return [settings.right.bindings.action(for:trigger)]
-        case .both: return [settings.left.bindings.action(for:trigger),settings.right.bindings.action(for:trigger)]
-        }
-    }
-
-    private func gestureActionMenu(_ trigger: GestureTrigger) -> some View {
-        let settings = controller.settings
-        let value = settings.action(trigger,in:editingHand)
-        let status = controller.status(trigger,scope:editingHand)
-        return GestureActionPickerRow(trigger:trigger,value:value,
-            leftAction:settings.left.bindings.action(for:trigger),rightAction:settings.right.bindings.action(for:trigger),
-            status:status,showsStatus:takeover.enabled) { action in
-                controller.setAction(action,for:trigger,scope:editingHand)
-            }
-    }
-
-    private func sensitivityControl(_ title: String, kind: GestureSensitivity) -> some View {
-        let settings = controller.settings
-        let value = settings.sensitivity(kind,in:editingHand)
-        return VStack(alignment:.leading,spacing:6) {
-            HStack {
-                Text(title).font(.caption)
-                Spacer(minLength:4)
-                if let value {
-                    Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
-                } else {
-                    Text(String(format:"Mixed · L %.2f× / R %.2f×",settings.left[kind],settings.right[kind]))
-                        .font(.caption).monospacedDigit()
+            .pickerStyle(.segmented)
+            .help("Edit one trackpad's independent gesture settings. No coordinated two-hand gestures are configured here.")
+            TextField("Search gestures or actions",text:$search)
+                .textFieldStyle(.roundedBorder)
+                .accessibilityLabel("Search gestures or actions")
+            ScrollView {
+                VStack(alignment:.leading,spacing:18) {
+                    ForEach(groups,id:\.self) { group in
+                        let items = GesturePane.allCases.filter { $0.group == group && matching($0) }
+                        if !items.isEmpty {
+                            VStack(alignment:.leading,spacing:5) {
+                                Text(group.uppercased()).font(.caption2).fontWeight(.semibold).foregroundStyle(.secondary).padding(.horizontal,8)
+                                ForEach(items) { item in navigationItem(item) }
+                            }
+                        }
+                    }
+                    if !GesturePane.allCases.contains(where:matching) {
+                        Text("No matching gestures").font(.callout).foregroundStyle(.secondary).padding(8)
+                    }
                 }
             }
-            Slider(value:Binding(get:{value ?? settings.left[kind]},set:{
-                controller.setSensitivity($0,kind:kind,scope:editingHand)
-            }),in:0.25...2,step:0.01)
+            Text("\(scopeText) settings\nOnly available gestures are shown.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
+        .padding(16)
+        .background(Color.primary.opacity(0.025))
     }
 
+    private func navigationItem(_ item:GesturePane) -> some View {
+        Button {
+            pane = item
+            selected = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
+        } label: {
+            HStack(alignment:.top,spacing:8) {
+                Circle().fill(pane == item ? Color.accentColor : Color.secondary.opacity(0.5)).frame(width:6,height:6).padding(.top,6)
+                VStack(alignment:.leading,spacing:3) {
+                    Text(item.title).font(.system(size:13,weight:pane == item ? .semibold : .regular))
+                    if item.isPinchSection { Text("Thumb required").font(.caption2).foregroundStyle(.secondary) }
+                }
+                Spacer(minLength:0)
+            }
+            .frame(maxWidth:.infinity,alignment:.leading).padding(10)
+            .background(pane == item ? Color.accentColor.opacity(0.13) : .clear,in:RoundedRectangle(cornerRadius:8))
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(item.group), \(item.title)")
+        .accessibilityAddTraits(pane == item ? [.isSelected] : [])
+    }
+
+    private var header: some View {
+        VStack(alignment:.leading,spacing:12) {
+            Text("Gestures / \(scopeText)").font(.caption).foregroundStyle(.secondary)
+            HStack(alignment:.top) {
+                VStack(alignment:.leading,spacing:6) {
+                    Text(pane.group).font(.system(size:25,weight:.semibold))
+                    Text(pane.title).font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer()
+                GestureChordIcon(gesture:pane).padding(.leading,8)
+            }
+            ViewThatFits(in:.horizontal) {
+                HStack(spacing:8) { metadata }
+                VStack(alignment:.leading,spacing:8) { metadata }
+            }
+            Text(pane.summary).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    @ViewBuilder private var metadata: some View {
+        chip(pane.contactLabel)
+        chip(pane.arrangementLabel)
+    }
+    private func chip(_ text:String) -> some View {
+        Text(text).font(.caption2).foregroundStyle(.secondary).padding(.horizontal,8).padding(.vertical,6)
+            .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:6))
+    }
+
+    private var assignments: some View {
+        VStack(alignment:.leading,spacing:12) {
+            Text(pane.isPinchSection ? "SCALE ASSIGNMENTS" : "ASSIGNMENTS")
+                .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
+            if pane.isPinchSection {
+                LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
+                    ForEach(pane.triggers) { assignmentCard($0) }
+                }
+            } else {
+                ForEach(pane.triggers.filter { $0.isContinuous }) { assignmentCard($0) }
+                LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
+                    ForEach(pane.triggers.filter { !$0.isContinuous }) { assignmentCard($0) }
+                }
+            }
+        }
+    }
+    private func assignmentCard(_ trigger:GestureTrigger) -> some View {
+        let assigned = settings.action(trigger,in:editingHand)
+        return Button { selected = trigger } label: {
+            VStack(alignment:.leading,spacing:10) {
+                HStack {
+                    Image(systemName:trigger.assignmentSymbol).foregroundStyle(.secondary)
+                    Text(trigger.assignmentTitle).font(.callout).foregroundStyle(.secondary)
+                    Spacer(minLength:0)
+                }
+                Text(assigned?.title ?? "Mixed").font(.system(size:17,weight:.medium)).fixedSize(horizontal:false,vertical:true)
+                Text(trigger.behavior(for:assigned)).font(.caption).foregroundStyle(.secondary)
+            }
+            .padding(18).frame(maxWidth:.infinity,minHeight:112,alignment:.topLeading)
+            .background(selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
+            .overlay(RoundedRectangle(cornerRadius:10).stroke(selected == trigger ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
+            .contentShape(RoundedRectangle(cornerRadius:10))
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel("\(trigger.assignmentTitle), \(assigned?.title ?? "Mixed")")
+        .accessibilityAddTraits(selected == trigger ? [.isSelected] : [])
+    }
+
+    private var lifecycle: some View {
+        VStack(alignment:.leading,spacing:10) {
+            Text("SESSION LIFETIME").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
+            HStack(alignment:.top,spacing:12) {
+                lifetimeCard("Hold",symbol:"pause",detail:action == .primaryDrag ? "The mouse button stays down during an active drag." : "No separate hold gesture is available for this chord.")
+                lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
+            }
+        }
+    }
+    private func lifetimeCard(_ title:String,symbol:String,detail:String) -> some View {
+        VStack(alignment:.leading,spacing:8) {
+            Label(title,systemImage:symbol).font(.callout).foregroundStyle(.secondary)
+            Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            Text("Automatic · not assignable").font(.caption2).foregroundStyle(.tertiary)
+        }
+        .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
+        .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
+    }
+
+    private var inspector: some View {
+        ScrollView {
+            VStack(alignment:.leading,spacing:20) {
+                VStack(alignment:.leading,spacing:8) {
+                    Text("SELECTED ASSIGNMENT").font(.caption2).fontWeight(.medium).foregroundStyle(.secondary)
+                    Text(selected.assignmentTitle).font(.title3).bold()
+                    Text("\(pane.group) · \(scopeText)").font(.caption).foregroundStyle(.secondary)
+                }
+                GestureActionPickerRow(trigger:selected,value:action,
+                    leftAction:settings.left.bindings.action(for:selected),
+                    rightAction:settings.right.bindings.action(for:selected),
+                    status:status(selected,editingHand),showsStatus:true) { value in
+                        apply(value,selected,editingHand)
+                    }
+                Divider()
+                VStack(alignment:.leading,spacing:8) {
+                    Text("Behavior").font(.caption).foregroundStyle(.secondary)
+                    Text(selected.behavior(for:action)).font(.callout).fontWeight(.medium)
+                    Text(behaviorDetail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                }
+                if let action {
+                    if action.requiresPointerProfile { sensitivity("Pointer sensitivity",kind:.pointer) }
+                    if action == .scroll { sensitivity("Scroll sensitivity",kind:.scroll) }
+                    if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
+                }
+                VStack(alignment:.leading,spacing:10) {
+                    Text("Recognition").font(.callout).fontWeight(.medium)
+                    Text(selected.recognitionNote).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                }
+                .padding(14).background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:9))
+                Text("Changes save automatically and are included in keymap exports.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            .padding(20)
+        }
+        .background(Color.primary.opacity(0.025))
+    }
+    private var behaviorDetail:String {
+        guard let action, action != .disabled else { return "Choose an action to enable this input for the selected trackpad." }
+        if action.isAppleShortcut { return selected.isPinch ? "Fires once when the gesture activates. Continuing or reversing the motion does not fire again before all-up." : "Fires once when this tap or pressure gesture is recognized." }
+        switch action {
+        case .primaryDrag: return "Holds the primary mouse button through the drag, using the same pointer acceleration as mouse movement."
+        case .scroll: return "Precise scrolling follows motion, with momentum after release."
+        case .zoom: return "Continuous native magnification follows scale changes. The active action stays latched until all-up."
+        case .pointer: return "Pointer movement follows the selected trackpad's Apple acceleration profile."
+        default: return "A completed recognition sends one balanced click sequence."
+        }
+    }
+    private func sensitivity(_ title:String,kind:GestureSensitivity) -> some View {
+        let value = settings.sensitivity(kind,in:editingHand) ?? 1
+        return VStack(alignment:.leading,spacing:8) {
+            HStack {
+                Text(title).font(.caption)
+                Spacer()
+                Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
+            }
+            Slider(value:Binding(get:{value},set:{setSensitivity(($0 * 100).rounded() / 100,kind,editingHand)}),in:0.25...2)
+                .accessibilityLabel(title)
+            Text("Shared by all \(kind == .zoom ? "zoom" : kind == .scroll ? "scroll" : "pointer and drag") gestures on the \(editingHand.rawValue.lowercased()) trackpad.")
+                .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
+    }
 }

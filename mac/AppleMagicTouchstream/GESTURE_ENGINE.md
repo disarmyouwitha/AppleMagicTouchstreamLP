@@ -449,3 +449,33 @@ to keyboard-chord ownership; no profile or capture schema changes.
 Offline regression covers repeated same-pad modified taps on either pad, combined
 modifiers, hold-assigned Shift, opposite-pad reservation, both release orders,
 reset and restoring gesture eligibility after all-up.
+
+## Expanded assignment workspace (2026-10-24)
+
+The Gestures tab now replaces the trackpad/visualizer area with a chord browser,
+assignment canvas and selected-action inspector. Keyboard returns to the original
+keymap/trackpad editor. Device selectors and the takeover checkbox remain available
+above the gesture workspace, so emergency/ownership controls are not hidden.
+
+Only current GesturePane/GestureTrigger inputs appear: taps, existing XY movement,
+1–5 contact force clicks, thumb-required pinch/spread and thumb+two-fingertip tap.
+Every existing input appears once. Chord illustration anatomy is illustrative;
+no new compact/spread classifier or directional/rotation input is introduced.
+The workspace retains the anatomical colors and contact-only examples.
+
+The user requested Left/Right only. They edit independent per-pad settings, using
+the existing controller and persistence path. No Both selector and no coordinated
+two-hand inputs are offered. The underlying saved both-hand editing API remains
+compatible, but is not a coordinated gesture recognizer.
+
+Select an assignment card to change its existing Action menu. Behavior is a
+read-only description of that action's implemented output. Pointer, scroll and
+zoom sliders retain their existing per-hand shared scope. Hold/Lift cards explain
+existing lifetime and mandatory release behavior; they are not new assignable
+recognizers. Action changes, reset behavior and keymap gesture import/export are
+unchanged. Runtime status/permission failures remain visible in the inspector.
+
+Offline tests verify full one-to-one trigger coverage, behavior descriptions and
+native SwiftUI rendering without input clients. Optional AMT_WORKSPACE_PREVIEW_DIR
+writes the value-only rendered layouts for visual inspection. No live input or
+new settings are enabled by rendering.

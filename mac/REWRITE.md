@@ -7,10 +7,22 @@ TouchStream_for_Mac_vs_Utility_1.60.pdf
 
 * Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right) after we get the GUI set up for that!
 ===
+0. ^
+1. Can we add a "mirror left/right" toggle or checkbox somewhere to handle "both" and we can handle the extra 2-pad recognition later
+2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
+“Both” means coordinated two-hand input, not the same gesture enabled
+independently on both pads." and you said:
+> "I’ll build the expanded gesture workspace around the gestures we already support, keeping recognition and defaults unchanged. The guide’s “Both” means coordinated two-hand input; I’ll distinguish that from editing the same settings on both pads.
+
+For the hand selector, I recommend Left / Right / Both pads, where Both pads edits the existing independent per-pad settings. Coordinated two-hand gestures would stay out of this pass because they need new recognition. Is that what you want?"
+
+I would like to implement this now!
+===
 
 `AppleMagicTouchstream`:
 ===
 0. ! Drag frame between left/right column to adjust width!!
+1. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. Feel out 4 finger latching? Might need a delay like in windows?
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)

@@ -728,31 +728,38 @@ struct ContentView: View {
 
     @ViewBuilder
     private var mainLayout: some View {
-        HStack(alignment: .top, spacing: 0) {
-            GeometryReader { viewport in
-                ScrollView([.horizontal, .vertical]) {
-                    VStack(alignment: .leading, spacing: 16) {
-                        if let state = viewModel.replayTimelineState { replayTimelineView(state) }
-                        devicesSectionView
-                        trackpadSectionView
-                    }
-                    .frame(width: trackpadSize.width * 2 + 40, alignment: .leading)
-                    .padding(20)
-                    .frame(minWidth: viewport.size.width, minHeight: viewport.size.height, alignment: .topLeading)
-                }
+        VStack(spacing:0) {
+            HStack {
+                Text("AppleMagicTouchstream").font(.headline)
+                Spacer()
+                EqualWidthInspectorPicker(selection:$inspectorTab).frame(width:260)
             }
+            .padding(.horizontal,20).padding(.vertical,12)
             Divider()
-            VStack(spacing: 12) {
-                EqualWidthInspectorPicker(selection: $inspectorTab)
-                    .frame(maxWidth: .infinity)
-                if inspectorTab == "Gestures" {
-                    GestureInspectorPanel(controller: viewModel.gestures, takeover: nativeTakeover)
-                } else {
-                    rightSidebarView
+            if inspectorTab == "Gestures" {
+                VStack(spacing:0) {
+                    devicesSectionView.padding(.horizontal,20).padding(.vertical,12)
+                    Divider()
+                    GestureInspectorPanel(controller:viewModel.gestures,takeover:nativeTakeover)
+                }
+            } else {
+                HStack(alignment:.top,spacing:0) {
+                    GeometryReader { viewport in
+                        ScrollView([.horizontal,.vertical]) {
+                            VStack(alignment:.leading,spacing:16) {
+                                if let state = viewModel.replayTimelineState { replayTimelineView(state) }
+                                devicesSectionView
+                                trackpadSectionView
+                            }
+                            .frame(width:trackpadSize.width * 2 + 40,alignment:.leading)
+                            .padding(20)
+                            .frame(minWidth:viewport.size.width,minHeight:viewport.size.height,alignment:.topLeading)
+                        }
+                    }
+                    Divider()
+                    rightSidebarView.frame(width:420).padding(16)
                 }
             }
-            .frame(width: 420)
-            .padding(16)
         }
     }
 
