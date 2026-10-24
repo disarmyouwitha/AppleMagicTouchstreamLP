@@ -155,11 +155,11 @@ struct GestureChordIcon: View {
                     TimelineView(.animation(minimumInterval:1.0/12,paused:reduceMotion || scenePhase == .background)) { timeline in
                         let phase = reduceMotion || scenePhase == .background ? 0.5
                             : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:1.2)/1.2
-                        drawing(example,phase:phase).frame(width:44,height:44)
+                        drawing(example,phase:phase).frame(width:33,height:33)
                     }
                     Text(example.rawValue).font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
                 }
-                .frame(width:46,height:58)
+                .frame(width:36,height:47)
             }
         }
         .accessibilityHidden(true)
