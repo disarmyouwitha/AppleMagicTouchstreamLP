@@ -76,8 +76,8 @@ Keymap appears directly under Mode Toggles in the scrolling Keyboard column. Ges
 chord examples and Left/Right/Both Action menus. Keyboard retains the existing
 layout, column, keymap, haptics and tuning controls. Both shows Mixed assignments;
 choosing an action applies to both. Factory settings start mirrored.
-In Both scope, each finger-count heading places the left-hand diagram before the
-label and the right-hand diagram after it. Clicking a subsection label or its disclosure arrow toggles expansion.
+In Both scope, each gesture subsection places the left-hand diagram before its
+label and the right-hand diagram after it; finger-count headings are text-only. Clicking a subsection label or its disclosure arrow toggles expansion.
 Gesture subsections start collapsed
 except two-finger Tap and Move. Each 2–5-finger group has a separate Pinch and Spread subsection; two-finger Tap and
 Move contains tap, force click and movement in that order. Force click appears
@@ -297,3 +297,8 @@ Pinch owns the cycle, label fluctuations, lifting the thumb, count changes and
 motion reversal retain the original action/latch until all-up under the existing
 integrity/lifecycle safeguards. Tests cover every count, unknown/non-thumb labels,
 thumb lift/relabel, spread without a thumb, and pointer fallback.
+
+Hand indicators are attached to each clickable subsection (Tap and Move, Pinch
+and Spread, and the other action groups), not the finger-count headings. Pinch /
+Spread examples show thumb plus 1–4 fingertips for counts 2–5. Tap/move examples
+retain their existing fingertip diagrams and the fixed anatomical palette.

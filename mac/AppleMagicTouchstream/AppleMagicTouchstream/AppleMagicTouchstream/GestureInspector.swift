@@ -58,8 +58,10 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var activeFingers: Set<Int> {
         switch self {
         case .oneFinger: return [1]; case .fiveFingers, .fiveFingerPinch: return [0,1,2,3,4]
-        case .twoFingers, .twoFingerPinch: return [1,2]; case .threeFingers, .threeFingerPinch: return [1,2,3]
-        case .fourFingers, .fourFingerPinch: return [1,2,3,4]; case .thumbTwo: return [0,2,3]
+        case .twoFingers: return [1,2]; case .twoFingerPinch: return [0,1]
+        case .threeFingers: return [1,2,3]; case .threeFingerPinch: return [0,1,2]
+        case .fourFingers: return [1,2,3,4]; case .fourFingerPinch: return [0,1,2,3]
+        case .thumbTwo: return [0,2,3]
         }
     }
 }
@@ -88,13 +90,13 @@ struct GestureSidebar<Options: View>: View {
                 VStack(alignment:.leading,spacing:20) {
                     ForEach(GesturePane.allCases) { gesture in
                         VStack(alignment:.leading,spacing:10) {
-                            if !gesture.isPinchSection { gestureHeader(gesture) }
+                            if !gesture.isPinchSection { Text(gesture.group).font(.headline) }
                             DisclosureGroup(isExpanded:Binding(
                                 get:{expanded.contains(gesture)},
                                 set:{if $0 { expanded.insert(gesture) } else { expanded.remove(gesture) }})) {
                                 options(gesture).padding(.top,8)
                             } label: {
-                                Text(gesture.title).font(.system(size:14,weight:.medium))
+                                gestureSubheader(gesture)
                                     .frame(maxWidth:.infinity,alignment:.leading)
                                     .contentShape(Rectangle())
                                     .onTapGesture {
@@ -118,14 +120,14 @@ struct GestureSidebar<Options: View>: View {
         .background(Color(nsColor:.windowBackgroundColor))
     }
 
-    private func gestureHeader(_ gesture: GesturePane) -> some View {
+    private func gestureSubheader(_ gesture: GesturePane) -> some View {
         HStack(spacing:8) {
             GestureChordIcon(gesture:gesture,hand:hand == .both ? .left : hand,selected:false)
-                .frame(width:48,height:28)
-            Text(gesture.group).font(.headline)
+                .frame(width:40,height:26)
+            Text(gesture.title).font(.system(size:14,weight:.medium))
             if hand == .both {
                 GestureChordIcon(gesture:gesture,hand:.right,selected:false)
-                    .frame(width:48,height:28)
+                    .frame(width:40,height:26)
             }
         }
     }

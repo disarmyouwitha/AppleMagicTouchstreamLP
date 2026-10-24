@@ -11,6 +11,8 @@
 
 
 `AppleMagicTouchstream`:
+* Add small step volu/vold actions for gestures
+* Add small step briu/brid actions for gestures
 0. i am getting stuck in mo(1) when I use my layer button on LHS and tap a number on my RHS I will get stuck in mo(1) until I do/release a gesture on my LHS
 1. spread/pinch might be interfering with taps?
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
