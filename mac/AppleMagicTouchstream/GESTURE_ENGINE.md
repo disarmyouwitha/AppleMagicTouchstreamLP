@@ -558,3 +558,9 @@ and scale examples. This is illustration geometry, not a recognition constraint.
 Four-finger scroll now cycles down/up/fade, then right/left/fade, over 11.2 seconds;
 contacts stay down through each reversal and lift between the two axes. Two-finger
 movement retains separate downward and rightward strokes with a fade after each.
+
+Demonstrations use elapsed time from their own playback start, rather than a shared
+wall-clock phase. Restart at the beginning when the view appears, the selected
+input/family changes, the window becomes visible again, or Reduce Motion is turned
+off. Hidden-window playback stays paused; deterministic previews retain their
+explicit phase and Reduce Motion retains its static representative pose.

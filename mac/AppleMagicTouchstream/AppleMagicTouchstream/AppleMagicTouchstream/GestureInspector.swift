@@ -78,19 +78,30 @@ struct GestureChordIcon: View {
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var windowVisible = false
+    @State private var playbackStartedAt = Date()
 
     var body: some View {
         VStack(spacing:6) {
             TimelineView(.animation(minimumInterval:strokeExample ? 1.0/60 : 1.0/30,
                                     paused:previewPhase != nil || reduceMotion || !windowVisible)) { timeline in
-                let phase = previewPhase ?? (reduceMotion || !windowVisible ? 0.5
-                    : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:cycleDuration)/cycleDuration)
+                let elapsed = max(0,timeline.date.timeIntervalSince(playbackStartedAt))
+                let phase = previewPhase ?? (reduceMotion ? 0.5 : !windowVisible ? 0
+                    : elapsed.truncatingRemainder(dividingBy:cycleDuration)/cycleDuration)
                 Canvas { context, size in draw(&context,size:size,phase:phase) }
                     .frame(width:180,height:116)
             }
             Text(fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle).font(.caption2).foregroundStyle(.secondary)
         }
-        .background(GestureExampleWindowVisibility { windowVisible = $0 }.frame(width:0,height:0))
+        .background(GestureExampleWindowVisibility { visible in
+            windowVisible = visible
+            if visible { playbackStartedAt = Date() }
+        }.frame(width:0,height:0))
+        .onAppear { playbackStartedAt = Date() }
+        .onChange(of:trigger) { _ in playbackStartedAt = Date() }
+        .onChange(of:gesture) { _ in playbackStartedAt = Date() }
+        .onChange(of:reduceMotion) { reduced in
+            if !reduced { playbackStartedAt = Date() }
+        }
         .accessibilityElement(children:.ignore)
         .accessibilityLabel("\(gesture.contactLabel): \(trigger.assignmentTitle) demonstration")
     }
