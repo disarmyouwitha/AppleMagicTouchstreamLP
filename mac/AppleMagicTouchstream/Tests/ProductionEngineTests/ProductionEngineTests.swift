@@ -121,6 +121,30 @@ final class ProductionEngineTests: XCTestCase {
             XCTAssertTrue(next?.touches.contains(where:{$0.reason == "gestureReserved"}) ?? false)
         }
     }
+    func testStartingLayerContactKeepsKeyboardPriorityThroughSamePadTaps() throws {
+        for side in [0, 1] {
+            let run = session(labels: ["MO(1)", "F"])
+            let key = GridKeyPosition(side: side == 0 ? .left : .right, row: 0, column: 1).storageKey
+            run.engine.updateKeyMappings([1: [key: KeyMapping(
+                primary: try XCTUnwrap(KeyActionCatalog.action(for: "Left")), hold: nil)]])
+            // The failing capture starts MO with .starting, then .making.
+            // Earlier successful cycles begin directly with .making.
+            XCTAssertEqual(frame(run, 1, [contact(state: .starting)], side: side)?.activeLayer, 1)
+            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+            frame(run, 1.01, [contact(state: .making)], side: side)
+            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+            for time in [1.1, 1.3] {
+                XCTAssertEqual(frame(run, time, [contact(), contact(2, key: 1, state: .making)],
+                                     side: side, reserved: true)?.activeLayer, 1)
+                XCTAssertEqual(frame(run, time + 0.04, [contact(), contact(2, key: 1, state: .breaking)],
+                                     side: side, reserved: true)?.activeLayer, 1)
+            }
+            XCTAssertEqual(keys(run), Array(repeating: "tap:\(kVK_LeftArrow):0", count: 2))
+            XCTAssertEqual(frame(run, 1.5, [], side: side, reserved: true)?.activeLayer, 0)
+            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+        }
+    }
+
     func testLayerKeyboardOwnershipEndsOnResetAndSurvivesLayerFingerLiftingFirst() {
         let run = session(labels:["MO(1)","F"])
         frame(run,1,[contact(state:.making)])

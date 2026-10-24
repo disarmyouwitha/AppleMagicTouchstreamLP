@@ -422,3 +422,14 @@ display/audio device, as with the keyboard controls.
 
 Apple documents Option–Shift fine adjustments in
 [Mac keyboard shortcuts](https://support.apple.com/en-us/102650).
+
+### MO starting-frame ownership fix (2026-10-24)
+
+The same_hand_layer_bug capture shows successful cycles beginning with `making`
+and failed cycles beginning with `starting` (first failure at sequence 1150).
+MO activates in either state. Cycle cleanup must also count `starting` as contact,
+or it drops keyboard ownership on the activation frame and the next same-pad
+finger reserves a gesture, cancelling the held layer. Both production frame paths
+and native layer suspension now use matching contact phases. Offline regression
+covers starting → making → repeated same-pad arrow taps on either pad, followed
+by all-up cleanup; the test fails before this correction.

@@ -1109,7 +1109,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
-        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+        // MO also activates on .starting; that frame must retain keyboard ownership.
+        if !touches.contains(where: { Self.isContactState($0.state) }) {
             layerKeyboardDevices.remove(deviceIndex)
         }
         return makeFrameDiagnostic(
@@ -1196,7 +1197,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
-        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+        // MO also activates on .starting; that frame must retain keyboard ownership.
+        if !touches.contains(where: { Self.isContactState($0.state) }) {
             layerKeyboardDevices.remove(deviceIndex)
         }
         return makeFrameDiagnostic(
@@ -1231,7 +1233,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func finishGestureKeyboardCycle<C: Collection>(deviceIndex: Int, touches: C) where C.Element == OMSRawTouch {
-        guard !touches.contains(where: { $0.state == .making || $0.state == .touching }) else { return }
+        guard !touches.contains(where: { Self.isContactState($0.state) }) else { return }
         // Native streams can end with an empty frame instead of terminal records.
         // Release disqualification marks too; they no longer have touchStates.
         touchRemovalBuffer.removeAll(keepingCapacity: true)
@@ -1276,7 +1278,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         for key in touchRemovalBuffer { intentState.touches.remove(key) }
         intentState.mode = intentState.touches.isEmpty ? .idle : .typingCommitted(untilAllUp:true)
         updateIntentDisplayIfNeeded()
-        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+        if !touches.contains(where: { Self.isContactState($0.state) }) {
             gestureKeyboardDevices.remove(deviceIndex)
         }
         return true

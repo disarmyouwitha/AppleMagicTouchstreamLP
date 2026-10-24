@@ -274,7 +274,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.layerKeyboardDevices.insert(device)
             }
             state.keyboardArbitration.reset(device:device)
-            if !frame.touches.contains(where:{$0.state == .making || $0.state == .touching}) {
+            if !frame.touches.contains(where:{$0.state == .starting || $0.state == .making || $0.state == .touching}) {
                 _ = state.forceClicks.recognize(device:device,time:frame.timestamp,contacts:frame.touches,enabled:{_ in false})
                 _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
                 _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,
