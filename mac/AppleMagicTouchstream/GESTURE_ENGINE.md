@@ -502,3 +502,13 @@ Narrow Keyboard menus stack labels and controls below 380 points. The old inner
 available width and the menu scrolls vertically. Each column width remains persistent. Import/Export stack vertically below the
 same 380-point breakpoint and remain equal-width side-by-side above it. Mode
 Toggles uses one vertical column at every width.
+
+### Mirrored editing (2026-10-24)
+
+Mirror left/right is a persistent, default-off editor preference beside the Gestures
+heading, above the hand selector. It disables the single-hand selector and routes action and sensitivity
+edits through the existing both-pad settings scope. It does not copy settings on
+enable: differing assignments/gains show Mixed until edited. Turning it off
+restores the selected single-hand editor. Recognition remains independent per pad;
+this is not coordinated two-hand recognition. The preference is app-local; the
+resulting per-hand bindings/gains still round-trip with keymaps.

@@ -269,6 +269,7 @@ struct GestureAssignmentWorkspace: View {
     let status: (GestureTrigger,GestureHandScope) -> String
     let apply: (GestureAction,GestureTrigger,GestureHandScope) -> Void
     let setSensitivity: (Double,GestureSensitivity,GestureHandScope) -> Void
+    @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
     @State private var pane: GesturePane
     @State private var selected: GestureTrigger
@@ -285,11 +286,13 @@ struct GestureAssignmentWorkspace: View {
         _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
     }
 
-    private var action: GestureAction? { settings.action(selected,in:editingHand) }
-    private var scopeText: String { "\(editingHand.rawValue) trackpad" }
+    private var editingScope: GestureHandScope { mirrorEdits ? .both : editingHand }
+    private var action: GestureAction? { settings.action(selected,in:editingScope) }
+    private var scopeText: String { mirrorEdits ? "Left + Right trackpads" : "\(editingHand.rawValue) trackpad" }
+    private var targetText: String { mirrorEdits ? "both trackpads" : "the \(editingHand.rawValue.lowercased()) trackpad" }
     private var groups: [String] { Array(NSOrderedSet(array:GesturePane.allCases.map(\.group))) as? [String] ?? [] }
     private func matching(_ item:GesturePane) -> Bool {
-        search.isEmpty || "\(item.group) \(item.title) \(item.summary) \(item.triggers.map { settings.action($0,in:editingHand)?.title ?? "" }.joined(separator:" "))"
+        search.isEmpty || "\(item.group) \(item.title) \(item.summary) \(item.triggers.map { settings.action($0,in:editingScope)?.title ?? "" }.joined(separator:" "))"
             .localizedCaseInsensitiveContains(search)
     }
     var body: some View {
@@ -309,7 +312,7 @@ struct GestureAssignmentWorkspace: View {
                         Divider()
                         assignments
                         lifecycle
-                        Text("Choose a card to edit its action. Settings apply only to the \(editingHand.rawValue.lowercased()) trackpad.")
+                        Text("Choose a card to edit its action. Changes apply to \(targetText).")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                     }
                     .padding(24)
@@ -327,7 +330,14 @@ struct GestureAssignmentWorkspace: View {
 
     private var navigation: some View {
         VStack(alignment:.leading,spacing:16) {
-            Text("Gestures").font(.title3).bold()
+            HStack(alignment:.firstTextBaseline,spacing:8) {
+                Text("Gestures").font(.title3).bold().layoutPriority(1)
+                Spacer(minLength:0)
+                Toggle("Mirror left/right", isOn:$mirrorEdits)
+                    .toggleStyle(.checkbox)
+                    .font(.caption)
+                    .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")
+            }
             Picker("Edit trackpad",selection:$editingHand) {
                 Text("Left").tag(GestureHandScope.left)
                 Text("Right").tag(GestureHandScope.right)
@@ -335,7 +345,8 @@ struct GestureAssignmentWorkspace: View {
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(maxWidth:.infinity)
-            .help("Edit one trackpad's independent gesture settings. No coordinated two-hand gestures are configured here.")
+            .disabled(mirrorEdits)
+            .help("Choose which trackpad to edit when mirroring is off.")
             TextField("Search gestures or actions",text:$search)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Search gestures or actions")
@@ -428,7 +439,7 @@ struct GestureAssignmentWorkspace: View {
         }
     }
     private func assignmentCard(_ trigger:GestureTrigger) -> some View {
-        let assigned = settings.action(trigger,in:editingHand)
+        let assigned = settings.action(trigger,in:editingScope)
         return Button { selected = trigger } label: {
             VStack(alignment:.leading,spacing:10) {
                 HStack {
@@ -479,8 +490,8 @@ struct GestureAssignmentWorkspace: View {
                 GestureActionPickerRow(trigger:selected,value:action,
                     leftAction:settings.left.bindings.action(for:selected),
                     rightAction:settings.right.bindings.action(for:selected),
-                    status:status(selected,editingHand),showsStatus:true) { value in
-                        apply(value,selected,editingHand)
+                    status:status(selected,editingScope),showsStatus:true) { value in
+                        apply(value,selected,editingScope)
                     }
                 Divider()
                 VStack(alignment:.leading,spacing:8) {
@@ -517,16 +528,16 @@ struct GestureAssignmentWorkspace: View {
         }
     }
     private func sensitivity(_ title:String,kind:GestureSensitivity) -> some View {
-        let value = settings.sensitivity(kind,in:editingHand) ?? 1
+        let value = settings.sensitivity(kind,in:editingScope) ?? 1
         return VStack(alignment:.leading,spacing:8) {
             HStack {
                 Text(title).font(.caption)
                 Spacer()
-                Text(String(format:"%.2f×",value)).font(.caption).monospacedDigit()
+                Text(settings.sensitivity(kind,in:editingScope) == nil ? "Mixed" : String(format:"%.2f×",value)).font(.caption).monospacedDigit()
             }
-            Slider(value:Binding(get:{value},set:{setSensitivity(($0 * 100).rounded() / 100,kind,editingHand)}),in:0.25...2)
+            Slider(value:Binding(get:{value},set:{setSensitivity(($0 * 100).rounded() / 100,kind,editingScope)}),in:0.25...2)
                 .accessibilityLabel(title)
-            Text("Shared by all \(kind == .zoom ? "zoom" : kind == .scroll ? "scroll" : "pointer and drag") gestures on the \(editingHand.rawValue.lowercased()) trackpad.")
+            Text("Shared by all \(kind == .zoom ? "zoom" : kind == .scroll ? "scroll" : "pointer and drag") gestures on \(targetText).")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
