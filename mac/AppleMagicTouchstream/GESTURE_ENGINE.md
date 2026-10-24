@@ -433,3 +433,19 @@ finger reserves a gesture, cancelling the held layer. Both production frame path
 and native layer suspension now use matching contact phases. Offline regression
 covers starting → making → repeated same-pad arrow taps on either pad, followed
 by all-up cleanup; the test fails before this correction.
+
+### Established modifier keyboard priority (2026-10-24)
+
+User-authorized extension of MO priority: a modifier owns its originating pad's
+keyboard chord after its key-down has been dispatched. This includes Shift, Ctrl,
+Option/AltGr, Cmd, Hyper and modifier-only combinations, as primary or explicit
+hold actions. Pending ordinary keys do not claim ownership. Same-pad gesture
+reservation and native output stay suspended through all-up; the opposite pad
+remains independent. Lifting the modifier releases its flags immediately, while
+remaining contacts retain keyboard priority until all-up. Reset clears ownership
+and balances held modifiers. Internal layer-only ownership names are generalized
+to keyboard-chord ownership; no profile or capture schema changes.
+
+Offline regression covers repeated same-pad modified taps on either pad, combined
+modifiers, hold-assigned Shift, opposite-pad reservation, both release orders,
+reset and restoring gesture eligibility after all-up.

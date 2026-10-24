@@ -526,13 +526,13 @@ final class RuntimeCore: RuntimeCoreBoundary, @unchecked Sendable {
         captureRenderSnapshot: Bool,
         liveGestures: Bool = false
     ) -> RuntimeFrameProcessingResult {
-        let layerKeyboard = processor.layerKeyboardOwnsCycle(deviceIndex:frame.deviceIndex)
-        let suppressKeyboard = liveGestures && !layerKeyboard && InterpretedTrackpadPointer.shared.reserveKeyboard(frame)
+        let keyboardChord = processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex)
+        let suppressKeyboard = liveGestures && !keyboardChord && InterpretedTrackpadPointer.shared.reserveKeyboard(frame)
         let diagnostic = processor.processRawFrame(frame, suppressKeyboard: suppressKeyboard)
         // Release pending keyboard modifiers/holds before preparing gesture output.
         if liveGestures {
-            if layerKeyboard || processor.layerKeyboardOwnsCycle(deviceIndex:frame.deviceIndex) {
-                InterpretedTrackpadPointer.shared.suspendForLayerKeyboard(frame)
+            if keyboardChord || processor.keyboardChordOwnsCycle(deviceIndex:frame.deviceIndex) {
+                InterpretedTrackpadPointer.shared.suspendForKeyboardChord(frame)
             } else {
                 InterpretedTrackpadPointer.shared.process(frame)
             }

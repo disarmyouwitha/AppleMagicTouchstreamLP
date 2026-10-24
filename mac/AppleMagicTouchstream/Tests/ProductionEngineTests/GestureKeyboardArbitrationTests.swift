@@ -81,19 +81,20 @@ final class GestureKeyboardArbitrationTests: XCTestCase {
         run.finish(at: 2)
         XCTAssertTrue(run.output.events.isEmpty)
     }
-    func testClaimBalancesAlreadyHeldModifierBeforeSuppressingRemainingCycle() {
+    func testEstablishedModifierKeepsKeyboardPriorityAndBalancesRelease() {
         let run = session()
         frame(run, 1, [touch(1, shift: true, state: .making)])
         frame(run, 1.03, [touch(1, shift: true), touch(2)], reserved: true)
-        frame(run, 1.06, [touch(1, shift: true, state: .breaking), touch(2, state: .breaking)])
-        frame(run, 1.07, [])
+        frame(run, 1.06, [touch(1, shift: true), touch(2, state: .breaking)], reserved: true)
+        frame(run, 1.07, [touch(1, shift: true, state: .breaking)], reserved: true)
+        frame(run, 1.08, [])
         run.finish(at: 2)
         let edges = run.output.events.compactMap { event -> Bool? in
             if case let .key(code, _, down, _) = event.kind, code == kVK_Shift { return down }
             return nil
         }
         XCTAssertEqual(edges, [true, false])
-        XCTAssertTrue(keyCodes(run).isEmpty)
+        XCTAssertEqual(keyCodes(run), [CGKeyCode(kVK_ANSI_F)])
     }
     func testOtherHandKeepsTypingAndOneFingerWorksAfterReservedCycle() {
         let run = session()

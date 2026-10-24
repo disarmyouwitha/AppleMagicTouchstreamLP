@@ -103,8 +103,8 @@ final class ProductionEngineTests: XCTestCase {
             let key = GridKeyPosition(side:side == 0 ? .left : .right,row:0,column:1).storageKey
             run.engine.updateKeyMappings([1:[key:KeyMapping(primary:try XCTUnwrap(KeyActionCatalog.action(for:"Left")),hold:nil)]])
             XCTAssertEqual(frame(run,1,[contact(state:.making)],side:side)?.activeLayer,1)
-            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:side))
-            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:1-side))
+            XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex:side))
+            XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex:1-side))
             // Model a multi-finger reservation request: an established layer
             // hold must take keyboard priority instead of being cancelled.
             XCTAssertEqual(frame(run,1.02,[contact(),contact(2,key:1,state:.making)],side:side,reserved:true)?.activeLayer,1)
@@ -114,7 +114,7 @@ final class ProductionEngineTests: XCTestCase {
             frame(run,1.05,[contact(3),contact(4,key:1)],side:1-side,reserved:true)
             XCTAssertEqual(frame(run,1.06,[contact()],side:side,reserved:true)?.activeLayer,1)
             XCTAssertEqual(frame(run,1.08,[],side:side,reserved:true)?.activeLayer,0)
-            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:side))
+            XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex:side))
             XCTAssertEqual(keys(run),["tap:\(kVK_LeftArrow):0"])
             // Normal gesture reservation resumes for the next cycle.
             let next = frame(run,1.10,[contact(5),contact(6,key:1)],side:side,reserved:true)
@@ -130,9 +130,9 @@ final class ProductionEngineTests: XCTestCase {
             // The failing capture starts MO with .starting, then .making.
             // Earlier successful cycles begin directly with .making.
             XCTAssertEqual(frame(run, 1, [contact(state: .starting)], side: side)?.activeLayer, 1)
-            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+            XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
             frame(run, 1.01, [contact(state: .making)], side: side)
-            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+            XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
             for time in [1.1, 1.3] {
                 XCTAssertEqual(frame(run, time, [contact(), contact(2, key: 1, state: .making)],
                                      side: side, reserved: true)?.activeLayer, 1)
@@ -141,7 +141,7 @@ final class ProductionEngineTests: XCTestCase {
             }
             XCTAssertEqual(keys(run), Array(repeating: "tap:\(kVK_LeftArrow):0", count: 2))
             XCTAssertEqual(frame(run, 1.5, [], side: side, reserved: true)?.activeLayer, 0)
-            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex: side))
+            XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
         }
     }
 
@@ -150,13 +150,13 @@ final class ProductionEngineTests: XCTestCase {
         frame(run,1,[contact(state:.making)])
         frame(run,1.02,[contact(),contact(2,key:1,state:.making)],reserved:true)
         frame(run,1.04,[contact(state:.breaking),contact(2,key:1)],reserved:true)
-        XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex:0))
         frame(run,1.06,[],reserved:true)
-        XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex:0))
         frame(run,1.08,[contact(3,state:.making)])
-        XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex:0))
         run.engine.resetState()
-        XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex:0))
     }
 
     func testTapSelectsFExactlyOnceAndDoesNotTriggerSwipe() async {
@@ -168,6 +168,83 @@ final class ProductionEngineTests: XCTestCase {
         run.finish(at: 2)
         XCTAssertEqual(keys(run), ["tap:\(kVK_ANSI_F):0"])
         XCTAssertEqual(run.output.events.count, 1)
+    }
+
+    func testEstablishedModifiersProtectRepeatedSamePadTaps() throws {
+        let bindings: [(String, CGEventFlags)] = [
+            ("Shift", .maskShift), ("Ctrl", .maskControl), ("Option", .maskAlternate),
+            ("AltGr", .maskAlternate), ("Cmd", .maskCommand),
+            ("Hyper", [.maskShift, .maskControl, .maskAlternate, .maskCommand]),
+            ("Shift+AltGr", [.maskShift, .maskAlternate])
+        ]
+        for side in [0, 1] {
+            for (label, flags) in bindings {
+                let run = session(labels: [label, "F"])
+                frame(run, 1, [contact(state: .starting)], side: side)
+                XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex: side), label)
+                XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: 1 - side), label)
+                frame(run, 1.01, [contact(state: .making)], side: side)
+                for (id, time) in [(Int32(2), 1.1), (Int32(3), 1.3), (Int32(4), 1.5)] {
+                    frame(run, time, [contact(), contact(id, key: 1, state: .making)], side: side, reserved: true)
+                    frame(run, time + 0.04, [contact(), contact(id, key: 1, state: .breaking)], side: side, reserved: true)
+                }
+                let strokes = run.output.events.compactMap { event -> CGEventFlags? in
+                    if case let .keyStroke(code, flags, _) = event.kind {
+                        XCTAssertEqual(code, CGKeyCode(kVK_ANSI_F), label)
+                        return flags
+                    }
+                    return nil
+                }
+                XCTAssertEqual(strokes.count, 3, label)
+                XCTAssertTrue(strokes.allSatisfy { $0.contains(flags) }, label)
+                XCTAssertFalse(run.output.events.contains {
+                    if case let .key(_, _, down, _) = $0.kind { return !down }; return false
+                }, label)
+                // Opposite-pad gestures remain reserved while this modifier holds.
+                let other = frame(run, 1.6, [contact(5), contact(6, key: 1)], side: 1 - side, reserved: true)
+                XCTAssertTrue(other?.touches.contains { $0.reason == "gestureReserved" } ?? false, label)
+                frame(run, 1.7, [], side: side, reserved: true)
+                XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: side), label)
+                let edges = run.output.events.compactMap { event -> Bool? in
+                    if case let .key(_, _, down, _) = event.kind { return down }; return nil
+                }
+                XCTAssertEqual(edges.filter { $0 }.count, edges.filter { !$0 }.count, label)
+                let next = frame(run, 1.8, [contact(7), contact(8, key: 1)], side: side, reserved: true)
+                XCTAssertTrue(next?.touches.contains { $0.reason == "gestureReserved" } ?? false, label)
+            }
+        }
+    }
+
+    func testHoldAssignedModifierProtectsChordAndResetClearsOwnership() throws {
+        for side in [0, 1] {
+            let run = session(labels: ["F", "G"], allowHold: true)
+            let position = GridKeyPosition(side: side == 0 ? .left : .right, row: 0, column: 0).storageKey
+            run.engine.updateKeyMappings([0: [position: KeyMapping(
+                primary: try XCTUnwrap(KeyActionCatalog.action(for: "F")),
+                hold: try XCTUnwrap(KeyActionCatalog.action(for: "Shift")))]])
+            run.engine.updateHoldThreshold(0.2)
+            frame(run, 1, [contact(state: .making)], side: side)
+            XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
+            frame(run, 1.3, [contact()], side: side)
+            XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
+            frame(run, 1.4, [contact(), contact(2, key: 1, state: .making)], side: side, reserved: true)
+            frame(run, 1.44, [contact(), contact(2, key: 1, state: .breaking)], side: side, reserved: true)
+            XCTAssertEqual(keys(run), ["down:\(kVK_Shift):0", "tap:\(kVK_ANSI_G):\(CGEventFlags.maskShift.rawValue)"])
+            run.engine.resetState()
+            XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: side))
+            XCTAssertEqual(keys(run).last, "up:\(kVK_Shift):0")
+        }
+    }
+
+    func testModifierLiftReleasesFlagsButKeepsChordOwnedUntilAllUp() {
+        let run = session(labels: ["Shift", "F"])
+        frame(run, 1, [contact(state: .making)])
+        frame(run, 1.1, [contact(), contact(2, key: 1, state: .making)], reserved: true)
+        frame(run, 1.2, [contact(state: .breaking), contact(2, key: 1)], reserved: true)
+        XCTAssertEqual(keys(run).last, "up:\(kVK_Shift):0")
+        XCTAssertTrue(run.engine.keyboardChordOwnsCycle(deviceIndex: 0))
+        frame(run, 1.3, [], reserved: true)
+        XCTAssertFalse(run.engine.keyboardChordOwnsCycle(deviceIndex: 0))
     }
 
     func testShiftIsHeldForFAndReleased() async {

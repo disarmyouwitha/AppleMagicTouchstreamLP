@@ -45,7 +45,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var devices: Set<UInt64> = []
         var keyboardArbitration = GestureKeyboardArbitration()
         var keyboardDevices: Set<UInt64> = []
-        var layerKeyboardDevices: Set<UInt64> = []
+        var keyboardChordDevices: Set<UInt64> = []
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
         var bindings: [UInt64:GestureActionBindings] = [:]
@@ -115,7 +115,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64) {
-            layerKeyboardDevices.remove(device)
+            keyboardChordDevices.remove(device)
             zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
             drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             finishScroll(device:device,cancelled:true)
@@ -124,7 +124,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
-            layerKeyboardDevices.removeAll(keepingCapacity:true)
+            keyboardChordDevices.removeAll(keepingCapacity:true)
             for device in zoomOutputs.keys { zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
@@ -264,14 +264,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         lock.withLock { $0.keyboardDevices = devices }
     }
 
-    /// A held layer owns keyboard input on this pad. Cancel only its gesture
+    /// An established layer or modifier hold owns keyboard input on this pad. Cancel only its gesture
     /// state and consume its all-up frame so no recognizer remains blocked.
-    func suspendForLayerKeyboard(_ frame: OMSRawTouchFrame) {
+    func suspendForKeyboardChord(_ frame: OMSRawTouchFrame) {
         lock.withLock { state in
             let device = frame.deviceIDNumeric
-            if !state.layerKeyboardDevices.contains(device) {
+            if !state.keyboardChordDevices.contains(device) {
                 state.reset(device:device)
-                state.layerKeyboardDevices.insert(device)
+                state.keyboardChordDevices.insert(device)
             }
             state.keyboardArbitration.reset(device:device)
             if !frame.touches.contains(where:{$0.state == .starting || $0.state == .making || $0.state == .touching}) {
@@ -279,7 +279,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
                 _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,
                     gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
-                state.layerKeyboardDevices.remove(device)
+                state.keyboardChordDevices.remove(device)
             }
         }
     }
