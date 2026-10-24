@@ -1,7 +1,7 @@
 # NOTES:
 1. 3-finger animations: Can we have the fingers in a more natural arrangement, instead of in a straight line? (Same for 4, and 5 finger)
 2. I actually really love the 4-finger up-down-up-fade... Can we first do that, then animate left->right->left->fade animation, then cycle! 
-3. Can we do that for all of the other gesture animations?
+3. Can we do that for all of the other "Move in any Direction" gesture animations?
 4. Can we make the animated fingertip colors my hardcoded colors? Or shouldwe just make my colors the outer circle color?
 ===
 * Changing the Action for a Gesture should change it's name in the gesture menu. "tap and move" to "tap, hold, and "directional" (Or whatever works best!)
