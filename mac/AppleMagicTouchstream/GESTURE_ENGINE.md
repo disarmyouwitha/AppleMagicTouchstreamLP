@@ -564,9 +564,24 @@ turnaround hold is 0.784 s (previously 1.568 s), and the pause before lift is 0.
 (previously 0.336 s). Touch, movement and lift/fade retain their original speed;
 the complete two-axis cycle is 9.296 s. Tap, force and pinch examples are unchanged.
 
-Animated color comparison: all two-contact examples (tap, force, movement, pinch
-and spread) keep blue fills/trails with anatomical finger-colored outlines and
-ordinary tap halos. All four-contact examples use anatomical colors for fills,
-outlines, ordinary halos and trails. Anatomy follows each pane's illustrated
-starting chord, including thumb in pinch/spread. Force pressure halos stay red;
-other contact counts keep the previous blue style. This is visual testing only.
+All animated contacts now use the live hardcoded anatomical palette for fills,
+outlines, ordinary tap halos and trails, across every contact count. Thumb orange,
+Index blue, Middle green, Ring purple and Pinky pink. Force pressure halos remain
+red. This replaces the temporary two-contact outline/four-contact fill comparison.
+Pinch/spread and movement share the same blurred fading trail renderer; scale
+examples sample their actual previous positions so each trail follows its dot's
+direction and finger color. Motion geometry, timing and recognition are unchanged.
+
+Pinch/spread demonstration travel is wider (scale 0.65 to at most 1.65, bounded
+by pad edges for larger chords) and completes in 1.176 s instead of 1.624 s.
+The larger, faster motion makes the shared colored trails easier to see. Pinch
+and spread use the same endpoints in reverse, keeping two-contact travel equal.
+This is illustration tuning only; zoom sensitivity and recognition are unchanged.
+
+Keyboard/Gestures tab switching destroys and recreates the visualizer's native
+view. Render revision updates now create a fresh bounded subscription per attach;
+canceling a detached visualizer removes only that subscriber. The snapshot service
+broadcasts coalesced revisions on its delivery queue, outside the input path and
+outside its subscriber lock. Input, recognition, takeover and snapshots continue
+through tab switches. Offline tests reproduce cancellation/re-attach and overlapping
+old/new subscribers; both failed against the previous single reusable AsyncStream.

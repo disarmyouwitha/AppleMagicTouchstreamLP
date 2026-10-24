@@ -1,10 +1,9 @@
-# NOTES:.
-0. Are the rings the hardcoded color too?
-===
-0. If there is no <Move> action set, we should allow <hold> actions!
-> Can we have a <hold> slot in the Session Lifetime if the other action is tap instead of move? (Move should "lock out" hold like it is now!)
+# NOTES:
 1. For "Movement" dropdowns we should allow "Directional" as a drop-down option alongside "Move Pointer", if selected we should use a GUI like 02-directions.png to allow up,down,left,right to be assigned independent actions!
 * Changing the Action for a Gesture should change it's name in the gesture menu. "tap and move" to "tap, hold, and "directional" (Or whatever works best!)
+
+> Maybe instead of that, the 1 LONG "Move Pointer" box can be split into 4 horizontal up,down,left,right slots? or under it?
+> Maybe have up,down,left,right and middle boxes.. Middle is a <Movement> selector and if selected it grays out the other options. Vice-versa.. if an up,down,left,right option is set movement is grayed out.
 ===
 3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===
@@ -18,6 +17,10 @@ For the hand selector, I recommend Left / Right / Both pads, where Both pads edi
 I would like to implement this now!
 ===
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
+===
+0. ??? NOt sure if really nessisary or if it will be problematic to allow hold/lift?
+> If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions!
+> Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
 
 `AppleMagicTouchstream`:
 ===

@@ -892,7 +892,7 @@ final class ContentViewModel: ObservableObject {
         var isPlaying: Bool
     }
 
-    nonisolated let touchRevisionUpdates: AsyncStream<UInt64>
+    nonisolated var touchRevisionUpdates: AsyncStream<UInt64> { renderSnapshotService.revisionUpdates }
     @Published var isListening: Bool = false
     @Published var isTypingEnabled: Bool = true
     @Published var keyboardModeEnabled: Bool = false
@@ -930,7 +930,6 @@ final class ContentViewModel: ObservableObject {
     init() {
         let inputRuntimeService = InputRuntimeService(manager: manager)
         renderSnapshotService = RuntimeRenderSnapshotService()
-        touchRevisionUpdates = renderSnapshotService.revisionUpdates
         // Keep the @Sendable capture immutable; the reference stays weak.
         // Initialization and callback access to value are MainActor-confined.
         final class WeakRef: @unchecked Sendable { weak var value: ContentViewModel? }

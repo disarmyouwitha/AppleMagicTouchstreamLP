@@ -118,7 +118,8 @@ struct GestureChordIcon: View {
             return
         }
         // Rest, contact/motion, then release. Smoothstep eases both ends of movement.
-        let progress = min(1,max(0,(phase-0.18)/0.58))
+        let motionDuration = trigger.isPinch ? 0.42 : 0.58
+        let progress = min(1,max(0,(phase-0.18)/motionDuration))
         let eased = progress*progress*(3-2*progress)
         let touching = phase >= 0.18 && phase < 0.80
         let count = trigger.pinchCount ?? trigger.forceCount ?? (gesture == .thumbTwo ? 3 : gesture == .threeFingers ? 3 : gesture == .fourFingers ? 4 : 2)
@@ -132,15 +133,21 @@ struct GestureChordIcon: View {
         // two-contact example this gives both dots equal, opposite travel.
         let chordCenter = CGPoint(x:starts.map(\.x).reduce(0,+)/CGFloat(starts.count),
                                   y:starts.map(\.y).reduce(0,+)/CGFloat(starts.count))
+        let extentX = starts.map { abs($0.x-chordCenter.x) }.max() ?? 1
+        let extentY = starts.map { abs($0.y-chordCenter.y) }.max() ?? 1
+        // Wider travel, bounded so even five-contact examples stay inside the pad.
+        let widestScale: CGFloat = min(1.65,min((pad.width/2-8)/max(1,extentX),
+                                               (pad.height/2-8)/max(1,extentY)))
         func position(_ point:CGPoint, at amount:Double) -> CGPoint {
             if trigger.isPinch {
-                let scale = trigger.isSpread ? 0.65+amount*0.7 : 1.25-amount*0.6
+                let travel = CGFloat(amount)*(widestScale-0.65)
+                let scale = trigger.isSpread ? 0.65+travel : widestScale-travel
                 return CGPoint(x:pad.midX+(point.x-chordCenter.x)*scale,y:pad.midY+(point.y-chordCenter.y)*scale)
             }
             return CGPoint(x:point.x + (moving ? -23+amount*46 : 0),y:point.y)
         }
         for (index,start) in starts.enumerated() {
-            let colors = contactColors(count:count,index:index)
+            let colors = contactColors(index:index)
             if discrete {
                 // Reference tap stages: small filled contact, expanding halo,
                 // hollow lift marker, then empty pad. Interpolate every frame.
@@ -158,14 +165,12 @@ struct GestureChordIcon: View {
                                with:.color((trigger.forceCount != nil ? Color.red : colors.outline).opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
                 continue
             }
-            // Fading samples form a continuous motion trail, rather than stepping
-            // between the three reference poses. Trails never represent live input.
-            if touching && (moving || trigger.isPinch) {
-                for step in stride(from:10,through:1,by:-1) {
-                    let earlier = max(0,progress-Double(step)*0.012)
-                    let point = position(start,at:earlier*earlier*(3-2*earlier))
-                    let rect = CGRect(x:point.x-6,y:point.y-6,width:12,height:12)
-                    context.fill(Path(ellipseIn:rect),with:.color(colors.fill.opacity(0.025)))
+            if touching && trigger.isPinch {
+                drawTrail(&context,color:colors.fill) { age in
+                    let earlier = phase-age
+                    guard earlier >= 0.18 && earlier <= 0.18+motionDuration else { return nil }
+                    let t = min(1,max(0,(earlier-0.18)/motionDuration))
+                    return position(start,at:t*t*(3-2*t))
                 }
             }
             let point = position(start,at:eased)
@@ -175,14 +180,25 @@ struct GestureChordIcon: View {
         }
     }
 
-    /// Comparison styles: two contacts use anatomical outlines; four use the
-    /// full anatomical palette. Starting anatomy matches each illustrated chord.
-    private func contactColors(count:Int,index:Int) -> (fill:Color,outline:Color) {
-        let blue = Color(red:0.26,green:0.57,blue:0.96)
+    /// Use the same anatomical palette as live contacts for every example.
+    private func contactColors(index:Int) -> (fill:Color,outline:Color) {
         let fingers = gesture.activeFingers.sorted()
-        guard (count == 2 || count == 4), fingers.indices.contains(index) else { return (blue,blue) }
-        let anatomical = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(fingers[index]+1)))
-        return (count == 4 ? anatomical : blue,anatomical)
+        let fingerID = fingers.indices.contains(index) ? Int32(fingers[index]+1) : 0
+        let anatomical = Color(nsColor:AnatomicalFingerPalette.color(fingerID:fingerID))
+        return (anatomical,anatomical)
+    }
+
+    /// Shared soft trail treatment for translation and pinch/spread examples.
+    private func drawTrail(_ context:inout GraphicsContext,color:Color,opacity:Double = 1,
+                           sample:(Double)->CGPoint?) {
+        var trail = context
+        trail.addFilter(.blur(radius:2))
+        for step in stride(from:15,through:1,by:-1) {
+            let age = Double(step)*0.012
+            guard let point = sample(age) else { continue }
+            trail.fill(Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12)),
+                       with:.color(color.opacity(0.085*(1-age/0.20)*opacity)))
+        }
     }
 
     /// Illustrative fingertip arch: middle highest, pinky lower, thumb offset.
@@ -241,16 +257,11 @@ struct GestureChordIcon: View {
                 : CGPoint(x:pad.midX+offset.x,y:pad.minY+24+distance*(pad.height-48)+offset.y)
         }
         for index in 0..<count {
-            let colors = contactColors(count:count,index:index)
-            var trail = context
-            trail.addFilter(.blur(radius:2))
-            for step in stride(from:15,through:1,by:-1) {
-                let age = Double(step)*0.012
+            let colors = contactColors(index:index)
+            drawTrail(&context,color:colors.fill,opacity:opacity) { age in
                 let earlier = stage-age
-                guard earlier >= 0.20 && earlier <= 0.64 else { continue }
-                let sample = point(index,ramp(earlier,0.20,0.64))
-                trail.fill(Path(ellipseIn:CGRect(x:sample.x-6,y:sample.y-6,width:12,height:12)),
-                           with:.color(colors.fill.opacity(0.085*(1-age/0.20)*opacity)))
+                guard earlier >= 0.20 && earlier <= 0.64 else { return nil }
+                return point(index,ramp(earlier,0.20,0.64))
             }
             let center = point(index,movement)
             let dot = Path(ellipseIn:CGRect(x:center.x-6,y:center.y-6,width:12,height:12))

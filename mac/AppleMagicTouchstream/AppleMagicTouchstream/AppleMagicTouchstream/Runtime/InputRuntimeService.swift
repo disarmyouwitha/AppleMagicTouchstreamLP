@@ -161,10 +161,6 @@ protocol RuntimeRenderSnapshotSink: AnyObject, Sendable {
 }
 
 final class RuntimeRenderSnapshotService: @unchecked Sendable {
-    private final class RevisionContinuationStore: @unchecked Sendable {
-        var continuation: AsyncStream<UInt64>.Continuation?
-    }
-
     private struct RevisionDeliveryState {
         var pendingRevision: UInt64?
         var drainScheduled = false
@@ -183,19 +179,25 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
     private let revisionDeliveryLock = OSAllocatedUnfairLock<RevisionDeliveryState>(
         uncheckedState: RevisionDeliveryState()
     )
-    private let continuationStore: RevisionContinuationStore
-    let revisionUpdates: AsyncStream<UInt64>
+    private let continuations = OSAllocatedUnfairLock<[UUID:AsyncStream<UInt64>.Continuation]>(
+        uncheckedState: [:]
+    )
 
-    init() {
-        let continuationStore = RevisionContinuationStore()
-        self.continuationStore = continuationStore
-        revisionUpdates = AsyncStream(bufferingPolicy: .bufferingNewest(1)) { continuation in
-            continuationStore.continuation = continuation
+    // Each visualizer attachment owns an independent stream. Cancellation must
+    // remove only that subscriber, never terminate future/replacement views.
+    var revisionUpdates: AsyncStream<UInt64> {
+        AsyncStream(bufferingPolicy:.bufferingNewest(1)) { continuation in
+            let id = UUID()
+            continuation.onTermination = { [weak self] _ in
+                _ = self?.continuations.withLockUnchecked { $0.removeValue(forKey:id) }
+            }
+            continuations.withLockUnchecked { $0[id] = continuation }
         }
     }
 
     deinit {
-        continuationStore.continuation?.finish()
+        let subscribers = continuations.withLockUnchecked { Array($0.values) }
+        for subscriber in subscribers { subscriber.finish() }
     }
 
     func snapshot() -> RuntimeTouchSnapshot {
@@ -289,7 +291,10 @@ final class RuntimeRenderSnapshotService: @unchecked Sendable {
                 return revision
             }
             guard let revision else { return }
-            continuationStore.continuation?.yield(revision)
+            // Delivery runs off the input path; release the lock before yielding,
+            // since termination may synchronously remove its own subscription.
+            let subscribers = continuations.withLockUnchecked { Array($0.values) }
+            for subscriber in subscribers { subscriber.yield(revision) }
         }
     }
 }

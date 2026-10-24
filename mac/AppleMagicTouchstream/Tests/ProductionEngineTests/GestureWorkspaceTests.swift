@@ -68,11 +68,13 @@ final class GestureWorkspaceTests: XCTestCase {
             }
         }
         if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
-            for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread] {
+            for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
                 let pane: GesturePane
                 switch trigger {
                 case .twoFingerPinch,.twoFingerSpread: pane = .twoFingerPinch
                 case .fourFingerPinch,.fourFingerSpread: pane = .fourFingerPinch
+                case .threeFingerPinch,.threeFingerSpread: pane = .threeFingerPinch
+                case .fiveFingerPinch,.fiveFingerSpread: pane = .fiveFingerPinch
                 case .oneFingerForce: pane = .oneFinger
                 case .threeFingerTap,.threeFingerMove,.threeFingerForce: pane = .threeFingers
                 case .fourFingerMove,.fourFingerForce: pane = .fourFingers
