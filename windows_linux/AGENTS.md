@@ -181,8 +181,20 @@
 - Do not create or enable persistent validation installs, user `systemd` services, or `/opt/GlassToKey.Linux.validation`-style test payloads unless the user explicitly asks for that lifecycle.
 
 ## Linux Tracking
-- `LINUX_GOLD.md` is now Linux-only remaining work and test tracking.
+- `GlassToKey.Linux/LINUX_GOLD.md` is now Linux-only remaining work and test tracking.
 - If Linux scope, status, packaging defaults, or workflow expectations change:
   - update `AGENTS.md`
-  - update `LINUX_GOLD.md`
+  - update `GlassToKey.Linux/LINUX_GOLD.md`
   - keep project/package READMEs short and local to their project surface
+
+
+## Hyper and modifier-only actions (2026-10-24)
+
+The shared DispatchShortcutHelper and EngineActionResolver support Hyper and
+modifier-only combinations. Hyper stays named Hyper; it is Ctrl+Shift+Alt+Meta.
+Both GUI builders offer Key: None with modifier toggles, plus the Primary/Hold
+Hyper preset. Keep ownership reference-counted through lift/cancel/teardown;
+never synthesize a dummy character or repeat pure modifier groups. Windows
+left/generic modifiers share an index; right-side/AltGr semantics remain intact.
+See GlassToKey.Core/HYPER_MODIFIERS.md. Focused Linux validation is
+`selftest --hyper`; it does not access evdev/uinput or write host settings.

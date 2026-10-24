@@ -9,6 +9,8 @@ internal static class SelfTestRunner
 {
     public static SelfTestResult Run()
     {
+        if (!HyperModifierTests.Run(out string hyperFailure))
+            return new SelfTestResult(false, "Hyper/modifier-only tests failed: " + hyperFailure);
         if (!UnifiedInputTests.Run(out string unifiedFailure))
             return new SelfTestResult(false, "Unified input/icon tests failed: " + unifiedFailure);
         if (!HandGestureTests.Run(out string handGestureFailure))

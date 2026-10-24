@@ -922,6 +922,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ListCollectionView view = new(BuildShortcutKeyOptions());
         view.GroupDescriptions.Add(new PropertyGroupDescription(nameof(ShortcutKeyOption.Group)));
         GestureShortcutKeyCombo.ItemsSource = view;
+        GestureShortcutKeyCombo.SelectedValue = string.Empty;
         ShortcutTargetPrimaryRadio.IsChecked = true;
         RefreshGestureShortcutEditorUi();
     }
@@ -1220,11 +1221,9 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
     private string BuildGestureShortcutAction()
     {
-        if (GestureShortcutKeyCombo.SelectedValue is not string selectedKey ||
-            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out string keyLabel))
-        {
-            return string.Empty;
-        }
+        string keyLabel = string.Empty;
+        if (GestureShortcutKeyCombo.SelectedValue is string selectedKey && !string.IsNullOrEmpty(selectedKey) &&
+            !DispatchShortcutHelper.TryNormalizeShortcutKeyLabel(selectedKey, out keyLabel)) return string.Empty;
 
         DispatchModifierFlags modifiers = DispatchModifierFlags.None;
         AppendShortcutModifierFlag(GestureShortcutCtrlToggle, ref modifiers);
@@ -1232,9 +1231,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         AppendShortcutModifierFlag(GestureShortcutAltToggle, ref modifiers);
         AppendShortcutModifierFlag(GestureShortcutWinToggle, ref modifiers);
 
-        return modifiers == DispatchModifierFlags.None
-            ? string.Empty
-            : DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
+        return DispatchShortcutHelper.FormatShortcut(modifiers, keyLabel);
     }
 
     private string BuildActionBuilderAction(out string preview)
@@ -1285,7 +1282,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
         ResetShortcutModifierState(GestureShortcutShiftToggle);
         ResetShortcutModifierState(GestureShortcutAltToggle);
         ResetShortcutModifierState(GestureShortcutWinToggle);
-        GestureShortcutKeyCombo.SelectedItem = null;
+        GestureShortcutKeyCombo.SelectedValue = string.Empty;
     }
 
     private void OnAppLauncherEditorChanged(object sender, TextChangedEventArgs e)
@@ -2423,6 +2420,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
 
         string[] modifiers =
         {
+            "Hyper",
             "Shift",
             "Ctrl",
             "Alt",
@@ -2517,6 +2515,7 @@ public partial class MainWindow : Window, IRuntimeFrameObserver
     private static List<ShortcutKeyOption> BuildShortcutKeyOptions()
     {
         List<ShortcutKeyOption> options = new(DispatchShortcutHelper.ShortcutKeyLabels.Count);
+        options.Add(new ShortcutKeyOption(string.Empty, "None", "No Key"));
         IReadOnlyList<string> labels = DispatchShortcutHelper.ShortcutKeyLabels;
         for (int i = 0; i < labels.Count; i++)
         {

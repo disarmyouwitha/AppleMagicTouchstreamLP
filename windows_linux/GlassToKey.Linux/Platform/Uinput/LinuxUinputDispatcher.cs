@@ -97,10 +97,14 @@ public sealed class LinuxUinputDispatcher : IInputDispatcher, IInputDispatcherDi
                     }
                     break;
                 case DispatchEventKind.ModifierDown:
-                    HandleModifierDown(dispatchEvent);
+                    if (dispatchEvent.SemanticAction.Modifiers != DispatchModifierFlags.None)
+                        ApplyShortcutModifiers(dispatchEvent.SemanticAction);
+                    else HandleModifierDown(dispatchEvent);
                     break;
                 case DispatchEventKind.ModifierUp:
-                    HandleModifierUp(dispatchEvent);
+                    if (dispatchEvent.SemanticAction.Modifiers != DispatchModifierFlags.None)
+                        ReleaseShortcutModifiers(dispatchEvent.SemanticAction);
+                    else HandleModifierUp(dispatchEvent);
                     break;
                 case DispatchEventKind.MouseButtonClick:
                     _autocorrect.NotifyPointerActivity();

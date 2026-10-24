@@ -2450,7 +2450,8 @@ internal sealed class TouchProcessorCore
 
     private static bool CanDispatchModifierAction(EngineKeyAction action)
     {
-        return HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
+        return action.SemanticAction.Modifiers != DispatchModifierFlags.None ||
+            HasDispatchIdentity(action.SemanticAction.PrimaryCode, action.VirtualKey);
     }
 
     private static bool CanDispatchChordModifierAction(EngineKeyAction action)

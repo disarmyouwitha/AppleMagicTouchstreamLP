@@ -1,6 +1,4 @@
 # NOTES:
-* Can you check out this User issue on Github? Can you fix it here in mac/AppleMagicTouchstream as well as mac/GlassToKey? Before you start tell me what the change will be:
-> https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/issues/98
 > (branch) Does it make sense to add this to windows_linux? 
 ===
 *** Can you please look at the TouchStream QuickReference guide and make a map of all of the different gestures, how many fingers they take, if they are taps, moves, (What triggers them) and any restrictions. I want to find a way to group them to make it easier to map the gestures.. 

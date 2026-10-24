@@ -200,9 +200,11 @@ internal static class DispatchSemanticResolver
 
         switch (compactToken)
         {
+            case "LEFTSHIFT":
             case "LSHIFT":
                 code = DispatchSemanticCode.LeftShift;
                 return true;
+            case "RIGHTSHIFT":
             case "RSHIFT":
                 code = DispatchSemanticCode.RightShift;
                 return true;
@@ -219,6 +221,7 @@ internal static class DispatchSemanticResolver
             case "RIGHTCTRL":
                 code = DispatchSemanticCode.RightCtrl;
                 return true;
+            case "CONTROL":
             case "CTRL":
                 code = DispatchSemanticCode.Ctrl;
                 return true;

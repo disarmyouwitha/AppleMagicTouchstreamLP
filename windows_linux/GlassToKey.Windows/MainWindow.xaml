@@ -515,7 +515,7 @@
                                         Style="{StaticResource ShortcutModifierToggleStyle}" />
                         </Grid>
                         <TextBlock Margin="0,4,0,0"
-                                   Text="Click to toggle. Hold to choose general, left, or right."
+                                   Text="Click to toggle. Hold to choose general, left, or right. Leave Key at None for modifiers only."
                                    Foreground="#8fb6cf"
                                    FontSize="11"
                                    FontStyle="Italic"
