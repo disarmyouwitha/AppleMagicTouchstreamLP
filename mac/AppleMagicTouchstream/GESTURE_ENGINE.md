@@ -551,3 +551,10 @@ halos remain blue. Pinch/spread illustrations scale around the contact centroid,
 recentered in the trackpad, so two contacts move equal distances at equal speeds
 in opposite directions. This corrects the earlier pad-centered unequal travel;
 recognition, force thresholds and haptic feedback are unchanged.
+
+Three/four/five-contact illustrations now use a natural fingertip arch (middle
+highest, pinky lower, thumb offset for five), shared by taps, force clicks, movement
+and scale examples. This is illustration geometry, not a recognition constraint.
+Four-finger scroll now cycles down/up/fade, then right/left/fade, over 11.2 seconds;
+contacts stay down through each reversal and lift between the two axes. Two-finger
+movement retains separate downward and rightward strokes with a fade after each.

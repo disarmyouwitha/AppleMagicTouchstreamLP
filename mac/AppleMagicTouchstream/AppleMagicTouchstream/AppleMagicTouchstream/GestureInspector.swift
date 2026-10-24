@@ -73,7 +73,7 @@ struct GestureChordIcon: View {
     private var twoFingerMovementExample: Bool { trigger == .twoFingerMove }
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
     private var strokeExample: Bool { twoFingerMovementExample || fourFingerScrollExample }
-    private var cycleDuration: Double { strokeExample ? 5.6 : 2.8 }
+    private var cycleDuration: Double { fourFingerScrollExample ? 11.2 : twoFingerMovementExample ? 5.6 : 2.8 }
     // Deterministic offscreen previews can choose a point in the continuous loop.
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -111,13 +111,9 @@ struct GestureChordIcon: View {
         let count = trigger.pinchCount ?? trigger.forceCount ?? (gesture == .thumbTwo ? 3 : gesture == .threeFingers ? 3 : gesture == .fourFingers ? 4 : 2)
         let discrete = !trigger.isContinuous
         let thumbChord = trigger.isPinch || gesture == .thumbTwo
-        let tips = thumbChord ? count-1 : count
-        var starts: [CGPoint] = []
-        for index in 0..<tips {
-            starts.append(CGPoint(x:pad.midX + (Double(index)-Double(tips-1)/2)*19,
-                                  y:pad.midY + (thumbChord ? -12 : discrete ? abs(Double(index)-Double(tips-1)/2)*5-4 : 0)))
+        let starts = contactOffsets(count:count,includesThumb:thumbChord).map {
+            CGPoint(x:pad.midX+$0.x,y:pad.midY+$0.y)
         }
-        if thumbChord { starts.insert(CGPoint(x:pad.midX-30,y:pad.midY+22),at:0) }
         let moving = trigger.isContinuous && !trigger.isPinch
         // Scale around the contact centroid, not the trackpad center. In the
         // two-contact example this gives both dots equal, opposite travel.
@@ -165,10 +161,31 @@ struct GestureChordIcon: View {
         }
     }
 
+    /// Illustrative fingertip arch: middle highest, pinky lower, thumb offset.
+    /// These positions never participate in gesture recognition.
+    private func contactOffsets(count:Int,includesThumb:Bool = false) -> [CGPoint] {
+        let thumb = includesThumb || count == 5
+        let tips = thumb ? count-1 : count
+        let fingers: [CGPoint]
+        switch tips {
+        case 1: fingers = [CGPoint(x:0,y:0)]
+        case 2: fingers = [CGPoint(x:-9.5,y:0),CGPoint(x:9.5,y:0)]
+        case 3: fingers = [CGPoint(x:-20,y:2),CGPoint(x:0,y:-7),CGPoint(x:20,y:0)]
+        default: fingers = [CGPoint(x:-28,y:0),CGPoint(x:-9,y:-7),
+                            CGPoint(x:10,y:-3),CGPoint(x:29,y:8)]
+        }
+        if thumb {
+            return [CGPoint(x:-36,y:23)] + fingers.map { CGPoint(x:$0.x+5,y:$0.y-12) }
+        }
+        return fingers
+    }
+
     private func drawMovementStrokes(_ context: inout GraphicsContext, pad:CGRect, phase:Double) {
-        let secondStroke = phase >= 0.5
-        let horizontal = twoFingerMovementExample && secondStroke
-        let stage = (phase*2).truncatingRemainder(dividingBy:1)
+        let segments = fourFingerScrollExample ? 4.0 : 2.0
+        let segment = Int(phase*segments)
+        let secondStroke = segment % 2 == 1
+        let horizontal = fourFingerScrollExample ? segment >= 2 : secondStroke
+        let stage = (phase*segments).truncatingRemainder(dividingBy:1)
         func ramp(_ value:Double, _ start:Double, _ end:Double) -> Double {
             let t = min(1,max(0,(value-start)/(end-start)))
             return t*t*(3-2*t)
@@ -185,14 +202,14 @@ struct GestureChordIcon: View {
         }
         let blue = Color(red:0.26,green:0.57,blue:0.96)
         let count = fourFingerScrollExample ? 4 : 2
-        let spacing: CGFloat = 17
-        let halfWidth = CGFloat(count-1)*spacing/2
+        let offsets = contactOffsets(count:count)
+        let halfWidth = offsets.map { abs($0.x) }.max() ?? 0
         func point(_ index:Int, _ progress:Double) -> CGPoint {
-            let offset = CGFloat(index)*spacing-halfWidth
+            let offset = offsets[index]
             let distance = CGFloat(fourFingerScrollExample && secondStroke ? 1-progress : progress)
             return horizontal
-                ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset,y:pad.midY)
-                : CGPoint(x:pad.midX+offset,y:pad.minY+20+distance*(pad.height-40))
+                ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset.x,y:pad.midY+offset.y)
+                : CGPoint(x:pad.midX+offset.x,y:pad.minY+24+distance*(pad.height-48)+offset.y)
         }
         for index in 0..<count {
             var trail = context

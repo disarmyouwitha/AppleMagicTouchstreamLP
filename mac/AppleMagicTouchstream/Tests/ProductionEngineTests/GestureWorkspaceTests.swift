@@ -68,10 +68,18 @@ final class GestureWorkspaceTests: XCTestCase {
             }
         }
         if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
-            for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread] {
-                let pane: GesturePane = trigger.isPinch ? .twoFingerPinch : trigger.forceCount != nil ? .oneFinger : trigger == .threeFingerTap ? .threeFingers : trigger == .fourFingerMove ? .fourFingers : .twoFingers
+            for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread] {
+                let pane: GesturePane
+                switch trigger {
+                case .twoFingerPinch,.twoFingerSpread: pane = .twoFingerPinch
+                case .oneFingerForce: pane = .oneFinger
+                case .threeFingerTap,.threeFingerForce: pane = .threeFingers
+                case .fourFingerMove,.fourFingerForce: pane = .fourFingers
+                case .fiveFingerForce: pane = .fiveFingers
+                default: pane = .twoFingers
+                }
                 let strip = HStack(spacing:16) {
-                    ForEach((trigger == .twoFingerMove || trigger == .fourFingerMove) ? [0.02,0.08,0.20,0.35,0.46,0.52,0.58,0.70,0.85,0.96] : [0.08,0.30,0.60,0.90],id:\.self) { phase in
+                    ForEach((trigger == .twoFingerMove || trigger == .fourFingerMove) ? [0.02,0.10,0.20,0.35,0.46,0.52,0.60,0.70,0.85,0.96] : [0.08,0.30,0.60,0.90],id:\.self) { phase in
                         GestureChordIcon(gesture:pane,trigger:trigger,previewPhase:phase)
                     }
                 }.padding(16).background(Color(nsColor:.windowBackgroundColor))
