@@ -129,7 +129,7 @@ struct GestureSidebar<Options: View>: View {
     }
 }
 
-/// Contact-only diagrams: red motion dots, blue tap rings and directional arrows.
+/// Contact-only diagrams using the live anatomical palette, tap rings and directional arrows.
 /// Examples are illustrative, not exact-only anatomy rules.
 struct GestureChordIcon: View {
     let gesture: GesturePane
@@ -137,7 +137,7 @@ struct GestureChordIcon: View {
     @Environment(\.scenePhase) private var scenePhase
 
     private enum Example: String, Hashable {
-        case pinch = "Pinch", expand = "Expand", tap = "Tap", move = "Move", force = "Force"
+        case pinch = "Pinch", expand = "Spread", tap = "Tap", move = "Move", force = "Force"
     }
     private var examples: [Example] {
         if gesture.isPinchSection { return [.pinch,.expand] }
@@ -159,7 +159,7 @@ struct GestureChordIcon: View {
                     }
                     Text(example.rawValue).font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
                 }
-                .frame(width:36,height:47)
+                .frame(width:36,height:47,alignment:.top)
             }
         }
         .accessibilityHidden(true)
@@ -179,12 +179,13 @@ struct GestureChordIcon: View {
                 for index in tips.indices where active.contains(index) {
                     let tip = tips[index]
                     let marker = Path(ellipseIn:CGRect(x:tip.x-0.057,y:tip.y-0.057,width:0.114,height:0.114))
-                    cell.fill(marker,with:.color(tap ? .blue : .red))
+                    let color = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))
+                    cell.fill(marker,with:.color(color))
                     cell.stroke(marker,with:.color(.white),lineWidth:0.018)
                     if tap {
                         let radius = 0.075 + phase*0.045
                         let ring = Path(ellipseIn:CGRect(x:tip.x-radius,y:tip.y-radius,width:radius*2,height:radius*2))
-                        cell.stroke(ring,with:.color(.blue.opacity(0.9-phase*0.5)),lineWidth:0.022)
+                        cell.stroke(ring,with:.color(color.opacity(0.9-phase*0.5)),lineWidth:0.022)
                     }
                 }
                 if example == .pinch || example == .expand {

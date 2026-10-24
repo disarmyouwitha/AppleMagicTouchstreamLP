@@ -398,3 +398,11 @@ reproduce the previous unconditional layer cancellation.
 Removed the example hand silhouettes. Red/blue contact markers, tap pulses,
 directional arrows/crosses, captions and spacing remain in their existing positions.
 Animation, Reduce Motion behavior and recognition are unchanged.
+
+Contact-only example dots and tap rings now use the same AnatomicalFingerPalette
+as live contacts: thumb orange, index blue, middle green, ring purple, pinky pink.
+Motion arrows remain neutral; captions, geometry and animation are unchanged.
+
+The pinch/spread examples are labeled Pinch and Spread beneath their diagrams.
+Tap/Move/Force captions remain. Anatomical colors apply to both the contact dots
+and pulsing rings, using the live palette directly.
