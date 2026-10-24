@@ -155,7 +155,7 @@ struct GestureChordIcon: View {
                     TimelineView(.animation(minimumInterval:1.0/12,paused:reduceMotion || scenePhase == .background)) { timeline in
                         let phase = reduceMotion || scenePhase == .background ? 0.5
                             : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:1.2)/1.2
-                        drawing(example,phase:phase).frame(width:33,height:33)
+                        drawing(example,phase:phase).frame(width:43,height:33)
                     }
                     Text(example.rawValue).font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
                 }
@@ -171,8 +171,9 @@ struct GestureChordIcon: View {
                 let tap = example == .tap || example == .force
                 var cell = context
                 // Both examples are right hands. Leave margin for motion arrows.
-                cell.translateBy(x:size.width*0.06,y:size.height*0.12)
-                cell.scaleBy(x:size.width*0.88,y:size.height*0.88)
+                let handSize = size.height
+                cell.translateBy(x:(size.width-handSize)/2+handSize*0.06,y:handSize*0.12)
+                cell.scaleBy(x:handSize*0.88,y:handSize*0.88)
                 var silhouette = Path()
                 silhouette.move(to:CGPoint(x:0.38,y:0.94))
                 silhouette.addCurve(to:CGPoint(x:0.27,y:0.72),control1:CGPoint(x:0.38,y:0.85),control2:CGPoint(x:0.29,y:0.80))
@@ -209,20 +210,26 @@ struct GestureChordIcon: View {
                     }
                 }
                 if example == .pinch || example == .expand {
-                    // Converging/diverging arrows above the fingertips.
-                    let shift = (phase-0.5)*0.06
+                    // Diagonal motion follows the gap between thumb and index.
                     let inward = example == .pinch
-                    arrow(&cell,from:CGPoint(x:inward ? 0.10+shift : 0.39-shift,y:-0.035),
-                          to:CGPoint(x:inward ? 0.39+shift : 0.10-shift,y:-0.035))
-                    arrow(&cell,from:CGPoint(x:inward ? 0.90-shift : 0.61+shift,y:-0.035),
-                          to:CGPoint(x:inward ? 0.61-shift : 0.90+shift,y:-0.035))
+                    let shift = (phase-0.5)*0.04*(inward ? 1 : -1)
+                    let center = CGPoint(x:0.155,y:0.282)
+                    let axis = CGPoint(x:0.53,y:-0.85)
+                    func point(_ distance: Double) -> CGPoint {
+                        CGPoint(x:center.x+axis.x*distance,y:center.y+axis.y*distance)
+                    }
+                    for side in [-1.0,1.0] {
+                        let outer = point(side*(0.30-shift))
+                        let inner = point(side*(0.07-shift))
+                        arrow(&cell,from:inward ? outer : inner,to:inward ? inner : outer)
+                    }
                 } else if example == .move {
-                    let shift = (phase-0.5)*0.10
-                    arrow(&cell,from:CGPoint(x:0.12+shift,y:-0.035),to:CGPoint(x:0.88+shift,y:-0.035),bothEnds:true)
-                    var trail = Path()
-                    trail.move(to:CGPoint(x:0.17,y:0.04))
-                    trail.addCurve(to:CGPoint(x:0.82,y:0.04),control1:CGPoint(x:0.39,y:0.13),control2:CGPoint(x:0.61,y:-0.04))
-                    cell.stroke(trail,with:.color(.primary.opacity(0.45)),lineWidth:0.017)
+                    let reach = 0.16 + 0.012*sin(phase*2*Double.pi)
+                    let center = CGPoint(x:0.155-5/(handSize*0.88),y:0.282)
+                    arrow(&cell,from:CGPoint(x:center.x-reach,y:center.y),
+                          to:CGPoint(x:center.x+reach,y:center.y),bothEnds:true)
+                    arrow(&cell,from:CGPoint(x:center.x,y:center.y-reach),
+                          to:CGPoint(x:center.x,y:center.y+reach),bothEnds:true)
                 }
         }
     }
@@ -239,6 +246,7 @@ struct GestureChordIcon: View {
         }
         head(end,awayFrom:start)
         if bothEnds { head(start,awayFrom:end) }
+        context.stroke(path,with:.color(.white.opacity(0.85)),style:StrokeStyle(lineWidth:0.055,lineCap:.round,lineJoin:.round))
         context.stroke(path,with:.color(.primary.opacity(0.85)),style:StrokeStyle(lineWidth:0.025,lineCap:.round,lineJoin:.round))
     }
 }

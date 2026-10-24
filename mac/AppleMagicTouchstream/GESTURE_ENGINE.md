@@ -343,3 +343,52 @@ Animation is isolated to the icon TimelineViews at 12 fps, paused in background
 and with Accessibility Reduce Motion enabled; arrows remain legible when static.
 Original hand silhouettes remain vector artwork. Offline rendering was inspected
 at sidebar size for direction, label legibility, alignment and clipping.
+
+Pinch/Expand motion arrows now follow a diagonal through the thumb–index gap:
+two inward arrows for Pinch and outward arrows for Expand. Move shows a four-way
+arrow cross in the thumb–index gap. Indicators remain at 75% of their original hand size;
+captions, tap pulses, Reduce Motion handling and recognition are unchanged.
+
+## Three-finger drag natural-arch correction (2026-10-23)
+
+The user's 3drag.atpcap contains 21 three-contact cycles. Most staggered landings
+reach three contacts within 11–23 ms; the dominant failure was the old 8 mm
+middle-finger distance-to-endpoint-line limit. Natural rows in the capture often
+measured 9–13 mm. Offline replay of the production router/geometry produced six
+drag activations before the change, twenty afterward. One brief three-contact
+cycle loses its third finger before reaching the existing movement threshold.
+This analysis does not exercise live event output.
+
+Row activation now permits an arch depth up to min(14 mm, 35% of endpoint span).
+It retains 2–60 mm pair distances, 35 mm middle-to-endpoint limits, finite/valid
+contacts, and explicit thumb/palm rejection. This app-local tuning supersedes the
+ported 8 mm value; no sibling projects changed. The 0.35 mm movement threshold,
+shared latch, acceleration and held-button output are unchanged. No landing timer
+or ownership switch was added. Regression tests cover 9/11/13 mm arches,
+excessive curvature, staggered 1→2→3 landing, then 3→2→1→0 continuation.
+
+The Move illustration's cross is shifted five display points left. Its Canvas
+has extra transparent margin so the arrows remain visible without moving or
+resizing the hand or captions. Offline rendering was checked for clipping.
+
+## Same-pad momentary-layer keyboard chords (2026-10-24)
+
+Once MO(n) is held, its originating pad has keyboard priority through that pad's
+all-up frame. Adding another finger for a key on the same pad no longer reserves
+a two-finger gesture or removes the layer hold. This is an explicit exception to
+gesture-first keyboard arbitration for an already-established keyboard chord.
+The opposite pad continues ordinary gesture/typing arbitration independently.
+
+The serial engine marks the originating device when a primary or hold MO action
+activates. Both raw-frame paths honor that ownership before gesture reservation.
+Live ingestion skips native gesture output for that pad, cancels its prior
+recognizer state once on entry, and consumes the final all-up frame to clear tap /
+force cancellation flags. The cycle remains keyboard-owned if the MO finger lifts
+before the other key finger; layer release still returns immediately to base.
+Normal gesture eligibility resumes with a fresh all-up cycle, or after reset.
+No global cross-pad gesture reset is used. Replay produces no gesture output.
+
+Regression coverage: same-pad MO + Left Arrow on either pad, independent opposite-
+pad gesture reservation, thumb-first lift, empty-frame layer release, reset, and
+restoring gesture reservation on the next cycle. No recording was needed to
+reproduce the previous unconditional layer cancellation.

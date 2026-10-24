@@ -31,6 +31,38 @@ final class ThreeFingerDragTests: XCTestCase {
         }
         XCTAssertTrue(ThreeFingerDragChord.accepts(rotated))
     }
+    private func archedRow(_ count:Int = 3, depthMM:Float = 11, dx:Float = 0) -> [OMSRawTouch] {
+        (0..<count).map { index -> OMSRawTouch in
+            let x:Float = 0.3 + Float(index)*(22.0/160.0) + dx
+            let y:Float = 0.5 + (index == 1 ? depthMM/114.9 : 0)
+            return OMSRawTouch(id:Int32(index+1),posX:x,posY:y,total:1,pressure:40,
+                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+        }
+    }
+    func testNaturalArchedRowsActivateWithoutWaitingForFingersToStraighten() {
+        for depth:Float in [9,11,13] {
+            XCTAssertTrue(ThreeFingerRowChord.accepts(archedRow(depthMM:depth)))
+            var router = TrackpadGestureRouter()
+            _ = router.update(device:1,time:1,contacts:archedRow(depthMM:depth),mouse:true,scroll:true,drag:true)
+            let activation = router.update(device:1,time:1.01,contacts:archedRow(depthMM:depth,dx:0.003),mouse:true,scroll:true,drag:true)
+            XCTAssertEqual(activation.gesture,.threeFingerMove)
+            XCTAssertEqual(activation.phase,.began)
+        }
+        XCTAssertFalse(ThreeFingerRowChord.accepts(archedRow(depthMM:18)))
+    }
+    func testStaggeredLandingStartsDragOnThirdFingerThenKeepsItsLatch() {
+        var router = TrackpadGestureRouter()
+        XCTAssertNil(router.update(device:1,time:1,contacts:archedRow(1),mouse:true,scroll:true,drag:true).gesture)
+        XCTAssertNil(router.update(device:1,time:1.02,contacts:archedRow(2,dx:0.001),mouse:true,scroll:true,drag:true).gesture)
+        let begin = router.update(device:1,time:1.04,contacts:archedRow(dx:0.004),mouse:true,scroll:true,drag:true)
+        XCTAssertEqual(begin.gesture,.threeFingerMove); XCTAssertEqual(begin.phase,.began)
+        for (time,count) in [(1.06,2),(1.08,1)] {
+            let held = router.update(device:1,time:time,contacts:archedRow(count,dx:0.005),mouse:true,scroll:true,drag:true)
+            XCTAssertEqual(held.gesture,.threeFingerMove); XCTAssertEqual(held.phase,.changed)
+        }
+        XCTAssertEqual(router.update(device:1,time:1.1,contacts:[],mouse:true,scroll:true,drag:true).phase,.ended)
+    }
+
     func testDragClaimsMovementAndLatchesAcrossCountsThenEnds() {
         var router = TrackpadGestureRouter()
         XCTAssertNil(router.process(device:1,time:1,contacts:touches(),mouse:true,scroll:true,drag:true))

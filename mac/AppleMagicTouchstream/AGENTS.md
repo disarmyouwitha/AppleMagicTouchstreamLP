@@ -179,3 +179,9 @@ Correction: require a recognized active Thumb to activate BOTH Pinch and Spread.
 A thumb-free Spread otherwise bypassed the inward rule through latched reversal.
 This supersedes the prior Spread exception. Preserve the continuation latch after
 valid activation, including thumb lift/relabel. No sibling changes.
+
+Established MO(n) holds now give their originating pad keyboard priority through
+all-up, so same-pad layer+arrow/key chords work. This is a user-authorized
+exception to gesture-first arbitration; opposite-pad gestures remain independent.
+Suppress native output as well as keyboard reservation on that pad, consume the
+all-up frame, and clear ownership on reset. See GESTURE_ENGINE.md/tests.

@@ -97,6 +97,44 @@ final class ProductionEngineTests: XCTestCase {
         }
     }
 
+    func testHeldLayerOwnsSamePadArrowChordUntilAllUp() throws {
+        for side in [0,1] {
+            let run = session(labels:["MO(1)","F"])
+            let key = GridKeyPosition(side:side == 0 ? .left : .right,row:0,column:1).storageKey
+            run.engine.updateKeyMappings([1:[key:KeyMapping(primary:try XCTUnwrap(KeyActionCatalog.action(for:"Left")),hold:nil)]])
+            XCTAssertEqual(frame(run,1,[contact(state:.making)],side:side)?.activeLayer,1)
+            XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:side))
+            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:1-side))
+            // Model a multi-finger reservation request: an established layer
+            // hold must take keyboard priority instead of being cancelled.
+            XCTAssertEqual(frame(run,1.02,[contact(),contact(2,key:1,state:.making)],side:side,reserved:true)?.activeLayer,1)
+            XCTAssertEqual(frame(run,1.04,[contact(),contact(2,key:1,state:.breaking)],side:side,reserved:true)?.activeLayer,1)
+            XCTAssertEqual(keys(run),["tap:\(kVK_LeftArrow):0"])
+            // The opposite pad's gesture remains eligible and cannot clear this hold.
+            frame(run,1.05,[contact(3),contact(4,key:1)],side:1-side,reserved:true)
+            XCTAssertEqual(frame(run,1.06,[contact()],side:side,reserved:true)?.activeLayer,1)
+            XCTAssertEqual(frame(run,1.08,[],side:side,reserved:true)?.activeLayer,0)
+            XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:side))
+            XCTAssertEqual(keys(run),["tap:\(kVK_LeftArrow):0"])
+            // Normal gesture reservation resumes for the next cycle.
+            let next = frame(run,1.10,[contact(5),contact(6,key:1)],side:side,reserved:true)
+            XCTAssertTrue(next?.touches.contains(where:{$0.reason == "gestureReserved"}) ?? false)
+        }
+    }
+    func testLayerKeyboardOwnershipEndsOnResetAndSurvivesLayerFingerLiftingFirst() {
+        let run = session(labels:["MO(1)","F"])
+        frame(run,1,[contact(state:.making)])
+        frame(run,1.02,[contact(),contact(2,key:1,state:.making)],reserved:true)
+        frame(run,1.04,[contact(state:.breaking),contact(2,key:1)],reserved:true)
+        XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        frame(run,1.06,[],reserved:true)
+        XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        frame(run,1.08,[contact(3,state:.making)])
+        XCTAssertTrue(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+        run.engine.resetState()
+        XCTAssertFalse(run.engine.layerKeyboardOwnsCycle(deviceIndex:0))
+    }
+
     func testTapSelectsFExactlyOnceAndDoesNotTriggerSwipe() async {
         let run = session()
         frame(run, 1.00, [contact(state: .making)])

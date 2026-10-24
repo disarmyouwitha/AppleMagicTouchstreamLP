@@ -11,7 +11,6 @@
 
 
 ===
-Can you make the hand examples smaller by 50%?
 Can we make the hands a different color like apple-like?
 Can we make the hands not there but keep the circles and the animations.
 ===

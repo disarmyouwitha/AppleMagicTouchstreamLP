@@ -200,8 +200,10 @@ enum ThreeFingerRowChord {
         let dy = points[endpointB*2+1]-points[endpointA*2+1]
         let mx = points[middle*2]-points[endpointA*2]
         let my = points[middle*2+1]-points[endpointA*2+1]
-        // Rotation-independent line fit. Reject a splayed/triangular thumb chord.
-        guard abs(dx*my-dy*mx)/longest <= 8 else { return false }
+        // Natural fingertip rows form an arch, not a straight line. Hardware
+        // capture showed valid rows 9–13 mm deep; the old 8 mm gate delayed or
+        // rejected them. Keep both absolute and relative arch bounds.
+        guard abs(dx*my-dy*mx)/longest <= min(14,longest*0.35) else { return false }
         return hypot(mx,my) <= 35 && hypot(mx-dx,my-dy) <= 35
     }
 }

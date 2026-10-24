@@ -41,6 +41,15 @@ final class GestureKeyboardArbitrationTests: XCTestCase {
             return nil
         }
     }
+    func testPerPadKeyboardOverrideClearsOnlyItsGestureReservation() {
+        var gate = GestureKeyboardArbitration()
+        XCTAssertTrue(gate.process(device:42,activeCount:2) {_ in true})
+        XCTAssertTrue(gate.process(device:43,activeCount:2) {_ in true})
+        gate.reset(device:42)
+        XCTAssertFalse(gate.process(device:42,activeCount:1) {_ in false})
+        XCTAssertTrue(gate.process(device:43,activeCount:1) {_ in false})
+    }
+
     func testReservationIncludesLiftFrameAndCannotCrossDevices() {
         var gate = GestureKeyboardArbitration()
         XCTAssertFalse(gate.process(device: 42, activeCount: 1) { _ in true })

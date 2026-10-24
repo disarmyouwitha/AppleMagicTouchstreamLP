@@ -563,6 +563,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     private var customButtonsByLayerAndSide: [Int: [TrackpadSide: [CustomButton]]] = [:]
     private var customKeyMappingsByLayer: LayeredKeyMappings = [:]
     private var gestureKeyboardDevices: Set<Int> = []
+    private var layerKeyboardDevices: Set<Int> = []
     private var touchStates = TouchTable<TouchState>()
     private var disqualifiedTouches = TouchTable<Bool>()
     private var releaseHandledTouches = TouchTable<Bool>()
@@ -1106,6 +1107,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
+        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+            layerKeyboardDevices.remove(deviceIndex)
+        }
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
@@ -1190,6 +1194,9 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
         }
         if keyboardReserved { finishGestureKeyboardCycle(deviceIndex: deviceIndex, touches: touches) }
+        if !touches.contains(where: { $0.state == .making || $0.state == .touching }) {
+            layerKeyboardDevices.remove(deviceIndex)
+        }
         return makeFrameDiagnostic(
             deviceIndex: deviceIndex,
             touches: touches,
@@ -1237,7 +1244,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
     }
 
+    /// An already-held layer key makes its originating pad a keyboard chord
+    /// through all-up; the opposite pad keeps normal gesture arbitration.
+    func layerKeyboardOwnsCycle(deviceIndex: Int) -> Bool { layerKeyboardDevices.contains(deviceIndex) }
+
     private func reserveGestureKeyboard<C: Collection>(deviceIndex: Int, touches: C, requested: Bool) -> Bool where C.Element == OMSRawTouch {
+        guard !layerKeyboardDevices.contains(deviceIndex) else { return false }
         let reserved = requested || gestureKeyboardDevices.contains(deviceIndex)
         guard reserved else { return false }
         gestureKeyboardDevices.insert(deviceIndex)
@@ -2645,6 +2657,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 break
             }
             momentaryLayerTouches.set(touchKey, targetLayer)
+            layerKeyboardDevices.insert(Self.touchKeyDeviceIndex(touchKey))
             updateActiveLayer()
         case .breaking, .leaving, .notTouching:
             if momentaryLayerTouches.remove(touchKey) != nil {
@@ -2931,6 +2944,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         case let .layerMomentary(layer):
             guard let touchKey else { return }
             momentaryLayerTouches.set(touchKey, layer)
+            layerKeyboardDevices.insert(Self.touchKeyDeviceIndex(touchKey))
             updateActiveLayer()
         case let .layerToggle(layer):
             toggleLayer(to: layer)
@@ -3387,6 +3401,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         }
         touchStates.removeAll()
         gestureKeyboardDevices.removeAll(keepingCapacity: true)
+        layerKeyboardDevices.removeAll(keepingCapacity: true)
         disqualifiedTouches.removeAll()
         releaseHandledTouches.removeAll()
 
