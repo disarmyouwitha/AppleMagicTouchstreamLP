@@ -302,3 +302,13 @@ Hand indicators are attached to each clickable subsection (Tap and Move, Pinch
 and Spread, and the other action groups), not the finger-count headings. Pinch /
 Spread examples show thumb plus 1–4 fingertips for counts 2–5. Tap/move examples
 retain their existing fingertip diagrams and the fixed anatomical palette.
+
+### Thumb rule applies to both directions (2026-10-23 correction)
+
+The first implementation guarded inward Pinch only. That allowed a non-thumb
+Spread to activate and remain latched through reversal into inward motion. Both
+Pinch and Spread now require an active recognized Thumb (fingerID 1) to activate,
+for all counts/actions. This supersedes the earlier Spread exception. Continued
+latched motion still tolerates thumb lift/relabel; direction reversal cannot create
+a new unqualified owner. UI labels identify the requirement for both directions.
+Regression tests cover non-thumb opening followed by closing without all-up.

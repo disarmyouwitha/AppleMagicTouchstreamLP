@@ -29,7 +29,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .fiveFingers: return "Choose an action for five-finger force clicking."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch:
-            return "Choose an action for pinching and spreading. Pinch requires a recognized thumb to begin."
+            return "Choose an action for pinching and spreading. Both directions require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger movement and force clicking."
         case .thumbTwo: return "Choose an action for a tap with a spread thumb and two fingertips."

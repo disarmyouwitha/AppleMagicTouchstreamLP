@@ -8,7 +8,9 @@ final class PinchZoomTests: XCTestCase {
     private func touches(_ distance:Double = 30, center:Double = 80, secondID:Int32 = 2) -> [OMSRawTouch] {
         [(Int32(1),center-distance/2),(secondID,center+distance/2)].map { id,x in
             OMSRawTouch(id:id,posX:Float(x/160),posY:0.5,total:1,pressure:40,
-                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching)
+                majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching,
+                telemetry:OMSTouchTelemetry(fingerID:id == 1 ? 1 : 2,handID:1,velocityX:0,velocityY:0,
+                    absoluteX:0,absoluteY:0,absoluteVelocityX:0,absoluteVelocityY:0,sourceFrame:1,sourceTimestamp:1))
         }
     }
     func testSymmetricAndAsymmetricPinchesWinWhileTranslationKeepsMouseResponse() throws {
@@ -165,7 +167,7 @@ final class PinchZoomTests: XCTestCase {
         XCTAssertEqual(migrated[.twoFingerSpread],.disabled)
     }
 
-    func testEveryInwardPinchRequiresRecognizedThumbOnlyAtActivation() throws {
+    func testBothDirectionsRequireRecognizedThumbOnlyAtActivation() throws {
         for count in 2...5 {
             let inward = try XCTUnwrap(GestureTrigger.pinch(count:count))
             let outward = try XCTUnwrap(GestureTrigger.spread(count:count))
@@ -175,7 +177,7 @@ final class PinchZoomTests: XCTestCase {
                 XCTAssertNil(blocked.recognize(device:1,time:1.01,contacts:chord(count,spread:-2,thumb:label),enabled:{$0 == inward}).gesture)
                 var spread = TrackpadGestureRouter()
                 _ = spread.recognize(device:1,time:1,contacts:chord(count,thumb:label),enabled:{$0 == outward})
-                XCTAssertEqual(spread.recognize(device:1,time:1.01,contacts:chord(count,spread:2,thumb:label),enabled:{$0 == outward}).gesture,outward)
+                XCTAssertNil(spread.recognize(device:1,time:1.01,contacts:chord(count,spread:2,thumb:label),enabled:{$0 == outward}).gesture)
             }
             var latched = TrackpadGestureRouter()
             _ = latched.recognize(device:1,time:1,contacts:chord(count),enabled:{$0 == inward})
@@ -187,6 +189,11 @@ final class PinchZoomTests: XCTestCase {
             XCTAssertEqual(lifted.gesture,inward); XCTAssertEqual(lifted.phase,.changed)
             XCTAssertEqual(latched.recognize(device:1,time:1.04,contacts:[],enabled:{$0 == inward}).phase,.ended)
         }
+        // Non-thumb opening first must not latch Spread and then bypass Pinch's thumb rule.
+        var reversal = TrackpadGestureRouter()
+        _ = reversal.recognize(device:1,time:1,contacts:chord(2,thumb:4),enabled:{$0.isPinch})
+        XCTAssertNil(reversal.recognize(device:1,time:1.01,contacts:chord(2,spread:2,thumb:4),enabled:{$0.isPinch}).gesture)
+        XCTAssertNil(reversal.recognize(device:1,time:1.02,contacts:chord(2,spread:-2,thumb:4),enabled:{$0.isPinch}).gesture)
         // An ineligible pinch must not postpone ordinary pointer movement.
         var pointer = TrackpadGestureRouter()
         _ = pointer.recognize(device:1,time:1,contacts:chord(2,thumb:nil),enabled:{$0 == .twoFingerMove || $0 == .twoFingerPinch})

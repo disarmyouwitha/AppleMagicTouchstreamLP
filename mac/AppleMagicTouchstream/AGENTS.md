@@ -174,3 +174,8 @@ User now requires a recognized active Thumb (fingerID 1) to activate every inwar
 Pinch input, counts 2–5. Unknown/missing labels do not qualify. Spread remains
 unchanged. This supersedes anatomy-independent inward-pinch activation; preserve
 the all-up latch after activation, including thumb lift and relabeling.
+
+Correction: require a recognized active Thumb to activate BOTH Pinch and Spread.
+A thumb-free Spread otherwise bypassed the inward rule through latched reversal.
+This supersedes the prior Spread exception. Preserve the continuation latch after
+valid activation, including thumb lift/relabel. No sibling changes.

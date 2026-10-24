@@ -218,7 +218,7 @@ struct TrackpadGestureRouter {
         let hasThumb = contacts.contains {
             ($0.state == .making || $0.state == .touching) && $0.telemetry?.fingerID == 1
         }
-        let directionEligible = direction.map { $0.isSpread || hasThumb } ?? false
+        let directionEligible = direction != nil && hasThumb
         let pinchEnabled = directionEligible && (direction.map(enabled) ?? false)
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
