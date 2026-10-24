@@ -66,46 +66,90 @@ enum GesturePane: String, CaseIterable, Identifiable {
     }
 }
 
-/// Starting contacts illustrate the chord, not exact anatomical recognition rules.
+/// Animated trackpad demonstrations, independent of live input and recognition.
 struct GestureChordIcon: View {
     let gesture: GesturePane
-
-    private var motionSymbol: String {
-        if gesture.isPinchSection { return "arrow.up.left.and.arrow.down.right" }
-        return gesture.triggers.contains(where: \.isContinuous) ? "arrow.left.and.right" : "circle.dotted"
-    }
+    let trigger: GestureTrigger
+    // Deterministic offscreen previews can choose a point in the continuous loop.
+    var previewPhase: Double? = nil
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        VStack(spacing:8) {
-            Canvas { context, size in
-                // Thumb, index, middle, ring, pinky; use the live contact palette.
-                let tips = [CGPoint(x:0.125,y:0.51),CGPoint(x:0.31,y:0.22),
-                            CGPoint(x:0.47,y:0.125),CGPoint(x:0.64,y:0.17),CGPoint(x:0.82,y:0.32)]
-                let active = tips.indices.filter { gesture.activeFingers.contains($0) }
-                let xs = active.map { tips[$0].x }, ys = active.map { tips[$0].y }
-                let center = CGPoint(x:((xs.min() ?? 0)+(xs.max() ?? 0))/2,
-                                     y:((ys.min() ?? 0)+(ys.max() ?? 0))/2)
-                // Leave room for the dot radius and white outline at both edges.
-                let spanY = (ys.max() ?? 0) - (ys.min() ?? 0)
-                let scale = min(size.width-12,(size.height-12)/max(0.001,spanY))
-                for index in active {
-                    let point = CGPoint(x:size.width/2+(tips[index].x-center.x)*scale,
-                                        y:size.height/2+(tips[index].y-center.y)*scale)
-                    let dot = Path(ellipseIn:CGRect(x:point.x-5,y:point.y-5,width:10,height:10))
-                    context.fill(dot,with:.color(Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))))
-                    context.stroke(dot,with:.color(.white),lineWidth:2)
+        VStack(spacing:6) {
+            TimelineView(.animation(minimumInterval:1.0/30,
+                                    paused:previewPhase != nil || reduceMotion || scenePhase == .background)) { timeline in
+                let phase = previewPhase ?? (reduceMotion || scenePhase == .background ? 0.5
+                    : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:2.8)/2.8)
+                Canvas { context, size in draw(&context,size:size,phase:phase) }
+                    .frame(width:180,height:116)
+            }
+            Text(trigger.assignmentTitle).font(.caption2).foregroundStyle(.secondary)
+        }
+        .accessibilityElement(children:.ignore)
+        .accessibilityLabel("\(gesture.contactLabel): \(trigger.assignmentTitle) demonstration")
+    }
+
+    private func draw(_ context: inout GraphicsContext, size: CGSize, phase: Double) {
+        let pad = CGRect(x:14,y:9,width:size.width-28,height:size.height-18)
+        context.stroke(Path(roundedRect:pad,cornerRadius:14),
+                       with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
+        // Rest, contact/motion, then release. Smoothstep eases both ends of movement.
+        let progress = min(1,max(0,(phase-0.18)/0.58))
+        let eased = progress*progress*(3-2*progress)
+        let touching = phase >= 0.18 && phase < 0.80
+        let blue = Color(red:0.26,green:0.57,blue:0.96)
+        let count = trigger.pinchCount ?? trigger.forceCount ?? (gesture == .thumbTwo ? 3 : gesture == .threeFingers ? 3 : gesture == .fourFingers ? 4 : 2)
+        let discrete = !trigger.isContinuous
+        let thumbChord = trigger.isPinch || gesture == .thumbTwo
+        let tips = thumbChord ? count-1 : count
+        var starts: [CGPoint] = []
+        for index in 0..<tips {
+            starts.append(CGPoint(x:pad.midX + (Double(index)-Double(tips-1)/2)*19,
+                                  y:pad.midY + (thumbChord ? -12 : discrete ? abs(Double(index)-Double(tips-1)/2)*5-4 : 0)))
+        }
+        if thumbChord { starts.insert(CGPoint(x:pad.midX-30,y:pad.midY+22),at:0) }
+        let moving = trigger.isContinuous && !trigger.isPinch
+        func position(_ point:CGPoint, at amount:Double) -> CGPoint {
+            if trigger.isPinch {
+                let scale = trigger.isSpread ? 0.65+amount*0.7 : 1.25-amount*0.6
+                return CGPoint(x:pad.midX+(point.x-pad.midX)*scale,y:pad.midY+(point.y-pad.midY)*scale)
+            }
+            return CGPoint(x:point.x + (moving ? -23+amount*46 : 0),y:point.y)
+        }
+        for start in starts {
+            if discrete {
+                // Reference tap stages: small filled contact, expanding halo,
+                // hollow lift marker, then empty pad. Interpolate every frame.
+                let swell = min(1,max(0,(phase-0.10)/0.42))
+                let fade = 1-min(1,max(0,(phase-0.62)/0.14))
+                let fill = 1-min(1,max(0,(phase-0.33)/0.20))
+                let point = position(start,at:0)
+                let radius = 5+2.8*swell
+                let dot = Path(ellipseIn:CGRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2))
+                context.fill(dot,with:.color(blue.opacity((0.12+0.7*fill)*fade)))
+                context.stroke(dot,with:.color(blue.opacity(0.85*fade)),lineWidth:1.4)
+                let halo = radius+2+3*sin(swell*Double.pi)
+                let haloOpacity = max(0,sin(min(1,phase/0.55)*Double.pi))*0.38*fade
+                context.stroke(Path(ellipseIn:CGRect(x:point.x-halo,y:point.y-halo,width:halo*2,height:halo*2)),
+                               with:.color(blue.opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
+                continue
+            }
+            // Fading samples form a continuous motion trail, rather than stepping
+            // between the three reference poses. Trails never represent live input.
+            if touching && (moving || trigger.isPinch) {
+                for step in stride(from:10,through:1,by:-1) {
+                    let earlier = max(0,progress-Double(step)*0.012)
+                    let point = position(start,at:earlier*earlier*(3-2*earlier))
+                    let rect = CGRect(x:point.x-6,y:point.y-6,width:12,height:12)
+                    context.fill(Path(ellipseIn:rect),with:.color(blue.opacity(0.025)))
                 }
             }
-            .frame(width:96,height:42)
-            Image(systemName:motionSymbol)
-                .font(.system(size:16,weight:.semibold)).foregroundStyle(.secondary)
-            Text("Starting chord").font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
+            let point = position(start,at:eased)
+            let dot = Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12))
+            context.fill(dot,with:.color(blue.opacity(touching ? 0.9 : 0.14)))
+            context.stroke(dot,with:.color(blue.opacity(0.85)),lineWidth:1.4)
         }
-        .padding(12)
-        .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:20))
-        .overlay(RoundedRectangle(cornerRadius:20).stroke(Color.primary.opacity(0.07),lineWidth:1))
-        .accessibilityElement(children:.ignore)
-        .accessibilityLabel("Starting chord: \(gesture.contactLabel)")
     }
 }
 
@@ -275,7 +319,7 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.firstTextBaseline,spacing:8) {
                 Text("Gestures").font(.title3).bold().layoutPriority(1)
                 Spacer(minLength:0)
-                Toggle("Mirror left/right", isOn:$mirrorEdits)
+                Toggle("Mirror Edit", isOn:$mirrorEdits)
                     .toggleStyle(.checkbox)
                     .font(.caption)
                     .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")
@@ -346,7 +390,7 @@ struct GestureAssignmentWorkspace: View {
                     Text(pane.title).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                GestureChordIcon(gesture:pane).padding(.leading,8)
+                GestureChordIcon(gesture:pane,trigger:selected).padding(.leading,8)
             }
             ViewThatFits(in:.horizontal) {
                 HStack(spacing:8) { metadata }

@@ -505,7 +505,7 @@ Toggles uses one vertical column at every width.
 
 ### Mirrored editing (2026-10-24)
 
-Mirror left/right is a persistent, default-off editor preference beside the Gestures
+Mirror Edit is a persistent, default-off editor preference beside the Gestures
 heading, above the hand selector. It disables the single-hand selector and routes action and sensitivity
 edits through the existing both-pad settings scope. It does not copy settings on
 enable: differing assignments/gains show Mixed until edited. Turning it off
@@ -513,10 +513,15 @@ restores the selected single-hand editor. Recognition remains independent per pa
 this is not coordinated two-hand recognition. The preference is app-local; the
 resulting per-hand bindings/gains still round-trip with keymaps.
 
-### Starting chord preview (2026-10-24)
+### Animated trackpad examples (2026-10-24)
 
-The assignment header uses one rounded Starting chord tile, matching mac/chord.jpg
-and the original workspace design. Static dots use the live anatomical palette;
-a motion/scale/tap symbol summarizes the current family. This replaces the small
-animated Tap/Move/Pinch/Spread examples. The diagram illustrates starting contacts,
-not additional recognition constraints. Recognition and assignments are unchanged.
+Gesture demonstrations now use a trackpad outline and blue contacts inspired by
+mac/frame1.jpg–frame3.jpg: a continuous 30 fps eased motion between rest, active
+contact and release, with fading motion trails. The selected assignment determines
+the demonstration (tap/force/move/pinch/spread), including the starting count and
+thumb geometry. Reduced Motion and background scene state pause animation. These
+are illustrative drawings only and never access devices or dispatch input.
+
+Tap examples follow mac/tap_frame1.jpg–tap_frame4.jpg with continuously expanding
+halos, hollow lift contacts and an empty-pad rest. Force examples emphasize the
+pressure halo. None of these timings or graphics change recognition thresholds.

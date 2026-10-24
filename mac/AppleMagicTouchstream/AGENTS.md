@@ -203,7 +203,7 @@ gestures in this UI. Hold/Lift describe lifecycle, not new assignable gestures.
 No recognition/default changes. Build/sign/install Release in Applications;
 DMGs only on explicit request. Keep app closed for user hardware testing.
 
-User authorized a Mirror left/right checkbox for Gesture editing. It uses the
+User authorized a Mirror Edit checkbox for Gesture editing. It uses the
 existing both-pad settings scope for subsequent edits, preserves differences on
 enable, and does not add coordinated two-pad recognition. This supersedes the
 Left/Right-only editing UI restriction; see GESTURE_ENGINE.md.

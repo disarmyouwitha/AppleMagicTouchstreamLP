@@ -67,5 +67,19 @@ final class GestureWorkspaceTests: XCTestCase {
                 }
             }
         }
+        if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+            for trigger in [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerMove,.twoFingerPinch,.twoFingerSpread] {
+                let pane: GesturePane = trigger.isPinch ? .twoFingerPinch : trigger.forceCount != nil ? .oneFinger : trigger == .threeFingerTap ? .threeFingers : .twoFingers
+                let strip = HStack(spacing:16) {
+                    ForEach([0.08,0.30,0.60,0.90],id:\.self) { phase in
+                        GestureChordIcon(gesture:pane,trigger:trigger,previewPhase:phase)
+                    }
+                }.padding(16).background(Color(nsColor:.windowBackgroundColor))
+                let renderer = ImageRenderer(content:strip)
+                let bitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(renderer.cgImage))
+                try XCTUnwrap(bitmap.representation(using:.png,properties:[:]))
+                    .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-\(trigger.rawValue).png"))
+            }
+        }
     }
 }

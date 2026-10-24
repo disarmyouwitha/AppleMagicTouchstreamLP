@@ -1,6 +1,5 @@
 # NOTES:
-1. Where did the "Starting Chord" icons go from the design? Can we replace our "hand examples" with something like this? (screenshot: chord)
-2. Can we do something like apple's animated examples? (Check out frame1,frame2,frame3)
+0. Acutally, can we do something like apple's animated examples instead? (Check out frame1,frame2,frame3) ALSO, lets call it "Mirror Edit". 
 ===
 3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===
