@@ -1,5 +1,11 @@
 # NOTES:
 0. Acutally, can we do something like apple's animated examples instead? (Check out frame1,frame2,frame3) ALSO, lets call it "Mirror Edit". 
+> maybe I can provide a .mov of apple's and we can use that interpret that? (drag_recording.mov)
+
+1. Next I would be able to interpret (up,down,left,right) seperately instead of assigning all 4 as movement. How should we go about that? I saw a slide in our design doc.. Is this based on the Action that they select? Like "Move Pointer" should be "Move in any direction" (like it is now) we should have an actions like "Volume Up/Down" or "Brightness Up/Down" that can be fired with independant up,down,left, or right swipes. 
+
+2. Animations should change depending on the action, like Apple! When you have a tap action it shows a "tap" animation, if you haev a scroll it shows a "scroll" animation
+> I don't see 2-finger tap & move animate, even when selecting "Move Pointer" action.
 ===
 3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===

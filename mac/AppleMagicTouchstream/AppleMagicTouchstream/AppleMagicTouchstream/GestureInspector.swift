@@ -70,22 +70,27 @@ enum GesturePane: String, CaseIterable, Identifiable {
 struct GestureChordIcon: View {
     let gesture: GesturePane
     let trigger: GestureTrigger
+    private var twoFingerMovementExample: Bool { trigger == .twoFingerMove }
+    private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
+    private var strokeExample: Bool { twoFingerMovementExample || fourFingerScrollExample }
+    private var cycleDuration: Double { strokeExample ? 5.6 : 2.8 }
     // Deterministic offscreen previews can choose a point in the continuous loop.
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
+    @State private var windowVisible = false
 
     var body: some View {
         VStack(spacing:6) {
-            TimelineView(.animation(minimumInterval:1.0/30,
-                                    paused:previewPhase != nil || reduceMotion || scenePhase == .background)) { timeline in
-                let phase = previewPhase ?? (reduceMotion || scenePhase == .background ? 0.5
-                    : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:2.8)/2.8)
+            TimelineView(.animation(minimumInterval:strokeExample ? 1.0/60 : 1.0/30,
+                                    paused:previewPhase != nil || reduceMotion || !windowVisible)) { timeline in
+                let phase = previewPhase ?? (reduceMotion || !windowVisible ? 0.5
+                    : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:cycleDuration)/cycleDuration)
                 Canvas { context, size in draw(&context,size:size,phase:phase) }
                     .frame(width:180,height:116)
             }
-            Text(trigger.assignmentTitle).font(.caption2).foregroundStyle(.secondary)
+            Text(fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle).font(.caption2).foregroundStyle(.secondary)
         }
+        .background(GestureExampleWindowVisibility { windowVisible = $0 }.frame(width:0,height:0))
         .accessibilityElement(children:.ignore)
         .accessibilityLabel("\(gesture.contactLabel): \(trigger.assignmentTitle) demonstration")
     }
@@ -94,6 +99,10 @@ struct GestureChordIcon: View {
         let pad = CGRect(x:14,y:9,width:size.width-28,height:size.height-18)
         context.stroke(Path(roundedRect:pad,cornerRadius:14),
                        with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
+        if strokeExample {
+            drawMovementStrokes(&context,pad:pad,phase:phase)
+            return
+        }
         // Rest, contact/motion, then release. Smoothstep eases both ends of movement.
         let progress = min(1,max(0,(phase-0.18)/0.58))
         let eased = progress*progress*(3-2*progress)
@@ -151,8 +160,98 @@ struct GestureChordIcon: View {
             context.stroke(dot,with:.color(blue.opacity(0.85)),lineWidth:1.4)
         }
     }
+
+    private func drawMovementStrokes(_ context: inout GraphicsContext, pad:CGRect, phase:Double) {
+        let secondStroke = phase >= 0.5
+        let horizontal = twoFingerMovementExample && secondStroke
+        let stage = (phase*2).truncatingRemainder(dividingBy:1)
+        func ramp(_ value:Double, _ start:Double, _ end:Double) -> Double {
+            let t = min(1,max(0,(value-start)/(end-start)))
+            return t*t*(3-2*t)
+        }
+        let movement = ramp(stage,0.20,0.64)
+        let fill: Double
+        let opacity: Double
+        if fourFingerScrollExample {
+            fill = secondStroke ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
+            opacity = secondStroke ? 1-ramp(stage,0.84,0.96) : 1
+        } else {
+            fill = ramp(stage,0.10,0.18)*(1-ramp(stage,0.76,0.84))
+            opacity = 1-ramp(stage,0.84,0.96)
+        }
+        let blue = Color(red:0.26,green:0.57,blue:0.96)
+        let count = fourFingerScrollExample ? 4 : 2
+        let spacing: CGFloat = 17
+        let halfWidth = CGFloat(count-1)*spacing/2
+        func point(_ index:Int, _ progress:Double) -> CGPoint {
+            let offset = CGFloat(index)*spacing-halfWidth
+            let distance = CGFloat(fourFingerScrollExample && secondStroke ? 1-progress : progress)
+            return horizontal
+                ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset,y:pad.midY)
+                : CGPoint(x:pad.midX+offset,y:pad.minY+20+distance*(pad.height-40))
+        }
+        for index in 0..<count {
+            var trail = context
+            trail.addFilter(.blur(radius:2))
+            for step in stride(from:15,through:1,by:-1) {
+                let age = Double(step)*0.012
+                let earlier = stage-age
+                guard earlier >= 0.20 && earlier <= 0.64 else { continue }
+                let sample = point(index,ramp(earlier,0.20,0.64))
+                trail.fill(Path(ellipseIn:CGRect(x:sample.x-6,y:sample.y-6,width:12,height:12)),
+                           with:.color(blue.opacity(0.085*(1-age/0.20)*opacity)))
+            }
+            let center = point(index,movement)
+            let dot = Path(ellipseIn:CGRect(x:center.x-6,y:center.y-6,width:12,height:12))
+            context.fill(dot,with:.color(blue.opacity((0.12+0.78*fill)*opacity)))
+            context.stroke(dot,with:.color(blue.opacity(0.85*opacity)),lineWidth:1.4)
+        }
+    }
+
 }
 
+
+/// Config is an AppKit NSHostingView, so SwiftUI scenePhase is not a visibility
+/// signal. Follow the actual window and pause covered/closed/minimized examples.
+private struct GestureExampleWindowVisibility: NSViewRepresentable {
+    var changed: @MainActor (Bool) -> Void
+    func makeNSView(context:Context) -> VisibilityView {
+        let view = VisibilityView()
+        view.changed = changed
+        return view
+    }
+    func updateNSView(_ view:VisibilityView,context:Context) { view.changed = changed }
+    static func dismantleNSView(_ view:VisibilityView,coordinator:()) { view.stopObserving() }
+
+    final class VisibilityView: NSView {
+        var changed: (@MainActor (Bool) -> Void)?
+        private var lastVisibility: Bool?
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            stopObserving()
+            if let window {
+                for name in [NSWindow.didChangeOcclusionStateNotification,
+                             NSWindow.didMiniaturizeNotification,NSWindow.didDeminiaturizeNotification,
+                             NSWindow.willCloseNotification] {
+                    NotificationCenter.default.addObserver(self,selector:#selector(windowChanged(_:)),name:name,object:window)
+                }
+            }
+            reportVisibility()
+        }
+        func stopObserving() { NotificationCenter.default.removeObserver(self) }
+        @objc private func windowChanged(_ notification:Notification) {
+            reportVisibility(closing:notification.name == NSWindow.willCloseNotification)
+        }
+        private func reportVisibility(closing:Bool = false) {
+            let visible = !closing && window?.isVisible == true && window?.isMiniaturized == false
+                && window?.occlusionState.contains(.visible) == true
+            guard visible != lastVisibility else { return }
+            lastVisibility = visible
+            // Avoid mutating SwiftUI state during a hosting-view layout update.
+            DispatchQueue.main.async { [weak self] in self?.changed?(visible) }
+        }
+    }
+}
 
 /// A value-only action editor; production wiring decides the hand(s) to update.
 struct GestureActionPickerRow: View {

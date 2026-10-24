@@ -519,9 +519,29 @@ Gesture demonstrations now use a trackpad outline and blue contacts inspired by
 mac/frame1.jpg–frame3.jpg: a continuous 30 fps eased motion between rest, active
 contact and release, with fading motion trails. The selected assignment determines
 the demonstration (tap/force/move/pinch/spread), including the starting count and
-thumb geometry. Reduced Motion and background scene state pause animation. These
+thumb geometry. Reduced Motion and actual window visibility pause animation. These
 are illustrative drawings only and never access devices or dispatch input.
 
 Tap examples follow mac/tap_frame1.jpg–tap_frame4.jpg with continuously expanding
 halos, hollow lift contacts and an empty-pad rest. Force examples emphasize the
 pressure halo. None of these timings or graphics change recognition thresholds.
+
+Two-finger movement demonstrates the eight drag_frame references and
+mac/drag_recording.mov, with separate downward and rightward strokes. Each starts
+with two hollow contacts, fills, moves with a blurred fading trail, pauses, lifts
+and fades before the next stroke begins. The continuous 60 fps loop lasts 5.6
+seconds. This illustration belongs to the two-finger movement input, independently
+of its assigned output; other examples retain their prior animations.
+Recognition and output behavior are unchanged.
+
+The four-finger scroll input also has a comparison demonstration: hollow contacts
+at the top, touch, downward stroke, bottom pause, upward return stroke, then lift
+and fade at the top. Its four contacts stay filled through the reversal. The
+separate two-finger movement example keeps its down/fade/right/fade sequence.
+Both are presentation only, with no recognition or action changes.
+
+Config uses an AppKit NSWindow/NSHostingView rather than a SwiftUI Window scene.
+Do not gate demonstration playback on scenePhase (it can remain background while
+Config is visible). A local AppKit visibility observer now resumes on window
+visibility/occlusion changes and pauses on cover/minimize/close. Reduced Motion
+and deterministic preview phases still pause playback. No live input is accessed.
