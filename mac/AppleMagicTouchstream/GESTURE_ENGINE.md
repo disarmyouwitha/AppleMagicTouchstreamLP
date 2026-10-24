@@ -563,3 +563,10 @@ Movement-example stationary holds are now half their original length: the combin
 turnaround hold is 0.784 s (previously 1.568 s), and the pause before lift is 0.168 s
 (previously 0.336 s). Touch, movement and lift/fade retain their original speed;
 the complete two-axis cycle is 9.296 s. Tap, force and pinch examples are unchanged.
+
+Animated color comparison: all two-contact examples (tap, force, movement, pinch
+and spread) keep blue fills/trails with anatomical finger-colored outlines and
+ordinary tap halos. All four-contact examples use anatomical colors for fills,
+outlines, ordinary halos and trails. Anatomy follows each pane's illustrated
+starting chord, including thumb in pinch/spread. Force pressure halos stay red;
+other contact counts keep the previous blue style. This is visual testing only.

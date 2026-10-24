@@ -121,7 +121,6 @@ struct GestureChordIcon: View {
         let progress = min(1,max(0,(phase-0.18)/0.58))
         let eased = progress*progress*(3-2*progress)
         let touching = phase >= 0.18 && phase < 0.80
-        let blue = Color(red:0.26,green:0.57,blue:0.96)
         let count = trigger.pinchCount ?? trigger.forceCount ?? (gesture == .thumbTwo ? 3 : gesture == .threeFingers ? 3 : gesture == .fourFingers ? 4 : 2)
         let discrete = !trigger.isContinuous
         let thumbChord = trigger.isPinch || gesture == .thumbTwo
@@ -140,7 +139,8 @@ struct GestureChordIcon: View {
             }
             return CGPoint(x:point.x + (moving ? -23+amount*46 : 0),y:point.y)
         }
-        for start in starts {
+        for (index,start) in starts.enumerated() {
+            let colors = contactColors(count:count,index:index)
             if discrete {
                 // Reference tap stages: small filled contact, expanding halo,
                 // hollow lift marker, then empty pad. Interpolate every frame.
@@ -150,12 +150,12 @@ struct GestureChordIcon: View {
                 let point = position(start,at:0)
                 let radius = 5+2.8*swell
                 let dot = Path(ellipseIn:CGRect(x:point.x-radius,y:point.y-radius,width:radius*2,height:radius*2))
-                context.fill(dot,with:.color(blue.opacity((0.12+0.7*fill)*fade)))
-                context.stroke(dot,with:.color(blue.opacity(0.85*fade)),lineWidth:1.4)
+                context.fill(dot,with:.color(colors.fill.opacity((0.12+0.7*fill)*fade)))
+                context.stroke(dot,with:.color(colors.outline.opacity(0.85*fade)),lineWidth:1.4)
                 let halo = radius+2+3*sin(swell*Double.pi)
                 let haloOpacity = max(0,sin(min(1,phase/0.55)*Double.pi))*0.38*fade
                 context.stroke(Path(ellipseIn:CGRect(x:point.x-halo,y:point.y-halo,width:halo*2,height:halo*2)),
-                               with:.color((trigger.forceCount != nil ? Color.red : blue).opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
+                               with:.color((trigger.forceCount != nil ? Color.red : colors.outline).opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
                 continue
             }
             // Fading samples form a continuous motion trail, rather than stepping
@@ -165,14 +165,24 @@ struct GestureChordIcon: View {
                     let earlier = max(0,progress-Double(step)*0.012)
                     let point = position(start,at:earlier*earlier*(3-2*earlier))
                     let rect = CGRect(x:point.x-6,y:point.y-6,width:12,height:12)
-                    context.fill(Path(ellipseIn:rect),with:.color(blue.opacity(0.025)))
+                    context.fill(Path(ellipseIn:rect),with:.color(colors.fill.opacity(0.025)))
                 }
             }
             let point = position(start,at:eased)
             let dot = Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12))
-            context.fill(dot,with:.color(blue.opacity(touching ? 0.9 : 0.14)))
-            context.stroke(dot,with:.color(blue.opacity(0.85)),lineWidth:1.4)
+            context.fill(dot,with:.color(colors.fill.opacity(touching ? 0.9 : 0.14)))
+            context.stroke(dot,with:.color(colors.outline.opacity(0.85)),lineWidth:1.4)
         }
+    }
+
+    /// Comparison styles: two contacts use anatomical outlines; four use the
+    /// full anatomical palette. Starting anatomy matches each illustrated chord.
+    private func contactColors(count:Int,index:Int) -> (fill:Color,outline:Color) {
+        let blue = Color(red:0.26,green:0.57,blue:0.96)
+        let fingers = gesture.activeFingers.sorted()
+        guard (count == 2 || count == 4), fingers.indices.contains(index) else { return (blue,blue) }
+        let anatomical = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(fingers[index]+1)))
+        return (count == 4 ? anatomical : blue,anatomical)
     }
 
     /// Illustrative fingertip arch: middle highest, pinky lower, thumb offset.
@@ -220,7 +230,6 @@ struct GestureChordIcon: View {
         let movement = ramp(stage,0.20,0.64)
         let fill = secondStroke ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
         let opacity = secondStroke ? 1-ramp(stage,0.84,0.96) : 1
-        let blue = Color(red:0.26,green:0.57,blue:0.96)
         let count = gesture.activeFingers.count
         let offsets = contactOffsets(count:count)
         let halfWidth = offsets.map { abs($0.x) }.max() ?? 0
@@ -232,6 +241,7 @@ struct GestureChordIcon: View {
                 : CGPoint(x:pad.midX+offset.x,y:pad.minY+24+distance*(pad.height-48)+offset.y)
         }
         for index in 0..<count {
+            let colors = contactColors(count:count,index:index)
             var trail = context
             trail.addFilter(.blur(radius:2))
             for step in stride(from:15,through:1,by:-1) {
@@ -240,12 +250,12 @@ struct GestureChordIcon: View {
                 guard earlier >= 0.20 && earlier <= 0.64 else { continue }
                 let sample = point(index,ramp(earlier,0.20,0.64))
                 trail.fill(Path(ellipseIn:CGRect(x:sample.x-6,y:sample.y-6,width:12,height:12)),
-                           with:.color(blue.opacity(0.085*(1-age/0.20)*opacity)))
+                           with:.color(colors.fill.opacity(0.085*(1-age/0.20)*opacity)))
             }
             let center = point(index,movement)
             let dot = Path(ellipseIn:CGRect(x:center.x-6,y:center.y-6,width:12,height:12))
-            context.fill(dot,with:.color(blue.opacity((0.12+0.78*fill)*opacity)))
-            context.stroke(dot,with:.color(blue.opacity(0.85*opacity)),lineWidth:1.4)
+            context.fill(dot,with:.color(colors.fill.opacity((0.12+0.78*fill)*opacity)))
+            context.stroke(dot,with:.color(colors.outline.opacity(0.85*opacity)),lineWidth:1.4)
         }
     }
 

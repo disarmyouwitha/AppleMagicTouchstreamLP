@@ -1,12 +1,13 @@
 # NOTES:.
-3. Can we do that for all of the other "Move in any Direction" gesture animations?
-4. Can we make the animated fingertip colors my hardcoded colors? Or shouldwe just make my colors the outer circle color?
+0. Are the rings the hardcoded color too?
 ===
+0. If there is no <Move> action set, we should allow <hold> actions!
+> Can we have a <hold> slot in the Session Lifetime if the other action is tap instead of move? (Move should "lock out" hold like it is now!)
+1. For "Movement" dropdowns we should allow "Directional" as a drop-down option alongside "Move Pointer", if selected we should use a GUI like 02-directions.png to allow up,down,left,right to be assigned independent actions!
 * Changing the Action for a Gesture should change it's name in the gesture menu. "tap and move" to "tap, hold, and "directional" (Or whatever works best!)
 ===
 3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===
-1. Thumb + 2-fingers: Can we not have a <hold> slot in the Session Lifetime if the other action is tap instead of move? (Move should "lock out" hold like it is now!)
 2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
 “Both” means coordinated two-hand input, not the same gesture enabled
 independently on both pads." and you said:
