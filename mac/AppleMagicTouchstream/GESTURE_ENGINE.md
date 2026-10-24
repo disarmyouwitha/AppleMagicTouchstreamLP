@@ -555,6 +555,11 @@ explicit phase and Reduce Motion retains its static representative pose.
 
 All current Move in any direction inputs use the same four-stroke animation as
 the approved four-finger scroll example: top/down/up/fade, left/right/left/fade,
-repeat over 11.2 seconds. Two-, three- and four-finger examples keep their own
+repeat over approximately 9.3 seconds. Two-, three- and four-finger examples keep their own
 natural contact arrangements and stay in contact through each return stroke.
 All restart when selected or shown; these changes affect demonstration only.
+
+Movement-example stationary holds are now half their original length: the combined
+turnaround hold is 0.784 s (previously 1.568 s), and the pause before lift is 0.168 s
+(previously 0.336 s). Touch, movement and lift/fade retain their original speed;
+the complete two-axis cycle is 9.296 s. Tap, force and pinch examples are unchanged.

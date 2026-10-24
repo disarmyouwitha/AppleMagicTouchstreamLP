@@ -72,7 +72,11 @@ struct GestureChordIcon: View {
     let trigger: GestureTrigger
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
     private var strokeExample: Bool { trigger.isContinuous && !trigger.isPinch }
-    private var cycleDuration: Double { strokeExample ? 11.2 : 2.8 }
+    // Original stroke time units, with only stationary holds compressed by half.
+    private static let outboundUnits = 0.82
+    private static let returnUnits = 0.84
+    private static let pairUnits = outboundUnits + returnUnits
+    private var cycleDuration: Double { strokeExample ? 2 * Self.pairUnits * 2.8 : 2.8 }
     // Deterministic offscreen previews can choose a point in the continuous loop.
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -191,11 +195,24 @@ struct GestureChordIcon: View {
     }
 
     private func drawMovementStrokes(_ context: inout GraphicsContext, pad:CGRect, phase:Double) {
-        let segments = 4.0
-        let segment = Int(phase*segments)
-        let secondStroke = segment % 2 == 1
-        let horizontal = segment >= 2
-        let stage = (phase*segments).truncatingRemainder(dividingBy:1)
+        let cycleTime = phase * 2 * Self.pairUnits
+        let horizontal = cycleTime >= Self.pairUnits
+        let pairTime = cycleTime.truncatingRemainder(dividingBy:Self.pairUnits)
+        let secondStroke = pairTime >= Self.outboundUnits
+        let local = secondStroke ? pairTime-Self.outboundUnits : pairTime
+        let stage: Double
+        if !secondStroke {
+            // Keep touch/move timing; halve the bottom/right turnaround hold.
+            stage = local < 0.64 ? local : 0.64+(local-0.64)*2
+        } else if local < 0.10 {
+            stage = local*2 // Other half of the turnaround hold.
+        } else if local < 0.54 {
+            stage = local+0.10 // Return movement retains its original speed.
+        } else if local < 0.60 {
+            stage = 0.64+(local-0.54)*2 // Half-length pause before lift.
+        } else {
+            stage = local+0.16 // Lift/fade timing is unchanged.
+        }
         func ramp(_ value:Double, _ start:Double, _ end:Double) -> Double {
             let t = min(1,max(0,(value-start)/(end-start)))
             return t*t*(3-2*t)
