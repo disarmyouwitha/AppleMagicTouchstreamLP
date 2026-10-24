@@ -1,0 +1,42 @@
+[
+  {
+    "id": "Q",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/docs/TouchStream_QuickGuides.pdf",
+    "sha256": "e60fe9506d61e48ae0e8ee4038dfe4ffb8c8abc86bf3a1ed2d92b8e223ce1791"
+  },
+  {
+    "id": "B",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/docs/TouchStreamBooklet.pdf",
+    "sha256": "94db9d106de00b2e69f71f258b8d02b6095ade16b37adc520fa366cf65e8e9a4"
+  },
+  {
+    "id": "C",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/TouchStream_for_Mac_vs_Utility_1.60.pdf",
+    "sha256": "37688f37a4c798d332d44d7b5dcf04b36a5e921b6887a86423e3fb474caa0b84"
+  },
+  {
+    "id": "FW_chord_macros",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/right-click-2026-10-21/FW_chord_macros.xml",
+    "sha256": "7e4632a0a6a075a7b9ba3aaa0d65a174f7b14164df682e93e4e1089b215a88ec"
+  },
+  {
+    "id": "FW_stealth_chords",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/right-click-2026-10-21/FW_stealth_chords.xml",
+    "sha256": "02a179556218bae61c041a557ae253fe101dccd92d85c2eef6fe7b869ea7cc2b"
+  },
+  {
+    "id": "FW_parameter_macros",
+    "path": "/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/right-click-2026-10-21/FW_parameter_macros.xml",
+    "sha256": "8f9d4555e5434862d12f346f9dccf80923d00a7c8f27ae082a9041819e0caf0c"
+  },
+  {
+    "id": "kara_drag_tap_hold_lift",
+    "path": "/Users/nap/Documents/AppleMagicTouchstreamLP/mac/kara_drag_tap_hold_lift.jpg",
+    "sha256": "d90c2a4ca0c7825bb8587eccd2757154a8d0bbeca490016f3d67dc6c44029c05"
+  },
+  {
+    "id": "kara_up_down_left_right_tap_hold_left",
+    "path": "/Users/nap/Documents/AppleMagicTouchstreamLP/mac/kara_up_down_left_right_tap_hold_left.jpg",
+    "sha256": "535cfc0a20154eff4006a0a118aa7580cc26896908accb9731d68a96ac05855a"
+  }
+]

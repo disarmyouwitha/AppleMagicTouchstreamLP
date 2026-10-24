@@ -1,19 +1,17 @@
 # NOTES:
-> (branch) Does it make sense to add this to windows_linux? 
-===
 *** Can you please look at the TouchStream QuickReference guide and make a map of all of the different gestures, how many fingers they take, if they are taps, moves, (What triggers them) and any restrictions. I want to find a way to group them to make it easier to map the gestures.. 
 ** I'm thinking in the end we will need to do something like Kara and expand the Gesture menu to "take over" / replace the left frame where the visualizer is to give more room for assignments. In her gui there seems to be 3 types of assignment pages but I am not sure if that is nessisary or if we can come up with a better way to display the information? It's a big ask. References: kara_drag_tap_hold_lift, kara_up_down_left_right_tap_hold_left
 
 In this PDF you can see the original touchstream GUI on the left to compare:
 TouchStream_for_Mac_vs_Utility_1.60.pdf
-* Merge/Cleanup Action menus (They are all different!) and allow volu,briu on movements (up,down,left,right) after we get the GUI set up for that!
+
+* Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right) after we get the GUI set up for that!
 ===
 
 `AppleMagicTouchstream`:
 ===
 0. ! Drag frame between left/right column to adjust width!!
-0. Feel out 4 finger latching? Might need a delay like in windows?
-1. spread/pinch might be interfering with taps?
+1. Feel out 4 finger latching? Might need a delay like in windows?
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
