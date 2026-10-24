@@ -329,3 +329,17 @@ Recognition still accepts thumb plus any appropriate number of fingertips and
 requires a recognized thumb only at activation. The guide's two-contact editing
 examples use thumb+middle; this app's action assignments remain configurable.
 The icon drawing was rendered and inspected offline at sidebar size.
+
+### Paired right-hand action examples (2026-10-23)
+
+Sidebar illustrations now represent actions, not left/right settings scope.
+Pinch and Spread shows two right hands labeled Pinch and Expand, with converging
+and diverging animated arrows. Tap and Move shows a right-hand tap with pulsing
+blue rings beside a right-hand move with motion arrows. Four-finger movement /
+force shows Move and Force examples; single-action sections show one right hand.
+Left/Right/Both continues selecting settings only. Recognition/output is unchanged.
+
+Animation is isolated to the icon TimelineViews at 12 fps, paused in background
+and with Accessibility Reduce Motion enabled; arrows remain legible when static.
+Original hand silhouettes remain vector artwork. Offline rendering was inspected
+at sidebar size for direction, label legibility, alignment and clipping.

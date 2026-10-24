@@ -124,8 +124,7 @@ struct GestureSidebar<Options: View>: View {
         HStack(spacing:8) {
             Text(gesture.title).font(.system(size:14,weight:.medium))
             Spacer(minLength:8)
-            GestureChordIcon(gesture:gesture,hand:hand)
-                .frame(width:hand == .both ? 88 : 42,height:42)
+            GestureChordIcon(gesture:gesture).fixedSize()
         }
     }
 }
@@ -134,20 +133,46 @@ struct GestureSidebar<Options: View>: View {
 /// hand silhouettes, red contact dots and blue tap rings. Examples are not exact-only anatomy rules.
 struct GestureChordIcon: View {
     let gesture: GesturePane
-    let hand: GestureHandScope
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.scenePhase) private var scenePhase
 
+    private enum Example: String, Hashable {
+        case pinch = "Pinch", expand = "Expand", tap = "Tap", move = "Move", force = "Force"
+    }
+    private var examples: [Example] {
+        if gesture.isPinchSection { return [.pinch,.expand] }
+        switch gesture {
+        case .twoFingers,.threeFingers: return [.tap,.move]
+        case .fourFingers: return [.move,.force]
+        case .thumbTwo: return [.tap]
+        default: return [.force]
+        }
+    }
     var body: some View {
+        HStack(spacing:6) {
+            ForEach(examples,id:\.self) { example in
+                VStack(spacing:1) {
+                    TimelineView(.animation(minimumInterval:1.0/12,paused:reduceMotion || scenePhase == .background)) { timeline in
+                        let phase = reduceMotion || scenePhase == .background ? 0.5
+                            : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:1.2)/1.2
+                        drawing(example,phase:phase).frame(width:44,height:44)
+                    }
+                    Text(example.rawValue).font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
+                }
+                .frame(width:46,height:58)
+            }
+        }
+        .accessibilityHidden(true)
+    }
+
+    private func drawing(_ example: Example, phase: Double) -> some View {
         Canvas { context, size in
-            let sides: [Bool] = hand == .both ? [true,false] : [hand == .left]
-            let cellWidth = size.width / CGFloat(sides.count)
-            let active = gesture.activeFingers
-            let tap = gesture == .thumbTwo || gesture == .oneFinger || gesture == .fiveFingers
-            let tapAndMove = gesture == .twoFingers || gesture == .threeFingers
-            for (handIndex,mirrored) in sides.enumerated() {
+                let active = gesture.activeFingers
+                let tap = example == .tap || example == .force
                 var cell = context
-                cell.translateBy(x:CGFloat(handIndex)*cellWidth,y:0)
-                if mirrored { cell.translateBy(x:cellWidth,y:0); cell.scaleBy(x:-1,y:1) }
-                cell.scaleBy(x:cellWidth,y:size.height)
+                // Both examples are right hands. Leave margin for motion arrows.
+                cell.translateBy(x:size.width*0.06,y:size.height*0.12)
+                cell.scaleBy(x:size.width*0.88,y:size.height*0.88)
                 var silhouette = Path()
                 silhouette.move(to:CGPoint(x:0.38,y:0.94))
                 silhouette.addCurve(to:CGPoint(x:0.27,y:0.72),control1:CGPoint(x:0.38,y:0.85),control2:CGPoint(x:0.29,y:0.80))
@@ -177,14 +202,44 @@ struct GestureChordIcon: View {
                     let marker = Path(ellipseIn:CGRect(x:tip.x-0.057,y:tip.y-0.057,width:0.114,height:0.114))
                     cell.fill(marker,with:.color(tap ? .blue : .red))
                     cell.stroke(marker,with:.color(.white),lineWidth:0.018)
-                    if tap || tapAndMove {
-                        let ring = Path(ellipseIn:CGRect(x:tip.x-0.080,y:tip.y-0.080,width:0.16,height:0.16))
-                        cell.stroke(ring,with:.color(tap ? .primary.opacity(0.8) : .blue),lineWidth:0.018)
+                    if tap {
+                        let radius = 0.075 + phase*0.045
+                        let ring = Path(ellipseIn:CGRect(x:tip.x-radius,y:tip.y-radius,width:radius*2,height:radius*2))
+                        cell.stroke(ring,with:.color(.blue.opacity(0.9-phase*0.5)),lineWidth:0.022)
                     }
                 }
+                if example == .pinch || example == .expand {
+                    // Converging/diverging arrows above the fingertips.
+                    let shift = (phase-0.5)*0.06
+                    let inward = example == .pinch
+                    arrow(&cell,from:CGPoint(x:inward ? 0.10+shift : 0.39-shift,y:-0.035),
+                          to:CGPoint(x:inward ? 0.39+shift : 0.10-shift,y:-0.035))
+                    arrow(&cell,from:CGPoint(x:inward ? 0.90-shift : 0.61+shift,y:-0.035),
+                          to:CGPoint(x:inward ? 0.61-shift : 0.90+shift,y:-0.035))
+                } else if example == .move {
+                    let shift = (phase-0.5)*0.10
+                    arrow(&cell,from:CGPoint(x:0.12+shift,y:-0.035),to:CGPoint(x:0.88+shift,y:-0.035),bothEnds:true)
+                    var trail = Path()
+                    trail.move(to:CGPoint(x:0.17,y:0.04))
+                    trail.addCurve(to:CGPoint(x:0.82,y:0.04),control1:CGPoint(x:0.39,y:0.13),control2:CGPoint(x:0.61,y:-0.04))
+                    cell.stroke(trail,with:.color(.primary.opacity(0.45)),lineWidth:0.017)
+                }
+        }
+    }
+
+    private func arrow(_ context: inout GraphicsContext, from start: CGPoint, to end: CGPoint, bothEnds: Bool = false) {
+        var path = Path()
+        path.move(to:start); path.addLine(to:end)
+        func head(_ tip: CGPoint, awayFrom other: CGPoint) {
+            let angle = atan2(tip.y-other.y,tip.x-other.x)
+            for side in [-1.0,1.0] {
+                path.move(to:tip)
+                path.addLine(to:CGPoint(x:tip.x-0.085*cos(angle+side*0.55),y:tip.y-0.085*sin(angle+side*0.55)))
             }
         }
-        .accessibilityHidden(true)
+        head(end,awayFrom:start)
+        if bothEnds { head(start,awayFrom:end) }
+        context.stroke(path,with:.color(.primary.opacity(0.85)),style:StrokeStyle(lineWidth:0.025,lineCap:.round,lineJoin:.round))
     }
 }
 
