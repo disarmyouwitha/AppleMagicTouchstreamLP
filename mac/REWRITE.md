@@ -1,19 +1,20 @@
+# NOTES:
+* Can you check out this User issue on Github? Can you fix it here in mac/AppleMagicTouchstream as well as mac/GlassToKey? Before you start tell me what the change will be:
+> https://github.com/disarmyouwitha/AppleMagicTouchstreamLP/issues/98
+> (branch) Does it make sense to add this to windows_linux? 
 ===
-## TELL CODEX:
-> `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
-> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far.
-> I also have all of the templates for all of the gestures in the SDK.. do you think you could start implementing them in Gesturepad? Or should we start using AppleMagicTouchstream for implementation? I have the entire keyboard implemented there already. 
+*** Can you please look at the TouchStream QuickReference guide and make a map of all of the different gestures, how many fingers they take, if they are taps, moves, (What triggers them) and any restrictions. I want to find a way to group them to make it easier to map the gestures.. 
+** I'm thinking in the end we will need to do something like Kara and expand the Gesture menu to "take over" / replace the left frame where the visualizer is to give more room for assignments. In her gui there seems to be 3 types of assignment pages but I am not sure if that is nessisary or if we can come up with a better way to display the information? It's a big ask. References: kara_drag_tap_hold_lift, kara_up_down_left_right_tap_hold_left
 
-> I really want to get the spellchecker logic out of the touchstream. 
-
-> Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
-=== 
-
+In this PDF you can see the original touchstream GUI on the left to compare:
+TouchStream_for_Mac_vs_Utility_1.60.pdf
+* Merge/Cleanup Action menus (They are all different!) and allow volu,briu on movements (up,down,left,right) after we get the GUI set up for that!
+===
 
 `AppleMagicTouchstream`:
-* Add small step volu/vold actions for gestures
-* Add small step briu/brid actions for gestures
-0. i am getting stuck in mo(1) when I use my layer button on LHS and tap a number on my RHS I will get stuck in mo(1) until I do/release a gesture on my LHS
+===
+0. ! Drag frame between left/right column to adjust width!!
+0. Feel out 4 finger latching? Might need a delay like in windows?
 1. spread/pinch might be interfering with taps?
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
@@ -33,6 +34,14 @@
 
 ===
 
+
+`Gesturepad`:
+===
+- Build more Gestures!
+===
+
+
+
 `GlassToKey`: ditch GTK?
 ===
 1. Remove all gestures/gesture logic
@@ -43,13 +52,16 @@
 7. After Gestures are in we can start ripping out `Typing Tuning` features 1 at a time.
 ===
 
-
-`Gesturepad`:
 ===
-- Build more Gestures!
-===
+## TELL CODEX:
+> `?` Can you use gesturepad or AppleMagicTouchstream for your reverse engineering efforts? What would allow you to do that? The trackpads are a little smaller but I set up a scaled down keymap that matches ('TouchStream' layout)
+> I want to see if you can confirm any of the assumptions we made about the gestures we have implemented so far.
+> I also have all of the templates for all of the gestures in the SDK.. do you think you could start implementing them in Gesturepad? Or should we start using AppleMagicTouchstream for implementation? I have the entire keyboard implemented there already. 
 
+> I really want to get the spellchecker logic out of the touchstream. 
 
+> Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
+=== 
 
 =======
 - Update GTK `Windows` Driver instructions they should be dead simple now.

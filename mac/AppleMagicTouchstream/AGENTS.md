@@ -185,3 +185,11 @@ all-up, so same-pad layer+arrow/key chords work. This is a user-authorized
 exception to gesture-first arbitration; opposite-pad gestures remain independent.
 Suppress native output as well as keyboard reservation on that pad, consume the
 all-up frame, and clear ownership on reset. See GESTURE_ENGINE.md/tests.
+
+
+User authorized restoring GlassToKey's Run at Startup toggle and launch-at-login
+behavior on 2026-10-24. Use the app-local LaunchAtLoginManager with
+SMAppService.mainApp, default off, reconcile saved preferences at app launch,
+and reflect actual registration state in the toggle. Match GlassToKey's keymap
+import/export behavior. This supersedes the earlier removed-control policy;
+never register login items as part of a build or an offline test.

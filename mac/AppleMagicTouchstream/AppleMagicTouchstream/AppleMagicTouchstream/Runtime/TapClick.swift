@@ -1,3 +1,4 @@
+import AppKit
 import CoreGraphics
 import Darwin
 import Foundation
@@ -402,6 +403,8 @@ struct AppleShortcutPlan: Equatable, Sendable {
     let keyCode: CGKeyCode
     let flags: CGEventFlags
     var dockMessage: String? = nil
+    var mediaKeyType: Int32? = nil
+    var eventTap: CGEventTapLocation { mediaKeyType == nil ? .cghidEventTap : .cgSessionEventTap }
     private typealias DockSender = @convention(c) (CFString, Int32) -> Void
     // Loaded by configuration, never first loaded in a contact callback. Keep handle resident.
     private static let dockSender: DockSender? = {
@@ -418,6 +421,16 @@ struct AppleShortcutPlan: Equatable, Sendable {
         }
     }
     static func resolve(_ action: GestureAction, preferences: [String:Any]) -> Self? {
+        // Same media codes and Option–Shift encoding as GlassToKey's fine controls.
+        let mediaCode: Int32?
+        switch action {
+        case .volumeUpSmall: mediaCode = 0
+        case .volumeDownSmall: mediaCode = 1
+        case .brightnessUpSmall: mediaCode = 2
+        case .brightnessDownSmall: mediaCode = 3
+        default: mediaCode = nil
+        }
+        if let mediaCode { return Self(keyCode:0,flags:[.maskShift,.maskAlternate],mediaKeyType:mediaCode) }
         // Dock actions must not depend on configurable (or disabled) Control-arrow shortcuts.
         if action == .missionControl || action == .appExpose {
             return Self(keyCode:0,flags:[],dockMessage:action == .missionControl
@@ -444,7 +457,7 @@ struct AppleShortcutPlan: Equatable, Sendable {
         let preferences = CFPreferencesCopyAppValue("AppleSymbolicHotKeys" as CFString,
             "com.apple.symbolichotkeys" as CFString) as? [String:Any] ?? [:]
         let dockAvailable = dockSender != nil
-        return Dictionary(uniqueKeysWithValues:GestureAction.appleShortcuts.compactMap { action in
+        return Dictionary(uniqueKeysWithValues:GestureAction.oneShotActions.compactMap { action in
             guard let plan = resolve(action,preferences:preferences), plan.dockMessage == nil || dockAvailable else { return nil }
             return (action,plan)
         })
@@ -457,6 +470,20 @@ struct AppleShortcutPlan: Equatable, Sendable {
     }
     func events(phase: GestureSessionPhase = .began) -> [CGEvent]? {
         guard phase == .began, dockMessage == nil else { return nil }
+        if let mediaKeyType {
+            var events: [CGEvent] = []
+            for state: Int32 in [0xA,0xB] {
+                var modifiers = NSEvent.ModifierFlags(rawValue:UInt(state << 8))
+                modifiers.formUnion([.shift,.option])
+                guard let event = NSEvent.otherEvent(with:.systemDefined,location:.zero,
+                    modifierFlags:modifiers,timestamp:ProcessInfo.processInfo.systemUptime,
+                    windowNumber:0,context:nil,subtype:8,
+                    data1:Int((mediaKeyType << 16) | (state << 8)),data2:-1)?.cgEvent else { return nil }
+                event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
+                events.append(event)
+            }
+            return events
+        }
         guard let down = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:true),
               let up = CGEvent(keyboardEventSource:nil,virtualKey:keyCode,keyDown:false) else { return nil }
         for event in [down,up] {

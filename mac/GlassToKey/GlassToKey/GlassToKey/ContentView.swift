@@ -2813,7 +2813,7 @@ struct ContentView: View {
                             shortcutModifierButton(modifier)
                         }
                     }
-                    Text("Click to toggle. Hold to choose generic, left, or right.")
+                    Text("Click to toggle. Hold to choose generic, left, or right. Leave Key at None for modifiers only.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {

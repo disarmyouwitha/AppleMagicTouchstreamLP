@@ -92,6 +92,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.accessory)
         guard enforceSingleInstancePolicyAtLaunch() else { return }
         GlassToKeyController.seedBundledDefaultsIfNeeded()
+        initializeRunAtStartupPreference()
         let shouldOpenConfigOnLaunch = !ProcessInfo.processInfo.arguments.contains("--background") &&
             (!hasSavedConfiguration() || ProcessInfo.processInfo.arguments.contains("--open-config"))
         nativeTakeover.onOwnershipChanged = { [weak self] owned in
@@ -407,6 +408,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
 
+
+    private func initializeRunAtStartupPreference() {
+        let defaults = UserDefaults.standard
+        let key = GlassToKeyDefaultsKeys.runAtStartupEnabled
+        let manager = LaunchAtLoginManager.shared
+        if defaults.object(forKey: key) == nil {
+            defaults.set(manager.isEnabled, forKey: key)
+            return
+        }
+        let desired = defaults.bool(forKey: key)
+        do {
+            try manager.setEnabled(desired)
+            defaults.set(manager.isEnabled, forKey: key)
+        } catch {
+            defaults.set(manager.isEnabled, forKey: key)
+        }
+    }
 
     private func hasSavedConfiguration(defaults: UserDefaults = .standard) -> Bool {
         for key in Self.persistedConfigKeys {

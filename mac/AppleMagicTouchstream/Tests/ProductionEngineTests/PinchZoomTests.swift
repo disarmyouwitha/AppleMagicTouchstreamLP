@@ -302,3 +302,39 @@ extension PinchZoomTests {
         XCTAssertEqual(AppleShortcutPlan.resolve(.notificationCenter,preferences:[:])?.flags,.maskSecondaryFn)
     }
 }
+
+
+extension PinchZoomTests {
+    func testSmallStepMediaActionsEncodeBalancedFineAdjustmentAndRoundTrip() throws {
+        for (action,code) in zip(GestureAction.smallStepActions,[0,1,2,3]) {
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            XCTAssertEqual(plan.eventTap,.cgSessionEventTap)
+            let events = try XCTUnwrap(plan.events())
+            XCTAssertEqual(events.count,2)
+            for (event,state) in zip(events,[0xA,0xB]) {
+                let native = try XCTUnwrap(NSEvent(cgEvent:event))
+                XCTAssertEqual(native.type,.systemDefined)
+                XCTAssertEqual(native.subtype.rawValue,8)
+                XCTAssertEqual(native.data1,(code << 16) | (state << 8))
+                XCTAssertEqual(native.data2,-1)
+                XCTAssertTrue(native.modifierFlags.contains([.option,.shift]))
+                XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+            }
+            for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] {
+                XCTAssertNil(plan.events(phase:phase))
+            }
+            for trigger in GestureTrigger.allCases where !trigger.isContinuous || trigger.isPinch {
+                var settings = HandGestureSettings()
+                XCTAssertTrue(trigger.allowedActions.contains(action))
+                XCTAssertTrue(settings.setAction(action,for:trigger,in:.both))
+                var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+                let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+                XCTAssertEqual(imported.handGestureSettings,settings)
+            }
+            var clicks = PrimaryTapClickOutput()
+            XCTAssertEqual(GestureTapActionOutput.events(action:action,location:.zero,time:1,
+                doubleClickInterval:0.5,clicks:&clicks,shortcut:plan)?.count,2)
+            XCTAssertFalse(GestureTrigger.twoFingerMove.allowedActions.contains(action))
+        }
+    }
+}

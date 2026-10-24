@@ -406,3 +406,19 @@ Motion arrows remain neutral; captions, geometry and animation are unchanged.
 The pinch/spread examples are labeled Pinch and Spread beneath their diagrams.
 Tap/Move/Force captions remain. Anatomical colors apply to both the contact dots
 and pulsing rings, using the live palette directly.
+
+
+### Small-step volume and display brightness actions
+
+Tap, force-click, and Pinch/Spread action menus offer Volume Up/Down (Small Step)
+and Brightness Up/Down (Small Step). Each recognition sends one balanced media-key
+pair with Option–Shift, using GlassToKey's media codes 0/1/2/3, subtype 8 and
+0xA/0xB states at the session event tap. No modifier keys are held or system
+preferences changed. Pinch/Spread emits once on activation, preserving its all-up
+latch; continuing movement does not repeat adjustments. These actions persist
+per hand and travel with keymap gesture settings. Existing output eligibility and
+replay suppression still apply. Brightness/volume support depends on the current
+display/audio device, as with the keyboard controls.
+
+Apple documents Option–Shift fine adjustments in
+[Mac keyboard shortcuts](https://support.apple.com/en-us/102650).

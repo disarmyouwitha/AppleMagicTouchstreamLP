@@ -40,9 +40,9 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
     }
     var allowedActions: [GestureAction] {
-        if isPinch { return [.disabled,.zoom] + GestureAction.appleShortcuts }
-        if forceCount != nil { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.appleShortcuts }
-        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick]
+        if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
+        if forceCount != nil { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
+        return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.smallStepActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
     var defaultAction: GestureAction {
@@ -66,11 +66,18 @@ typealias GestureFeature = GestureTrigger
 enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
+    case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
+    static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
+    static var oneShotActions: [Self] { appleShortcuts + smallStepActions }
     static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
-    var isAppleShortcut: Bool { Self.appleShortcuts.contains(self) }
+    var isAppleShortcut: Bool { Self.oneShotActions.contains(self) }
     var id: String { rawValue }
     var title: String {
         switch self {
+        case .volumeUpSmall: return "Volume Up (Small Step)"
+        case .volumeDownSmall: return "Volume Down (Small Step)"
+        case .brightnessUpSmall: return "Brightness Up (Small Step)"
+        case .brightnessDownSmall: return "Brightness Down (Small Step)"
         case .notificationCenter: return "Notification Center"
         case .missionControl: return "Mission Control"
         case .appExpose: return "App Exposé"

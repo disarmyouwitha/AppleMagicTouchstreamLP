@@ -75,8 +75,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             guard let location = CGEvent(source:nil)?.location,
                 let events = GestureTapActionOutput.events(action:action(trigger,device:device),location:location,
                     time:time,doubleClickInterval:doubleClickInterval,
-                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&clicks) else { return }
-            for event in events { event.post(tap:.cghidEventTap) }
+                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&clicks,
+                    shortcut:appleShortcuts[action(trigger,device:device)]) else { return }
+            for event in events { event.post(tap:appleShortcuts[action(trigger,device:device)]?.eventTap ?? .cghidEventTap) }
         }
         var drag = PrimaryDragOutput()
         var buttonObserver: ButtonObserver?
@@ -342,7 +343,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
                 state.finishScroll(device:device,cancelled:true)
-                for event in events { event.post(tap:.cghidEventTap) }
+                for event in events { event.post(tap:state.appleShortcuts[forceBindings.action(for:trigger)]?.eventTap ?? .cghidEventTap) }
                 if state.appleShortcuts[forceBindings.action(for:trigger)]?.postDock() == true { state.clicks.reset() }
                 if hostTime - (state.lastForceHaptic[device] ?? -.infinity) >= 0.05 {
                     state.lastForceHaptic[device] = hostTime
@@ -385,7 +386,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     let action = state.action(gesture,device:device)
                     _ = state.appleShortcuts[action]?.postDock(phase:update.phase)
                     for event in state.appleShortcuts[action]?.events() ?? [] {
-                        event.post(tap:.cghidEventTap); state.postedEvents &+= 1
+                        event.post(tap:state.appleShortcuts[action]?.eventTap ?? .cghidEventTap); state.postedEvents &+= 1
                     }
                 }
                 return nil

@@ -694,6 +694,17 @@ struct ContentView: View {
             }
 
 
+            .onChange(of: runAtStartupEnabled) { newValue in
+                do {
+                    try LaunchAtLoginManager.shared.setEnabled(newValue)
+                    let resolved = LaunchAtLoginManager.shared.isEnabled
+                    if resolved != newValue {
+                        runAtStartupEnabled = resolved
+                    }
+                } catch {
+                    runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+                }
+            }
             .onChange(of: storedCustomButtonsData) { _ in
                 refreshActionGroupCaches()
             }
@@ -2587,7 +2598,7 @@ struct ContentView: View {
                             shortcutModifierButton(modifier)
                         }
                     }
-                    Text("Click to toggle. Hold to choose generic, left, or right.")
+                    Text("Click to toggle. Hold to choose generic, left, or right. Leave Key at None for modifiers only.")
                         .font(.caption2)
                         .foregroundStyle(.secondary)
                     HStack(spacing: 8) {
@@ -2844,6 +2855,11 @@ struct ContentView: View {
 
         var body: some View {
             Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
+                GridRow {
+                    Text("Run at Startup").frame(width: labelWidth, alignment: .leading)
+                    Toggle("", isOn: $runAtStartupEnabled)
+                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
+                }
                 GridRow {
                     Text("Hold Repeat").frame(width: labelWidth, alignment: .leading)
                     Toggle("", isOn: $holdRepeatEnabled)
@@ -3784,7 +3800,7 @@ struct ContentView: View {
         viewModel.updateAllowMouseTakeover(true)
         viewModel.updateSnapRadiusPercent(0)
         viewModel.updateHoldRepeatEnabled(holdRepeatEnabled)
-        runAtStartupEnabled = false
+        runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
         viewModel.updateTapClickCadenceMs(tapClickCadenceMsSetting)
         viewModel.setTouchSnapshotRecordingEnabled(true)
     }
@@ -4048,6 +4064,18 @@ struct ContentView: View {
         storedRightDeviceID = profile.rightDeviceID
         storedLayoutPreset = profile.layoutPreset
         storedAutoResyncMissingTrackpads = profile.autoResyncMissingTrackpads
+        if let runAtStartupEnabled = profile.runAtStartupEnabled {
+            do {
+                try LaunchAtLoginManager.shared.setEnabled(runAtStartupEnabled)
+            } catch {
+                showKeymapAlert(
+                    title: "Run at startup update failed",
+                    message: error.localizedDescription,
+                    style: .warning
+                )
+            }
+            self.runAtStartupEnabled = LaunchAtLoginManager.shared.isEnabled
+        }
 
         tapHoldDurationMs = profile.tapHoldDurationMs
         dragCancelDistanceSetting = profile.dragCancelDistance

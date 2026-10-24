@@ -713,3 +713,191 @@ final class ProductionEngineTests: XCTestCase {
     }
 
 }
+
+
+extension ProductionEngineTests {
+    private var hyperFlags: CGEventFlags { [.maskCommand,.maskControl,.maskAlternate,.maskShift] }
+
+    func testHyperAndModifierOnlyShortcutCatalogAndKeymapRoundTrip() throws {
+        let hyper = try XCTUnwrap(KeyActionCatalog.action(for:"Hyper"))
+        XCTAssertEqual(hyper.keyCode,UInt16(kVK_Command))
+        XCTAssertTrue(CGEventFlags(rawValue:hyper.flags).contains(hyperFlags))
+        XCTAssertTrue(KeyActionCatalog.holdPresets.contains(hyper))
+        XCTAssertEqual(hyper.pickerText,"Hyper")
+        XCTAssertEqual(hyper.displayText,"Hyper")
+        let builderHyper = try XCTUnwrap(KeyActionCatalog.shortcutAction(modifiers:[.control:.generic,.shift:.generic,.option:.generic,.command:.generic],keyLabel:""))
+        XCTAssertEqual(builderHyper.pickerText,"Hyper")
+        XCTAssertEqual(builderHyper.displayText,"Hyper")
+        for label in ["Shift","Ctrl","Option","AltGr","Cmd"] {
+            XCTAssertFalse(KeyActionCatalog.shortcutKeyLabels.contains(label))
+        }
+        let built = try XCTUnwrap(KeyActionCatalog.shortcutAction(modifiers:[.shift:.generic,.control:.generic,.option:.generic],keyLabel:""))
+        XCTAssertEqual(KeyActionCatalog.action(for:built.label),built)
+        XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:hyper)?.keyLabel,"")
+        XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:hyper)?.modifiers.count,4)
+        let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+        object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[position:KeyMapping(primary:hyper,hold:hyper)]]]))
+        let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.primary,hyper)
+        XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.hold,hyper)
+    }
+
+    func testHyperPrimaryHoldsFourModifiersUntilAllUpAndNeverTypesCommand() {
+        let run = session(labels:["Hyper","F"])
+        frame(run,1,[contact(state:.making)])
+        frame(run,1.04,[contact()])
+        frame(run,1.06,[contact(),contact(2,key:1,state:.making)])
+        frame(run,1.10,[contact(),contact(2,key:1)])
+        frame(run,1.14,[contact(),contact(2,key:1,state:.breaking)])
+        frame(run,1.16,[contact()])
+        frame(run,1.2,[]) // A missing terminal record must still release Hyper.
+        run.finish(at:2)
+        let codes = [kVK_Shift,kVK_Control,kVK_Option,kVK_Command].map(UInt16.init)
+        var downs:[UInt16] = [], ups:[UInt16] = [], strokes:[UInt16] = []
+        for event in run.output.events {
+            switch event.kind {
+            case let .key(code,_,down,_): if down { downs.append(code) } else { ups.append(code) }
+            case let .keyStroke(code,flags,_):
+                strokes.append(code)
+                XCTAssertTrue(flags.contains(hyperFlags))
+            default: break
+            }
+        }
+        XCTAssertEqual(downs,codes); XCTAssertEqual(ups,codes)
+        XCTAssertEqual(strokes,[UInt16(kVK_ANSI_F)])
+    }
+
+    func testHyperSharesShiftOwnershipAcrossBothReleaseOrders() {
+        for hyperFirst in [true,false] {
+            let run = session(labels:["Hyper","Shift","F"])
+            frame(run,1,[contact(state:.making)])
+            frame(run,1.04,[contact()])
+            frame(run,1.06,[contact(),contact(2,key:1,state:.making)])
+            frame(run,1.10,[contact(),contact(2,key:1)])
+            let survivor = hyperFirst ? contact(2,key:1) : contact()
+            let departing = hyperFirst ? contact(state:.breaking) : contact(2,key:1,state:.breaking)
+            frame(run,1.14,[survivor,departing])
+            let shiftUps = run.output.events.filter {
+                if case let .key(code,_,down,_) = $0.kind { return code == UInt16(kVK_Shift) && !down }
+                return false
+            }
+            XCTAssertTrue(shiftUps.isEmpty)
+            frame(run,1.18,[survivor,contact(3,key:2,state:.making)])
+            frame(run,1.22,[survivor,contact(3,key:2)])
+            frame(run,1.24,[survivor,contact(3,key:2,state:.breaking)])
+            frame(run,1.28,[])
+            run.finish(at:2)
+            XCTAssertEqual(run.output.events.filter {
+                if case let .key(code,_,down,_) = $0.kind { return code == UInt16(kVK_Shift) && !down }
+                return false
+            }.count,1)
+            let stroke = run.output.events.first { if case .keyStroke = $0.kind { return true }; return false }
+            if case let .keyStroke(_,flags,_) = stroke?.kind {
+                XCTAssertTrue(flags.contains(hyperFirst ? .maskShift : hyperFlags))
+                if hyperFirst { XCTAssertFalse(flags.contains(.maskCommand)) }
+            } else { XCTFail("Expected the surviving modifier to apply to F") }
+        }
+    }
+
+    func testHyperHoldAndResetReleaseEveryModifierWithoutPrimaryTap() {
+        for reset in [false,true] {
+            let run = session(labels:["F"],allowHold:true)
+            let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            run.engine.updateKeyMappings([0:[position:KeyMapping(primary:KeyActionCatalog.action(for:"F")!,hold:KeyActionCatalog.action(for:"Hyper")!)]])
+            run.engine.updateHoldThreshold(0.2)
+            frame(run,1,[contact(state:.making)])
+            frame(run,1.04,[contact()])
+            frame(run,1.3,[contact()])
+            if reset { run.engine.resetState() }
+            else { frame(run,1.34,[contact(state:.breaking)]); frame(run,1.36,[]) }
+            run.finish(at:2)
+            XCTAssertEqual(run.output.events.filter { if case .keyStroke = $0.kind { return true }; return false }.count,0)
+            for code in [kVK_Shift,kVK_Control,kVK_Option,kVK_Command] {
+                XCTAssertEqual(run.output.events.filter {
+                    if case let .key(actual,_,down,_) = $0.kind { return actual == UInt16(code) && down }; return false
+                }.count,1)
+                XCTAssertEqual(run.output.events.filter {
+                    if case let .key(actual,_,down,_) = $0.kind { return actual == UInt16(code) && !down }; return false
+                }.count,1)
+            }
+        }
+    }
+}
+
+
+extension ProductionEngineTests {
+    func testCustomModifierOnlyShortcutHoldsAndReleasesWithoutRepeating() {
+        for label in ["Ctrl+Shift+Option+Cmd","Shift+AltGr"] {
+            let run = session(labels:[label])
+            run.engine.updateHoldRepeatEnabled(true)
+            frame(run,1,[contact(state:.making)])
+            frame(run,1.04,[contact()])
+            frame(run,1.5,[contact()])
+            run.scheduler.advance(to:2)
+            run.engine.resetState()
+            let expected = label == "Shift+AltGr" ? [kVK_Shift,kVK_RightOption] : [kVK_Shift,kVK_Control,kVK_Option,kVK_Command]
+            let actual = run.output.events.compactMap { event -> UInt16? in
+                if case let .key(code,_,down,_) = event.kind, down { return code }; return nil
+            }
+            XCTAssertEqual(actual,expected.map(UInt16.init))
+            XCTAssertEqual(run.output.events.count,expected.count * 2)
+        }
+    }
+}
+
+
+extension ProductionEngineTests {
+    func testModifierOnlyBuilderAllCombinationsPersistenceAndLegacyLabels() throws {
+        XCTAssertEqual(KeyActionCatalog.action(for:"AltGr")?.label,"AltGr")
+        XCTAssertEqual(KeyActionCatalog.action(for:"Shift")?.flags,0)
+        XCTAssertNil(KeyActionCatalog.shortcutAction(modifiers:[:],keyLabel:""))
+        XCTAssertEqual(KeyActionCatalog.shortcutAction(modifiers:[:],keyLabel:"A"),KeyActionCatalog.action(for:"A"))
+        let all = ShortcutModifier.ordered
+        for mask in 1..<16 {
+            let modifiers = Dictionary(uniqueKeysWithValues:all.enumerated().compactMap { index,modifier in
+                mask & (1 << index) != 0 ? (modifier,ShortcutModifierVariant.generic) : nil
+            })
+            let action = try XCTUnwrap(KeyActionCatalog.shortcutAction(modifiers:modifiers,keyLabel:""))
+            let spec = try XCTUnwrap(KeyActionCatalog.shortcutSpec(for:action))
+            XCTAssertEqual(spec.modifiers,modifiers)
+            XCTAssertEqual(spec.keyLabel,"")
+            XCTAssertFalse(action.label.hasSuffix("+"))
+            let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+            object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[position:KeyMapping(primary:action,hold:action)]]]))
+            let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+            let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.primary,action)
+            XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.hold,action)
+        }
+        for variant in ShortcutModifierVariant.allCases {
+            for modifier in all {
+                let action = try XCTUnwrap(KeyActionCatalog.shortcutAction(modifiers:[modifier:variant],keyLabel:""))
+                XCTAssertEqual(KeyActionCatalog.action(for:action.label),action)
+                XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:action)?.modifiers,[modifier:variant])
+            }
+        }
+        let legacy = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+Shift"))
+        XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:legacy)?.keyLabel,"")
+        XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:legacy)?.modifiers,[.command:.generic,.shift:.generic])
+        let normal = try XCTUnwrap(KeyActionCatalog.shortcutAction(modifiers:[.command:.generic,.shift:.generic],keyLabel:"S"))
+        XCTAssertEqual(normal.keyCode,UInt16(kVK_ANSI_S))
+        XCTAssertEqual(KeyActionCatalog.shortcutSpec(for:normal)?.keyLabel,"S")
+    }
+}
+
+
+extension ProductionEngineTests {
+    func testRunAtStartupPreferenceRoundTripsWithoutRegisteringLoginItems() throws {
+        XCTAssertFalse(GlassToKeySettings.runAtStartupEnabled)
+        for enabled in [true,false] {
+            var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+            object["runAtStartupEnabled"] = enabled
+            let profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+            let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+            XCTAssertEqual(imported.runAtStartupEnabled,enabled)
+        }
+    }
+}

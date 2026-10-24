@@ -476,14 +476,17 @@ struct ShortcutActionSpec: Hashable {
     var label: String {
         let parts = orderedModifierSelections.map { modifier, variant in
             modifier.serializedLabel(for: variant)
-        } + [keyLabel]
+        } + (keyLabel.isEmpty ? [] : [keyLabel])
         return parts.joined(separator: "+")
     }
 
     var displayLabel: String {
+        if keyLabel.isEmpty, modifiers.count == 4, modifiers.values.allSatisfy({ $0 == .generic }) {
+            return "Hyper"
+        }
         let parts = orderedModifierSelections.map { modifier, variant in
             modifier.displayLabel(for: variant)
-        } + [keyLabel]
+        } + (keyLabel.isEmpty ? [] : [keyLabel])
         return parts.joined(separator: "+")
     }
 }
@@ -617,38 +620,53 @@ enum ShortcutActionHelper {
     static let supportedKeyLabels: [String] = keyEntries.map(\.0)
 
     static func parse(_ text: String) -> ShortcutActionSpec? {
-        let tokens = text.split(separator: "+").map {
-            String($0).trimmingCharacters(in: .whitespacesAndNewlines)
+        if text.trimmingCharacters(in:.whitespacesAndNewlines).lowercased() == "hyper" {
+            return ShortcutActionSpec(modifiers:[.control:.generic,.shift:.generic,.option:.generic,.command:.generic],keyLabel:"")
+        }
+        let tokens = text.split(separator:"+").map {
+            String($0).trimmingCharacters(in:.whitespacesAndNewlines)
         }.filter { !$0.isEmpty }
-        guard tokens.count >= 2 else { return nil }
-        guard let keyLabel = normalizeKeyLabel(tokens.last ?? "") else { return nil }
-        var modifiers: [ShortcutModifier: ShortcutModifierVariant] = [:]
-        for token in tokens.dropLast() {
-            guard let parsed = ShortcutModifier.parse(token) else { return nil }
-            modifiers[parsed.modifier] = parsed.variant
+        guard !tokens.isEmpty else { return nil }
+        var modifiers: [ShortcutModifier:ShortcutModifierVariant] = [:]
+        var keyLabel = ""
+        for (index,token) in tokens.enumerated() {
+            if let parsed = ShortcutModifier.parse(token) {
+                modifiers[parsed.modifier] = parsed.variant
+            } else {
+                guard index == tokens.count-1, let key = normalizeKeyLabel(token) else { return nil }
+                keyLabel = key
+            }
         }
-        guard !modifiers.isEmpty,
-              keyCodeByLabel[keyLabel] != nil else {
-            return nil
-        }
-        return ShortcutActionSpec(modifiers: modifiers, keyLabel: keyLabel)
+        guard !modifiers.isEmpty || !keyLabel.isEmpty else { return nil }
+        return ShortcutActionSpec(modifiers:modifiers,keyLabel:keyLabel)
     }
 
     static func createAction(
         modifiers: [ShortcutModifier: ShortcutModifierVariant],
         keyLabel: String
     ) -> KeyAction? {
-        guard !modifiers.isEmpty,
-              let normalizedKeyLabel = normalizeKeyLabel(keyLabel),
-              let keyCode = keyCodeByLabel[normalizedKeyLabel] else {
-            return nil
+        let trimmed = keyLabel.trimmingCharacters(in:.whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            guard let base = ShortcutModifier.ordered.last(where:{modifiers[$0] != nil}) else { return nil }
+            let spec = ShortcutActionSpec(modifiers:modifiers,keyLabel:"")
+            // Preserve existing standalone modifier identities and saved keymaps.
+            if modifiers.count == 1, modifiers[base] == .generic {
+                return KeyActionCatalog.action(for:base.serializedLabel(for:.generic))
+            }
+            let code: Int
+            switch base {
+            case .control: code = kVK_Control
+            case .shift: code = kVK_Shift
+            case .option: code = modifiers[base] == .right ? kVK_RightOption : kVK_Option
+            case .command: code = kVK_Command
+            }
+            return KeyAction(label:spec.label,keyCode:UInt16(code),flags:spec.flags.rawValue)
         }
-        let spec = ShortcutActionSpec(modifiers: modifiers, keyLabel: normalizedKeyLabel)
-        return KeyAction(
-            label: spec.label,
-            keyCode: UInt16(keyCode),
-            flags: spec.flags.rawValue
-        )
+        guard let normalizedKeyLabel = normalizeKeyLabel(trimmed),
+              let keyCode = keyCodeByLabel[normalizedKeyLabel] else { return nil }
+        if modifiers.isEmpty { return KeyActionCatalog.action(for:normalizedKeyLabel) }
+        let spec = ShortcutActionSpec(modifiers:modifiers,keyLabel:normalizedKeyLabel)
+        return KeyAction(label:spec.label,keyCode:UInt16(keyCode),flags:spec.flags.rawValue)
     }
 
     static func spec(for action: KeyAction) -> ShortcutActionSpec? {
@@ -664,6 +682,11 @@ enum ShortcutActionHelper {
             return uppercase
         }
         switch uppercase {
+        case "SHIFT": return "Shift"
+        case "CTRL", "CONTROL": return "Ctrl"
+        case "OPTION", "ALT": return "Option"
+        case "ALTGR": return "AltGr"
+        case "CMD", "COMMAND": return "Cmd"
         case "BACK", "BACKSPACE":
             return "Backspace"
         case "RET", "RETURN", "ENTER":
@@ -2309,6 +2332,7 @@ enum KeyActionCatalog {
         "G": (CGKeyCode(kVK_ANSI_G), []),
         "Ctrl": (CGKeyCode(kVK_Control), []),
         "Cmd": (CGKeyCode(kVK_Command), []),
+        "Hyper": (CGKeyCode(kVK_Command), [.maskCommand,.maskAlternate,.maskControl,.maskShift]),
         "Emoji": (CGKeyCode(kVK_Function), []),
         "Z": (CGKeyCode(kVK_ANSI_Z), []),
         "X": (CGKeyCode(kVK_ANSI_X), []),
@@ -2549,6 +2573,7 @@ enum KeyActionCatalog {
                 volumeDownLabel,
             ]),
             (dashedHeader("Modifiers & Modes"), [
+                "Hyper",
                 "Shift",
                 "Ctrl",
                 "Option",
@@ -2627,7 +2652,9 @@ enum KeyActionCatalog {
         if removed.contains(label.trimmingCharacters(in: .whitespacesAndNewlines)) || AppLaunchActionHelper.parse(label) != nil { return nil }
 
 
-        if let shortcut = ShortcutActionHelper.parse(label),
+        let sidedModifier = label.contains(" ") && (ShortcutModifier.parse(label).map { $0.variant != .generic } ?? false)
+        if (label.contains("+") || sidedModifier),
+           let shortcut = ShortcutActionHelper.parse(label),
            let action = ShortcutActionHelper.createAction(
             modifiers: shortcut.modifiers,
             keyLabel: shortcut.keyLabel
@@ -2636,6 +2663,8 @@ enum KeyActionCatalog {
         }
         let normalizedLabel: String
         switch label {
+        case "Hyper", "HYPER", "hyper":
+            normalizedLabel = "Hyper"
         case "Escape":
             normalizedLabel = "Esc"
         case "Enter":

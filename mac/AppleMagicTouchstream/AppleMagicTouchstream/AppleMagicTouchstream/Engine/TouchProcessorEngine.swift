@@ -65,6 +65,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
     typealias Layout = ContentViewModel.Layout
     typealias IntentDisplay = ContentViewModel.IntentDisplay
     private enum ModifierKey {
+        case combination(CGEventFlags)
         case shift
         case control
         case option
@@ -156,7 +157,8 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let layer: Int
         let startTime: TimeInterval
         let startPoint: CGPoint
-        let modifierKey: ModifierKey?
+        var modifierKey: ModifierKey?
+        var modifierBinding: KeyBinding? = nil
         let isContinuousKey: Bool
         let holdBinding: KeyBinding?
         var didHold: Bool
@@ -1411,7 +1413,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                 _ = removePendingTouch(for: touchKey)
                 if let active = removedActive {
                     if let modifierKey = active.modifierKey {
-                        handleModifierUp(modifierKey, binding: active.binding)
+                        handleModifierUp(modifierKey, binding: active.modifierBinding ?? active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
                    }
@@ -1455,7 +1457,12 @@ final class TouchProcessorEngine: @unchecked Sendable {
                             for: active.binding,
                             pressure: peakPressure
                         )
-                        if beginHoldRepeat(
+                        if let modifier = modifierKey(for: holdDispatchBinding) {
+                            handleModifierDown(modifier, binding: holdDispatchBinding)
+                            updated.modifierKey = modifier
+                            updated.modifierBinding = holdDispatchBinding
+                            updated.modifierEngaged = true
+                        } else if beginHoldRepeat(
                                 for: touchKey,
                                 binding: holdDispatchBinding,
                                 pressure: dispatchPressure
@@ -1618,7 +1625,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     )
                     active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
                     if let modifierKey = active.modifierKey, active.modifierEngaged {
-                        handleModifierUp(modifierKey, binding: active.binding)
+                        handleModifierUp(modifierKey, binding: active.modifierBinding ?? active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
                     } else if !active.didHold {
@@ -1711,7 +1718,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
                     )
                     active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
                     if let modifierKey = active.modifierKey, active.modifierEngaged {
-                        handleModifierUp(modifierKey, binding: active.binding)
+                        handleModifierUp(modifierKey, binding: active.modifierBinding ?? active.binding)
                     } else if active.holdRepeatActive {
                         stopRepeat(for: touchKey)
                     } else if !active.didHold {
@@ -1882,7 +1889,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
             )
             active.maxDistanceSquared = max(active.maxDistanceSquared, releaseDistanceSquared)
             if let modifierKey = active.modifierKey, active.modifierEngaged {
-                handleModifierUp(modifierKey, binding: active.binding)
+                handleModifierUp(modifierKey, binding: active.modifierBinding ?? active.binding)
             } else if active.holdRepeatActive {
                 stopRepeat(for: touchKey)
             } else if !active.didHold {
@@ -2671,7 +2678,22 @@ final class TouchProcessorEngine: @unchecked Sendable {
     }
 
     private func modifierKey(for binding: KeyBinding) -> ModifierKey? {
-        guard case let .key(code, _) = binding.action else { return nil }
+        guard case let .key(code, flags) = binding.action else { return nil }
+        let base: CGEventFlags
+        switch Int(code) {
+        case kVK_Shift: base = .maskShift
+        case kVK_Control: base = .maskControl
+        case kVK_Option, kVK_RightOption: base = .maskAlternate
+        case kVK_Command: base = .maskCommand
+        default: return nil
+        }
+        let held = flags.intersection([.maskShift,.maskControl,.maskAlternate,.maskCommand]).union(base)
+        if held != base {
+            let optionSides = flags.intersection(KeyboardModifierFlags.leftOption.union(KeyboardModifierFlags.rightOption))
+            let baseSide: CGEventFlags = code == CGKeyCode(kVK_RightOption) ? KeyboardModifierFlags.rightOption
+                : code == CGKeyCode(kVK_Option) ? KeyboardModifierFlags.leftOption : []
+            return .combination(held.union(optionSides).union(baseSide))
+        }
         if code == CGKeyCode(kVK_Shift) {
             return .shift
         }
@@ -3236,84 +3258,112 @@ final class TouchProcessorEngine: @unchecked Sendable {
         stopRepeat(for: .touch(touchKey))
     }
 
-    private func handleModifierDown(_ modifierKey: ModifierKey, binding: KeyBinding) {
+    private static let modifierComponents: [(ModifierKey, CGKeyCode, CGEventFlags)] = [
+        (.shift, CGKeyCode(kVK_Shift), .maskShift),
+        (.control, CGKeyCode(kVK_Control), .maskControl),
+        (.option, CGKeyCode(kVK_Option), KeyboardModifierFlags.leftOption),
+        (.rightOption, CGKeyCode(kVK_RightOption), KeyboardModifierFlags.rightOption),
+        (.command, CGKeyCode(kVK_Command), .maskCommand)
+    ]
+
+    private func changeModifierCombination(_ flags: CGEventFlags, binding: KeyBinding, down: Bool) {
+        for (modifier, code, componentFlags) in Self.modifierComponents {
+            let rightOption = flags.contains(KeyboardModifierFlags.rightOption)
+            let leftOption = flags.contains(KeyboardModifierFlags.leftOption)
+            let included = code == CGKeyCode(kVK_RightOption) ? rightOption
+                : code == CGKeyCode(kVK_Option) ? flags.contains(.maskAlternate) && (!rightOption || leftOption)
+                : !flags.intersection(componentFlags).isEmpty
+            guard included else { continue }
+            let leaf = KeyBinding(rect:binding.rect, normalizedRect:binding.normalizedRect,
+                canvasSize:trackpadSize, label:binding.label, action:.key(code:code,flags:componentFlags),
+                position:binding.position, side:binding.side, holdAction:nil)
+            if down { handleModifierDown(modifier,binding:leaf,aggregateFlags:true) }
+            else { handleModifierUp(modifier,binding:leaf,aggregateFlags:true) }
+        }
+    }
+
+    private func handleModifierDown(_ modifierKey: ModifierKey, binding: KeyBinding, aggregateFlags: Bool = false) {
         switch modifierKey {
+        case let .combination(flags):
+            changeModifierCombination(flags,binding:binding,down:true)
         case .shift:
             if leftShiftTouchCount == 0 {
 
                 playHapticIfNeeded(on: binding.side)
-                postKey(binding: binding, keyDown: true)
+                postKey(binding: binding, keyDown: true, aggregateFlags: aggregateFlags)
             }
             leftShiftTouchCount += 1
         case .control:
             if controlTouchCount == 0 {
 
                 playHapticIfNeeded(on: binding.side)
-                postKey(binding: binding, keyDown: true)
+                postKey(binding: binding, keyDown: true, aggregateFlags: aggregateFlags)
             }
             controlTouchCount += 1
         case .option:
             if leftOptionTouchCount == 0 {
 
                 playHapticIfNeeded(on: binding.side)
-                postKey(binding: binding, keyDown: true)
+                postKey(binding: binding, keyDown: true, aggregateFlags: aggregateFlags)
             }
             leftOptionTouchCount += 1
         case .rightOption:
             if rightOptionTouchCount == 0 {
 
                 playHapticIfNeeded(on: binding.side)
-                postKey(binding: binding, keyDown: true)
+                postKey(binding: binding, keyDown: true, aggregateFlags: aggregateFlags)
             }
             rightOptionTouchCount += 1
         case .command:
             if commandTouchCount == 0 {
 
                 playHapticIfNeeded(on: binding.side)
-                postKey(binding: binding, keyDown: true)
+                postKey(binding: binding, keyDown: true, aggregateFlags: aggregateFlags)
             }
             commandTouchCount += 1
         }
     }
 
-    private func handleModifierUp(_ modifierKey: ModifierKey, binding: KeyBinding) {
+    private func handleModifierUp(_ modifierKey: ModifierKey, binding: KeyBinding, aggregateFlags: Bool = false) {
         switch modifierKey {
+        case let .combination(flags):
+            changeModifierCombination(flags,binding:binding,down:false)
         case .shift:
             leftShiftTouchCount = max(0, leftShiftTouchCount - 1)
             if leftShiftTouchCount == 0 {
-                postKey(binding: binding, keyDown: false)
+                postKey(binding: binding, keyDown: false, aggregateFlags: aggregateFlags)
             }
         case .control:
             controlTouchCount = max(0, controlTouchCount - 1)
             if controlTouchCount == 0 {
-                postKey(binding: binding, keyDown: false)
+                postKey(binding: binding, keyDown: false, aggregateFlags: aggregateFlags)
             }
         case .option:
             leftOptionTouchCount = max(0, leftOptionTouchCount - 1)
             if leftOptionTouchCount == 0 {
-                postKey(binding: binding, keyDown: false)
+                postKey(binding: binding, keyDown: false, aggregateFlags: aggregateFlags)
             }
         case .rightOption:
             rightOptionTouchCount = max(0, rightOptionTouchCount - 1)
             if rightOptionTouchCount == 0 {
-                postKey(binding: binding, keyDown: false)
+                postKey(binding: binding, keyDown: false, aggregateFlags: aggregateFlags)
             }
         case .command:
             commandTouchCount = max(0, commandTouchCount - 1)
             if commandTouchCount == 0 {
-                postKey(binding: binding, keyDown: false)
+                postKey(binding: binding, keyDown: false, aggregateFlags: aggregateFlags)
             }
         }
     }
 
-    private func postKey(binding: KeyBinding, keyDown: Bool) {
+    private func postKey(binding: KeyBinding, keyDown: Bool, aggregateFlags: Bool = false) {
         guard case let .key(code, flags) = binding.action else { return }
 #if DEBUG
         onDebugBindingDetected(binding)
 #endif
         dispatchService.postKey(
             code: code,
-            flags: flags,
+            flags: aggregateFlags ? (keyDown ? currentModifierFlags().union(flags) : currentModifierFlags()) : flags,
             keyDown: keyDown,
             sourceSequence: currentDispatchSourceSequence()
         )
@@ -3426,7 +3476,7 @@ final class TouchProcessorEngine: @unchecked Sendable {
         let state = popTouchState(for: touchKey)
         if let state, case let .active(active) = state {
             if let modifierKey = active.modifierKey, active.modifierEngaged {
-                handleModifierUp(modifierKey, binding: active.binding)
+                handleModifierUp(modifierKey, binding: active.modifierBinding ?? active.binding)
             } else if active.holdRepeatActive {
                 stopRepeat(for: touchKey)
             }
