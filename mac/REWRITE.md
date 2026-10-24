@@ -1,14 +1,7 @@
 # NOTES:
-*** Can you please look at the TouchStream QuickReference guide and make a map of all of the different gestures, how many fingers they take, if they are taps, moves, (What triggers them) and any restrictions. I want to find a way to group them to make it easier to map the gestures.. 
-** I'm thinking in the end we will need to do something like Kara and expand the Gesture menu to "take over" / replace the left frame where the visualizer is to give more room for assignments. In her gui there seems to be 3 types of assignment pages but I am not sure if that is nessisary or if we can come up with a better way to display the information? It's a big ask. References: kara_drag_tap_hold_lift, kara_up_down_left_right_tap_hold_left
-
-In this PDF you can see the original touchstream GUI on the left to compare:
-TouchStream_for_Mac_vs_Utility_1.60.pdf
-
-* Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right) after we get the GUI set up for that!
+0. Can we add a "mirror left/right" toggle or checkbox somewhere to handle "both" and we can handle the extra 2-pad recognition later
+1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
-0. ^
-1. Can we add a "mirror left/right" toggle or checkbox somewhere to handle "both" and we can handle the extra 2-pad recognition later
 2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
 “Both” means coordinated two-hand input, not the same gesture enabled
 independently on both pads." and you said:
