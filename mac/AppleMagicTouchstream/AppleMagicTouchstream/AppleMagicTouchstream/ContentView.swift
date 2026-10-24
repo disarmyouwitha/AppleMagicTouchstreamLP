@@ -12,6 +12,17 @@ import QuartzCore
 import SwiftUI
 import UniformTypeIdentifiers
 
+private struct CompactAssignmentMenuKey: EnvironmentKey {
+    static let defaultValue = false
+}
+
+private extension EnvironmentValues {
+    var compactAssignmentMenu: Bool {
+        get { self[CompactAssignmentMenuKey.self] }
+        set { self[CompactAssignmentMenuKey.self] = newValue }
+    }
+}
+
 struct ContentView: View {
     @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     @State private var inspectorTab = "Keyboard"
@@ -758,7 +769,9 @@ struct ContentView: View {
                             minimum:WorkspaceColumnSizing.minimumMenu,
                             maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:0),
                             trailingColumn:true,label:"Keyboard settings width")
-                        rightSidebarView.padding(16).frame(width:width)
+                        rightSidebarView
+                            .environment(\.compactAssignmentMenu, width < WorkspaceColumnSizing.compactMenuBreakpoint)
+                            .padding(16).frame(width:width)
                     }
                 }
             }
@@ -1227,6 +1240,7 @@ struct ContentView: View {
     }
 
     private struct RightSidebarView: View {
+        @Environment(\.compactAssignmentMenu) private var compact
         let onImportKeymap: () -> Void
         let onExportKeymap: () -> Void
         let layoutSelection: Binding<TrackpadLayoutPreset>
@@ -1450,7 +1464,7 @@ struct ContentView: View {
                         RoundedRectangle(cornerRadius: 12)
                             .fill(Color.primary.opacity(0.05))
                     )
-                    HStack(spacing: 8) {
+                    (compact ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                         Button(action: onImportKeymap) {
                             Text("Import keymap").frame(maxWidth: .infinity)
                         }
@@ -1466,7 +1480,7 @@ struct ContentView: View {
                 }
                 .frame(maxWidth: .infinity, alignment: .topLeading)
             }
-            .frame(width: 420)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .onChange(of: keySelection?.key.storageKey) { newValue in
                 guard newValue != nil else { return }
                 keymapTuningExpanded = true
@@ -2860,26 +2874,15 @@ struct ContentView: View {
         @Binding var runAtStartupEnabled: Bool
         @Binding var autoResyncEnabled: Bool
         @Binding var systemThreeFingerDragEnabled: Bool
-        private let labelWidth: CGFloat = 140
-
         var body: some View {
-            Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                GridRow {
-                    Text("Run at Startup").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $runAtStartupEnabled)
-                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
-                }
-                GridRow {
-                    Text("Hold Repeat").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $holdRepeatEnabled)
-                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
-                        .help("Repeats hold-enabled key actions while the touch stays held.")
-                    Text("Auto-resync").frame(width: labelWidth, alignment: .leading)
-                    Toggle("", isOn: $autoResyncEnabled)
-                        .toggleStyle(SwitchToggleStyle()).labelsHidden()
-                        .help("Polls every 8 seconds to detect disconnected trackpads.")
-                }
+            VStack(alignment: .leading, spacing: 8) {
+                Toggle("Run at Startup", isOn: $runAtStartupEnabled)
+                Toggle("Hold Repeat", isOn: $holdRepeatEnabled)
+                    .help("Repeats hold-enabled key actions while the touch stays held.")
+                Toggle("Auto-resync", isOn: $autoResyncEnabled)
+                    .help("Polls every 8 seconds to detect disconnected trackpads.")
             }
+            .toggleStyle(.switch)
         }
     }
 
@@ -2906,54 +2909,25 @@ struct ContentView: View {
         }
 
         var body: some View {
-            VStack(spacing: 8) {
-                Grid(alignment: .leading, horizontalSpacing: 10, verticalSpacing: 8) {
-                    GridRow {
-                        Text("Hold Duration (ms)")
-                            .frame(width: labelWidth, alignment: .leading)
-                        TextField(
-                            "200",
-                            value: $tapHoldDurationMs,
-                            formatter: ContentView.tapHoldDurationFormatter
-                        )
+            VStack(alignment: .leading, spacing: 8) {
+                HStack {
+                    Text("Hold Duration (ms)")
+                    Spacer(minLength: 4)
+                    TextField("200", value: $tapHoldDurationMs,
+                              formatter: ContentView.tapHoldDurationFormatter)
                         .frame(width: valueFieldWidth)
-                        Slider(
-                            value: $tapHoldDurationMs,
-                            in: ContentView.tapHoldDurationRange,
-                            step: 10
-                        )
-                        .frame(minWidth: 100)
-                        .gridCellColumns(2)
-                    }
-
-
-
-                    GridRow {
-                        Text("Haptic Strength")
-                            .frame(width: labelWidth, alignment: .leading)
-                        Text(String(format:"%.2f",hapticLevelBinding.wrappedValue))
-                            .frame(width: valueFieldWidth, alignment: .leading)
-                        Slider(
-                            value: hapticLevelBinding,
-                            in: 0...2,
-                            step: 0.01
-                        )
-                        .frame(minWidth: 120)
-                        .gridCellColumns(2)
-                    }
-                    GridRow {
-                        Button("Restore Defaults") {
-                            onRestoreDefaults()
-                        }
-                        .buttonStyle(.borderedProminent)
-                        .gridCellColumns(2)
-                        Spacer()
-                            .gridCellColumns(2)
-                    }
                 }
+                Slider(value: $tapHoldDurationMs, in: ContentView.tapHoldDurationRange, step: 10)
+                HStack {
+                    Text("Haptic Strength")
+                    Spacer(minLength: 4)
+                    Text(String(format: "%.2f", hapticLevelBinding.wrappedValue))
+                }
+                Slider(value: hapticLevelBinding, in: 0...2, step: 0.01)
+                Button("Restore Defaults", action: onRestoreDefaults)
+                    .buttonStyle(.borderedProminent)
             }
         }
-
     }
 
     private struct TrackpadDeckView: View {
@@ -4475,6 +4449,7 @@ struct ContentView: View {
     }
 
     private struct ColumnTuningRow: View {
+        @Environment(\.compactAssignmentMenu) private var compact
         let title: String
         let formatter: NumberFormatter
         let range: ClosedRange<Double>
@@ -4510,10 +4485,10 @@ struct ContentView: View {
                     .font(.callout)
                     .fontWeight(.semibold)
             } field: {
-                HStack(spacing: 12) {
+                (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(spacing: 12))) {
                     if showSlider {
                         Slider(value: $value, in: range, step: sliderStep)
-                            .frame(minWidth: 140, maxWidth: 220)
+                            .frame(minWidth: 40, maxWidth: .infinity)
                     }
                     controlButtons
                 }
@@ -4559,6 +4534,7 @@ struct ContentView: View {
     }
 
     private struct EqualSplitFormRow<Label: View, Field: View>: View {
+        @Environment(\.compactAssignmentMenu) private var compact
         let label: Label
         let field: Field
         let spacing: CGFloat
@@ -4574,7 +4550,7 @@ struct ContentView: View {
         }
 
         var body: some View {
-            HStack(alignment: .center, spacing: spacing) {
+            (compact ? AnyLayout(VStackLayout(alignment: .leading, spacing: 6)) : AnyLayout(HStackLayout(alignment: .center, spacing: spacing))) {
                 label
                     .frame(maxWidth: .infinity, alignment: .leading)
                 field

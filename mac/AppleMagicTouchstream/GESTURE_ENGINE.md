@@ -488,9 +488,17 @@ left and settings menu on the right. Gestures retains navigation on the left,
 assignments in the middle and an inspector on the right. Left/Right has no visible
 label and fills the gesture navigation column; its accessibility label remains.
 
-Keyboard's settings menu and Gesture navigation share a saved width (452 points
-by default, bounded 400–620 with room reserved for center content). Gesture's
-inspector has its own saved width, bounded 260–480. Eight-point drag targets have
+Keyboard's settings menu has its own saved width (381 points by default, one
+point above the stacking threshold; bounded 220–620). Gesture navigation and
+inspector have independent saved widths, both defaulting to 286 points. Navigation
+is bounded 220–620 and the inspector 200–480, reserving room for center content.
+Eight-point drag targets have
 resize cursors, visible grips and accessibility increment/decrement actions.
 Window shrinkage clamps displayed widths without overwriting the saved choice.
 Widths are app-local UI preferences, not keymap gesture/recognition settings.
+
+Narrow Keyboard menus stack labels and controls below 380 points. The old inner
+420-point sidebar frame is removed; typing sliders and mode toggles fit the
+available width and the menu scrolls vertically. Each column width remains persistent. Import/Export stack vertically below the
+same 380-point breakpoint and remain equal-width side-by-side above it. Mode
+Toggles uses one vertical column at every width.

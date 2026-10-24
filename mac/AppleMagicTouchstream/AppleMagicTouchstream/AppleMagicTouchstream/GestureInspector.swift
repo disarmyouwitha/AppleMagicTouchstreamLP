@@ -273,8 +273,8 @@ struct GestureAssignmentWorkspace: View {
     @State private var pane: GesturePane
     @State private var selected: GestureTrigger
     @State private var search = ""
-    @AppStorage(WorkspaceColumnSizing.menuWidthKey) private var menuColumnWidth = WorkspaceColumnSizing.defaultMenuWidth
-    @AppStorage("AppleMagicTouchstream.gestureInspectorWidth") private var inspectorColumnWidth = 286.0
+    @AppStorage(WorkspaceColumnSizing.gestureNavigationWidthKey) private var menuColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
+    @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
          status:@escaping (GestureTrigger,GestureHandScope)->String,
@@ -294,9 +294,9 @@ struct GestureAssignmentWorkspace: View {
     }
     var body: some View {
         GeometryReader { viewport in
-            let menuWidth = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:260)
-            let inspectorMaximum = max(260,min(480,viewport.size.width-menuWidth-WorkspaceColumnSizing.dividerWidth*2-360))
-            let inspectorWidth = min(inspectorMaximum,max(260,inspectorColumnWidth))
+            let menuWidth = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:WorkspaceColumnSizing.minimumInspector)
+            let inspectorMaximum = max(WorkspaceColumnSizing.minimumInspector,min(480,viewport.size.width-menuWidth-WorkspaceColumnSizing.dividerWidth*2-360))
+            let inspectorWidth = min(inspectorMaximum,max(WorkspaceColumnSizing.minimumInspector,inspectorColumnWidth))
             HStack(spacing:0) {
                 navigation.frame(width:menuWidth)
                 WorkspaceColumnDivider(width:Binding(get:{menuWidth},set:{menuColumnWidth = $0}),
@@ -317,7 +317,7 @@ struct GestureAssignmentWorkspace: View {
                 }
                 .frame(maxWidth:.infinity,maxHeight:.infinity)
                 WorkspaceColumnDivider(width:Binding(get:{inspectorWidth},set:{inspectorColumnWidth = $0}),
-                    minimum:260,maximum:inspectorMaximum,trailingColumn:true,label:"Gesture inspector width")
+                    minimum:WorkspaceColumnSizing.minimumInspector,maximum:inspectorMaximum,trailingColumn:true,label:"Gesture inspector width")
                 inspector.frame(width:inspectorWidth)
             }
         }
@@ -533,11 +533,16 @@ struct GestureAssignmentWorkspace: View {
 }
 
 
-/// Shared menu width keeps the Keyboard settings and Gesture browser aligned.
+/// Independent persisted widths for Keyboard settings and the two Gesture sidebars.
 enum WorkspaceColumnSizing {
     static let menuWidthKey = "AppleMagicTouchstream.assignmentMenuWidth"
-    static let defaultMenuWidth = 452.0
-    static let minimumMenu = 400.0
+    static let gestureNavigationWidthKey = "AppleMagicTouchstream.gestureNavigationWidth"
+    static let gestureInspectorWidthKey = "AppleMagicTouchstream.gestureInspectorWidth"
+    static let defaultGestureColumnWidth = 286.0
+    static let compactMenuBreakpoint = 380.0
+    static let defaultMenuWidth = compactMenuBreakpoint + 1
+    static let minimumMenu = 220.0
+    static let minimumInspector = 200.0
     static let dividerWidth = 8.0
     static func menuMaximum(available:Double,reserved:Double) -> Double {
         max(minimumMenu,min(620,available-reserved-360-dividerWidth*2))

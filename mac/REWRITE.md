@@ -1,9 +1,9 @@
 # NOTES:
 0. Can we add a "mirror left/right" toggle or checkbox somewhere to handle "both" and we can handle the extra 2-pad recognition later
-1. Where did the "Starting Chord" icons go from the design? 
+1. Where did the "Starting Chord" icons go from the design? Can we replace our "hand examples" with something like this? (screenshot: chord)
 2. Can we do something like apple's animated examples? (Check out frame1,frame2,frame3)
----
-1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
+===
+3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===
 2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
 “Both” means coordinated two-hand input, not the same gesture enabled
@@ -14,18 +14,18 @@ For the hand selector, I recommend Left / Right / Both pads, where Both pads edi
 
 I would like to implement this now!
 ===
+1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 
 `AppleMagicTouchstream`:
 ===
-0. ! Drag frame between left/right column to adjust width!!
 1. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. Feel out 4 finger latching? Might need a delay like in windows?
-2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
-3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 - Need to consolidate / Unify Gesture Actions drop-downs after build-out!
+2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?
+3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 ===
-* Maybe we can clean up gestures by "adding" ones that you use? idk..
+* Maybe we can clean up gestures by adding actions that I am missing (volu,briu)?
 ===
 0. Please god can we finally fix Column tuning? (Drag to move??)
 1. Transfer Treasure to GTK~
