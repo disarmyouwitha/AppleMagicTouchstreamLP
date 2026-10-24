@@ -545,3 +545,9 @@ Do not gate demonstration playback on scenePhase (it can remain background while
 Config is visible). A local AppKit visibility observer now resumes on window
 visibility/occlusion changes and pauses on cover/minimize/close. Reduced Motion
 and deterministic preview phases still pause playback. No live input is accessed.
+
+Force-click demonstration pressure halos are red; contact markers and ordinary tap
+halos remain blue. Pinch/spread illustrations scale around the contact centroid,
+recentered in the trackpad, so two contacts move equal distances at equal speeds
+in opposite directions. This corrects the earlier pad-centered unequal travel;
+recognition, force thresholds and haptic feedback are unchanged.

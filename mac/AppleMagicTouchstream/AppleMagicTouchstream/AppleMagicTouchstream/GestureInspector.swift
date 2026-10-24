@@ -119,10 +119,14 @@ struct GestureChordIcon: View {
         }
         if thumbChord { starts.insert(CGPoint(x:pad.midX-30,y:pad.midY+22),at:0) }
         let moving = trigger.isContinuous && !trigger.isPinch
+        // Scale around the contact centroid, not the trackpad center. In the
+        // two-contact example this gives both dots equal, opposite travel.
+        let chordCenter = CGPoint(x:starts.map(\.x).reduce(0,+)/CGFloat(starts.count),
+                                  y:starts.map(\.y).reduce(0,+)/CGFloat(starts.count))
         func position(_ point:CGPoint, at amount:Double) -> CGPoint {
             if trigger.isPinch {
                 let scale = trigger.isSpread ? 0.65+amount*0.7 : 1.25-amount*0.6
-                return CGPoint(x:pad.midX+(point.x-pad.midX)*scale,y:pad.midY+(point.y-pad.midY)*scale)
+                return CGPoint(x:pad.midX+(point.x-chordCenter.x)*scale,y:pad.midY+(point.y-chordCenter.y)*scale)
             }
             return CGPoint(x:point.x + (moving ? -23+amount*46 : 0),y:point.y)
         }
@@ -141,7 +145,7 @@ struct GestureChordIcon: View {
                 let halo = radius+2+3*sin(swell*Double.pi)
                 let haloOpacity = max(0,sin(min(1,phase/0.55)*Double.pi))*0.38*fade
                 context.stroke(Path(ellipseIn:CGRect(x:point.x-halo,y:point.y-halo,width:halo*2,height:halo*2)),
-                               with:.color(blue.opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
+                               with:.color((trigger.forceCount != nil ? Color.red : blue).opacity(haloOpacity)),lineWidth:trigger.forceCount != nil ? 2.5 : 1.8)
                 continue
             }
             // Fading samples form a continuous motion trail, rather than stepping
