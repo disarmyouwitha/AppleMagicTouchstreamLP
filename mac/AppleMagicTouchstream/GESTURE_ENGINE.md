@@ -392,3 +392,9 @@ Regression coverage: same-pad MO + Left Arrow on either pad, independent opposit
 pad gesture reservation, thumb-first lift, empty-frame layer release, reset, and
 restoring gesture reservation on the next cycle. No recording was needed to
 reproduce the previous unconditional layer cancellation.
+
+### Contact-only example diagrams (2026-10-24)
+
+Removed the example hand silhouettes. Red/blue contact markers, tap pulses,
+directional arrows/crosses, captions and spacing remain in their existing positions.
+Animation, Reduce Motion behavior and recognition are unchanged.
