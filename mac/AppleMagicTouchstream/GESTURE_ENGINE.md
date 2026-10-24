@@ -312,3 +312,20 @@ for all counts/actions. This supersedes the earlier Spread exception. Continued
 latched motion still tolerates thumb lift/relabel; direction reversal cannot create
 a new unqualified owner. UI labels identify the requirement for both directions.
 Regression tests cover non-thumb opening followed by closing without all-up.
+
+### Quick Reference-style sidebar indicators (2026-10-23)
+
+Subheader labels now lead the row; their hand indicators are grouped at the right
+edge (Left/Right/Both still selects which examples are shown). Finger-count
+headings remain text-only; the full subheader stays clickable. Original vector
+hand silhouettes use red contact markers and blue tap rings, inspired by page 1
+of FingerWorks' [Quick Reference Guide](https://images-na.ssl-images-amazon.com/images/I/91xS3iP3tHL.pdf).
+Combined Tap and Move examples show red dots with blue rings. The live contact
+visualizer keeps its anatomical palette; only sidebar diagrams change.
+
+The two-finger Pinch/Spread example shows thumb+middle; the three-finger example
+shows thumb+middle+ring. These are preferred examples, not extra matching rules.
+Recognition still accepts thumb plus any appropriate number of fingertips and
+requires a recognized thumb only at activation. The guide's two-contact editing
+examples use thumb+middle; this app's action assignments remain configurable.
+The icon drawing was rendered and inspected offline at sidebar size.

@@ -58,8 +58,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var activeFingers: Set<Int> {
         switch self {
         case .oneFinger: return [1]; case .fiveFingers, .fiveFingerPinch: return [0,1,2,3,4]
-        case .twoFingers: return [1,2]; case .twoFingerPinch: return [0,1]
-        case .threeFingers: return [1,2,3]; case .threeFingerPinch: return [0,1,2]
+        case .twoFingers: return [1,2]; case .twoFingerPinch: return [0,2]
+        case .threeFingers: return [1,2,3]; case .threeFingerPinch: return [0,2,3]
         case .fourFingers: return [1,2,3,4]; case .fourFingerPinch: return [0,1,2,3]
         case .thumbTwo: return [0,2,3]
         }
@@ -122,44 +122,64 @@ struct GestureSidebar<Options: View>: View {
 
     private func gestureSubheader(_ gesture: GesturePane) -> some View {
         HStack(spacing:8) {
-            GestureChordIcon(gesture:gesture,hand:hand == .both ? .left : hand,selected:false)
-                .frame(width:40,height:26)
             Text(gesture.title).font(.system(size:14,weight:.medium))
-            if hand == .both {
-                GestureChordIcon(gesture:gesture,hand:.right,selected:false)
-                    .frame(width:40,height:26)
-            }
+            Spacer(minLength:8)
+            GestureChordIcon(gesture:gesture,hand:hand)
+                .frame(width:hand == .both ? 88 : 42,height:42)
         }
     }
 }
 
-/// Diagrammatic chord anatomy, independent of live finger classification.
+/// Original vector artwork inspired by the TouchStream Quick Reference Guide:
+/// hand silhouettes, red contact dots and blue tap rings. Examples are not exact-only anatomy rules.
 struct GestureChordIcon: View {
     let gesture: GesturePane
     let hand: GestureHandScope
-    let selected: Bool
 
     var body: some View {
         Canvas { context, size in
             let sides: [Bool] = hand == .both ? [true,false] : [hand == .left]
             let cellWidth = size.width / CGFloat(sides.count)
             let active = gesture.activeFingers
+            let tap = gesture == .thumbTwo || gesture == .oneFinger || gesture == .fiveFingers
+            let tapAndMove = gesture == .twoFingers || gesture == .threeFingers
             for (handIndex,mirrored) in sides.enumerated() {
-                let points: [CGPoint] = gesture == .thumbTwo
-                    ? [CGPoint(x:0.1,y:0.85),CGPoint(x:0.34,y:0.33),CGPoint(x:0.55,y:0.2),CGPoint(x:0.76,y:0.28),CGPoint(x:0.94,y:0.5)]
-                    : [CGPoint(x:0.12,y:0.8),CGPoint(x:0.3,y:0.36),CGPoint(x:0.5,y:0.2),CGPoint(x:0.7,y:0.3),CGPoint(x:0.88,y:0.49)]
-                let radius = min(cellWidth/10,size.height/9)
-                for index in points.indices {
-                    let point = points[index]
-                    let x = CGFloat(handIndex)*cellWidth + (mirrored ? 1-point.x : point.x)*cellWidth
-                    let y = point.y*size.height
-                    let shape = Path(ellipseIn:CGRect(x:x-radius,y:y-radius,width:radius*2,height:radius*2))
-                    if active.contains(index) {
-                        let color = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))
-                        context.fill(shape,with:.color(color))
-                        context.stroke(shape,with:.color(selected ? .white.opacity(0.95) : .white.opacity(0.65)),lineWidth:1)
-                    } else {
-                        context.stroke(shape,with:.color(Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1))).opacity(selected ? 0.9 : 0.5)),lineWidth:1)
+                var cell = context
+                cell.translateBy(x:CGFloat(handIndex)*cellWidth,y:0)
+                if mirrored { cell.translateBy(x:cellWidth,y:0); cell.scaleBy(x:-1,y:1) }
+                cell.scaleBy(x:cellWidth,y:size.height)
+                var silhouette = Path()
+                silhouette.move(to:CGPoint(x:0.38,y:0.94))
+                silhouette.addCurve(to:CGPoint(x:0.27,y:0.72),control1:CGPoint(x:0.38,y:0.85),control2:CGPoint(x:0.29,y:0.80))
+                silhouette.addLine(to:CGPoint(x:0.11,y:0.56))
+                silhouette.addCurve(to:CGPoint(x:0.16,y:0.49),control1:CGPoint(x:0.06,y:0.50),control2:CGPoint(x:0.10,y:0.46))
+                silhouette.addLine(to:CGPoint(x:0.33,y:0.63))
+                silhouette.addLine(to:CGPoint(x:0.27,y:0.26))
+                silhouette.addCurve(to:CGPoint(x:0.36,y:0.24),control1:CGPoint(x:0.25,y:0.18),control2:CGPoint(x:0.34,y:0.17))
+                silhouette.addLine(to:CGPoint(x:0.44,y:0.51))
+                silhouette.addLine(to:CGPoint(x:0.42,y:0.16))
+                silhouette.addCurve(to:CGPoint(x:0.52,y:0.15),control1:CGPoint(x:0.42,y:0.08),control2:CGPoint(x:0.51,y:0.08))
+                silhouette.addLine(to:CGPoint(x:0.57,y:0.49))
+                silhouette.addLine(to:CGPoint(x:0.59,y:0.20))
+                silhouette.addCurve(to:CGPoint(x:0.68,y:0.20),control1:CGPoint(x:0.60,y:0.12),control2:CGPoint(x:0.69,y:0.13))
+                silhouette.addLine(to:CGPoint(x:0.69,y:0.53))
+                silhouette.addLine(to:CGPoint(x:0.77,y:0.34))
+                silhouette.addCurve(to:CGPoint(x:0.85,y:0.37),control1:CGPoint(x:0.81,y:0.26),control2:CGPoint(x:0.88,y:0.30))
+                silhouette.addLine(to:CGPoint(x:0.80,y:0.72))
+                silhouette.addCurve(to:CGPoint(x:0.69,y:0.94),control1:CGPoint(x:0.78,y:0.84),control2:CGPoint(x:0.69,y:0.84))
+                silhouette.closeSubpath()
+                cell.fill(silhouette,with:.color(Color(red:0.72,green:0.57,blue:0.49)))
+                cell.stroke(silhouette,with:.color(.primary.opacity(0.55)),lineWidth:0.018)
+                // Thumb, index, middle, ring, pinky in anatomical order.
+                let tips = [CGPoint(x:0.125,y:0.51),CGPoint(x:0.31,y:0.22),CGPoint(x:0.47,y:0.125),CGPoint(x:0.64,y:0.17),CGPoint(x:0.82,y:0.32)]
+                for index in tips.indices where active.contains(index) {
+                    let tip = tips[index]
+                    let marker = Path(ellipseIn:CGRect(x:tip.x-0.057,y:tip.y-0.057,width:0.114,height:0.114))
+                    cell.fill(marker,with:.color(tap ? .blue : .red))
+                    cell.stroke(marker,with:.color(.white),lineWidth:0.018)
+                    if tap || tapAndMove {
+                        let ring = Path(ellipseIn:CGRect(x:tip.x-0.080,y:tip.y-0.080,width:0.16,height:0.16))
+                        cell.stroke(ring,with:.color(tap ? .primary.opacity(0.8) : .blue),lineWidth:0.018)
                     }
                 }
             }

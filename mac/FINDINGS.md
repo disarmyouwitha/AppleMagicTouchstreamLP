@@ -525,3 +525,13 @@ C02086 classifies ASCII letters, digits and apostrophe as word bytes; other prin
 The matched firmware contact report and SDK bind frame62B4 to **nominal milliseconds**. Live62B0, acquisition snapshot62B4, finer eight-times tick62B1 and effective interval62B3 have different roles. Timer programming corroborates millisecond intent; oscillator accuracy is unmeasured. Position wire scaling/SDK documentation bind nominal **centimeters**. Legacy velocity serialization versus SDK conversion/documentation remains inconsistent, so velocity units are still qualified. Apple geometry/strength requires separate calibration. [Clock and protocol evidence](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/geometry-host/clock-units.md).
 
 The final continuation passes22,179 selected firmware cases plus all65,536signed-reader inputs. Independent new CPU checks9920 plus4unsupported-mode guards and prior regressions pass. These counts are separate boundaries, not whole-recognizer fidelity or Swift gesture tests. Both real Ghidra projects retain36new signature-bound annotations after backup/save/reopen/unchanged-memory verification. [Complete results](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/RESULTS.md), [validation](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/validation.json), [project audit](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/saved-project-verification.json).
+
+## Hardware note: two-contact expansion labels (2026-10-23)
+
+User observation: while expanding thumb+index, the current finger recognizer can
+label the pair index+middle. The user relates this ambiguity to TouchStream's
+thumb+middle recommendation. This is hardware feedback, not proof of the original
+firmware designers' rationale. Page 1 of the Quick Reference Guide illustrates
+thumb+middle for the two-contact Cut/Paste pinch/expand editing gestures. The
+AppleMagicTouchstream sidebar now uses that pose for its configurable two-contact
+Pinch/Spread example; live recognition rules were not changed by the artwork pass.
