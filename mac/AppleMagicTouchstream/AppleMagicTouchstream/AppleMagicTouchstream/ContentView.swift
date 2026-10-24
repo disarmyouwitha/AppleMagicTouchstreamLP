@@ -15,6 +15,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @ObservedObject var nativeTakeover: NativeTrackpadTakeover
     @State private var inspectorTab = "Keyboard"
+    @AppStorage(WorkspaceColumnSizing.menuWidthKey) private var menuColumnWidth = WorkspaceColumnSizing.defaultMenuWidth
     private struct SelectedGridKey: Equatable {
         let row: Int
         let column: Int
@@ -736,28 +737,29 @@ struct ContentView: View {
             }
             .padding(.horizontal,20).padding(.vertical,12)
             Divider()
+            devicesSectionView.padding(.horizontal,20).padding(.vertical,12)
+            Divider()
             if inspectorTab == "Gestures" {
-                VStack(spacing:0) {
-                    devicesSectionView.padding(.horizontal,20).padding(.vertical,12)
-                    Divider()
-                    GestureInspectorPanel(controller:viewModel.gestures,takeover:nativeTakeover)
-                }
+                GestureInspectorPanel(controller:viewModel.gestures,takeover:nativeTakeover)
             } else {
-                HStack(alignment:.top,spacing:0) {
-                    GeometryReader { viewport in
+                GeometryReader { viewport in
+                    let width = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:0)
+                    HStack(alignment:.top,spacing:0) {
                         ScrollView([.horizontal,.vertical]) {
                             VStack(alignment:.leading,spacing:16) {
                                 if let state = viewModel.replayTimelineState { replayTimelineView(state) }
-                                devicesSectionView
                                 trackpadSectionView
                             }
                             .frame(width:trackpadSize.width * 2 + 40,alignment:.leading)
                             .padding(20)
-                            .frame(minWidth:viewport.size.width,minHeight:viewport.size.height,alignment:.topLeading)
+                            .frame(minWidth:max(0,viewport.size.width-width-WorkspaceColumnSizing.dividerWidth),minHeight:viewport.size.height,alignment:.topLeading)
                         }
+                        WorkspaceColumnDivider(width:Binding(get:{width},set:{menuColumnWidth = $0}),
+                            minimum:WorkspaceColumnSizing.minimumMenu,
+                            maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:0),
+                            trailingColumn:true,label:"Keyboard settings width")
+                        rightSidebarView.padding(16).frame(width:width)
                     }
-                    Divider()
-                    rightSidebarView.frame(width:420).padding(16)
                 }
             }
         }

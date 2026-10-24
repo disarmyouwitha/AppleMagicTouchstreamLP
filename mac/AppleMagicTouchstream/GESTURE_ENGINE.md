@@ -479,3 +479,18 @@ Offline tests verify full one-to-one trigger coverage, behavior descriptions and
 native SwiftUI rendering without input clients. Optional AMT_WORKSPACE_PREVIEW_DIR
 writes the value-only rendered layouts for visual inspection. No live input or
 new settings are enabled by rendering.
+
+### Shared header and resizable columns (2026-10-24)
+
+Device selectors, refresh and takeover controls now occupy the shared header in
+Keyboard and Gestures. The lower Keyboard content holds the visualizer on the
+left and settings menu on the right. Gestures retains navigation on the left,
+assignments in the middle and an inspector on the right. Left/Right has no visible
+label and fills the gesture navigation column; its accessibility label remains.
+
+Keyboard's settings menu and Gesture navigation share a saved width (452 points
+by default, bounded 400–620 with room reserved for center content). Gesture's
+inspector has its own saved width, bounded 260–480. Eight-point drag targets have
+resize cursors, visible grips and accessibility increment/decrement actions.
+Window shrinkage clamps displayed widths without overwriting the saved choice.
+Widths are app-local UI preferences, not keymap gesture/recognition settings.

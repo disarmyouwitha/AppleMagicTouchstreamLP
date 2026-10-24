@@ -1,5 +1,8 @@
 # NOTES:
 0. Can we add a "mirror left/right" toggle or checkbox somewhere to handle "both" and we can handle the extra 2-pad recognition later
+1. Where did the "Starting Chord" icons go from the design? 
+2. Can we do something like apple's animated examples? (Check out frame1,frame2,frame3)
+---
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
 2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
@@ -24,7 +27,7 @@ I would like to implement this now!
 ===
 * Maybe we can clean up gestures by "adding" ones that you use? idk..
 ===
-0. We are going to need a much more extensive menu like Kara's to handle mapping all of these gestures. =x 
+0. Please god can we finally fix Column tuning? (Drag to move??)
 1. Transfer Treasure to GTK~
 2. Copy touchstream Layout from AMT to GTK! (Maybe get rid of GTK?)
 ===

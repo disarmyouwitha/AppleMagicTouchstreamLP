@@ -273,6 +273,8 @@ struct GestureAssignmentWorkspace: View {
     @State private var pane: GesturePane
     @State private var selected: GestureTrigger
     @State private var search = ""
+    @AppStorage(WorkspaceColumnSizing.menuWidthKey) private var menuColumnWidth = WorkspaceColumnSizing.defaultMenuWidth
+    @AppStorage("AppleMagicTouchstream.gestureInspectorWidth") private var inspectorColumnWidth = 286.0
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
          status:@escaping (GestureTrigger,GestureHandScope)->String,
@@ -291,24 +293,33 @@ struct GestureAssignmentWorkspace: View {
             .localizedCaseInsensitiveContains(search)
     }
     var body: some View {
-        HStack(spacing:0) {
-            navigation.frame(width:224)
-            Divider()
-            ScrollView(.vertical) {
-                VStack(alignment:.leading,spacing:20) {
-                    header
-                    Divider()
-                    assignments
-                    lifecycle
-                    Text("Choose a card to edit its action. Settings apply only to the \(editingHand.rawValue.lowercased()) trackpad.")
-                        .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        GeometryReader { viewport in
+            let menuWidth = WorkspaceColumnSizing.menu(menuColumnWidth,available:viewport.size.width,reserved:260)
+            let inspectorMaximum = max(260,min(480,viewport.size.width-menuWidth-WorkspaceColumnSizing.dividerWidth*2-360))
+            let inspectorWidth = min(inspectorMaximum,max(260,inspectorColumnWidth))
+            HStack(spacing:0) {
+                navigation.frame(width:menuWidth)
+                WorkspaceColumnDivider(width:Binding(get:{menuWidth},set:{menuColumnWidth = $0}),
+                    minimum:WorkspaceColumnSizing.minimumMenu,
+                    maximum:WorkspaceColumnSizing.menuMaximum(available:viewport.size.width,reserved:inspectorWidth),
+                    trailingColumn:false,label:"Gesture navigation width")
+                ScrollView(.vertical) {
+                    VStack(alignment:.leading,spacing:20) {
+                        header
+                        Divider()
+                        assignments
+                        lifecycle
+                        Text("Choose a card to edit its action. Settings apply only to the \(editingHand.rawValue.lowercased()) trackpad.")
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    }
+                    .padding(24)
+                    .frame(maxWidth:.infinity,alignment:.topLeading)
                 }
-                .padding(24)
-                .frame(maxWidth:.infinity,alignment:.topLeading)
+                .frame(maxWidth:.infinity,maxHeight:.infinity)
+                WorkspaceColumnDivider(width:Binding(get:{inspectorWidth},set:{inspectorColumnWidth = $0}),
+                    minimum:260,maximum:inspectorMaximum,trailingColumn:true,label:"Gesture inspector width")
+                inspector.frame(width:inspectorWidth)
             }
-            .frame(maxWidth:.infinity,maxHeight:.infinity)
-            Divider()
-            inspector.frame(width:286)
         }
         .background(Color(nsColor:.windowBackgroundColor))
         .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
@@ -322,6 +333,8 @@ struct GestureAssignmentWorkspace: View {
                 Text("Right").tag(GestureHandScope.right)
             }
             .pickerStyle(.segmented)
+            .labelsHidden()
+            .frame(maxWidth:.infinity)
             .help("Edit one trackpad's independent gesture settings. No coordinated two-hand gestures are configured here.")
             TextField("Search gestures or actions",text:$search)
                 .textFieldStyle(.roundedBorder)
@@ -516,5 +529,68 @@ struct GestureAssignmentWorkspace: View {
             Text("Shared by all \(kind == .zoom ? "zoom" : kind == .scroll ? "scroll" : "pointer and drag") gestures on the \(editingHand.rawValue.lowercased()) trackpad.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
+    }
+}
+
+
+/// Shared menu width keeps the Keyboard settings and Gesture browser aligned.
+enum WorkspaceColumnSizing {
+    static let menuWidthKey = "AppleMagicTouchstream.assignmentMenuWidth"
+    static let defaultMenuWidth = 452.0
+    static let minimumMenu = 400.0
+    static let dividerWidth = 8.0
+    static func menuMaximum(available:Double,reserved:Double) -> Double {
+        max(minimumMenu,min(620,available-reserved-360-dividerWidth*2))
+    }
+    static func menu(_ requested:Double,available:Double,reserved:Double) -> Double {
+        min(menuMaximum(available:available,reserved:reserved),max(minimumMenu,requested))
+    }
+}
+
+/// An eight-point hit target with a native resize cursor and keyboard/AX adjustments.
+struct WorkspaceColumnDivider: View {
+    @Binding var width: Double
+    let minimum: Double
+    let maximum: Double
+    let trailingColumn: Bool
+    let label: String
+    @State private var dragOrigin: Double?
+    @State private var hovered = false
+
+    private func resize(_ proposed:Double) { width = min(maximum,max(minimum,proposed)) }
+    var body: some View {
+        ZStack {
+            Color.primary.opacity(hovered || dragOrigin != nil ? 0.08 : 0.025)
+            Rectangle().fill(Color.primary.opacity(0.13)).frame(width:1)
+            Capsule().fill(Color.secondary.opacity(hovered || dragOrigin != nil ? 0.7 : 0.3))
+                .frame(width:3,height:26)
+            WorkspaceResizeCursor().allowsHitTesting(false)
+        }
+        .frame(width:WorkspaceColumnSizing.dividerWidth)
+        .frame(maxHeight:.infinity)
+        .contentShape(Rectangle())
+        .onHover { hovered = $0 }
+        .gesture(DragGesture(minimumDistance:0,coordinateSpace:.global).onChanged { value in
+            if dragOrigin == nil { dragOrigin = width }
+            resize((dragOrigin ?? width) + value.translation.width * (trailingColumn ? -1 : 1))
+        }.onEnded { _ in dragOrigin = nil })
+        .accessibilityElement(children:.ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue("\(Int(width)) points")
+        .accessibilityAdjustableAction { direction in
+            switch direction {
+            case .increment: resize(width+20)
+            case .decrement: resize(width-20)
+            @unknown default: break
+            }
+        }
+    }
+}
+
+private struct WorkspaceResizeCursor: NSViewRepresentable {
+    func makeNSView(context:Context) -> NSView { CursorView() }
+    func updateNSView(_ view:NSView,context:Context) { view.window?.invalidateCursorRects(for:view) }
+    private final class CursorView: NSView {
+        override func resetCursorRects() { addCursorRect(bounds,cursor:.resizeLeftRight) }
     }
 }
