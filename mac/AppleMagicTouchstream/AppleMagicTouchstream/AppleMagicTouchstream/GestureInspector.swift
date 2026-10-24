@@ -70,10 +70,9 @@ enum GesturePane: String, CaseIterable, Identifiable {
 struct GestureChordIcon: View {
     let gesture: GesturePane
     let trigger: GestureTrigger
-    private var twoFingerMovementExample: Bool { trigger == .twoFingerMove }
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
-    private var strokeExample: Bool { twoFingerMovementExample || fourFingerScrollExample }
-    private var cycleDuration: Double { fourFingerScrollExample ? 11.2 : twoFingerMovementExample ? 5.6 : 2.8 }
+    private var strokeExample: Bool { trigger.isContinuous && !trigger.isPinch }
+    private var cycleDuration: Double { strokeExample ? 11.2 : 2.8 }
     // Deterministic offscreen previews can choose a point in the continuous loop.
     var previewPhase: Double? = nil
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -192,32 +191,25 @@ struct GestureChordIcon: View {
     }
 
     private func drawMovementStrokes(_ context: inout GraphicsContext, pad:CGRect, phase:Double) {
-        let segments = fourFingerScrollExample ? 4.0 : 2.0
+        let segments = 4.0
         let segment = Int(phase*segments)
         let secondStroke = segment % 2 == 1
-        let horizontal = fourFingerScrollExample ? segment >= 2 : secondStroke
+        let horizontal = segment >= 2
         let stage = (phase*segments).truncatingRemainder(dividingBy:1)
         func ramp(_ value:Double, _ start:Double, _ end:Double) -> Double {
             let t = min(1,max(0,(value-start)/(end-start)))
             return t*t*(3-2*t)
         }
         let movement = ramp(stage,0.20,0.64)
-        let fill: Double
-        let opacity: Double
-        if fourFingerScrollExample {
-            fill = secondStroke ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
-            opacity = secondStroke ? 1-ramp(stage,0.84,0.96) : 1
-        } else {
-            fill = ramp(stage,0.10,0.18)*(1-ramp(stage,0.76,0.84))
-            opacity = 1-ramp(stage,0.84,0.96)
-        }
+        let fill = secondStroke ? 1-ramp(stage,0.76,0.84) : ramp(stage,0.10,0.18)
+        let opacity = secondStroke ? 1-ramp(stage,0.84,0.96) : 1
         let blue = Color(red:0.26,green:0.57,blue:0.96)
-        let count = fourFingerScrollExample ? 4 : 2
+        let count = gesture.activeFingers.count
         let offsets = contactOffsets(count:count)
         let halfWidth = offsets.map { abs($0.x) }.max() ?? 0
         func point(_ index:Int, _ progress:Double) -> CGPoint {
             let offset = offsets[index]
-            let distance = CGFloat(fourFingerScrollExample && secondStroke ? 1-progress : progress)
+            let distance = CGFloat(secondStroke ? 1-progress : progress)
             return horizontal
                 ? CGPoint(x:pad.minX+halfWidth+13+distance*(pad.width-2*halfWidth-26)+offset.x,y:pad.midY+offset.y)
                 : CGPoint(x:pad.midX+offset.x,y:pad.minY+24+distance*(pad.height-48)+offset.y)

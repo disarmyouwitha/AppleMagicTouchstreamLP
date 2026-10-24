@@ -526,19 +526,10 @@ Tap examples follow mac/tap_frame1.jpg–tap_frame4.jpg with continuously expand
 halos, hollow lift contacts and an empty-pad rest. Force examples emphasize the
 pressure halo. None of these timings or graphics change recognition thresholds.
 
-Two-finger movement demonstrates the eight drag_frame references and
-mac/drag_recording.mov, with separate downward and rightward strokes. Each starts
-with two hollow contacts, fills, moves with a blurred fading trail, pauses, lifts
-and fades before the next stroke begins. The continuous 60 fps loop lasts 5.6
-seconds. This illustration belongs to the two-finger movement input, independently
-of its assigned output; other examples retain their prior animations.
-Recognition and output behavior are unchanged.
-
-The four-finger scroll input also has a comparison demonstration: hollow contacts
-at the top, touch, downward stroke, bottom pause, upward return stroke, then lift
-and fade at the top. Its four contacts stay filled through the reversal. The
-separate two-finger movement example keeps its down/fade/right/fade sequence.
-Both are presentation only, with no recognition or action changes.
+Movement demonstrations follow the eight drag_frame references and
+mac/drag_recording.mov. Hollow contacts fill on touch, move with blurred fading
+trails, pause and return, then lift and fade. These illustrations belong to their
+input triggers independently of their assigned outputs. Recognition is unchanged.
 
 Config uses an AppKit NSWindow/NSHostingView rather than a SwiftUI Window scene.
 Do not gate demonstration playback on scenePhase (it can remain background while
@@ -555,12 +546,15 @@ recognition, force thresholds and haptic feedback are unchanged.
 Three/four/five-contact illustrations now use a natural fingertip arch (middle
 highest, pinky lower, thumb offset for five), shared by taps, force clicks, movement
 and scale examples. This is illustration geometry, not a recognition constraint.
-Four-finger scroll now cycles down/up/fade, then right/left/fade, over 11.2 seconds;
-contacts stay down through each reversal and lift between the two axes. Two-finger
-movement retains separate downward and rightward strokes with a fade after each.
 
 Demonstrations use elapsed time from their own playback start, rather than a shared
 wall-clock phase. Restart at the beginning when the view appears, the selected
 input/family changes, the window becomes visible again, or Reduce Motion is turned
 off. Hidden-window playback stays paused; deterministic previews retain their
 explicit phase and Reduce Motion retains its static representative pose.
+
+All current Move in any direction inputs use the same four-stroke animation as
+the approved four-finger scroll example: top/down/up/fade, left/right/left/fade,
+repeat over 11.2 seconds. Two-, three- and four-finger examples keep their own
+natural contact arrangements and stay in contact through each return stroke.
+All restart when selected or shown; these changes affect demonstration only.

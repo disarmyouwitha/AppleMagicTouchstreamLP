@@ -1,4 +1,4 @@
-# NOTES:
+# NOTES:.
 3. Can we do that for all of the other "Move in any Direction" gesture animations?
 4. Can we make the animated fingertip colors my hardcoded colors? Or shouldwe just make my colors the outer circle color?
 ===
@@ -6,6 +6,7 @@
 ===
 3. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening?
 ===
+1. Thumb + 2-fingers: Can we not have a <hold> slot in the Session Lifetime if the other action is tap instead of move? (Move should "lock out" hold like it is now!)
 2. I gave you this task earlier "Okay I don't want to implement all of the gestures yet but I do want you to implement the GUI for our current gestures! I really like everything you have in our mockups~ 
 “Both” means coordinated two-hand input, not the same gesture enabled
 independently on both pads." and you said:
