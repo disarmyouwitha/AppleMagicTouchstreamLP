@@ -66,104 +66,46 @@ enum GesturePane: String, CaseIterable, Identifiable {
     }
 }
 
-/// Contact-only diagrams using the live anatomical palette, tap rings and directional arrows.
-/// Examples are illustrative, not exact-only anatomy rules.
+/// Starting contacts illustrate the chord, not exact anatomical recognition rules.
 struct GestureChordIcon: View {
     let gesture: GesturePane
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Environment(\.scenePhase) private var scenePhase
 
-    private enum Example: String, Hashable {
-        case pinch = "Pinch", expand = "Spread", tap = "Tap", move = "Move", force = "Force"
+    private var motionSymbol: String {
+        if gesture.isPinchSection { return "arrow.up.left.and.arrow.down.right" }
+        return gesture.triggers.contains(where: \.isContinuous) ? "arrow.left.and.right" : "circle.dotted"
     }
-    private var examples: [Example] {
-        if gesture.isPinchSection { return [.pinch,.expand] }
-        switch gesture {
-        case .twoFingers,.threeFingers: return [.tap,.move]
-        case .fourFingers: return [.move,.force]
-        case .thumbTwo: return [.tap]
-        default: return [.force]
-        }
-    }
+
     var body: some View {
-        HStack(spacing:6) {
-            ForEach(examples,id:\.self) { example in
-                VStack(spacing:1) {
-                    TimelineView(.animation(minimumInterval:1.0/12,paused:reduceMotion || scenePhase == .background)) { timeline in
-                        let phase = reduceMotion || scenePhase == .background ? 0.5
-                            : timeline.date.timeIntervalSinceReferenceDate.truncatingRemainder(dividingBy:1.2)/1.2
-                        drawing(example,phase:phase).frame(width:43,height:33)
-                    }
-                    Text(example.rawValue).font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
+        VStack(spacing:8) {
+            Canvas { context, size in
+                // Thumb, index, middle, ring, pinky; use the live contact palette.
+                let tips = [CGPoint(x:0.125,y:0.51),CGPoint(x:0.31,y:0.22),
+                            CGPoint(x:0.47,y:0.125),CGPoint(x:0.64,y:0.17),CGPoint(x:0.82,y:0.32)]
+                let active = tips.indices.filter { gesture.activeFingers.contains($0) }
+                let xs = active.map { tips[$0].x }, ys = active.map { tips[$0].y }
+                let center = CGPoint(x:((xs.min() ?? 0)+(xs.max() ?? 0))/2,
+                                     y:((ys.min() ?? 0)+(ys.max() ?? 0))/2)
+                // Leave room for the dot radius and white outline at both edges.
+                let spanY = (ys.max() ?? 0) - (ys.min() ?? 0)
+                let scale = min(size.width-12,(size.height-12)/max(0.001,spanY))
+                for index in active {
+                    let point = CGPoint(x:size.width/2+(tips[index].x-center.x)*scale,
+                                        y:size.height/2+(tips[index].y-center.y)*scale)
+                    let dot = Path(ellipseIn:CGRect(x:point.x-5,y:point.y-5,width:10,height:10))
+                    context.fill(dot,with:.color(Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))))
+                    context.stroke(dot,with:.color(.white),lineWidth:2)
                 }
-                .frame(width:36,height:47,alignment:.top)
             }
+            .frame(width:96,height:42)
+            Image(systemName:motionSymbol)
+                .font(.system(size:16,weight:.semibold)).foregroundStyle(.secondary)
+            Text("Starting chord").font(.system(size:9,weight:.medium)).foregroundStyle(.secondary)
         }
-        .accessibilityHidden(true)
-    }
-
-    private func drawing(_ example: Example, phase: Double) -> some View {
-        Canvas { context, size in
-                let active = gesture.activeFingers
-                let tap = example == .tap || example == .force
-                var cell = context
-                // Preserve the contact spacing and margin around motion arrows.
-                let diagramSize = size.height
-                cell.translateBy(x:(size.width-diagramSize)/2+diagramSize*0.06,y:diagramSize*0.12)
-                cell.scaleBy(x:diagramSize*0.88,y:diagramSize*0.88)
-                // Thumb, index, middle, ring, pinky in anatomical order.
-                let tips = [CGPoint(x:0.125,y:0.51),CGPoint(x:0.31,y:0.22),CGPoint(x:0.47,y:0.125),CGPoint(x:0.64,y:0.17),CGPoint(x:0.82,y:0.32)]
-                for index in tips.indices where active.contains(index) {
-                    let tip = tips[index]
-                    let marker = Path(ellipseIn:CGRect(x:tip.x-0.057,y:tip.y-0.057,width:0.114,height:0.114))
-                    let color = Color(nsColor:AnatomicalFingerPalette.color(fingerID:Int32(index+1)))
-                    cell.fill(marker,with:.color(color))
-                    cell.stroke(marker,with:.color(.white),lineWidth:0.018)
-                    if tap {
-                        let radius = 0.075 + phase*0.045
-                        let ring = Path(ellipseIn:CGRect(x:tip.x-radius,y:tip.y-radius,width:radius*2,height:radius*2))
-                        cell.stroke(ring,with:.color(color.opacity(0.9-phase*0.5)),lineWidth:0.022)
-                    }
-                }
-                if example == .pinch || example == .expand {
-                    // Diagonal motion follows the gap between thumb and index.
-                    let inward = example == .pinch
-                    let shift = (phase-0.5)*0.04*(inward ? 1 : -1)
-                    let center = CGPoint(x:0.155,y:0.282)
-                    let axis = CGPoint(x:0.53,y:-0.85)
-                    func point(_ distance: Double) -> CGPoint {
-                        CGPoint(x:center.x+axis.x*distance,y:center.y+axis.y*distance)
-                    }
-                    for side in [-1.0,1.0] {
-                        let outer = point(side*(0.30-shift))
-                        let inner = point(side*(0.07-shift))
-                        arrow(&cell,from:inward ? outer : inner,to:inward ? inner : outer)
-                    }
-                } else if example == .move {
-                    let reach = 0.16 + 0.012*sin(phase*2*Double.pi)
-                    let center = CGPoint(x:0.155-5/(diagramSize*0.88),y:0.282)
-                    arrow(&cell,from:CGPoint(x:center.x-reach,y:center.y),
-                          to:CGPoint(x:center.x+reach,y:center.y),bothEnds:true)
-                    arrow(&cell,from:CGPoint(x:center.x,y:center.y-reach),
-                          to:CGPoint(x:center.x,y:center.y+reach),bothEnds:true)
-                }
-        }
-    }
-
-    private func arrow(_ context: inout GraphicsContext, from start: CGPoint, to end: CGPoint, bothEnds: Bool = false) {
-        var path = Path()
-        path.move(to:start); path.addLine(to:end)
-        func head(_ tip: CGPoint, awayFrom other: CGPoint) {
-            let angle = atan2(tip.y-other.y,tip.x-other.x)
-            for side in [-1.0,1.0] {
-                path.move(to:tip)
-                path.addLine(to:CGPoint(x:tip.x-0.085*cos(angle+side*0.55),y:tip.y-0.085*sin(angle+side*0.55)))
-            }
-        }
-        head(end,awayFrom:start)
-        if bothEnds { head(start,awayFrom:end) }
-        context.stroke(path,with:.color(.white.opacity(0.85)),style:StrokeStyle(lineWidth:0.055,lineCap:.round,lineJoin:.round))
-        context.stroke(path,with:.color(.primary.opacity(0.85)),style:StrokeStyle(lineWidth:0.025,lineCap:.round,lineJoin:.round))
+        .padding(12)
+        .background(Color.primary.opacity(0.035),in:RoundedRectangle(cornerRadius:20))
+        .overlay(RoundedRectangle(cornerRadius:20).stroke(Color.primary.opacity(0.07),lineWidth:1))
+        .accessibilityElement(children:.ignore)
+        .accessibilityLabel("Starting chord: \(gesture.contactLabel)")
     }
 }
 

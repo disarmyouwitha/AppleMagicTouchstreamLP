@@ -1,5 +1,4 @@
 # NOTES:
-0. 
 1. Where did the "Starting Chord" icons go from the design? Can we replace our "hand examples" with something like this? (screenshot: chord)
 2. Can we do something like apple's animated examples? (Check out frame1,frame2,frame3)
 ===

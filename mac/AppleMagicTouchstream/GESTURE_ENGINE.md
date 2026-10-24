@@ -512,3 +512,11 @@ enable: differing assignments/gains show Mixed until edited. Turning it off
 restores the selected single-hand editor. Recognition remains independent per pad;
 this is not coordinated two-hand recognition. The preference is app-local; the
 resulting per-hand bindings/gains still round-trip with keymaps.
+
+### Starting chord preview (2026-10-24)
+
+The assignment header uses one rounded Starting chord tile, matching mac/chord.jpg
+and the original workspace design. Static dots use the live anatomical palette;
+a motion/scale/tap symbol summarizes the current family. This replaces the small
+animated Tap/Move/Pinch/Spread examples. The diagram illustrates starting contacts,
+not additional recognition constraints. Recognition and assignments are unchanged.

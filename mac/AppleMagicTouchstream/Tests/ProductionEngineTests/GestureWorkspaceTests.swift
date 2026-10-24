@@ -38,7 +38,7 @@ final class GestureWorkspaceTests: XCTestCase {
             for narrow in [false,true] {
                 defaults.set(narrow ? WorkspaceColumnSizing.minimumMenu : WorkspaceColumnSizing.defaultGestureColumnWidth,forKey:WorkspaceColumnSizing.gestureNavigationWidthKey)
                 defaults.set(narrow ? WorkspaceColumnSizing.minimumInspector : WorkspaceColumnSizing.defaultGestureColumnWidth,forKey:WorkspaceColumnSizing.gestureInspectorWidthKey)
-                for pane in [GesturePane.twoFingers,.threeFingers,.threeFingerPinch,.thumbTwo,.oneFinger] {
+                for pane in GesturePane.allCases {
                     let view = GestureAssignmentWorkspace(settings:HandGestureSettings(),initialPane:pane,
                         status:{_,_ in "Waiting for Trackpad Takeover."},
                         apply:{_,_,_ in XCTFail("Rendering must not change actions")},
