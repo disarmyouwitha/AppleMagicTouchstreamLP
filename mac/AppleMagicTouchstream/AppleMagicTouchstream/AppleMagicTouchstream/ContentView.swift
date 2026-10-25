@@ -4661,7 +4661,7 @@ struct ContentView: View {
 /// Native segmented control with an explicit equal split across the inspector.
 private struct EqualWidthInspectorPicker: NSViewRepresentable {
     @Binding var selection: String
-    private static let options = ["Keyboard", "Gestures"]
+    private static let options = ["Gestures", "Keyboard"]
 
     func makeCoordinator() -> Coordinator { Coordinator(selection: $selection) }
 
@@ -4670,7 +4670,7 @@ private struct EqualWidthInspectorPicker: NSViewRepresentable {
             target: context.coordinator, action: #selector(Coordinator.select(_:)))
         control.segmentDistribution = .fillEqually
         control.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        control.setAccessibilityLabel("Keyboard or Gestures")
+        control.setAccessibilityLabel("Gestures or Keyboard")
         return control
     }
 

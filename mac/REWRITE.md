@@ -1,13 +1,9 @@
-# NOTES:
+# NEXT:
 =======
-0. Rotate doesn't seem to work.. Check out my Thumb+2 finger capture @rotate_broke.atpcap
-1. Lets add "Tap and Move" under 5 Fingers with the whole thing. (I need something to map my volu/briu stuff to xD)
-===
-1. It looks like we have most gestures in to cover all of the touchstream stuff.. Can you add each of the Actions you find on the TouchStream QuickStart guide?
+1. Can you review each of the Actions you find on the TouchStream QuickStart guide and make a list of the ones we have vs the ones we dont seperated by section?
+> Can you list the gestures under each of the missing familys? I think I want to add some Landing Zones ones, and I want to checkout what you mean Diagonal movement, and what are they doing with the additional rotations? Now that you have it fixed I might be up to trying it on the other fingers.
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
-* Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
-* Maybe add under "1 Finger" called `Drawing` > `Triangles`, `Sides` and we have some presets (Expand to offer `Custom` tomorrow)
 
 
 `AppleMagicTouchstream`:
@@ -18,16 +14,17 @@
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
 ===
-`Zones` Gestures? (1Finger `Drawings`?)
+- `Zones` Gestures? (1Finger `Drawings`?)
 - Sides up/down left/right sides; left/right top/bottom sides
 - Triangles?
 ===
-
+* Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
+* Maybe add under "1 Finger" called `Drawing` > `Triangles`, `Sides` and we have some presets (Expand to offer `Custom` tomorrow)
+* Gestures Finger changes during movement
 ===
 666. NEED TO FIGURE OUT HOW TO TYPE DURING LOCK SCREEN (like BetterTouchTool) I noticed I can type (something) letters? into the input box but I can't access my layer to type numbers, or enter. Backspace also adds a character instead of delete. 
 777. We need to have "Click & Drag" to move Columns. (individual keys?)
 ===
-
 
 ===
 ## TELL CODEX:
