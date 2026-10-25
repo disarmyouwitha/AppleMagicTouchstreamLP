@@ -529,7 +529,7 @@ struct SinglePadCornersEngine {
             frame.count += 1
         }
         guard var current = session else {
-            guard settings.enabled(.fourCorners), !invalid, Self.matches(contacts) else { return .init() }
+            guard !invalid, Self.matches(contacts), settings.enabled(.fourCorners) else { return .init() }
             session = Session(anchor:frame,start:now,receipt:now)
             return .init(reserved:true,began:true)
         }

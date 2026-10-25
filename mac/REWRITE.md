@@ -1,14 +1,9 @@
 # NOTES:
 =======
-0. Can Thumb+2Fingers get it's own Hold separate from the Tap and Move from 3F?
-1. Lets add "Tap" to 4-finger "Move and Force click" lets also rename that to "Tap and Move" like the others.
-2. Maybe we should move Hold to the left of "Down" Directional?
-3. Can we add a new per-pad gesture under "4 Fingers" called "4 Corners" that works the same way as the "Both" Gesture of the same name, except all on 1 pad!
-4. I want to use the fancy Dropdown / Picker from "Keymap Tuning" Primary Action where you can search!
-===
-00. Are the new Gestures using the existing latches and logic where applicable?
 0. 1 Finger Hold should be disabled, "No seperate gesture is available for this."
-1. Can we clean up the GUI page headers a bit? I left notes in this image @GUI_CLEANUP
+1. I want to remove "4 Corners" taps, for "Both" and per-pad pages leave only Holds for now.
+2. Can we clean up the GUI page headers a bit? I left notes in this image @GUI_CLEANUP
+===
 7. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 ---
 0. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?

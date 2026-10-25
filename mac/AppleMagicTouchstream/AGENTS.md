@@ -348,3 +348,7 @@ per-hand/Mirror Edit/portable settings. Use the shared searchable Keymap Tuning
 chooser for all gesture Action editors, with each input's supported actions only.
 Do not change keymap action semantics. See GESTURE_ENGINE.md; build/sign/install
 Release and leave closed for hardware tests.
+
+User authorizes four-finger Tap's System actions to match Force Click. Reuse the
+shared discrete dispatcher, including Dock requests for Mission Control/App
+Exposé; preserve tap recognition, defaults, gates and portable assignments.

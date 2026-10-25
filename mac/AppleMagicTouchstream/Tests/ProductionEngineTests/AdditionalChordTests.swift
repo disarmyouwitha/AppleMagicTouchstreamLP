@@ -205,3 +205,31 @@ extension SearchableGestureActionTests {
             label:{$0.pickerText},searchLabel:{$0.label+" "+$0.pickerText},choose:{_ in XCTFail("Render must not choose keymap actions")}),name:"searchable-keymap-actions")
     }
 }
+
+extension AdditionalChordTests {
+    func testFourFingerTapOffersForceClickSystemActionsAndPreservesOneShotRecognition() throws {
+        XCTAssertEqual(GestureTrigger.fourFingerTap.allowedActions,GestureTrigger.fourFingerForce.allowedActions)
+        var settings = HandGestureSettings()
+        for action in GestureAction.appleShortcuts {
+            XCTAssertTrue(settings.setAction(action,for:.fourFingerTap,in:.both))
+            XCTAssertEqual(settings.action(.fourFingerTap,in:.both),action)
+            let plan = try XCTUnwrap(AppleShortcutPlan.resolve(action,preferences:[:]))
+            if action == .missionControl || action == .appExpose {
+                XCTAssertNotNil(plan.dockMessage)
+                XCTAssertNil(plan.events()) // shared live dispatcher uses the Dock path
+            } else {
+                let events = try XCTUnwrap(plan.events())
+                XCTAssertEqual(events.count,2)
+                XCTAssertEqual(events.first?.type,.keyDown)
+                XCTAssertEqual(events.last?.type,.keyUp)
+            }
+            var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+            XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+        }
+        var tap = TwoFingerTapRecognizer(requiredCount:4)
+        XCTAssertFalse(tap.process(device:1,time:1,contacts:four))
+        XCTAssertFalse(tap.process(device:1,time:1.1,contacts:four))
+        XCTAssertTrue(tap.process(device:1,time:1.15,contacts:[OMSRawTouch]()))
+        XCTAssertFalse(tap.process(device:1,time:1.16,contacts:[OMSRawTouch]()))
+    }
+}

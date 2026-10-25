@@ -44,7 +44,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var allowedActions: [GestureAction] {
         if self == .fourCornersTap { return TwoHandGestureSettings.allowedActions }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
-        if forceCount != nil { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
+        if forceCount != nil || self == .fourFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.smallStepActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.

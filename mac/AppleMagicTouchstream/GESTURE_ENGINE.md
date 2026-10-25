@@ -1078,3 +1078,15 @@ skew and rejection; corner geometry, tap/hold separation, deadline lifts,
 replaced/extra/moving/stale contacts and per-pad isolation; keyboard reservation;
 search filtering, action-catalog coverage and offscreen keyboard/gesture sheets
 and workspace pages. Hardware acceptance remains the user's test.
+
+### Four-finger Tap System actions
+
+Four-finger Tap now offers the same discrete action list as Force Click, including
+Notification Center, Mission Control, App Exposé, Launch Pad and Show Desktop.
+The old narrower Mouse Buttons / Sound & Display list was an oversight for this
+new input. Existing 2/3-finger tap choices and all defaults remain unchanged.
+Tap dispatch delegates to the same one-shot dispatcher as Hold/directions,
+including native Dock requests for Mission Control/App Exposé and balanced
+keyboard/media events for the other system actions. Do not route Dock actions
+through a CGEvent-only tap path. Existing tap timing, per-pad/all-up ownership,
+output permissions, drag-button protections and settings export stay unchanged.

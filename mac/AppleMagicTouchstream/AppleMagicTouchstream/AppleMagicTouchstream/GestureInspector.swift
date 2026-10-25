@@ -874,7 +874,7 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(14).frame(maxWidth:.infinity,minHeight:pane.triggers.contains(where: \.isContinuous) ? 106 : 112,alignment:.topLeading)
-            .background(selectedHold ? Color.accentColor.opacity(0.07) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
+            .background(selectedHold ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:9))
             .overlay(RoundedRectangle(cornerRadius:9).stroke(selectedHold ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
             .contentShape(RoundedRectangle(cornerRadius:9))
         }

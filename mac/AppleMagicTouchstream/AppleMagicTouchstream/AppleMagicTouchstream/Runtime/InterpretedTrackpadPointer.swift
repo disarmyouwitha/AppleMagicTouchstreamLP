@@ -116,13 +116,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             return enabled && action(trigger,device:device) != .disabled && (action(trigger,device:device) != .primaryDrag || buttonObserverHealthy)
         }
         mutating func postTap(_ trigger: GestureTrigger, device: UInt64, time: Double) {
-            guard !primaryClickConflicts(action(trigger,device:device)) else { return }
-            guard let location = CGEvent(source:nil)?.location,
-                let events = GestureTapActionOutput.events(action:action(trigger,device:device),location:location,
-                    time:time,doubleClickInterval:doubleClickInterval,
-                    flags:CGEventSource.flagsState(.combinedSessionState),clicks:&clicks,
-                    shortcut:appleShortcuts[action(trigger,device:device)]) else { return }
-            for event in events { event.post(tap:appleShortcuts[action(trigger,device:device)]?.eventTap ?? .cghidEventTap) }
+            // Same discrete dispatcher as Force/Hold/directions, including native
+            // Dock actions (Mission Control / App Exposé have no CGEvent sequence).
+            postDirectional(action(trigger,device:device),device:device,time:time)
         }
         mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double) {
             guard action != .disabled, !primaryClickConflicts(action) else { return }
