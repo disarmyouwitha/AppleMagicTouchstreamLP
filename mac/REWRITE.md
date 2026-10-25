@@ -1,10 +1,10 @@
 # NOTES:
 =======
-1. Should pan work the same way as scroll? 
-> If we move even a few pixels we should cancel a hold.
-2. Also.. It seems like we are perfectly capable of distinguishing holds with full directional buttons set.. I think we can probably unlock it even when movement is set?
-> Maybe we should move Hold to the left of "Down" Directional?
-===
+0. Can Thumb+2Fingers get it's own Hold separate from the Tap and Move from 3F?
+1. Lets add "Tap" to 4-finger "Move and Force click" lets also rename that to "Tap and Move" like the others.
+2. Maybe we should move Hold to the left of "Down" Directional?
+3. Can we add a new per-pad gesture under "4 Fingers" called "4 Corners" that works the same way as the "Both" Gesture of the same name, except all on 1 pad!
+4. I want to use the fancy Dropdown / Picker from "Keymap Tuning" Primary Action where you can search!
 0. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 00. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
 0. Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
