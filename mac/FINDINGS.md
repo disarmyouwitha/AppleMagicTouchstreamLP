@@ -1,10 +1,12 @@
 # FingerWorks recognition findings
 
-Reverse-engineering implementation reference · **2026-10-22**.
+Reverse-engineering implementation reference · **2026-10-25**.
 
 This document is the source of truth for what our reverse engineering establishes about TouchStream recognition, chording, typing arbitration, mouse behavior and output ownership. Use it when deciding how to implement a FingerWorks gesture in AppleMagicTouchstream. [GESTURE_ENGINE.md](AppleMagicTouchstream/GESTURE_ENGINE.md) remains the contract for what the application currently does, including its deliberately provisional thresholds. A difference between the two is an implementation/fidelity question to resolve explicitly, not permission to silently change accepted behavior.
 
 This is a connected reconstruction from shipped firmware, its configuration utility, packaged defaults, SDK code, saved Ghidra projects, bounded emulator checks and contact recordings. It is **not recovered original C**, complete firmware emulation, or a claim that Apple exposes the same sensor model. An apparently working gesture does not prove its entire proprietary recognizer was recovered.
+
+**Current implementation handoff:** start with [five-finger latching](#five-finger-latching-implementation-handoff) for the next task, then [typing/gesture arbitration](#arbitration-implementation-handoff). These sections identify implementation requirements, useful regression cases and the limits of the firmware evidence. The maintained app's `AGENTS.md` and `GESTURE_ENGINE.md` govern accepted behavior; research exceptions do not silently override those contracts.
 
 ## 1. How to use this reference
 
@@ -240,7 +242,7 @@ A raw palm can remain while the ordinary-finger episode ends. Conversely an assi
 
 This gate has multiple count/history/time arms. Its middle arm uses current ordinary count<4, a permitted pattern, five-finger history and a departure burst. The boot mask80771D=`0xD101D1DF` admits **exactly contiguous anatomical finger intervals plus empty**, checked for all32 entries. Index–middle is admitted; index–ring is excluded. Empty table membership alone does not authorize an empty gesture.
 
-Requested count is selected chord definition6, not automatically current hand17. The arm requires `hand11-hand8 < (5-requestedCount)*62D7`, then a strict wait `now-hand11 > 1.5*62D0`. Boot62D7=36 and62D0=90 imply an ideal135-unit quiet wait, not calibrated milliseconds or a universal gesture delay. Its integer admission prefix passes2304 synthetic cases; the FP wait/full rearm remains unexecuted. First/third integer-arm checks have separate174-case evidence.
+Requested count is selected chord definition6, not automatically current hand17. The arm requires `hand11-hand8 < (5-requestedCount)*62D7`, then a strict wait `now-hand11 > 1.5*62D0`. Boot62D7=36 and62D0=90 imply an ideal135nominal-firmware-ms quiet wait, supported by the later clock/SDK binding. This is neither an Apple default nor a universal gesture delay. Its integer admission prefix passes2304 synthetic cases; the FP wait/full rearm remains unexecuted. First/third integer-arm checks have separate174-case evidence.
 
 **Implementation lesson:** partial lift, old survivors, new arrivals and palms require explicit membership/epoch history. Do not infer a smaller fresh gesture merely because the instantaneous count decreases.
 
@@ -269,6 +271,36 @@ Moving activationC03C2E uses BeginSlide. Both reachC03BED, which installs active
 `C01D1E` reads Lift list15 from the **active** chord. Full finish can execute the available list; partial mode restricts eligible kinds. Partial lift is not universally release-everything. `C01D3F` records finish time, retains selected pointers for history, conditionally invokes Lift and clears selected/activation fields; not every selector field resets there. `C01DB7` also handles auxiliary action and directional cleanupC0162E.
 
 **Implementation contract to derive per gesture:** separate acquisition, positive activation, continuation and release obligation. A tap proposal must lose to the appropriate committed moving/held owner; a cancellation must release what it owns without inventing a normal completion.
+
+### Five-finger latching implementation handoff
+
+**Recovered behavior:** ordinary replacement at802C07 checks activation before accepting a different chord. Before activation, an eligible equal/larger definition can replace the selection; after activation, that ordinary replacement route is blocked. Movement, stationary Hold and selected-but-unactivated state are distinct. Live finger labels, current count and peak count are not the owner. Lift actions come from the active definition, not whichever definition matches the remaining fingers.
+
+**Current app requirement:** implement five-finger continuation through the existing shared first-activated-owner machinery. Activation must establish a stable gesture-family/action identity; subsequent count or anatomical-label changes must not reselect a smaller family, restart Hold, retrigger Tap or repeat BeginSlide. Preserve accepted pointer acceleration, activation thresholds, directional/repeat behavior, output gating and ordinary two-/three-/four-finger behavior. This is the app's accepted continuation contract, supported by the ordinary latch and user comparisons; it is not a claim that every firmware path waits for raw all-up.
+
+Keep these transitions separate:
+
+| Boundary | Implementation rule |
+| --- | --- |
+| Five contacts appear while no gesture owns the session | Acquire a proposal; count alone does not activate or emit. Use the configured gesture's actual motion/Hold/Tap evidence. |
+| Five-finger gesture positively activates | Capture its owner, configured action and release obligations once. Shape activation must obey the existing recognized-thumb requirement. |
+| Activated five-finger owner loses contacts or labels change | Continue the same owner under the shared continuation rules. Rebase movement geometry without a pointer jump; do not switch to the remaining count's bindings. Losing a thumb label is not a new activation decision. |
+| A smaller gesture is already activated, then the count reaches five | Retain the existing owner; five contacts do not automatically promote or replace it. Apply any coordinated Both handoff only through its explicit shared policy. |
+| Proposal changes before activation | Re-evaluate acquisition through shared rules. Do not carry unrelated pre-cohort travel, an old Hold deadline or a rejected Tap into a fresh proposal. Count change and contact-ID replacement are different cases. |
+| Normal end versus cancellation | Process the terminating frame and release owned outputs exactly once. Normal completion may run its configured end action; invalid/stale input, reconfiguration or takeover loss must cancel safely without inventing a Tap or replaying suppressed typing. |
+
+Do not add a five-finger-only global reset or a second owner alongside the shared latch. A discrete Tap, a one-shot Hold action, a held shortcut and a continuous Move/shape owner have different output lifetimes even when they share recognition state. Keep independent pads and shared button/modifier ownership balanced.
+
+Minimum offline acceptance cases for this task:
+
+- Activate at five, then5→4→2→1→additional contacts→all-up: retain the original action/owner; one begin and one end; no smaller-family Tap/Hold/Move leakage.
+- Activate at two or three, then add up to five: retain the first owner and existing movement feel.
+- Five-finger proposal loses a contact before activation: no output from a never-activated owner; later activation must use valid current evidence.
+- Relabel thumb/fingertips while a five-finger shape is active, and replace an ID while count stays five: retain ownership but rebase geometry according to contact continuity. Check discontinuous/invalid delivery separately.
+- Five-finger Hold with a held shortcut, partial lifts, then normal all-up or cancellation: one matching release and no duplicate Tap/Hold.
+- Other pad remains active, and explicit Both acquisition/handoff is exercised: no unrelated reset, duplicate output owner or release of the other pad's key/button.
+
+**Firmware exception to preserve as research, not copy blindly:**802C19 has a five-finger-*peak* rearm route; it is not equivalent to “a five-finger gesture is active.” With further pattern/option/time gates it can finish and set `hand4=hand11-1` before raw all-up. C01EF9 and combined-hand routes also have exceptions. Their complete effects/reachability are not reconstructed, so this task should not import an arbitrary rearm timer or override the app's accepted latch. See [lifecycle evidence](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/lifecycle-2026-10-17/PROGRESS.md) and [bounded special-mode dispatch](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/gesture-depth-2026-10-22/lifecycle-depth/FINDINGS.md).
 
 ## 10. Combined-hand acquisition transfers ownership
 
@@ -301,7 +333,9 @@ Coordinator803D47 drains acquisition6946 before phase6947. Creation copies conta
 
 ### Scoped cancellation and surviving work
 
-Gesture activationC03BC2 and certain special-pattern transitionsC039E1 callC04823. Cancellation can precede ordinary gesture activation. C047F6 cancels only a recent, matching hand/time scope, saving next links before mutation. Its scan stops entirely at the first old candidate. Creation inserts at the list head, but timestamp monotonicity across all trigger/batch paths is not fully proven.
+Gesture activationC03BC2, qualified quick taps and certain special-pattern transitionsC039E1 callC04823. Cancellation can precede ordinary motion activation or posted output. For referenceR and windowW=62D0 (boot90nominalms), C047F6 stops entirely at candidate9<=R-W. Within that recent prefix it cancels only matching-hand candidates with candidate10>=R and no0x1000. Candidate9/10 are separate signal-phase clocks, not automatically raw down/up. It saves next before mutating cleanup. Head insertion is traced, but timestamp monotonicity across all trigger/batch paths is not fully proven.
+
+Ordinary activation stores activation time72 but passes reference0. C04823 then chooses hand4 when hand4-hand3<=W, otherwisehand3. Combined selection uses each hand's own initial3; special-marker callers may supply hand7. Thus cancellation is not anchored universally to activation time. Fresh40routing and144scan cases verify these boundaries with explicit recording stubs; actual cleanup/output are excluded. [2026-10-25 scope and current-app comparison](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/FINDINGS.md).
 
 C04823 repeatedly calls8039D6(1) for surviving work. **Force does not mean emit every survivor.** C04772 still rejects eligible provisional/special candidates; force bypasses its age wait only after anatomy/pattern eligibility. Positive return means progress: rejection, pruning, advancing alternatives or output may each contribute. It is not a key-event count.
 
@@ -309,9 +343,25 @@ After the forced loop, C04624 processes hypotheses for one supplied candidate, n
 
 **Implementation lesson:** one serialized arbitration owner should coordinate typing and gesture actions. Keep reasons such as rejected anatomy, gesture takeover, pending ambiguity, pruned sequence and committed output explicit. “Gesture mode disables typing globally” does not describe the recovered firmware.
 
+### Arbitration implementation handoff
+
+After the latching task, preserve its accepted activation/continuation behavior while refining which keyboard proposals survive. Do not fix arbitration by retuning pointer gain, adding a post-typing blackout or delaying every gesture. Recognition must continue on original frames while unresolved typing remains tentative.
+
+The next implementation task should explicitly decide these boundaries:
+
+1. **Proposal scope:** retain per-contact/candidate identity, generation, key/layer binding and relevant acquisition/phase/gesture epoch. The current whole-pad bank cannot selectively spare an older same-hand proposal. Firmware supplies a model for qualified scope, but its strength-phase clocks are not direct Apple down/up timestamps.
+2. **Decision versus delivery:** a qualified gesture claim can invalidate typing before native output is posted; quick taps and special markers also arbitrate in firmware. Conversely, merely selecting a count/family is not activation. Record recognition ownership and delivery availability separately.
+3. **Resolution policy:** current wait-for-partial-lift/all-up and typing-until-all-up rules are explicit app approximations. Keep them until deliberately replaced and tested; do not claim the firmware requires them. A future score/evidence decision must specify when still-down keyboard proposals can resolve and whether later gestures can compete.
+4. **Owned output:** preserve established MO/modifier chords, committed holds and balanced key-up handling. Cancelling pending evidence, releasing a held key, removing a hypothesis and deliberately replacing already typed text are different operations. This research does not authorize speculative Backspace correction.
+5. **Survivors:** selective cancellation must not flush every survivor blindly. Firmware force processing can reject, prune, advance or emit; progress is not an event count. Never resurrect proposals belonging to an activated/cancelled owner, and never flush from invalidation/overflow/configuration changes.
+
+Use the recovered strict cancellation boundaries above as reference fixtures, not Apple defaults. Add app-level cases for older typing plus a newer same-pad gesture; other-pad isolation; two stationary keys held after Tap expiry; A+B→A+C before activation; gesture evidence after typing wins; committed held-key cleanup; and recognized-but-unavailable output. Preserve the captured L→K→J regression and stable-pair activation frame/deltas. Exercise actual serialized ingress as well as component harnesses: the existing LKJ harness does not cover every private RuntimeCore Hold/Force/coordinated/epoch path.
+
+The [focused report](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/FINDINGS.md), [exact app-source comparison](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/app-audit/REPORT.md) and [280-case validation](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/validation.json) distinguish recovered rules, proposed architecture and remaining gaps. Routing/cleanup callees in the new probes are explicitly stubbed or excluded; they are not full recognizer/output validation.
+
 ## 12. Typing alternatives, no-key and confidence
 
-AppleMagicTouchstream now combines keyboard and gesture output. These findings constrain their arbitration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it. The [typing arbitration audit](AppleMagicTouchstream/TYPING_GESTURE_ARBITRATION.md) records the current count-reservation problem and capture evidence.
+AppleMagicTouchstream now combines keyboard and gesture output. These findings constrain their arbitration: a mouse/tap detector cannot safely emit typing first and assume a cancelled hypothesis removes it. The [typing arbitration audit](AppleMagicTouchstream/TYPING_GESTURE_ARBITRATION.md) records the captured count-reservation failure, implemented proposal-retention fix, and its limits.
 
 The initial TapArea is not always the final key.803653/8034FD generate alternatives from the selected/neighboring areas;80357F considers up to four related historical spatial records. That count does not establish a four-wide beam. Normal evidence is combined with cumulative/context scores and inserted through803936; **larger accumulated sequence18 wins**, unlike the smaller-is-better chord residual score.
 
@@ -320,6 +370,8 @@ An explicit no-key pathC04174 supplies kind21 without an area, weights it using 
 Sequence nodes are25 words; reset allocates256 nodes. Descriptor13..17, score18, list links19/20, predecessor21 and candidate associations22/23 are distinct. Pool capacity is not a proven beam width.
 
 C045B1 obtains a selected sequence through80375C, checks confidence/time and context before correction or direct staged action.80375C keeps the last usable alignment when an intermediate ancestry chain is too short; missing root/flag can stop the outer scan. An initialized output-candidate pointer alone does not prove a usable returned node.
+
+The current app resolves its retained bank to typing at all-up or activeCount<2 with no pending tap, then owns typing until the cycle ends. That is explicit app policy. Two still-down stationary keys cannot resolve under that predicate even after tap failure; firmware equivalence is not established. C0428D..A1 has a narrower phase/semantic deferral conjunction, now96/96bounded cases before cleanup or processing continuation. Return0 permits further processing and does not certify a posted key. There is no recovered basis for a universal raw-all-up commit requirement.
 
 C04270 includes semantic, release, motion, age and alternative/head-confidence gates. The earlier recovered conditional100/350-unit tail is not a fixed latency applied to every key. Language/history scoring is optional under bit0x8; the complete dictionary, spelling checks, adaptation and pruning are not recovered.
 

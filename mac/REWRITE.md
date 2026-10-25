@@ -1,10 +1,8 @@
 # NEXT:
 =======
-0. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
-> TYPING GRACE? How does TouchStream do it? REVERSE ENGINEER???
+1. Better 4-finger latching for holds? Better 5-finger latching?
 **NEXT**: Do you see any places we could expand our logic to match what touchstream is doing? I feel like it is a good northern star because theirs works so well, and is the inspiration for my project.
 
-1. ^(May be related to above? Test that before changing): Better 4-finger latching for holds? Better 5-finger latching?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:

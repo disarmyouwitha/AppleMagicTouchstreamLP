@@ -170,6 +170,17 @@ Simultaneous/coherently moving typing can still resemble a real gesture; this is
 not a claim to have recovered all of FingerWorks' typing intelligence. No blanket
 600 ms typing protection or post-typing mouse blackout is introduced.
 
+## Reverse-engineering follow-up, 2026-10-25
+
+The [focused firmware report](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/FINDINGS.md) adds exact boundaries rather than another grace timer:
+
+- C047F6 stops at acquisition-phase9<=reference-window. Recent candidates require matching hand and phase10>=reference. This can preserve older same-hand typing that a whole-pad bank discards. These phases are not raw contact down/up.
+- Ordinary activation records its time but passes reference0; cancellation derives its anchor from hand acquisition history. Combined gestures use each hand's own initial anchor. Quick taps and special-marker recognition can arbitrate without posted pointer movement.
+- Wait-for-lift is the app's explicit proposal-resolution rule, not a recovered universal TouchStream condition. Firmware pending/commit decisions also depend on signal phases, semantic classes and scored alternatives. No firmware constant should be added as a mouse blackout or unconditional typing timer.
+- The current full-chord-motion guard resets on count changes. A+B→A+C at count2 retains shared A movement; complete identity replacement rebases. This merits an offline case, but the firmware velocity/activity gate does not establish a literal reset-on-every-ID-change rule.
+
+The fresh280cases cover scope routing, cancellation scan and one pending-phase decision. Scope/cleanup callees are explicitly recorded stubs or excluded; they are not complete recognizer/output tests. The [source audit](/Users/nap/Documents/new_code/touchstream-archive/firmware-analysis/rea-investigation/arbitration-2026-10-25/app-audit/REPORT.md) also distinguishes component LKJ tests from private live RuntimeCore ingress coverage. No app source, pointer settings, build or installed release was changed by this research pass.
+
 ## Design requirements
 
 Replace destructive count reservation with explicit provisional versus activated
