@@ -48,6 +48,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var keyboardChordDevices: Set<UInt64> = []
         var tracker = TwoFingerPointerMotionEngine()
         var router = TrackpadGestureRouter()
+        var directionals: [UInt64:GestureDirectionalAssignments] = [:]
+        var directionalStepper = GestureDirectionalStepper()
         var bindings: [UInt64:GestureActionBindings] = [:]
         var appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]
         func action(_ trigger: GestureTrigger, device: UInt64) -> GestureAction {
@@ -57,6 +59,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
+            if trigger == .threeFingerMove && directionals[device] != nil { return true }
             let enabled: Bool
             switch trigger {
             case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch,
@@ -78,6 +81,19 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     flags:CGEventSource.flagsState(.combinedSessionState),clicks:&clicks,
                     shortcut:appleShortcuts[action(trigger,device:device)]) else { return }
             for event in events { event.post(tap:appleShortcuts[action(trigger,device:device)]?.eventTap ?? .cghidEventTap) }
+        }
+        mutating func postDirectional(_ action:GestureAction,device:UInt64,time:Double) {
+            guard action != .disabled else { return }
+            if appleShortcuts[action]?.dockMessage != nil {
+                _ = appleShortcuts[action]?.postDock(); clicks.reset(); return
+            }
+            guard let location = CGEvent(source:nil)?.location,
+                  let events = GestureTapActionOutput.events(action:action,location:location,time:time,
+                    doubleClickInterval:doubleClickInterval,flags:CGEventSource.flagsState(.combinedSessionState),
+                    clicks:&clicks,shortcut:appleShortcuts[action]) else { return }
+            for event in events {
+                event.post(tap:appleShortcuts[action]?.eventTap ?? .cghidEventTap); postedEvents &+= 1
+            }
         }
         var drag = PrimaryDragOutput()
         var buttonObserver: ButtonObserver?
@@ -121,7 +137,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
-            router.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
+            router.reset(device:device); directionalStepper.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
             keyboardChordDevices.removeAll(keepingCapacity:true)
@@ -129,7 +145,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
             forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); clicks.reset()
-            router.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
+            router.reset(); directionalStepper.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
         var postedEvents: UInt64 = 0
@@ -142,14 +158,15 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:GestureDirectionalAssignments] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
+            state.directionals = directionalBindings
             state.appleShortcuts = appleShortcuts
             state.pinchDevices = pinchDevices
             state.zoomSensitivities = zoomSensitivities
@@ -299,8 +316,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 ($0.state == .making || $0.state == .touching) && $0.pressure.isFinite
                     && $0.pressure >= ForceClickRecognizer.threshold
             }
+            let directional = state.directionals[device] != nil
             return state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick) {
-                bindings.action(for: $0) != .disabled
+                ($0 == .threeFingerMove && directional) || bindings.action(for: $0) != .disabled
             }
         }
     }
@@ -352,7 +370,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if state.forceClicks.claimed(device:device) {
                 state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
-                state.router.reset(device:device); state.tracker.reset(device:device)
+                state.router.reset(device:device); state.directionalStepper.reset(device:device); state.tracker.reset(device:device)
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
@@ -373,6 +391,23 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 // Complete the queued drag sequence at its own last destination.
                 state.drag.end(device:device)?.post(tap:.cghidEventTap)
             }
+            if let assignments = state.directionals[device], update.gesture == .threeFingerMove {
+                if allUp {
+                    _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+                    _ = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
+                        gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+                } else {
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
+                }
+                state.finishScroll(device:device,cancelled:true)
+                state.tracker.reset(device:device)
+                if let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments) {
+                    state.postDirectional(assignments.action(direction),device:device,time:hostTime)
+                }
+                return nil
+            }
+            // A different owner/discontinuity cannot retain directional progress.
+            state.directionalStepper.reset(device:device)
             if let gesture = update.gesture, state.action(gesture,device:device).isAppleShortcut {
                 if allUp {
                     _ = state.taps.process(device:device,time:time,contacts:contacts,gestureActive:true)

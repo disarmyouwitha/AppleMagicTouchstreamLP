@@ -422,7 +422,8 @@ struct GestureInspectorPanel: View {
             apply:{controller.setAction($0,for:$1,scope:$2)},
             setSensitivity:{controller.setSensitivity($0,kind:$1,scope:$2)},
             setMovementMode:{controller.setMovementMode($0,for:$1,scope:$2)},
-            setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)})
+            setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)},
+            setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)})
     }
 }
 
@@ -434,6 +435,7 @@ struct GestureAssignmentWorkspace: View {
     let setSensitivity: (Double,GestureSensitivity,GestureHandScope) -> Void
     let setMovementMode: (GestureMovementMode,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalAction: (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
+    let setDirectionalRepeat: (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     @State private var selectedDirection: GestureMovementDirection?
     @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
@@ -449,9 +451,11 @@ struct GestureAssignmentWorkspace: View {
          apply:@escaping (GestureAction,GestureTrigger,GestureHandScope)->Void,
          setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void,
          setMovementMode:@escaping (GestureMovementMode,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
-         setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
+         setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
+         setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
+        self.setDirectionalRepeat = setDirectionalRepeat
         _pane = State(initialValue:initialPane)
         _selectedDirection = State(initialValue:initialDirection)
         _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
@@ -537,7 +541,7 @@ struct GestureAssignmentWorkspace: View {
                     }
                 }
             }
-            Text("\(scopeText) settings\nDirectional assignments are a preview.")
+            Text("\(scopeText) settings\nThree-finger directionals are ready to test.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
         .padding(16)
@@ -632,7 +636,9 @@ struct GestureAssignmentWorkspace: View {
                 Color.clear.frame(height:1)
             }
             if mode != .continuous {
-                Text(mode == nil ? "Mixed modes. Directional output is not implemented yet." : "Directional mode: assignments save, but output is not implemented yet. Continuous movement is inactive.")
+                Text(mode == nil ? "Mixed movement modes." : trigger == .threeFingerMove
+                     ? "Directional actions use three fingers. Continuous movement is inactive."
+                     : "Directional mode: assignments save, but output is not implemented yet. Continuous movement is inactive.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
         }
@@ -645,6 +651,8 @@ struct GestureAssignmentWorkspace: View {
         let isSelected = selected == trigger && selectedDirection == direction
         let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
         let title = direction.map { "Move " + $0.title } ?? "Movement"
+        let repeatLabel = direction.flatMap { settings.directionalRepeats($0,for:trigger,in:editingScope) }
+            .map { $0 ? "Repeat with motion" : "Once per direction" } ?? "Mixed repeat"
         return Button {
             selected = trigger; selectedDirection = direction
             if mode != targetMode { setMovementMode(targetMode,trigger,editingScope) }
@@ -654,7 +662,8 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Text(assigned?.title ?? "Mixed").font(.system(size:16,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text(active ? (direction == nil ? "Continuous" : "Output coming later") : "Inactive · click to switch")
+                Text(active ? (direction == nil ? "Continuous" : trigger != .threeFingerMove ? "Output coming later"
+                     : repeatLabel) : "Inactive · click to switch")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(12).frame(maxWidth:.infinity,minHeight:106,alignment:.topLeading)
@@ -766,10 +775,24 @@ struct GestureAssignmentWorkspace: View {
                 Text("Left: \(settings.left.movement(selected).action(direction).title) · Right: \(settings.right.movement(selected).action(direction).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
-            Text("Directional output is not implemented yet.")
-                .font(.callout).fontWeight(.medium)
-            Text("This assignment is saved for the next gesture-engine stage. Direction detection and motion-based repeat will be added later. Continuous movement is inactive in directional mode.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            Toggle(isOn:Binding(get:{settings.directionalRepeats(direction,for:selected,in:editingScope) ?? false},
+                                set:{setDirectionalRepeat($0,direction,selected,editingScope)})) {
+                Label("Repeat with movement",systemImage:"repeat")
+            }
+            .toggleStyle(.checkbox)
+            .help("Repeat as fingers travel, never while held still. Defaults on for volume and brightness; off for other actions.")
+            if settings.directionalRepeats(direction,for:selected,in:editingScope) == nil {
+                Text("Mixed repeat settings. Changing this applies to both pads.").font(.caption).foregroundStyle(.secondary)
+            }
+            if selected == .threeFingerMove {
+                Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
+                Text("Move three aligned fingertips 1.5 mm to choose a direction. Repeat advances with each additional 3 mm of motion; holding still stops it. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            } else {
+                Text("Directional output is not implemented yet.").font(.callout).fontWeight(.medium)
+                Text("This assignment and its repeat choice are saved. Live direction recognition currently supports three fingers only. Continuous movement is inactive in directional mode.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
             Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }

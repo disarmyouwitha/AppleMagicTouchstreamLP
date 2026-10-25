@@ -168,12 +168,16 @@ enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Send
     var symbol: String { "arrow." + rawValue }
 }
 
-/// Saved editor configuration. Directional recognition/output is a later stage.
+/// Per-input directional assignments; live recognition currently supports three fingers.
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions
     var mode: GestureMovementMode = .continuous
     var actions: [String:GestureAction] = [:]
+    var repeatOverrides: [String:Bool]?
+    func repeats(_ direction:GestureMovementDirection) -> Bool {
+        repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))
+    }
     func action(_ direction:GestureMovementDirection) -> GestureAction {
         let value = actions[direction.rawValue] ?? .disabled
         return Self.allowedActions.contains(value) ? value : .disabled
@@ -219,6 +223,14 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
             editor.actions[direction.rawValue] = action
         }
         editor.mode = mode
+        if directionalMovement == nil { directionalMovement = [:] }
+        directionalMovement?[trigger.rawValue] = editor
+    }
+    mutating func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger) {
+        guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
+        var editor = movement(trigger)
+        if editor.repeatOverrides == nil { editor.repeatOverrides = [:] }
+        editor.repeatOverrides?[direction.rawValue] = enabled
         if directionalMovement == nil { directionalMovement = [:] }
         directionalMovement?[trigger.rawValue] = editor
     }
@@ -268,6 +280,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     func directionalAction(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> GestureAction? {
         let a = left.movement(trigger).action(direction), b = right.movement(trigger).action(direction)
         return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    func directionalRepeats(_ direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) -> Bool? {
+        let a = left.movement(trigger).repeats(direction), b = right.movement(trigger).repeats(direction)
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger,in scope:GestureHandScope) {
+        if scope != .right { left.setDirectionalRepeat(enabled,direction:direction,for:trigger) }
+        if scope != .left { right.setDirectionalRepeat(enabled,direction:direction,for:trigger) }
     }
     mutating func editMovement(_ trigger:GestureTrigger,mode:GestureMovementMode,
                                direction:GestureMovementDirection? = nil,action:GestureAction? = nil,in scope:GestureHandScope) {

@@ -601,11 +601,11 @@ Bindings in both modes are preserved. Directional actions allow None, mouse clic
 Apple shortcut actions and small-step volume/brightness controls. Mirror Edit
 updates both hands and displays Mixed for different modes or assignments.
 
-This pass saves the editor only: direction detection, dispatch and motion-based
-repeat are not implemented. Directional mode suppresses only that input's continuous
+Three-finger directional recognition is now live; two- and four-finger directional
+assignments remain saved-only. Directional mode suppresses that input's continuous
 output in the routed configuration, while retaining its original saved binding.
-The editor explicitly states that directional output is unavailable. Other gesture
-inputs remain unchanged. No new GestureTrigger values or recognition paths exist.
+The editor identifies which inputs are available. No new GestureTrigger values
+are required; the shared session still owns the existing movement input.
 
 Optional per-hand directionalMovement fields round-trip in existing gesture/keymap
 settings. Old profiles default to Continuous. Tests cover persistence, mirrored
@@ -621,3 +621,43 @@ recognition or dispatch; direction assignments remain saved-only in this stage.
 The Thumb+2fingers page is grouped under 3 fingers in the navigation, alongside
 Tap and Move and Pinch and Spread. Its existing thumb-plus-two tap trigger,
 anatomical illustration, assignments and saved identifiers are unchanged.
+
+### Three-finger directional test and repeat control
+
+Only three-finger movement has live directional output in this stage; two-finger
+mousing and four-finger continuous scrolling are unchanged. Select a three-finger
+outer card to use directional mode, or the center to restore Drag / Select.
+Defaults do not change any assignments or activate directional mode automatically.
+
+The existing row/arched-three-fingertip router owns the gesture and latches through
+added/lifted contacts until all-up. Pinch/spread and force-click arbitration remain
+in place. After ownership, a pure per-device stepper needs 1.5 mm on a dominant
+axis (1.25 ratio) to emit a direction. Deliberate turns/reversals need 1.5 mm in
+the new direction; small jitter does not switch it. Screen-space up is negative Y.
+These thresholds are provisional for hardware testing.
+
+Each direction has a saved Repeat with movement checkbox, including Mirror Edit
+and Mixed states. Missing overrides default on for small-step volume/brightness,
+off for clicks/Apple shortcuts/None. Explicit overrides survive action changes
+and keymap export/import. The GUI can save repeat choices for two/four fingers,
+but those directional outputs remain unavailable for now.
+
+Repeat spends 3 mm of additional forward motion per step, capped at one output
+per frame and 80 ms between outputs. Holding still never emits, including after
+a fast stroke; residual distance is bounded to prevent catch-up bursts. Repeat
+off emits once per directional activation (a deliberate turn can activate again).
+Each click/shortcut dispatch uses balanced one-shot output; no directional mouse
+button or key is held. Dock actions use the existing cached native dispatch plan.
+
+Selected/owned/armed/Accessibility/live-only gates still apply. Three-finger
+candidates reserve typing even when output permission is missing; an active owner
+cancels taps and other continuous outputs. Same-pad established layer/modifier
+holds keep their existing keyboard priority. Reset/reconfigure, force takeover,
+disconnect, all-up, stale/nonfinite input and contact discontinuity discard the
+stepper's progress. Replay never posts directional output. No repeat timer or
+new hot-path I/O is added.
+
+Offline tests cover all axes, thresholds/diagonal ambiguity, stationary/rate-limited
+motion, repeat off, direction changes, reset/stale input, independent pads, the
+shared all-up latch through membership changes, unchanged two-finger routing and
+repeat defaults/persistence. Hardware acceptance remains the next step.

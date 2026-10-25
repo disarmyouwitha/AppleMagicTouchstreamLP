@@ -59,6 +59,7 @@ final class TrackpadGestureController: ObservableObject {
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.editMovement(trigger,mode:mode,in:scope)
         settings.save(to:.standard)
+        requestDirectionalPermissionIfNeeded(trigger)
         configure()
     }
 
@@ -67,6 +68,23 @@ final class TrackpadGestureController: ObservableObject {
               GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
         settings.editMovement(trigger,mode:.directional,direction:direction,action:action,in:scope)
+        settings.save(to:.standard)
+        requestDirectionalPermissionIfNeeded(trigger)
+        configure()
+    }
+
+    private func requestDirectionalPermissionIfNeeded(_ trigger:GestureTrigger) {
+        guard trigger == .threeFingerMove, !AXIsProcessTrusted(),
+              [settings.left,settings.right].contains(where:{ config in
+                  let editor = config.movement(trigger)
+                  return editor.mode == .directional && GestureMovementDirection.allCases.contains { editor.action($0) != .disabled }
+              }) else { return }
+        _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
+    }
+
+    func setDirectionalRepeat(_ enabled:Bool,direction:GestureMovementDirection,for trigger:GestureTrigger,scope:GestureHandScope) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setDirectionalRepeat(enabled,direction:direction,for:trigger,in:scope)
         settings.save(to:.standard)
         configure()
     }
@@ -91,15 +109,24 @@ final class TrackpadGestureController: ObservableObject {
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
         func hand(_ side: GestureHandScope) -> String {
-            if GestureDirectionalAssignments.triggers.contains(trigger),
-               settings.movementMode(trigger,in:side) == .directional {
-                return "Directional mode: output not implemented yet."
-            }
+            let directional = GestureDirectionalAssignments.triggers.contains(trigger)
+                && settings.movementMode(trigger,in:side) == .directional
+            if directional && trigger != .threeFingerMove { return "Directional mode: output not implemented yet." }
             let action = settings.action(trigger, in: side) ?? .disabled
-            guard action != .disabled else { return "None" }
+            guard directional || action != .disabled else { return "None" }
             guard let id = side == .left ? pads.left : pads.right else { return "Select a trackpad." }
             guard AXIsProcessTrusted() else { return "Paused: Accessibility permission required." }
             guard takeoverEnabled, armed, owned.contains(id) else { return "Waiting for Trackpad Takeover." }
+            if directional {
+                let config = side == .left ? settings.left.movement(trigger) : settings.right.movement(trigger)
+                guard GestureMovementDirection.allCases.contains(where:{ config.action($0) != .disabled }) else { return "Choose a directional action." }
+                let plans = AppleShortcutPlan.load()
+                for direction in GestureMovementDirection.allCases {
+                    let assigned = config.action(direction)
+                    if assigned.isAppleShortcut && plans[assigned] == nil { return "\(direction.title): \(assigned.title) is unavailable." }
+                }
+                return "Active"
+            }
             if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "Paused: \(action.title) is unavailable on this macOS version." }
             if action.requiresPointerProfile && pointerProfiles[id] == nil { return "Paused: tracking profile unavailable." }
             if action == .scroll && scrollProfiles[id] == nil { return "Paused: scroll profile unavailable." }
@@ -135,13 +162,17 @@ final class TrackpadGestureController: ObservableObject {
         let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
         let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
         let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
+        let directionalBindings = routed.compactMapValues { config -> GestureDirectionalAssignments? in
+            let assignments = config.movement(.threeFingerMove)
+            return assignments.mode == .directional ? assignments : nil
+        }
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
             twoFingerTapDevices: tap, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)

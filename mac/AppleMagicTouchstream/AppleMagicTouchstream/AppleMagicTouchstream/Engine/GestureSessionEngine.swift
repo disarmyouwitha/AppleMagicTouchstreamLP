@@ -180,3 +180,80 @@ struct GestureContactMotionTracker: Sendable {
         return delta
     }
 }
+
+/// Motion-driven directional steps after the shared three-finger session owns
+/// the chord. No timers/output; all-up, stale data and resets discard progress.
+struct GestureDirectionalStepper {
+    static let activationMM = 1.5
+    static let repeatMM = 3.0
+    static let minimumOutputInterval = 0.08
+    private struct Session {
+        var initial = CGPoint.zero
+        var direction: GestureMovementDirection?
+        var candidate: GestureMovementDirection?
+        var candidateMM = 0.0
+        var repeatTravelMM = 0.0
+        var lastTime: Double?
+        var lastOutput = -Double.infinity
+    }
+    private var sessions: [UInt64:Session] = Dictionary(minimumCapacity:2)
+    mutating func reset() { sessions.removeAll(keepingCapacity:true) }
+    mutating func reset(device:UInt64) { sessions[device] = nil }
+    private func dominant(_ delta:CGPoint) -> GestureMovementDirection? {
+        let x = Double(delta.x), y = Double(delta.y)
+        if abs(x) > 0 && abs(x) >= abs(y)*1.25 { return x > 0 ? .right : .left }
+        if abs(y) > 0 && abs(y) >= abs(x)*1.25 { return y > 0 ? .down : .up }
+        return nil
+    }
+    private func projection(_ delta:CGPoint,onto direction:GestureMovementDirection) -> Double {
+        switch direction {
+        case .up: return -Double(delta.y); case .down: return Double(delta.y)
+        case .left: return -Double(delta.x); case .right: return Double(delta.x)
+        }
+    }
+    mutating func process(device:UInt64,time:Double,update:GestureSessionUpdate<GestureTrigger>,
+                          assignments:GestureDirectionalAssignments) -> GestureMovementDirection? {
+        guard assignments.mode == .directional, update.gesture == .threeFingerMove,
+              update.phase == .began || update.phase == .changed else { reset(device:device); return nil }
+        if update.phase == .began { reset(device:device) }
+        guard update.phase == .began || sessions[device] != nil,
+              let delta = update.millimetres, time.isFinite,
+              delta.x.isFinite, delta.y.isFinite, abs(delta.x)<25, abs(delta.y)<25 else {
+            reset(device:device); return nil
+        }
+        var session = sessions[device] ?? Session()
+        if let previous = session.lastTime, !(time > previous && time-previous < 0.15) {
+            reset(device:device); return nil
+        }
+        session.lastTime = time
+        defer { sessions[device] = session }
+        // A stationary frame never spends accumulated distance or emits a repeat.
+        guard delta != .zero else { return nil }
+        guard let current = session.direction else {
+            session.initial.x += delta.x; session.initial.y += delta.y
+            guard let direction = dominant(session.initial),
+                  projection(session.initial,onto:direction) >= Self.activationMM else { return nil }
+            session.direction = direction; session.initial = .zero; session.lastOutput = time
+            return direction
+        }
+        if let candidate = dominant(delta), candidate != current {
+            session.repeatTravelMM = 0
+            if candidate != session.candidate { session.candidate = candidate; session.candidateMM = 0 }
+            session.candidateMM += projection(delta,onto:candidate)
+            guard session.candidateMM >= Self.activationMM,
+                  time-session.lastOutput >= Self.minimumOutputInterval else { return nil }
+            session.direction = candidate; session.candidate = nil; session.candidateMM = 0
+            session.lastOutput = time
+            return candidate
+        }
+        session.candidate = nil; session.candidateMM = 0
+        guard assignments.repeats(current) else { session.repeatTravelMM = 0; return nil }
+        session.repeatTravelMM += max(0,projection(delta,onto:current))
+        // Bound residual travel: no catch-up burst after a fast stroke or pause.
+        session.repeatTravelMM = min(Self.repeatMM,session.repeatTravelMM)
+        guard session.repeatTravelMM >= Self.repeatMM,
+              time-session.lastOutput >= Self.minimumOutputInterval else { return nil }
+        session.repeatTravelMM = 0; session.lastOutput = time
+        return current
+    }
+}
