@@ -305,6 +305,14 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     }
 }
 
+enum GestureHoldTiming {
+    static let defaultSeconds = 0.5
+    static func validated(_ seconds:Double?) -> Double {
+        guard let seconds, seconds.isFinite else { return defaultSeconds }
+        return (min(5,max(0.1,seconds))*100).rounded()/100
+    }
+}
+
 struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var bindings = GestureActionBindings()
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
@@ -313,6 +321,16 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var directionalMovement: [String:GestureDirectionalAssignments]?
     // Optional for old profiles; count-keyed, independent of Tap/Force actions.
     var holdActions: [String:GestureAction]?
+    var holdThresholds: [String:Double]?
+    func holdThreshold(count:Int) -> Double { GestureHoldTiming.validated(holdThresholds?[String(count)]) }
+    mutating func setHoldThreshold(_ seconds:Double,count:Int) {
+        guard holdAvailable(count:count) else { return }
+        if holdThresholds == nil { holdThresholds = [:] }
+        holdThresholds?[String(count)] = GestureHoldTiming.validated(seconds)
+    }
+    var liveHoldThresholds:[Int:Double] {
+        Dictionary(uniqueKeysWithValues:(2...6).map { ($0,holdThreshold(count:$0)) })
+    }
     static let holdAllowedActions = GestureDirectionalAssignments.allowedActions.filter { !GestureAction.directionalScrollActions.contains($0) }
     static func moveTrigger(count:Int) -> GestureTrigger? {
         switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; case 5:return .fiveFingerMove; default:return nil }
@@ -342,6 +360,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         var value = TwoHandGestureSettings()
         value.setAction(bindings.action(for:.fourCornersTap),for:.init(chord:.fourCorners,phase:.tap))
         value.setAction(holdAction(count:Self.cornersHoldKey),for:.init(chord:.fourCorners,phase:.hold))
+        value.setHoldThreshold(holdThreshold(count:Self.cornersHoldKey),for:.fourCorners)
         return value
     }
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
@@ -462,6 +481,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         if scope != .right { left.setHoldAction(action,count:count) }
         if scope != .left { right.setHoldAction(action,count:count) }
     }
+    func holdThreshold(count:Int,in scope:GestureHandScope) -> Double? {
+        let a = left.holdThreshold(count:count), b = right.holdThreshold(count:count)
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func setHoldThreshold(_ seconds:Double,count:Int,in scope:GestureHandScope) {
+        if scope != .right { left.setHoldThreshold(seconds,count:count) }
+        if scope != .left { right.setHoldThreshold(seconds,count:count) }
+    }
     func movementMode(_ trigger:GestureTrigger,in scope:GestureHandScope) -> GestureMovementMode? {
         let a = left.movement(trigger).mode, b = right.movement(trigger).mode
         return scope == .left ? a : scope == .right ? b : a == b ? a : nil
@@ -563,7 +590,6 @@ enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
     }
     var count:Int { self == .fourCorners ? 2 : self == .threeFingers ? 3 : 4 }
     var phases:[TwoHandPhase] { self == .fourCorners ? [.hold] : TwoHandPhase.allCases }
-    var holdDuration:Double { self == .fourCorners ? 1 : 0.5 }
     static let recognitionOrder:[Self] = [.fourCorners,.threeFingers,.fourFingers]
 }
 enum TwoHandPhase:String,CaseIterable,Codable,Identifiable,Sendable {
@@ -587,6 +613,12 @@ struct TwoHandTrigger:Equatable,Sendable {
 }
 struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     var assignments:[String:GestureAction] = [:]
+    var holdThresholds:[String:Double]?
+    func holdThreshold(for chord:TwoHandChord) -> Double { GestureHoldTiming.validated(holdThresholds?[chord.rawValue]) }
+    mutating func setHoldThreshold(_ seconds:Double,for chord:TwoHandChord) {
+        if holdThresholds == nil { holdThresholds = [:] }
+        holdThresholds?[chord.rawValue] = GestureHoldTiming.validated(seconds)
+    }
     static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick]+GestureAction.oneShotActions
     func action(_ trigger:TwoHandTrigger) -> GestureAction {
         guard trigger.chord != .fourCorners || trigger.phase == .hold else { return .disabled }

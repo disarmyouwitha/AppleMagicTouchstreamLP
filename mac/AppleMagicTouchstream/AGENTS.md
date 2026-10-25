@@ -34,9 +34,12 @@ live input, takeover, haptics or login registration as part of offline verificat
   gated, with pointer/scroll profile gates. Open Config is app-local. Replay never
   posts native input. Shared drag button ownership must preserve other-pad owners.
 - One-finger gesture Hold is unavailable; keyboard key holds remain. Corner inputs
-  are Hold-only, 1 s, Open Config by default. Ordinary counts 2–5 and Thumb+2 Hold
-  are independent 0.5 s inputs. Keyboard shortcuts on Hold can fire once or remain
-  held until release; thresholds/recognition remain unchanged. Legacy retired assignments decode but stay inert.
+  are Hold-only, Open Config by default. All gesture Holds default to 0.5 s and
+  have independently saved thresholds (per hand/count or coordinated chord),
+  editable from 0.1–5 s. Ordinary counts 2–5 and Thumb+2 Hold are independent
+  inputs. Keyboard shortcuts on Hold can fire once or remain held until release;
+  preserve recognition geometry and cleanup. Legacy retired assignments decode
+  but stay inert.
 - Saved Rotate Left/Right slots appear only for Thumb+2 and five contacts, default
   None. Other shape pages show only Pinch/Spread. Five Fingers has a full Tap and
   Move cross, sharing Tap/movement/directions/repeat/cleanup with other counts; new

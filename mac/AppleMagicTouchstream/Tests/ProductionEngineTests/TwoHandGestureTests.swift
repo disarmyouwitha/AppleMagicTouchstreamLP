@@ -55,7 +55,7 @@ final class TwoHandGestureTests:XCTestCase {
             XCTAssertFalse(engine.ownsCycle)
         }
     }
-    func testOuterCornersDefaultToConfigAfterOneSecondAndAllowStaggeredLanding() {
+    func testOuterCornersDefaultToConfigAndAllowStaggeredLanding() {
         var engine = TwoHandGestureEngine()
         let settings = TwoHandGestureSettings()
         XCTAssertEqual(settings.action(.init(chord:.fourCorners,phase:.tap)),.disabled)
@@ -275,5 +275,28 @@ final class TwoHandGestureTests:XCTestCase {
         var legacy = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as? [String:Any])
         legacy.removeValue(forKey:"coordinated")
         XCTAssertEqual(try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:legacy)).twoHand,.init())
+    }
+}
+
+
+extension TwoHandGestureTests {
+    func testEachCoordinatedChordUsesItsConfiguredHoldThreshold() {
+        for chord in TwoHandChord.allCases {
+            for duration in [0.25,0.8] {
+                var settings = settings(chord), engine = TwoHandGestureEngine()
+                settings.setHoldThreshold(duration,for:chord)
+                let left = chord == .fourCorners ? corners(left:true) : contacts(chord.count)
+                let right = chord == .fourCorners ? corners(left:false) : contacts(chord.count)
+                _ = engine.process(leftHand:true,now:0,contacts:left,settings:settings)
+                XCTAssertTrue(engine.process(leftHand:false,now:0,contacts:right,settings:settings).began)
+                for i in 1..<Int(duration*100) {
+                    let time = Double(i)/100
+                    XCTAssertNil(engine.process(leftHand:true,now:time,contacts:left,settings:settings).trigger)
+                    XCTAssertNil(engine.process(leftHand:false,now:time,contacts:right,settings:settings).trigger)
+                }
+                XCTAssertEqual(engine.advance(now:duration+0.001,settings:settings),.init(chord:chord,phase:.hold))
+                XCTAssertNil(engine.advance(now:duration+0.01,settings:settings))
+            }
+        }
     }
 }

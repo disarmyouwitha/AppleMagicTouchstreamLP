@@ -381,7 +381,7 @@ struct TwoHandGestureEngine {
         if !now.isFinite || !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
         defer { session = current }
         guard current.valid, !current.held, current.firstLift == nil,
-              now-current.start >= current.chord.holdDuration else { return nil }
+              now-current.start >= settings.holdThreshold(for:current.chord) else { return nil }
         current.held = true
         let hold = TwoHandTrigger(chord:current.chord,phase:.hold)
         return settings.action(hold) != .disabled ? hold : nil
@@ -391,7 +391,6 @@ struct TwoHandGestureEngine {
 /// A stationary count-based chord, independent per pad. Motion wins before the
 /// deadline; a fired Hold owns the remaining cycle, including membership changes.
 struct GestureHoldRecognizer {
-    static let duration = 0.5
     static let landingWindow = 0.08
     static let movementSlopMM = 2.0
     static func motionClaimsHold(_ update:GestureSessionUpdate<GestureTrigger>,directional:Bool,
@@ -412,7 +411,7 @@ struct GestureHoldRecognizer {
     }
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
     mutating func observe<C:Collection>(device:UInt64,time:Double,now:Double,contacts:C,
-        motionClaimed:Bool,actions:[Int:GestureAction]) -> Int? where C.Element == OMSRawTouch {
+        motionClaimed:Bool,actions:[Int:GestureAction],thresholds:[Int:Double] = [:]) -> Int? where C.Element == OMSRawTouch {
         var next = GestureContactMotionTracker.Baseline(time:time)
         var invalid = !time.isFinite || !now.isFinite
         for touch in contacts where touch.state == .making || touch.state == .touching {
@@ -457,18 +456,18 @@ struct GestureHoldRecognizer {
         } else { session.key = next.count; session.sawThumb = false }
         // Preserve original positions for displacement, update only the frame clock.
         session.baseline.time = time; session.receipt = now
-        if let key = session.key, actions[key] != nil && now-session.started >= Self.duration {
+        if let key = session.key, actions[key] != nil && now-session.started >= GestureHoldTiming.validated(thresholds[key]) {
             session.fired = true; return key
         }
         return nil
     }
-    mutating func advance(device:UInt64,now:Double,actions:[Int:GestureAction]) -> Int? {
+    mutating func advance(device:UInt64,now:Double,actions:[Int:GestureAction],thresholds:[Int:Double] = [:]) -> Int? {
         guard var session = sessions[device], !session.blocked, !session.fired else { return nil }
         defer { sessions[device] = session }
         guard now.isFinite, now >= session.receipt, now-session.receipt <= 0.2 else {
             session.blocked = true; return nil
         }
-        guard let key = session.key, actions[key] != nil, now-session.started >= Self.duration else { return nil }
+        guard let key = session.key, actions[key] != nil, now-session.started >= GestureHoldTiming.validated(thresholds[key]) else { return nil }
         session.fired = true; return key
     }
 }
@@ -564,7 +563,7 @@ struct SinglePadCornersEngine {
         guard var current = session else { return nil }
         if !now.isFinite || now < current.receipt || now-current.receipt > TwoHandGestureEngine.staleWindow { current.valid = false }
         defer { session = current }
-        guard current.valid, !current.held, !current.lifted, now-current.start >= TwoHandChord.fourCorners.holdDuration else { return nil }
+        guard current.valid, !current.held, !current.lifted, now-current.start >= settings.holdThreshold(for:.fourCorners) else { return nil }
         current.held = true
         let hold = TwoHandTrigger(chord:.fourCorners,phase:.hold)
         return settings.action(hold) != .disabled ? hold : nil

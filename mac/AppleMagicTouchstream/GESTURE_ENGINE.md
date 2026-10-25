@@ -41,8 +41,8 @@ the architecture review and remaining work.
 | 2–5-finger force click | None | Same pressure crossing, independently configured per count |
 | 2–5-finger stationary Hold | None | 0.5 s; one-shot or held shortcut output |
 | Thumb + 2 fingertips Hold | None | Own binding and shared spread-thumb geometry; 0.5 s |
-| Single-pad 4 Corners Hold | Open Config | Four outer corners; 1 s |
-| Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 1 s |
+| Single-pad 4 Corners Hold | Open Config | Four outer corners; 0.5 s default |
+| Both-pad 4 Corners Hold | Open Config | Outer two corners on each pad; 0.5 s default |
 | Both-pad 3 or 4 fingers per hand, Tap / Hold | None | Tap at all-up; Hold after 0.5 s |
 
 One-finger gesture Hold is unavailable. Its gray lifecycle card reads “No
@@ -198,12 +198,12 @@ System choices. No action modifies system shortcut preferences.
 Keyboard and Gesture inspectors share one Shortcut Builder: generic/left/right
 Ctrl, Shift, Option and Cmd, optional key (None means modifiers only), and App/file/
 folder/URL target with Browse. Apply assigns directly to the selected input and
-also makes the shortcut available in the shared Dropdown library. The gesture
+also makes the shortcut available in the shared Shortcuts library. The gesture
 Action sheet retains its built-in groups and includes a Shortcuts group. Rendering
 or editing a draft never posts input.
 
 Manage Shortcuts opens the same searchable library editor from the Gesture Action
-picker and the Keyboard builder beside Primary/Hold/Dropdown. Edit prefills the
+picker and the Keyboard builder beside Primary/Hold/Shortcuts. Edit prefills the
 shared builder; Apply replaces that library entry and merges duplicates. Delete
 removes only the saved entry. Existing key and gesture assignments retain their
 own action snapshots, including after settings export/import; an assigned shortcut
@@ -213,8 +213,13 @@ Tap, Force, directions, movement activation, Pinch/Spread and rotation can dispa
 custom shortcuts once. Directional repeat uses the same interval controls. Hold
 assignments (including Both and corners) additionally offer Once after threshold
 or Hold until release for keyboard shortcuts. App targets always open once. Hold
-thresholds and recognition geometry remain unchanged. Normal movement/shape
-assignments cannot acquire a held-key lifetime through imported settings.
+recognition geometry remains unchanged. Each Hold assignment has a saved threshold
+(default 0.5 seconds), editable in its Action inspector from 0.1–5 seconds in
+0.01-second steps. Ordinary counts, Thumb+2 and per-pad corners are independent
+per hand; Mirror Edit writes both hands. Both-hand chords have separate thresholds.
+Thresholds round-trip with settings; older files missing them use 0.5 seconds.
+Timing edits cancel current output through the existing settings-change cleanup.
+Normal movement/shape assignments cannot acquire a held-key lifetime through imported settings.
 
 The dispatch queue shares synthetic key ownership across gesture pads, corners,
 Both and existing keyboard mappings. A held shortcut presses modifiers and the
@@ -282,7 +287,7 @@ contact rotation fields remain inactive.
 Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
 and Force Click across the top; Left / Movement / Right in the middle; Hold beside
 Down at the bottom. Tap and Movement default to None to preserve existing settings.
-Its independent 0.5 s Hold behavior is unchanged, and only Lift stays under Session
+Its independent Hold defaults to 0.5 s, and only Lift stays under Session
 Lifetime. Direction/repeat, scrolling/panning, gains, Mirror Edit and portable
 settings use the same engine as the other counts.
 

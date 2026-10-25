@@ -1930,7 +1930,7 @@ struct ContentView: View {
         private enum ActionBuilderTarget: String, CaseIterable, Identifiable {
             case primary = "Primary"
             case hold = "Hold"
-            case dropdown = "Dropdown"
+            case dropdown = "Shortcuts"
 
             var id: String { rawValue }
         }

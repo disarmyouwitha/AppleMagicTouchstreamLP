@@ -156,7 +156,7 @@ final class AdditionalChordTests:XCTestCase {
         XCTAssertFalse(SinglePadCornersEngine.matches([corners[0],corners[0],corners[2],corners[3]]))
         XCTAssertFalse(SinglePadCornersEngine.matches([touch(1,.nan,0.1)]+Array(corners.dropFirst())))
     }
-    func testCornerHoldFiresOnceAtOneSecondWhileDownAndConsumesTap() {
+    func testCornerHoldFiresOnceWhileDownAndConsumesTap() {
         var engine = SinglePadCornersEngine(), fired = [TwoHandPhase]()
         let settings = cornerSettings()
         for i in 0...12 {
@@ -314,5 +314,26 @@ extension AdditionalChordTests {
         _ = paired.process(leftHand:false,now:1.01,contacts:right,settings:both)
         XCTAssertNil(paired.process(leftHand:true,now:1.1,contacts:[OMSRawTouch](),settings:both).trigger)
         XCTAssertNil(paired.process(leftHand:false,now:1.11,contacts:[OMSRawTouch](),settings:both).trigger)
+    }
+}
+
+
+extension AdditionalChordTests {
+    func testThumbAndSinglePadCornersUseTheirOwnHoldThreshold() {
+        var hold = GestureHoldRecognizer()
+        for i in 0...2 {
+            let now = Double(i)*0.1
+            XCTAssertNil(hold.observe(device:1,time:now,now:now,contacts:thumb,motionClaimed:false,actions:[6:.secondaryClick],thresholds:[3:1.5,6:0.25]))
+        }
+        XCTAssertEqual(hold.advance(device:1,now:0.251,actions:[6:.secondaryClick],thresholds:[3:1.5,6:0.25]),6)
+        for duration in [0.5,1.25] {
+            var engine = SinglePadCornersEngine(), settings = cornerSettings()
+            settings.setHoldThreshold(duration,for:.fourCorners)
+            for i in 0..<Int(duration*100) {
+                XCTAssertNil(engine.process(now:Double(i)/100,contacts:corners,settings:settings).trigger)
+            }
+            XCTAssertEqual(engine.advance(now:duration+0.001,settings:settings),.init(chord:.fourCorners,phase:.hold))
+            XCTAssertNil(engine.advance(now:duration+0.01,settings:settings))
+        }
     }
 }

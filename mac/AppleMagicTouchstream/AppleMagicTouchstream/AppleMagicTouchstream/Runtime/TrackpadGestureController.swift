@@ -64,11 +64,23 @@ final class TrackpadGestureController: ObservableObject {
         }
         configure()
     }
+    func setHoldThreshold(_ seconds:Double,count:Int,scope:GestureHandScope) {
+        guard settings.holdAvailable(count:count,in:scope) else { return }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setHoldThreshold(seconds,count:count,in:scope)
+        settings.save(to:.standard); configure()
+    }
+    func setTwoHandHoldThreshold(_ seconds:Double,chord:TwoHandChord) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        var value = settings.twoHand; value.setHoldThreshold(seconds,for:chord)
+        settings.coordinated = value; settings.save(to:.standard); configure()
+    }
     func holdStatus(count:Int,scope:GestureHandScope) -> String {
         guard settings.holdAvailable(count:count,in:scope) else {
             return "Unsupported contact count."
         }
-        let timing = count == PerHandGestureSettings.cornersHoldKey ? "Hold all four corners for 1 second. Fires once until all-up." : "Hold still for 0.5 seconds. Fires once until all-up."
+        let duration = settings.holdThreshold(count:count,in:scope).map { String(format:"%.2f seconds",$0) } ?? "each pad’s configured threshold"
+        let timing = "Hold still for \(duration). Fires once until all-up."
         if settings.holdAction(count:count,in:scope) == .disabled { return timing }
         if !takeoverEnabled { return "Enable Trackpad Takeover." }
         if settings.holdAction(count:count,in:scope) != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
@@ -231,7 +243,7 @@ final class TrackpadGestureController: ObservableObject {
             twoFingerTapDevices: tap, fourFingerTapDevices:quad, fiveFingerTapDevices:quint, fiveFingerMoveDevices:five, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, holdThresholds:routed.mapValues(\.liveHoldThresholds), appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(five).union(quad).union(quint).union(tap).union(triple).union(thumb)

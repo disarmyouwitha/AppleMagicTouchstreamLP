@@ -380,3 +380,53 @@ extension GestureHoldTests {
         XCTAssertFalse(HeldGestureShortcutInput.continues(time:1.1,previous:1,contacts:touches(2,dx:.nan)))
     }
 }
+
+
+extension GestureHoldTests {
+    func testPerGestureHoldThresholdsDriveFramesAndTimerWithIndependentPads() {
+        for count in 2...5 {
+            for useTimer in [false,true] {
+                var engine = GestureHoldRecognizer()
+                let thresholds = [count:0.8]
+                for i in 0...7 {
+                    let time = Double(i)*0.1
+                    XCTAssertNil(engine.observe(device:1,time:time,now:time,contacts:touches(count),motionClaimed:false,actions:actions,thresholds:thresholds))
+                    let other = engine.observe(device:2,time:time,now:time,contacts:touches(count),motionClaimed:false,actions:actions)
+                    XCTAssertEqual(other,i == 5 ? count : nil)
+                }
+                if useTimer {
+                    XCTAssertNil(engine.advance(device:1,now:0.79,actions:actions,thresholds:thresholds))
+                    XCTAssertEqual(engine.advance(device:1,now:0.801,actions:actions,thresholds:thresholds),count)
+                } else {
+                    XCTAssertEqual(engine.observe(device:1,time:0.801,now:0.801,contacts:touches(count),motionClaimed:false,actions:actions,thresholds:thresholds),count)
+                }
+                XCTAssertNil(engine.advance(device:1,now:0.81,actions:actions,thresholds:thresholds))
+                XCTAssertTrue(engine.claimed(device:1))
+            }
+        }
+    }
+    func testHoldThresholdDefaultsMirrorValidationAndPortableRoundTrip() throws {
+        var settings = HandGestureSettings()
+        for key in 2...7 { XCTAssertEqual(settings.left.holdThreshold(count:key),0.5) }
+        for chord in TwoHandChord.allCases { XCTAssertEqual(settings.twoHand.holdThreshold(for:chord),0.5) }
+        settings.setHoldThreshold(0.25,count:2,in:.left)
+        XCTAssertNil(settings.holdThreshold(count:2,in:.both))
+        XCTAssertEqual(settings.right.holdThreshold(count:2),0.5)
+        for key in 2...7 { settings.setHoldThreshold(Double(key)/4,count:key,in:.both) }
+        var both = settings.twoHand
+        for (i,chord) in TwoHandChord.allCases.enumerated() { both.setHoldThreshold(Double(i+1)/4,for:chord) }
+        settings.coordinated = both
+        XCTAssertEqual(settings.left.singlePadCorners.holdThreshold(for:.fourCorners),1.75)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.handGestureSettings,settings)
+        XCTAssertEqual(GestureHoldTiming.validated(.nan),0.5)
+        XCTAssertEqual(GestureHoldTiming.validated(.infinity),0.5)
+        XCTAssertEqual(GestureHoldTiming.validated(-1),0.1)
+        XCTAssertEqual(GestureHoldTiming.validated(10),5)
+        XCTAssertEqual(GestureHoldTiming.validated(0.754),0.75)
+        XCTAssertNil(GestureHoldThresholdField.committedValue(""))
+        XCTAssertNil(GestureHoldThresholdField.committedValue("NaN"))
+        XCTAssertEqual(GestureHoldThresholdField.committedValue("0.75"),0.75)
+    }
+}

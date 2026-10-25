@@ -1,8 +1,6 @@
 # NEXT:
 =======
-0. In Keyboard can we change the options to read, "Primary,Hold,Shortcuts" (Instead of Dropdown?)
-1. Can we make the hold threshold settable per gesture? we can default them all to 0.5sec for consistency.
-2. Why are all modifiers automatically in the Shortcut list? (please explain don't remove)
+
 ===
 1. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
 > TYPING GRACE? How does TouchStream do it? REVERSE???
@@ -17,7 +15,7 @@
 
 `AppleMagicTouchstream`:
 ===
-00. Better 4-finger latching for holds? 
+00. Better 4-finger latching for holds? Better 5-finger latching?
 0. Let's revisit if Auto-resync has a place in our program? Lets fix it or remove it. (BT off/on & BT/USB?) Let's start here: How does auto resync work?
 1. TouchStream 2-finger LHS gestures: Up, Down, Left, Right are like arrows? (please confirm) I want to add these as selectable actions for "movement" gestures.
 2. Implement actions: Smart-zoom, Rotate; "Natural Scrolling" option?

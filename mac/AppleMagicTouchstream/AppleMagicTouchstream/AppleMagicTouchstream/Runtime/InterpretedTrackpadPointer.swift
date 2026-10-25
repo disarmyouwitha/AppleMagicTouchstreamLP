@@ -71,6 +71,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var directionals: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:]
         var holds = GestureHoldRecognizer()
         var holdBindings:[UInt64:[Int:GestureAction]] = [:]
+        var holdThresholds:[UInt64:[Int:Double]] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
             taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
@@ -243,15 +244,16 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], holdThresholds: [UInt64:[Int:Double]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.holdBindings != holdBindings || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.holdBindings != holdBindings || state.holdThresholds != holdThresholds || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
             state.keyboardArbitration.reset()
             state.bindings = bindings
             state.holdBindings = holdBindings
+            state.holdThresholds = holdThresholds
             state.directionals = directionalBindings
             state.appleShortcuts = appleShortcuts
             state.pinchDevices = pinchDevices
@@ -338,7 +340,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if case let .pad(device) = owner, GestureOutputLifecycle.isStale(receipt:state.lastReceipt[device],now:now) { state.reset(device:device) }
             }
             for device in state.devices {
-                if let actions = state.holdBindings[device], let count = state.holds.advance(device:device,now:now,actions:actions) {
+                if let actions = state.holdBindings[device], let count = state.holds.advance(device:device,now:now,actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
                     state.postHold(count:count,device:device,time:now)
                 }
             }
@@ -589,7 +591,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             })
             let directionalOwner = update.gesture.flatMap { state.directionals[device]?[$0] } != nil
             if !directionalOwner, let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
-                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions) {
+                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
                 state.postHold(count:count,device:device,time:hostTime)
                 return nil
             }
@@ -609,7 +611,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments)
                 let heldDirection = state.directionalStepper.direction(device:device)
                 if let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
-                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:true,direction:heldDirection),actions:actions) {
+                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:true,direction:heldDirection),actions:actions,thresholds:state.holdThresholds[device] ?? [:]) {
                     state.postHold(count:count,device:device,time:hostTime)
                     return nil
                 }
