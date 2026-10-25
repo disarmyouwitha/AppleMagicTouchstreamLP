@@ -202,6 +202,13 @@ also makes the shortcut available in the shared Dropdown library. The gesture
 Action sheet retains its built-in groups and includes a Shortcuts group. Rendering
 or editing a draft never posts input.
 
+Manage Shortcuts opens the same searchable library editor from the Gesture Action
+picker and the Keyboard builder beside Primary/Hold/Dropdown. Edit prefills the
+shared builder; Apply replaces that library entry and merges duplicates. Delete
+removes only the saved entry. Existing key and gesture assignments retain their
+own action snapshots, including after settings export/import; an assigned shortcut
+absent from the library appears under Current Assignment in the gesture picker.
+
 Tap, Force, directions, movement activation, Pinch/Spread and rotation can dispatch
 custom shortcuts once. Directional repeat uses the same interval controls. Hold
 assignments (including Both and corners) additionally offer Once after threshold

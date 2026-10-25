@@ -1,18 +1,12 @@
 # NEXT:
 =======
 00. We need the ability to edit the shortcut list / remove items.
----
-0. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
-> TYPING GRACE? How does TouchStream do it? REVERSE???
 ===
-I actually don't like this idea as much.. 
-
-I think we should build the shortcut builder directly into the Action frame (maybe for all actions?) we can have our default drop down /w Shortcuts Included, <hr> then a shortcut builder above the recognition?
-
-I would like to default the right column to be the same width as the Keyboard tab right column as well. 
 > need to test hold release optons
 > Need to test holding shift with gesture RHS while holding shift button LHS, releasing gesture and pressing key on RHS. (shared modifer)
 ===
+1. We need to revisit typing. It feels bad, maybe it's picking up fast typing as 2 finger gestures?
+> TYPING GRACE? How does TouchStream do it? REVERSE???
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
 * `Diagonals`:

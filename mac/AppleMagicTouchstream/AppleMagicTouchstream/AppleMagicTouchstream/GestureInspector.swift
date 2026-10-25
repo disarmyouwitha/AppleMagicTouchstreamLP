@@ -1312,6 +1312,7 @@ struct SearchableActionSheet<Value:Hashable>:View {
     let selected:Value?
     let label:(Value)->String
     var searchLabel:((Value)->String)? = nil
+    var manageShortcuts:(()->Void)? = nil
     let choose:(Value)->Void
     @Environment(\.dismiss) private var dismiss
     @State private var searchText = ""
@@ -1360,6 +1361,12 @@ struct SearchableActionSheet<Value:Hashable>:View {
                     }.padding(.vertical,2)
                 }
             }
+            if let manageShortcuts {
+                Divider()
+                Button(action:manageShortcuts) {
+                    Label("Manage Shortcuts…",systemImage:"slider.horizontal.3")
+                }.buttonStyle(.borderless)
+            }
         }
         .padding(16).frame(minWidth:460,idealWidth:540,minHeight:420,idealHeight:560)
         .onAppear { searchFocused = true }
@@ -1370,14 +1377,17 @@ struct GestureActionChooser:View {
     let actions:[GestureAction]
     let choose:(GestureAction)->Void
     @State private var showing = false
+    @State private var managingShortcuts = false
     @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var shortcutLibrary = Data()
     private var pickerGroups:[SearchableActionGroup<GestureAction>] {
         let labels = ["Shift","Ctrl","Option","Cmd","Hyper"] + (ShortcutActionLibraryStorage.decode(from:shortcutLibrary) ?? [])
         var seen:Set<GestureAction> = []
         var shortcuts = labels.compactMap { KeyActionCatalog.action(for:$0) }.filter { $0.kind == .key || $0.kind == .appLaunch }
             .map { GestureAction.shortcut(.init(label:$0.label)) }.filter { seen.insert($0).inserted }
-        if let value, value.shortcutAssignment != nil, !shortcuts.contains(value) { shortcuts.insert(value,at:0) }
-        return Self.groups(actions) + (shortcuts.isEmpty ? [] : [.init(title:"Shortcuts",actions:shortcuts)])
+        let current:[SearchableActionGroup<GestureAction>] = value.flatMap { value in
+            value.shortcutAssignment != nil && !shortcuts.contains(value) ? [.init(title:"Current Assignment",actions:[value])] : nil
+        } ?? []
+        return Self.groups(actions) + current + (shortcuts.isEmpty ? [] : [.init(title:"Shortcuts",actions:shortcuts)])
     }
     static func groups(_ actions:[GestureAction]) -> [SearchableActionGroup<GestureAction>] {
         let definitions:[(String,[GestureAction])] = [
@@ -1403,7 +1413,9 @@ struct GestureActionChooser:View {
             }.buttonStyle(.bordered).accessibilityLabel("Action, \(value?.title ?? "Mixed")")
         }
         .sheet(isPresented:$showing) {
-            SearchableActionSheet(title:"Gesture Action",groups:pickerGroups,selected:value,label:{$0.title},choose:choose)
+            SearchableActionSheet(title:"Gesture Action",groups:pickerGroups,selected:value,label:{$0.title},
+                manageShortcuts:{ managingShortcuts = true },choose:choose)
+                .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
         }
     }
 }
@@ -1689,4 +1701,83 @@ struct ShortcutActionBuilder:View {
             clearShortcutBuilderState()
         }
 
+}
+
+
+/// Shared saved-library editor. Bindings keep their own action values; only the
+/// library preference changes here, including when a saved entry is replaced.
+struct ShortcutLibraryManager:View {
+    @AppStorage(GlassToKeyDefaultsKeys.shortcutActions) private var storedActions = Data()
+    @Environment(\.dismiss) private var dismiss
+    @State private var search = ""
+    @State private var editing:String?
+    init(initialEditing:String? = nil) { _editing = State(initialValue:initialEditing) }
+    private var labels:[String] { ShortcutActionLibraryStorage.decode(from:storedActions) ?? [] }
+    private var filtered:[KeyAction] {
+        labels.compactMap { KeyActionCatalog.action(for:$0) }.filter {
+            search.isEmpty || ($0.pickerText+" "+$0.label).localizedCaseInsensitiveContains(search)
+        }
+    }
+    private func write(_ labels:[String]) { storedActions = ShortcutActionLibraryStorage.encode(labels) ?? Data() }
+    var body:some View {
+        VStack(alignment:.leading,spacing:14) {
+            HStack {
+                Text("Manage Shortcuts").font(.headline)
+                Spacer()
+                Button("Done") { dismiss() }.keyboardShortcut(.cancelAction)
+            }
+            Text("Changing this list leaves existing key and gesture assignments unchanged.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            TextField("Search saved shortcuts",text:$search).textFieldStyle(.roundedBorder)
+            if filtered.isEmpty {
+                VStack(spacing:8) {
+                    Image(systemName:labels.isEmpty ? "list.bullet.rectangle" : "magnifyingglass").font(.title2).foregroundStyle(.secondary)
+                    Text(labels.isEmpty ? "No saved shortcuts" : "No matching shortcuts").font(.headline)
+                    Text(labels.isEmpty ? "Apply a shortcut in either Shortcut Builder to add it here." : "Try a different search.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }.frame(maxWidth:.infinity,maxHeight:.infinity)
+            } else {
+                ScrollView {
+                    LazyVStack(spacing:6) {
+                        ForEach(filtered,id:\.label) { action in
+                            HStack(spacing:12) {
+                                VStack(alignment:.leading,spacing:3) {
+                                    Text(action.pickerText).font(.callout).frame(maxWidth:.infinity,alignment:.leading)
+                                    if let target = KeyActionCatalog.appLaunchSpec(for:action) {
+                                        Text(target.fileName).font(.caption).foregroundStyle(.secondary).lineLimit(1).truncationMode(.middle)
+                                    }
+                                }
+                                Button("Edit") { editing = action.label }
+                                    .disabled(action.kind != .key && action.kind != .appLaunch)
+                                Button(role:.destructive) {
+                                    write(ShortcutActionLibraryStorage.removing(action.label,from:labels))
+                                    if editing == action.label { editing = nil }
+                                } label: { Image(systemName:"trash") }
+                                .accessibilityLabel("Delete \(action.pickerText)")
+                                .help("Remove from the saved list")
+                            }
+                            .padding(10)
+                            .background(editing == action.label ? Color.accentColor.opacity(0.10) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:8))
+                        }
+                    }
+                }.frame(minHeight:120)
+            }
+            if let original = editing, labels.contains(original), let action = KeyActionCatalog.action(for:original) {
+                Divider()
+                HStack {
+                    Text("Edit Saved Shortcut").font(.callout).fontWeight(.medium)
+                    Spacer()
+                    Button("Cancel Edit") { editing = nil }
+                }
+                ShortcutActionBuilder(action:action) { replacement,_ in
+                    write(ShortcutActionLibraryStorage.replacing(original,with:replacement,in:labels))
+                    editing = nil
+                }.id(original)
+            }
+        }
+        .padding(20).frame(minWidth:520,idealWidth:600,minHeight:500,idealHeight:680)
+        .onChange(of:storedActions) { _ in
+            if let editing, !labels.contains(editing) { self.editing = nil }
+        }
+    }
 }

@@ -1967,6 +1967,7 @@ struct ContentView: View {
         let onUpdateKeyRotation: (SelectedGridKey, Double) -> Void
         let onSaveShortcutLibraryAction: (KeyAction) -> Void
         @State private var actionBuilderTarget: ActionBuilderTarget = .primary
+        @State private var managingShortcuts = false
         @State private var activeActionChooser: ActionChooserState?
 
         private var hasEditableSelection: Bool {
@@ -2261,9 +2262,14 @@ struct ContentView: View {
                         .disabled(keySelection == nil)
                 }
                 VStack(alignment:.leading,spacing:8) {
-                    Picker("",selection:$actionBuilderTarget) {
-                        ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
-                    }.pickerStyle(.segmented).labelsHidden()
+                    HStack(spacing:8) {
+                        Picker("",selection:$actionBuilderTarget) {
+                            ForEach(ActionBuilderTarget.allCases) { target in Text(target.rawValue).tag(target) }
+                        }.pickerStyle(.segmented).labelsHidden()
+                        Button { managingShortcuts = true } label: { Image(systemName:"slider.horizontal.3") }
+                            .help("Manage Shortcuts…").accessibilityLabel("Manage Shortcuts")
+                    }
+                    .sheet(isPresented:$managingShortcuts) { ShortcutLibraryManager() }
                     ShortcutActionBuilder(action:actionBuilderTarget == .dropdown ? nil : targetAction,
                         enabled:canEditActionBuilder) { action,_ in applyBuiltAction(action) }
                         .id("\(actionBuilderTarget.rawValue).\(actionBuilderTarget == .dropdown ? "library" : selectionIdentity)")

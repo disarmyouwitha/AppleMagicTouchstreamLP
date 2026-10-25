@@ -1061,3 +1061,30 @@ extension ProductionEngineTests {
         }
     }
 }
+
+
+extension ProductionEngineTests {
+    func testShortcutLibraryEditsDeduplicateAndPreserveAssignedActionsThroughExport() throws {
+        let original = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+S"))
+        let replacement = try XCTUnwrap(KeyActionCatalog.action(for:"Cmd+O"))
+        let saved = [original.label,"Hyper",replacement.label]
+        XCTAssertEqual(ShortcutActionLibraryStorage.replacing(original.label,with:replacement,in:saved),[replacement.label,"Hyper"])
+        let deleted = ShortcutActionLibraryStorage.removing(original.label,from:saved)
+        XCTAssertEqual(deleted,["Hyper",replacement.label])
+        XCTAssertEqual(ShortcutActionLibraryStorage.replacing(original.label,with:replacement,in:deleted),deleted)
+        let position = GridKeyPosition(side:.left,row:0,column:0).storageKey
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(AppKeymapProfile.defaultProfile())) as? [String:Any])
+        object["keyMappingsByLayout"] = try JSONSerialization.jsonObject(with:JSONEncoder().encode(["TouchStream":[0:[position:KeyMapping(primary:original,hold:original)]]]))
+        object["shortcutActions"] = deleted
+        var profile = try JSONDecoder().decode(AppKeymapProfile.self,from:JSONSerialization.data(withJSONObject:object))
+        var gestures = HandGestureSettings()
+        let assigned = GestureAction.shortcut(.init(label:original.label))
+        XCTAssertTrue(gestures.setAction(assigned,for:.twoFingerTap,in:.left))
+        profile.handGestureSettings = gestures
+        let imported = try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile())
+        XCTAssertEqual(imported.shortcutActions,deleted)
+        XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.primary,original)
+        XCTAssertEqual(imported.keyMappingsByLayout?["TouchStream"]?[0]?[position]?.hold,original)
+        XCTAssertEqual(imported.handGestureSettings?.action(.twoFingerTap,in:.left),assigned)
+    }
+}

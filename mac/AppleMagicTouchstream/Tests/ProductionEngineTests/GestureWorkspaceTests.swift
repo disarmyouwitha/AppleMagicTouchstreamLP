@@ -251,3 +251,30 @@ extension GestureWorkspaceTests {
         }
     }
 }
+
+
+extension GestureWorkspaceTests {
+    func testShortcutManagerRendersPrefilledEditorWithoutMutatingLibrary() throws {
+        let suite = "AMT.ShortcutManagerTests."+UUID().uuidString
+        let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
+        defer { defaults.removePersistentDomain(forName:suite) }
+        let app = try XCTUnwrap(KeyActionCatalog.appLaunchAction(fileName:"/Applications/Calculator.app"))
+        let data = try XCTUnwrap(ShortcutActionLibraryStorage.encode(["Cmd+S","Hyper",app.label]))
+        defaults.set(data,forKey:GlassToKeyDefaultsKeys.shortcutActions)
+        let view = ShortcutLibraryManager(initialEditing:"Cmd+S").defaultAppStorage(defaults)
+            .background(Color(nsColor:.windowBackgroundColor))
+        let host = NSHostingView(rootView:view)
+        host.frame = NSRect(x:0,y:0,width:600,height:680)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+        window.contentView = host; host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+        host.cacheDisplay(in:host.bounds,to:bitmap)
+        if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+            let url = URL(fileURLWithPath:directory,isDirectory:true)
+            try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+            try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("shortcut-manager.png"))
+        }
+        XCTAssertEqual(defaults.data(forKey:GlassToKeyDefaultsKeys.shortcutActions),data)
+        window.contentView = nil
+    }
+}

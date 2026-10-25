@@ -516,6 +516,18 @@ enum ShortcutActionLibraryStorage {
         return normalized
     }
 
+    static func replacing(_ original:String,with action:KeyAction,in actions:[String]) -> [String] {
+        var values = normalized(actions)
+        guard let index = values.firstIndex(of:original),
+              let replacement = normalized([action.label]).first else { return values }
+        values[index] = replacement
+        return normalized(values)
+    }
+
+    static func removing(_ label:String,from actions:[String]) -> [String] {
+        normalized(actions).filter { $0 != label }
+    }
+
     static func decode(from data: Data) -> [String]? {
         guard !data.isEmpty else { return [] }
         guard let decoded = try? decoder.decode([String].self, from: data) else {
