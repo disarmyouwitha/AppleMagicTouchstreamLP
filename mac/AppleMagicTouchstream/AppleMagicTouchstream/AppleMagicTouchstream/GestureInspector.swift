@@ -672,10 +672,10 @@ struct GestureAssignmentWorkspace: View {
                 Divider()
                 Text("Recognition").font(.callout).fontWeight(.medium)
                 Text(twoHandPhase == .tap
-                     ? "Both chords must lift within 0.5 s. For three/four fingers, land both hands within 150 ms. Lift skew: 150 ms. Movement slop: 2 mm."
+                     ? "Both chords must lift within 0.5 s. Lift skew: 150 ms. Movement slop: 2 mm."
                      : "Keep both chords still for \(twoHandChord.holdDuration, specifier:"%.1f") s. The assigned action fires once; it does not repeat or keep a mouse button down.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
-                Text("Requires two distinct selected pads with Trackpad Takeover active. Layer/modifier holds take priority. Losing contact delivery cancels the gesture.")
+                Text("Requires two distinct selected pads with Trackpad Takeover active. A joining hand releases the independent gesture. Layer/modifier holds keep priority. Losing contact delivery cancels the gesture.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 Text("Assignments save automatically and are included in keymap exports.").font(.caption).foregroundStyle(.secondary)
             }.padding(20)

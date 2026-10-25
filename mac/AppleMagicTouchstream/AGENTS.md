@@ -244,9 +244,10 @@ to Open Config after 1 s, following the guide; other slots default None. Three/f
 Hold fires once after 0.5 s. Use two distinct selected, owned, armed pads, common
 host time and per-hand freshness. No new DriverKit or sibling changes.
 
-Preserve single-hand tap fallback during the 150 ms join window; delay only local
-continuous output while a coordinated candidate is pending. Never steal an active
-single-hand/force owner or established keyboard layer/modifier chord. On acquisition
+Single-hand gestures now run immediately with no join-window delay. A second
+hand forming a valid coordinated chord may take over an active single-hand
+gesture/force cycle, releasing its output and rebasing both hands at acquisition.
+Established keyboard layer/modifier chords retain priority. On acquisition
 cancel both independent outputs once. Reserve until both pads are all-up, consume
 release frames, and prevent Hold+Tap duplication or mid-cycle handoff. Stale input,
 invalid/moving/replaced contacts cancel output; stop/replay/emergency release and

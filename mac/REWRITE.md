@@ -1,7 +1,6 @@
 # NOTES:
 0. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 =======
-1. I think we should allow single-hand gestures to take precedence and fire immediately. If a 2nd hand joins afterwards it can trigger a "BOTH" gesture, releasing the first.
 2. We should also enable independent handedness to the gestures. I should be able to initiate a 3F drag with my RHS and move the mouse at the same time with a 2F move gestures on my LHS (etc)
 3. If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions! (Like if they use directional up,down,left,right we can allow for holds without interering with the gesture!)
 > Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
@@ -9,6 +8,8 @@
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
 
+`Zones` Gestures? 
+- sides up/down left/right sides; left/right top/bottom sides
 
 `AppleMagicTouchstream`:
 ===

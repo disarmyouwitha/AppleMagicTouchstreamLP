@@ -730,14 +730,16 @@ Provisional recognition rules for hardware testing:
 - Two distinct selected pads, both owned by native takeover and output-armed.
   Open Config does not require AX; synthetic mouse/system output does.
 - Common host time across pads; their native timestamp offsets can differ.
-- Three/four-hand tap contact starts must join within 150 ms. Holds may form
-  after staggered placement if neither pad already owns another gesture. During this short
-  pending phase, local continuous output waits, but a normal single-hand tap can
-  still complete if the other hand never joins. Disabled paired chords add no delay.
+- Single-hand taps and continuous gestures run immediately; there is no join
+  grace period or delayed local output. A second hand may join later, as long as
+  both contact sets are current and match an enabled coordinated chord. The
+  complete chord rebases contact positions and starts its tap/hold clock then.
 - Corners use the outer 20% of X and top/bottom 20% of Y on each pad. Corner hands
   may land separately before the complete chord starts its one-second hold.
-- Existing single-hand continuous/force ownership and established keyboard
-  layer/modifier chords take priority. A coordinated chord cannot steal them.
+- On acquisition, the coordinated chord replaces existing single-hand gesture
+  ownership, releasing drag buttons and ending scroll/zoom/directional output
+  before its own output. Already completed clicks/actions cannot be undone.
+  Established keyboard layer/modifier holds still take priority.
 - A Tap ends on both-hand all-up within 0.5 s of the complete chord, with at least
   20 ms contact and at most 150 ms lift skew. Hold begins only while both original
   contact sets remain down. Each tracked contact has 2 mm motion slop.
@@ -752,10 +754,22 @@ Provisional recognition rules for hardware testing:
   reset the coordinator. Replay never invokes the live coordinated entry point.
 
 The reference map's G041 describes the four-corner one-second configuration hold;
-see `Design/GestureAssignments/GESTURE_MAP.md`. The 20% zones, 150 ms join/lift
-windows and 2 mm slop here are implementation choices, not firmware claims.
+see `Design/GestureAssignments/GESTURE_MAP.md`. The 20% zones, 150 ms lift
+window and 2 mm slop here are implementation choices, not firmware claims.
 Offline tests cover taps/holds/default corners, timing, all-up, stale input,
-identity/movement/count rejection, single-hand tap fallback, existing ownership,
+identity/movement/count rejection, immediate single-hand output, late joining and balanced handoff,
 selection eligibility, Mirror isolation, old profiles and keymap round-trips.
 Offscreen previews cover all six Both assignment pages without opening devices.
 Hardware acceptance remains necessary for the new gestures.
+
+
+### Immediate single-hand → Both transition
+
+User requested removing the candidate join delay. The coordinator now observes
+single-hand input without reserving it. When the second hand forms an enabled
+chord, its acquisition decision cancels both local gesture states exactly once;
+`PrimaryDragOutput.end` supplies the reserved up edge before any coordinated
+Tap/Hold action can dispatch. Samples anchor at acquisition so preceding single-
+hand travel does not disqualify the new shared cycle. Both must lift to rearm.
+The tap duration is measured from the completed two-hand chord, not the first
+hand's earlier landing. Hold and tap recognition thresholds otherwise remain.

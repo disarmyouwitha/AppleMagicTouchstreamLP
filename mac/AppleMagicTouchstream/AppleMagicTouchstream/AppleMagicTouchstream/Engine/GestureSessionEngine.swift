@@ -307,10 +307,10 @@ struct TwoHandGestureEngine {
     }
     private struct Session {
         var chord:TwoHandChord, left:Sample, right:Sample, start:Double
-        var valid = true, held = false, tapEligible = true
+        var valid = true, held = false
         var firstLift:Double?
     }
-    struct Decision { var reserved:Bool = false; var trigger:TwoHandTrigger?; var began:Bool = false; var pending:Bool = false }
+    struct Decision { var reserved:Bool = false; var trigger:TwoHandTrigger?; var began:Bool = false }
     private var left:Sample?, right:Sample?, session:Session?
     mutating func reset() { left = nil; right = nil; session = nil }
     var ownsCycle:Bool { session != nil }
@@ -343,7 +343,7 @@ struct TwoHandGestureEngine {
             if left.count == 0 && right.count == 0 {
                 session = nil
                 let tap = TwoHandTrigger(chord:current.chord,phase:.tap)
-                let accepted = current.valid && current.tapEligible && !current.held && now-current.start >= 0.02 && now-current.start <= Self.tapWindow
+                let accepted = current.valid && !current.held && now-current.start >= 0.02 && now-current.start <= Self.tapWindow
                     && now-(current.firstLift ?? now) <= Self.joinWindow && settings.action(tap) != .disabled
                 return Decision(reserved:true,trigger:accepted ? tap : nil)
             }
@@ -355,19 +355,11 @@ struct TwoHandGestureEngine {
                 if chord == .fourCorners {
                     guard left.corners(left:true), right.corners(left:false) else { continue }
                 }
-                let joined = chord == .fourCorners || abs(left.downAt-right.downAt) <= Self.joinWindow
-                guard joined || settings.action(.init(chord:chord,phase:.hold)) != .disabled else { continue }
-                session = Session(chord:chord,left:left,right:right,start:now,tapEligible:joined)
+                session = Session(chord:chord,left:left,right:right,start:now)
                 return Decision(reserved:true,began:true)
             }
         }
-        // Give the other hand a short join opportunity only for enabled chords.
-        // The default corner hold delays only the actual outer-corner posture.
-        let pending = TwoHandChord.recognitionOrder.contains { chord in
-            settings.enabled(chord) && !sample.invalid && sample.count == chord.count && now-sample.downAt <= Self.joinWindow
-                && (chord != .fourCorners || sample.corners(left:leftHand))
-        }
-        return Decision(pending:pending)
+        return Decision()
     }
     mutating func advance(now:Double,settings:TwoHandGestureSettings) -> TwoHandTrigger? {
         guard var current = session, let left, let right else { return nil }
