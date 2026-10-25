@@ -1,5 +1,6 @@
 # NOTES:
 =======
+00. Can I Set "Scroll up" / "Scroll down" (Or maybe the action can be called "Scroll" and it understands which Direction it was assigned?) as Directional actions so I can set them independently of move? (allowing me to set up/down to scrolls and left/right to totally different actions?)
 0. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
 1. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 2. Pinch,Spread, and ROTATE baby: Rotation gestures next!
