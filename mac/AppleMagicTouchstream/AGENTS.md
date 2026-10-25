@@ -288,3 +288,12 @@ repeat scheduling and lifecycle gates. This supersedes saved-only restrictions.
 Preserve per-pad/per-trigger settings, independent hands and Both handoff. In
 continuous mode, four fingers still scroll/pan with momentum; directional mode
 must not simultaneously scroll. Switching modes retains assignments and gains.
+
+User authorizes assignable single-hand Session Lifetime Hold for counts 1–5,
+default None. This supersedes the old nonassignable Hold UI policy. Directional
+movement is compatible; active continuous Move, Pinch or Spread locks Hold while
+preserving its assignment. Use one shared count-based stationary recognizer,
+0.5 s one-shot with all-up ownership, existing per-hand/Mirror Edit/settings
+exports and selected/owned/armed/AX/live gates. Preserve movement-first, force,
+Both and established-keyboard-chord arbitration, stale cancellation and release
+cleanup. See GESTURE_ENGINE.md. Build/install signed Release and leave closed.

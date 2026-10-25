@@ -211,6 +211,36 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
     var zoomSensitivity: Double?
     var directionalMovement: [String:GestureDirectionalAssignments]?
+    // Optional for old profiles; count-keyed, independent of Tap/Force actions.
+    var holdActions: [String:GestureAction]?
+    static let holdAllowedActions = GestureDirectionalAssignments.allowedActions
+    static func moveTrigger(count:Int) -> GestureTrigger? {
+        switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; default:return nil }
+    }
+    func holdAvailable(count:Int) -> Bool {
+        guard (1...5).contains(count) else { return false }
+        if let move = Self.moveTrigger(count:count), movement(move).mode == .continuous,
+           bindings.action(for:move) != .disabled { return false }
+        for trigger in [GestureTrigger.pinch(count:count),GestureTrigger.spread(count:count)].compactMap({$0}) {
+            if bindings.action(for:trigger) != .disabled { return false }
+        }
+        return true
+    }
+    func holdAction(count:Int) -> GestureAction {
+        let action = holdActions?[String(count)] ?? .disabled
+        return Self.holdAllowedActions.contains(action) ? action : .disabled
+    }
+    mutating func setHoldAction(_ action:GestureAction,count:Int) {
+        guard (1...5).contains(count), Self.holdAllowedActions.contains(action) else { return }
+        if holdActions == nil { holdActions = [:] }
+        holdActions?[String(count)] = action
+    }
+    var liveHoldActions:[Int:GestureAction] {
+        Dictionary(uniqueKeysWithValues:(1...5).compactMap { count in
+            let action = holdAction(count:count)
+            return holdAvailable(count:count) && action != .disabled ? (count,action) : nil
+        })
+    }
     // Decode/round-trip prior experimental settings only. Live feedback uses .fixed.
     var forceHaptic: ForceClickHapticSettings?
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
@@ -318,6 +348,18 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         if scope != .right { left.bindings[trigger] = action }
         if scope != .left { right.bindings[trigger] = action }
         return true
+    }
+    func holdAvailable(count:Int,in scope:GestureHandScope) -> Bool {
+        (scope == .right || left.holdAvailable(count:count)) && (scope == .left || right.holdAvailable(count:count))
+    }
+    func holdAction(count:Int,in scope:GestureHandScope) -> GestureAction? {
+        let a = left.holdAction(count:count), b = right.holdAction(count:count)
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func setHoldAction(_ action:GestureAction,count:Int,in scope:GestureHandScope) {
+        guard holdAvailable(count:count,in:scope) else { return }
+        if scope != .right { left.setHoldAction(action,count:count) }
+        if scope != .left { right.setHoldAction(action,count:count) }
     }
     func movementMode(_ trigger:GestureTrigger,in scope:GestureHandScope) -> GestureMovementMode? {
         let a = left.movement(trigger).mode, b = right.movement(trigger).mode

@@ -854,3 +854,45 @@ Offline coverage includes four-finger activation, turns/timed repeats via the
 shared policy tests, partial-finger continuation, all-up, independent assignments,
 no continuous scroll routing in directional mode, scroll restoration and keymap
 round-trip. Offscreen previews include the four-finger directional editor.
+
+## Single-hand stationary Hold
+
+Session Lifetime now contains a Hold Action menu for each contact count (1–5),
+per hand and with Mirror Edit. It remains visible while a direction is selected.
+Defaults are None; existing profiles keep their actions and gain no new output.
+Optional `holdActions` fields in each hand's settings round-trip through Import
+Settings / Export Settings with the existing gesture extension.
+
+Hold is available only when that count has no active continuous Movement, Pinch,
+or Spread action. Directional mode ignores the saved continuous action, so
+Up/Down/Left/Right assignments can coexist with Hold. Any non-None Pinch or Spread
+assignment locks Hold, including one-shot actions. Locking suspends the saved
+Hold assignment without deleting it; removing the conflicting actions restores
+it. Mirror Edit requires both hands to be eligible before changing Hold. Hold
+uses the contact count, not the thumb/fingertip identity; the 3-contact Hold menu
+is shared by the regular three-finger and Thumb+2-fingers pages.
+
+A stationary chord fires its discrete action once after 0.5 seconds. Fingers can
+join within 80 ms; the timer starts when the complete count lands. Substitutions,
+early lifts, palms, invalid coordinates, non-increasing native timestamps, a
+native frame gap over 150 ms, or per-contact displacement over 0.75 mm cancel the
+candidate until all-up. Movement ownership wins immediately before Hold fires,
+so a directional swipe or its stationary repeat cannot also become a Hold. Once
+Hold fires, it owns the cycle through added/lifted fingers until all-up, preventing
+a subsequent Tap, Force Click or directional action from the same cycle.
+
+The existing shared timer can finish a Hold only with input fresh within 200 ms;
+there is no timer per chord and no repeat output. Native frame time validates
+ordering; host monotonic time measures the deadline. Per-device state keeps hands
+independent. Force Click, Both-hand acquisition, established keyboard modifier/
+layer priority, settings/device changes and lifecycle cleanup cancel pending
+Holds. Both/keyboard release frames clear the Hold latch as well. Selected/owned/
+armed/AX/live gates still apply; no acceleration profile is required for these
+discrete actions. A configured eligible Hold reserves its candidate before the
+keyboard engine, including without output permission. An explicitly assigned
+one-finger Hold therefore takes that touch cycle away from ordinary typing.
+
+Offline tests cover count eligibility and saved-action preservation, old profiles,
+Mirror Edit, portable round-trips, timer/freshness rules, motion arbitration,
+all-up latching, independent hands, invalid/replaced contacts and keyboard
+reservation. Hardware acceptance remains the user's test.

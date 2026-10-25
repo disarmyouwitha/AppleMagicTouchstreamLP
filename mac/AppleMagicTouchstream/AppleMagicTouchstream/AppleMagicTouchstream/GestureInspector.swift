@@ -426,7 +426,9 @@ struct GestureInspectorPanel: View {
             setDirectionalRepeatInterval:{controller.setDirectionalRepeatInterval($0,direction:$1,for:$2,scope:$3)},
             setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)},
             setTwoHandAction:{controller.setTwoHandAction($0,for:$1)},
-            twoHandStatus:{controller.twoHandStatus($0)})
+            twoHandStatus:{controller.twoHandStatus($0)},
+            setHoldAction:{controller.setHoldAction($0,count:$1,scope:$2)},
+            holdStatus:{controller.holdStatus(count:$0,scope:$1)})
     }
 }
 
@@ -442,6 +444,8 @@ struct GestureAssignmentWorkspace: View {
     let setDirectionalRepeat: (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setTwoHandAction:(GestureAction,TwoHandTrigger)->Void
     let twoHandStatus:(TwoHandTrigger)->String
+    let setHoldAction:(GestureAction,Int,GestureHandScope)->Void
+    let holdStatus:(Int,GestureHandScope)->String
     @State private var twoHandChord = TwoHandChord.fourCorners
     @State private var twoHandPhase = TwoHandPhase.hold
     @State private var selectedDirection: GestureMovementDirection?
@@ -464,11 +468,14 @@ struct GestureAssignmentWorkspace: View {
          setDirectionalRepeatInterval:@escaping (Double,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setTwoHandAction:@escaping (GestureAction,TwoHandTrigger)->Void = {_,_ in},
-         twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."}) {
+         twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."},
+         setHoldAction:@escaping (GestureAction,Int,GestureHandScope)->Void = {_,_,_ in},
+         holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 0.5 seconds. Fires once until all-up."}) {
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
         self.setDirectionalRepeat = setDirectionalRepeat
+        self.setHoldAction = setHoldAction; self.holdStatus = holdStatus
         self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
         _editingHand = State(initialValue:initialHand)
         _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandPhase)
@@ -516,7 +523,7 @@ struct GestureAssignmentWorkspace: View {
                         header
                         Divider()
                         assignments
-                        if selectedDirection == nil { lifecycle }
+                        lifecycle
                         Text("Choose a card to edit its action. Changes apply to \(targetText).")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                         }
@@ -819,11 +826,35 @@ struct GestureAssignmentWorkspace: View {
         .accessibilityAddTraits(selected == trigger ? [.isSelected] : [])
     }
 
+    private var holdCount:Int {
+        pane.triggers.compactMap { $0.forceCount ?? $0.pinchCount }.first ?? (pane == .thumbTwo ? 3 : 2)
+    }
+    private var holdCard:some View {
+        let available = settings.holdAvailable(count:holdCount,in:editingScope)
+        let value = settings.holdAction(count:holdCount,in:editingScope)
+        return VStack(alignment:.leading,spacing:8) {
+            Label("\(holdCount)-finger Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
+            Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
+                if let action { setHoldAction(action,holdCount,editingScope) }
+            })) {
+                if value == nil { Text("Mixed").tag(nil as GestureAction?) }
+                ForEach(PerHandGestureSettings.holdAllowedActions) { action in Text(action.title).tag(Optional(action)) }
+            }.pickerStyle(.menu).disabled(!available)
+            Text(available ? holdStatus(holdCount,editingScope) : "Locked by Movement, Pinch or Spread. Set those actions to None; directional actions can stay enabled.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            if value == nil {
+                Text("Left: \(settings.left.holdAction(count:holdCount).title) · Right: \(settings.right.holdAction(count:holdCount).title)")
+                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+        }
+        .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
+        .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
+    }
     private var lifecycle: some View {
         VStack(alignment:.leading,spacing:10) {
             Text("SESSION LIFETIME").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
             HStack(alignment:.top,spacing:12) {
-                lifetimeCard("Hold",symbol:"pause",detail:action == .primaryDrag ? "The mouse button stays down during an active drag." : "No separate hold gesture is available for this chord.")
+                holdCard
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }
         }

@@ -7,10 +7,10 @@ struct GestureKeyboardArbitration {
     private var reserved: Set<UInt64> = []
     mutating func reset() { reserved.removeAll(keepingCapacity: true) }
     mutating func reset(device: UInt64) { reserved.remove(device) }
-    mutating func process(device: UInt64, activeCount: Int, forceClick: Bool = false, enabled: (GestureTrigger) -> Bool) -> Bool {
+    mutating func process(device: UInt64, activeCount: Int, forceClick: Bool = false, holdCandidate: Bool = false, enabled: (GestureTrigger) -> Bool) -> Bool {
         if activeCount == 0 { return reserved.remove(device) != nil }
         if reserved.contains(device) { return true }
-        if forceClick { reserved.insert(device); return true }
+        if forceClick || holdCandidate { reserved.insert(device); return true }
         let candidate: Bool
         switch activeCount {
         case 1: candidate = false

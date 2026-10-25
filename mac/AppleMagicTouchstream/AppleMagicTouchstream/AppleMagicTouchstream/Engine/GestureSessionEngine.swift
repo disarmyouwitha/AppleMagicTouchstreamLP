@@ -376,3 +376,78 @@ struct TwoHandGestureEngine {
         return settings.action(hold) != .disabled ? hold : nil
     }
 }
+
+/// A stationary count-based chord, independent per pad. Motion wins before the
+/// deadline; a fired Hold owns the remaining cycle, including membership changes.
+struct GestureHoldRecognizer {
+    static let duration = 0.5
+    static let landingWindow = 0.08
+    static let movementSlopMM = 0.75
+    private struct Session {
+        var baseline = GestureContactMotionTracker.Baseline(time:0)
+        var first = 0.0, started = 0.0, receipt = 0.0
+        var blocked = false, fired = false
+    }
+    private var sessions:[UInt64:Session] = Dictionary(minimumCapacity:2)
+    func claimed(device:UInt64) -> Bool { sessions[device]?.fired == true }
+    mutating func cancel(device:UInt64) {
+        var session = sessions[device] ?? Session()
+        session.blocked = true; session.fired = false; sessions[device] = session
+    }
+    mutating func reset() { for device in sessions.keys { cancel(device:device) } }
+    mutating func observe<C:Collection>(device:UInt64,time:Double,now:Double,contacts:C,
+        motionClaimed:Bool,actions:[Int:GestureAction]) -> Int? where C.Element == OMSRawTouch {
+        var next = GestureContactMotionTracker.Baseline(time:time)
+        var invalid = !time.isFinite || !now.isFinite
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            guard next.count < 16 else { invalid = true; continue }
+            invalid = invalid || touch.telemetry?.fingerID == 6 || !touch.posX.isFinite || !touch.posY.isFinite
+            for i in 0..<next.count where next.ids[i] == touch.id { invalid = true }
+            next.ids[next.count] = touch.id
+            next.x[next.count] = Double(touch.posX); next.y[next.count] = Double(touch.posY)
+            next.count += 1
+        }
+        if next.count == 0 { sessions[device] = nil; return nil }
+        let existed = sessions[device] != nil
+        var session = sessions[device] ?? Session(baseline:next,first:now,started:now,receipt:now)
+        defer { sessions[device] = session }
+        // A fired chord remains owned even if fingers are added, lifted or relabeled.
+        if session.fired { return nil }
+        if session.blocked { return nil }
+        let old = session.baseline
+        if invalid || motionClaimed || next.count > 5 || now < session.receipt || now-session.receipt > 0.2
+            || (existed && time <= old.time) || time-old.time > 0.15 {
+            session.blocked = true; return nil
+        }
+        for i in 0..<old.count {
+            guard let j = (0..<next.count).first(where:{next.ids[$0] == old.ids[i]}) else {
+                session.blocked = true; return nil
+            }
+            if hypot((next.x[j]-old.x[i])*160,(next.y[j]-old.y[i])*114.9) > Self.movementSlopMM {
+                session.blocked = true; return nil
+            }
+        }
+        if next.count != old.count {
+            guard next.count > old.count, now-session.first <= Self.landingWindow else {
+                session.blocked = true; return nil
+            }
+            session.baseline = next; session.started = now
+        }
+        // Preserve original positions for displacement, update only the frame clock.
+        session.baseline.time = time; session.receipt = now
+        if actions[next.count] != nil && now-session.started >= Self.duration {
+            session.fired = true; return next.count
+        }
+        return nil
+    }
+    mutating func advance(device:UInt64,now:Double,actions:[Int:GestureAction]) -> Int? {
+        guard var session = sessions[device], !session.blocked, !session.fired else { return nil }
+        defer { sessions[device] = session }
+        guard now.isFinite, now >= session.receipt, now-session.receipt <= 0.2 else {
+            session.blocked = true; return nil
+        }
+        let count = session.baseline.count
+        guard actions[count] != nil, now-session.started >= Self.duration else { return nil }
+        session.fired = true; return count
+    }
+}

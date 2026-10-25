@@ -54,6 +54,28 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
 
+    func setHoldAction(_ action:GestureAction,count:Int,scope:GestureHandScope) {
+        guard PerHandGestureSettings.holdAllowedActions.contains(action), settings.holdAvailable(count:count,in:scope) else { return }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setHoldAction(action,count:count,in:scope)
+        settings.save(to:.standard)
+        if action != .disabled && !AXIsProcessTrusted() {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
+        }
+        configure()
+    }
+    func holdStatus(count:Int,scope:GestureHandScope) -> String {
+        guard settings.holdAvailable(count:count,in:scope) else {
+            return "Set Movement, Pinch and Spread to None to enable Hold. Directional movement is compatible."
+        }
+        if settings.holdAction(count:count,in:scope) == .disabled { return "Hold still for 0.5 seconds. Fires once until all-up." }
+        if !takeoverEnabled { return "Enable Trackpad Takeover." }
+        if !AXIsProcessTrusted() { return "Accessibility permission required." }
+        let ids = scope == .left ? [pads.left] : scope == .right ? [pads.right] : [pads.left,pads.right]
+        if !armed || ids.contains(where: { $0 == nil || !owned.contains($0!) }) { return "Waiting for takeover on the selected trackpad(s)." }
+        return "Hold still for 0.5 seconds. Fires once until all-up."
+    }
+
     func setMovementMode(_ mode:GestureMovementMode,for trigger:GestureTrigger,scope:GestureHandScope) {
         guard GestureDirectionalAssignments.triggers.contains(trigger) else { return }
         InterpretedTrackpadPointer.shared.resetBaseline()
@@ -196,7 +218,7 @@ final class TrackpadGestureController: ObservableObject {
             twoFingerTapDevices: tap, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
-            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, appleShortcuts:shortcuts)
+            bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)
