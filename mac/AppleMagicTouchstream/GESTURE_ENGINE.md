@@ -617,3 +617,7 @@ direction with colored trails, brief pause, release to hollow, fade, empty-pad
 rest. The 2.8 s loop restarts on direction changes. The center Movement card keeps
 its complete two-axis return cycle. This preview does not enable directional
 recognition or dispatch; direction assignments remain saved-only in this stage.
+
+The Thumb+2fingers page is grouped under 3 fingers in the navigation, alongside
+Tap and Move and Pinch and Spread. Its existing thumb-plus-two tap trigger,
+anatomical illustration, assignments and saved identifiers are unchanged.

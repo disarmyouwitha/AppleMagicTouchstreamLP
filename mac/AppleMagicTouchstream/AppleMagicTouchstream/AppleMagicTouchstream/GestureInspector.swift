@@ -8,8 +8,8 @@ enum GesturePane: String, CaseIterable, Identifiable {
         switch self {
         case .oneFinger: return "1 finger"
         case .fiveFingers, .fiveFingerPinch: return "5 fingers"
-        case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers, .threeFingerPinch: return "3 fingers"
-        case .fourFingers, .fourFingerPinch: return "4 fingers"; case .thumbTwo: return "Thumb + 2 fingers"
+        case .twoFingers, .twoFingerPinch: return "2 fingers"; case .threeFingers, .threeFingerPinch, .thumbTwo: return "3 fingers"
+        case .fourFingers, .fourFingerPinch: return "4 fingers"
         }
     }
     var title: String {
@@ -20,7 +20,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch, .fiveFingerPinch: return "Pinch and Spread"
         case .threeFingers: return "Tap and Move"
         case .fourFingers: return "Move and Force Click"
-        case .thumbTwo: return "Tap"
+        case .thumbTwo: return "Thumb+2fingers"
         }
     }
     var summary: String {
