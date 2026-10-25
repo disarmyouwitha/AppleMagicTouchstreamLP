@@ -67,9 +67,9 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
     case openConfig
-    case scrollUp, scrollDown
+    case scrollUp, scrollDown, panLeft, panRight
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
-    static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown]
+    static let directionalScrollActions:[Self] = [.scrollUp,.scrollDown,.panLeft,.panRight]
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     static var oneShotActions: [Self] { appleShortcuts + smallStepActions }
     static let appleShortcuts: [Self] = [.notificationCenter,.missionControl,.appExpose,.launchpad,.showDesktop]
@@ -81,6 +81,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .volumeDownSmall: return "Volume Down (Small Step)"
         case .brightnessUpSmall: return "Brightness Up (Small Step)"
         case .brightnessDownSmall: return "Brightness Down (Small Step)"
+        case .panLeft: return "Pan Left"
+        case .panRight: return "Pan Right"
         case .scrollUp: return "Scroll Up"
         case .scrollDown: return "Scroll Down"
         case .openConfig: return "Open Config"
@@ -96,7 +98,8 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .secondaryClick: return "Secondary Click"
         }
     }
-    var isDirectionalScroll:Bool { self == .scrollUp || self == .scrollDown }
+    var isDirectionalScroll:Bool { Self.directionalScrollActions.contains(self) }
+    var isHorizontalPan:Bool { self == .panLeft || self == .panRight }
     var requiresPointerProfile: Bool { self == .pointer || self == .primaryDrag }
 }
 enum GestureSensitivity: Sendable { case pointer, scroll, zoom }
@@ -225,12 +228,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     static func moveTrigger(count:Int) -> GestureTrigger? {
         switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; default:return nil }
     }
-    func holdAvailable(count:Int) -> Bool {
-        guard (1...5).contains(count) else { return false }
-        if let move = Self.moveTrigger(count:count), movement(move).mode == .continuous,
-           bindings.action(for:move) != .disabled { return false }
-        return true
-    }
+    func holdAvailable(count:Int) -> Bool { (1...5).contains(count) }
     func holdAction(count:Int) -> GestureAction {
         let action = holdActions?[String(count)] ?? .disabled
         return Self.holdAllowedActions.contains(action) ? action : .disabled

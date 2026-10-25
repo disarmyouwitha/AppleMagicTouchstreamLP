@@ -863,19 +863,17 @@ Defaults are None; existing profiles keep their actions and gain no new output.
 Optional `holdActions` fields in each hand's settings round-trip through Import
 Settings / Export Settings with the existing gesture extension.
 
-On Tap/Move assignment pages, Hold is available when that count has no active
-continuous Movement action. Directional mode ignores the saved continuous action,
-so Up/Down/Left/Right assignments can coexist with Hold. Pinch and Spread bindings
-do not lock Hold: shape motion competes with stationary Hold before activation.
+On Tap/Move assignment pages, Hold is available alongside BOTH continuous
+Movement and directional assignments. Bindings alone no longer lock Hold.
+Actual movement or shape motion competes with stationary Hold before activation.
 On the Pinch and Spread pages themselves, Hold remains an automatic, gray,
 nonassignable lifecycle card. These pages cannot edit the count's Hold binding.
 
 Hold is a selectable assignment card; its Action menu is in the right inspector,
-matching other configurable cards. Locking it with continuous Movement suspends
-the saved assignment without deleting it. Mirror Edit requires both hands to be
-eligible before changing Hold. Hold uses the contact count, not the thumb/fingertip
+matching other configurable cards. Mirror Edit supports both continuous and
+mixed movement modes. Hold uses the contact count, not the thumb/fingertip
 identity; the 3-contact Hold binding is shared by the regular three-finger and
-Thumb+2-fingers pages.
+Thumb+2-fingers pages. Saved bindings/defaults and the settings schema are unchanged.
 
 A stationary chord fires its discrete action once after 0.5 seconds. Fingers can
 join within 80 ms; the timer starts when the complete count lands. Substitutions,
@@ -887,7 +885,7 @@ stepper actually chooses a direction (0.75 mm), rather than at the earlier
 continuous-motion candidate threshold. An empty directional assignment does not
 claim motion. A directional swipe or its stationary repeat cannot also become a Hold. Once
 Hold fires, it owns the cycle through added/lifted fingers until all-up, preventing
-a subsequent Tap, Force Click or directional action from the same cycle.
+a subsequent Tap, Force Click or movement action from the same cycle.
 
 The existing shared timer can finish a Hold only with input fresh within 200 ms;
 there is no timer per chord and no repeat output. Native frame time validates
@@ -990,3 +988,32 @@ Mirror Edit changes both values, mixed values are visible, and Import/Export
 retains the choice. It applies to normal Scroll / Pan across contact counts;
 explicit directional Scroll Up/Down retains its named sign. Configuration resets
 active output/momentum before changing direction, as for sensitivity changes.
+
+
+### Directional Pan Left / Pan Right
+
+Pan Left and Pan Right are motion-following directional actions in the same
+family as Scroll Up/Down. Every input direction can map to either output axis:
+Up → Pan Right translates upward finger travel to horizontal rightward panning;
+Left → Pan Right reverses horizontal direction; Left → Scroll Down translates
+horizontal travel to vertical scrolling. The assigned gesture always determines
+which source component/sense to measure. The action independently determines
+output axis and sign. Perpendicular/opposite travel remains suppressed until a
+new direction commits, and a stationary finger produces no output.
+
+Use the selected pad's horizontal Apple scroll profile for Pan, vertical profile
+for Scroll, and the shared scroll sensitivity. Positive wheel axes mean Up/Left,
+negative mean Down/Right. Explicit actions retain their named direction regardless
+of Natural scrolling. Fine movement, precise event phases, momentum, reset on
+turn/action changes, all-up/stale/lifecycle/AX gates and per-device independence
+are shared. Pan actions have no timed repeats; dormant repeat fields remain saved.
+The existing directional menus, Mirror Edit and Import/Export carry `panLeft` and
+`panRight` without a new schema. They are not offered as Tap/Force/Hold actions.
+
+Normal Movement → Scroll / Pan already handles both axes using the same
+sensitivity, acceleration, momentum and Natural scrolling override. No changes
+to those normal movement thresholds or timing are needed to unlock Hold: movement
+that activates first cancels pending Hold immediately; a stationary Hold firing
+at 0.5 seconds owns the rest of the cycle. There is no added delay to mousing,
+dragging or scrolling. Hardware testing should assess how easily Hold can win
+against the existing continuous-motion thresholds.

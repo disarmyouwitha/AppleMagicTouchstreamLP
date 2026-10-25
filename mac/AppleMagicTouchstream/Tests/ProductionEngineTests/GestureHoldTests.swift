@@ -19,7 +19,7 @@ final class GestureHoldTests:XCTestCase {
         }
         return value
     }
-    func testAvailabilityDependsOnContinuousMovementAndPreservesSavedHold() {
+    func testHoldAvailabilityIncludesContinuousMovementAndPreservesSavedHold() {
         for count in 1...5 {
             var value = ready(count)
             value.setHoldAction(.missionControl,count:count)
@@ -27,8 +27,8 @@ final class GestureHoldTests:XCTestCase {
             XCTAssertEqual(value.liveHoldActions[count],.missionControl)
             if let move = PerHandGestureSettings.moveTrigger(count:count) {
                 value.editMovement(move,mode:.continuous)
-                XCTAssertFalse(value.holdAvailable(count:count))
-                XCTAssertNil(value.liveHoldActions[count])
+                XCTAssertTrue(value.holdAvailable(count:count))
+                XCTAssertEqual(value.liveHoldActions[count],.missionControl)
                 value.bindings[move] = .disabled
                 XCTAssertTrue(value.holdAvailable(count:count))
             }
@@ -58,9 +58,10 @@ final class GestureHoldTests:XCTestCase {
         settings.setHoldAction(.secondaryClick,count:3,in:.both)
         XCTAssertEqual(settings.holdAction(count:3,in:.both),.secondaryClick)
         settings.right.editMovement(.threeFingerMove,mode:.continuous)
-        XCTAssertFalse(settings.holdAvailable(count:3,in:.both))
-        settings.setHoldAction(.showDesktop,count:3,in:.both) // no half-applied mirror edit
-        XCTAssertEqual(settings.left.holdAction(count:3),.secondaryClick)
+        XCTAssertTrue(settings.holdAvailable(count:3,in:.both))
+        settings.setHoldAction(.showDesktop,count:3,in:.both)
+        XCTAssertEqual(settings.left.holdAction(count:3),.showDesktop)
+        XCTAssertEqual(settings.right.holdAction(count:3),.showDesktop)
         var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
         XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
     }
@@ -193,6 +194,30 @@ final class GestureHoldTests:XCTestCase {
         }
         XCTAssertEqual(fired,Array(repeating:4,count:9))
         for elapsed in deadlines { XCTAssertGreaterThanOrEqual(elapsed,0.5); XCTAssertLessThan(elapsed,0.55) }
+    }
+    func testContinuousMovementStillStartsImmediatelyAndStationaryHoldCanWinFirst() {
+        for count in 2...4 {
+            let trigger = PerHandGestureSettings.moveTrigger(count:count)!
+            var settings = PerHandGestureSettings()
+            settings.setHoldAction(.missionControl,count:count)
+            XCTAssertEqual(settings.liveHoldActions[count],.missionControl)
+            for moving in [false,true] {
+                var router = TrackpadGestureRouter(), hold = GestureHoldRecognizer()
+                var fired = [Int]()
+                for i in 0...6 {
+                    let time = 1+Double(i)*0.1
+                    let contacts = touches(count,dx:moving && i > 0 ? 0.01 : 0)
+                    if hold.claimed(device:1) { continue } // runtime gives Hold the remainder of this cycle
+                    let update = router.recognize(device:1,time:time,contacts:contacts,enabled:{$0 == trigger})
+                    if moving && i == 1 { XCTAssertEqual(update.gesture,trigger); XCTAssertEqual(update.phase,.began) }
+                    if let result = hold.observe(device:1,time:time,now:time,contacts:contacts,
+                        motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:settings.liveHoldActions) {
+                        fired.append(result)
+                    }
+                }
+                XCTAssertEqual(fired,moving ? [] : [count])
+            }
+        }
     }
     func testStaleInvalidReplacementAndCancellationCannotRearmBeforeAllUp() {
         for failure in 0...5 {

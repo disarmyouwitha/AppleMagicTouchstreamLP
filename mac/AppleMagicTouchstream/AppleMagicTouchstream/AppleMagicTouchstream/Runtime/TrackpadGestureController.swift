@@ -66,7 +66,7 @@ final class TrackpadGestureController: ObservableObject {
     }
     func holdStatus(count:Int,scope:GestureHandScope) -> String {
         guard settings.holdAvailable(count:count,in:scope) else {
-            return "Set continuous Movement to None or choose directional movement to enable Hold."
+            return "Unsupported contact count."
         }
         if settings.holdAction(count:count,in:scope) == .disabled { return "Hold still for 0.5 seconds. Fires once until all-up." }
         if !takeoverEnabled { return "Enable Trackpad Takeover." }

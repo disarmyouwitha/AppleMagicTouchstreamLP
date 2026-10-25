@@ -1,9 +1,13 @@
 # NOTES:
 =======
+1. Should pan work the same way as scroll? 
+> If we move even a few pixels we should cancel a hold.
+2. Also.. It seems like we are perfectly capable of distinguishing holds with full directional buttons set.. I think we can probably unlock it even when movement is set?
+> Maybe we should move Hold to the left of "Down" Directional?
+===
 0. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
-00. Can Scroll Up and Scroll Down be special actions that basically take the mouse movement and translate it depending on the gesture asigned? Or restrict it directionally (Like allowing the user to set "scroll down" to Left Direction and "scroll up" to Right Direction so they can scroll the page with a left->right drag? Is this possible or am I over complicating things?
-0. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
-00. Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
+00. I am removing GesturePad and GlassToKey only leaving AppleMagicTrackpad under Mac can you find all .md referencing them and scrub them from the record?
+0. Can we go through all of the .md files and remove the parts where you infer that I'm an idiot. xD like in the trackpad dimensions where I gave the wrong measurements on the trackpad (or where we provide incorrect information, and then correct it with updated information - lets just keep the updated information in .MD files.)
 ===
 1. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 2. Pinch,Spread, and ROTATE baby: Rotation gestures next!

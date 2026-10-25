@@ -286,7 +286,7 @@ extension DirectionalMovementTests {
                 case .up:travel = .init(x:0,y:-0.01); case .down:travel = .init(x:0,y:0.01)
                 case .left:travel = .init(x:-0.01,y:0); case .right:travel = .init(x:0.01,y:0)
                 }
-                for action in GestureAction.directionalScrollActions {
+                for action in [GestureAction.scrollUp,.scrollDown] {
                     var engine = DirectionalScrollEngine(profile:try directionalScrollProfile(natural:natural))
                     let points = try XCTUnwrap(engine.process(time:1,millimetres:travel,direction:direction,action:action,sensitivity:1))
                     XCTAssertEqual(points.x,0)
@@ -418,5 +418,75 @@ extension DirectionalMovementTests {
         }
         let old = try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:object))
         XCTAssertNil(old.left.naturalScrolling); XCTAssertNil(old.right.naturalScrolling)
+    }
+}
+
+extension DirectionalMovementTests {
+    func testPanMapsEveryInputDirectionToIndependentHorizontalOutputAndUsesHorizontalProfile() throws {
+        for natural in [true,false] {
+            let profile = try directionalScrollProfile(natural:natural)
+            for direction in GestureMovementDirection.allCases {
+                let delta:CGPoint
+                switch direction {
+                case .up:delta = .init(x:0,y:-0.01); case .down:delta = .init(x:0,y:0.01)
+                case .left:delta = .init(x:-0.01,y:0); case .right:delta = .init(x:0.01,y:0)
+                }
+                for action in [GestureAction.panLeft,.panRight] {
+                    var engine = DirectionalScrollEngine(profile:profile)
+                    let points = try XCTUnwrap(engine.process(time:1,millimetres:delta,direction:direction,action:action,sensitivity:1))
+                    var reference = FourFingerScrollEngine(profile:profile)
+                    let expected = try XCTUnwrap(reference.process(time:1,millimetres:.init(x:0.01,y:0),sensitivity:1))
+                    XCTAssertEqual(abs(points.x),abs(expected.x),accuracy:0.0000001)
+                    XCTAssertEqual(points.y,0); XCTAssertGreaterThan(abs(points.x),0)
+                    XCTAssertEqual(points.x > 0,action == .panLeft)
+                    XCTAssertEqual(engine.process(time:1.01,millimetres:.zero,direction:direction,action:action,sensitivity:1),.zero)
+                    XCTAssertEqual(engine.process(time:1.02,millimetres:.init(x:-delta.x,y:-delta.y),direction:direction,action:action,sensitivity:1),.zero)
+                    var output = PreciseScrollOutput()
+                    let event = try XCTUnwrap(output.event(points:points))
+                    XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventIsContinuous),1)
+                    XCTAssertEqual(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis1),0)
+                    XCTAssertEqual(event.getDoubleValueField(.scrollWheelEventFixedPtDeltaAxis2),points.x/10,accuracy:1.0/65536)
+                    XCTAssertEqual(output.finish(cancelled:true)?.getIntegerValueField(.scrollWheelEventScrollPhase),8)
+                }
+            }
+        }
+    }
+    func testPanAssignmentsSharePersistenceAndIgnoreRepeatWithoutChangingOtherDirections() throws {
+        var settings = HandGestureSettings()
+        for trigger in GestureDirectionalAssignments.liveTriggers {
+            settings.editMovement(trigger,mode:.directional,direction:.up,action:.panRight,in:.both)
+            settings.editMovement(trigger,mode:.directional,direction:.down,action:.panLeft,in:.both)
+            settings.editMovement(trigger,mode:.directional,direction:.left,action:.scrollDown,in:.both)
+            settings.editMovement(trigger,mode:.directional,direction:.right,action:.volumeUpSmall,in:.both)
+            settings.setDirectionalRepeatInterval(20,direction:.up,for:trigger,in:.both)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.up),0)
+            XCTAssertEqual(settings.right.movement(trigger).action(.down),.panLeft)
+            XCTAssertEqual(settings.left.movement(trigger).action(.left),.scrollDown)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.right),80)
+        }
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+    }
+}
+
+extension DirectionalMovementTests {
+    func testVerticalInputPanHasHorizontalMomentumAndBalancedPhases() throws {
+        var engine = DirectionalScrollEngine(profile:try directionalScrollProfile())
+        var momentum = ScrollMomentum(), output = PreciseScrollOutput()
+        for i in 0..<16 {
+            let time = 1+Double(i)*0.01
+            let points = try XCTUnwrap(engine.process(time:time,millimetres:.init(x:0,y:-0.3),direction:.up,action:.panRight,sensitivity:1))
+            momentum.observe(points:points,contactTime:time)
+            _ = output.event(points:points)
+        }
+        XCTAssertTrue(momentum.start(contactTime:1.16,hostTime:10))
+        XCTAssertEqual(output.finish(cancelled:false,preserveForMomentum:true)?.getIntegerValueField(.scrollWheelEventScrollPhase),4)
+        let step = try XCTUnwrap(momentum.advance(hostTime:10.01))
+        XCTAssertLessThan(step.points.x,0); XCTAssertEqual(step.points.y,0)
+        let event = try XCTUnwrap(output.event(points:step.points,momentum:true))
+        XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventMomentumPhase),1)
+        XCTAssertEqual(output.finishMomentum()?.getIntegerValueField(.scrollWheelEventMomentumPhase),3)
+        momentum.cancel(); engine.reset()
+        XCTAssertNil(momentum.advance(hostTime:10.02))
     }
 }

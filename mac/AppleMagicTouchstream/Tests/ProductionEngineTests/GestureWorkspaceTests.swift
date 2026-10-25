@@ -24,14 +24,14 @@ final class GestureWorkspaceTests: XCTestCase {
         XCTAssertEqual(settings.right.bindings,original.right.bindings)
     }
 
-    func testHoldEditingUsesPageAndMovementModeNotPinchAssignments() {
+    func testHoldEditingUsesPageRegardlessOfMovementOrPinchAssignments() {
         var settings = HandGestureSettings()
-        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
+        XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
         settings.editMovement(.twoFingerMove,mode:.directional,in:.left)
         XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
         XCTAssertEqual(settings.left.bindings.action(for:.twoFingerPinch),.zoom)
         XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingerPinch,settings:settings,scope:.left))
-        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.both))
+        XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.both))
         for count in 2...5 {
             settings.setAction(.disabled,for:GestureTrigger.pinch(count:count)!,in:.both)
             settings.setAction(.disabled,for:GestureTrigger.spread(count:count)!,in:.both)
@@ -42,7 +42,6 @@ final class GestureWorkspaceTests: XCTestCase {
     }
     func testHoldCardAndRightInspectorRenderWithoutInput() throws {
         var settings = HandGestureSettings()
-        settings.editMovement(.twoFingerMove,mode:.directional,in:.left)
         settings.setHoldAction(.missionControl,count:2,in:.left)
         let view = GestureAssignmentWorkspace(settings:settings,initialPane:.twoFingers,initialHold:true,
             status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected action edit")},
@@ -132,8 +131,8 @@ final class GestureWorkspaceTests: XCTestCase {
                             settings.editMovement(movement,mode:.directional,direction:.left,action:.brightnessDownSmall,in:.both)
                             settings.editMovement(movement,mode:.directional,direction:.right,action:.brightnessUpSmall,in:.both)
                             if mirrored {
-                                settings.editMovement(movement,mode:.directional,direction:.up,action:.scrollUp,in:.both)
-                                settings.editMovement(movement,mode:.directional,direction:.down,action:.scrollDown,in:.both)
+                                settings.editMovement(movement,mode:.directional,direction:.up,action:movement == .fourFingerMove ? .panRight : .scrollUp,in:.both)
+                                settings.editMovement(movement,mode:.directional,direction:.down,action:movement == .fourFingerMove ? .panLeft : .scrollDown,in:.both)
                             }
                             let count = movement == .twoFingerMove ? 2 : movement == .threeFingerMove ? 3 : 4
                             settings.setAction(.disabled,for:GestureTrigger.pinch(count:count)!,in:.both)

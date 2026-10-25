@@ -866,7 +866,7 @@ struct GestureAssignmentWorkspace: View {
                 Label("Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
                 Text(value?.title ?? "Mixed").font(.system(size:17,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text(holdEditable ? "After 0.5 seconds · once while held" : "Locked by continuous Movement")
+                Text("After 0.5 seconds · once while held")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
@@ -984,7 +984,7 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             if value?.isDirectionalScroll == true {
-                Text("Follows \(direction.title.lowercased()) finger travel and speed. Scroll direction comes from this action; reversing the assignments reverses scrolling. Pausing stops output; release can coast with momentum.")
+                Text("Follows \(direction.title.lowercased()) finger travel and speed. Output direction comes from this action; reversing the assignments reverses scrolling or panning. Pausing stops output; release can coast with momentum.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
                 sensitivity("Scroll sensitivity",kind:.scroll)
             } else {
@@ -1046,7 +1046,7 @@ struct GestureAssignmentWorkspace: View {
         return VStack(alignment:.leading,spacing:5) {
             Toggle("Natural scrolling",isOn:Binding(get:{value ?? false},set:{setNaturalScrolling($0,editingScope)}))
             if value == nil { Text("Mixed between trackpads").font(.caption).foregroundStyle(.secondary) }
-            Text("Applies to normal Scroll / Pan. Scroll Up and Scroll Down keep their explicit direction.")
+            Text("Applies to normal Scroll / Pan. Directional Scroll and Pan actions keep their explicit direction.")
                 .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }

@@ -291,8 +291,8 @@ must not simultaneously scroll. Switching modes retains assignments and gains.
 
 User authorizes assignable single-hand Session Lifetime Hold for counts 1–5,
 default None. This supersedes the old nonassignable Hold UI policy. Directional
-movement is compatible; only active continuous Move locks the count-based Hold
-while preserving its assignment. Pinch/Spread bindings may coexist, but the
+and continuous movement assignments both coexist with count-based Hold. Binding
+configuration no longer locks Hold; actual activated movement cancels a pending Hold. Pinch/Spread bindings may coexist, but the
 Pinch and Spread pages keep the old gray, nonassignable Hold lifecycle card.
 Editable Hold is a selectable card with its Action menu in the right inspector.
 Use one shared count-based stationary recognizer,
@@ -324,3 +324,13 @@ normal Movement → Scroll / Pan. Persist an optional per-hand override, default
 to the existing system preference when absent; support Mirror Edit, mixed state
 and portable settings. Never change system preferences. Explicit directional
 Scroll Up/Down semantics remain independent of this toggle.
+
+User authorizes Pan Left / Pan Right as directional, motion-following actions.
+The input direction selects source travel axis/sense; the action independently
+selects horizontal output axis/sign, allowing swapped horizontal and vertical-to-
+horizontal mappings. Reuse horizontal scroll acceleration, sensitivity, precise
+phases and momentum; preserve explicit output semantics independent of Natural
+scrolling, ignore timed repeats and preserve portable/Mirror Edit settings.
+Hold is also unlocked alongside continuous Movement without delaying movement
+activation. Preserve first-activated ownership until all-up and keep Pinch/Spread
+pages' Hold card nonassignable. See GESTURE_ENGINE.md.

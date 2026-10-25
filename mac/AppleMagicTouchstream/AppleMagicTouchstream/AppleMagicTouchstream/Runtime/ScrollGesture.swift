@@ -75,8 +75,8 @@ struct FourFingerScrollEngine {
     }
 }
 
-/// Project travel along the assigned input direction, then route it to semantic
-/// vertical scrolling. Source axis and output sign are independent of each other.
+/// Project travel along the assigned input direction, then route it to the action's
+/// scroll/pan axis and sign. Source and output directions are independent.
 struct DirectionalScrollEngine {
     private var engine:FourFingerScrollEngine
     private(set) var direction:GestureMovementDirection?
@@ -100,8 +100,11 @@ struct DirectionalScrollEngine {
             reset(); self.direction = direction; self.action = action
         }
         let distance = Self.travel(millimetres,direction:direction)
-        guard let points = engine.process(time:time,millimetres:CGPoint(x:0,y:distance),sensitivity:sensitivity) else { return nil }
-        // Explicit Scroll Up/Down controls output sign, regardless of natural scrolling.
+        let mapped = action.isHorizontalPan ? CGPoint(x:distance,y:0) : CGPoint(x:0,y:distance)
+        guard let points = engine.process(time:time,millimetres:mapped,sensitivity:sensitivity) else { return nil }
+        // Explicit action controls output axis/sign, independently of source travel
+        // and natural scrolling. Positive wheel axes mean Up / Left.
+        if action.isHorizontalPan { return CGPoint(x:action == .panLeft ? abs(points.x) : -abs(points.x),y:0) }
         return CGPoint(x:0,y:action == .scrollUp ? abs(points.y) : -abs(points.y))
     }
 }
