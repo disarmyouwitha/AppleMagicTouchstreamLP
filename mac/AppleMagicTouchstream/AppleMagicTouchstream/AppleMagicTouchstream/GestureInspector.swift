@@ -71,9 +71,10 @@ struct GestureChordIcon: View {
     let gesture: GesturePane
     let trigger: GestureTrigger
     var direction: GestureMovementDirection? = nil
-    private var demonstrationTitle: String { direction.map { "Swipe " + $0.title } ?? (fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle) }
+    var holding = false
+    private var demonstrationTitle: String { holding ? "Hold" : direction.map { "Swipe " + $0.title } ?? (fourFingerScrollExample ? "Scroll / Pan" : trigger.assignmentTitle) }
     private var fourFingerScrollExample: Bool { trigger == .fourFingerMove }
-    private var strokeExample: Bool { trigger.isContinuous && !trigger.isPinch }
+    private var strokeExample: Bool { !holding && trigger.isContinuous && !trigger.isPinch }
     // Original stroke time units, with only stationary holds compressed by half.
     private static let outboundUnits = 0.82
     private static let returnUnits = 0.84
@@ -105,6 +106,7 @@ struct GestureChordIcon: View {
         .onChange(of:trigger) { _ in playbackStartedAt = Date() }
         .onChange(of:gesture) { _ in playbackStartedAt = Date() }
         .onChange(of:direction) { _ in playbackStartedAt = Date() }
+        .onChange(of:holding) { _ in playbackStartedAt = Date() }
         .onChange(of:reduceMotion) { reduced in
             if !reduced { playbackStartedAt = Date() }
         }
@@ -116,6 +118,17 @@ struct GestureChordIcon: View {
         let pad = CGRect(x:14,y:9,width:size.width-28,height:size.height-18)
         context.stroke(Path(roundedRect:pad,cornerRadius:14),
                        with:.color(.secondary.opacity(0.5)),lineWidth:2.5)
+        if holding {
+            let touching = phase >= 0.18 && phase < 0.8
+            for (index,offset) in contactOffsets(count:gesture.holdCount,includesThumb:gesture == .thumbTwo).enumerated() {
+                let point = CGPoint(x:pad.midX+offset.x,y:pad.midY+offset.y)
+                let dot = Path(ellipseIn:CGRect(x:point.x-6,y:point.y-6,width:12,height:12))
+                let colors = contactColors(index:index)
+                if touching { context.fill(dot,with:.color(colors.fill)) }
+                context.stroke(dot,with:.color(colors.outline),lineWidth:1.5)
+            }
+            return
+        }
         if strokeExample {
             drawMovementStrokes(&context,pad:pad,phase:phase)
             return
@@ -361,6 +374,9 @@ struct GestureActionPickerRow: View {
 
 /// Presentation catalog for existing recognizers only; no new recognition or saved IDs.
 extension GesturePane {
+    var holdCount:Int {
+        triggers.compactMap { $0.forceCount ?? $0.pinchCount }.first ?? (self == .thumbTwo ? 3 : 2)
+    }
     var contactLabel: String {
         if isPinchSection { return "\(triggers[0].pinchCount!) contacts · thumb required" }
         if self == .thumbTwo { return "3 contacts · thumb + 2 fingertips" }
@@ -448,6 +464,7 @@ struct GestureAssignmentWorkspace: View {
     let holdStatus:(Int,GestureHandScope)->String
     @State private var twoHandChord = TwoHandChord.fourCorners
     @State private var twoHandPhase = TwoHandPhase.hold
+    @State private var selectedHold = false
     @State private var selectedDirection: GestureMovementDirection?
     @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
@@ -458,7 +475,7 @@ struct GestureAssignmentWorkspace: View {
     @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
-         initialDirection:GestureMovementDirection? = nil, initialHand:GestureHandScope = .left,
+         initialDirection:GestureMovementDirection? = nil, initialHold:Bool = false, initialHand:GestureHandScope = .left,
          initialTwoHandChord:TwoHandChord = .fourCorners, initialTwoHandPhase:TwoHandPhase = .hold,
          status:@escaping (GestureTrigger,GestureHandScope)->String,
          apply:@escaping (GestureAction,GestureTrigger,GestureHandScope)->Void,
@@ -477,6 +494,7 @@ struct GestureAssignmentWorkspace: View {
         self.setDirectionalRepeat = setDirectionalRepeat
         self.setHoldAction = setHoldAction; self.holdStatus = holdStatus
         self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
+        _selectedHold = State(initialValue:initialHold && Self.holdEditable(pane:initialPane,settings:settings,scope:initialHand))
         _editingHand = State(initialValue:initialHand)
         _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandPhase)
         _pane = State(initialValue:initialPane)
@@ -488,7 +506,14 @@ struct GestureAssignmentWorkspace: View {
     static func defaultDirection(for trigger:GestureTrigger,settings:HandGestureSettings,scope:GestureHandScope) -> GestureMovementDirection? {
         GestureDirectionalAssignments.triggers.contains(trigger) && settings.movementMode(trigger,in:scope) == .directional ? .up : nil
     }
+    static func holdEditable(pane:GesturePane,settings:HandGestureSettings,scope:GestureHandScope) -> Bool {
+        !pane.isPinchSection && settings.holdAvailable(count:pane.holdCount,in:scope)
+    }
     private func restoreMovementSelection() {
+        if selectedHold {
+            if Self.holdEditable(pane:pane,settings:settings,scope:editingScope) { return }
+            selectedHold = false
+        }
         guard editingHand != .both, selected.isContinuous else { return }
         selectedDirection = Self.defaultDirection(for:selected,settings:settings,scope:editingScope)
     }
@@ -614,6 +639,7 @@ struct GestureAssignmentWorkspace: View {
 
     private func navigationItem(_ item:GesturePane) -> some View {
         Button {
+            selectedHold = false
             pane = item
             let first = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
             selected = first
@@ -710,7 +736,7 @@ struct GestureAssignmentWorkspace: View {
                     Text(pane.title).font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
-                GestureChordIcon(gesture:pane,trigger:selected,direction:selectedDirection).padding(.leading,8)
+                GestureChordIcon(gesture:pane,trigger:selected,direction:selectedDirection,holding:selectedHold).padding(.leading,8)
             }
             ViewThatFits(in:.horizontal) {
                 HStack(spacing:8) { metadata }
@@ -776,13 +802,13 @@ struct GestureAssignmentWorkspace: View {
         let mode = settings.movementMode(trigger,in:editingScope)
         let targetMode: GestureMovementMode = direction == nil ? .continuous : .directional
         let active = mode == targetMode
-        let isSelected = selected == trigger && selectedDirection == direction
+        let isSelected = !selectedHold && selected == trigger && selectedDirection == direction
         let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
         let title = direction.map { "Move " + $0.title } ?? "Movement"
         let repeatLabel = direction.flatMap { settings.directionalRepeatInterval($0,for:trigger,in:editingScope) }
             .map { $0 > 0 ? "Repeat every \(Int($0)) ms" : "Once per direction" } ?? "Mixed repeat"
         return Button {
-            selected = trigger; selectedDirection = direction
+            selectedHold = false; selected = trigger; selectedDirection = direction
             if mode != targetMode { setMovementMode(targetMode,trigger,editingScope) }
         } label: {
             VStack(alignment:.leading,spacing:8) {
@@ -806,7 +832,7 @@ struct GestureAssignmentWorkspace: View {
 
     private func assignmentCard(_ trigger:GestureTrigger,compact:Bool = false) -> some View {
         let assigned = settings.action(trigger,in:editingScope)
-        return Button { selected = trigger; selectedDirection = nil } label: {
+        return Button { selectedHold = false; selected = trigger; selectedDirection = nil } label: {
             VStack(alignment:.leading,spacing:10) {
                 HStack {
                     Image(systemName:trigger.assignmentSymbol).foregroundStyle(.secondary)
@@ -817,44 +843,64 @@ struct GestureAssignmentWorkspace: View {
                 Text(trigger.behavior(for:assigned)).font(.caption).foregroundStyle(.secondary)
             }
             .padding(compact ? 12 : 18).frame(maxWidth:.infinity,minHeight:compact ? 106 : 112,alignment:.topLeading)
-            .background(selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
-            .overlay(RoundedRectangle(cornerRadius:10).stroke(selected == trigger ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
+            .background(!selectedHold && selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
+            .overlay(RoundedRectangle(cornerRadius:10).stroke(!selectedHold && selected == trigger ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
             .contentShape(RoundedRectangle(cornerRadius:10))
         }
         .buttonStyle(.plain)
         .accessibilityLabel("\(trigger.assignmentTitle), \(assigned?.title ?? "Mixed")")
-        .accessibilityAddTraits(selected == trigger ? [.isSelected] : [])
+        .accessibilityAddTraits(!selectedHold && selected == trigger ? [.isSelected] : [])
     }
 
-    private var holdCount:Int {
-        pane.triggers.compactMap { $0.forceCount ?? $0.pinchCount }.first ?? (pane == .thumbTwo ? 3 : 2)
-    }
+    private var holdCount:Int { pane.holdCount }
+    private var holdEditable:Bool { Self.holdEditable(pane:pane,settings:settings,scope:editingScope) }
     private var holdCard:some View {
-        let available = settings.holdAvailable(count:holdCount,in:editingScope)
         let value = settings.holdAction(count:holdCount,in:editingScope)
-        return VStack(alignment:.leading,spacing:8) {
-            Label("\(holdCount)-finger Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
+        return Button { selectedHold = true; selectedDirection = nil } label: {
+            VStack(alignment:.leading,spacing:8) {
+                Label("Hold",systemImage:"pause").font(.callout).foregroundStyle(.secondary)
+                Text(value?.title ?? "Mixed").font(.system(size:17,weight:.medium))
+                    .fixedSize(horizontal:false,vertical:true)
+                Text(holdEditable ? "After 0.5 seconds · once while held" : "Locked by continuous Movement")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }
+            .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
+            .background(selectedHold ? Color.accentColor.opacity(0.07) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
+            .overlay(RoundedRectangle(cornerRadius:9).stroke(selectedHold ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
+            .contentShape(RoundedRectangle(cornerRadius:9))
+        }
+        .buttonStyle(.plain).disabled(!holdEditable).opacity(holdEditable ? 1 : 0.5)
+        .accessibilityLabel("Hold, \(value?.title ?? "Mixed")")
+        .accessibilityAddTraits(selectedHold ? [.isSelected] : [])
+    }
+    private var holdInspector:some View {
+        let value = settings.holdAction(count:holdCount,in:editingScope)
+        return VStack(alignment:.leading,spacing:14) {
             Picker("Action",selection:Binding<GestureAction?>(get:{value},set:{ action in
-                if let action { setHoldAction(action,holdCount,editingScope) }
+                if let action, holdEditable { setHoldAction(action,holdCount,editingScope) }
             })) {
                 if value == nil { Text("Mixed").tag(nil as GestureAction?) }
                 ForEach(PerHandGestureSettings.holdAllowedActions) { action in Text(action.title).tag(Optional(action)) }
-            }.pickerStyle(.menu).disabled(!available)
-            Text(available ? holdStatus(holdCount,editingScope) : "Locked by Movement, Pinch or Spread. Set those actions to None; directional actions can stay enabled.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+            }.pickerStyle(.menu).disabled(!holdEditable)
             if value == nil {
                 Text("Left: \(settings.left.holdAction(count:holdCount).title) · Right: \(settings.right.holdAction(count:holdCount).title)")
-                    .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
+            Text(holdStatus(holdCount,editingScope)).font(.callout).fixedSize(horizontal:false,vertical:true)
+            Divider()
+            Text("Recognition").font(.callout).fontWeight(.medium)
+            Text("Keep \(holdCount) finger(s) still for 0.5 seconds. The action fires while the fingers are down; lifting is not required. Fires once, then owns the cycle until all-up. Movement or a pinch/spread that starts first cancels the pending Hold.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
-        .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
-        .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
     }
     private var lifecycle: some View {
         VStack(alignment:.leading,spacing:10) {
             Text("SESSION LIFETIME").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
             HStack(alignment:.top,spacing:12) {
-                holdCard
+                if pane.isPinchSection {
+                    lifetimeCard("Hold",symbol:"pause",detail:"No separate hold gesture is available for this chord.")
+                        .opacity(0.5)
+                } else { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }
         }
@@ -874,10 +920,12 @@ struct GestureAssignmentWorkspace: View {
             VStack(alignment:.leading,spacing:20) {
                 VStack(alignment:.leading,spacing:8) {
                     Text("SELECTED ASSIGNMENT").font(.caption2).fontWeight(.medium).foregroundStyle(.secondary)
-                    Text(selectedDirection.map { "Move " + $0.title } ?? selected.assignmentTitle).font(.title3).bold()
+                    Text(selectedHold ? "Hold" : selectedDirection.map { "Move " + $0.title } ?? selected.assignmentTitle).font(.title3).bold()
                     Text("\(pane.group) · \(scopeText)").font(.caption).foregroundStyle(.secondary)
                 }
-                if let direction = selectedDirection {
+                if selectedHold {
+                    holdInspector
+                } else if let direction = selectedDirection {
                     directionalInspector(direction)
                 } else {
                     GestureActionPickerRow(trigger:selected,value:action,

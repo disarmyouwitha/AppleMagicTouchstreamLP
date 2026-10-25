@@ -86,7 +86,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
-            if directionals[device]?[trigger] != nil { return true }
+            if let directional = directionals[device]?[trigger] { return directional.hasAssignments }
             let enabled: Bool
             switch trigger {
             case .twoFingerPinch,.threeFingerPinch,.fourFingerPinch,.fiveFingerPinch,
@@ -487,8 +487,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 default: return false
                 }
             })
-            if let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
-                    contacts:contacts,motionClaimed:update.gesture != nil || update.phase == .cancelled,actions:actions) {
+            let directionalOwner = update.gesture.flatMap { state.directionals[device]?[$0] } != nil
+            if !directionalOwner, let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
+                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:actions) {
                 state.postHold(count:count,device:device,time:hostTime)
                 return nil
             }
@@ -508,10 +509,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 state.finishScroll(device:device,cancelled:true)
                 state.tracker.reset(device:device)
                 if update.phase == .began { state.directionalRepeater.reset(device:device) }
-                if let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments) {
-                    state.postDirectional(assignments.action(direction),device:device,time:hostTime)
-                }
+                let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments)
                 let heldDirection = state.directionalStepper.direction(device:device)
+                if let actions = state.holdBindings[device], let count = state.holds.observe(device:device,time:time,now:hostTime,
+                    contacts:contacts,motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:true,direction:heldDirection),actions:actions) {
+                    state.postHold(count:count,device:device,time:hostTime)
+                    return nil
+                }
+                if let direction { state.postDirectional(assignments.action(direction),device:device,time:hostTime) }
                 state.directionalRepeater.refresh(device:device,direction:heldDirection,
                     intervalMS:heldDirection.map { assignments.repeatIntervalMS($0) } ?? 0,now:hostTime)
                 return nil

@@ -200,6 +200,7 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     func repeats(_ direction:GestureMovementDirection) -> Bool {
         repeatIntervalMS(direction) > 0
     }
+    var hasAssignments:Bool { GestureMovementDirection.allCases.contains { action($0) != .disabled } }
     func action(_ direction:GestureMovementDirection) -> GestureAction {
         let value = actions[direction.rawValue] ?? .disabled
         return Self.allowedActions.contains(value) ? value : .disabled
@@ -221,9 +222,6 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
         guard (1...5).contains(count) else { return false }
         if let move = Self.moveTrigger(count:count), movement(move).mode == .continuous,
            bindings.action(for:move) != .disabled { return false }
-        for trigger in [GestureTrigger.pinch(count:count),GestureTrigger.spread(count:count)].compactMap({$0}) {
-            if bindings.action(for:trigger) != .disabled { return false }
-        }
         return true
     }
     func holdAction(count:Int) -> GestureAction {

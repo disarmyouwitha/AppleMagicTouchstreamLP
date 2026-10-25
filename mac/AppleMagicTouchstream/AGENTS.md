@@ -291,9 +291,18 @@ must not simultaneously scroll. Switching modes retains assignments and gains.
 
 User authorizes assignable single-hand Session Lifetime Hold for counts 1–5,
 default None. This supersedes the old nonassignable Hold UI policy. Directional
-movement is compatible; active continuous Move, Pinch or Spread locks Hold while
-preserving its assignment. Use one shared count-based stationary recognizer,
-0.5 s one-shot with all-up ownership, existing per-hand/Mirror Edit/settings
+movement is compatible; only active continuous Move locks the count-based Hold
+while preserving its assignment. Pinch/Spread bindings may coexist, but the
+Pinch and Spread pages keep the old gray, nonassignable Hold lifecycle card.
+Editable Hold is a selectable card with its Action menu in the right inspector.
+Use one shared count-based stationary recognizer,
+0.5 s one-shot with all-up ownership, 2 mm settling tolerance, existing per-hand/Mirror Edit/settings
 exports and selected/owned/armed/AX/live gates. Preserve movement-first, force,
 Both and established-keyboard-chord arbitration, stale cancellation and release
 cleanup. See GESTURE_ENGINE.md. Build/install signed Release and leave closed.
+
+Four-finger Hold capture showed empty directional slots were claiming movement
+and the old 0.75 mm Hold slop rejected natural settling. Ignore all-None
+configurations in movement recognition, and cancel pending Hold only once a
+real direction commits, not at the router's lower continuous-motion threshold.
+Keep the existing 0.75 mm directional activation and repeat behavior unchanged.

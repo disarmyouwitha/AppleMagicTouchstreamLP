@@ -863,21 +863,29 @@ Defaults are None; existing profiles keep their actions and gain no new output.
 Optional `holdActions` fields in each hand's settings round-trip through Import
 Settings / Export Settings with the existing gesture extension.
 
-Hold is available only when that count has no active continuous Movement, Pinch,
-or Spread action. Directional mode ignores the saved continuous action, so
-Up/Down/Left/Right assignments can coexist with Hold. Any non-None Pinch or Spread
-assignment locks Hold, including one-shot actions. Locking suspends the saved
-Hold assignment without deleting it; removing the conflicting actions restores
-it. Mirror Edit requires both hands to be eligible before changing Hold. Hold
-uses the contact count, not the thumb/fingertip identity; the 3-contact Hold menu
-is shared by the regular three-finger and Thumb+2-fingers pages.
+On Tap/Move assignment pages, Hold is available when that count has no active
+continuous Movement action. Directional mode ignores the saved continuous action,
+so Up/Down/Left/Right assignments can coexist with Hold. Pinch and Spread bindings
+do not lock Hold: shape motion competes with stationary Hold before activation.
+On the Pinch and Spread pages themselves, Hold remains an automatic, gray,
+nonassignable lifecycle card. These pages cannot edit the count's Hold binding.
+
+Hold is a selectable assignment card; its Action menu is in the right inspector,
+matching other configurable cards. Locking it with continuous Movement suspends
+the saved assignment without deleting it. Mirror Edit requires both hands to be
+eligible before changing Hold. Hold uses the contact count, not the thumb/fingertip
+identity; the 3-contact Hold binding is shared by the regular three-finger and
+Thumb+2-fingers pages.
 
 A stationary chord fires its discrete action once after 0.5 seconds. Fingers can
 join within 80 ms; the timer starts when the complete count lands. Substitutions,
 early lifts, palms, invalid coordinates, non-increasing native timestamps, a
-native frame gap over 150 ms, or per-contact displacement over 0.75 mm cancel the
-candidate until all-up. Movement ownership wins immediately before Hold fires,
-so a directional swipe or its stationary repeat cannot also become a Hold. Once
+native frame gap over 150 ms, or per-contact displacement over 2 mm cancel the
+candidate until all-up. Continuous movement and pinch/spread ownership cancel a
+pending Hold immediately. Directional recognition cancels it when the shared
+stepper actually chooses a direction (0.75 mm), rather than at the earlier
+continuous-motion candidate threshold. An empty directional assignment does not
+claim motion. A directional swipe or its stationary repeat cannot also become a Hold. Once
 Hold fires, it owns the cycle through added/lifted fingers until all-up, preventing
 a subsequent Tap, Force Click or directional action from the same cycle.
 
@@ -896,3 +904,25 @@ Offline tests cover count eligibility and saved-action preservation, old profile
 Mirror Edit, portable round-trips, timer/freshness rules, motion arbitration,
 all-up latching, independent hands, invalid/replaced contacts and keyboard
 reservation. Hardware acceptance remains the user's test.
+
+### Four-finger Hold capture regression
+
+`LHS_4FHold_bad.atpcap` contains nine four-contact attempts lasting roughly
+1.1–2.0 s each, with the final contact landing within 0–33 ms. Eight crossed the
+initial 0.75 mm per-contact Hold limit before the 0.5 s deadline. Measured drift
+at the deadline was about 0.65–1.95 mm. The former limit was rejecting ordinary
+landing/settling; Hold now uses the same 2 mm stationary allowance as Both.
+
+The current saved left-hand settings had four-finger directional mode with every
+direction set to None. It still claimed raw movement at the earlier 0.2 mm
+continuous threshold and canceled Hold. Inputs with no directional assignments
+now stay out of movement recognition. For real directional assignments, early
+movement candidacy alone no longer cancels Hold: the direction must commit.
+
+An offline regression feeds the capture through the shared router, force,
+directional and Hold recognizers using that left-hand configuration, checks one
+four-finger Hold per attempt, and checks firing 0.50–0.55 s after the full chord
+lands, while contacts remain down. It posts no events. The local capture is
+optional when absent on another checkout. Capture profiles do not currently
+include these app-local gesture preferences; the regression specifies them
+explicitly rather than inferring them from the keyboard profile.

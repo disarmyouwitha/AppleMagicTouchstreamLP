@@ -382,7 +382,11 @@ struct TwoHandGestureEngine {
 struct GestureHoldRecognizer {
     static let duration = 0.5
     static let landingWindow = 0.08
-    static let movementSlopMM = 0.75
+    static let movementSlopMM = 2.0
+    static func motionClaimsHold(_ update:GestureSessionUpdate<GestureTrigger>,directional:Bool,
+                                 direction:GestureMovementDirection?) -> Bool {
+        update.phase == .cancelled || (update.gesture != nil && (!directional || direction != nil))
+    }
     private struct Session {
         var baseline = GestureContactMotionTracker.Baseline(time:0)
         var first = 0.0, started = 0.0, receipt = 0.0

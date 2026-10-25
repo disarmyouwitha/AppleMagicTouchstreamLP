@@ -19,7 +19,7 @@ final class GestureHoldTests:XCTestCase {
         }
         return value
     }
-    func testAvailabilityRequiresNoContinuousMovePinchOrSpreadAndPreservesSavedHold() {
+    func testAvailabilityDependsOnContinuousMovementAndPreservesSavedHold() {
         for count in 1...5 {
             var value = ready(count)
             value.setHoldAction(.missionControl,count:count)
@@ -35,8 +35,8 @@ final class GestureHoldTests:XCTestCase {
             if let pinch = GestureTrigger.pinch(count:count), let spread = GestureTrigger.spread(count:count) {
                 for trigger in [pinch,spread] {
                     value.bindings[trigger] = .missionControl
-                    XCTAssertFalse(value.holdAvailable(count:count))
-                    XCTAssertNil(value.liveHoldActions[count])
+                    XCTAssertTrue(value.holdAvailable(count:count))
+                    XCTAssertEqual(value.liveHoldActions[count],.missionControl)
                     value.bindings[trigger] = .disabled
                     XCTAssertTrue(value.holdAvailable(count:count))
                 }
@@ -57,7 +57,7 @@ final class GestureHoldTests:XCTestCase {
         XCTAssertNil(settings.holdAction(count:3,in:.both))
         settings.setHoldAction(.secondaryClick,count:3,in:.both)
         XCTAssertEqual(settings.holdAction(count:3,in:.both),.secondaryClick)
-        settings.right.bindings[.threeFingerPinch] = .zoom
+        settings.right.editMovement(.threeFingerMove,mode:.continuous)
         XCTAssertFalse(settings.holdAvailable(count:3,in:.both))
         settings.setHoldAction(.showDesktop,count:3,in:.both) // no half-applied mirror edit
         XCTAssertEqual(settings.left.holdAction(count:3),.secondaryClick)
@@ -107,6 +107,92 @@ final class GestureHoldTests:XCTestCase {
         XCTAssertTrue(engine.claimed(device:1))
         _ = engine.observe(device:1,time:3.6,now:3.6,contacts:touches(3,dx:0.1),motionClaimed:true,actions:actions)
         XCTAssertTrue(engine.claimed(device:1))
+    }
+    func testThumbPinchAndSpreadCanWinBeforeHoldDeadline() {
+        for distance in [29.0,31.0] {
+            var router = TrackpadGestureRouter(), hold = GestureHoldRecognizer()
+            for i in 0...8 {
+                let width = i == 0 ? 30 : distance
+                let contacts = [(Int32(1),80-width/2),(Int32(2),80+width/2)].map { id,x in
+                    OMSRawTouch(id:id,posX:Float(x/160),posY:0.5,total:1,pressure:40,
+                        majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching,
+                        telemetry:OMSTouchTelemetry(fingerID:id == 1 ? 1 : 2,handID:1,velocityX:0,velocityY:0,
+                            absoluteX:0,absoluteY:0,absoluteVelocityX:0,absoluteVelocityY:0,sourceFrame:1,sourceTimestamp:1))
+                }
+                let time = 1+Double(i)*0.1
+                let update = router.recognize(device:1,time:time,contacts:contacts,enabled:{$0.isPinch})
+                if i == 1 { XCTAssertEqual(update.gesture,distance < 30 ? .twoFingerPinch : .twoFingerSpread) }
+                XCTAssertNil(hold.observe(device:1,time:time,now:time,contacts:contacts,
+                    motionClaimed:update.gesture != nil,actions:actions))
+            }
+            XCTAssertFalse(hold.claimed(device:1))
+        }
+    }
+    func testSettlingToleranceStillRejectsDeliberateMotion() {
+        for dx:Float in [0.01,0.02] {
+            var hold = GestureHoldRecognizer()
+            var result:Int?
+            for i in 0...5 {
+                result = hold.observe(device:1,time:1+Double(i)*0.1,now:1+Double(i)*0.1,
+                    contacts:touches(4,dx:i == 0 ? 0 : dx),motionClaimed:false,actions:actions)
+            }
+            XCTAssertEqual(result,dx == 0.01 ? 4 : nil) // 1.6 mm settling vs. 3.2 mm motion
+        }
+    }
+    func testDirectionalCandidateDoesNotCancelHoldBeforeARealDirection() {
+        let pending = GestureSessionUpdate(gesture:GestureTrigger.fourFingerMove,phase:.began,millimetres:.init(x:0.21,y:0),cancellation:nil)
+        XCTAssertFalse(GestureHoldRecognizer.motionClaimsHold(pending,directional:true,direction:nil))
+        XCTAssertTrue(GestureHoldRecognizer.motionClaimsHold(pending,directional:true,direction:.right))
+        XCTAssertTrue(GestureHoldRecognizer.motionClaimsHold(pending,directional:false,direction:nil))
+        var directions = GestureDirectionalAssignments(mode:.directional)
+        XCTAssertFalse(directions.hasAssignments)
+        directions.actions["up"] = .volumeUpSmall
+        XCTAssertTrue(directions.hasAssignments)
+    }
+    func testCapturedFourFingerHoldsSurviveLandingSettlingAndEmptyDirections() throws {
+        let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let capture = root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/LHS_4FHold_bad.atpcap")
+        guard FileManager.default.fileExists(atPath:capture.path) else { throw XCTSkip("Optional local four-finger Hold capture is unavailable") }
+        let records = try ATPCaptureV3Codec.readCaptureData(from:capture).frameRecords
+        var config = PerHandGestureSettings()
+        config.bindings[.threeFingerPinch] = .disabled; config.bindings[.threeFingerSpread] = .disabled
+        config.bindings[.fourFingerPinch] = .disabled; config.bindings[.fourFingerSpread] = .disabled
+        config.bindings[.oneFingerForce] = .disabled; config.bindings[.twoFingerForce] = .missionControl
+        config.editMovement(.fourFingerMove,mode:.directional)
+        config.editMovement(.threeFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall)
+        config.setHoldAction(.appExpose,count:4)
+        var hold = GestureHoldRecognizer(), router = TrackpadGestureRouter(), stepper = GestureDirectionalStepper()
+        var force = ForceClickRecognizer(), fired = [Int](), deadlines = [Double]()
+        let directional = config.liveDirectionalBindings, live = config.outputSettings.bindings
+        var fullChordTime:Double?
+        for record in records {
+            let frame = record.frame, device = frame.deviceNumericID, time = frame.timestamp
+            let now = Double(record.arrivalTicks)/1_000_000_000
+            let contacts = frame.rawTouches
+            let count = contacts.filter { $0.state == .making || $0.state == .touching }.count
+            if count == 4 && fullChordTime == nil { fullChordTime = now }
+            if count == 0 { fullChordTime = nil }
+            if hold.claimed(device:device) {
+                _ = hold.observe(device:device,time:time,now:now,contacts:contacts,motionClaimed:false,actions:[:])
+                if count == 0 { _ = force.recognize(device:device,time:time,contacts:contacts,enabled:{_ in false}) }
+                continue
+            }
+            _ = force.recognize(device:device,time:time,contacts:contacts,enabled:{ config.bindings.action(for:$0) != .disabled })
+            if force.claimed(device:device) { hold.cancel(device:device); continue }
+            let update = router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
+                if let assignments = directional[trigger] { return assignments.hasAssignments }
+                return trigger.isContinuous && live.action(for:trigger) != .disabled
+            })
+            let assignments = update.gesture.flatMap { directional[$0] }
+            if let assignments { _ = stepper.process(device:device,time:time,update:update,assignments:assignments) }
+            let motion = GestureHoldRecognizer.motionClaimsHold(update,directional:assignments != nil,direction:stepper.direction(device:device))
+            if let count = hold.observe(device:device,time:time,now:now,contacts:contacts,motionClaimed:motion,actions:config.liveHoldActions) {
+                fired.append(count); deadlines.append(now-(fullChordTime ?? now))
+                router.reset(device:device); stepper.reset(device:device); force.cancel(device:device)
+            }
+        }
+        XCTAssertEqual(fired,Array(repeating:4,count:9))
+        for elapsed in deadlines { XCTAssertGreaterThanOrEqual(elapsed,0.5); XCTAssertLessThan(elapsed,0.55) }
     }
     func testStaleInvalidReplacementAndCancellationCannotRearmBeforeAllUp() {
         for failure in 0...5 {

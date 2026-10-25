@@ -24,6 +24,45 @@ final class GestureWorkspaceTests: XCTestCase {
         XCTAssertEqual(settings.right.bindings,original.right.bindings)
     }
 
+    func testHoldEditingUsesPageAndMovementModeNotPinchAssignments() {
+        var settings = HandGestureSettings()
+        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
+        settings.editMovement(.twoFingerMove,mode:.directional,in:.left)
+        XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
+        XCTAssertEqual(settings.left.bindings.action(for:.twoFingerPinch),.zoom)
+        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingerPinch,settings:settings,scope:.left))
+        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.both))
+        for count in 2...5 {
+            settings.setAction(.disabled,for:GestureTrigger.pinch(count:count)!,in:.both)
+            settings.setAction(.disabled,for:GestureTrigger.spread(count:count)!,in:.both)
+        }
+        for pane in GesturePane.allCases where pane.isPinchSection {
+            XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:pane,settings:settings,scope:.left))
+        }
+    }
+    func testHoldCardAndRightInspectorRenderWithoutInput() throws {
+        var settings = HandGestureSettings()
+        settings.editMovement(.twoFingerMove,mode:.directional,in:.left)
+        settings.setHoldAction(.missionControl,count:2,in:.left)
+        let view = GestureAssignmentWorkspace(settings:settings,initialPane:.twoFingers,initialHold:true,
+            status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected action edit")},
+            setSensitivity:{_,_,_ in XCTFail("Unexpected gain edit")},
+            setHoldAction:{_,_,_ in XCTFail("Rendering must not assign Hold")})
+            .frame(width:1320,height:1100)
+        let host = NSHostingView(rootView:view)
+        host.frame = NSRect(x:0,y:0,width:1320,height:1100)
+        let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+        window.contentView = host; host.layoutSubtreeIfNeeded()
+        let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+        host.cacheDisplay(in:host.bounds,to:bitmap)
+        if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+            let url = URL(fileURLWithPath:directory,isDirectory:true)
+            try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+            try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("hold-inspector.png"))
+        }
+        window.contentView = nil
+    }
+
     func testCatalogExposesEveryExistingInputExactlyOnce() {
         let triggers = GesturePane.allCases.flatMap(\.triggers)
         XCTAssertEqual(Set(triggers),Set(GestureTrigger.allCases))
