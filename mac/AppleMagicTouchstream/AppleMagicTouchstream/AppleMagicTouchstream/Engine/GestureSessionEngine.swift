@@ -21,6 +21,7 @@ struct GestureActivationContext: Sendable {
     let frameMovementMM: CGPoint
     let pendingMovementMM: CGPoint
     var acquisitionElapsed: Double = 0
+    var coherentMovementMM: Double? = nil
 }
 
 struct GestureSessionUpdate<Gesture: Hashable & Sendable>: Sendable {
@@ -60,6 +61,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
         var pendingCount = 0
         var travel = CGPoint.zero
         var ownerRule: Int?
+        var activationBaseline: GestureContactMotionTracker.Baseline?
     }
     private let rules: [GestureActivationRule<Gesture>]
     private var contacts = GestureContactMotionTracker()
@@ -78,6 +80,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
     }
     mutating func process<C: Collection>(device: UInt64, time: Double, touches: C,
         enabled: (Gesture) -> Bool,
+        requiresCoherentTranslation: Bool = false,
         activationFilter: (Gesture, GestureActivationContext) -> Bool = { _,_ in true }
     ) -> GestureSessionUpdate<Gesture> where C.Element == OMSRawTouch {
         // Count active contacts separately from validity: malformed input must
@@ -94,7 +97,10 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
             }
         }
         guard let movement else {
-            if activeCount > 0 { sessions[device] = Session(started:time,pendingCount:activeCount) }
+            if activeCount > 0 {
+                sessions[device] = Session(started:time,pendingCount:activeCount,
+                    activationBaseline:requiresCoherentTranslation ? contacts.baseline(device:device) : nil)
+            }
             return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
         }
         var session = sessions[device] ?? Session(started:time)
@@ -108,6 +114,7 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
             // This interval straddles a membership change. Its matched old-contact
             // displacement need not qualify as motion by the newly formed chord.
             session.pendingCount = activeCount; session.travel = .zero
+            session.activationBaseline = requiresCoherentTranslation ? contacts.baseline(device:device) : nil
             if rules.contains(where: { $0.activationCount == activeCount && $0.requiresFullChordMotion && enabled($0.gesture) }) {
                 sessions[device] = session
                 return GestureSessionUpdate(gesture:nil,phase:.pending,millimetres:nil,cancellation:nil)
@@ -115,8 +122,16 @@ struct GestureSessionEngine<Gesture: Hashable & Sendable>: Sendable {
         }
         session.travel.x += movement.x; session.travel.y += movement.y
         let distance = hypot(session.travel.x,session.travel.y)
+        var coherent:Double?
+        if requiresCoherentTranslation, let current = contacts.baseline(device:device) {
+            if let baseline = session.activationBaseline {
+                coherent = GestureContactMotionTracker.coherentTranslationMM(from:baseline,to:current,direction:session.travel)
+            }
+            if coherent == nil { session.activationBaseline = current; coherent = 0 }
+        }
         let context = GestureActivationContext(time:time,activeCount:activeCount,
-            frameMovementMM:movement,pendingMovementMM:session.travel,acquisitionElapsed:time-session.started)
+            frameMovementMM:movement,pendingMovementMM:session.travel,acquisitionElapsed:time-session.started,
+            coherentMovementMM:coherent)
         for index in rules.indices {
             let rule = rules[index]
             if rule.activationCount == activeCount && enabled(rule.gesture) && distance >= rule.minimumMovementMM && activationFilter(rule.gesture,context) {
@@ -143,6 +158,27 @@ struct GestureContactMotionTracker: Sendable {
         var time: Double
     }
     private var sessions: [UInt64: Baseline] = Dictionary(minimumCapacity: 2)
+    func baseline(device:UInt64) -> Baseline? { sessions[device] }
+    /// Translation supported by at least three quarters of the complete chord.
+    /// Project individual displacements onto the candidate direction; one moving
+    /// fingertip cannot turn stationary landing/pressure settling into translation.
+    static func coherentTranslationMM(from old:Baseline,to next:Baseline,direction:CGPoint) -> Double? {
+        guard old.count == next.count, next.count > 0 else { return nil }
+        let length = hypot(direction.x,direction.y)
+        var projections = SIMD16<Double>(repeating:0)
+        for i in 0..<next.count {
+            guard let j = (0..<old.count).first(where:{old.ids[$0] == next.ids[i]}) else { return nil }
+            let dx = (next.x[i]-old.x[j])*160, dy = -(next.y[i]-old.y[j])*114.9
+            let projection = length > 0 ? (dx*direction.x+dy*direction.y)/length : 0
+            var slot = i
+            while slot > 0 && projections[slot-1] > projection {
+                projections[slot] = projections[slot-1]; slot -= 1
+            }
+            projections[slot] = projection
+        }
+        let required = (next.count*3+3)/4
+        return max(0,projections[next.count-required])
+    }
     private let activationCount: Int
     private(set) var frameContinued = false
     private(set) var frameEndedNormally = false
@@ -423,6 +459,9 @@ struct GestureHoldRecognizer {
     }
     private var sessions:[UInt64:Session] = Dictionary(minimumCapacity:2)
     func claimed(device:UInt64) -> Bool { sessions[device]?.fired == true }
+    func canAcquire(device:UInt64) -> Bool {
+        sessions[device]?.blocked != true && sessions[device]?.fired != true
+    }
     mutating func cancel(device:UInt64) {
         var session = sessions[device] ?? Session()
         session.blocked = true; session.fired = false; sessions[device] = session

@@ -2244,6 +2244,7 @@ struct ContentView: View {
                         .frame(maxWidth: .infinity)
                         .disabled(keySelection == nil)
                 }
+                Divider().padding(.vertical,4)
                 VStack(alignment:.leading,spacing:8) {
                     HStack(spacing:8) {
                         Picker("",selection:$actionBuilderTarget) {

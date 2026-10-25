@@ -88,4 +88,22 @@ final class IndependentHandGestureTests:XCTestCase {
         XCTAssertEqual(GestureRepeatIntervalField.committedValue("6000"),5000)
         XCTAssertEqual(GestureRepeatIntervalField.committedValue(" 240 "),240)
     }
+    @MainActor func testMirrorRepeatIntervalCommitUnifiesMixedValuesAndEnablement() throws {
+        for interval in ["20","80"] {
+            var settings = HandGestureSettings()
+            settings.setDirectionalRepeatInterval(80,direction:.up,for:.threeFingerMove,in:.left)
+            settings.setDirectionalRepeatInterval(240,direction:.up,for:.threeFingerMove,in:.right)
+            XCTAssertNil(settings.directionalConfiguredRepeatInterval(.up,for:.threeFingerMove,in:.both))
+            let committed = try XCTUnwrap(GestureRepeatIntervalField.committedValue(interval))
+            settings.setDirectionalRepeatInterval(committed,direction:.up,for:.threeFingerMove,in:.both)
+            XCTAssertEqual(settings.directionalConfiguredRepeatInterval(.up,for:.threeFingerMove,in:.left),committed)
+            XCTAssertEqual(settings.directionalConfiguredRepeatInterval(.up,for:.threeFingerMove,in:.right),committed)
+            settings.setDirectionalRepeat(false,direction:.up,for:.threeFingerMove,in:.left)
+            XCTAssertNil(settings.directionalRepeats(.up,for:.threeFingerMove,in:.both))
+            // Explicit Return must reach this setter even if the numeric value
+            // itself is unchanged; both pads then have the same enabled repeat.
+            settings.setDirectionalRepeatInterval(committed,direction:.up,for:.threeFingerMove,in:.both)
+            XCTAssertEqual(settings.directionalRepeats(.up,for:.threeFingerMove,in:.both),true)
+        }
+    }
 }

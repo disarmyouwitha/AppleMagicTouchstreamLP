@@ -6,6 +6,53 @@ import XCTest
 @testable import GlassToKeyRuntime
 
 final class GestureHoldTests:XCTestCase {
+    func testCapturedShiftHoldSettlingDoesNotBecomeScroll() throws {
+        struct Fixture:Decodable {
+            struct Sample:Decodable { let frame:RuntimeRawFrame; let arrivalTicks:UInt64 }
+            let frames:[Sample]
+        }
+        let url = try XCTUnwrap(Bundle.module.url(forResource:"shift-hold-settling",withExtension:"json",subdirectory:"Fixtures"))
+        let records = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url)).frames
+        let bindings:[Int:GestureAction] = [4:.shortcut(.init(label:"Shift",holdUntilRelease:true))]
+        var recordedGood:[UInt64] = []
+        for useCoherence in [false,true] {
+            var router = TrackpadGestureRouter(), hold = GestureHoldRecognizer()
+            var holds:[UInt64] = [], scrolls:[UInt64] = []
+            for record in records {
+                let f = record.frame, now = Double(record.arrivalTicks)/1e9
+                if hold.claimed(device:f.deviceNumericID) {
+                    _ = hold.observe(device:f.deviceNumericID,time:f.timestamp,now:now,contacts:f.rawTouches,
+                        motionClaimed:false,actions:bindings,thresholds:[4:0.1])
+                    continue
+                }
+                let update = router.recognize(device:f.deviceNumericID,time:f.timestamp,contacts:f.rawTouches,
+                    stationaryFourFingerHold:useCoherence && hold.canAcquire(device:f.deviceNumericID),
+                    enabled:{$0 == .twoFingerMove || $0 == .threeFingerMove || $0 == .fourFingerMove})
+                if update.phase == .began {
+                    XCTAssertEqual(update.gesture,.fourFingerMove)
+                    scrolls.append(f.sequence)
+                }
+                if let key = hold.observe(device:f.deviceNumericID,time:f.timestamp,now:now,contacts:f.rawTouches,
+                    motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),
+                    actions:bindings,thresholds:[4:0.1]) {
+                    XCTAssertEqual(key,4); holds.append(f.sequence)
+                    router.reset(device:f.deviceNumericID)
+                }
+            }
+            for device:UInt64 in [288230377507875157,288230377507812716] {
+                XCTAssertFalse(hold.claimed(device:device))
+            }
+            if useCoherence {
+                XCTAssertTrue(scrolls.isEmpty)
+                XCTAssertEqual(holds.count,14)
+                XCTAssertTrue(Set(recordedGood).isSubset(of:Set(holds)),"Already successful holds must keep their firing frame")
+            } else {
+                XCTAssertEqual(holds.count,7)
+                XCTAssertEqual(scrolls,[45186,45713,45866,46024,46674,47416,47634])
+                recordedGood = holds
+            }
+        }
+    }
     private let actions:[Int:GestureAction] = [1:.primaryClick,2:.secondaryClick,3:.missionControl,4:.volumeUpSmall,5:.showDesktop]
     private func touches(_ count:Int,dx:Float = 0,idOffset:Int32 = 0) -> [OMSRawTouch] {
         (0..<count).map { i in OMSRawTouch(id:Int32(i+1)+idOffset,posX:0.2+Float(i)*0.1+dx,posY:0.5,
@@ -207,6 +254,51 @@ final class GestureHoldTests:XCTestCase {
                     contacts:touches(4,dx:i == 0 ? 0 : dx),motionClaimed:false,actions:actions)
             }
             XCTAssertEqual(result,dx == 0.01 ? 4 : nil) // 1.6 mm settling vs. 3.2 mm motion
+        }
+    }
+    func testCoherentFourFingerMotionWinsWithoutWaitingForHoldDeadline() {
+        for movingFingers in [1,3,4] {
+            var router = TrackpadGestureRouter(), hold = GestureHoldRecognizer()
+            let bindings:[Int:GestureAction] = [4:.missionControl]
+            let initial = touches(4)
+            _ = router.recognize(device:1,time:1,contacts:initial,stationaryFourFingerHold:true,enabled:{$0 == .fourFingerMove})
+            _ = hold.observe(device:1,time:1,now:1,contacts:initial,motionClaimed:false,actions:bindings)
+            let moved = touches(4).enumerated().map { i,t in
+                OMSRawTouch(id:t.id,posX:t.posX+Float(i < movingFingers ? (movingFingers == 1 ? 0.008 : 0.004) : 0),posY:t.posY,
+                    total:t.total,pressure:t.pressure,majorAxis:t.majorAxis,minorAxis:t.minorAxis,
+                    angle:t.angle,density:t.density,state:t.state)
+            }
+            let update = router.recognize(device:1,time:1.011,contacts:moved,
+                stationaryFourFingerHold:hold.canAcquire(device:1),enabled:{$0 == .fourFingerMove})
+            XCTAssertEqual(update.phase,movingFingers == 1 ? .pending : .began)
+            XCTAssertEqual(update.gesture,movingFingers == 1 ? nil : .fourFingerMove)
+            _ = hold.observe(device:1,time:1.011,now:1.011,contacts:moved,
+                motionClaimed:GestureHoldRecognizer.motionClaimsHold(update,directional:false,direction:nil),actions:bindings)
+            if movingFingers == 1 {
+                for i in 1...5 {
+                    let time = 1.011+Double(i)*0.1
+                    let result = hold.observe(device:1,time:time,now:time,contacts:moved,motionClaimed:false,actions:bindings)
+                    XCTAssertEqual(result,i == 5 ? 4 : nil)
+                }
+            } else {
+                XCTAssertFalse(hold.canAcquire(device:1))
+                // Activated scroll keeps the usual partial-lift latch.
+                let continued = router.recognize(device:1,time:1.022,contacts:Array(moved.prefix(1)),
+                    stationaryFourFingerHold:true,enabled:{$0 == .fourFingerMove})
+                XCTAssertEqual(continued.phase,.changed); XCTAssertEqual(continued.gesture,.fourFingerMove)
+            }
+        }
+    }
+    func testFourFingerHoldCompetitionDoesNotChangeMouseOrDragActivation() {
+        for count in [2,3] {
+            var baseline = TrackpadGestureRouter(), competing = TrackpadGestureRouter()
+            for (time,dx) in [(1.0,Float(0)),(1.011,Float(0.004))] {
+                let contacts = touches(count,dx:dx)
+                let enabled:(GestureTrigger)->Bool = {$0 == .twoFingerMove || $0 == .threeFingerMove || $0 == .fourFingerMove}
+                let a = baseline.recognize(device:1,time:time,contacts:contacts,enabled:enabled)
+                let b = competing.recognize(device:1,time:time,contacts:contacts,stationaryFourFingerHold:true,enabled:enabled)
+                XCTAssertEqual(a.gesture,b.gesture); XCTAssertEqual(a.phase,b.phase); XCTAssertEqual(a.millimetres,b.millimetres)
+            }
         }
     }
     func testDirectionalCandidateDoesNotCancelHoldBeforeARealDirection() {

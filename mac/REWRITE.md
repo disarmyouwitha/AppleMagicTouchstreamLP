@@ -1,7 +1,9 @@
 # NEXT:
 =======
-* For anything we can add through the shortcut builder I think we will let it be. Can we give them the ability to name their shortcuts when they add them to the keyboard or shortcut list and we will display that label?
-0. I am getting maybe some accidental scroll when placing my fingers for 4-finger hold (for shifts) shift_hold_accidental_scroll.atpcap
+0. I am getting maybe some accidental scroll (or something) when placing my fingers for 4-finger hold (for shifts) shift_hold_accidental_scroll.atpcap
+1. In each of the "Action builders" (right side) can we put a light <hr> right above the Recognition bubble?
+2. Can we expand the recognizer for "4 Corners" to be a little more linient? <atpcap>
+3. Click typing (typing when I am trying to 2-finger tap) Tricky to distinguish.. lets do our best and brainstorm! <atcap>
 ===
 0. For our direction gestures there should be an behavior dropdown (repeat every ms, repeat with motion)
 1. `Shortcut builder`: "Text" option (that pastes text) / can we encrypt saved texts so only the app can read it?
@@ -26,6 +28,7 @@
 > Middle click and drag	    Mouse3 click or held drag
 > Secondary drag	        Mouse2 down → movement → release
 > Caps Word	                Capitalize the next word, then automatically stop
+> Sequential macros:        Ctrl+X, (then) V, then =
 **LATER:** I can go through and make a touchstream default keymap!! (I will need to hand-set a bunch of default keyboard shortcuts!)
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)

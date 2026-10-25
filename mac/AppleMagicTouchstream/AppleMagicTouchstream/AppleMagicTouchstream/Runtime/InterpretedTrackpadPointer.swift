@@ -610,7 +610,10 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             let three = state.recognizes(.threeFingerMove,device:device)
             let four = state.recognizes(.fourFingerMove,device:device)
             let five = state.recognizes(.fiveFingerMove,device:device)
-            let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
+            let settlingHold = state.holdBindings[device]?[4] != nil
+                && state.holds.canAcquire(device:device) && state.directionals[device]?[.fourFingerMove] == nil
+            let update = state.router.recognize(device:device,time:time,contacts:contacts,
+                stationaryFourFingerHold:settlingHold,enabled:{ trigger in
                 if trigger.isRotation { return GestureTrigger.liveRotationTriggers.contains(trigger) && pinchBindings.action(for:trigger) != .disabled }
                 if trigger.isPinch { return pinchEligible && pinchBindings.action(for:trigger) != .disabled }
                 switch trigger {

@@ -90,6 +90,31 @@ Hold is cancelled only when a direction actually commits, not by the lower-level
 continuous threshold. Pinch/Spread assignments may coexist with Hold, but their
 pages expose only automatic gray Hold/Lift lifecycle cards.
 
+When an eligible four-finger Hold competes with continuous four-finger movement,
+translation activation needs at least three of the four tracked contacts to have
+travelled 0.2 app mm along the candidate direction since the full chord formed.
+The shared contact-motion/session engine computes this projected agreement from
+fixed-size contact baselines. A single settling fingertip cannot claim scroll by
+moving the average. Membership/ID changes rebase this pending evidence. This adds
+no fixed delay and does not raise the post-activation scroll threshold or alter
+acceleration, momentum, partial-lift latching, Force/shape competition, directional
+assignments, or two-/three-finger movement. It applies only while a configured
+four-finger Hold remains eligible; without that competing Hold, the accepted
+ordinary four-finger motion policy remains. The agreement threshold is app tuning,
+not a recovered firmware constant.
+
+`shift_hold_accidental_scroll.atpcap` (SHA-256
+`f0865a1a2a2555f4aec9de20d74af99525f9188bcd219e5091dafee52c42b6c2`)
+contains fourteen four-contact episodes and seven balanced recorded Shift lifetimes.
+Offline arbitration with four-finger held Shift at 100 ms reproduced seven Holds
+and seven premature scroll starts. Agreement gating produces fourteen Holds,
+zero scroll starts, and preserves the original seven successful firing frames.
+Complete four-contact episodes, raw phases/positions/telemetry and both clocks
+are preserved in `Tests/ProductionEngineTests/Fixtures/shift-hold-settling.json`.
+The capture omits current per-hand settings; the 100 ms Shift/scroll assignments
+are explicit regression configuration corroborated by current saved preferences,
+not a claim of complete captured live-state or application event receipt.
+
 Pressure is an explicit override of same-pad movement: a configured Force crossing
 ends that pad's drag, scroll or zoom, fires once, and owns the rest of the cycle.
 Primary clicks/double-clicks are suppressed while another pad owns a drag; unrelated
@@ -128,6 +153,11 @@ finger labels have separate roles.
 | Direction axis dominance | 1.25× competing axis |
 | Minimum committed-turn interval | 80 ms |
 | Positive repeat interval | 20–5000 ms; 80 ms default for volume/brightness |
+
+In Mirror Edit, unequal repeat intervals display an empty field with a Mixed
+placeholder. Return explicitly applies the entered interval to both pads, including
+20 ms and an unchanged numeric value with mixed On/Off states. A valid interval
+also enables repeat on both pads. Empty or invalid drafts do not replace settings.
 
 Five-finger Hold uses the shared recognizer with a bounded acquisition extension,
 not a new latch. A stationary sequence of contact additions may assemble within

@@ -304,6 +304,7 @@ struct TrackpadGestureRouter {
         })
     }
     mutating func recognize<C: Collection>(device: UInt64, time: Double, contacts: C,
+        stationaryFourFingerHold:Bool = false,
         enabled: (GestureTrigger) -> Bool) -> GestureSessionUpdate<GestureTrigger> where C.Element == OMSRawTouch {
         let turn = rotation.process(device:device,time:time,contacts:contacts)
         let pair = pinch.process(device:device,time:time,contacts:contacts,latched:engine.owner(device:device)?.isPinch == true)
@@ -328,6 +329,7 @@ struct TrackpadGestureRouter {
                 && $0.posX.isFinite && $0.posY.isFinite
         }
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
+            requiresCoherentTranslation:stationaryFourFingerHold && activeCount == 4,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)
                 let translation = hypot(context.pendingMovementMM.x,context.pendingMovementMM.y)
@@ -338,6 +340,9 @@ struct TrackpadGestureRouter {
                 if rotationWins { return false }
                 if trigger.isPinch { return !rotationCandidate && directionEligible && trigger == direction && pair != nil && separation >= 0.6 && separation > translation*dominance }
                 if trigger.isContinuous && !trigger.isPinch && pinchEnabled && separation > translation*dominance { return false }
+                if trigger == .fourFingerMove && stationaryFourFingerHold {
+                    return (context.coherentMovementMM ?? 0) >= 0.2
+                }
                 if trigger == .threeFingerMove {
                     if fourthLanding && context.acquisitionElapsed <= Self.chordLandingWindow { return false }
                     return ThreeFingerRowChord.accepts(contacts)

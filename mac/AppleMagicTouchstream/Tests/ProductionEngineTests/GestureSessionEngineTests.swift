@@ -11,15 +11,23 @@ final class GestureSessionEngineTests: XCTestCase {
         }
         let url = try XCTUnwrap(Bundle.module.url(forResource:"four-finger-scroll-landing",withExtension:"json",subdirectory:"Fixtures"))
         let fixture = try JSONDecoder().decode(Fixture.self,from:Data(contentsOf:url))
-        for sample in fixture.cases {
+        for sample in fixture.cases { for holdAssigned in [false,true] {
             var router = TrackpadGestureRouter(), starts = [UInt64]()
             for f in sample.frames {
-                let update = router.update(device:f.deviceNumericID,time:f.timestamp,contacts:f.rawTouches,mouse:true,scroll:true,drag:true)
+                let update = router.recognize(device:f.deviceNumericID,time:f.timestamp,contacts:f.rawTouches,
+                    stationaryFourFingerHold:holdAssigned,
+                    enabled:{$0 == .twoFingerMove || $0 == .threeFingerMove || $0 == .fourFingerMove})
                 if update.phase == .began { starts.append(f.sequence) }
                 if update.gesture != nil { XCTAssertEqual(update.gesture,.fourFingerMove,sample.name) }
             }
-            XCTAssertEqual(starts,[sample.beganSequence],sample.name)
-        }
+            if !holdAssigned { XCTAssertEqual(starts,[sample.beganSequence],sample.name) }
+            else {
+                XCTAssertEqual(starts.count,1,sample.name)
+                let before = try XCTUnwrap(sample.frames.first(where:{$0.sequence == sample.beganSequence}))
+                let after = try XCTUnwrap(sample.frames.first(where:{$0.sequence == starts.first}))
+                XCTAssertLessThanOrEqual(after.timestamp-before.timestamp,0.05,sample.name)
+            }
+        }}
     }
     // Deliberately unrelated to mouse/scroll: adding an owner needs no engine branch.
     private enum Gesture: Hashable, Sendable { case pan, rotate, scrub }

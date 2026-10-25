@@ -1095,7 +1095,7 @@ struct GestureAssignmentWorkspace: View {
                 .accessibilityLabel("Repeat while held")
                 .accessibilityValue(repeatEnabled.map { $0 ? "On" : "Off" } ?? "Mixed")
                 .help(repeatOff ? "Enable repeat" : "Disable repeat")
-                GestureRepeatIntervalField(value:settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope) ?? 20,
+                GestureRepeatIntervalField(value:settings.directionalConfiguredRepeatInterval(direction,for:selected,in:editingScope),
                     enabled:!repeatOff) { setDirectionalRepeatInterval($0,direction,selected,editingScope) }
                     .id("\(selected.rawValue).\(direction.rawValue).\(editingScope.rawValue)")
                 Text("ms while held").font(.callout)
@@ -1276,7 +1276,7 @@ private struct TwoHandChordExample:View {
 
 /// Keep incomplete typing local; clamp only on Return or leaving the field.
 struct GestureRepeatIntervalField:View {
-    let value:Double
+    let value:Double?
     let enabled:Bool
     let commit:(Double)->Void
     @State private var draft = ""
@@ -1285,23 +1285,26 @@ struct GestureRepeatIntervalField:View {
         guard let number = Double(text.trimmingCharacters(in:.whitespacesAndNewlines)), number.isFinite else { return nil }
         return min(5000,max(20,number.rounded()))
     }
-    private func apply() {
-        guard let result = Self.committedValue(draft) else { draft = String(Int(value)); return }
+    private func sync() { draft = value.map { String(Int($0)) } ?? "" }
+    private func apply(explicit:Bool = false) {
+        guard let result = Self.committedValue(draft) else { sync(); return }
         draft = String(Int(result))
-        if result != value { commit(result) }
+        // Return is an explicit assignment, including when repeat enablement is
+        // mixed but the configured interval happens to match on both pads.
+        if explicit || result != value { commit(result) }
     }
     var body:some View {
-        TextField("20",text:$draft)
+        TextField(value == nil ? "Mixed" : "20",text:$draft)
             .textFieldStyle(.plain).font(.system(size:11).monospacedDigit())
             .multilineTextAlignment(.center).padding(.vertical,3).frame(width:32.5)
             .background(RoundedRectangle(cornerRadius:5).fill(Color(nsColor:.textBackgroundColor)))
             .overlay(RoundedRectangle(cornerRadius:5).strokeBorder(Color.primary.opacity(0.15),lineWidth:1))
             .focused($focused).disabled(!enabled)
-            .onAppear { draft = String(Int(value)) }
-            .onSubmit { apply() }
+            .onAppear { sync() }
+            .onSubmit { apply(explicit:true) }
             .onChange(of:focused) { value in if !value && enabled { apply() } }
-            .onChange(of:value) { value in if !focused { draft = String(Int(value)) } }
-            .onChange(of:enabled) { enabled in if !enabled { focused = false; draft = String(Int(value)) } }
+            .onChange(of:value) { _ in if !focused { sync() } }
+            .onChange(of:enabled) { enabled in if !enabled { focused = false; sync() } }
             .accessibilityLabel("Repeat interval in milliseconds")
     }
 }
