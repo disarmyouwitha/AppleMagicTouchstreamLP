@@ -9,6 +9,7 @@
 2. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 3. After we get the GUI set up: Merge/Cleanup Action menus (They are all different)
 ===
+* Print `Cheat Sheet` (Generate .html page or whatever so user can print their gestures out like the Quickstart Guide, lol)
 
 
 `AppleMagicTouchstream`:
