@@ -3,6 +3,7 @@
 =======
 1. Maybe instead of the 1 LONG "Move Pointer" we have up,down,left,right and middle boxes.. @middle_movement_button Middle is a <Movement> selector button and if selected it grays out the other options (up,down,left,right) Vice-versa.. if an up,down,left,or right option is set movement is grayed out. *or highlighted red? hm, help me out!
 > One implementation detail: we currently recognize continuous movement, but don’t yet have independent directional assignments or their repeat behavior. So the cross is a good GUI direction, and making those outer cards functional would be our next gesture-engine addition.
+2. When a directional button is selected, we will need a "Repeat" option/checkbox (cool loop/broken loop gui instead of checkbox?)
 ===
 2. Occasionally I can't 2-finger tap click.. Like earlier I was doing a 3-finger drag and it got "skippy" or laggy and then I couldn't 2-finger tap after that, I had to use a mouse to click the button before I could 2F tap again. Do you think the Gesture isn't releasing? Is there a queue that is getting full / dropped? What do you think is happening? @2finger_tap_cursor_error (In this case I repeatedly observed this after "holding s" which fires my CMD+S shortcut)
 ===

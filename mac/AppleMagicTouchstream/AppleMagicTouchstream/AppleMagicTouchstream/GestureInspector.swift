@@ -588,8 +588,9 @@ struct GestureAssignmentWorkspace: View {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers) { assignmentCard($0) }
                 }
-            } else {
+            } else if pane.triggers.contains(where: \.isContinuous) {
                 ForEach(pane.triggers.filter { $0.isContinuous }) { movementCross($0) }
+            } else {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers.filter { !$0.isContinuous }) { assignmentCard($0) }
                 }
@@ -602,9 +603,13 @@ struct GestureAssignmentWorkspace: View {
             Text("Use continuous movement or separate directional actions.")
                 .font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
-                Color.clear.frame(height:1)
+                if let tap = pane.triggers.first(where:{ !$0.isContinuous && $0.forceCount == nil }) {
+                    assignmentCard(tap,compact:true)
+                } else { Color.clear.frame(height:1) }
                 movementCard(trigger,direction:.up)
-                Color.clear.frame(height:1)
+                if let force = pane.triggers.first(where:{ $0.forceCount != nil }) {
+                    assignmentCard(force,compact:true)
+                } else { Color.clear.frame(height:1) }
                 movementCard(trigger,direction:.left)
                 movementCard(trigger,direction:nil)
                 movementCard(trigger,direction:.right)
@@ -649,19 +654,19 @@ struct GestureAssignmentWorkspace: View {
         .accessibilityHint("Select to edit and switch movement mode.")
     }
 
-    private func assignmentCard(_ trigger:GestureTrigger) -> some View {
+    private func assignmentCard(_ trigger:GestureTrigger,compact:Bool = false) -> some View {
         let assigned = settings.action(trigger,in:editingScope)
         return Button { selected = trigger; selectedDirection = nil } label: {
             VStack(alignment:.leading,spacing:10) {
                 HStack {
                     Image(systemName:trigger.assignmentSymbol).foregroundStyle(.secondary)
-                    Text(trigger.assignmentTitle).font(.callout).foregroundStyle(.secondary)
+                    Text(trigger.assignmentTitle).font(compact ? .caption : .callout).foregroundStyle(.secondary)
                     Spacer(minLength:0)
                 }
-                Text(assigned?.title ?? "Mixed").font(.system(size:17,weight:.medium)).fixedSize(horizontal:false,vertical:true)
+                Text(assigned?.title ?? "Mixed").font(.system(size:compact ? 16 : 17,weight:.medium)).fixedSize(horizontal:false,vertical:true)
                 Text(trigger.behavior(for:assigned)).font(.caption).foregroundStyle(.secondary)
             }
-            .padding(18).frame(maxWidth:.infinity,minHeight:112,alignment:.topLeading)
+            .padding(compact ? 12 : 18).frame(maxWidth:.infinity,minHeight:compact ? 106 : 112,alignment:.topLeading)
             .background(selected == trigger ? Color.accentColor.opacity(0.07) : Color(nsColor:.controlBackgroundColor),in:RoundedRectangle(cornerRadius:10))
             .overlay(RoundedRectangle(cornerRadius:10).stroke(selected == trigger ? Color.accentColor : Color.primary.opacity(0.12),lineWidth:1))
             .contentShape(RoundedRectangle(cornerRadius:10))

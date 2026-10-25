@@ -591,7 +591,9 @@ old/new subscribers; both failed against the previous single reusable AsyncStrea
 Two-, three- and four-finger movement use Up/Down/Left/Right cards around a center
 Movement card. Continuous and Directional are mutually exclusive modes per input
 and per hand. Active mode uses an accent tint; inactive cards are muted but remain
-clickable to switch. Tap and Force Click remain separate below the cross.
+clickable to switch. Tap and Force Click occupy the top-left and top-right cells beside Up, with
+equal column widths. They remain independent of the movement mode. Missing
+tap inputs (such as four-finger tap) leave that cell empty.
 
 Selecting an outer card selects directional mode; selecting the center restores
 continuous mode. Choosing a direction's Action also selects directional mode.

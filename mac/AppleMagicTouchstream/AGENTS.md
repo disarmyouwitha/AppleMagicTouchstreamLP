@@ -209,7 +209,8 @@ enable, and does not add coordinated two-pad recognition. This supersedes the
 Left/Right-only editing UI restriction; see GESTURE_ENGINE.md.
 
 User authorized a Movement cross editor GUI stage: center continuous action and
-four direction cards with mutually exclusive saved modes. Directions can save
+four direction cards with mutually exclusive saved modes. Put independent Tap
+and Force Click cards beside Up in the equal-width top row when those inputs exist. Directions can save
 mouse/Apple shortcut/small-step volume/brightness actions, but direction recognition,
 dispatch and motion-based repeat remain unimplemented for a later pass. Mark that
 clearly. Directional mode suppresses that input's continuous output without erasing
