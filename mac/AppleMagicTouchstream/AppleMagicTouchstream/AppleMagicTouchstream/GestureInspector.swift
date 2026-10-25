@@ -214,7 +214,9 @@ struct GestureChordIcon: View {
     /// Use the same anatomical palette as live contacts for every example.
     private func contactColors(index:Int) -> (fill:Color,outline:Color) {
         let fingers = gesture.activeFingers.sorted()
-        let fingerID = fingers.indices.contains(index) ? Int32(fingers[index]+1) : 0
+        // Four corners uses two hands on one pad: Index/Thumb on each side.
+        let fingerID:Int32 = gesture == .fourCorners ? (index.isMultiple(of:2) ? 2 : 1)
+            : fingers.indices.contains(index) ? Int32(fingers[index]+1) : 0
         let anatomical = Color(nsColor:AnatomicalFingerPalette.color(fingerID:fingerID))
         return (anatomical,anatomical)
     }
@@ -1179,7 +1181,9 @@ private struct TwoHandChordExample:View {
                         let x = corner ? (hand == 0 ? rect.minX+10 : rect.maxX-10)
                             : rect.midX+(hand == 0 ? -fingerOffset : fingerOffset)
                         let y = corner ? (finger == 0 ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
-                        let color:Color = corner ? (finger == 0 ? .blue : .orange) : [.blue,.green,.purple,.pink][finger]
+                        let color:Color = corner
+                            ? Color(nsColor:AnatomicalFingerPalette.color(fingerID:finger == 0 ? 2 : 1))
+                            : [.blue,.green,.purple,.pink][finger]
                         let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
                         contacts.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
                         contacts.stroke(dot,with:.color(color),lineWidth:1.2)
