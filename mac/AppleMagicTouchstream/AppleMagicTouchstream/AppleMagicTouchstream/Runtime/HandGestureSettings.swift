@@ -42,7 +42,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         }
     }
     var allowedActions: [GestureAction] {
-        if self == .fourCornersTap { return TwoHandGestureSettings.allowedActions }
+        if self == .fourCornersTap { return [.disabled] }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if forceCount != nil || self == .fourFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.smallStepActions
@@ -122,7 +122,7 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
         get {
             switch trigger {
             case .fourFingerTap:return fourFingerTap ?? .disabled
-            case .fourCornersTap:return fourCornersTap ?? .disabled
+            case .fourCornersTap:return .disabled // Decode-only legacy Tap assignment.
             case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
                 return spreadActions?[trigger.rawValue] ?? self[GestureTrigger.pinch(count:trigger.pinchCount!)!]
             case .twoFingerPinch: return twoFingerPinch ?? .zoom
@@ -239,8 +239,9 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     }
     static let thumbHoldKey = 6, cornersHoldKey = 7
     static func holdActions(for key:Int) -> [GestureAction] { key == cornersHoldKey ? TwoHandGestureSettings.allowedActions : holdAllowedActions }
-    func holdAvailable(count:Int) -> Bool { (1...7).contains(count) }
+    func holdAvailable(count:Int) -> Bool { (2...7).contains(count) }
     func holdAction(count:Int) -> GestureAction {
+        guard holdAvailable(count:count) else { return .disabled }
         let action = holdActions?[String(count)] ?? (count == Self.cornersHoldKey ? .openConfig : .disabled)
         return Self.holdActions(for:count).contains(action) ? action : .disabled
     }
@@ -481,6 +482,7 @@ enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
         switch self { case .fourCorners:return "4 corners"; case .threeFingers:return "3 fingers per hand"; case .fourFingers:return "4 fingers per hand" }
     }
     var count:Int { self == .fourCorners ? 2 : self == .threeFingers ? 3 : 4 }
+    var phases:[TwoHandPhase] { self == .fourCorners ? [.hold] : TwoHandPhase.allCases }
     var holdDuration:Double { self == .fourCorners ? 1 : 0.5 }
     static let recognitionOrder:[Self] = [.fourCorners,.threeFingers,.fourFingers]
 }
@@ -507,6 +509,7 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
     var assignments:[String:GestureAction] = [:]
     static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick]+GestureAction.oneShotActions
     func action(_ trigger:TwoHandTrigger) -> GestureAction {
+        guard trigger.chord != .fourCorners || trigger.phase == .hold else { return .disabled }
         let value = assignments[trigger.key] ?? (trigger.chord == .fourCorners && trigger.phase == .hold ? .openConfig : .disabled)
         return Self.allowedActions.contains(value) ? value : .disabled
     }
@@ -514,7 +517,7 @@ struct TwoHandGestureSettings:Equatable,Codable,Sendable {
         action(.init(chord:chord,phase:.tap)) != .disabled || action(.init(chord:chord,phase:.hold)) != .disabled
     }
     mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
-        guard Self.allowedActions.contains(action) else { return }
+        guard (trigger.chord != .fourCorners || trigger.phase == .hold), Self.allowedActions.contains(action) else { return }
         assignments[trigger.key] = action
     }
 }

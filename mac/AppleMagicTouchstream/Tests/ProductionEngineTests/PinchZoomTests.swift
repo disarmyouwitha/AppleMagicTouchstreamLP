@@ -323,7 +323,7 @@ extension PinchZoomTests {
             for phase in [GestureSessionPhase.pending,.changed,.ended,.cancelled] {
                 XCTAssertNil(plan.events(phase:phase))
             }
-            for trigger in GestureTrigger.allCases where !trigger.isContinuous || trigger.isPinch {
+            for trigger in GestureTrigger.allCases where trigger != .fourCornersTap && (!trigger.isContinuous || trigger.isPinch) {
                 var settings = HandGestureSettings()
                 XCTAssertTrue(trigger.allowedActions.contains(action))
                 XCTAssertTrue(settings.setAction(action,for:trigger,in:.both))

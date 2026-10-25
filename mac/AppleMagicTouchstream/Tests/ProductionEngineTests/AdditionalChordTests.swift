@@ -117,14 +117,14 @@ final class AdditionalChordTests:XCTestCase {
         let up = engine.process(now:2.25,contacts:[OMSRawTouch](),settings:settings)
         XCTAssertTrue(up.reserved); XCTAssertNil(up.trigger); XCTAssertFalse(engine.ownsCycle)
         XCTAssertTrue(engine.process(now:3,contacts:corners,settings:settings).began)
-        XCTAssertEqual(engine.process(now:3.15,contacts:[OMSRawTouch](),settings:settings).trigger?.phase,.tap)
+        XCTAssertNil(engine.process(now:3.15,contacts:[OMSRawTouch](),settings:settings).trigger)
     }
-    func testCornerTapPartialLiftAndNoHoldOnDeadlineLift() {
+    func testCornerPartialLiftCannotTapOrHoldOnDeadlineLift() {
         let settings = cornerSettings()
         var engine = SinglePadCornersEngine()
         _ = engine.process(now:1,contacts:corners,settings:settings)
         _ = engine.process(now:1.1,contacts:Array(corners.prefix(2)),settings:settings)
-        XCTAssertEqual(engine.process(now:1.15,contacts:[OMSRawTouch](),settings:settings).trigger?.phase,.tap)
+        XCTAssertNil(engine.process(now:1.15,contacts:[OMSRawTouch](),settings:settings).trigger)
         _ = engine.process(now:2,contacts:corners,settings:settings)
         for i in 1...9 { _ = engine.process(now:2+Double(i)*0.1,contacts:corners,settings:settings) }
         XCTAssertNil(engine.process(now:3,contacts:Array(corners.prefix(3)),settings:settings).trigger)
@@ -231,5 +231,37 @@ extension AdditionalChordTests {
         XCTAssertFalse(tap.process(device:1,time:1.1,contacts:four))
         XCTAssertTrue(tap.process(device:1,time:1.15,contacts:[OMSRawTouch]()))
         XCTAssertFalse(tap.process(device:1,time:1.16,contacts:[OMSRawTouch]()))
+    }
+}
+
+
+extension AdditionalChordTests {
+    func testRetiredOneFingerHoldAndCornerTapsAreInertEvenInImportedSettings() throws {
+        var hand = PerHandGestureSettings()
+        hand.holdActions = ["1":.missionControl]
+        hand.bindings.fourCornersTap = .primaryClick
+        XCTAssertFalse(hand.holdAvailable(count:1))
+        XCTAssertEqual(hand.holdAction(count:1),.disabled)
+        XCTAssertNil(hand.liveHoldActions[1])
+        XCTAssertEqual(hand.bindings.action(for:.fourCornersTap),.disabled)
+        hand.setHoldAction(.secondaryClick,count:1)
+        XCTAssertEqual(hand.holdAction(count:1),.disabled)
+        var both = TwoHandGestureSettings()
+        both.assignments["fourCorners.tap"] = .primaryClick
+        XCTAssertEqual(both.action(.init(chord:.fourCorners,phase:.tap)),.disabled)
+        XCTAssertEqual(TwoHandChord.fourCorners.phases,[.hold])
+        XCTAssertEqual(TwoHandChord.threeFingers.phases,[.tap,.hold])
+        let decoded = try JSONDecoder().decode(PerHandGestureSettings.self,from:JSONEncoder().encode(hand))
+        XCTAssertEqual(decoded.holdAction(count:1),.disabled)
+        XCTAssertEqual(decoded.bindings.action(for:.fourCornersTap),.disabled)
+        var engine = SinglePadCornersEngine()
+        _ = engine.process(now:1,contacts:corners,settings:decoded.singlePadCorners)
+        XCTAssertNil(engine.process(now:1.1,contacts:[OMSRawTouch](),settings:decoded.singlePadCorners).trigger)
+        var paired = TwoHandGestureEngine()
+        let left = Array(corners.prefix(2)), right = Array(corners.suffix(2))
+        _ = paired.process(leftHand:true,now:1,contacts:left,settings:both)
+        _ = paired.process(leftHand:false,now:1.01,contacts:right,settings:both)
+        XCTAssertNil(paired.process(leftHand:true,now:1.1,contacts:[OMSRawTouch](),settings:both).trigger)
+        XCTAssertNil(paired.process(leftHand:false,now:1.11,contacts:[OMSRawTouch](),settings:both).trigger)
     }
 }

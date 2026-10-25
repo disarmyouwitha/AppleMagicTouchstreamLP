@@ -26,6 +26,7 @@ final class GestureWorkspaceTests: XCTestCase {
 
     func testHoldEditingUsesPageRegardlessOfMovementOrPinchAssignments() {
         var settings = HandGestureSettings()
+        XCTAssertFalse(GestureAssignmentWorkspace.holdEditable(pane:.oneFinger,settings:settings,scope:.left))
         XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
         settings.editMovement(.twoFingerMove,mode:.directional,in:.left)
         XCTAssertTrue(GestureAssignmentWorkspace.holdEditable(pane:.twoFingers,settings:settings,scope:.left))
@@ -88,7 +89,7 @@ final class GestureWorkspaceTests: XCTestCase {
 
     func testBothWorkspaceRendersAllCoordinatedAssignmentsWithoutInput() throws {
         for chord in TwoHandChord.allCases {
-            for phase in TwoHandPhase.allCases {
+            for phase in chord.phases {
                 let view = GestureAssignmentWorkspace(settings:.init(),initialHand:.both,
                     initialTwoHandChord:chord,initialTwoHandPhase:phase,
                     status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected single-pad edit")},

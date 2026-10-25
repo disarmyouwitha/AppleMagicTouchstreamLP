@@ -33,7 +33,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
             return "Choose an action for pinching and spreading. Both directions require a recognized thumb to begin."
         case .threeFingers: return "Choose actions for three-finger tapping, movement and force clicking."
         case .fourFingers: return "Choose actions for four-finger tapping, movement and force clicking."
-        case .fourCorners:return "One contact in each outer corner of this trackpad. Tap or hold all four corners."
+        case .fourCorners:return "One contact in each outer corner of this trackpad. Hold all four corners for one second."
         case .thumbTwo: return "Choose independent tap and hold actions for a spread thumb and two fingertips."
         }
     }
@@ -423,7 +423,7 @@ extension GestureTrigger {
         if isPinch { return "A recognized thumb is required to begin. Once active, the session continues through added or lifted fingers until all-up." }
         if forceCount != nil { return "Activates at P ≥ 130 on any one contact, using the current contact count. Fires once until all fingers lift." }
         switch self {
-        case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Tap within 0.5 seconds; lift skew 150 ms and movement allowance 2 mm. Hold fires after 1 second and consumes Tap."
+        case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Hold fires after 1 second; movement allowance is 2 mm. Lift all fingers to rearm."
         case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 0.5 seconds."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
         case .twoFingerTap,.threeFingerTap,.fourFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
@@ -501,9 +501,9 @@ struct GestureAssignmentWorkspace: View {
         self.setDirectionalRepeat = setDirectionalRepeat
         self.setHoldAction = setHoldAction; self.holdStatus = holdStatus
         self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
-        _selectedHold = State(initialValue:initialHold && Self.holdEditable(pane:initialPane,settings:settings,scope:initialHand))
+        _selectedHold = State(initialValue:(initialHold || initialPane == .fourCorners) && Self.holdEditable(pane:initialPane,settings:settings,scope:initialHand))
         _editingHand = State(initialValue:initialHand)
-        _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandPhase)
+        _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandChord.phases.contains(initialTwoHandPhase) ? initialTwoHandPhase : .hold)
         _pane = State(initialValue:initialPane)
         let first = initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0]
         _selectedDirection = State(initialValue:initialDirection ?? Self.defaultDirection(for:first,settings:settings,scope:initialHand))
@@ -646,7 +646,7 @@ struct GestureAssignmentWorkspace: View {
 
     private func navigationItem(_ item:GesturePane) -> some View {
         Button {
-            selectedHold = false
+            selectedHold = item == .fourCorners
             pane = item
             let first = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
             selected = first
@@ -676,22 +676,21 @@ struct GestureAssignmentWorkspace: View {
             HStack(alignment:.top) {
                 VStack(alignment:.leading,spacing:6) {
                     Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
-                    Text("Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
-                }
-                Spacer(minLength:8)
+                    Text(twoHandChord == .fourCorners ? "Coordinated Hold" : "Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
+                    Text(twoHandChord == .fourCorners
+                         ? "Left pad: top-left + bottom-left. Right pad: top-right + bottom-right. Hold all four corners for one second to open Config by default."
+                         : "Use \(twoHandChord.count) fingers on each pad (\(twoHandChord.count*2) total). Both hands form one gesture; this does not mirror independent assignments.")
+                        .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true).padding(.top,10)
+                }.frame(maxWidth:.infinity,alignment:.leading)
                 TwoHandChordExample(chord:twoHandChord,phase:twoHandPhase)
             }
-            Text(twoHandChord == .fourCorners
-                 ? "Left pad: top-left + bottom-left. Right pad: top-right + bottom-right. Hold all four corners for one second to open Config by default."
-                 : "Use \(twoHandChord.count) fingers on each pad (\(twoHandChord.count*2) total). Both hands form one gesture; this does not mirror independent assignments.")
-                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
     private var twoHandAssignments:some View {
         VStack(alignment:.leading,spacing:16) {
             Text("ASSIGNMENTS").font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
-                ForEach(TwoHandPhase.allCases) { phase in
+                ForEach(twoHandChord.phases) { phase in
                     let trigger = TwoHandTrigger(chord:twoHandChord,phase:phase)
                     let selected = twoHandPhase == phase
                     Button { twoHandPhase = phase } label: {
@@ -707,7 +706,9 @@ struct GestureAssignmentWorkspace: View {
                     }.buttonStyle(.plain)
                 }
             }
-            Text("A hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
+            Text(twoHandChord == .fourCorners
+                 ? "Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture."
+                 : "A hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
@@ -739,15 +740,15 @@ struct GestureAssignmentWorkspace: View {
                 VStack(alignment:.leading,spacing:6) {
                     Text(pane.group).font(.system(size:25,weight:.semibold))
                     Text(pane.title).font(.callout).foregroundStyle(.secondary)
-                }
-                Spacer()
+                    ViewThatFits(in:.horizontal) {
+                        HStack(spacing:8) { metadata }
+                        VStack(alignment:.leading,spacing:8) { metadata }
+                    }.padding(.top,10)
+                    Text(pane.summary).font(.callout).foregroundStyle(.secondary)
+                        .fixedSize(horizontal:false,vertical:true).padding(.top,4)
+                }.frame(maxWidth:.infinity,alignment:.leading)
                 GestureChordIcon(gesture:pane,trigger:selected,direction:selectedDirection,holding:selectedHold).padding(.leading,8)
             }
-            ViewThatFits(in:.horizontal) {
-                HStack(spacing:8) { metadata }
-                VStack(alignment:.leading,spacing:8) { metadata }
-            }
-            Text(pane.summary).font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
     @ViewBuilder private var metadata: some View {
@@ -761,8 +762,10 @@ struct GestureAssignmentWorkspace: View {
 
     private var assignments: some View {
         VStack(alignment:.leading,spacing:12) {
-            Text(pane.isPinchSection ? "SCALE ASSIGNMENTS" : "ASSIGNMENTS")
-                .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
+            ViewThatFits(in:.horizontal) {
+                HStack(spacing:12) { assignmentHeading }
+                VStack(alignment:.leading,spacing:6) { assignmentHeading }
+            }
             if pane.isPinchSection {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
                     ForEach(pane.triggers) { assignmentCard($0) }
@@ -771,17 +774,23 @@ struct GestureAssignmentWorkspace: View {
                 ForEach(pane.triggers.filter { $0.isContinuous }) { movementCross($0) }
             } else {
                 LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
-                    ForEach(pane.triggers.filter { !$0.isContinuous }) { assignmentCard($0) }
+                    ForEach(pane.triggers.filter { !$0.isContinuous && $0 != .fourCornersTap }) { assignmentCard($0) }
                     if pane == .thumbTwo || pane == .fourCorners { holdCard }
                 }
             }
         }
     }
+    @ViewBuilder private var assignmentHeading:some View {
+        Text(pane.isPinchSection ? "SCALE ASSIGNMENTS" : "ASSIGNMENTS")
+            .font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
+        if pane.triggers.contains(where: \.isContinuous) {
+            Text("Use continuous movement or separate directional actions.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
     private func movementCross(_ trigger:GestureTrigger) -> some View {
         let mode = settings.movementMode(trigger,in:editingScope)
         return VStack(alignment:.leading,spacing:10) {
-            Text("Use continuous movement or separate directional actions.")
-                .font(.caption).foregroundStyle(.secondary)
             LazyVGrid(columns:Array(repeating:GridItem(.flexible(minimum:0),spacing:8),count:3),spacing:8) {
                 if let tap = pane.triggers.first(where:{ !$0.isContinuous && $0.forceCount == nil }) {
                     assignmentCard(tap,compact:true)
@@ -911,8 +920,8 @@ struct GestureAssignmentWorkspace: View {
         VStack(alignment:.leading,spacing:10) {
             Text("SESSION LIFETIME").font(.caption).fontWeight(.medium).foregroundStyle(.secondary)
             HStack(alignment:.top,spacing:12) {
-                if pane.isPinchSection {
-                    lifetimeCard("Hold",symbol:"pause",detail:"No separate hold gesture is available for this chord.")
+                if pane.isPinchSection || pane == .oneFinger {
+                    lifetimeCard("Hold",symbol:"pause",detail:"No separate gesture is available for this.")
                 } else if !pane.triggers.contains(where: \.isContinuous) && pane != .thumbTwo && pane != .fourCorners { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
             }.fixedSize(horizontal:false,vertical:true)

@@ -1090,3 +1090,19 @@ including native Dock requests for Mission Control/App Exposé and balanced
 keyboard/media events for the other system actions. Do not route Dock actions
 through a CGEvent-only tap path. Existing tap timing, per-pad/all-up ownership,
 output permissions, drag-button protections and settings export stay unchanged.
+
+### Hold-only corner pages and one-finger lifecycle (2026-10-25)
+
+One-finger **gesture Hold** is unavailable; its gray lifecycle card says “No
+separate gesture is available for this.” Saved/imported count-1 gesture holds
+are inert. This does not change keyboard key Hold/Force instead of hold.
+
+Single-pad and Both **4 Corners** expose only Hold. A valid stationary chord still
+fires once after 1 second, defaults to Open Config, and owns the cycle through
+all-up. Early release produces no Tap. Old corner Tap fields remain decodable
+and round-trip as legacy data but cannot dispatch; other Both Tap gestures and
+ordinary four-finger Tap are unchanged.
+
+Page badges and descriptions now sit underneath the title beside the animation,
+removing the redundant full-width text row. Movement guidance shares the
+Assignments heading row and stacks when space is tight.

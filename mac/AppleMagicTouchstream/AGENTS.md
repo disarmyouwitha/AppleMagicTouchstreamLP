@@ -352,3 +352,10 @@ Release and leave closed for hardware tests.
 User authorizes four-finger Tap's System actions to match Force Click. Reuse the
 shared discrete dispatcher, including Dock requests for Mission Control/App
 Exposé; preserve tap recognition, defaults, gates and portable assignments.
+
+User disables one-finger gesture Hold (keyboard key holds remain unchanged) and
+retires both single-pad and coordinated 4 Corners Tap. Keep old serialized fields
+decodable but inert, show one-finger Hold as an automatic unavailable lifecycle
+card, and expose only Hold on both corner pages. Corner Hold remains 1 s with
+Open Config by default. Page metadata/descriptions sit beside the animation;
+movement guidance sits alongside Assignments with a narrow-width fallback.

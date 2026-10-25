@@ -2,6 +2,7 @@
 =======
 0. 1 Finger Hold should be disabled, "No seperate gesture is available for this."
 1. I want to remove "4 Corners" taps, for "Both" and per-pad pages leave only Holds for now.
+> Maybe It is under "1 Finger" called `Drawing` and we have some presets (Expand to offer `Custom` tomorrow)
 2. Can we clean up the GUI page headers a bit? I left notes in this image @GUI_CLEANUP
 ===
 7. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 

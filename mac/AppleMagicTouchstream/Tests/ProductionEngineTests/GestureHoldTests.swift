@@ -20,7 +20,7 @@ final class GestureHoldTests:XCTestCase {
         return value
     }
     func testHoldAvailabilityIncludesContinuousMovementAndPreservesSavedHold() {
-        for count in 1...5 {
+        for count in 2...5 {
             var value = ready(count)
             value.setHoldAction(.missionControl,count:count)
             XCTAssertTrue(value.holdAvailable(count:count))
