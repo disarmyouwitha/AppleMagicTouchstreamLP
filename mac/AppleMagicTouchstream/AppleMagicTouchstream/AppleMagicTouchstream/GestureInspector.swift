@@ -473,8 +473,17 @@ struct GestureAssignmentWorkspace: View {
         _editingHand = State(initialValue:initialHand)
         _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandPhase)
         _pane = State(initialValue:initialPane)
-        _selectedDirection = State(initialValue:initialDirection)
-        _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
+        let first = initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0]
+        _selectedDirection = State(initialValue:initialDirection ?? Self.defaultDirection(for:first,settings:settings,scope:initialHand))
+        _selected = State(initialValue:first)
+    }
+
+    static func defaultDirection(for trigger:GestureTrigger,settings:HandGestureSettings,scope:GestureHandScope) -> GestureMovementDirection? {
+        GestureDirectionalAssignments.triggers.contains(trigger) && settings.movementMode(trigger,in:scope) == .directional ? .up : nil
+    }
+    private func restoreMovementSelection() {
+        guard editingHand != .both, selected.isContinuous else { return }
+        selectedDirection = Self.defaultDirection(for:selected,settings:settings,scope:editingScope)
     }
 
     private var editingScope: GestureHandScope { mirrorEdits ? .both : editingHand }
@@ -525,6 +534,8 @@ struct GestureAssignmentWorkspace: View {
         }
         .background(Color(nsColor:.windowBackgroundColor))
         .frame(maxWidth:.infinity,maxHeight:.infinity,alignment:.topLeading)
+        .onAppear { restoreMovementSelection() }
+        .onChange(of:editingScope) { _ in restoreMovementSelection() }
     }
 
     private var navigation: some View {
@@ -597,8 +608,9 @@ struct GestureAssignmentWorkspace: View {
     private func navigationItem(_ item:GesturePane) -> some View {
         Button {
             pane = item
-            selectedDirection = nil
-            selected = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
+            let first = item.triggers.first(where:{$0.isContinuous}) ?? item.triggers[0]
+            selected = first
+            selectedDirection = Self.defaultDirection(for:first,settings:settings,scope:editingScope)
         } label: {
             HStack(alignment:.top,spacing:8) {
                 Circle().fill(pane == item ? Color.accentColor : Color.secondary.opacity(0.5)).frame(width:6,height:6).padding(.top,6)

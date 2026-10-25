@@ -1466,10 +1466,10 @@ struct ContentView: View {
                     )
                     (compact ? AnyLayout(VStackLayout(spacing: 8)) : AnyLayout(HStackLayout(spacing: 8))) {
                         Button(action: onImportKeymap) {
-                            Text("Import keymap").frame(maxWidth: .infinity)
+                            Text("Import Settings").frame(maxWidth: .infinity)
                         }
                         Button(action: onExportKeymap) {
-                            Text("Export keymap").frame(maxWidth: .infinity)
+                            Text("Export Settings").frame(maxWidth: .infinity)
                         }
                     }
                     .buttonStyle(.bordered)

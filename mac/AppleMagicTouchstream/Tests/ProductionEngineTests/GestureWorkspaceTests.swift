@@ -5,6 +5,25 @@ import XCTest
 
 @MainActor
 final class GestureWorkspaceTests: XCTestCase {
+    func testDirectionalPagesDefaultToUpWithoutChangingSavedMode() {
+        var settings = HandGestureSettings()
+        let original = settings
+        XCTAssertNil(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.left))
+        settings.editMovement(.threeFingerMove,mode:.directional,in:.left)
+        XCTAssertEqual(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.left),.up)
+        XCTAssertNil(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.right))
+        XCTAssertNil(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.both))
+        XCTAssertNil(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerTap,settings:settings,scope:.left))
+        settings.editMovement(.threeFingerMove,mode:.directional,in:.both)
+        XCTAssertEqual(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.both),.up)
+        for trigger in [GestureTrigger.twoFingerMove,.fourFingerMove] {
+            settings.editMovement(trigger,mode:.directional,in:.both)
+            XCTAssertEqual(GestureAssignmentWorkspace.defaultDirection(for:trigger,settings:settings,scope:.both),.up)
+        }
+        XCTAssertEqual(settings.left.bindings,original.left.bindings)
+        XCTAssertEqual(settings.right.bindings,original.right.bindings)
+    }
+
     func testCatalogExposesEveryExistingInputExactlyOnce() {
         let triggers = GesturePane.allCases.flatMap(\.triggers)
         XCTAssertEqual(Set(triggers),Set(GestureTrigger.allCases))

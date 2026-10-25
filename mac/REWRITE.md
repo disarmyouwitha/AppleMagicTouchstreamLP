@@ -8,7 +8,8 @@
 ===
 
 `Zones` Gestures? 
-- sides up/down left/right sides; left/right top/bottom sides
+- Sides up/down left/right sides; left/right top/bottom sides
+- Triangles?
 
 `AppleMagicTouchstream`:
 ===
