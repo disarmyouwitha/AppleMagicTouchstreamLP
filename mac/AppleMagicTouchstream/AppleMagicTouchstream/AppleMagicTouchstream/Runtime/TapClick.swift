@@ -58,10 +58,10 @@ struct ForceClickRecognizer {
 struct TwoFingerTapRecognizer {
     static let maximumDuration = 0.5
     private let requiredCount: Int
-    init(requiredCount: Int = 2) { precondition((2...4).contains(requiredCount)); self.requiredCount = requiredCount }
+    init(requiredCount: Int = 2) { precondition((2...5).contains(requiredCount)); self.requiredCount = requiredCount }
     private struct Finger { let id: Int32; let x: Double; let y: Double }
     private struct Session {
-        var first: Finger?, second: Finger?, third: Finger?, fourth: Finger?
+        var first: Finger?, second: Finger?, third: Finger?, fourth: Finger?, fifth: Finger?
         var started = 0.0, lastTime = 0.0
         var paired: Double?, lifting: Double?
         var blocked = false
@@ -72,10 +72,10 @@ struct TwoFingerTapRecognizer {
     mutating func reset() { for device in sessions.keys { cancel(device:device) } }
     mutating func process<C: Collection>(device: UInt64, time: Double, contacts: C,
         gestureActive: Bool = false) -> Bool where C.Element == OMSRawTouch {
-        var ids = SIMD4<Int32>(repeating:0), count = 0
+        var ids = SIMD8<Int32>(repeating:0), count = 0
         var invalid = !time.isFinite
         for touch in contacts where touch.state == .making || touch.state == .touching {
-            if count < 4 {
+            if count < 5 {
                 for index in 0..<count where ids[index] == touch.id { invalid = true }
                 ids[count] = touch.id
             }
@@ -104,6 +104,7 @@ struct TwoFingerTapRecognizer {
             else if let second = session.second, second.id == touch.id { original = second }
             else if let third = session.third, third.id == touch.id { original = third }
             else if let fourth = session.fourth, fourth.id == touch.id { original = fourth }
+            else if let fifth = session.fifth, fifth.id == touch.id { original = fifth }
             else {
                 guard session.paired == nil, time-session.started <= 0.08 else {
                     cancel(device:device); return false
@@ -112,7 +113,8 @@ struct TwoFingerTapRecognizer {
                 if session.first == nil { session.first = finger }
                 else if session.second == nil { session.second = finger }
                 else if requiredCount >= 3 && session.third == nil { session.third = finger }
-                else if requiredCount == 4 && session.fourth == nil { session.fourth = finger }
+                else if requiredCount >= 4 && session.fourth == nil { session.fourth = finger }
+                else if requiredCount == 5 && session.fifth == nil { session.fifth = finger }
                 else { cancel(device:device); return false }
                 original = finger
             }

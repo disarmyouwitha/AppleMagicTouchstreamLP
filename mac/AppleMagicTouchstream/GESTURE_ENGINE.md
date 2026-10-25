@@ -30,9 +30,11 @@ the architecture review and remaining work.
 | 2-finger movement | Move Pointer | 0.35 mm coherent travel; all-up completion |
 | 3-finger movement | Drag / Select | 0.35 mm and fingertip-row geometry; all-up completion |
 | 4-finger movement | Scroll / Pan | 0.20 mm; all-up completion with momentum |
+| 5-finger movement | None | 0.20 mm; same continuous/directional engine |
 | 2-finger tap | Primary Click | Valid tap completes on all-up |
 | 3-finger tap | Double-Click | Valid non-thumb tap completes on all-up |
 | 4-finger tap | None | Valid tap completes on all-up |
+| 5-finger tap | None | Valid tap completes on all-up |
 | Thumb + 2 fingertips tap | Secondary Click | Spread-thumb geometry; valid tap completes on all-up |
 | 2–5-finger Pinch and Spread | Zoom | Recognized thumb plus shape change; all-up completion |
 | 1-finger force click | Primary Click | Any active contact reaches P ≥ 130 |
@@ -141,7 +143,7 @@ activation location, and clamps each output delta to ±0.25.
 
 ## Movement and directional actions
 
-The 2/3/4-finger movement inputs all use the same router, directional stepper,
+The 2/3/4/5-finger movement inputs all use the same router, directional stepper,
 repeater, output dispatcher and lifecycle gates. Continuous and directional modes
 are mutually exclusive while retaining both sets of saved assignments.
 
@@ -237,8 +239,12 @@ Mirror Edit and settings import/export. Assigned Thumb+2 and five-contact rotati
 reserve their corresponding input family and dispatch once on activation. Two/four-
 contact rotation fields remain inactive.
 
-Five-finger Hold appears beside Force Click in the assignment grid, with only Lift
-remaining under Session Lifetime. Its independent 0.5 s behavior is unchanged.
+Five Fingers has the same Tap and Move cross as the other movement pages: Tap, Up
+and Force Click across the top; Left / Movement / Right in the middle; Hold beside
+Down at the bottom. Tap and Movement default to None to preserve existing settings.
+Its independent 0.5 s Hold behavior is unchanged, and only Lift stays under Session
+Lifetime. Direction/repeat, scrolling/panning, gains, Mirror Edit and portable
+settings use the same engine as the other counts.
 
 The Gestures workspace has resizable navigation/inspector columns, searchable Action
 sheets, movement cross cards and a shared right-hand inspector. Hold uses the same
@@ -265,15 +271,19 @@ receipt and physical feel require hardware testing.
 ## Rotation recognition
 
 Thumb+2 and five-contact rotation use a tracked recognized thumb as the pivot and
-measure the angle of the fingertip group's centroid relative to it. Three-contact
-activation requires the existing spread-thumb geometry; five contacts require a
-thumb and reject palm/invalid/duplicate contacts. Radius must be at least 15 app mm.
-Membership/identity or native chronology changes rebase pending evidence.
+measure the angle of the fingertip group's centroid relative to it. Three- and five-contact activation require a recognized thumb and reject
+palm/invalid/duplicate contacts. Rotation uses angular evidence rather than the
+spread-Tap arrangement bounds; Tap/Hold keep their own geometry. Radius must be at least 15 app mm.
+Membership/identity or native chronology changes rebase pending evidence. Pending
+positions are retained by tracking ID before labels settle; a positive thumb label
+is still required to activate. Initial Unknown labels therefore cannot give scale
+recognition an older geometric baseline than rotation.
 
 The provisional commit threshold is 3°, at least 0.75 app-mm arc travel, with arc
-travel exceeding radial travel by 1.1×. A pending turn above 0.75° with that same
-arc/dominance evidence defers competing scale activation until the turn commits
-or stops being dominant. With rotation unassigned, Pinch/Spread behavior is unchanged.
+travel exceeding radial travel by 1.1×. A pending turn above 0.2°, at least 0.5 app-mm arc travel and arc/radial
+ratio above 0.65 defers competing scale activation until the turn commits or
+radial change overtakes it. The final 3° / 0.75 mm / 1.1× commit gate remains
+stricter than this early competition gate. With rotation unassigned, Pinch/Spread behavior is unchanged.
 Clockwise in screen coordinates selects Rotate Right; counterclockwise selects Left.
 
 Rotation is registered in the shared continuous session engine. After activation,
@@ -289,3 +299,16 @@ rotation cycles, with roughly 25–51° counterclockwise travel. All eight activ
 Thumb+2 Rotate Left with Pinch/Spread and three-finger movement competing. This
 predicts recognition, not actual target-application receipt. Synthetic regressions
 cover both directions/counts, reversal, partial lift, missing thumb and pure scaling.
+
+### Right-turn capture regression
+
+`rotate_right.atpcap` contains 723 frames: two initial left turns, eight right-turn
+cycles and four final two-contact cycles. Early radial contraction in clockwise
+turns can reach the scale gate before 3° of angular travel. Several cycles begin
+with the thumb labeled Unknown for ~100 ms. One fingertip pair spans 40.6 mm, which
+is valid angular evidence but outside the spread-Tap pair bound. Rotation now
+retains its initial tracked geometry across label settling and uses its own angular
+contract rather than the Tap spacing predicate. The pending rotation
+evidence gate prevents that early shape claim while leaving the final rotation
+commit unchanged. Regression replay runs with Pinch/Spread and three-finger motion
+competing; recognition results do not themselves establish OS action delivery.

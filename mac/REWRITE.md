@@ -1,7 +1,7 @@
 # NOTES:
 =======
 0. Rotate doesn't seem to work.. Check out my Thumb+2 finger capture @rotate_broke.atpcap
-2. Lets add "Tap and Move" under 5 Fingers with the whole thing. (I need something to map my volu/briu stuff to xD)
+1. Lets add "Tap and Move" under 5 Fingers with the whole thing. (I need something to map my volu/briu stuff to xD)
 ===
 1. It looks like we have most gestures in to cover all of the touchstream stuff.. Can you add each of the Actions you find on the TouchStream QuickStart guide?
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??

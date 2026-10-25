@@ -389,3 +389,34 @@ extension PinchZoomTests {
         XCTAssertEqual(activations,Array(repeating:.threeFingerRotateLeft,count:8))
     }
 }
+
+extension PinchZoomTests {
+    func testRightRotationCaptureCompetesWithScale() throws {
+        let root = URL(fileURLWithPath:#filePath).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+        let url = root.appendingPathComponent("AppleMagicTouchstream/AppleMagicTouchstream/rotate_right.atpcap")
+        guard FileManager.default.fileExists(atPath:url.path) else { throw XCTSkip("Local right rotation capture not bundled") }
+        let records = try ATPCaptureV3Codec.readCaptureData(from:url).frameRecords
+        var router = TrackpadGestureRouter(), cycle=0, outputs:[String] = [], wasDown=false
+        for record in records {
+            let frame=record.frame, down=frame.rawTouches.contains {$0.state == .making || $0.state == .touching}
+            let update = router.recognize(device:frame.deviceNumericID,time:frame.timestamp,contacts:frame.rawTouches) {
+                $0.isPinch || GestureTrigger.liveRotationTriggers.contains($0) || $0 == .threeFingerMove
+            }
+            if update.phase == .began, let gesture=update.gesture { outputs.append("\(cycle):\(gesture.rawValue)") }
+            if wasDown && !down { cycle += 1 }; wasDown=down
+        }
+        XCTAssertEqual(outputs,["0:threeFingerRotateLeft","1:threeFingerRotateLeft"] + (2...9).map { "\($0):threeFingerRotateRight" })
+    }
+}
+
+
+extension PinchZoomTests {
+    func testRotationPreservesGeometryWhileThumbClassificationSettles() {
+        var router = TrackpadGestureRouter()
+        _ = router.recognize(device:1,time:1,contacts:rotatingChord(count:3,angle:0,thumb:false),enabled:{$0.isRotation})
+        XCTAssertNil(router.recognize(device:1,time:1.01,contacts:rotatingChord(count:3,angle:0.1,thumb:false),enabled:{$0.isRotation}).gesture)
+        let recognized = router.recognize(device:1,time:1.02,contacts:rotatingChord(count:3,angle:0.12),enabled:{$0.isRotation})
+        XCTAssertEqual(recognized.gesture,.threeFingerRotateRight)
+        XCTAssertEqual(recognized.phase,.began)
+    }
+}

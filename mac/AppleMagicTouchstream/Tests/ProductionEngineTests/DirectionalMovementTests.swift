@@ -244,6 +244,36 @@ final class DirectionalMovementTests: XCTestCase {
         var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
         XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
     }
+    func testFiveFingerDirectionsShareMovementLatchRepeatAndPanAssignments() throws {
+        var settings = HandGestureSettings()
+        settings.editMovement(.fiveFingerMove,mode:.directional,direction:.up,action:.volumeUpSmall,in:.left)
+        settings.editMovement(.fiveFingerMove,mode:.directional,direction:.right,action:.panRight,in:.left)
+        let left = try XCTUnwrap(settings.routed(to:.init(left:1,right:2))[1])
+        let assignments = try XCTUnwrap(left.liveDirectionalBindings[.fiveFingerMove])
+        var router = TrackpadGestureRouter(), stepper = GestureDirectionalStepper(), repeater = GestureDirectionalRepeater()
+        let enabled:(GestureTrigger)->Bool = { left.liveDirectionalBindings[$0] != nil }
+        _ = router.recognize(device:1,time:1,contacts:touches(5),enabled:enabled)
+        let began = router.recognize(device:1,time:1.01,contacts:touches(5,dy:0.01),enabled:enabled)
+        XCTAssertEqual(began.gesture,.fiveFingerMove)
+        XCTAssertEqual(stepper.process(device:1,time:1.01,update:began,assignments:assignments),.up)
+        repeater.refresh(device:1,direction:.up,intervalMS:assignments.repeatIntervalMS(.up),now:20)
+        XCTAssertEqual(repeater.tick(device:1,now:20.081),.up)
+        for (time,count) in [(1.02,3),(1.03,1)] {
+            let changed = router.recognize(device:1,time:time,contacts:touches(count,dy:0.012),enabled:enabled)
+            XCTAssertEqual(changed.gesture,.fiveFingerMove)
+        }
+        let ended = router.recognize(device:1,time:1.04,contacts:touches(0),enabled:enabled)
+        XCTAssertNil(stepper.process(device:1,time:1.04,update:ended,assignments:assignments))
+        XCTAssertEqual(ended.phase,.ended)
+        XCTAssertEqual(assignments.action(.right),.panRight)
+        XCTAssertEqual(assignments.repeatIntervalMS(.right),0)
+        for action in [GestureAction.pointer,.primaryDrag,.scroll] {
+            settings.setAction(action,for:.fiveFingerMove,in:.left)
+            settings.editMovement(.fiveFingerMove,mode:.continuous,in:.left)
+            XCTAssertEqual(settings.routed(to:.init(left:1,right:2))[1]?.bindings.action(for:.fiveFingerMove),action)
+            XCTAssertNil(settings.left.liveDirectionalBindings[.fiveFingerMove])
+        }
+    }
     private func touches(_ count:Int,dy:Float = 0) -> [OMSRawTouch] {
         (0..<count).map { i in OMSRawTouch(id:Int32(i+1),posX:0.3+Float(i)*0.11,posY:0.5+dy,
             total:1,pressure:40,majorAxis:5,minorAxis:3,angle:0,density:1,state:.touching) }

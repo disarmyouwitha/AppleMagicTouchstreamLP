@@ -17,7 +17,7 @@ struct GestureKeyboardArbitration {
         case 2: candidate = enabled(.twoFingerMove) || enabled(.twoFingerTap) || enabled(.twoFingerPinch) || enabled(.twoFingerSpread)
         case 3: candidate = enabled(.threeFingerMove) || enabled(.threeFingerTap) || enabled(.thumbTwoTap) || enabled(.threeFingerRotateLeft) || enabled(.threeFingerRotateRight) || enabled(.threeFingerPinch) || enabled(.threeFingerSpread)
         case 4: candidate = enabled(.fourFingerTap) || enabled(.fourFingerMove) || enabled(.fourFingerPinch) || enabled(.fourFingerSpread)
-        case 5: candidate = enabled(.fiveFingerPinch) || enabled(.fiveFingerSpread) || enabled(.fiveFingerRotateLeft) || enabled(.fiveFingerRotateRight)
+        case 5: candidate = enabled(.fiveFingerTap) || enabled(.fiveFingerMove) || enabled(.fiveFingerPinch) || enabled(.fiveFingerSpread) || enabled(.fiveFingerRotateLeft) || enabled(.fiveFingerRotateRight)
         default: candidate = false
         }
         if candidate { reserved.insert(device) }

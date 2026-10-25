@@ -73,7 +73,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var holdBindings:[UInt64:[Int:GestureAction]] = [:]
         var needsHoldTimer:Bool { !holdBindings.isEmpty }
         mutating func postHold(count:Int,device:UInt64,time:Double) {
-            taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device)
+            taps.cancel(device:device); threeFingerTaps.cancel(device:device); fourFingerTaps.cancel(device:device); fiveFingerTaps.cancel(device:device)
             forceClicks.cancel(device:device)
             router.reset(device:device); directionalStepper.reset(device:device)
             directionalRepeater.reset(device:device); tracker.reset(device:device)
@@ -107,9 +107,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             case .twoFingerMove: enabled = twoFingerMoveDevices.contains(device)
             case .threeFingerMove: enabled = threeFingerMoveDevices.contains(device)
             case .fourFingerMove: enabled = fourFingerMoveDevices.contains(device)
+            case .fiveFingerMove: enabled = fiveFingerMoveDevices.contains(device)
             case .twoFingerTap: enabled = twoFingerTapDevices.contains(device)
             case .threeFingerTap: enabled = threeFingerTapDevices.contains(device)
             case .fourFingerTap: enabled = fourFingerTapDevices.contains(device)
+            case .fiveFingerTap: enabled = fiveFingerTapDevices.contains(device)
             case .thumbTwoTap: enabled = thumbTwoTapDevices.contains(device)
             default: enabled = trigger.forceCount != nil && devices.contains(device)
             }
@@ -142,14 +144,17 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var zoomOutputs: [UInt64:MagnifyGestureOutput] = [:]
         var zoomSensitivities: [UInt64:Double] = [:]
         var fourFingerMoveDevices: Set<UInt64> = []
+        var fiveFingerMoveDevices:Set<UInt64> = []
         var twoFingerTapDevices: Set<UInt64> = []
         var threeFingerTapDevices: Set<UInt64> = []
         var fourFingerTapDevices:Set<UInt64> = []
+        var fiveFingerTapDevices:Set<UInt64> = []
         var thumbTwoTapDevices: Set<UInt64> = []
         var forceClicks = ForceClickRecognizer()
         var taps = TwoFingerTapRecognizer()
         var threeFingerTaps = ThreeFingerTapRecognizer()
         var fourFingerTaps = TwoFingerTapRecognizer(requiredCount:4)
+        var fiveFingerTaps = TwoFingerTapRecognizer(requiredCount:5)
         var clicks = PrimaryTapClickOutput()
         /// Every exclusive owner consumes the same terminal frame. Clear all
         /// discrete candidates together so none can fire a second action on lift.
@@ -158,6 +163,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             _ = forceClicks.recognize(device:device,time:time,contacts:contacts,enabled:{_ in false})
             _ = taps.process(device:device,time:time,contacts:contacts,gestureActive:true)
             _ = fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
+            _ = fiveFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:true)
             _ = threeFingerTaps.recognize(device:device,time:time,contacts:contacts,
                 gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
         }
@@ -197,7 +203,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if drag.owners.contains(device) { drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
-            taps.invalidate(device:device); threeFingerTaps.invalidate(device:device); fourFingerTaps.invalidate(device:device)
+            taps.invalidate(device:device); threeFingerTaps.invalidate(device:device); fourFingerTaps.invalidate(device:device); fiveFingerTaps.invalidate(device:device)
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
@@ -208,7 +214,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             for device in zoomOutputs.keys { zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
             if drag.owner != nil { drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
-            forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); fourFingerTaps.reset(); clicks.reset()
+            forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); fourFingerTaps.reset(); fiveFingerTaps.reset(); clicks.reset()
             router.reset(); directionalStepper.reset(); directionalRepeater.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
         }
         var displayBounds: [CGRect] = []
@@ -222,9 +228,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     func configureGestures(twoFingerMoveDevices: Set<UInt64>, fourFingerMoveDevices: Set<UInt64>,
                            threeFingerMoveDevices: Set<UInt64>, thumbTwoTapDevices: Set<UInt64>, threeFingerTapDevices: Set<UInt64>,
-                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
+                           twoFingerTapDevices: Set<UInt64>, fourFingerTapDevices:Set<UInt64> = [], fiveFingerTapDevices:Set<UInt64> = [], fiveFingerMoveDevices:Set<UInt64> = [], pinchDevices: Set<UInt64> = [], zoomSensitivities: [UInt64:Double] = [:], doubleClickInterval: Double, profiles: [UInt64:AppleScrollProfile], sensitivity: Double, sensitivities: [UInt64:Double] = [:], bindings: [UInt64:GestureActionBindings] = [:], directionalBindings: [UInt64:[GestureTrigger:GestureDirectionalAssignments]] = [:], holdBindings: [UInt64:[Int:GestureAction]] = [:], appleShortcuts: [GestureAction:AppleShortcutPlan] = [:]) {
         lock.withLock { state in
-            guard state.fourFingerTapDevices != fourFingerTapDevices || state.holdBindings != holdBindings || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
+            guard state.fiveFingerTapDevices != fiveFingerTapDevices || state.fiveFingerMoveDevices != fiveFingerMoveDevices || state.fourFingerTapDevices != fourFingerTapDevices || state.holdBindings != holdBindings || state.directionals != directionalBindings || state.appleShortcuts != appleShortcuts || state.pinchDevices != pinchDevices || state.zoomSensitivities != zoomSensitivities || state.bindings != bindings || state.twoFingerMoveDevices != twoFingerMoveDevices || state.fourFingerMoveDevices != fourFingerMoveDevices || state.threeFingerMoveDevices != threeFingerMoveDevices
                 || state.thumbTwoTapDevices != thumbTwoTapDevices || state.twoFingerTapDevices != twoFingerTapDevices || state.threeFingerTapDevices != threeFingerTapDevices || state.doubleClickInterval != doubleClickInterval
                 || state.scrollProfiles != profiles || state.scrollSensitivity != sensitivity || state.scrollSensitivities != sensitivities else { return }
             state.reset()
@@ -241,6 +247,8 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.thumbTwoTapDevices = thumbTwoTapDevices
             state.threeFingerTapDevices = threeFingerTapDevices
             state.fourFingerTapDevices = fourFingerTapDevices
+            state.fiveFingerTapDevices = fiveFingerTapDevices
+            state.fiveFingerMoveDevices = fiveFingerMoveDevices
             state.twoFingerTapDevices = twoFingerTapDevices; state.doubleClickInterval = doubleClickInterval
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity; state.scrollSensitivities = sensitivities
             state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
@@ -489,7 +497,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if suppress || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
                 state.reset()
                 state.taps.cancel(device:device)
-                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 return nil
             }
             let hostTime = CACurrentMediaTime()
@@ -498,7 +506,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !allUp && state.momentum[device]?.isCoasting == true {
                 state.cancelMomentum(device:device)
                 state.taps.cancel(device:device)
-                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device) // braking a coast must not also click
+                state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device) // braking a coast must not also click
             }
             if state.holds.claimed(device:device) {
                 _ = state.holds.observe(device:device,time:time,now:hostTime,contacts:contacts,motionClaimed:false,actions:[:])
@@ -532,7 +540,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if state.forceClicks.claimed(device:device) {
                 state.holds.cancel(device:device)
-                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 state.router.reset(device:device); state.directionalStepper.reset(device:device); state.directionalRepeater.reset(device:device); state.tracker.reset(device:device)
                 return feedback
             }
@@ -542,11 +550,12 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             let two = state.recognizes(.twoFingerMove,device:device)
             let three = state.recognizes(.threeFingerMove,device:device)
             let four = state.recognizes(.fourFingerMove,device:device)
+            let five = state.recognizes(.fiveFingerMove,device:device)
             let update = state.router.recognize(device:device,time:time,contacts:contacts,enabled:{ trigger in
                 if trigger.isRotation { return GestureTrigger.liveRotationTriggers.contains(trigger) && pinchBindings.action(for:trigger) != .disabled }
                 if trigger.isPinch { return pinchEligible && pinchBindings.action(for:trigger) != .disabled }
                 switch trigger {
-                case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four
+                case .twoFingerMove: return two; case .threeFingerMove: return three; case .fourFingerMove: return four; case .fiveFingerMove: return five
                 default: return false
                 }
             })
@@ -565,7 +574,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if allUp {
                     state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
-                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 }
                 state.tracker.reset(device:device)
                 if update.phase == .began { state.directionalRepeater.reset(device:device) }
@@ -607,7 +616,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if allUp {
                     state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
-                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 }
                 state.finishScroll(device:device,cancelled:true)
                 if update.phase == .began {
@@ -619,7 +628,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 if allUp {
                     state.consumeAllUp(device:device,time:time,now:hostTime,contacts:contacts)
                 } else {
-                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                    state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                 }
                 state.finishScroll(device:device,cancelled:true)
                 if update.phase == .began || update.phase == .changed {
@@ -646,7 +655,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     guard let location = CGEvent(source:nil)?.location,
                           let down = state.drag.begin(device:device,location:location,flags:CGEventSource.flagsState(.combinedSessionState)) else {
                         state.reset(device:device)
-                        state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device)
+                        state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device); state.fourFingerTaps.cancel(device:device); state.fiveFingerTaps.cancel(device:device)
                         return nil
                     }
                     state.clicks.reset()
@@ -659,6 +668,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             if state.fourFingerTapDevices.contains(device), state.fourFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:motion != nil) {
                 state.postTap(.fourFingerTap,device:device,time:hostTime)
+            }
+            if state.fiveFingerTapDevices.contains(device), state.fiveFingerTaps.process(device:device,time:time,contacts:contacts,gestureActive:motion != nil) {
+                state.postTap(.fiveFingerTap,device:device,time:hostTime)
             }
             if state.threeFingerTapDevices.contains(device) || state.thumbTwoTapDevices.contains(device),
                 let trigger = state.threeFingerTaps.recognize(device:device,time:time,contacts:contacts,

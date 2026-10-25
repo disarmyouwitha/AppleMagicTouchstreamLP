@@ -8,7 +8,7 @@ enum GestureHandScope: String, CaseIterable, Identifiable, Sendable {
 
 /// Inputs are recognized independently of the action assigned to them.
 enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
-    case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, fourFingerTap, fourCornersTap, thumbTwoTap
+    case twoFingerMove, twoFingerTap, threeFingerMove, threeFingerTap, fourFingerMove, fourFingerTap, fiveFingerMove, fiveFingerTap, fourCornersTap, thumbTwoTap
     case twoFingerPinch, threeFingerPinch, fourFingerPinch, fiveFingerPinch
     case twoFingerSpread, threeFingerSpread, fourFingerSpread, fiveFingerSpread
     case twoFingerRotateLeft, threeFingerRotateLeft, fourFingerRotateLeft, fiveFingerRotateLeft
@@ -37,7 +37,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
     var forceCount: Int? { Self.forceTriggers.firstIndex(of:self).map { $0 + 1 } }
     static func force(count: Int) -> Self? { (1...5).contains(count) ? forceTriggers[count - 1] : nil }
     var id: String { rawValue }
-    var isContinuous: Bool { isPinch || isRotation || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove }
+    var isContinuous: Bool { isPinch || isRotation || self == .twoFingerMove || self == .threeFingerMove || self == .fourFingerMove || self == .fiveFingerMove }
     var title: String {
         if let count = pinchCount { return "\(count)-finger \(isSpread ? "spread" : "pinch") (thumb required)" }
         if let count = rotationCount {
@@ -52,6 +52,8 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         case .threeFingerTap: return "3-finger tap"
         case .fourFingerMove: return "4-finger movement"
         case .fourFingerTap: return "4-finger tap"
+        case .fiveFingerMove: return "5-finger movement"
+        case .fiveFingerTap: return "5-finger tap"
         case .fourCornersTap: return "4 corners tap"
         case .thumbTwoTap: return "Spread thumb + 2 fingertips tap"
         default: return "Force click"
@@ -61,7 +63,7 @@ enum GestureTrigger: String, CaseIterable, Identifiable, Hashable, Codable, Send
         if self == .fourCornersTap { return [.disabled] }
         if isPinch { return [.disabled,.zoom] + GestureAction.oneShotActions }
         if isRotation { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
-        if forceCount != nil || self == .fourFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
+        if forceCount != nil || self == .fourFingerTap || self == .fiveFingerTap { return [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions }
         return isContinuous ? [.disabled,.pointer,.primaryDrag,.scroll] : [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.smallStepActions
     }
     // Factory defaults only; recognition and dispatch do not derive actions here.
@@ -130,6 +132,7 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
     var fourFingerMove: GestureAction = .scroll, thumbTwoTap: GestureAction = .secondaryClick
     // Optional so old saved bindings decode without discarding customized actions.
     var fourFingerTap:GestureAction?
+    var fiveFingerTap:GestureAction?, fiveFingerMove:GestureAction?
     var fourCornersTap:GestureAction?
     var forceActions: [String: GestureAction]?
     var twoFingerPinch: GestureAction?
@@ -141,6 +144,8 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
             if trigger.isRotation { return rotationActions?[trigger.rawValue] ?? .disabled }
             switch trigger {
             case .fourFingerTap:return fourFingerTap ?? .disabled
+            case .fiveFingerTap:return fiveFingerTap ?? .disabled
+            case .fiveFingerMove:return fiveFingerMove ?? .disabled
             case .fourCornersTap:return .disabled // Decode-only legacy Tap assignment.
             case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
                 return spreadActions?[trigger.rawValue] ?? self[GestureTrigger.pinch(count:trigger.pinchCount!)!]
@@ -163,6 +168,8 @@ struct GestureActionBindings: Equatable, Codable, Sendable {
             }
             switch trigger {
             case .fourFingerTap:fourFingerTap = newValue
+            case .fiveFingerTap:fiveFingerTap = newValue
+            case .fiveFingerMove:fiveFingerMove = newValue
             case .fourCornersTap:fourCornersTap = newValue
             case .twoFingerSpread,.threeFingerSpread,.fourFingerSpread,.fiveFingerSpread:
                 spreadActions?[trigger.rawValue] = newValue
@@ -211,9 +218,9 @@ enum GestureMovementDirection: String, CaseIterable, Codable, Identifiable, Send
     var symbol: String { "arrow." + rawValue }
 }
 
-/// Per-input directional assignments; live recognition currently supports three fingers.
+/// Per-input directional assignments; live recognition shares the same logic for two through five fingers.
 struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
-    static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove]
+    static let triggers: [GestureTrigger] = [.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove]
     static let liveTriggers = triggers
     static let allowedActions: [GestureAction] = [.disabled,.primaryClick,.primaryDoubleClick,.secondaryClick] + GestureAction.oneShotActions + GestureAction.directionalScrollActions
     var mode: GestureMovementMode = .continuous
@@ -259,7 +266,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var holdActions: [String:GestureAction]?
     static let holdAllowedActions = GestureDirectionalAssignments.allowedActions.filter { !GestureAction.directionalScrollActions.contains($0) }
     static func moveTrigger(count:Int) -> GestureTrigger? {
-        switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; default:return nil }
+        switch count { case 2:return .twoFingerMove; case 3:return .threeFingerMove; case 4:return .fourFingerMove; case 5:return .fiveFingerMove; default:return nil }
     }
     static let thumbHoldKey = 6, cornersHoldKey = 7
     static func holdActions(for key:Int) -> [GestureAction] { key == cornersHoldKey ? TwoHandGestureSettings.allowedActions : holdAllowedActions }
@@ -291,7 +298,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     // Legacy enable-only clients use factory assignment when enabling a disabled input.
     subscript(trigger: GestureTrigger) -> Bool {
         get { bindings.action(for:trigger) != .disabled }
-        set { bindings[trigger] = newValue ? (self[trigger] ? bindings[trigger] : (trigger.defaultAction == .disabled ? .primaryClick : trigger.defaultAction)) : .disabled }
+        set { bindings[trigger] = newValue ? (self[trigger] ? bindings[trigger] : (trigger.defaultAction == .disabled ? (trigger.allowedActions.contains(.primaryClick) ? .primaryClick : trigger.allowedActions.first(where:{$0 != .disabled}) ?? .disabled) : trigger.defaultAction)) : .disabled }
     }
     var mouse: Bool { get { self[.twoFingerMove] } set { self[.twoFingerMove] = newValue } }
     var tap: Bool { get { self[.twoFingerTap] } set { self[.twoFingerTap] = newValue } }

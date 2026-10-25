@@ -220,39 +220,46 @@ struct ThumbRotationTracker {
     struct Evidence { var angle:Double; var arc:Double; var radial:Double }
     private struct Sample {
         var ids = SIMD8<Int32>(repeating:0)
-        var count:Int, thumb:Int32, time:Double, angle:Double, radius:Double
+        var x = SIMD8<Double>(repeating:0), y = SIMD8<Double>(repeating:0)
+        var count=0, time:Double
+        func vector(thumb:Int32) -> CGPoint? {
+            guard let pivot = (0..<count).first(where:{ids[$0] == thumb}) else { return nil }
+            var dx=0.0, dy=0.0
+            for i in 0..<count where i != pivot { dx += x[i]; dy += y[i] }
+            return CGPoint(x:dx/Double(count-1)-x[pivot],y:dy/Double(count-1)-y[pivot])
+        }
     }
     private var samples:[UInt64:Sample] = Dictionary(minimumCapacity:2)
     mutating func reset() { samples.removeAll(keepingCapacity:true) }
     mutating func reset(device:UInt64) { samples[device] = nil }
     mutating func process<C:Collection>(device:UInt64,time:Double,contacts:C) -> Evidence? where C.Element == OMSRawTouch {
-        var ids = SIMD8<Int32>(repeating:0), count = 0, thumb:Int32?, tx=0.0, ty=0.0, x=0.0, y=0.0
+        var next=Sample(time:time), thumb:Int32?
         guard time.isFinite else { reset(device:device); return nil }
         for touch in contacts where touch.state == .making || touch.state == .touching {
-            guard count < 5, touch.posX.isFinite, touch.posY.isFinite,
+            guard next.count < 5, touch.posX.isFinite, touch.posY.isFinite,
                   touch.telemetry?.fingerID != 6 else { reset(device:device); return nil }
-            for i in 0..<count where ids[i] == touch.id { reset(device:device); return nil }
-            ids[count] = touch.id; count += 1
-            let px = Double(touch.posX)*160, py = -Double(touch.posY)*114.9
+            for i in 0..<next.count where next.ids[i] == touch.id { reset(device:device); return nil }
+            let i=next.count
+            next.ids[i]=touch.id; next.x[i]=Double(touch.posX)*160; next.y[i] = -Double(touch.posY)*114.9
+            next.count += 1
             if touch.telemetry?.fingerID == 1 {
-                guard thumb == nil else { reset(device:device); return nil }
-                thumb = touch.id; tx=px; ty=py
-            } else { x += px; y += py }
+                guard thumb == nil else { reset(device:device); return nil }; thumb=touch.id
+            }
         }
-        guard count == 3 || count == 5, let thumb else { reset(device:device); return nil }
-        let dx = x/Double(count-1)-tx, dy = y/Double(count-1)-ty
-        let radius = hypot(dx,dy), angle = atan2(dy,dx)
-        guard radius >= 15 else { reset(device:device); return nil }
-        let next = Sample(ids:ids,count:count,thumb:thumb,time:time,angle:angle,radius:radius)
-        guard var old = samples[device], time > old.time, time-old.time < 0.15,
-              count == old.count, thumb == old.thumb,
-              (0..<count).allSatisfy({ i in (0..<count).contains { old.ids[$0] == ids[i] } }) else {
-            samples[device] = next; return nil
+        guard next.count == 3 || next.count == 5 else { reset(device:device); return nil }
+        guard var old=samples[device], time > old.time, time-old.time < 0.15,
+              next.count == old.count,
+              (0..<next.count).allSatisfy({ i in (0..<old.count).contains { old.ids[$0] == next.ids[i] } }) else {
+            samples[device]=next; return nil
         }
-        let turn = atan2(sin(angle-old.angle),cos(angle-old.angle))
-        // Keep the initial angular/radial anchor until membership changes.
-        old.time = time; samples[device] = old
-        return Evidence(angle:turn,arc:abs(turn)*min(radius,old.radius),radial:abs(radius-old.radius))
+        // Track geometry before anatomy settles. Once the thumb is positively
+        // labeled, compare its own tracked ID with the original chord geometry.
+        old.time=time; samples[device]=old
+        guard let thumb, let before=old.vector(thumb:thumb), let after=next.vector(thumb:thumb) else { return nil }
+        let radius=hypot(after.x,after.y), initialRadius=hypot(before.x,before.y)
+        guard min(radius,initialRadius) >= 15 else { return nil }
+        let angle=atan2(before.x*after.y-before.y*after.x,before.x*after.x+before.y*after.y)
+        return Evidence(angle:angle,arc:abs(angle)*min(radius,initialRadius),radial:abs(radius-initialRadius))
     }
 }
 
@@ -279,6 +286,7 @@ struct TrackpadGestureRouter {
             GestureActivationRule(gesture:.fiveFingerSpread,activationCount:5,minimumMovementMM:0),
             GestureActivationRule(gesture:.threeFingerMove,activationCount:3,minimumMovementMM:0.35),
             GestureActivationRule(gesture:.fourFingerMove,activationCount:4,minimumMovementMM:0.2),
+            GestureActivationRule(gesture:.fiveFingerMove,activationCount:5,minimumMovementMM:0.2),
             GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
         ])
     }
@@ -306,10 +314,11 @@ struct TrackpadGestureRouter {
         let directionEligible = direction != nil && hasThumb
         let pinchEnabled = directionEligible && (direction.map(enabled) ?? false)
         let rotationDirection = GestureTrigger.rotation(count:activeCount,right:(turn?.angle ?? 0) > 0)
+        // Rotation is angular evidence, not the spread-tap arrangement scorer.
+        // The tracker already validates count, identity, radius and positive thumb.
         let rotationEligible = rotationDirection.map(enabled) == true && hasThumb
-            && (activeCount == 5 || ThumbTwoChord.matches(contacts))
-        let rotationCandidate = rotationEligible && turn.map { abs($0.angle) >= Double.pi/240 && $0.arc >= 0.75 && $0.arc > $0.radial*1.1 } == true
-        let rotationWins = rotationCandidate && abs(turn?.angle ?? 0) >= Double.pi/60
+        let rotationCandidate = rotationEligible && turn.map { abs($0.angle) >= Double.pi/900 && $0.arc >= 0.5 && $0.arc > $0.radial*0.65 } == true
+        let rotationWins = rotationCandidate && turn.map { abs($0.angle) >= Double.pi/60 && $0.arc >= 0.75 && $0.arc > $0.radial*1.1 } == true
         var update = engine.process(device:device,time:time,touches:contacts,enabled:enabled,
             activationFilter:{ trigger,context in
                 let separation = abs(pair?.changeMM ?? 0)

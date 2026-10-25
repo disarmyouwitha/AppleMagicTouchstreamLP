@@ -16,7 +16,7 @@ final class GestureWorkspaceTests: XCTestCase {
         XCTAssertNil(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerTap,settings:settings,scope:.left))
         settings.editMovement(.threeFingerMove,mode:.directional,in:.both)
         XCTAssertEqual(GestureAssignmentWorkspace.defaultDirection(for:.threeFingerMove,settings:settings,scope:.both),.up)
-        for trigger in [GestureTrigger.twoFingerMove,.fourFingerMove] {
+        for trigger in [GestureTrigger.twoFingerMove,.fourFingerMove,.fiveFingerMove] {
             settings.editMovement(trigger,mode:.directional,in:.both)
             XCTAssertEqual(GestureAssignmentWorkspace.defaultDirection(for:trigger,settings:settings,scope:.both),.up)
         }
@@ -137,7 +137,7 @@ final class GestureWorkspaceTests: XCTestCase {
                                 settings.editMovement(movement,mode:.directional,direction:.up,action:movement == .fourFingerMove ? .panRight : .scrollUp,in:.both)
                                 settings.editMovement(movement,mode:.directional,direction:.down,action:movement == .fourFingerMove ? .panLeft : .scrollDown,in:.both)
                             }
-                            let count = movement == .twoFingerMove ? 2 : movement == .threeFingerMove ? 3 : 4
+                            let count = movement == .twoFingerMove ? 2 : movement == .threeFingerMove ? 3 : movement == .fourFingerMove ? 4 : 5
                             settings.setAction(.disabled,for:GestureTrigger.pinch(count:count)!,in:.both)
                             settings.setAction(.disabled,for:GestureTrigger.spread(count:count)!,in:.both)
                             settings.setHoldAction(.missionControl,count:count,in:.both)
@@ -186,7 +186,7 @@ final class GestureWorkspaceTests: XCTestCase {
             let holdBitmap = NSBitmapImageRep(cgImage:try XCTUnwrap(holdRenderer.cgImage))
             try XCTUnwrap(holdBitmap.representation(using:.png,properties:[:]))
                 .write(to:URL(fileURLWithPath:directory).appendingPathComponent("demo-filled-hold.png"))
-            for trigger in GestureTrigger.rotationTriggers.filter({ $0.rotationCount == 3 || $0.rotationCount == 5 }) + [GestureTrigger.twoFingerTap,.threeFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
+            for trigger in GestureTrigger.rotationTriggers.filter({ $0.rotationCount == 3 || $0.rotationCount == 5 }) + [GestureTrigger.twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap,.oneFingerForce,.twoFingerForce,.threeFingerForce,.fourFingerForce,.fiveFingerForce,.twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove,.twoFingerPinch,.twoFingerSpread,.fourFingerPinch,.fourFingerSpread,.threeFingerPinch,.threeFingerSpread,.fiveFingerPinch,.fiveFingerSpread] {
                 let pane: GesturePane
                 switch trigger {
                 case .twoFingerPinch,.twoFingerSpread,.twoFingerRotateLeft,.twoFingerRotateRight: pane = .twoFingerPinch
@@ -196,8 +196,8 @@ final class GestureWorkspaceTests: XCTestCase {
                 case .fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight: pane = .fiveFingerPinch
                 case .oneFingerForce: pane = .oneFinger
                 case .threeFingerTap,.threeFingerMove,.threeFingerForce: pane = .threeFingers
-                case .fourFingerMove,.fourFingerForce: pane = .fourFingers
-                case .fiveFingerForce: pane = .fiveFingers
+                case .fourFingerTap,.fourFingerMove,.fourFingerForce: pane = .fourFingers
+                case .fiveFingerTap,.fiveFingerMove,.fiveFingerForce: pane = .fiveFingers
                 default: pane = .twoFingers
                 }
                 let strip = HStack(spacing:16) {

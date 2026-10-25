@@ -51,6 +51,57 @@ final class AdditionalChordTests:XCTestCase {
         XCTAssertEqual(old.left.holdAction(count:7),.openConfig)
         XCTAssertEqual(old.left.bindings.action(for:.fourFingerTap),.disabled)
     }
+    func testFiveFingerTapUsesSharedSkewCancellationAndAllUpRules() {
+        let five = [touch(1,0.1,0.3,1),touch(2,0.3,0.5,2),touch(3,0.4,0.6,3),touch(4,0.5,0.5,4),touch(5,0.6,0.4,5)]
+        var tap = TwoFingerTapRecognizer(requiredCount:5)
+        XCTAssertFalse(tap.process(device:1,time:1,contacts:Array(five.prefix(3))))
+        XCTAssertFalse(tap.process(device:1,time:1.04,contacts:five))
+        XCTAssertFalse(tap.process(device:1,time:1.10,contacts:Array(five.prefix(2))))
+        XCTAssertTrue(tap.process(device:1,time:1.14,contacts:[OMSRawTouch]()))
+        XCTAssertFalse(tap.process(device:1,time:1.15,contacts:[OMSRawTouch]()))
+        for failure in 0...3 {
+            var tap = TwoFingerTapRecognizer(requiredCount:5)
+            _ = tap.process(device:1,time:2,contacts:five)
+            switch failure {
+            case 0:_ = tap.process(device:1,time:2.1,contacts:five,gestureActive:true)
+            case 1:_ = tap.process(device:1,time:2.1,contacts:five+[touch(6,0.8,0.5)])
+            case 2:_ = tap.process(device:1,time:2.1,contacts:[touch(1,0.2,0.3,1)]+Array(five.dropFirst()))
+            default:tap.cancel(device:1)
+            }
+            XCTAssertFalse(tap.process(device:1,time:2.15,contacts:[OMSRawTouch]()))
+            XCTAssertFalse(tap.process(device:1,time:3,contacts:five))
+            XCTAssertTrue(tap.process(device:1,time:3.1,contacts:[OMSRawTouch]()))
+        }
+    }
+    func testFiveFingerAssignmentsDefaultOffAndRoundTripWithoutChangingExistingInputs() throws {
+        var settings = HandGestureSettings()
+        XCTAssertEqual(settings.left.bindings.action(for:.fiveFingerTap),.disabled)
+        XCTAssertEqual(settings.left.bindings.action(for:.fiveFingerMove),.disabled)
+        XCTAssertEqual(GestureTrigger.fiveFingerTap.allowedActions,GestureTrigger.fiveFingerForce.allowedActions)
+        XCTAssertEqual(GesturePane.fiveFingers.title,"Tap and Move")
+        XCTAssertEqual(GesturePane.fiveFingers.triggers,[.fiveFingerTap,.fiveFingerForce,.fiveFingerMove])
+        settings.setAction(.missionControl,for:.fiveFingerTap,in:.left)
+        settings.setAction(.pointer,for:.fiveFingerMove,in:.left)
+        settings.setHoldAction(.showDesktop,count:5,in:.left)
+        settings.editMovement(.fiveFingerMove,mode:.directional,direction:.right,action:.panRight,in:.left)
+        settings.setDirectionalRepeatInterval(80,direction:.up,for:.fiveFingerMove,in:.left)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as? [String:Any])
+        for side in ["left","right"] {
+            var hand = try XCTUnwrap(object[side] as? [String:Any])
+            var bindings = try XCTUnwrap(hand["bindings"] as? [String:Any])
+            bindings.removeValue(forKey:"fiveFingerTap"); bindings.removeValue(forKey:"fiveFingerMove")
+            hand["bindings"] = bindings; object[side] = hand
+        }
+        let legacy = try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:object))
+        XCTAssertEqual(legacy.left.bindings.action(for:.fiveFingerTap),.disabled)
+        XCTAssertEqual(legacy.left.bindings.action(for:.fiveFingerMove),.disabled)
+        XCTAssertEqual(legacy.left.holdAction(count:5),.showDesktop)
+        XCTAssertEqual(legacy.left.bindings.action(for:.twoFingerMove),.pointer)
+        XCTAssertEqual(legacy.left.bindings.action(for:.fourFingerMove),.scroll)
+        XCTAssertEqual(legacy.right.bindings.action(for:.fiveFingerTap),.disabled)
+    }
     func testThumbHoldAndOrdinaryHoldCannotFallBackToEachOther() {
         XCTAssertTrue(ThumbTwoChord.matches(thumb)); XCTAssertFalse(ThumbTwoChord.matches(ordinary))
         for isThumb in [false,true] {

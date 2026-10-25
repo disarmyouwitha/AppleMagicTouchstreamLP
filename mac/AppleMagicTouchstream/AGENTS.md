@@ -37,7 +37,9 @@ live input, takeover, haptics or login registration as part of offline verificat
   are Hold-only, 1 s, Open Config by default. Ordinary counts 2–5 and Thumb+2 Hold
   are independent 0.5 s inputs. Legacy retired assignments decode but stay inert.
 - Saved Rotate Left/Right slots appear only for Thumb+2 and five contacts, default
-  None. Other shape pages show only Pinch/Spread; five-finger Hold sits beside Force.
+  None. Other shape pages show only Pinch/Spread. Five Fingers has a full Tap and
+  Move cross, sharing Tap/movement/directions/repeat/cleanup with other counts; new
+  Tap and Movement bindings default None.
   Rotation recognition is live for these two families: thumb-to-fingertip-group
   angular evidence feeds the shared continuous latch and discrete dispatcher.
   Preserve angular/radial competition, thumb activation, all-up ownership and

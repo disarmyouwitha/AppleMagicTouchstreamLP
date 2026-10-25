@@ -217,9 +217,9 @@ final class TrackpadGestureController: ObservableObject {
                     && (action != .scroll || scrollProfiles[id] != nil)
             }.map(\.key))
         }
-        let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove)
+        let two = devicesFor(.twoFingerMove), three = devicesFor(.threeFingerMove), four = devicesFor(.fourFingerMove), five = devicesFor(.fiveFingerMove)
         let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
-        let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap), quad = devicesFor(.fourFingerTap)
+        let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap), quad = devicesFor(.fourFingerTap), quint = devicesFor(.fiveFingerTap)
         let directionalBindings = routed.mapValues(\.liveDirectionalBindings).filter { !$0.value.isEmpty }
         let configuredScrollProfiles = Dictionary(uniqueKeysWithValues:scrollProfiles.map { id, profile in
             (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling))
@@ -227,13 +227,13 @@ final class TrackpadGestureController: ObservableObject {
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
-            twoFingerTapDevices: tap, fourFingerTapDevices:quad, pinchDevices:pinch,
+            twoFingerTapDevices: tap, fourFingerTapDevices:quad, fiveFingerTapDevices:quint, fiveFingerMoveDevices:five, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
             profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
             bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
-        let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)
+        let all = pinch.union(two).union(three).union(four).union(five).union(quad).union(quint).union(tap).union(triple).union(thumb)
         output.configureTwoHand(pads:pads,settings:settings.twoHand,
             eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),
             trusted:AXIsProcessTrusted())

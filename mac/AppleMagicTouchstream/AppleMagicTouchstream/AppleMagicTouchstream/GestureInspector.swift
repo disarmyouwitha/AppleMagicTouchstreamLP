@@ -15,7 +15,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .oneFinger: return "Force Click"
-        case .fiveFingers: return "Force Click"
+        case .fiveFingers: return "Tap and Move"
         case .twoFingers: return "Tap and Move"
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch: return "Pinch and Spread"
         case .fiveFingerPinch: return "Pinch, Spread, and Rotate"
@@ -28,7 +28,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .oneFinger: return "Choose an action for a one-finger force click."
-        case .fiveFingers: return "Choose independent actions for five-finger force clicking and holding."
+        case .fiveFingers: return "Choose actions for five-finger tapping, movement, force clicking and holding."
         case .twoFingers: return "Choose actions for two-finger tapping, movement and force clicking."
         case .twoFingerPinch, .threeFingerPinch, .fourFingerPinch:
             return "Choose actions for pinching and spreading. Both directions require a recognized thumb to begin."
@@ -43,7 +43,7 @@ enum GesturePane: String, CaseIterable, Identifiable {
     var triggers: [GestureTrigger] {
         switch self {
         case .oneFinger: return [.oneFingerForce]
-        case .fiveFingers: return [.fiveFingerForce]
+        case .fiveFingers: return [.fiveFingerTap,.fiveFingerForce,.fiveFingerMove]
         case .fiveFingerPinch: return [.fiveFingerPinch,.fiveFingerSpread,.fiveFingerRotateLeft,.fiveFingerRotateRight]
         case .twoFingers: return [.twoFingerTap,.twoFingerForce,.twoFingerMove]
         case .twoFingerPinch: return [.twoFingerPinch,.twoFingerSpread]
@@ -421,7 +421,7 @@ extension GestureTrigger {
         if isPinch { return isSpread ? "Spread" : "Pinch" }
         if forceCount != nil { return "Force click" }
         switch self {
-        case .twoFingerMove,.threeFingerMove,.fourFingerMove: return "Move in any direction"
+        case .twoFingerMove,.threeFingerMove,.fourFingerMove,.fiveFingerMove: return "Move in any direction"
         default: return "Tap"
         }
     }
@@ -449,7 +449,7 @@ extension GestureTrigger {
         case .fourCornersTap: return "One contact in each outer 20% corner of this pad. Hold fires after 1 second; movement allowance is 2 mm. Lift all fingers to rearm."
         case .thumbTwoTap: return "A spread thumb plus two fingertips. Fingertip relabeling is tolerated after a match. Tap window: 0.5 seconds."
         case .threeFingerMove: return "Begins with three aligned or gently arched fingertips. Movement latches until all-up, including added or lifted fingers."
-        case .twoFingerTap,.threeFingerTap,.fourFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
+        case .twoFingerTap,.threeFingerTap,.fourFingerTap,.fiveFingerTap: return "Tap window: 0.5 seconds. Landing/lift skew: 80 ms. Movement slop: 1 mm. A motion-owned cycle cannot also tap."
         default: return "Movement owns its touch cycle until all-up, including added or lifted fingers. Motion and taps compete before activation."
         }
     }
@@ -1051,11 +1051,11 @@ struct GestureAssignmentWorkspace: View {
             }
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
-                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : "four fingertips") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
+                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : selected == .fourFingerMove ? "four fingertips" : "five fingers") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             } else {
                 Text("Directional output is not implemented yet.").font(.callout).fontWeight(.medium)
-                Text("This assignment and its repeat choice are saved. Live direction recognition supports two, three and four fingers. Continuous movement is inactive in directional mode.")
+                Text("This assignment and its repeat choice are saved. Live direction recognition supports two through five fingers. Continuous movement is inactive in directional mode.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             Text("Choose the center Movement card to restore continuous movement. Assignments are preserved when switching modes.")
