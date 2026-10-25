@@ -931,23 +931,62 @@ explicitly rather than inferring them from the keyboard profile.
 
 Two-, three- and four-finger directional Action menus include Scroll Up and
 Scroll Down, independently assignable per direction/hand and through Mirror Edit.
-These emit one vertical line-based wheel step per activation or repeat, with
-positive Up / negative Down semantic direction, current cursor location/modifiers,
-and the interpreter event tag. Each step is complete: no held scroll/momentum
-phase, no acceleration-profile dependency and no new timer or recognition path.
-The existing directional gates, turn recognition, all-up latch, stale cancellation
-and live-only output apply. These actions are not added to the continuous Movement,
-Tap, Force, Hold, Pinch/Spread or coordinated Both menus.
+These are motion-following actions, superseding the initial repeated wheel-step
+experiment. The source direction selects the travel axis and positive sense;
+the assigned action selects the output sign. Examples:
 
-Default repeat is 80 ms, as for small-step volume/brightness. The existing loop
-and interval editor can disable repeat or set 20–5000 ms separately for each
-direction. Up/Down can scroll while Left/Right run other actions. Continuous
-Scroll / Pan retains its existing acceleration and momentum. New action IDs
-`scrollUp` / `scrollDown` save in the existing directional settings fields and
-round-trip through Import Settings / Export Settings. No existing assignments or
-repeat overrides change. Tests inspect unposted wheel events, signs, axes, phases,
-tags and flags, and verify independent settings, repeat defaults/overrides and
-portable round-trips.
+| Input | Action | Result |
+| --- | --- | --- |
+| Up / Down | Scroll Up / Scroll Down | Vertical travel scrolls in the same named direction |
+| Up / Down | Scroll Down / Scroll Up | Vertical travel reverses the named scroll direction |
+| Left / Right | Scroll Down / Scroll Up | Horizontal travel scrolls vertically |
 
-Pinch/Spread's nonassignable Hold lifecycle card uses the same gray styling as
-Lift; it no longer has an additional opacity reduction.
+Project each frame's contact displacement onto the committed input direction.
+Ignore perpendicular or opposite travel while waiting for a deliberate turn;
+never take the absolute value of the source displacement. Feed positive projected
+millimetres through the selected pad's existing vertical Apple scroll profile
+and per-hand scroll sensitivity, then apply the explicit Up (positive) or Down
+(negative) output sign independently of natural-scroll preferences. Fine travel
+preserves fractional pixels. Direction/action changes reset the acceleration
+history and end the old scroll phase before beginning the next.
+
+Reuse precise scroll begin/change/end/cancel events and the shared momentum
+engine/timer. Movement controls output rate and distance; stationary contacts
+produce no timed scroll. Observe stationary samples to prevent an old velocity
+from flinging on a delayed lift. A normal all-up may coast; a turn to another
+action, malformed/stale input, force/Both/keyboard takeover, settings/device changes
+or lifecycle reset ends/cancels scroll and momentum. The existing directional
+0.75 mm commitment, all-up ownership, per-device independence and selected/owned/
+armed/AX/live gates apply. A readable scroll profile is required and status reports
+when unavailable. No pointer movement is emitted by these actions.
+
+Scroll selections show Scroll sensitivity and motion behavior instead of Repeat
+controls. They ignore legacy repeat intervals/enabled fields while preserving
+those fields for round-trip and reuse if the slot is changed back to a discrete
+action. Volume/brightness and other discrete directions retain their repeat
+behavior; they can coexist with scrolling on other directions. Continuous
+Scroll / Pan retains its acceleration and momentum. Keep action IDs `scrollUp`
+/ `scrollDown` and the existing settings schema; Import/Export retains assignments,
+per-hand sensitivity and dormant repeat fields. These actions remain confined
+to directional menus.
+
+Offline tests cover all source axes/output signs with both natural-scroll
+preferences, subpixel travel, stationary/perpendicular/opposite suppression,
+turn/action rebasing, invalid input, profile processing, precise event phases,
+legacy-repeat suppression, mixed actions and portable settings. Existing tests
+cover momentum and reset/cleanup behavior. Offscreen previews include scroll
+inspectors and both narrow/wide Pinch/Spread pages.
+
+Pinch/Spread's nonassignable Hold and Lift lifecycle cards use identical gray
+styling and stretch to the same row height while preserving wrapped text.
+
+### Natural scrolling for normal Movement
+
+Normal Movement → Scroll / Pan shows a Natural scrolling toggle directly below
+Scroll sensitivity. Optional per-hand `naturalScrolling` settings preserve the
+system preference when absent (old profiles); an explicit choice overrides the
+selected pad's configured scroll profile without changing system preferences.
+Mirror Edit changes both values, mixed values are visible, and Import/Export
+retains the choice. It applies to normal Scroll / Pan across contact counts;
+explicit directional Scroll Up/Down retains its named sign. Configuration resets
+active output/momentum before changing direction, as for sensitivity changes.

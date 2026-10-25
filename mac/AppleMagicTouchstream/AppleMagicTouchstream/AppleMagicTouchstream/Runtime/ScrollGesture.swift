@@ -7,6 +7,9 @@ struct AppleScrollProfile: Equatable, Sendable {
     let horizontal: ApplePointerAccelerationProfile
     let vertical: ApplePointerAccelerationProfile
     let natural: Bool
+    func overridingNaturalScrolling(_ value:Bool?) -> Self {
+        Self(horizontal:horizontal,vertical:vertical,natural:value ?? natural)
+    }
 }
 
 /// Independent model of Apple's parametric IOHIDScrollAccelerator history branch.
@@ -69,6 +72,37 @@ struct FourFingerScrollEngine {
         }
         let direction = profile.natural ? 1.0 : -1.0
         return CGPoint(x:dx*direction,y:dy*direction)
+    }
+}
+
+/// Project travel along the assigned input direction, then route it to semantic
+/// vertical scrolling. Source axis and output sign are independent of each other.
+struct DirectionalScrollEngine {
+    private var engine:FourFingerScrollEngine
+    private(set) var direction:GestureMovementDirection?
+    private(set) var action:GestureAction?
+    init(profile:AppleScrollProfile) { engine = FourFingerScrollEngine(profile:profile) }
+    mutating func reset() { engine.reset(); direction = nil; action = nil }
+    func matches(direction:GestureMovementDirection,action:GestureAction) -> Bool {
+        self.direction == direction && self.action == action
+    }
+    static func travel(_ delta:CGPoint,direction:GestureMovementDirection) -> Double {
+        switch direction {
+        case .up:return max(0,-Double(delta.y)); case .down:return max(0,Double(delta.y))
+        case .left:return max(0,-Double(delta.x)); case .right:return max(0,Double(delta.x))
+        }
+    }
+    mutating func process(time:Double,millimetres:CGPoint,direction:GestureMovementDirection,
+                          action:GestureAction,sensitivity:Double) -> CGPoint? {
+        guard action.isDirectionalScroll, time.isFinite,
+              millimetres.x.isFinite, millimetres.y.isFinite else { reset(); return nil }
+        if !matches(direction:direction,action:action) {
+            reset(); self.direction = direction; self.action = action
+        }
+        let distance = Self.travel(millimetres,direction:direction)
+        guard let points = engine.process(time:time,millimetres:CGPoint(x:0,y:distance),sensitivity:sensitivity) else { return nil }
+        // Explicit Scroll Up/Down controls output sign, regardless of natural scrolling.
+        return CGPoint(x:0,y:action == .scrollUp ? abs(points.y) : -abs(points.y))
     }
 }
 

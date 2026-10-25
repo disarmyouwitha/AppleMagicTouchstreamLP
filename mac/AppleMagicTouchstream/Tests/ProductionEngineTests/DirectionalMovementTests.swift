@@ -273,25 +273,67 @@ final class DirectionalMovementTests: XCTestCase {
 }
 
 extension DirectionalMovementTests {
-    func testDirectionalScrollEventsHaveOppositeVerticalStepsAndNoHeldPhases() throws {
-        for (action,delta) in [(GestureAction.scrollUp,Int64(1)),(.scrollDown,Int64(-1))] {
-            var clicks = PrimaryTapClickOutput()
-            let events = try XCTUnwrap(GestureTapActionOutput.events(action:action,location:.init(x:120,y:80),
-                time:1,doubleClickInterval:0.5,flags:.maskShift,clicks:&clicks))
-            XCTAssertEqual(events.count,1)
-            let event = try XCTUnwrap(events.first)
-            XCTAssertEqual(event.type,.scrollWheel)
-            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventDeltaAxis1),delta)
-            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventDeltaAxis2),0)
-            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventIsContinuous),0)
-            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventScrollPhase),0)
-            XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventMomentumPhase),0)
-            XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
-            XCTAssertEqual(event.location,CGPoint(x:120,y:80))
-            XCTAssertEqual(event.flags,.maskShift)
+    private func directionalScrollProfile(natural:Bool = true) throws -> AppleScrollProfile {
+        let axis = try ApplePointerAccelerationProfile(resolution:400,acceleration:0,
+            curves:[ApplePointerCurve(index:0,linear:1,parabolic:1)])
+        return AppleScrollProfile(horizontal:axis,vertical:axis,natural:natural)
+    }
+    func testDirectionalScrollProjectsAnySourceAxisToEitherSemanticOutputDirection() throws {
+        for natural in [true,false] {
+            for direction in GestureMovementDirection.allCases {
+                let travel:CGPoint
+                switch direction {
+                case .up:travel = .init(x:0,y:-0.01); case .down:travel = .init(x:0,y:0.01)
+                case .left:travel = .init(x:-0.01,y:0); case .right:travel = .init(x:0.01,y:0)
+                }
+                for action in GestureAction.directionalScrollActions {
+                    var engine = DirectionalScrollEngine(profile:try directionalScrollProfile(natural:natural))
+                    let points = try XCTUnwrap(engine.process(time:1,millimetres:travel,direction:direction,action:action,sensitivity:1))
+                    XCTAssertEqual(points.x,0)
+                    XCTAssertGreaterThan(abs(points.y),0)
+                    XCTAssertLessThan(abs(points.y),1) // fine travel stays subpixel
+                    XCTAssertEqual(points.y > 0,action == .scrollUp)
+                    XCTAssertEqual(engine.process(time:1.01,millimetres:.zero,direction:direction,action:action,sensitivity:1),.zero)
+                    XCTAssertEqual(engine.process(time:1.02,millimetres:.init(x:-travel.x,y:-travel.y),direction:direction,action:action,sensitivity:1),.zero)
+                    var output = PreciseScrollOutput()
+                    let event = try XCTUnwrap(output.event(points:points))
+                    XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventIsContinuous),1)
+                    XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventScrollPhase),1)
+                    XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventDeltaAxis2),0)
+                    XCTAssertEqual(event.getIntegerValueField(.eventSourceUserData),SelectedTrackpadEventPolicy.interpreterTag)
+                    XCTAssertEqual(output.finish(cancelled:false)?.getIntegerValueField(.scrollWheelEventScrollPhase),4)
+                }
+            }
         }
     }
-    func testDirectionalScrollBindingsRepeatAndRoundTripIndependentlyOfSidewaysActions() throws {
+    func testDirectionalScrollIgnoresPerpendicularTravelAndRebasesOnTurnOrActionChange() throws {
+        let profile = try directionalScrollProfile()
+        var engine = DirectionalScrollEngine(profile:profile)
+        XCTAssertEqual(engine.process(time:1,millimetres:.init(x:0,y:0.4),direction:.left,action:.scrollDown,sensitivity:1),.zero)
+        let left = try XCTUnwrap(engine.process(time:1.01,millimetres:.init(x:-0.3,y:0.1),direction:.left,action:.scrollDown,sensitivity:1))
+        XCTAssertLessThan(left.y,0)
+        let right = try XCTUnwrap(engine.process(time:1.02,millimetres:.init(x:0.3,y:0),direction:.right,action:.scrollUp,sensitivity:1))
+        XCTAssertGreaterThan(right.y,0)
+        var fresh = DirectionalScrollEngine(profile:profile)
+        XCTAssertEqual(right,fresh.process(time:1.02,millimetres:.init(x:0.3,y:0),direction:.right,action:.scrollUp,sensitivity:1))
+        engine.reset(); XCTAssertNil(engine.direction); XCTAssertNil(engine.action)
+        XCTAssertNil(engine.process(time:2,millimetres:.init(x:1,y:0),direction:.right,action:.volumeUpSmall,sensitivity:1))
+        XCTAssertNil(engine.process(time:2,millimetres:.init(x:Double.nan,y:0),direction:.right,action:.scrollUp,sensitivity:1))
+        var slow = DirectionalScrollEngine(profile:profile), fast = DirectionalScrollEngine(profile:profile)
+        let small = try XCTUnwrap(slow.process(time:3,millimetres:.init(x:0.01,y:0),direction:.right,action:.scrollUp,sensitivity:1))
+        let large = try XCTUnwrap(fast.process(time:3,millimetres:.init(x:0.2,y:0),direction:.right,action:.scrollUp,sensitivity:1))
+        XCTAssertGreaterThan(large.y,small.y)
+    }
+    func testScrollCannotDispatchTimedWheelStepsEvenWithLegacyRepeatEnabled() throws {
+        var assignments = GestureDirectionalAssignments(mode:.directional,actions:["left":.scrollUp],
+            repeatIntervalsMS:["left":20],repeatEnabledOverrides:["left":true])
+        XCTAssertEqual(assignments.repeatIntervalMS(.left),0)
+        var clicks = PrimaryTapClickOutput()
+        XCTAssertNil(GestureTapActionOutput.events(action:.scrollUp,location:.zero,time:1,doubleClickInterval:0.5,clicks:&clicks))
+        assignments.actions["left"] = .volumeUpSmall
+        XCTAssertEqual(assignments.repeatIntervalMS(.left),20) // saved repeat preference survives
+    }
+    func testDirectionalScrollBindingsRoundTripIndependentlyOfSidewaysActions() throws {
         var settings = HandGestureSettings()
         for trigger in GestureDirectionalAssignments.liveTriggers {
             settings.editMovement(trigger,mode:.directional,direction:.up,action:.scrollUp,in:.left)
@@ -303,14 +345,15 @@ extension DirectionalMovementTests {
             XCTAssertEqual(config.action(.down),.scrollDown)
             XCTAssertEqual(config.action(.left),.brightnessDownSmall)
             XCTAssertEqual(config.action(.right),.volumeUpSmall)
-            XCTAssertEqual(config.repeatIntervalMS(.up),80)
-            XCTAssertEqual(config.repeatIntervalMS(.down),80)
+            XCTAssertEqual(config.repeatIntervalMS(.up),0)
+            XCTAssertEqual(config.repeatIntervalMS(.down),0)
             XCTAssertEqual(settings.right.movement(trigger).mode,.continuous)
             settings.setDirectionalRepeat(false,direction:.up,for:trigger,in:.left)
             XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.up),0)
-            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),80)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),0)
             settings.setDirectionalRepeatInterval(120,direction:.down,for:trigger,in:.left)
-            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),120)
+            XCTAssertEqual(settings.left.movement(trigger).repeatIntervalMS(.down),0)
+            XCTAssertEqual(settings.left.movement(trigger).configuredRepeatIntervalMS(.down),120)
         }
         for action in GestureAction.directionalScrollActions {
             XCTAssertTrue(GestureDirectionalAssignments.allowedActions.contains(action))
@@ -319,5 +362,61 @@ extension DirectionalMovementTests {
         }
         var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
         XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+    }
+}
+
+extension DirectionalMovementTests {
+    func testDirectionalScrollMomentumAndPauseBeforeLift() throws {
+        for pause in [false,true] {
+            var engine = DirectionalScrollEngine(profile:try directionalScrollProfile())
+            var momentum = ScrollMomentum(), output = PreciseScrollOutput()
+            for i in 0..<16 {
+                let time = 1+Double(i)*0.01
+                let moving = !pause || i < 5
+                let points = try XCTUnwrap(engine.process(time:time,millimetres:.init(x:moving ? 0.3 : 0,y:0),
+                    direction:.right,action:.scrollUp,sensitivity:1))
+                momentum.observe(points:points,contactTime:time)
+                _ = output.event(points:points)
+            }
+            let coast = momentum.start(contactTime:1.16,hostTime:10)
+            XCTAssertEqual(coast,!pause)
+            XCTAssertEqual(output.finish(cancelled:false,preserveForMomentum:coast)?.getIntegerValueField(.scrollWheelEventScrollPhase),4)
+            if coast {
+                let step = try XCTUnwrap(momentum.advance(hostTime:10.01))
+                XCTAssertGreaterThan(step.points.y,0); XCTAssertEqual(step.points.x,0)
+                let event = try XCTUnwrap(output.event(points:step.points,momentum:true))
+                XCTAssertEqual(event.getIntegerValueField(.scrollWheelEventMomentumPhase),1)
+                XCTAssertEqual(output.finishMomentum()?.getIntegerValueField(.scrollWheelEventMomentumPhase),3)
+            }
+            momentum.cancel(); engine.reset()
+            XCTAssertNil(momentum.advance(hostTime:10.02))
+        }
+    }
+    func testNaturalScrollingPersistsPerHandWithoutChangingExplicitDirectionalSign() throws {
+        var settings = HandGestureSettings()
+        XCTAssertEqual(settings.naturalScrolling(in:.both,fallback:false),false)
+        XCTAssertEqual(settings.naturalScrolling(in:.both,fallback:true),true)
+        settings.setNaturalScrolling(false,in:.left)
+        XCTAssertNil(settings.naturalScrolling(in:.both,fallback:true))
+        XCTAssertEqual(settings.naturalScrolling(in:.right,fallback:true),true)
+        settings.setNaturalScrolling(false,in:.both)
+        XCTAssertEqual(settings.naturalScrolling(in:.both,fallback:true),false)
+        let base = try directionalScrollProfile()
+        XCTAssertEqual(base.overridingNaturalScrolling(nil),base)
+        var natural = FourFingerScrollEngine(profile:base.overridingNaturalScrolling(true))
+        var reversed = FourFingerScrollEngine(profile:base.overridingNaturalScrolling(false))
+        let normal = try XCTUnwrap(natural.process(time:1,millimetres:.init(x:0,y:0.1),sensitivity:1))
+        let reverse = try XCTUnwrap(reversed.process(time:1,millimetres:.init(x:0,y:0.1),sensitivity:1))
+        XCTAssertEqual(normal.y,-reverse.y)
+        var explicit = DirectionalScrollEngine(profile:base.overridingNaturalScrolling(false))
+        XCTAssertGreaterThan(try XCTUnwrap(explicit.process(time:1,millimetres:.init(x:0,y:-0.1),direction:.up,action:.scrollUp,sensitivity:1)).y,0)
+        var profile = AppKeymapProfile.defaultProfile(); profile.handGestureSettings = settings
+        XCTAssertEqual(try PortableKeymapInterop.importProfile(from:PortableKeymapInterop.exportBundle(from:profile),currentProfile:.defaultProfile()).handGestureSettings,settings)
+        var object = try XCTUnwrap(JSONSerialization.jsonObject(with:JSONEncoder().encode(settings)) as? [String:Any])
+        for hand in ["left","right"] {
+            var value = try XCTUnwrap(object[hand] as? [String:Any]); value.removeValue(forKey:"naturalScrolling"); object[hand] = value
+        }
+        let old = try JSONDecoder().decode(HandGestureSettings.self,from:JSONSerialization.data(withJSONObject:object))
+        XCTAssertNil(old.left.naturalScrolling); XCTAssertNil(old.right.naturalScrolling)
     }
 }

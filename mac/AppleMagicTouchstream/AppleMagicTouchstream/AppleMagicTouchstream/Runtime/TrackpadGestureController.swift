@@ -125,6 +125,13 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
 
+    func setNaturalScrolling(_ enabled:Bool,scope:GestureHandScope) {
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        settings.setNaturalScrolling(enabled,in:scope)
+        settings.save(to:.standard)
+        configure()
+    }
+
     func applyImportedSettings(_ imported: HandGestureSettings) {
         InterpretedTrackpadPointer.shared.resetBaseline()
         var normalized = imported
@@ -172,6 +179,7 @@ final class TrackpadGestureController: ObservableObject {
                 let plans = AppleShortcutPlan.load()
                 for direction in GestureMovementDirection.allCases {
                     let assigned = config.action(direction)
+                    if assigned.isDirectionalScroll && scrollProfiles[id] == nil { return "\(direction.title): scroll profile unavailable." }
                     if assigned.isAppleShortcut && plans[assigned] == nil { return "\(direction.title): \(assigned.title) is unavailable." }
                 }
                 return "Active"
@@ -212,12 +220,15 @@ final class TrackpadGestureController: ObservableObject {
         let pinch = GestureTrigger.pinchTriggers.reduce(into:Set<UInt64>()) { $0.formUnion(devicesFor($1)) }
         let tap = devicesFor(.twoFingerTap), triple = devicesFor(.threeFingerTap), thumb = devicesFor(.thumbTwoTap)
         let directionalBindings = routed.mapValues(\.liveDirectionalBindings).filter { !$0.value.isEmpty }
+        let configuredScrollProfiles = Dictionary(uniqueKeysWithValues:scrollProfiles.map { id, profile in
+            (id,profile.overridingNaturalScrolling(routed[id]?.naturalScrolling))
+        })
         let output = InterpretedTrackpadPointer.shared
         output.configureGestures(twoFingerMoveDevices: two, fourFingerMoveDevices: four,
             threeFingerMoveDevices: three, thumbTwoTapDevices: thumb, threeFingerTapDevices: triple,
             twoFingerTapDevices: tap, pinchDevices:pinch,
             zoomSensitivities:routed.mapValues { $0[GestureSensitivity.zoom] }, doubleClickInterval: NSEvent.doubleClickInterval,
-            profiles: scrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
+            profiles: configuredScrollProfiles, sensitivity: 1, sensitivities: routed.mapValues(\.scrollSensitivity),
             bindings: routed.mapValues(\.bindings), directionalBindings:directionalBindings, holdBindings:routed.mapValues(\.liveHoldActions).filter { !$0.value.isEmpty }, appleShortcuts:shortcuts)
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))

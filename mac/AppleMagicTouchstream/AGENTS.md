@@ -308,8 +308,19 @@ real direction commits, not at the router's lower continuous-motion threshold.
 Keep the existing 0.75 mm directional activation and repeat behavior unchanged.
 
 User authorizes independent directional Scroll Up / Scroll Down actions for
-2/3/4 fingers, one line-based wheel step per fire, default held repeat 80 ms via
-the existing loop/interval controls. Keep these actions confined to directional
-menus and preserve continuous Scroll / Pan, per-hand/Mirror Edit, import/export,
-all-up/stale/lifecycle gates and live-only output. Pinch/Spread Hold and Lift
-lifecycle cards must have matching gray styling.
+2/3/4 fingers. They now follow motion, superseding the initial timed wheel-step
+implementation: project travel onto the assigned input axis/sense, then choose
+vertical output sign from the action. Support swapped Up/Down and horizontal
+Left/Right mappings. Reuse Apple scrolling profiles, sensitivity, precise phases
+and momentum; ignore legacy repeat settings for these actions while preserving
+fields. Discrete directions keep repeats. Keep these actions confined to
+directional menus, preserve per-hand/Mirror Edit, import/export, all-up/stale/
+lifecycle gates and live-only output. Pinch/Spread Hold and Lift lifecycle cards
+must have matching gray styling AND equal row heights. Build/install signed
+Release and leave closed for hardware testing. See GESTURE_ENGINE.md.
+
+User also authorizes a Natural scrolling toggle under Scroll sensitivity for
+normal Movement → Scroll / Pan. Persist an optional per-hand override, defaulting
+to the existing system preference when absent; support Mirror Edit, mixed state
+and portable settings. Never change system preferences. Explicit directional
+Scroll Up/Down semantics remain independent of this toggle.

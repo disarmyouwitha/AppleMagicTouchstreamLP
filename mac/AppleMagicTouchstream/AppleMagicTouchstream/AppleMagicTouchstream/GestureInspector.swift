@@ -444,7 +444,8 @@ struct GestureInspectorPanel: View {
             setTwoHandAction:{controller.setTwoHandAction($0,for:$1)},
             twoHandStatus:{controller.twoHandStatus($0)},
             setHoldAction:{controller.setHoldAction($0,count:$1,scope:$2)},
-            holdStatus:{controller.holdStatus(count:$0,scope:$1)})
+            holdStatus:{controller.holdStatus(count:$0,scope:$1)},
+            setNaturalScrolling:{controller.setNaturalScrolling($0,scope:$1)})
     }
 }
 
@@ -462,6 +463,7 @@ struct GestureAssignmentWorkspace: View {
     let twoHandStatus:(TwoHandTrigger)->String
     let setHoldAction:(GestureAction,Int,GestureHandScope)->Void
     let holdStatus:(Int,GestureHandScope)->String
+    let setNaturalScrolling:(Bool,GestureHandScope)->Void
     @State private var twoHandChord = TwoHandChord.fourCorners
     @State private var twoHandPhase = TwoHandPhase.hold
     @State private var selectedHold = false
@@ -487,7 +489,9 @@ struct GestureAssignmentWorkspace: View {
          setTwoHandAction:@escaping (GestureAction,TwoHandTrigger)->Void = {_,_ in},
          twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."},
          setHoldAction:@escaping (GestureAction,Int,GestureHandScope)->Void = {_,_,_ in},
-         holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 0.5 seconds. Fires once until all-up."}) {
+         holdStatus:@escaping (Int,GestureHandScope)->String = {_,_ in "Hold still for 0.5 seconds. Fires once until all-up."},
+         setNaturalScrolling:@escaping (Bool,GestureHandScope)->Void = {_,_ in}) {
+        self.setNaturalScrolling = setNaturalScrolling
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
@@ -805,6 +809,7 @@ struct GestureAssignmentWorkspace: View {
         let isSelected = !selectedHold && selected == trigger && selectedDirection == direction
         let assigned = direction.map { settings.directionalAction($0,for:trigger,in:editingScope) } ?? settings.action(trigger,in:editingScope)
         let title = direction.map { "Move " + $0.title } ?? "Movement"
+        let followsMotion = assigned?.isDirectionalScroll == true
         let repeatLabel = direction.flatMap { settings.directionalRepeatInterval($0,for:trigger,in:editingScope) }
             .map { $0 > 0 ? "Repeat every \(Int($0)) ms" : "Once per direction" } ?? "Mixed repeat"
         return Button {
@@ -816,7 +821,7 @@ struct GestureAssignmentWorkspace: View {
                     .font(.caption).foregroundStyle(.secondary)
                 Text(assigned?.title ?? "Mixed").font(.system(size:16,weight:.medium))
                     .fixedSize(horizontal:false,vertical:true)
-                Text(active ? (direction == nil ? "Continuous" : repeatLabel) : "Inactive · click to switch")
+                Text(active ? (direction == nil ? "Continuous" : followsMotion ? "Follows motion" : repeatLabel) : "Inactive · click to switch")
                     .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
             .padding(12).frame(maxWidth:.infinity,minHeight:106,alignment:.topLeading)
@@ -901,7 +906,7 @@ struct GestureAssignmentWorkspace: View {
                     lifetimeCard("Hold",symbol:"pause",detail:"No separate hold gesture is available for this chord.")
                 } else { holdCard }
                 lifetimeCard("Lift",symbol:"arrow.up",detail:"All-up ends the session and releases its held outputs. Scroll momentum may continue.")
-            }
+            }.fixedSize(horizontal:false,vertical:true)
         }
     }
     private func lifetimeCard(_ title:String,symbol:String,detail:String) -> some View {
@@ -910,7 +915,7 @@ struct GestureAssignmentWorkspace: View {
             Text(detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             Text("Automatic · not assignable").font(.caption2).foregroundStyle(.tertiary)
         }
-        .padding(14).frame(maxWidth:.infinity,alignment:.topLeading)
+        .padding(14).frame(maxWidth:.infinity,maxHeight:pane.isPinchSection ? .infinity : nil,alignment:.topLeading)
         .background(Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:9))
     }
 
@@ -941,7 +946,10 @@ struct GestureAssignmentWorkspace: View {
                     }
                     if let action {
                         if action.requiresPointerProfile { sensitivity("Pointer sensitivity",kind:.pointer) }
-                        if action == .scroll { sensitivity("Scroll sensitivity",kind:.scroll) }
+                        if action == .scroll {
+                            sensitivity("Scroll sensitivity",kind:.scroll)
+                            naturalScrollingToggle
+                        }
                         if action == .zoom { sensitivity("Zoom sensitivity",kind:.zoom) }
                     }
                     VStack(alignment:.leading,spacing:10) {
@@ -975,6 +983,11 @@ struct GestureAssignmentWorkspace: View {
                 Text("Left: \(settings.left.movement(selected).action(direction).title) · Right: \(settings.right.movement(selected).action(direction).title)")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             }
+            if value?.isDirectionalScroll == true {
+                Text("Follows \(direction.title.lowercased()) finger travel and speed. Scroll direction comes from this action; reversing the assignments reverses scrolling. Pausing stops output; release can coast with momentum.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                sensitivity("Scroll sensitivity",kind:.scroll)
+            } else {
             HStack(spacing:6) {
                 Button {
                     setDirectionalRepeat(repeatEnabled != true,direction,selected,editingScope)
@@ -1001,9 +1014,10 @@ struct GestureAssignmentWorkspace: View {
             if settings.directionalRepeatInterval(direction,for:selected,in:editingScope) == nil {
                 Text("Mixed intervals. Editing applies to both pads.").font(.caption).foregroundStyle(.secondary)
             }
+            }
             if GestureDirectionalAssignments.liveTriggers.contains(selected) {
                 Text(status(selected,editingScope)).font(.callout).fontWeight(.medium)
-                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : "four fingertips") 0.75 mm to choose a direction. Repeat continues at the selected interval while held, including when stationary. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
+                Text("Move \(selected == .twoFingerMove ? "two fingertips" : selected == .threeFingerMove ? "three aligned fingertips" : "four fingertips") 0.75 mm to choose a direction. A deliberate reversal or turn chooses a new direction. The chord stays latched until all fingers lift.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
             } else {
                 Text("Directional output is not implemented yet.").font(.callout).fontWeight(.medium)
@@ -1024,6 +1038,16 @@ struct GestureAssignmentWorkspace: View {
         case .zoom: return "Continuous native magnification follows scale changes. The active action stays latched until all-up."
         case .pointer: return "Pointer movement follows the selected trackpad's Apple acceleration profile."
         default: return "A completed recognition sends one balanced click sequence."
+        }
+    }
+    private var naturalScrollingToggle:some View {
+        let systemValue = UserDefaults.standard.persistentDomain(forName:UserDefaults.globalDomain)?["com.apple.swipescrolldirection"] as? Bool ?? true
+        let value = settings.naturalScrolling(in:editingScope,fallback:systemValue)
+        return VStack(alignment:.leading,spacing:5) {
+            Toggle("Natural scrolling",isOn:Binding(get:{value ?? false},set:{setNaturalScrolling($0,editingScope)}))
+            if value == nil { Text("Mixed between trackpads").font(.caption).foregroundStyle(.secondary) }
+            Text("Applies to normal Scroll / Pan. Scroll Up and Scroll Down keep their explicit direction.")
+                .font(.caption2).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
     }
     private func sensitivity(_ title:String,kind:GestureSensitivity) -> some View {

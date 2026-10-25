@@ -96,6 +96,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .secondaryClick: return "Secondary Click"
         }
     }
+    var isDirectionalScroll:Bool { self == .scrollUp || self == .scrollDown }
     var requiresPointerProfile: Bool { self == .pointer || self == .primaryDrag }
 }
 enum GestureSensitivity: Sendable { case pointer, scroll, zoom }
@@ -190,12 +191,13 @@ struct GestureDirectionalAssignments: Equatable, Codable, Sendable {
     }
     private func savedRepeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
         if let value = repeatIntervalsMS?[direction.rawValue] { return Self.boundedIntervalMS(value) }
-        return (repeatOverrides?[direction.rawValue] ?? (GestureAction.smallStepActions.contains(action(direction)) || GestureAction.directionalScrollActions.contains(action(direction)))) ? 80 : 0
+        return (repeatOverrides?[direction.rawValue] ?? GestureAction.smallStepActions.contains(action(direction))) ? 80 : 0
     }
     func configuredRepeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
         max(20,savedRepeatIntervalMS(direction))
     }
     func repeatIntervalMS(_ direction:GestureMovementDirection) -> Double {
+        guard !action(direction).isDirectionalScroll else { return 0 }
         if let enabled = repeatEnabledOverrides?[direction.rawValue] {
             return enabled ? configuredRepeatIntervalMS(direction) : 0
         }
@@ -215,6 +217,7 @@ struct PerHandGestureSettings: Equatable, Codable, Sendable {
     var bindings = GestureActionBindings()
     var pointerSensitivity = 1.0, scrollSensitivity = 1.0
     var zoomSensitivity: Double?
+    var naturalScrolling:Bool? // Missing preserves the system preference.
     var directionalMovement: [String:GestureDirectionalAssignments]?
     // Optional for old profiles; count-keyed, independent of Tap/Force actions.
     var holdActions: [String:GestureAction]?
@@ -401,6 +404,14 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
         case .left: return left[feature]; case .right: return right[feature]
         case .both: return left[feature] == right[feature] ? left[feature] : nil
         }
+    }
+    func naturalScrolling(in scope:GestureHandScope,fallback:Bool) -> Bool? {
+        let a = left.naturalScrolling ?? fallback, b = right.naturalScrolling ?? fallback
+        return scope == .left ? a : scope == .right ? b : a == b ? a : nil
+    }
+    mutating func setNaturalScrolling(_ enabled:Bool,in scope:GestureHandScope) {
+        if scope != .right { left.naturalScrolling = enabled }
+        if scope != .left { right.naturalScrolling = enabled }
     }
     func sensitivity(_ kind: GestureSensitivity, in scope: GestureHandScope) -> Double? {
         switch scope {

@@ -131,7 +131,10 @@ final class GestureWorkspaceTests: XCTestCase {
                             settings.editMovement(movement,mode:.directional,direction:.down,action:.volumeDownSmall,in:.both)
                             settings.editMovement(movement,mode:.directional,direction:.left,action:.brightnessDownSmall,in:.both)
                             settings.editMovement(movement,mode:.directional,direction:.right,action:.brightnessUpSmall,in:.both)
-                            if mirrored { settings.setDirectionalRepeat(false,direction:.up,for:movement,in:.both) }
+                            if mirrored {
+                                settings.editMovement(movement,mode:.directional,direction:.up,action:.scrollUp,in:.both)
+                                settings.editMovement(movement,mode:.directional,direction:.down,action:.scrollDown,in:.both)
+                            }
                             let count = movement == .twoFingerMove ? 2 : movement == .threeFingerMove ? 3 : 4
                             settings.setAction(.disabled,for:GestureTrigger.pinch(count:count)!,in:.both)
                             settings.setAction(.disabled,for:GestureTrigger.spread(count:count)!,in:.both)

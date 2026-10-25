@@ -84,7 +84,11 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         }
         var needsDragObserver: Bool { bindings.values.contains { $0.uses(.primaryDrag) } }
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
-        var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
+        var needsScrollTimer: Bool {
+            bindings.values.contains { $0.uses(.scroll) } || directionals.values.contains { inputs in
+                inputs.values.contains { config in GestureMovementDirection.allCases.contains { config.action($0).isDirectionalScroll } }
+            }
+        }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
             if let directional = directionals[device]?[trigger] { return directional.hasAssignments }
             let enabled: Bool
@@ -142,6 +146,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var doubleClickInterval = 0.5
         var scrollProfiles: [UInt64:AppleScrollProfile] = [:]
         var scrollEngines: [UInt64:FourFingerScrollEngine] = [:]
+        var directionalScrollEngines:[UInt64:DirectionalScrollEngine] = [:]
         var scrollOutputs: [UInt64:PreciseScrollOutput] = [:]
         var scrollSensitivity = 1.0
         var scrollSensitivities: [UInt64:Double] = [:]
@@ -157,6 +162,14 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             scrollOutputs[device]?.finish(cancelled:cancelled)?.post(tap:.cghidEventTap)
             cancelMomentum(device:device)
             scrollEngines[device]?.reset()
+            directionalScrollEngines[device]?.reset()
+        }
+        mutating func releaseScroll(device:UInt64,time:Double,hostTime:Double) {
+            if scrollOutputs[device]?.active == true {
+                let coasting = momentum[device]?.start(contactTime:time,hostTime:hostTime) == true
+                scrollOutputs[device]?.finish(cancelled:false,preserveForMomentum:coasting)?.post(tap:.cghidEventTap)
+            }
+            scrollEngines[device]?.reset(); directionalScrollEngines[device]?.reset()
         }
         mutating func reset(device: UInt64) {
             holds.cancel(device:device)
@@ -210,6 +223,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             state.twoFingerTapDevices = twoFingerTapDevices; state.doubleClickInterval = doubleClickInterval
             state.scrollProfiles = profiles; state.scrollSensitivity = sensitivity; state.scrollSensitivities = sensitivities
             state.scrollEngines = profiles.mapValues { FourFingerScrollEngine(profile:$0) }
+            state.directionalScrollEngines = profiles.mapValues { DirectionalScrollEngine(profile:$0) }
             state.scrollOutputs = profiles.mapValues { _ in PreciseScrollOutput() }
             state.momentum = profiles.mapValues { _ in ScrollMomentum() }
             if !state.needsDragObserver {
@@ -288,7 +302,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.postDirectional(assignments.action(direction),device:device,time:now)
                 }
             }
-            for device in state.devices where state.bindings[device]?.uses(.scroll) == true {
+            for device in state.devices where state.momentum[device]?.isCoasting == true {
                 guard let step = state.momentum[device]?.advance(hostTime:now) else { continue }
                 state.scrollOutputs[device]?.event(points:step.points,momentum:true)?.post(tap:.cghidEventTap)
                 if step.finished { state.scrollOutputs[device]?.finishMomentum()?.post(tap:.cghidEventTap) }
@@ -506,7 +520,6 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 } else {
                     state.taps.cancel(device:device); state.threeFingerTaps.cancel(device:device)
                 }
-                state.finishScroll(device:device,cancelled:true)
                 state.tracker.reset(device:device)
                 if update.phase == .began { state.directionalRepeater.reset(device:device) }
                 let direction = state.directionalStepper.process(device:device,time:time,update:update,assignments:assignments)
@@ -516,7 +529,26 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     state.postHold(count:count,device:device,time:hostTime)
                     return nil
                 }
-                if let direction { state.postDirectional(assignments.action(direction),device:device,time:hostTime) }
+                let heldAction = heldDirection.map { assignments.action($0) } ?? .disabled
+                if allUp && update.phase == .ended {
+                    state.releaseScroll(device:device,time:time,hostTime:hostTime)
+                } else if let heldDirection, heldAction.isDirectionalScroll,
+                          update.phase == .began || update.phase == .changed {
+                    if state.directionalScrollEngines[device]?.matches(direction:heldDirection,action:heldAction) != true {
+                        state.finishScroll(device:device,cancelled:true)
+                    }
+                    if let travel = update.millimetres,
+                       let delta = state.directionalScrollEngines[device]?.process(time:time,millimetres:travel,
+                            direction:heldDirection,action:heldAction,
+                            sensitivity:state.scrollSensitivities[device] ?? state.scrollSensitivity) {
+                        // Record zero velocity too: a pause before lift must not fling old motion.
+                        state.momentum[device]?.observe(points:delta,contactTime:time)
+                        state.scrollOutputs[device]?.event(points:delta)?.post(tap:.cghidEventTap)
+                    } else { state.finishScroll(device:device,cancelled:true) }
+                } else { state.finishScroll(device:device,cancelled:true) }
+                if let direction, !assignments.action(direction).isDirectionalScroll {
+                    state.postDirectional(assignments.action(direction),device:device,time:hostTime)
+                }
                 state.directionalRepeater.refresh(device:device,direction:heldDirection,
                     intervalMS:heldDirection.map { assignments.repeatIntervalMS($0) } ?? 0,now:hostTime)
                 return nil
@@ -593,11 +625,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             }
             guard let motion else {
                 if allUp {
-                    if state.scrollOutputs[device]?.active == true {
-                        let coasting = state.momentum[device]?.start(contactTime:time,hostTime:hostTime) == true
-                        state.scrollOutputs[device]?.finish(cancelled:false,preserveForMomentum:coasting)?.post(tap:.cghidEventTap)
-                        state.scrollEngines[device]?.reset()
-                    }
+                    state.releaseScroll(device:device,time:time,hostTime:hostTime)
                 } else { state.finishScroll(device:device,cancelled:true) }
                 state.tracker.reset(device:device)
                 return nil

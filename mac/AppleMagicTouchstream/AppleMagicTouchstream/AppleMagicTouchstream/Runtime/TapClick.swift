@@ -394,15 +394,6 @@ enum GestureTapActionOutput {
             return shortcut?.events()
         }
         switch action {
-        case .scrollUp,.scrollDown:
-            // A complete wheel step has no held phase to clean up. Positive is
-            // semantic Scroll Up, independent of the pad's natural-scroll setting.
-            guard let event = CGEvent(scrollWheelEvent2Source:nil,units:.line,wheelCount:1,
-                wheel1:action == .scrollUp ? 1 : -1,wheel2:0,wheel3:0) else { return nil }
-            event.location = location; event.flags = flags
-            event.setIntegerValueField(.eventSourceUserData,value:SelectedTrackpadEventPolicy.interpreterTag)
-            clicks.reset()
-            return [event]
         case .primaryClick:
             guard let pair = clicks.events(location:location,time:time,doubleClickInterval:doubleClickInterval,flags:flags) else { return nil }
             return [pair.down,pair.up]
