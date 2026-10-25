@@ -4,7 +4,7 @@
 > Can you list the gestures under each of the missing familys? I think I want to add some Landing Zones ones, and I want to checkout what you mean Diagonal movement, and what are they doing with the additional rotations? Now that you have it fixed I might be up to trying it on the other fingers.
 2. My 2F Tap to click doesn't work when I am using the Screenshot app on my Mac, I can't click "Capture" unless it is with my real mouse? Everything else works at the time. IN FACT! I can even click other items on the same menu! I just can't click "Capture"??
 ===
-
+* Do you think we could add Hold option to the Action column (far right) like <Once after Threshold, Hold until Release>
 
 `AppleMagicTouchstream`:
 ===
@@ -14,7 +14,10 @@
 3. Implement actions: Swipe between pages, swipe between applications(Like fancy alt-tab /w gestures)
 4. Please god can we finally fix Column tuning? (Drag to move??)
 ===
-- `Zones` Gestures? (1Finger `Drawings`?)
+* `Landings Zones`:
+- 4F hold above homerow, on homerow, below homerow
+- 3F tap above homerow, on homerow, below homerow  
+* 1Finger `Drawings`:
 - Sides up/down left/right sides; left/right top/bottom sides
 - Triangles?
 ===
@@ -35,6 +38,11 @@
 > I really want to get the spellchecker logic out of the touchstream. 
 === 
 
+===
+`Missing from TouchStream`:
+* Landings:
+- 4F hold above homerow, on homerow, below homerow
+- 3F tap above homerow, on homerow, below homerow
 =======
 - Update GTK `Windows` Driver instructions they should be dead simple now.
 - Do you see any inefficiencies of how the dynamic keys work right now? If we could start over from scratch would you make any changes? (Because I am thinking of a ground-up re-write.
