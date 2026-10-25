@@ -199,6 +199,7 @@ struct TrackpadGestureRouter {
             GestureActivationRule(gesture:.twoFingerMove,activationCount:2,minimumMovementMM:mouseActivationMM)
         ])
     }
+    func owner(device:UInt64) -> GestureTrigger? { engine.owner(device:device) }
     mutating func reset() { engine.reset(); pinch.reset() }
     mutating func reset(device: UInt64) { engine.cancel(device:device); pinch.reset(device:device) }
     mutating func update<C: Collection>(device: UInt64, time: Double, contacts: C,

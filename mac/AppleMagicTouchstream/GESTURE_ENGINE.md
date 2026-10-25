@@ -702,3 +702,60 @@ Pre-existing held modifier flags are preserved. The explicit held-key/modifier
 path and drag timing are unchanged. Offline tests construct actual production
 key/click events without posting input; hardware acceptance must repeat the
 hold-S then tap sequence in the affected app.
+
+
+## Coordinated Both-hand gestures
+
+The Gestures hand selector now offers Left / Right / Both. Both selects a separate
+coordinated assignment collection: one input involves both selected pads. Mirror
+Edit is disabled in that view and retains its independent per-pad meaning.
+Existing Left/Right assignments are neither copied nor replaced.
+
+| Coordinated chord | Contacts | Tap | Hold |
+|---|---|---|---|
+| 4 corners | Left: top-left + bottom-left; right: top-right + bottom-right | Default None | Default Open Config; 1 s |
+| 3 fingers per hand | Three contacts on each pad; six total | Default None | Default None; 0.5 s |
+| 4 fingers per hand | Four contacts on each pad; eight total | Default None | Default None; 0.5 s |
+
+Every slot can choose None, Open Config, a balanced mouse click/double-click/
+secondary click, the supported Apple actions, or small-step volume/brightness.
+Hold fires the assigned discrete action once, consumes Tap, and never repeats or
+keeps a mouse button/key down. Continuous drag/scroll/zoom output is not offered
+for these discrete slots. Assignments persist in `HandGestureSettings.coordinated`
+and travel with existing gesture/keymap export/import. Missing coordinated data
+preserves old profiles and supplies the defaults above.
+
+Provisional recognition rules for hardware testing:
+
+- Two distinct selected pads, both owned by native takeover and output-armed.
+  Open Config does not require AX; synthetic mouse/system output does.
+- Common host time across pads; their native timestamp offsets can differ.
+- Three/four-hand tap contact starts must join within 150 ms. Holds may form
+  after staggered placement if neither pad already owns another gesture. During this short
+  pending phase, local continuous output waits, but a normal single-hand tap can
+  still complete if the other hand never joins. Disabled paired chords add no delay.
+- Corners use the outer 20% of X and top/bottom 20% of Y on each pad. Corner hands
+  may land separately before the complete chord starts its one-second hold.
+- Existing single-hand continuous/force ownership and established keyboard
+  layer/modifier chords take priority. A coordinated chord cannot steal them.
+- A Tap ends on both-hand all-up within 0.5 s of the complete chord, with at least
+  20 ms contact and at most 150 ms lift skew. Hold begins only while both original
+  contact sets remain down. Each tracked contact has 2 mm motion slop.
+- Shared ownership persists through partial lifts, added/replaced fingers or
+  invalid/moving contact data until both hands are up. Such disqualifications
+  suppress further output, rather than handing the cycle to local typing/mousing.
+  Hold excludes Tap. Both independent outputs are canceled only at acquisition;
+  subsequent frames must not re-block the already released other hand.
+- The existing shared timer checks holds and freshness. More than 200 ms without
+  updates from either hand invalidates the cycle. No held output can escape cleanup.
+- Sleep/replay/quit, release, lost ownership, selection/settings changes and stop
+  reset the coordinator. Replay never invokes the live coordinated entry point.
+
+The reference map's G041 describes the four-corner one-second configuration hold;
+see `Design/GestureAssignments/GESTURE_MAP.md`. The 20% zones, 150 ms join/lift
+windows and 2 mm slop here are implementation choices, not firmware claims.
+Offline tests cover taps/holds/default corners, timing, all-up, stale input,
+identity/movement/count rejection, single-hand tap fallback, existing ownership,
+selection eligibility, Mirror isolation, old profiles and keymap round-trips.
+Offscreen previews cover all six Both assignment pages without opening devices.
+Hardware acceptance remains necessary for the new gestures.

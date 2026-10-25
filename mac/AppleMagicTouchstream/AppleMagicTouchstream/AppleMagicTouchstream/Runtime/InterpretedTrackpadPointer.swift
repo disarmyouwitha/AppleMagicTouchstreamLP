@@ -43,6 +43,18 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private struct State {
         var devices: Set<UInt64> = []
+        var twoHandEngine = TwoHandGestureEngine()
+        var twoHandPendingDevices:Set<UInt64> = Set(minimumCapacity:2)
+        var twoHandPads = GestureSelectedPads()
+        var twoHandSettings = TwoHandGestureSettings()
+        var twoHandEligible = false, twoHandTrusted = false
+        var openConfiguration: (@Sendable () -> Void)?
+        var needsTwoHandTimer:Bool { twoHandEligible && TwoHandChord.allCases.contains(where:twoHandSettings.enabled) }
+        mutating func postCoordinated(_ trigger:TwoHandTrigger,time:Double) {
+            let action = twoHandSettings.action(trigger)
+            if action == .openConfig { openConfiguration?() }
+            else if twoHandTrusted, let device = twoHandPads.left { postDirectional(action,device:device,time:time) }
+        }
         var keyboardArbitration = GestureKeyboardArbitration()
         var keyboardDevices: Set<UInt64> = []
         var keyboardChordDevices: Set<UInt64> = []
@@ -61,6 +73,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         var needsZoomTimer: Bool { bindings.values.contains { $0.uses(.zoom) } }
         var needsScrollTimer: Bool { bindings.values.contains { $0.uses(.scroll) } }
         func recognizes(_ trigger: GestureTrigger, device: UInt64) -> Bool {
+            if twoHandPendingDevices.contains(device) && trigger.isContinuous { return false }
             if trigger == .threeFingerMove && directionals[device] != nil { return true }
             let enabled: Bool
             switch trigger {
@@ -135,16 +148,17 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
         mutating func reset(device: UInt64) {
             keyboardChordDevices.remove(device)
             zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap)
-            drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
+            if drag.owner == device { drag.end(device:device,location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             finishScroll(device:device,cancelled:true)
             forceClicks.cancel(device:device)
             taps.invalidate(device:device); threeFingerTaps.invalidate(device:device)
             router.reset(device:device); directionalStepper.reset(device:device); directionalRepeater.reset(device:device); tracker.reset(device:device); lastReceipt[device] = nil
         }
         mutating func reset() {
+            twoHandEngine.reset(); twoHandPendingDevices.removeAll(keepingCapacity:true)
             keyboardChordDevices.removeAll(keepingCapacity:true)
             for device in zoomOutputs.keys { zoomOutputs[device]?.finish(cancelled:true)?.post(tap:.cghidEventTap) }
-            drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap)
+            if drag.owner != nil { drag.end(location:CGEvent(source:nil)?.location)?.post(tap:.cghidEventTap) }
             for device in scrollOutputs.keys { finishScroll(device:device,cancelled:true) }
             forceClicks.reset(); taps.reset(); threeFingerTaps.reset(); clicks.reset()
             router.reset(); directionalStepper.reset(); directionalRepeater.reset(); tracker.reset(); lastReceipt.removeAll(keepingCapacity:true)
@@ -185,7 +199,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
             if !state.needsDragObserver {
                 state.buttonObserver?.stop(); state.buttonObserver = nil; state.buttonObserverHealthy = false
             }
-            if !state.needsScrollTimer && !state.needsDragObserver && !state.needsZoomTimer && !state.needsDirectionalTimer { state.momentumTimer?.cancel(); state.momentumTimer = nil }
+            if !state.needsScrollTimer && !state.needsDragObserver && !state.needsZoomTimer && !state.needsDirectionalTimer && !state.needsTwoHandTimer { state.momentumTimer?.cancel(); state.momentumTimer = nil }
         }
     }
     func enable(devices: Set<UInt64>) {
@@ -220,7 +234,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     CGEvent.tapEnable(tap:tap,enable:true)
                 } else if let tap { CFMachPortInvalidate(tap) }
             }
-            if (state.needsScrollTimer || state.needsDragObserver || state.needsZoomTimer || state.needsDirectionalTimer) && state.momentumTimer == nil {
+            if (state.needsScrollTimer || state.needsDragObserver || state.needsZoomTimer || state.needsDirectionalTimer || state.needsTwoHandTimer) && state.momentumTimer == nil {
                 let timer = DispatchSource.makeTimerSource(queue:momentumQueue)
                 timer.schedule(deadline:.now()+0.008333,repeating:.nanoseconds(8_333_333),leeway:.milliseconds(1))
                 timer.setEventHandler { [weak self] in self?.tickMomentum() }
@@ -231,10 +245,13 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     }
     private func tickMomentum() {
         lock.withLock { state in
-            guard !state.devices.isEmpty else { return }
+            guard !state.devices.isEmpty || state.twoHandEligible else { return }
             let now = CACurrentMediaTime()
             if Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil) {
                 state.reset(); return
+            }
+            if state.twoHandEligible, let trigger = state.twoHandEngine.advance(now:now,settings:state.twoHandSettings) {
+                state.postCoordinated(trigger,time:now)
             }
             if let owner = state.drag.owner, now-(state.lastReceipt[owner] ?? 0) > 0.2 {
                 state.reset(device:owner)
@@ -281,12 +298,61 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
     var dragObserverAvailable: Bool { lock.withLock { $0.buttonObserverHealthy } }
     var postedEventCount: UInt64 { lock.withLock { $0.postedEvents } }
     func stop() { lock.withLock {
+        $0.twoHandEligible = false
         $0.devices.removeAll(keepingCapacity:true); $0.reset(); $0.keyboardArbitration.reset(); $0.keyboardDevices.removeAll(keepingCapacity:true)
         $0.momentumTimer?.cancel(); $0.momentumTimer = nil
         $0.buttonObserver?.stop(); $0.buttonObserver = nil; $0.buttonObserverHealthy = false
     } }
     func resetBaseline() { lock.withLock { $0.reset() } }
     func resetBaseline(device: UInt64) { lock.withLock { $0.reset(device: device) } }
+    func configureOpenConfiguration(_ handler:@escaping @Sendable () -> Void) {
+        lock.withLock { $0.openConfiguration = handler }
+    }
+    func configureTwoHand(pads:GestureSelectedPads,settings:TwoHandGestureSettings,eligible:Bool,trusted:Bool) {
+        lock.withLock { state in
+            if pads != state.twoHandPads || settings != state.twoHandSettings || eligible != state.twoHandEligible || trusted != state.twoHandTrusted {
+                state.reset()
+            }
+            state.twoHandPads = pads; state.twoHandSettings = settings
+            state.twoHandEligible = eligible; state.twoHandTrusted = trusted
+        }
+    }
+    /// Runs before keyboard/local gesture dispatch, on the same serialized frame.
+    func reserveCoordinated(_ frame:OMSRawTouchFrame,keyboardChord:Bool) -> Bool {
+        lock.withLock { state in
+            let device = frame.deviceIDNumeric
+            guard state.twoHandEligible,
+                  device == state.twoHandPads.left || device == state.twoHandPads.right else { return false }
+            let now = CACurrentMediaTime()
+            func independentOwner(_ pad:UInt64?) -> Bool {
+                guard let pad else { return false }
+                return state.router.owner(device:pad) != nil || state.forceClicks.claimed(device:pad)
+            }
+            let alreadyOwned = !state.twoHandEngine.ownsCycle && (independentOwner(state.twoHandPads.left) || independentOwner(state.twoHandPads.right))
+            let decision = state.twoHandEngine.process(leftHand:device == state.twoHandPads.left,now:now,
+                contacts:frame.touches,settings:state.twoHandSettings,
+                blocked:keyboardChord || !state.keyboardChordDevices.isEmpty || alreadyOwned || Self.polledButtonInterference(ownsPrimary:state.drag.owner != nil))
+            if decision.pending { state.twoHandPendingDevices.insert(device) }
+            else { state.twoHandPendingDevices.remove(device) }
+            guard decision.reserved else { return false }
+            // Cancel both independent outputs when the shared chord owns them.
+            if decision.began {
+                state.twoHandPendingDevices.removeAll(keepingCapacity:true)
+                if let left = state.twoHandPads.left { state.reset(device:left) }
+                if let right = state.twoHandPads.right { state.reset(device:right) }
+            } else { state.reset(device:device) }
+            state.keyboardArbitration.reset(device:device)
+            if !frame.touches.contains(where:{$0.state == .making || $0.state == .touching}) {
+                _ = state.forceClicks.recognize(device:device,time:frame.timestamp,contacts:frame.touches,enabled:{_ in false})
+                _ = state.taps.process(device:device,time:frame.timestamp,contacts:frame.touches,gestureActive:true)
+                _ = state.threeFingerTaps.recognize(device:device,time:frame.timestamp,contacts:frame.touches,
+                    gestureActive:true,ordinaryEnabled:false,thumbEnabled:false)
+            }
+            if let trigger = decision.trigger { state.postCoordinated(trigger,time:now) }
+            return true
+        }
+    }
+
     func configureKeyboardReservations(devices: Set<UInt64>) {
         lock.withLock { $0.keyboardDevices = devices }
     }
@@ -327,8 +393,9 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                     && $0.pressure >= ForceClickRecognizer.threshold
             }
             let directional = state.directionals[device] != nil
+            let coordinatedCandidate = state.twoHandPendingDevices.contains(device)
             return state.keyboardArbitration.process(device: device, activeCount: count, forceClick: forceClick) {
-                ($0 == .threeFingerMove && directional) || bindings.action(for: $0) != .disabled
+                (coordinatedCandidate && $0.isContinuous) || ($0 == .threeFingerMove && directional) || bindings.action(for: $0) != .disabled
             }
         }
     }
@@ -384,7 +451,7 @@ final class InterpretedTrackpadPointer: @unchecked Sendable {
                 return feedback
             }
             // Copy recognition eligibility before mutating the router in State.
-            let pinchEligible = state.pinchDevices.contains(device)
+            let pinchEligible = state.pinchDevices.contains(device) && !state.twoHandPendingDevices.contains(device)
             let pinchBindings = state.bindings[device] ?? GestureActionBindings()
             let two = state.recognizes(.twoFingerMove,device:device)
             let three = state.recognizes(.threeFingerMove,device:device)

@@ -112,6 +112,26 @@ final class TrackpadGestureController: ObservableObject {
         configure()
     }
 
+    func setTwoHandAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
+        guard TwoHandGestureSettings.allowedActions.contains(action) else { return }
+        InterpretedTrackpadPointer.shared.resetBaseline()
+        var value = settings.twoHand; value.setAction(action,for:trigger)
+        settings.coordinated = value; settings.save(to:.standard)
+        if action != .disabled && action != .openConfig && !AXIsProcessTrusted() {
+            _ = AXIsProcessTrustedWithOptions(["AXTrustedCheckOptionPrompt":true] as CFDictionary)
+        }
+        configure()
+    }
+    func twoHandStatus(_ trigger:TwoHandTrigger) -> String {
+        guard let left = pads.left, let right = pads.right, left != right else { return "Select two distinct trackpads." }
+        guard takeoverEnabled, armed, owned.isSuperset(of:[left,right]) else { return "Enable Trackpad Takeover on both selected pads." }
+        let action = settings.twoHand.action(trigger)
+        if action == .disabled { return "Choose an action to enable this input." }
+        if action != .openConfig && !AXIsProcessTrusted() { return "Accessibility permission required." }
+        if action.isAppleShortcut && AppleShortcutPlan.load()[action] == nil { return "System action is unavailable." }
+        return "Active on both selected trackpads."
+    }
+
     func refreshPermission() { configure() }
 
     func status(_ trigger: GestureTrigger, scope: GestureHandScope) -> String {
@@ -183,6 +203,9 @@ final class TrackpadGestureController: ObservableObject {
         output.configure(response: .apple, sensitivity: 1, profiles: pointerProfiles,
             sensitivities: routed.mapValues(\.pointerSensitivity))
         let all = pinch.union(two).union(three).union(four).union(tap).union(triple).union(thumb)
+        output.configureTwoHand(pads:pads,settings:settings.twoHand,
+            eligible:TwoHandGestureEligibility.enabled(pads:pads,owned:owned,takeover:takeoverEnabled,armed:armed),
+            trusted:AXIsProcessTrusted())
         output.enable(devices: all.union(eligible)) // Force click needs no acceleration profile.
         let keyboardPads = NativeTwoFingerMouseGate.outputDevices(enabled: true, armed: armed,
             takeoverEnabled: takeoverEnabled, trusted: true, selected: Set(routed.keys), owned: owned)

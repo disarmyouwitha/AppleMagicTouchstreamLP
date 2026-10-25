@@ -424,7 +424,9 @@ struct GestureInspectorPanel: View {
             setMovementMode:{controller.setMovementMode($0,for:$1,scope:$2)},
             setDirectionalAction:{controller.setDirectionalAction($0,direction:$1,for:$2,scope:$3)},
             setDirectionalRepeatInterval:{controller.setDirectionalRepeatInterval($0,direction:$1,for:$2,scope:$3)},
-            setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)})
+            setDirectionalRepeat:{controller.setDirectionalRepeat($0,direction:$1,for:$2,scope:$3)},
+            setTwoHandAction:{controller.setTwoHandAction($0,for:$1)},
+            twoHandStatus:{controller.twoHandStatus($0)})
     }
 }
 
@@ -438,6 +440,10 @@ struct GestureAssignmentWorkspace: View {
     let setDirectionalAction: (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalRepeatInterval: (Double,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
     let setDirectionalRepeat: (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope) -> Void
+    let setTwoHandAction:(GestureAction,TwoHandTrigger)->Void
+    let twoHandStatus:(TwoHandTrigger)->String
+    @State private var twoHandChord = TwoHandChord.fourCorners
+    @State private var twoHandPhase = TwoHandPhase.hold
     @State private var selectedDirection: GestureMovementDirection?
     @AppStorage("AppleMagicTouchstream.mirrorGestureEdits") private var mirrorEdits = false
     @State private var editingHand: GestureHandScope = .left
@@ -448,18 +454,24 @@ struct GestureAssignmentWorkspace: View {
     @AppStorage(WorkspaceColumnSizing.gestureInspectorWidthKey) private var inspectorColumnWidth = WorkspaceColumnSizing.defaultGestureColumnWidth
 
     init(settings:HandGestureSettings, initialPane:GesturePane = .twoFingers,
-         initialDirection:GestureMovementDirection? = nil,
+         initialDirection:GestureMovementDirection? = nil, initialHand:GestureHandScope = .left,
+         initialTwoHandChord:TwoHandChord = .fourCorners, initialTwoHandPhase:TwoHandPhase = .hold,
          status:@escaping (GestureTrigger,GestureHandScope)->String,
          apply:@escaping (GestureAction,GestureTrigger,GestureHandScope)->Void,
          setSensitivity:@escaping (Double,GestureSensitivity,GestureHandScope)->Void,
          setMovementMode:@escaping (GestureMovementMode,GestureTrigger,GestureHandScope)->Void = {_,_,_ in},
          setDirectionalAction:@escaping (GestureAction,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
          setDirectionalRepeatInterval:@escaping (Double,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
-         setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in}) {
+         setDirectionalRepeat:@escaping (Bool,GestureMovementDirection,GestureTrigger,GestureHandScope)->Void = {_,_,_,_ in},
+         setTwoHandAction:@escaping (GestureAction,TwoHandTrigger)->Void = {_,_ in},
+         twoHandStatus:@escaping (TwoHandTrigger)->String = {_ in "Enable Trackpad Takeover on both selected pads."}) {
         self.settings = settings; self.status = status; self.apply = apply; self.setSensitivity = setSensitivity
         self.setMovementMode = setMovementMode; self.setDirectionalAction = setDirectionalAction
         self.setDirectionalRepeatInterval = setDirectionalRepeatInterval
         self.setDirectionalRepeat = setDirectionalRepeat
+        self.setTwoHandAction = setTwoHandAction; self.twoHandStatus = twoHandStatus
+        _editingHand = State(initialValue:initialHand)
+        _twoHandChord = State(initialValue:initialTwoHandChord); _twoHandPhase = State(initialValue:initialTwoHandPhase)
         _pane = State(initialValue:initialPane)
         _selectedDirection = State(initialValue:initialDirection)
         _selected = State(initialValue:initialPane.triggers.first(where:{$0.isContinuous}) ?? initialPane.triggers[0])
@@ -467,7 +479,7 @@ struct GestureAssignmentWorkspace: View {
 
     private var editingScope: GestureHandScope { mirrorEdits ? .both : editingHand }
     private var action: GestureAction? { settings.action(selected,in:editingScope) }
-    private var scopeText: String { mirrorEdits ? "Left + Right trackpads" : "\(editingHand.rawValue) trackpad" }
+    private var scopeText: String { editingHand == .both ? "Both hands" : mirrorEdits ? "Left + Right trackpads" : "\(editingHand.rawValue) trackpad" }
     private var targetText: String { mirrorEdits ? "both trackpads" : "the \(editingHand.rawValue.lowercased()) trackpad" }
     private var groups: [String] { Array(NSOrderedSet(array:GesturePane.allCases.map(\.group))) as? [String] ?? [] }
     private func matching(_ item:GesturePane) -> Bool {
@@ -487,12 +499,18 @@ struct GestureAssignmentWorkspace: View {
                     trailingColumn:false,label:"Gesture navigation width")
                 ScrollView(.vertical) {
                     VStack(alignment:.leading,spacing:20) {
+                        if editingHand == .both {
+                            twoHandHeader
+                            Divider()
+                            twoHandAssignments
+                        } else {
                         header
                         Divider()
                         assignments
                         if selectedDirection == nil { lifecycle }
                         Text("Choose a card to edit its action. Changes apply to \(targetText).")
                             .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                        }
                     }
                     .padding(24)
                     .frame(maxWidth:.infinity,alignment:.topLeading)
@@ -500,7 +518,9 @@ struct GestureAssignmentWorkspace: View {
                 .frame(maxWidth:.infinity,maxHeight:.infinity)
                 WorkspaceColumnDivider(width:Binding(get:{inspectorWidth},set:{inspectorColumnWidth = $0}),
                     minimum:WorkspaceColumnSizing.minimumInspector,maximum:inspectorMaximum,trailingColumn:true,label:"Gesture inspector width")
-                inspector.frame(width:inspectorWidth)
+                Group {
+                    if editingHand == .both { twoHandInspector } else { inspector }
+                }.frame(width:inspectorWidth)
             }
         }
         .background(Color(nsColor:.windowBackgroundColor))
@@ -514,22 +534,43 @@ struct GestureAssignmentWorkspace: View {
                 Spacer(minLength:0)
                 Toggle("Mirror Edit", isOn:$mirrorEdits)
                     .toggleStyle(.checkbox)
+                    .disabled(editingHand == .both)
                     .font(.caption)
                     .help("Apply action and sensitivity edits to both trackpads. Existing differences stay unchanged until edited; gestures still run independently on each pad.")
             }
             Picker("Edit trackpad",selection:$editingHand) {
                 Text("Left").tag(GestureHandScope.left)
                 Text("Right").tag(GestureHandScope.right)
+                Text("Both").tag(GestureHandScope.both)
             }
             .pickerStyle(.segmented)
             .labelsHidden()
             .frame(maxWidth:.infinity)
-            .disabled(mirrorEdits)
-            .help("Choose which trackpad to edit when mirroring is off.")
+            .help("Both edits coordinated two-hand gestures. Mirror Edit applies only to independent Left/Right settings.")
             TextField("Search gestures or actions",text:$search)
                 .textFieldStyle(.roundedBorder)
                 .accessibilityLabel("Search gestures or actions")
             ScrollView {
+                if editingHand == .both {
+                    VStack(alignment:.leading,spacing:8) {
+                        Text("COORDINATED TWO-HAND INPUT").font(.caption2).foregroundStyle(.secondary).padding(.horizontal,8)
+                        ForEach(TwoHandChord.allCases.filter { chord in
+                            search.isEmpty || (chord.title+" "+settings.twoHand.action(.init(chord:chord,phase:.tap)).title+" "+settings.twoHand.action(.init(chord:chord,phase:.hold)).title).localizedCaseInsensitiveContains(search)
+                        }) { chord in
+                            Button {
+                                twoHandChord = chord; twoHandPhase = chord == .fourCorners ? .hold : .tap
+                            } label: {
+                                HStack(spacing:8) {
+                                    Circle().fill(twoHandChord == chord ? Color.accentColor : Color.secondary.opacity(0.5)).frame(width:6,height:6)
+                                    Text(chord.title).font(.system(size:13,weight:twoHandChord == chord ? .semibold : .regular))
+                                    Spacer(minLength:0)
+                                }.padding(10).frame(maxWidth:.infinity,alignment:.leading)
+                                    .background(twoHandChord == chord ? Color.accentColor.opacity(0.13) : .clear,in:RoundedRectangle(cornerRadius:8))
+                                    .contentShape(Rectangle())
+                            }.buttonStyle(.plain)
+                        }
+                    }
+                } else {
                 VStack(alignment:.leading,spacing:18) {
                     ForEach(groups,id:\.self) { group in
                         let items = GesturePane.allCases.filter { $0.group == group && matching($0) }
@@ -544,8 +585,9 @@ struct GestureAssignmentWorkspace: View {
                         Text("No matching gestures").font(.callout).foregroundStyle(.secondary).padding(8)
                     }
                 }
+                }
             }
-            Text("\(scopeText) settings\nThree-finger directionals are ready to test.")
+            Text(editingHand == .both ? "One gesture uses both selected pads. Mirror Edit is separate." : "\(scopeText) settings\nThree-finger directionals are ready to test.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
         }
         .padding(16)
@@ -573,6 +615,71 @@ struct GestureAssignmentWorkspace: View {
         .buttonStyle(.plain)
         .accessibilityLabel("\(item.group), \(item.title)")
         .accessibilityAddTraits(pane == item ? [.isSelected] : [])
+    }
+
+    private var twoHandTrigger:TwoHandTrigger { .init(chord:twoHandChord,phase:twoHandPhase) }
+    private var twoHandHeader:some View {
+        VStack(alignment:.leading,spacing:14) {
+            Text("Gestures / Both hands").font(.caption).foregroundStyle(.secondary)
+            HStack(alignment:.top) {
+                VStack(alignment:.leading,spacing:6) {
+                    Text(twoHandChord.title).font(.system(size:25,weight:.semibold))
+                    Text("Coordinated Tap and Hold").font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer(minLength:8)
+                TwoHandChordExample(chord:twoHandChord,phase:twoHandPhase)
+            }
+            Text(twoHandChord == .fourCorners
+                 ? "Left pad: top-left + bottom-left. Right pad: top-right + bottom-right. Hold all four corners for one second to open Config by default."
+                 : "Use \(twoHandChord.count) fingers on each pad (\(twoHandChord.count*2) total). Both hands form one gesture; this does not mirror independent assignments.")
+                .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    private var twoHandAssignments:some View {
+        VStack(alignment:.leading,spacing:16) {
+            Text("ASSIGNMENTS").font(.caption).foregroundStyle(.secondary)
+            LazyVGrid(columns:[GridItem(.flexible()),GridItem(.flexible())],spacing:12) {
+                ForEach(TwoHandPhase.allCases) { phase in
+                    let trigger = TwoHandTrigger(chord:twoHandChord,phase:phase)
+                    let selected = twoHandPhase == phase
+                    Button { twoHandPhase = phase } label: {
+                        VStack(alignment:.leading,spacing:12) {
+                            Label(phase.title,systemImage:phase == .tap ? "hand.tap" : "pause.circle").font(.caption).foregroundStyle(.secondary)
+                            Text(settings.twoHand.action(trigger).title).font(.headline)
+                            Text(phase == .tap ? "Once when both hands lift" : "Once after \(twoHandChord.holdDuration, specifier:"%.1f") s")
+                                .font(.caption).foregroundStyle(.secondary)
+                        }.frame(maxWidth:.infinity,minHeight:95,alignment:.topLeading).padding(16)
+                            .background(selected ? Color.accentColor.opacity(0.12) : Color.primary.opacity(0.025),in:RoundedRectangle(cornerRadius:10))
+                            .overlay(RoundedRectangle(cornerRadius:10).stroke(selected ? Color.accentColor : Color.primary.opacity(0.1),lineWidth:selected ? 2 : 1))
+                            .contentShape(Rectangle())
+                    }.buttonStyle(.plain)
+                }
+            }
+            Text("A hold consumes the tap. Lift every finger from both pads to rearm; changing finger count never transfers this cycle to another gesture.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+        }
+    }
+    private var twoHandInspector:some View {
+        ScrollView {
+            VStack(alignment:.leading,spacing:18) {
+                Text("SELECTED ASSIGNMENT").font(.caption2).foregroundStyle(.secondary)
+                Text(twoHandPhase.title).font(.title3).bold()
+                Text("\(twoHandChord.title) · Both hands").font(.caption).foregroundStyle(.secondary)
+                Picker("Action",selection:Binding(get:{settings.twoHand.action(twoHandTrigger)},set:{setTwoHandAction($0,twoHandTrigger)})) {
+                    ForEach(TwoHandGestureSettings.allowedActions) { action in Text(action.title).tag(action) }
+                }.pickerStyle(.menu)
+                Text(twoHandStatus(twoHandTrigger)).font(.callout).fontWeight(.medium).fixedSize(horizontal:false,vertical:true)
+                Divider()
+                Text("Recognition").font(.callout).fontWeight(.medium)
+                Text(twoHandPhase == .tap
+                     ? "Both chords must lift within 0.5 s. For three/four fingers, land both hands within 150 ms. Lift skew: 150 ms. Movement slop: 2 mm."
+                     : "Keep both chords still for \(twoHandChord.holdDuration, specifier:"%.1f") s. The assigned action fires once; it does not repeat or keep a mouse button down.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Text("Requires two distinct selected pads with Trackpad Takeover active. Layer/modifier holds take priority. Losing contact delivery cancels the gesture.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal:false,vertical:true)
+                Text("Assignments save automatically and are included in keymap exports.").font(.caption).foregroundStyle(.secondary)
+            }.padding(20)
+        }.background(Color.primary.opacity(0.025))
     }
 
     private var header: some View {
@@ -919,5 +1026,38 @@ private struct WorkspaceResizeCursor: NSViewRepresentable {
     func updateNSView(_ view:NSView,context:Context) { view.window?.invalidateCursorRects(for:view) }
     private final class CursorView: NSView {
         override func resetCursorRects() { addCursorRect(bounds,cursor:.resizeLeftRight) }
+    }
+}
+
+
+private struct TwoHandChordExample:View {
+    let chord:TwoHandChord
+    let phase:TwoHandPhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @State private var visible = false
+    @State private var start = Date()
+    var body:some View {
+        TimelineView(.animation(minimumInterval:1.0/30,paused:!visible || reduceMotion)) { timeline in
+            let elapsed = timeline.date.timeIntervalSince(start).truncatingRemainder(dividingBy:3)
+            let filled = reduceMotion || (elapsed > 0.4 && elapsed < (phase == .hold ? 2.3 : 1.1))
+            Canvas { context,size in
+                for hand in 0..<2 {
+                    let rect = CGRect(x:CGFloat(hand)*100+4,y:5,width:92,height:65)
+                    context.stroke(Path(roundedRect:rect,cornerRadius:8),with:.color(.secondary.opacity(0.5)),lineWidth:1.7)
+                    for finger in 0..<chord.count {
+                        let corner = chord == .fourCorners
+                        let x = corner ? (hand == 0 ? rect.minX+10 : rect.maxX-10) : rect.midX+CGFloat(finger)*14-CGFloat(chord.count-1)*7
+                        let y = corner ? (finger == 0 ? rect.minY+10 : rect.maxY-10) : rect.midY-CGFloat(finger == 1 ? 5 : 0)
+                        let color:Color = corner ? (finger == 0 ? .blue : .orange) : [.blue,.green,.purple,.pink][finger]
+                        let dot = Path(ellipseIn:CGRect(x:x-4,y:y-4,width:8,height:8))
+                        context.fill(dot,with:.color(color.opacity(filled ? 0.8 : 0.1)))
+                        context.stroke(dot,with:.color(color),lineWidth:1.2)
+                    }
+                }
+            }.frame(width:200,height:75)
+        }
+        .background(GestureExampleWindowVisibility { value in visible = value; if value { start = Date() } }.frame(width:0,height:0))
+        .onChange(of:chord) { _ in start = Date() }.onChange(of:phase) { _ in start = Date() }
+        .accessibilityLabel("Both hands: \(chord.title), \(phase.title)")
     }
 }

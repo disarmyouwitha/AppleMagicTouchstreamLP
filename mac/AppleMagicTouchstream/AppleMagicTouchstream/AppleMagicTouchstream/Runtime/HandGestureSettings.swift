@@ -66,6 +66,7 @@ typealias GestureFeature = GestureTrigger
 enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Sendable {
     case disabled, pointer, primaryDrag, scroll, zoom, primaryClick, primaryDoubleClick, secondaryClick
     case notificationCenter, missionControl, appExpose, launchpad, showDesktop
+    case openConfig
     case volumeUpSmall, volumeDownSmall, brightnessUpSmall, brightnessDownSmall
     static let smallStepActions: [Self] = [.volumeUpSmall,.volumeDownSmall,.brightnessUpSmall,.brightnessDownSmall]
     static var oneShotActions: [Self] { appleShortcuts + smallStepActions }
@@ -78,6 +79,7 @@ enum GestureAction: String, CaseIterable, Identifiable, Hashable, Codable, Senda
         case .volumeDownSmall: return "Volume Down (Small Step)"
         case .brightnessUpSmall: return "Brightness Up (Small Step)"
         case .brightnessDownSmall: return "Brightness Down (Small Step)"
+        case .openConfig: return "Open Config"
         case .notificationCenter: return "Notification Center"
         case .missionControl: return "Mission Control"
         case .appExpose: return "App Exposé"
@@ -292,6 +294,8 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     static let defaultsKey = "AppleMagicTouchstream.handGestureBindings.v1"
     var left: PerHandGestureSettings
     var right: PerHandGestureSettings
+    var coordinated: TwoHandGestureSettings?
+    var twoHand: TwoHandGestureSettings { coordinated ?? TwoHandGestureSettings() }
     init(mirrored seed: PerHandGestureSettings = PerHandGestureSettings()) { left = seed; right = seed }
     func action(_ trigger: GestureTrigger, in scope: GestureHandScope) -> GestureAction? {
         switch scope {
@@ -388,5 +392,60 @@ struct HandGestureSettings: Equatable, Codable, Sendable {
     func save(to defaults: UserDefaults) {
         guard let data = try? JSONEncoder().encode(self) else { return }
         defaults.set(data,forKey:Self.defaultsKey)
+    }
+}
+
+
+/// Coordinated inputs have their own namespace; Mirror Edit never writes these.
+enum TwoHandChord:String,CaseIterable,Codable,Identifiable,Sendable {
+    case fourCorners, threeFingers, fourFingers
+    var id:String { rawValue }
+    var title:String {
+        switch self { case .fourCorners:return "4 corners"; case .threeFingers:return "3 fingers per hand"; case .fourFingers:return "4 fingers per hand" }
+    }
+    var count:Int { self == .fourCorners ? 2 : self == .threeFingers ? 3 : 4 }
+    var holdDuration:Double { self == .fourCorners ? 1 : 0.5 }
+    static let recognitionOrder:[Self] = [.fourCorners,.threeFingers,.fourFingers]
+}
+enum TwoHandPhase:String,CaseIterable,Codable,Identifiable,Sendable {
+    case tap, hold
+    var id:String { rawValue }
+    var title:String { rawValue.capitalized }
+}
+struct TwoHandTrigger:Equatable,Sendable {
+    var chord:TwoHandChord
+    var phase:TwoHandPhase
+    var key:String {
+        switch (chord,phase) {
+        case (.fourCorners,.tap):return "fourCorners.tap"
+        case (.fourCorners,.hold):return "fourCorners.hold"
+        case (.threeFingers,.tap):return "threeFingers.tap"
+        case (.threeFingers,.hold):return "threeFingers.hold"
+        case (.fourFingers,.tap):return "fourFingers.tap"
+        case (.fourFingers,.hold):return "fourFingers.hold"
+        }
+    }
+}
+struct TwoHandGestureSettings:Equatable,Codable,Sendable {
+    var assignments:[String:GestureAction] = [:]
+    static let allowedActions:[GestureAction] = [.disabled,.openConfig,.primaryClick,.primaryDoubleClick,.secondaryClick]+GestureAction.oneShotActions
+    func action(_ trigger:TwoHandTrigger) -> GestureAction {
+        let value = assignments[trigger.key] ?? (trigger.chord == .fourCorners && trigger.phase == .hold ? .openConfig : .disabled)
+        return Self.allowedActions.contains(value) ? value : .disabled
+    }
+    func enabled(_ chord:TwoHandChord) -> Bool {
+        action(.init(chord:chord,phase:.tap)) != .disabled || action(.init(chord:chord,phase:.hold)) != .disabled
+    }
+    mutating func setAction(_ action:GestureAction,for trigger:TwoHandTrigger) {
+        guard Self.allowedActions.contains(action) else { return }
+        assignments[trigger.key] = action
+    }
+}
+
+
+enum TwoHandGestureEligibility {
+    static func enabled(pads:GestureSelectedPads,owned:Set<UInt64>,takeover:Bool,armed:Bool) -> Bool {
+        guard takeover, armed, let left = pads.left, let right = pads.right, left != right else { return false }
+        return owned.contains(left) && owned.contains(right)
     }
 }

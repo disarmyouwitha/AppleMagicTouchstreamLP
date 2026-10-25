@@ -233,3 +233,23 @@ enabled state and the remembered interval. Disable the field while off; enabling
 an unset interval starts at 20 ms, preserving 80 ms volume/brightness defaults.
 Keep old zero/checkbox profiles compatible and retain Mirror Edit/keymap behavior.
 Config window default height is now 800 px (user requested +200).
+
+
+## Coordinated Both-hand gestures (user-authorized 2026-10-24)
+
+The Both selector now edits independent coordinated bindings, not Mirror Edit.
+Implement only four outer corners (two contacts per pad), three fingers per hand,
+and four fingers per hand, with separate Tap/Hold actions. Four-corner Hold defaults
+to Open Config after 1 s, following the guide; other slots default None. Three/four
+Hold fires once after 0.5 s. Use two distinct selected, owned, armed pads, common
+host time and per-hand freshness. No new DriverKit or sibling changes.
+
+Preserve single-hand tap fallback during the 150 ms join window; delay only local
+continuous output while a coordinated candidate is pending. Never steal an active
+single-hand/force owner or established keyboard layer/modifier chord. On acquisition
+cancel both independent outputs once. Reserve until both pads are all-up, consume
+release frames, and prevent Hold+Tap duplication or mid-cycle handoff. Stale input,
+invalid/moving/replaced contacts cancel output; stop/replay/emergency release and
+selection/settings changes reset coordination. Open Config is an app-local action;
+other actions retain AX/live-only gating and balanced one-shot output. Keymaps must
+round-trip coordinated settings; old profiles keep all existing per-hand settings.

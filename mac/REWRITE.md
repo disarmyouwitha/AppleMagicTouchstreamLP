@@ -15,6 +15,10 @@ Lets start with these!
 ===
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
+You said this:
+There’s one timing tradeoff to hardware-test: enabling a paired three- or four-finger chord gives the other hand a 150 ms join window, so it may add a small delay to the corresponding single-hand gesture. Those paired assignments default to None.
+but I think we should allow single-hands to take precedence and if a 2nd hand joins it can trigger a "BOTH" gesture.. I think I want to remove the "Both - taps" too .. it will make it too hard to tell from single 
+===
 
 
 `AppleMagicTouchstream`:

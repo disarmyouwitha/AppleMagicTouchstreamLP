@@ -122,6 +122,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
             self?.reconcileTakeoverSelection()
         }
         registerReleaseTrackpadShortcut()
+        InterpretedTrackpadPointer.shared.configureOpenConfiguration { [weak self] in
+            Task { @MainActor [weak self] in self?.openConfigWindow() }
+        }
         controller.start()
         reconcileTakeoverSelection()
         configureStatusItem()

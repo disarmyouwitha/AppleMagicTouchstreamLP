@@ -281,3 +281,102 @@ struct GestureDirectionalRepeater {
         return current.direction
     }
 }
+
+
+/// Both pads use host time: native clocks may have different offsets. No output,
+/// timers or I/O here; the live runtime supplies freshness ticks under its lock.
+struct TwoHandGestureEngine {
+    static let joinWindow = 0.15, staleWindow = 0.2, tapWindow = 0.5, movementSlopMM = 2.0
+    private struct Sample {
+        var time:Double, downAt:Double
+        var count = 0, invalid = false
+        var ids = SIMD8<Int32>(repeating:0)
+        var points = SIMD16<Double>(repeating:0)
+        func corners(left:Bool) -> Bool {
+            count == 2 && !invalid && (left ? max(points[0],points[2]) <= 0.2 : min(points[0],points[2]) >= 0.8)
+                && min(points[1],points[3]) <= 0.2 && max(points[1],points[3]) >= 0.8
+        }
+        func continues(_ anchor:Self) -> Bool {
+            guard !invalid, count <= anchor.count else { return false }
+            for i in 0..<count {
+                guard let j = (0..<anchor.count).first(where:{anchor.ids[$0] == ids[i]}),
+                      hypot((points[i*2]-anchor.points[j*2])*160,(points[i*2+1]-anchor.points[j*2+1])*114.9) <= TwoHandGestureEngine.movementSlopMM else { return false }
+            }
+            return true
+        }
+    }
+    private struct Session {
+        var chord:TwoHandChord, left:Sample, right:Sample, start:Double
+        var valid = true, held = false, tapEligible = true
+        var firstLift:Double?
+    }
+    struct Decision { var reserved:Bool = false; var trigger:TwoHandTrigger?; var began:Bool = false; var pending:Bool = false }
+    private var left:Sample?, right:Sample?, session:Session?
+    mutating func reset() { left = nil; right = nil; session = nil }
+    var ownsCycle:Bool { session != nil }
+    private func fresh(_ value:Sample?,now:Double) -> Bool {
+        guard let value else { return false }; return now >= value.time && now-value.time <= Self.staleWindow
+    }
+    mutating func process<C:Collection>(leftHand:Bool,now:Double,contacts:C,
+        settings:TwoHandGestureSettings,blocked:Bool = false) -> Decision where C.Element == OMSRawTouch {
+        guard now.isFinite else { reset(); return Decision() }
+        if blocked { reset(); return Decision() }
+        let previous = leftHand ? left : right
+        var sample = Sample(time:now,downAt:(previous?.count ?? 0) > 0 ? previous!.downAt : now)
+        for touch in contacts where touch.state == .making || touch.state == .touching {
+            let i = sample.count
+            if i >= 8 { sample.invalid = true; continue }
+            sample.invalid = sample.invalid || !touch.posX.isFinite || !touch.posY.isFinite
+                || touch.posX < 0 || touch.posX > 1 || touch.posY < 0 || touch.posY > 1 || touch.telemetry?.fingerID == 6
+                || (0..<i).contains(where:{sample.ids[$0] == touch.id})
+            sample.ids[i] = touch.id; sample.points[i*2] = Double(touch.posX); sample.points[i*2+1] = Double(touch.posY)
+            sample.count += 1
+        }
+        if leftHand { left = sample } else { right = sample }
+        if var current = session, let left, let right {
+            if !fresh(left,now:now) || !fresh(right,now:now) || !left.continues(current.left) || !right.continues(current.right) { current.valid = false }
+            if current.firstLift != nil && sample.count > (previous?.count ?? 0) { current.valid = false }
+            if left.count < current.left.count || right.count < current.right.count {
+                if current.firstLift == nil { current.firstLift = now }
+            }
+            session = current
+            if left.count == 0 && right.count == 0 {
+                session = nil
+                let tap = TwoHandTrigger(chord:current.chord,phase:.tap)
+                let accepted = current.valid && current.tapEligible && !current.held && now-current.start >= 0.02 && now-current.start <= Self.tapWindow
+                    && now-(current.firstLift ?? now) <= Self.joinWindow && settings.action(tap) != .disabled
+                return Decision(reserved:true,trigger:accepted ? tap : nil)
+            }
+            return Decision(reserved:true,trigger:advance(now:now,settings:settings))
+        }
+        if let left, let right, fresh(left,now:now), fresh(right,now:now), !left.invalid, !right.invalid {
+            for chord in TwoHandChord.recognitionOrder where settings.enabled(chord) {
+                guard left.count == chord.count, right.count == chord.count else { continue }
+                if chord == .fourCorners {
+                    guard left.corners(left:true), right.corners(left:false) else { continue }
+                }
+                let joined = chord == .fourCorners || abs(left.downAt-right.downAt) <= Self.joinWindow
+                guard joined || settings.action(.init(chord:chord,phase:.hold)) != .disabled else { continue }
+                session = Session(chord:chord,left:left,right:right,start:now,tapEligible:joined)
+                return Decision(reserved:true,began:true)
+            }
+        }
+        // Give the other hand a short join opportunity only for enabled chords.
+        // The default corner hold delays only the actual outer-corner posture.
+        let pending = TwoHandChord.recognitionOrder.contains { chord in
+            settings.enabled(chord) && !sample.invalid && sample.count == chord.count && now-sample.downAt <= Self.joinWindow
+                && (chord != .fourCorners || sample.corners(left:leftHand))
+        }
+        return Decision(pending:pending)
+    }
+    mutating func advance(now:Double,settings:TwoHandGestureSettings) -> TwoHandTrigger? {
+        guard var current = session, let left, let right else { return nil }
+        if !now.isFinite || !fresh(left,now:now) || !fresh(right,now:now) { current.valid = false }
+        defer { session = current }
+        guard current.valid, !current.held, current.firstLift == nil,
+              now-current.start >= current.chord.holdDuration else { return nil }
+        current.held = true
+        let hold = TwoHandTrigger(chord:current.chord,phase:.hold)
+        return settings.action(hold) != .disabled ? hold : nil
+    }
+}

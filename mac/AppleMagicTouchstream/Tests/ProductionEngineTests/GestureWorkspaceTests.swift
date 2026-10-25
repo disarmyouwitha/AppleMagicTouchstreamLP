@@ -29,6 +29,32 @@ final class GestureWorkspaceTests: XCTestCase {
         XCTAssertEqual(GestureTrigger.twoFingerSpread.assignmentTitle,"Spread")
     }
 
+    func testBothWorkspaceRendersAllCoordinatedAssignmentsWithoutInput() throws {
+        for chord in TwoHandChord.allCases {
+            for phase in TwoHandPhase.allCases {
+                let view = GestureAssignmentWorkspace(settings:.init(),initialHand:.both,
+                    initialTwoHandChord:chord,initialTwoHandPhase:phase,
+                    status:{_,_ in "Offline"},apply:{_,_,_ in XCTFail("Unexpected single-pad edit")},
+                    setSensitivity:{_,_,_ in XCTFail("Unexpected gain edit")},
+                    setTwoHandAction:{_,_ in XCTFail("Rendering must not assign an action")})
+                    .frame(width:1200,height:800)
+                let host = NSHostingView(rootView:view)
+                host.frame = NSRect(x:0,y:0,width:1200,height:800)
+                let window = NSWindow(contentRect:host.frame,styleMask:[.borderless],backing:.buffered,defer:false)
+                window.contentView = host; host.layoutSubtreeIfNeeded()
+                let bitmap = try XCTUnwrap(host.bitmapImageRepForCachingDisplay(in:host.bounds))
+                host.cacheDisplay(in:host.bounds,to:bitmap)
+                XCTAssertGreaterThan(bitmap.pixelsHigh,0)
+                if let directory = ProcessInfo.processInfo.environment["AMT_WORKSPACE_PREVIEW_DIR"] {
+                    let url = URL(fileURLWithPath:directory,isDirectory:true)
+                    try FileManager.default.createDirectory(at:url,withIntermediateDirectories:true)
+                    try XCTUnwrap(bitmap.representation(using:.png,properties:[:])).write(to:url.appendingPathComponent("both-\(chord.rawValue)-\(phase.rawValue).png"))
+                }
+                window.contentView = nil
+            }
+        }
+    }
+
     func testWorkspaceRendersExistingGestureFamiliesWithoutInputClients() throws {
         let suite = "GestureWorkspacePreview.\(UUID().uuidString)"
         let defaults = try XCTUnwrap(UserDefaults(suiteName:suite))
