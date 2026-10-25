@@ -1,8 +1,10 @@
 # NOTES:
 0. Pinch,Spread, and ROTATE baby: Rotation gestures next!
 =======
-3. If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions! (Like if they use directional up,down,left,right we can allow for holds without interering with the gesture!)
+1. If there is no <Move>,<pinch>, or <spread> action set, we should allow <hold> actions! (Like if they use directional up,down,left,right we can allow for holds without interering with the gesture!)
 > Can we have the <hold> slot in the Session Lifetime setable~ (The other Move options should "lock out" hold like it is now!)
+
+2. Can you make sure all of these Gesture rules aren't a bunch of bandaid patches? I want to make sure it has a really strong logic that is consistent all the way through. Please check out our @FINDINGS.md and FINGERWORKS_IMPLEMENTATION_PLAN.md if useful. 
 ===
 1. After we get the GUI set up: Merge/Cleanup Action menus (They are all different) and allow volu,briu on movements (up,down,left,right)
 ===
